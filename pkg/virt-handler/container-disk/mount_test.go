@@ -73,10 +73,8 @@ var _ = Describe("ContainerDisk", func() {
 
 	BeforeEach(func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "test",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: testutils.NewFakeContainerDiskSource(),
-			},
+			Name:          "test",
+			ContainerDisk: testutils.NewFakeContainerDiskSource(),
 		})
 	})
 

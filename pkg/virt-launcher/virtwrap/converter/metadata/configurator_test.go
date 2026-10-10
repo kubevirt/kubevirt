@@ -23,8 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
@@ -49,10 +47,8 @@ var _ = Describe("Metadata Domain Configurator", func() {
 
 		const expectedSpecName = "testNamespace_testName"
 		expectedDomain := api.Domain{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: testNamespace,
-				Name:      testName,
-			},
+			Namespace: testNamespace,
+			Name:      testName,
 			Spec: api.DomainSpec{
 				Name: expectedSpecName,
 			},

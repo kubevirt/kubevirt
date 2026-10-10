@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -42,10 +41,8 @@ var _ = Describe("Node-labeller config", func() {
 
 	BeforeEach(func() {
 		kv := &kubevirtv1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 			Spec: kubevirtv1.KubeVirtSpec{
 				Configuration: kubevirtv1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
@@ -268,9 +265,7 @@ var _ = Describe("Node-labeller config", func() {
 
 	It("Make sure proper labels are removed on removeLabellerLabels()", func() {
 		node := &k8sv1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: nodeLabels,
-			},
+			Labels: nodeLabels,
 		}
 
 		nlController.removeLabellerLabels(node)

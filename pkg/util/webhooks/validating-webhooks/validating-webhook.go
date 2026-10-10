@@ -57,12 +57,10 @@ func Serve(resp http.ResponseWriter, req *http.Request, admitter admitter) {
 	}
 
 	response := admissionv1.AdmissionReview{
-		TypeMeta: v1.TypeMeta{
-			// match the request version to be
-			// backwards compatible with v1beta1
-			APIVersion: review.APIVersion,
-			Kind:       "AdmissionReview",
-		},
+		// match the request version to be
+		// backwards compatible with v1beta1
+		APIVersion: review.APIVersion,
+		Kind:       "AdmissionReview",
 	}
 
 	reviewResponse := admitter.Admit(req.Context(), review)

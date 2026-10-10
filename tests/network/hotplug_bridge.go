@@ -231,15 +231,15 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 					*v1.DefaultPodNetwork(),
 					v1.Network{
 						Name: secondHotpluggedIfaceName,
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+						Multus: &v1.MultusNetwork{
 							NetworkName: nadName,
-						}},
+						},
 					},
 					v1.Network{
 						Name: ifaceName,
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+						Multus: &v1.MultusNetwork{
 							NetworkName: nadName,
-						}},
+						},
 					},
 				))
 			hotPluggedVMI = verifyBridgeDynamicInterfaceChange(hotPluggedVMI, plugMethod)

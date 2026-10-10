@@ -22,7 +22,6 @@ package libvmi
 import (
 	"strings"
 
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/validation"
 
@@ -63,14 +62,10 @@ func randName() string {
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: name,
-		},
-		TypeMeta: k8smetav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineInstance",
-		},
-		Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
+		Name:       name,
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstance",
+		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 	}
 
 	for _, opt := range defaultOptions {

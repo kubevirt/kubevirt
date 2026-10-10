@@ -30,7 +30,7 @@ func New(vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInsta
 	const taillength = 5
 	rsselector := "rsselector" + rand.String(taillength)
 	return &v1.VirtualMachineInstanceReplicaSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "replicaset" + rand.String(taillength)},
+		Name: "replicaset" + rand.String(taillength),
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{

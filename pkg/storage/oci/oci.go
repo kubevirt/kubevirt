@@ -34,7 +34,6 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/opencontainers/go-digest"
-	"github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -221,19 +220,19 @@ func (b *Builder) WriteTar(ctx context.Context, w io.Writer) (retErr error) {
 
 func (b *Builder) buildManifest() ([]byte, error) {
 	return json.Marshal(ocispec.Manifest{
-		Versioned:    specs.Versioned{SchemaVersion: 2},
-		MediaType:    ocispec.MediaTypeImageManifest,
-		ArtifactType: b.artifactType,
-		Config:       b.configDesc,
-		Layers:       b.diskDescs,
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageManifest,
+		ArtifactType:  b.artifactType,
+		Config:        b.configDesc,
+		Layers:        b.diskDescs,
 	})
 }
 
 func (b *Builder) buildIndex() ([]byte, error) {
 	return json.Marshal(ocispec.Index{
-		Versioned:    specs.Versioned{SchemaVersion: 2},
-		MediaType:    ocispec.MediaTypeImageIndex,
-		ArtifactType: b.artifactType,
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
+		ArtifactType:  b.artifactType,
 		Manifests: []ocispec.Descriptor{
 			{
 				MediaType: ocispec.MediaTypeImageManifest,
@@ -254,8 +253,8 @@ func (b *Builder) buildIndex() ([]byte, error) {
 // buildRootIndex builds index.json pointing to the index blob.
 func (b *Builder) buildRootIndex() ([]byte, error) {
 	return json.Marshal(ocispec.Index{
-		Versioned: specs.Versioned{SchemaVersion: 2},
-		MediaType: ocispec.MediaTypeImageIndex,
+		SchemaVersion: 2,
+		MediaType:     ocispec.MediaTypeImageIndex,
 		Manifests: []ocispec.Descriptor{
 			{
 				MediaType: ocispec.MediaTypeImageIndex,

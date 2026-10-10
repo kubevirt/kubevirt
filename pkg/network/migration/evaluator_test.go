@@ -76,11 +76,9 @@ var _ = Describe("Evaluator", func() {
 			libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithInterface(v1.Interface{
-					Name: secondaryNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Bridge: &v1.InterfaceBridge{},
-					},
-					State: v1.InterfaceStateAbsent,
+					Name:   secondaryNetworkName,
+					Bridge: &v1.InterfaceBridge{},
+					State:  v1.InterfaceStateAbsent,
 				}),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
@@ -124,11 +122,9 @@ var _ = Describe("Evaluator", func() {
 			libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithInterface(v1.Interface{
-					Name: secondaryNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Bridge: &v1.InterfaceBridge{},
-					},
-					State: v1.InterfaceStateAbsent,
+					Name:   secondaryNetworkName,
+					Bridge: &v1.InterfaceBridge{},
+					State:  v1.InterfaceStateAbsent,
 				}),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
@@ -305,8 +301,6 @@ var _ = Describe("Evaluator", func() {
 
 func newPod(annotations map[string]string) *k8scorev1.Pod {
 	return &k8scorev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: annotations,
-		},
+		Annotations: annotations,
 	}
 }

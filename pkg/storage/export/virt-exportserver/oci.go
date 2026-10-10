@@ -28,7 +28,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -192,12 +191,8 @@ func prepareVMConfig(vm *virtv1.VirtualMachine) ([]byte, error) {
 			if vol.DataVolume != nil {
 				out.Spec.Template.Spec.Volumes[i] = virtv1.Volume{
 					Name: vol.Name,
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: vol.DataVolume.Name,
-							},
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: vol.DataVolume.Name,
 					},
 				}
 			}

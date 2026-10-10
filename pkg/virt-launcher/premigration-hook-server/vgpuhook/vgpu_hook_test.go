@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -43,10 +42,8 @@ var _ = Describe("Premigration Hook Server", func() {
 			By("creating a VMI and libvirt domain with a single vGPU")
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "testns",
-				},
+				Name:      "kubevirt",
+				Namespace: "testns",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
@@ -99,10 +96,8 @@ var _ = Describe("Premigration Hook Server", func() {
 		It("should fail if there is more than 1 vGPU", func() {
 			By("creating a VMI and libvirt domain with 2 vGPUs")
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "testns",
-				},
+				Name:      "kubevirt",
+				Namespace: "testns",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
@@ -151,10 +146,8 @@ var _ = Describe("Premigration Hook Server", func() {
 		It("should fail if GPU is not an mdev vGPU", func() {
 			By("creating a VMI and libvirt domain with 1 PCI GPU (no mdev)")
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "testns",
-				},
+				Name:      "kubevirt",
+				Namespace: "testns",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{

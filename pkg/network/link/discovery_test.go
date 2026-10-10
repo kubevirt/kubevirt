@@ -80,7 +80,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 	})
 
 	It("should get default network iface link", func() {
-		mockNetworkHandler.EXPECT().LinkByName("eth0").Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: "eth0"}}, nil)
+		mockNetworkHandler.EXPECT().LinkByName("eth0").Return(&netlink.Bridge{Name: "eth0"}, nil)
 
 		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), *v1.DefaultPodNetwork(), nil)
 
@@ -91,7 +91,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 	It("should get the custom primary iface link", func() {
 		const customPodIfaceName = "custom-iface"
 
-		mockNetworkHandler.EXPECT().LinkByName(customPodIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: customPodIfaceName}}, nil)
+		mockNetworkHandler.EXPECT().LinkByName(customPodIfaceName).Return(&netlink.Bridge{Name: customPodIfaceName}, nil)
 
 		actualLink, err := DiscoverByNetwork(
 			mockNetworkHandler,
@@ -105,7 +105,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 	})
 
 	It("should get network iface link", func() {
-		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: testNetIfaceName}}, nil)
+		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(&netlink.Bridge{Name: testNetIfaceName}, nil)
 
 		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName), nil)
 
@@ -115,7 +115,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 
 	It("when network iface link not found, should get link using ordinal iface name", func() {
 		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(nil, errors.New("test fail"))
-		mockNetworkHandler.EXPECT().LinkByName(testNetOrdinalIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: testNetOrdinalIfaceName}}, nil)
+		mockNetworkHandler.EXPECT().LinkByName(testNetOrdinalIfaceName).Return(&netlink.Bridge{Name: testNetOrdinalIfaceName}, nil)
 
 		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName), nil)
 
@@ -126,7 +126,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 
 func multusNetwork(name string) v1.Network {
 	return v1.Network{
-		Name:          name,
-		NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name + "net"}},
+		Name:   name,
+		Multus: &v1.MultusNetwork{NetworkName: name + "net"},
 	}
 }

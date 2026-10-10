@@ -6,7 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -14,11 +13,9 @@ import (
 
 var createVirtualMachineInstance = func(name, nodeName string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
 	return &virtv1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				virtv1.NodeNameLabel: nodeName,
-			},
+		Name: name,
+		Labels: map[string]string{
+			virtv1.NodeNameLabel: nodeName,
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{
 			Phase: phase,

@@ -133,10 +133,8 @@ func (c *create) setDefaults(cmd *cobra.Command) error {
 
 func (c *create) createTemplateRequest() (*v1beta1.VirtualMachineTemplateRequest, error) {
 	tplReq := &v1beta1.VirtualMachineTemplateRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: c.vmName + "-",
-			Namespace:    c.namespace,
-		},
+		GenerateName: c.vmName + "-",
+		Namespace:    c.namespace,
 		Spec: v1beta1.VirtualMachineTemplateRequestSpec{
 			VirtualMachineRef: v1beta1.VirtualMachineReference{
 				Namespace: c.vmNamespace,

@@ -38,7 +38,6 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	backupv1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -381,10 +380,8 @@ var _ = Describe("exportserver", func() {
 
 		getCaConfigMap := func() (*v1.ConfigMap, error) {
 			return &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-ca-configmap",
-					Namespace: testNamespace,
-				},
+				Name:      "test-ca-configmap",
+				Namespace: testNamespace,
 				Data: map[string]string{
 					"ca.crt": "cert data",
 				},
@@ -500,10 +497,8 @@ var _ = Describe("exportserver", func() {
 			err = yaml.Unmarshal([]byte(out[1]), resVm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resVm).To(Equal(&virtv1.VirtualMachine{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachine",
-					APIVersion: virtv1.GroupVersion.String(),
-				},
+				Kind:       "VirtualMachine",
+				APIVersion: virtv1.GroupVersion.String(),
 			}))
 		})
 
@@ -523,26 +518,20 @@ var _ = Describe("exportserver", func() {
 			err = yaml.Unmarshal(list.Items[1].Raw, resVm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resVm).To(Equal(&virtv1.VirtualMachine{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachine",
-					APIVersion: virtv1.GroupVersion.String(),
-				},
+				Kind:       "VirtualMachine",
+				APIVersion: virtv1.GroupVersion.String(),
 			}))
 		})
 
 		getTestVm := func() *virtv1.VirtualMachine {
 			return &virtv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: testNamespace,
-				},
+				Name:      "test-vm",
+				Namespace: testNamespace,
 				Spec: virtv1.VirtualMachineSpec{
 					DataVolumeTemplates: []virtv1.DataVolumeTemplateSpec{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "test-dv",
-								Namespace: testNamespace,
-							},
+							Name:      "test-dv",
+							Namespace: testNamespace,
 							Spec: cdiv1.DataVolumeSpec{
 								Source: &cdiv1.DataVolumeSource{
 									HTTP: &cdiv1.DataVolumeSourceHTTP{
@@ -567,10 +556,8 @@ var _ = Describe("exportserver", func() {
 							Volumes: []virtv1.Volume{
 								{
 									Name: "disk0",
-									VolumeSource: virtv1.VolumeSource{
-										DataVolume: &virtv1.DataVolumeSource{
-											Name: "test-dv",
-										},
+									DataVolume: &virtv1.DataVolumeSource{
+										Name: "test-dv",
 									},
 								},
 							},
@@ -680,12 +667,8 @@ var _ = Describe("exportserver", func() {
 			testVm.Spec.Template.Spec.Volumes = append([]virtv1.Volume{
 				{
 					Name: "plain",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "plain-pvc",
-							},
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "plain-pvc",
 					},
 				},
 			}, testVm.Spec.Template.Spec.Volumes...)
@@ -777,20 +760,16 @@ var _ = Describe("exportserver", func() {
 
 		It("Should override datavolumes with new source URI", func() {
 			testVm := &virtv1.VirtualMachine{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vm",
-					Namespace: testNamespace,
-				},
+				Name:      "test-vm",
+				Namespace: testNamespace,
 				Spec: virtv1.VirtualMachineSpec{
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
 						Spec: virtv1.VirtualMachineInstanceSpec{
 							Volumes: []virtv1.Volume{
 								{
 									Name: "disk0",
-									VolumeSource: virtv1.VolumeSource{
-										DataVolume: &virtv1.DataVolumeSource{
-											Name: "test-dv",
-										},
+									DataVolume: &virtv1.DataVolumeSource{
+										Name: "test-dv",
 									},
 								},
 							},
@@ -800,10 +779,8 @@ var _ = Describe("exportserver", func() {
 			}
 			testDvs := []*cdiv1.DataVolume{
 				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-dv",
-						Namespace: testNamespace,
-					},
+					Name:      "test-dv",
+					Namespace: testNamespace,
 					Spec: cdiv1.DataVolumeSpec{
 						Source: &cdiv1.DataVolumeSource{
 							HTTP: &cdiv1.DataVolumeSourceHTTP{
@@ -1254,11 +1231,9 @@ var _ = Describe("exportserver", func() {
 		BeforeEach(func() {
 			baseHandler = http.NewServeMux()
 			server = &exportServer{
-				handler: baseHandler,
-				ExportServerConfig: ExportServerConfig{
-					ListenAddr:    fmt.Sprintf(":%d", export.ExportServerPort),
-					TLSMinVersion: tls.VersionTLS12,
-				},
+				handler:       baseHandler,
+				ListenAddr:    fmt.Sprintf(":%d", export.ExportServerPort),
+				TLSMinVersion: tls.VersionTLS12,
 			}
 		})
 

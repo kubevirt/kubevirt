@@ -130,9 +130,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 		BeforeEach(func() {
 			clusterInstancetype = &v1beta1.VirtualMachineClusterInstancetype{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-cluster-instancetype",
-				},
+				Name: "test-cluster-instancetype",
 				Spec: v1beta1.VirtualMachineInstancetypeSpec{
 					CPU: v1beta1.CPUInstancetype{
 						Guest: uint32(2),
@@ -306,10 +304,8 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 		BeforeEach(func() {
 			fakeInstancetype = &v1beta1.VirtualMachineInstancetype{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-instancetype",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-instancetype",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1beta1.VirtualMachineInstancetypeSpec{
 					CPU: v1beta1.CPUInstancetype{
 						Guest: uint32(2),

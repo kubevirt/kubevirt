@@ -72,12 +72,10 @@ func isInPhase(vmClone *clone.VirtualMachineClone, phase clone.VirtualMachineClo
 
 func generateSnapshot(vmClone *clone.VirtualMachineClone, sourceVM *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 	return &snapshotv1.VirtualMachineSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateSnapshotName(vmClone.UID),
-			Namespace: sourceVM.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				getCloneOwnerReference(vmClone.Name, vmClone.UID),
-			},
+		Name:      generateSnapshotName(vmClone.UID),
+		Namespace: sourceVM.Namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			getCloneOwnerReference(vmClone.Name, vmClone.UID),
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
@@ -102,12 +100,10 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 	}
 
 	return &snapshotv1.VirtualMachineRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateRestoreName(cloneUID),
-			Namespace: namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				getCloneOwnerReference(cloneName, cloneUID),
-			},
+		Name:      generateRestoreName(cloneUID),
+		Namespace: namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			getCloneOwnerReference(cloneName, cloneUID),
 		},
 		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target:                     *targetInfo,

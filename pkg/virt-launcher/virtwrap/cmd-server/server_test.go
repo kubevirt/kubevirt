@@ -33,7 +33,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
@@ -103,7 +102,7 @@ var _ = Describe("Virt remote commands", func() {
 			previous := plugins.GetPlugins()
 			DeferCleanup(plugins.SetPlugins, previous)
 			vmi := v1.NewVMIReferenceFromName("testvmi")
-			pluginList := []pluginv1alpha1.Plugin{{ObjectMeta: metav1.ObjectMeta{Name: "migration-plugin"}}}
+			pluginList := []pluginv1alpha1.Plugin{{Name: "migration-plugin"}}
 			data, err := json.Marshal(pluginList)
 			Expect(err).NotTo(HaveOccurred())
 			syncOptions := &cmdv1.VirtualMachineOptions{PluginsJson: data}

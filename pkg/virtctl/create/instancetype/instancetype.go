@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/yaml"
@@ -200,13 +199,9 @@ func (c *createInstancetype) usage() string {
 
 func (c *createInstancetype) newInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
 	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "VirtualMachineInstancetype",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: c.name,
-		},
+		Kind:       "VirtualMachineInstancetype",
+		APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+		Name:       c.name,
 		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
 				Guest: c.cpu,
@@ -226,13 +221,9 @@ func (c *createInstancetype) newInstancetype() *instancetypev1beta1.VirtualMachi
 
 func (c *createInstancetype) newClusterInstancetype() *instancetypev1beta1.VirtualMachineClusterInstancetype {
 	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "VirtualMachineClusterInstancetype",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: c.name,
-		},
+		Kind:       "VirtualMachineClusterInstancetype",
+		APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+		Name:       c.name,
 		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
 				Guest: c.cpu,

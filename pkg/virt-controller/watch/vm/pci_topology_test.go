@@ -54,11 +54,9 @@ var _ = Describe("syncPCITopologyAnnotationsToVM", func() {
 			},
 		}
 		vmi := &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					v1.PciTopologyVersionAnnotation:    v1.PciTopologyVersionV2,
-					v1.PciInterfaceSlotCountAnnotation: "8",
-				},
+			Annotations: map[string]string{
+				v1.PciTopologyVersionAnnotation:    v1.PciTopologyVersionV2,
+				v1.PciInterfaceSlotCountAnnotation: "8",
 			},
 		}
 
@@ -74,10 +72,8 @@ var _ = Describe("syncPCITopologyAnnotationsToVM", func() {
 			},
 		}
 		vmi := &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV3,
-				},
+			Annotations: map[string]string{
+				v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV3,
 			},
 		}
 
@@ -99,11 +95,9 @@ var _ = Describe("syncPCITopologyAnnotationsToVM", func() {
 			},
 		}
 		vmi := &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Annotations: map[string]string{
-					v1.PciTopologyVersionAnnotation:    v1.PciTopologyVersionV2,
-					v1.PciInterfaceSlotCountAnnotation: "11",
-				},
+			Annotations: map[string]string{
+				v1.PciTopologyVersionAnnotation:    v1.PciTopologyVersionV2,
+				v1.PciInterfaceSlotCountAnnotation: "11",
 			},
 		}
 

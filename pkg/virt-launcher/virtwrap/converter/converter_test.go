@@ -37,7 +37,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	kvapi "kubevirt.io/client-go/api"
@@ -254,16 +253,12 @@ var _ = Describe("Converter", func() {
 		BeforeEach(func() {
 
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Clock = &v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					UTC: &v1.ClockOffsetUTC{},
-				},
+				UTC: &v1.ClockOffsetUTC{},
 				Timer: &v1.Timer{
 					HPET: &v1.HPETTimer{
 						Enabled:    new(false),
@@ -294,21 +289,21 @@ var _ = Describe("Converter", func() {
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:   &v1.FeatureState{Enabled: new(false)},
 					VAPIC:     &v1.FeatureState{Enabled: new(true)},
-					Spinlocks: &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: new(true)}},
+					Spinlocks: &v1.FeatureSpinlocks{Enabled: new(true)},
 					VPIndex:   &v1.FeatureState{Enabled: new(true)},
 					Runtime:   &v1.FeatureState{Enabled: new(false)},
 					SyNIC:     &v1.FeatureState{Enabled: new(true)},
 					SyNICTimer: &v1.SyNICTimer{
-						FeatureState: v1.FeatureState{Enabled: new(true)},
-						Direct:       &v1.FeatureState{Enabled: new(true)},
+						Enabled: new(true),
+						Direct:  &v1.FeatureState{Enabled: new(true)},
 					},
 					Reset: &v1.FeatureState{Enabled: new(true)},
 					VendorID: &v1.FeatureVendorID{
-						FeatureState: v1.FeatureState{Enabled: new(false)},
-						VendorID:     "myvendor"},
+						Enabled:  new(false),
+						VendorID: "myvendor"},
 					Frequencies:     &v1.FeatureState{Enabled: new(false)},
 					Reenlightenment: &v1.FeatureState{Enabled: new(false)},
-					TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: new(true)}},
+					TLBFlush:        &v1.TLBFlush{Enabled: new(true)},
 					IPI:             &v1.FeatureState{Enabled: new(true)},
 					EVMCS:           &v1.FeatureState{Enabled: new(false)},
 				},
@@ -326,37 +321,29 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "myvolume",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
 					},
 					DedicatedIOThread: new(true),
 				},
 				{
 					Name: "nocloud",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
 					},
 					DedicatedIOThread: new(true),
 				},
 				{
 					Name: "cdrom_tray_unspecified",
-					DiskDevice: v1.DiskDevice{
-						CDRom: &v1.CDRomTarget{
-							ReadOnly: new(false),
-						},
+					CDRom: &v1.CDRomTarget{
+						ReadOnly: new(false),
 					},
 					DedicatedIOThread: new(false),
 				},
 				{
 					Name: "cdrom_tray_open",
-					DiskDevice: v1.DiskDevice{
-						CDRom: &v1.CDRomTarget{
-							Tray: v1.TrayStateOpen,
-						},
+					CDRom: &v1.CDRomTarget{
+						Tray: v1.TrayStateOpen,
 					},
 				},
 				{
@@ -387,19 +374,15 @@ var _ = Describe("Converter", func() {
 				},
 				{
 					Name: "sysprep",
-					DiskDevice: v1.DiskDevice{
-						CDRom: &v1.CDRomTarget{
-							ReadOnly: new(false),
-						},
+					CDRom: &v1.CDRomTarget{
+						ReadOnly: new(false),
 					},
 					DedicatedIOThread: new(false),
 				},
 				{
 					Name: "sysprep_secret",
-					DiskDevice: v1.DiskDevice{
-						CDRom: &v1.CDRomTarget{
-							ReadOnly: new(false),
-						},
+					CDRom: &v1.CDRomTarget{
+						ReadOnly: new(false),
 					},
 					DedicatedIOThread: new(false),
 				},
@@ -407,121 +390,92 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
 					},
 				},
 				{
 					Name: "nocloud",
-					VolumeSource: v1.VolumeSource{
-						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64:    "1234",
-							NetworkDataBase64: "1234",
-						},
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserDataBase64:    "1234",
+						NetworkDataBase64: "1234",
 					},
 				},
 				{
 					Name: "cdrom_tray_unspecified",
-					VolumeSource: v1.VolumeSource{
-						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64:    "1234",
-							NetworkDataBase64: "1234",
-						},
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserDataBase64:    "1234",
+						NetworkDataBase64: "1234",
 					},
 				},
 				{
 					Name: "cdrom_tray_open",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume1/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/volume1/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
 					},
 				},
 				{
 					Name: "should_default_to_disk",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume4/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/volume4/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
 					},
 				},
 				{
 					Name: "ephemeral_pvc",
-					VolumeSource: v1.VolumeSource{
-						Ephemeral: &v1.EphemeralVolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "testclaim",
-							},
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "secret_test",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "testsecret",
-						},
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "testsecret",
 					},
 				},
 				{
 					Name: "configmap_test",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{
-							LocalObjectReference: k8sv1.LocalObjectReference{
-								Name: "testconfig",
-							},
-						},
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						Name: "testconfig",
 					},
 				},
 				{
 					Name: blockPVCName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testblock",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testblock"},
 				},
 				{
 					Name: "dv_block_test",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv_block_test",
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv_block_test",
 					},
 				},
 				{
 					Name: "serviceaccount_test",
-					VolumeSource: v1.VolumeSource{
-						ServiceAccount: &v1.ServiceAccountVolumeSource{
-							ServiceAccountName: "testaccount",
-						},
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: "testaccount",
 					},
 				},
 				{
 					Name: "sysprep",
-					VolumeSource: v1.VolumeSource{
-						Sysprep: &v1.SysprepSource{
-							ConfigMap: &k8sv1.LocalObjectReference{
-								Name: "testconfig",
-							},
+					Sysprep: &v1.SysprepSource{
+						ConfigMap: &k8sv1.LocalObjectReference{
+							Name: "testconfig",
 						},
 					},
 				},
 				{
 					Name: "sysprep_secret",
-					VolumeSource: v1.VolumeSource{
-						Sysprep: &v1.SysprepSource{
-							Secret: &k8sv1.LocalObjectReference{
-								Name: "testsecret",
-							},
+					Sysprep: &v1.SysprepSource{
+						Secret: &k8sv1.LocalObjectReference{
+							Name: "testsecret",
 						},
 					},
 				},
@@ -928,21 +882,17 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: name,
-					DiskDevice: v1.DiskDevice{
-						Disk: nil,
-						LUN: &v1.LunTarget{
-							Bus:         "scsi",
-							Reservation: true,
-						},
+					Disk: nil,
+					LUN: &v1.LunTarget{
+						Bus:         "scsi",
+						Reservation: true,
 					},
 				}}
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: name,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: name,
-						},
+				Ephemeral: &v1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: name,
 					},
 				},
 			})
@@ -962,10 +912,8 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: name,
-				DiskDevice: v1.DiskDevice{
-					CDRom: &v1.CDRomTarget{
-						Bus: v1.DiskBusSATA,
-					},
+				CDRom: &v1.CDRomTarget{
+					Bus: v1.DiskBusSATA,
 				},
 			})
 			dom := &api.Domain{}
@@ -988,10 +936,8 @@ var _ = Describe("Converter", func() {
 					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
 						Name: volumeName,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusVirtio,
-							},
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
 						},
 					}}
 					vmi.Spec.Volumes = []v1.Volume{{
@@ -1027,9 +973,7 @@ var _ = Describe("Converter", func() {
 					func(name string) v1.VolumeSource {
 						return v1.VolumeSource{
 							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: name,
-								},
+								ClaimName: name,
 							},
 						}
 					},
@@ -1052,10 +996,8 @@ var _ = Describe("Converter", func() {
 					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
 						Name: volumeName,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusVirtio,
-							},
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
 						},
 					}}
 					vmi.Spec.Volumes = []v1.Volume{{
@@ -1093,9 +1035,7 @@ var _ = Describe("Converter", func() {
 					func(name string) v1.VolumeSource {
 						return v1.VolumeSource{
 							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: name,
-								},
+								ClaimName: name,
 							},
 						}
 					},
@@ -1265,11 +1205,9 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Volumes[0] = v1.Volume{
 				Name: "disk",
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testclaim",
-						},
+				Ephemeral: &v1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testclaim",
 					},
 				},
 			}
@@ -1510,20 +1448,16 @@ var _ = Describe("Converter", func() {
 		DescribeTable("Should set the error policy", func(epolicy *v1.DiskErrorPolicy, expected string) {
 			vmi.Spec.Domain.Devices.Disks[0] = v1.Disk{
 				Name: "mydisk",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: v1.VirtIO,
-					},
+				Disk: &v1.DiskTarget{
+					Bus: v1.VirtIO,
 				},
 				ErrorPolicy: epolicy,
 			}
 			vmi.Spec.Volumes[0] = v1.Volume{
 				Name: "mydisk",
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testclaim",
-						},
+				Ephemeral: &v1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testclaim",
 					},
 				},
 			}
@@ -1563,10 +1497,8 @@ var _ = Describe("Converter", func() {
 						Devices: v1.Devices{
 							Interfaces: []v1.Interface{
 								{
-									Name: "default",
-									InterfaceBindingMethod: v1.InterfaceBindingMethod{
-										Masquerade: &v1.InterfaceMasquerade{},
-									},
+									Name:       "default",
+									Masquerade: &v1.InterfaceMasquerade{},
 								},
 							},
 						},
@@ -1574,9 +1506,7 @@ var _ = Describe("Converter", func() {
 					Networks: []v1.Network{
 						{
 							Name: "default",
-							NetworkSource: v1.NetworkSource{
-								Pod: &v1.PodNetwork{},
-							},
+							Pod:  &v1.PodNetwork{},
 						},
 					},
 				},
@@ -1732,10 +1662,8 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 
 			c = &convertertypes.ConverterContext{
@@ -1774,22 +1702,16 @@ var _ = Describe("Converter", func() {
 			// 3rd network is the default pod network, name is "default"
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name: netName1,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "red"},
-					},
+					Name:   netName1,
+					Multus: &v1.MultusNetwork{NetworkName: "red"},
 				},
 				{
-					Name: netName2,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "red"},
-					},
+					Name:   netName2,
+					Multus: &v1.MultusNetwork{NetworkName: "red"},
 				},
 				{
 					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
+					Pod:  &v1.PodNetwork{},
 				},
 			}
 
@@ -1810,16 +1732,12 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = netName2
 			vmi.Spec.Networks = []v1.Network{
 				{
-					Name: netName1,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
-					},
+					Name:   netName1,
+					Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
 				},
 				{
-					Name: netName2,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "red"},
-					},
+					Name:   netName2,
+					Multus: &v1.MultusNetwork{NetworkName: "red"},
 				},
 			}
 
@@ -1853,7 +1771,7 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for masquerade interface", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1 := v1.Interface{Name: netName1, Masquerade: &v1.InterfaceMasquerade{}}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = netName1
 
@@ -1868,7 +1786,7 @@ var _ = Describe("Converter", func() {
 		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
-			iface1 := v1.Interface{Name: netName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1 := v1.Interface{Name: netName1, Masquerade: &v1.InterfaceMasquerade{}}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = netName1
 
@@ -1877,10 +1795,8 @@ var _ = Describe("Converter", func() {
 
 			vmi.Spec.Networks = []v1.Network{*net1,
 				{
-					Name: "red1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "red"},
-					},
+					Name:   "red1",
+					Multus: &v1.MultusNetwork{NetworkName: "red"},
 				}}
 
 			domain := vmiToDomain(vmi, c)
@@ -1939,11 +1855,9 @@ var _ = Describe("Converter", func() {
 		DescribeTable("should check autoAttachGraphicsDevices", func(arch string, autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 3},
@@ -1995,11 +1909,9 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("Should have one vnc", func(arch string) {
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{},
 				},
@@ -2018,11 +1930,9 @@ var _ = Describe("Converter", func() {
 	Context("HyperV", func() {
 		DescribeTable("should convert hyperv features", func(hyperV *v1.FeatureHyperv, result *api.FeatureHyperv) {
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
@@ -2068,9 +1978,9 @@ var _ = Describe("Converter", func() {
 			}),
 			Entry("Convert TLBFlush with enabled features", &v1.FeatureHyperv{
 				TLBFlush: &v1.TLBFlush{
-					FeatureState: v1.FeatureState{Enabled: new(true)},
-					Direct:       &v1.FeatureState{Enabled: new(true)},
-					Extended:     &v1.FeatureState{Enabled: new(true)},
+					Enabled:  new(true),
+					Direct:   &v1.FeatureState{Enabled: new(true)},
+					Extended: &v1.FeatureState{Enabled: new(true)},
 				},
 			}, &api.FeatureHyperv{
 				TLBFlush: &api.TLBFlush{
@@ -2083,11 +1993,9 @@ var _ = Describe("Converter", func() {
 
 		It("should convert hyperv passthrough", func() {
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Features: &v1.Features{
@@ -2107,11 +2015,9 @@ var _ = Describe("Converter", func() {
 		DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 3},
@@ -2161,11 +2067,9 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						IOThreadsPolicy: &policy,
@@ -2178,60 +2082,46 @@ var _ = Describe("Converter", func() {
 							Disks: []v1.Disk{
 								{
 									Name: "dedicated",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 									DedicatedIOThread: new(true),
 								},
 								{
 									Name: "shared",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 									DedicatedIOThread: new(false),
 								},
 								{
 									Name: "omitted1",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 								},
 								{
 									Name: "omitted2",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 								},
 								{
 									Name: "omitted3",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 								},
 								{
 									Name: "omitted4",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 								},
 								{
 									Name: "omitted5",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 								},
 							},
@@ -2240,71 +2130,57 @@ var _ = Describe("Converter", func() {
 					Volumes: []v1.Volume{
 						{
 							Name: "dedicated",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "shared",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "omitted1",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "omitted2",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "omitted3",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "omitted4",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
 						{
 							Name: "omitted5",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "testclaim",
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
 								},
 							},
 						},
@@ -2336,39 +2212,31 @@ var _ = Describe("Converter", func() {
 			incompatibleDiskName := "incompatible"
 			claimName := "claimName"
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
 									Name: dedicatedDiskName,
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 									DedicatedIOThread: new(true),
 								},
 								{
 									Name: sharedDiskName,
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.VirtIO,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.VirtIO,
 									},
 									DedicatedIOThread: new(false),
 								},
 								{
 									Name: incompatibleDiskName,
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: v1.DiskBusSATA,
-										},
+									Disk: &v1.DiskTarget{
+										Bus: v1.DiskBusSATA,
 									},
 								},
 							},
@@ -2377,31 +2245,25 @@ var _ = Describe("Converter", func() {
 					Volumes: []v1.Volume{
 						{
 							Name: dedicatedDiskName,
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: claimName,
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: claimName,
 								},
 							},
 						},
 						{
 							Name: sharedDiskName,
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: claimName,
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: claimName,
 								},
 							},
 						},
 						{
 							Name: incompatibleDiskName,
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: claimName,
-									},
+							Ephemeral: &v1.EphemeralVolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: claimName,
 								},
 							},
 						},
@@ -2821,31 +2683,25 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.VirtIO,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.VirtIO,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "mydisk",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
 					},
 				},
 			}
@@ -3206,11 +3062,9 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "default",
-					UID:       "1234",
-				},
+				Name:      "testvmi",
+				Namespace: "default",
+				UID:       "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						CPU: &v1.CPU{DedicatedCPUPlacement: true},
@@ -3309,10 +3163,8 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
@@ -3386,10 +3238,8 @@ var _ = Describe("Converter", func() {
 			}
 
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
@@ -3412,10 +3262,8 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: k8smeta.ObjectMeta{
-					Name:      "testvmi",
-					Namespace: "mynamespace",
-				},
+				Name:      "testvmi",
+				Namespace: "mynamespace",
 			}
 
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -3677,35 +3525,27 @@ var _ = Describe("Converter", func() {
 			Entry("slic with secret",
 				"vol-slic", &v1.Volume{
 					Name: "vol-slic",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "secret-slic",
-						},
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "secret-slic",
 					},
 				}, "", nil, ""),
 			Entry("msdm with secret", "", nil,
 				"vol-msdm", &v1.Volume{
 					Name: "vol-msdm",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "secret-msdm",
-						},
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "secret-msdm",
 					},
 				}, ""),
 			// with not valid Volume source
 			Entry("slic with configmap",
 				"vol-slic", &v1.Volume{
-					Name: "vol-slic",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{},
-					},
+					Name:      "vol-slic",
+					ConfigMap: &v1.ConfigMapVolumeSource{},
 				}, "", nil, "firmware's volume type is unsupported for slic"),
 			Entry("msdm with configmap", "", nil,
 				"vol-msdm", &v1.Volume{
-					Name: "vol-msdm",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{},
-					},
+					Name:      "vol-msdm",
+					ConfigMap: &v1.ConfigMapVolumeSource{},
 				}, "firmware's volume type is unsupported for msdm"),
 			// without matching volume source
 			Entry("slic without volume", "vol-slic", &v1.Volume{}, "", &v1.Volume{}, "firmware's volume for slic was not found"),
@@ -3714,18 +3554,14 @@ var _ = Describe("Converter", func() {
 			Entry("slic and msdm with secret",
 				"vol-slic", &v1.Volume{
 					Name: "vol-slic",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "secret-slic",
-						},
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "secret-slic",
 					},
 				},
 				"vol-msdm", &v1.Volume{
 					Name: "vol-msdm",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "secret-msdm",
-						},
+					Secret: &v1.SecretVolumeSource{
+						SecretName: "secret-msdm",
 					},
 				}, ""),
 		)
@@ -3791,10 +3627,8 @@ var _ = Describe("Converter", func() {
 		Context("disk", func() {
 			BeforeEach(func() {
 				vmi = &v1.VirtualMachineInstance{
-					ObjectMeta: k8smeta.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "mynamespace",
-					},
+					Name:      "testvmi",
+					Namespace: "mynamespace",
 				}
 
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -3846,10 +3680,8 @@ var _ = Describe("Converter", func() {
 					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
 						Name: volumeName,
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{
-								Bus: v1.DiskBusVirtio,
-							},
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
 						},
 					}}
 					vmi.Spec.Volumes = []v1.Volume{{
@@ -3895,15 +3727,15 @@ var _ = Describe("Converter", func() {
 				},
 				Entry("filesystem PVC", "test-hotplug-pvc",
 					v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-hotplug-pvc"},
-						Hotpluggable:                      true,
+						ClaimName:    "test-hotplug-pvc",
+						Hotpluggable: true,
 					}}, false),
 				Entry("filesystem DataVolume", "test-hotplug-dv",
 					v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-hotplug-dv", Hotpluggable: true}}, false),
 				Entry("block PVC", "test-hotplug-block-pvc",
 					v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-hotplug-block-pvc"},
-						Hotpluggable:                      true,
+						ClaimName:    "test-hotplug-block-pvc",
+						Hotpluggable: true,
 					}}, true),
 				Entry("block DataVolume", "test-hotplug-block-dv",
 					v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-hotplug-block-dv", Hotpluggable: true}}, true),
@@ -4048,20 +3880,16 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "myvolume",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{Bus: v1.VirtIO},
-					},
+					Disk: &v1.DiskTarget{Bus: v1.VirtIO},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
 					},
 				},
 			}
@@ -4453,9 +4281,7 @@ var _ = Describe("Defaults", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						Watchdog: &v1.Watchdog{
-							WatchdogDevice: v1.WatchdogDevice{
-								I6300ESB: &v1.I6300ESBWatchdog{},
-							},
+							I6300ESB: &v1.I6300ESBWatchdog{},
 						},
 					},
 				},
@@ -4490,9 +4316,7 @@ var _ = Describe("Defaults", func() {
 				Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						Watchdog: &v1.Watchdog{
-							WatchdogDevice: v1.WatchdogDevice{
-								Diag288: &v1.Diag288Watchdog{},
-							},
+							Diag288: &v1.Diag288Watchdog{},
 						},
 					},
 				},

@@ -111,33 +111,27 @@ var _ = Describe("Network", func() {
 				Networks: []v1.Network{
 					{
 						Name: "dra-1",
-						NetworkSource: v1.NetworkSource{
-							ResourceClaim: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "vf",
-							},
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim1",
+							RequestName: "vf",
 						},
 					},
 					{
 						Name: "dra-dup",
-						NetworkSource: v1.NetworkSource{
-							ResourceClaim: &v1.ClaimRequest{
-								ClaimName:   "claim1",
-								RequestName: "vf",
-							},
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName:   "claim1",
+							RequestName: "vf",
 						},
 					},
 					{
 						Name: "dra-invalid",
-						NetworkSource: v1.NetworkSource{
-							ResourceClaim: &v1.ClaimRequest{
-								ClaimName: "claim2",
-							},
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName: "claim2",
 						},
 					},
 					{
-						Name:          "pod-net",
-						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+						Name: "pod-net",
+						Pod:  &v1.PodNetwork{},
 					},
 				},
 			}
@@ -153,10 +147,8 @@ var _ = Describe("Network", func() {
 				Networks: []v1.Network{
 					{
 						Name: "dra-net",
-						NetworkSource: v1.NetworkSource{
-							ResourceClaim: &v1.ClaimRequest{
-								ClaimName: "claim1",
-							},
+						ResourceClaim: &v1.ClaimRequest{
+							ClaimName: "claim1",
 						},
 					},
 				},
@@ -192,10 +184,8 @@ func createMultusDefaultNetwork(name, networkName string) v1.Network {
 func createMultusNetwork(name, networkName string) v1.Network {
 	return v1.Network{
 		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: networkName,
-			},
+		Multus: &v1.MultusNetwork{
+			NetworkName: networkName,
 		},
 	}
 }
@@ -203,8 +193,6 @@ func createMultusNetwork(name, networkName string) v1.Network {
 func createPodNetwork(name string) v1.Network {
 	return v1.Network{
 		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Pod: &v1.PodNetwork{},
-		},
+		Pod:  &v1.PodNetwork{},
 	}
 }

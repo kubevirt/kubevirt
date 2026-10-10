@@ -77,8 +77,8 @@ var _ = Describe("Pod Network", func() {
 				vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = specMAC
 				mtuVal, _ := strconv.Atoi(mtu)
-				iface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}}
-				tapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: tapName}}
+				iface := &netlink.GenericLink{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}
+				tapInterface = &netlink.GenericLink{Name: tapName}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(iface, nil)
 				specGenerator = NewTapLibvirtSpecGenerator(
 					&vmi.Spec.Domain.Devices.Interfaces[0],

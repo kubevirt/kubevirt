@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/equality"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -44,9 +43,8 @@ var _ = Describe("HooksAPI", func() {
 				},
 			}
 			vmiHookObject := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						hooks.HookSidecarListAnnotationName: `
+				Annotations: map[string]string{
+					hooks.HookSidecarListAnnotationName: `
 [
   {
     "image": "some-image:v1",
@@ -58,7 +56,6 @@ var _ = Describe("HooksAPI", func() {
   }
 ]
 `,
-					},
 				},
 			}
 			hookSidecarList, err := hooks.UnmarshalHookSidecarList(vmiHookObject)

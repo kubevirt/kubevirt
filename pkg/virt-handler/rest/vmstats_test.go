@@ -96,10 +96,8 @@ var _ = Describe("VMStats handler", func() {
 		vmiStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 		kv := &v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 		}
 		clusterConfig, _, store := testutils.NewFakeClusterConfigUsingKV(kv)
 		kvStore = store
@@ -142,7 +140,7 @@ var _ = Describe("VMStats handler", func() {
 	It("should report stats not available for an on-node VMI with no socket", func() {
 		enableFeatureGate()
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-vm"},
+			Namespace: "default", Name: "test-vm",
 		})).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/test-vm":{"domainStats":{}}}}`)
@@ -154,10 +152,10 @@ var _ = Describe("VMStats handler", func() {
 	It("should only report the VMI named in vmis when others are in the store", func() {
 		enableFeatureGate()
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm1"},
+			Namespace: "default", Name: "vm1",
 		})).To(Succeed())
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm2"},
+			Namespace: "default", Name: "vm2",
 		})).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/vm1":{"domainStats":{}}}}`)
@@ -169,7 +167,7 @@ var _ = Describe("VMStats handler", func() {
 	It("should report per-VMI results when one requested VMI is on-node and another is not", func() {
 		enableFeatureGate()
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "on-node-vm"},
+			Namespace: "default", Name: "on-node-vm",
 		})).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/on-node-vm":{"domainStats":{}},"default/missing-vm":{"domainStats":{}}}}`)
@@ -181,10 +179,10 @@ var _ = Describe("VMStats handler", func() {
 	It("should report a result for every VMI in the store when allVMIs is set", func() {
 		enableFeatureGate()
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm1"},
+			Namespace: "default", Name: "vm1",
 		})).To(Succeed())
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-a", Name: "vm2"},
+			Namespace: "tenant-a", Name: "vm2",
 		})).To(Succeed())
 
 		recorder := makeRequest(`{"allVMIs":{"domainStats":{}}}`)
@@ -203,7 +201,7 @@ var _ = Describe("VMStats handler", func() {
 	It("should report both the allVMIs selection and a vmis key that is not on node", func() {
 		enableFeatureGate()
 		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "on-node-vm"},
+			Namespace: "default", Name: "on-node-vm",
 		})).To(Succeed())
 
 		recorder := makeRequest(`{"allVMIs":{"domainStats":{}},"vmis":{"default/missing-vm":{"dirtyRate":{}}}}`)
@@ -336,11 +334,9 @@ var _ = Describe("VMStatsScraper", func() {
 
 	newVMI := func(namespace, name string) *v1.VirtualMachineInstance {
 		return &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      name,
-				UID:       types.UID(fmt.Sprintf("uid-%s-%s", namespace, name)),
-			},
+			Namespace: namespace,
+			Name:      name,
+			UID:       types.UID(fmt.Sprintf("uid-%s-%s", namespace, name)),
 		}
 	}
 

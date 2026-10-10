@@ -82,17 +82,13 @@ func decentralizedTargetAbortMigrationState(targetMigrationUID types.UID, target
 		StartTimestamp: &start,
 		AbortRequested: abortRequested,
 		SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-				Node:                      sourceNode,
-				SyncAddress:               &syncAddress,
-				VirtualMachineInstanceUID: new(sourceVMIUID),
-			},
+			Node:                      sourceNode,
+			SyncAddress:               &syncAddress,
+			VirtualMachineInstanceUID: new(sourceVMIUID),
 		},
 		TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-				Node:         targetNode,
-				MigrationUID: targetMigrationUID,
-			},
+			Node:         targetNode,
+			MigrationUID: targetMigrationUID,
 		},
 	}
 }
@@ -1059,10 +1055,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmi.Spec.Volumes = []v1.Volume{
 			{
 				Name: "testvol",
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "testclaim"},
-					},
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "testclaim",
 				},
 			},
 		}
@@ -1264,10 +1258,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode: "node-1",
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:                      "source-node",
-						VirtualMachineInstanceUID: &sourceUID,
-					},
+					Node:                      "source-node",
+					VirtualMachineInstanceUID: &sourceUID,
 				},
 			}
 			Expect(migrationProxyKey(vmi)).To(Equal("source-uid"))
@@ -1281,10 +1273,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode: "node-1",
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:                      "source-node",
-						VirtualMachineInstanceUID: &sourceUID,
-					},
+					Node:                      "source-node",
+					VirtualMachineInstanceUID: &sourceUID,
 				},
 			}
 			Expect(migrationProxyKey(vmi)).To(Equal("target-uid"))
@@ -1296,9 +1286,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode: "node-1",
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node: "source-node",
-					},
+					Node: "source-node",
 				},
 			}
 			Expect(migrationProxyKey(vmi)).To(Equal("local-uid"))

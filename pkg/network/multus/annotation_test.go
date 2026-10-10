@@ -23,8 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -34,9 +32,9 @@ var _ = Describe("Multus annotations", func() {
 	Context("Generate Multus network selection annotation", func() {
 		When("NetworkBindingPlugins feature enabled", func() {
 			It("should fail if the specified network binding plugin is not registered (specified in Kubevirt config)", func() {
-				vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"}}
+				vmi := &v1.VirtualMachineInstance{Name: "testvmi", Namespace: "default"}
 				vmi.Spec.Networks = []v1.Network{
-					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+					{Name: "default", Pod: &v1.PodNetwork{}},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
@@ -52,11 +50,11 @@ var _ = Describe("Multus annotations", func() {
 			})
 
 			It("should add network binding plugin net-attach-def to multus annotation", func() {
-				vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"}}
+				vmi := &v1.VirtualMachineInstance{Name: "testvmi", Namespace: "default"}
 				vmi.Spec.Networks = []v1.Network{
-					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-					{Name: "blue", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test1"}}},
-					{Name: "red", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"}}},
+					{Name: "default", Pod: &v1.PodNetwork{}},
+					{Name: "blue", Multus: &v1.MultusNetwork{NetworkName: "test1"}},
+					{Name: "red", Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"}},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},
@@ -84,7 +82,7 @@ var _ = Describe("Multus annotations", func() {
 
 			DescribeTable("should parse NetworkAttachmentDefinition name and namespace correctly, given",
 				func(netAttachDefRawName, expectedAnnot string) {
-					vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default"}}
+					vmi := &v1.VirtualMachineInstance{Name: "testvmi", Namespace: "default"}
 					vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 					vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 						{Name: "default", Binding: &v1.PluginBinding{Name: "test-binding"}},

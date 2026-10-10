@@ -267,10 +267,8 @@ type DiskOption func(vm *v1.Disk)
 func newDisk(name string, bus v1.DiskBus, opts ...DiskOption) v1.Disk {
 	d := v1.Disk{
 		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: bus,
-			},
+		Disk: &v1.DiskTarget{
+			Bus: bus,
 		},
 	}
 	for _, f := range opts {
@@ -351,10 +349,8 @@ func WithBlockMultiQueue() Option {
 func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,
-		DiskDevice: v1.DiskDevice{
-			CDRom: &v1.CDRomTarget{
-				Bus: bus,
-			},
+		CDRom: &v1.CDRomTarget{
+			Bus: bus,
 		},
 	}
 }
@@ -369,11 +365,9 @@ func newVirtiofsFilesystem(name string) v1.Filesystem {
 func newLun(name string, reservation bool) v1.Disk {
 	return v1.Disk{
 		Name: name,
-		DiskDevice: v1.DiskDevice{
-			LUN: &v1.LunTarget{
-				Bus:         v1.DiskBusSCSI,
-				Reservation: reservation,
-			},
+		LUN: &v1.LunTarget{
+			Bus:         v1.DiskBusSCSI,
+			Reservation: reservation,
 		},
 	}
 }
@@ -385,10 +379,8 @@ func newVolume(name string) v1.Volume {
 func newContainerVolume(name, image string, imagePullPolicy k8sv1.PullPolicy) v1.Volume {
 	container := v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			ContainerDisk: &v1.ContainerDiskSource{
-				Image: image,
-			},
+		ContainerDisk: &v1.ContainerDiskSource{
+			Image: image,
 		},
 	}
 	if imagePullPolicy != "" {
@@ -400,13 +392,9 @@ func newContainerVolume(name, image string, imagePullPolicy k8sv1.PullPolicy) v1
 func newPersistentVolumeClaimVolume(name, claimName string, hotpluggable bool) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
-				Hotpluggable: hotpluggable,
-			},
+		PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+			ClaimName:    claimName,
+			Hotpluggable: hotpluggable,
 		},
 	}
 }
@@ -414,11 +402,9 @@ func newPersistentVolumeClaimVolume(name, claimName string, hotpluggable bool) v
 func newEphemeralPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			Ephemeral: &v1.EphemeralVolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
+		Ephemeral: &v1.EphemeralVolumeSource{
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
 			},
 		},
 	}
@@ -427,11 +413,9 @@ func newEphemeralPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 func newDataVolume(name, dataVolumeName string, hotpluggable bool) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name:         dataVolumeName,
-				Hotpluggable: hotpluggable,
-			},
+		DataVolume: &v1.DataVolumeSource{
+			Name:         dataVolumeName,
+			Hotpluggable: hotpluggable,
 		},
 	}
 }
@@ -439,10 +423,8 @@ func newDataVolume(name, dataVolumeName string, hotpluggable bool) v1.Volume {
 func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			EmptyDisk: &v1.EmptyDiskSource{
-				Capacity: capacity,
-			},
+		EmptyDisk: &v1.EmptyDiskSource{
+			Capacity: capacity,
 		},
 	}
 }
@@ -450,10 +432,8 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 func newContainerPathVolume(name, path string) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			ContainerPath: &v1.ContainerPathVolumeSource{
-				Path: path,
-			},
+		ContainerPath: &v1.ContainerPathVolumeSource{
+			Path: path,
 		},
 	}
 }
@@ -470,10 +450,8 @@ func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string, o
 	}
 
 	v := v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			HostDisk: &hostDisk,
-		},
+		Name:     name,
+		HostDisk: &hostDisk,
 	}
 
 	for _, f := range opts {

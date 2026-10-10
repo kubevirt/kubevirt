@@ -1868,13 +1868,11 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 		return "", err
 	}
 	cr := &appsv1.ControllerRevision{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            vmRevisionName,
-			Namespace:       vm.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
-		},
-		Data:     runtime.RawExtension{Raw: patch},
-		Revision: vm.ObjectMeta.Generation,
+		Name:            vmRevisionName,
+		Namespace:       vm.Namespace,
+		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+		Data:            runtime.RawExtension{Raw: patch},
+		Revision:        vm.ObjectMeta.Generation,
 	}
 	_, err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
@@ -3376,8 +3374,7 @@ func handleSynchronizerErr(err error) common.SyncError {
 	if err == nil {
 		return nil
 	}
-	var errWithReason common.SyncError
-	if errors.As(err, &errWithReason) {
+	if errWithReason, ok := errors.AsType[common.SyncError](err); ok {
 		return errWithReason
 	}
 	return common.NewSyncError(fmt.Errorf("unsupported error: %v", err), "UnsupportedSyncError")

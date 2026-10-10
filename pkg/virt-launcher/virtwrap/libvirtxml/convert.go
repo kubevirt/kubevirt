@@ -239,9 +239,7 @@ func ConvertKubeVirtFeatureToDomainFeatureHyperVTLBFlush(tlbFlush *api.TLBFlush)
 	}
 
 	result := &libvirtxml.DomainFeatureHyperVTLBFlush{
-		DomainFeatureState: libvirtxml.DomainFeatureState{
-			State: tlbFlush.State,
-		},
+		State: tlbFlush.State,
 	}
 
 	if tlbFlush.Direct != nil {
@@ -263,7 +261,7 @@ func ConvertKubeVirtFeatureSpinlocksToDomainFeatureHyperVSpinlocks(s *api.Featur
 		return nil
 	}
 	ds := &libvirtxml.DomainFeatureHyperVSpinlocks{
-		DomainFeatureState: libvirtxml.DomainFeatureState{State: s.State},
+		State: s.State,
 	}
 	if s.Retries != nil {
 		ds.Retries = uint(*s.Retries)
@@ -276,8 +274,8 @@ func ConvertKubeVirtSyNICTimerToDomainFeatureHyperVSTimer(t *api.SyNICTimer) *li
 		return nil
 	}
 	return &libvirtxml.DomainFeatureHyperVSTimer{
-		DomainFeatureState: libvirtxml.DomainFeatureState{State: t.State},
-		Direct:             setDomainFeatureState(t.Direct),
+		State:  t.State,
+		Direct: setDomainFeatureState(t.Direct),
 	}
 }
 
@@ -286,8 +284,8 @@ func ConvertKubeVirtFeatureVendorIDToDomainFeatureHyperVVendorId(vid *api.Featur
 		return nil
 	}
 	return &libvirtxml.DomainFeatureHyperVVendorId{
-		DomainFeatureState: libvirtxml.DomainFeatureState{State: vid.State},
-		Value:              vid.Value,
+		State: vid.State,
+		Value: vid.Value,
 	}
 }
 

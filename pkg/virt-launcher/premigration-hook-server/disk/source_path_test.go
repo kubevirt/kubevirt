@@ -57,14 +57,10 @@ var _ = Describe("DiskSourcePathHook", func() {
 			libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &sourceNs,
-						},
+						DomainNamespace: &sourceNs,
 					},
 					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &targetNs,
-						},
+						DomainNamespace: &targetNs,
 					},
 				}),
 			)),
@@ -146,16 +142,12 @@ var _ = Describe("DiskSourcePathHook", func() {
 			libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &sourceNs,
-							DomainName:      &sourceName,
-						},
+						DomainNamespace: &sourceNs,
+						DomainName:      &sourceName,
 					},
 					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							DomainNamespace: &targetNs,
-							DomainName:      &targetName,
-						},
+						DomainNamespace: &targetNs,
+						DomainName:      &targetName,
 					},
 				}),
 			)),
@@ -203,9 +195,7 @@ var _ = Describe("DiskSourcePathHook", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-								DomainNamespace: nil,
-							},
+							DomainNamespace: nil,
 						},
 					}),
 				)),
@@ -223,9 +213,7 @@ var _ = Describe("DiskSourcePathHook", func() {
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 						TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-							VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-								DomainNamespace: &sameNs,
-							},
+							DomainNamespace: &sameNs,
 						},
 					}),
 				)),

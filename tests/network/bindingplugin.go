@@ -217,11 +217,9 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 			primaryNetwork := v1.Network{
 				Name: "mynet1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
-						Default:     true,
-					},
+				Multus: &v1.MultusNetwork{
+					NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
+					Default:     true,
 				},
 			}
 			serverVMI := libvmifact.NewAlpineWithTestTooling(

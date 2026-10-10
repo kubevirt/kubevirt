@@ -39,20 +39,20 @@ import (
 var _ = Describe("Offline backup data plane", func() {
 	Describe("isOfflinePush", func() {
 		It("is true only for push mode", func() {
-			Expect((&exportServer{ExportServerConfig: ExportServerConfig{BackupMode: string(backupv1.PushMode)}}).isOfflinePush()).To(BeTrue())
-			Expect((&exportServer{ExportServerConfig: ExportServerConfig{BackupMode: string(backupv1.PullMode)}}).isOfflinePush()).To(BeFalse())
+			Expect((&exportServer{BackupMode: string(backupv1.PushMode)}).isOfflinePush()).To(BeTrue())
+			Expect((&exportServer{BackupMode: string(backupv1.PullMode)}).isOfflinePush()).To(BeFalse())
 			Expect((&exportServer{}).isOfflinePush()).To(BeFalse())
 		})
 	})
 
 	Describe("backupBitmapName", func() {
 		It("returns the base checkpoint for offline backups", func() {
-			s := &exportServer{ExportServerConfig: ExportServerConfig{OfflineBackup: true, BackupBaseCheckpoint: "base", BackupCheckpoint: "new"}}
+			s := &exportServer{OfflineBackup: true, BackupBaseCheckpoint: "base", BackupCheckpoint: "new"}
 			Expect(s.backupBitmapName(export.BackupInfo{Path: "rootdisk"})).To(Equal("base"))
 		})
 
 		It("returns the checkpoint for online incremental backups", func() {
-			s := &exportServer{ExportServerConfig: ExportServerConfig{BackupCheckpoint: "new"}}
+			s := &exportServer{BackupCheckpoint: "new"}
 			Expect(s.backupBitmapName(export.BackupInfo{Path: "rootdisk", Type: string(backupv1.Incremental)})).To(Equal("new"))
 		})
 
@@ -62,7 +62,7 @@ var _ = Describe("Offline backup data plane", func() {
 
 		It("is empty for an offline volume that fell back to a full export", func() {
 			s := &exportServer{
-				ExportServerConfig: ExportServerConfig{OfflineBackup: true, BackupBaseCheckpoint: "base"},
+				OfflineBackup: true, BackupBaseCheckpoint: "base",
 				offline: &offlineDataPlane{volumes: []*offlineVolume{
 					{name: "rootdisk", incremental: true},
 					{name: "newdisk", incremental: false},
@@ -244,15 +244,14 @@ var _ = Describe("Offline backup data plane", func() {
 			socketDir = filepath.Join(dir, "sockets")
 			Expect(os.Mkdir(socketDir, 0755)).To(Succeed())
 
-			s = &exportServer{ExportServerConfig: ExportServerConfig{
+			s = &exportServer{
 				CommandRunner:    runCommand,
 				BackupStatePath:  statePath,
 				SocketDir:        socketDir,
 				BackupCheckpoint: "backup-this",
 				Paths: &export.ServerPaths{
 					Backups: []export.BackupInfo{{Path: "rootdisk", Type: string(backupv1.Full), DiskPath: dataDir, OverlayPath: overlayRelPath}},
-				},
-			}}
+				}}
 		})
 
 		It("protects other trackers' checkpoints and skips recording its own when untracked", func() {

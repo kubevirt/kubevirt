@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"slices"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -52,9 +50,9 @@ func Find(vmi *v1.VirtualMachineInstance, volumeName, claimName string, volumeTy
 // claimName and volumeType, guarded against a concurrent change to the VMI.
 func AddPatch(vmi *v1.VirtualMachineInstance, volumeName, claimName string, volumeType v1.UtilityVolumeType) ([]byte, error) {
 	volumes := append(slices.Clone(vmi.Spec.UtilityVolumes), v1.UtilityVolume{
-		Name:                              volumeName,
-		PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
-		Type:                              new(volumeType),
+		Name:      volumeName,
+		ClaimName: claimName,
+		Type:      new(volumeType),
 	})
 	patchSet := patch.New(
 		patch.WithTest("/metadata/uid", vmi.UID),
