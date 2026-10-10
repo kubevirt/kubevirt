@@ -15,6 +15,7 @@ go_library(
         "postcopy.go",
         "priority.go",
         "recovery.go",
+        "version_skew.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/migration",
     visibility = ["//visibility:public"],
