@@ -525,49 +525,63 @@ func (c *VirtLauncherClient) GetDomainDirtyRateStats() (dirtyRateMbps int64, err
 }
 
 func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error) {
-	result := &stats.VMStats{}
+	result := &stats.VMStats{Errors: map[string]string{}}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
 	vmstatsResponse, err := c.v1client.GetVMStats(ctx, request)
-	var response *cmdv1.Response
-	if vmstatsResponse != nil {
-		response = vmstatsResponse.Response
-	}
-
-	if err := handleError(err, "GetVMStats", response); err != nil || vmstatsResponse == nil {
+	if err := handleError(err, "GetVMStats", nil); err != nil || vmstatsResponse == nil {
 		return result, err
 	}
 
-	if vmstatsResponse.GetDomainStats() != nil && vmstatsResponse.GetDomainStats().GetDomainStats() != "" {
-		if err := json.Unmarshal([]byte(vmstatsResponse.DomainStats.DomainStats), &result.DomainStats); err != nil {
-			return nil, err
+	if domainStats := vmstatsResponse.GetDomainStats(); domainStats != nil {
+		if !domainStats.GetResponse().GetSuccess() {
+			result.Errors[stats.DomainStatsKey] = domainStats.GetResponse().GetMessage()
+		} else if raw := domainStats.GetDomainStats(); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &result.DomainStats); err != nil {
+				result.Errors[stats.DomainStatsKey] = err.Error()
+			}
 		}
 	}
 
-	if vmstatsResponse.GetDirtyRateStats() != nil {
-		result.DirtyRateMbps = new(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
+	if dirtyRate := vmstatsResponse.GetDirtyRateStats(); dirtyRate != nil {
+		if !dirtyRate.GetResponse().GetSuccess() {
+			result.Errors[stats.DirtyRateKey] = dirtyRate.GetResponse().GetMessage()
+		} else {
+			result.DirtyRateMbps = new(dirtyRate.GetDirtyRateMbs())
+		}
 	}
 
-	result.GuestAgentVersion = vmstatsResponse.GetGuestAgentVersion().GetMessage()
-	result.GuestGetLoad = vmstatsResponse.GetGuestGetLoad().GetMessage()
-	result.GuestGetCpuStats = vmstatsResponse.GetGuestGetCpuStats().GetMessage()
-	result.GuestGetDiskStats = vmstatsResponse.GetGuestGetDiskStats().GetMessage()
-	result.GuestGetFsInfo = vmstatsResponse.GetGuestGetFsInfo().GetMessage()
-	result.GuestGetTime = vmstatsResponse.GetGuestGetTime().GetMessage()
-	result.GuestGetVcpus = vmstatsResponse.GetGuestGetVcpus().GetMessage()
-	result.GuestGetMemoryBlockInfo = vmstatsResponse.GetGuestGetMemoryBlockInfo().GetMessage()
-	result.GuestGetUsers = vmstatsResponse.GetGuestGetUsers().GetMessage()
-	result.GuestGetOsInfo = vmstatsResponse.GetGuestGetOsInfo().GetMessage()
-	result.GuestGetDisks = vmstatsResponse.GetGuestGetDisks().GetMessage()
-	result.GuestGetHostName = vmstatsResponse.GetGuestGetHostName().GetMessage()
-	result.GuestGetTimezone = vmstatsResponse.GetGuestGetTimezone().GetMessage()
-	result.GuestNetworkGetRoute = vmstatsResponse.GetGuestNetworkGetRoute().GetMessage()
-	result.GuestNetworkGetInterfaces = vmstatsResponse.GetGuestNetworkGetInterfaces().GetMessage()
-	result.GuestGetMemoryBlocks = vmstatsResponse.GetGuestGetMemoryBlocks().GetMessage()
-	result.GuestGetDevices = vmstatsResponse.GetGuestGetDevices().GetMessage()
+	setAgentData(result, stats.GuestAgentVersionKey, vmstatsResponse.GetGuestAgentVersion(), &result.GuestAgentVersion)
+	setAgentData(result, stats.GuestGetLoadKey, vmstatsResponse.GetGuestGetLoad(), &result.GuestGetLoad)
+	setAgentData(result, stats.GuestGetCPUStatsKey, vmstatsResponse.GetGuestGetCpuStats(), &result.GuestGetCpuStats)
+	setAgentData(result, stats.GuestGetDiskStatsKey, vmstatsResponse.GetGuestGetDiskStats(), &result.GuestGetDiskStats)
+	setAgentData(result, stats.GuestGetFsInfoKey, vmstatsResponse.GetGuestGetFsInfo(), &result.GuestGetFsInfo)
+	setAgentData(result, stats.GuestGetTimeKey, vmstatsResponse.GetGuestGetTime(), &result.GuestGetTime)
+	setAgentData(result, stats.GuestGetVcpusKey, vmstatsResponse.GetGuestGetVcpus(), &result.GuestGetVcpus)
+	setAgentData(result, stats.GuestGetMemoryBlockInfoKey, vmstatsResponse.GetGuestGetMemoryBlockInfo(), &result.GuestGetMemoryBlockInfo)
+	setAgentData(result, stats.GuestGetUsersKey, vmstatsResponse.GetGuestGetUsers(), &result.GuestGetUsers)
+	setAgentData(result, stats.GuestGetOsInfoKey, vmstatsResponse.GetGuestGetOsInfo(), &result.GuestGetOsInfo)
+	setAgentData(result, stats.GuestGetDisksKey, vmstatsResponse.GetGuestGetDisks(), &result.GuestGetDisks)
+	setAgentData(result, stats.GuestGetHostNameKey, vmstatsResponse.GetGuestGetHostName(), &result.GuestGetHostName)
+	setAgentData(result, stats.GuestGetTimezoneKey, vmstatsResponse.GetGuestGetTimezone(), &result.GuestGetTimezone)
+	setAgentData(result, stats.GuestNetworkGetRouteKey, vmstatsResponse.GetGuestNetworkGetRoute(), &result.GuestNetworkGetRoute)
+	setAgentData(result, stats.GuestNetworkGetInterfacesKey, vmstatsResponse.GetGuestNetworkGetInterfaces(), &result.GuestNetworkGetInterfaces)
+	setAgentData(result, stats.GuestGetMemoryBlocksKey, vmstatsResponse.GetGuestGetMemoryBlocks(), &result.GuestGetMemoryBlocks)
+	setAgentData(result, stats.GuestGetDevicesKey, vmstatsResponse.GetGuestGetDevices(), &result.GuestGetDevices)
 
-	return result, err
+	return result, nil
+}
+
+func setAgentData(result *stats.VMStats, commandKey string, response *cmdv1.Response, dst *string) {
+	if response == nil {
+		return
+	}
+	if !response.GetSuccess() {
+		result.Errors[commandKey] = response.GetMessage()
+		return
+	}
+	*dst = response.GetMessage()
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
