@@ -104,7 +104,10 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+bazel-build-dump:
+	hack/dockerized "hack/bazel-build-dump.sh"
+
+dump: bazel-build-dump
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
@@ -276,6 +279,7 @@ vmlog-checker:
 	go-all \
 	bazel-generate \
 	bazel-build \
+	bazel-build-dump \
 	bazel-build-images \
 	bazel-push-images \
 	bazel-test \
