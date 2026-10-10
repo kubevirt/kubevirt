@@ -1,11 +1,18 @@
 package util
 
 import (
+	"bufio"
+	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -56,4 +63,62 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	}
 
 	return nvramPath
+}
+
+var (
+	miscCapacityPath = filepath.Join(HostRootMount, "sys/fs/cgroup/misc.capacity")
+	miscMaxPath      = filepath.Join(HostRootMount, "sys/fs/cgroup/misc.max")
+)
+
+// GetMiscCapacity reads the misc cgroup controller to return a map where keys
+// are the resource type names and values are their respective capacity limits.
+// Note SEV-SNP and SEV-ES share the same capacity pool, e.g. "sev_es 99"
+//
+// The kernel never exposes both files at one cgroup: misc.capacity is
+// CFTYPE_ONLY_ON_ROOT, misc.max is CFTYPE_NOT_ON_ROOT. A node owning the
+// machine reads the real capacity, while a node that is itself a container,
+// like a KinD node, has only the limit on its own cgroup to go by. There a key
+// being present is the whole signal: the limit is that node's share, not a
+// count of how many guests the machine can run, so report one. A limit of
+// zero means the resource is disabled, so report zero.
+func GetMiscCapacity() (map[string]int, error) {
+	const defaultLimit = 1
+
+	content, err := os.ReadFile(miscCapacityPath)
+	parseValue := strconv.Atoi
+	if errors.Is(err, fs.ErrNotExist) {
+		content, err = os.ReadFile(miscMaxPath)
+		parseValue = func(value string) (int, error) {
+			if value == "0" {
+				return 0, nil
+			}
+			return defaultLimit, nil
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	caps := make(map[string]int)
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+
+		capacity, err := parseValue(fields[1])
+		if err != nil {
+			log.Log.V(4).Infof("Skipping malformed misc.capacity line: %q, err: %v", line, err)
+			continue
+		}
+		caps[fields[0]] = capacity
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return caps, nil
 }
