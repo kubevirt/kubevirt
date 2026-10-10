@@ -17,6 +17,7 @@
  *
  */
 
+//nolint:dupl
 package compute_test
 
 import (
