@@ -256,6 +256,9 @@ During the maintenance phase contributors can backport fixes to a stable branch 
 
 During the maintenance phase, KubeVirt will provide patch releases on an irregular basis. 
 
+Security patch releases follow an expedited process described in
+[security-release-process.md](security-release-process.md).
+
 ### End-Of-Life (EOL)
 
 A KubeVirt release will reach its end of life (EOL) once the Kubernetes support period ends.
