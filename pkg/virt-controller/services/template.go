@@ -1166,6 +1166,7 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
+			AutomountServiceAccountToken:  pointer.P(false),
 		},
 	}
 
@@ -1319,6 +1320,7 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				emptyDirVolume(hotplugDisks),
 			},
 			TerminationGracePeriodSeconds: &zero,
+			AutomountServiceAccountToken:  pointer.P(false),
 		},
 	}
 
