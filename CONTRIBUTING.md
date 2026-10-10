@@ -95,6 +95,16 @@ This can be done by adding [`--signoff`](https://git-scm.com/docs/git-commit#Doc
 
 For commit message formatting guidelines, see [Commit message guidelines](docs/commit-message-guidelines.md).
 
+### AI-assisted contributions
+
+Contributors using AI tools (LLMs, code generation, etc.) should familiarize themselves with the project's [AI Contribution Policy](https://github.com/kubevirt/community/blob/main/ai-contribution-policy.md). Key requirements include:
+
+- Disclosure of AI tool use via commit trailers (e.g., `Assisted-by: Code Assistant <noreply@example.com>`)
+- Thorough review and ownership of all AI-generated content
+- Compliance with DCO requirements
+
+See the full policy for details on when disclosure is required and acceptable uses of AI tools.
+
 ### Getting your code reviewed/merged
 
 Maintainers are here to help you enabling your use-case in a reasonable amount
