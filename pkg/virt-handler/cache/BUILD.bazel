@@ -36,7 +36,6 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",

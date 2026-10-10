@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -113,9 +112,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists := ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeTrue())
+			Expect(filepath.Join(ghostCacheDir, "1234-1")).To(BeAnExistingFile())
 
 			err = ghostRecordStore.Delete("test1-namespace", "test1")
 			Expect(err).ToNot(HaveOccurred())
@@ -123,9 +120,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists = ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			Expect(filepath.Join(ghostCacheDir, "1234-1")).ToNot(BeAnExistingFile())
 
 		})
 
