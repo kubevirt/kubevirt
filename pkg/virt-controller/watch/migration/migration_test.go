@@ -21,6 +21,7 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -345,6 +346,131 @@ var _ = Describe("Migration watcher", func() {
 			controller.storageClassStore, controller.storageProfileStore, controller.kubevirtStore,
 		}, Default)
 	}
+
+	Context("api version annotations", func() {
+		type mergePatchMeta struct {
+			Metadata struct {
+				Annotations     map[string]string `json:"annotations"`
+				Labels          map[string]string `json:"labels"`
+				ResourceVersion *string           `json:"resourceVersion"`
+			} `json:"metadata"`
+		}
+
+		var sentPatches [][]byte
+
+		BeforeEach(func() {
+			sentPatches = nil
+			virtClientset.Fake.PrependReactor("patch", "virtualmachineinstancemigrations", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				sentPatches = append(sentPatches, action.(testing.PatchAction).GetPatch())
+				return false, nil, nil
+			})
+		})
+
+		decodePatch := func(payload []byte) mergePatchMeta {
+			var patch mergePatchMeta
+			ExpectWithOffset(1, json.Unmarshal(payload, &patch)).To(Succeed())
+			return patch
+		}
+
+		It("should add the annotations and missing selector label, keeping a resourceVersion precondition", func() {
+			migration := newMigration("testmigration", "testvmi", v1.MigrationPending)
+			delete(migration.Annotations, v1.ControllerAPILatestVersionObservedAnnotation)
+			delete(migration.Annotations, v1.ControllerAPIStorageVersionObservedAnnotation)
+			migration.ResourceVersion = "42"
+			addMigration(migration)
+
+			sanityExecute()
+
+			Expect(sentPatches).To(HaveLen(1))
+			patch := decodePatch(sentPatches[0])
+			Expect(patch.Metadata.Annotations).To(HaveKeyWithValue(v1.ControllerAPILatestVersionObservedAnnotation, v1.ApiLatestVersion))
+			Expect(patch.Metadata.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "testvmi"))
+			Expect(patch.Metadata.ResourceVersion).To(HaveValue(Equal("42")))
+
+			updated, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPILatestVersionObservedAnnotation, v1.ApiLatestVersion))
+			Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPIStorageVersionObservedAnnotation, v1.ApiStorageVersion))
+			Expect(updated.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "testvmi"))
+		})
+
+		It("should preserve unrelated labels when adding the selector label", func() {
+			migration := newMigration("testmigration", "testvmi", v1.MigrationPending)
+			delete(migration.Annotations, v1.ControllerAPILatestVersionObservedAnnotation)
+			delete(migration.Annotations, v1.ControllerAPIStorageVersionObservedAnnotation)
+			migration.Labels = map[string]string{"unrelated": "label"}
+			addMigration(migration)
+
+			sanityExecute()
+
+			updated, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Labels).To(HaveKeyWithValue("unrelated", "label"))
+			Expect(updated.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "testvmi"))
+			Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPILatestVersionObservedAnnotation, v1.ApiLatestVersion))
+		})
+
+		It("should patch only the annotations, without precondition, when the selector label exists", func() {
+			migration := newMigration("testmigration", "testvmi", v1.MigrationPending)
+			delete(migration.Annotations, v1.ControllerAPILatestVersionObservedAnnotation)
+			delete(migration.Annotations, v1.ControllerAPIStorageVersionObservedAnnotation)
+			migration.Labels = map[string]string{v1.MigrationSelectorLabel: "custom-value"}
+			addMigration(migration)
+
+			sanityExecute()
+
+			Expect(sentPatches).To(HaveLen(1))
+			patch := decodePatch(sentPatches[0])
+			Expect(patch.Metadata.Labels).To(BeNil())
+			Expect(patch.Metadata.ResourceVersion).To(BeNil())
+
+			updated, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPILatestVersionObservedAnnotation, v1.ApiLatestVersion))
+			Expect(updated.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "custom-value"))
+		})
+
+		It("should not clobber a selector label the informer has not observed yet", func() {
+			// The informer copy is stale: it lacks the selector label, while the
+			// live object already carries a custom value. The patch must ship a
+			// resourceVersion precondition so the server rejects it, protecting
+			// the live label until a retry sees fresher state.
+			stale := newMigration("testmigration", "testvmi", v1.MigrationPending)
+			delete(stale.Annotations, v1.ControllerAPILatestVersionObservedAnnotation)
+			delete(stale.Annotations, v1.ControllerAPIStorageVersionObservedAnnotation)
+			stale.ResourceVersion = "41"
+
+			live := stale.DeepCopy()
+			live.Labels = map[string]string{v1.MigrationSelectorLabel: "custom-value"}
+			live.ResourceVersion = "42"
+
+			key, err := virtcontroller.KeyFunc(stale)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.migrationIndexer.Add(stale)).To(Succeed())
+			controller.Queue.Add(key)
+			_, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(live.Namespace).Create(context.Background(), live, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			virtClientset.Fake.PrependReactor("patch", "virtualmachineinstancemigrations", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				sentPatches = append(sentPatches, action.(testing.PatchAction).GetPatch())
+				return true, nil, k8serrors.NewConflict(
+					schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstancemigrations"},
+					stale.Name, errors.New("the object has been modified"))
+			})
+
+			sanityExecute()
+
+			Expect(sentPatches).To(HaveLen(1))
+			patch := decodePatch(sentPatches[0])
+			Expect(patch.Metadata.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "testvmi"))
+			Expect(patch.Metadata.ResourceVersion).To(HaveValue(Equal("41")))
+
+			updated, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(live.Namespace).Get(context.Background(), live.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Labels).To(HaveKeyWithValue(v1.MigrationSelectorLabel, "custom-value"))
+			Expect(updated.Annotations).ToNot(HaveKey(v1.ControllerAPILatestVersionObservedAnnotation))
+		})
+	})
 
 	Context("Migration with hotplug volumes", func() {
 		var (

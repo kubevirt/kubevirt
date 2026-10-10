@@ -20,6 +20,8 @@
 package controller_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
@@ -27,9 +29,47 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
+
+var _ = Describe("LatestApiVersionMergePatch", func() {
+
+	type patchMetadata struct {
+		Metadata struct {
+			Annotations     map[string]string `json:"annotations"`
+			Labels          map[string]string `json:"labels"`
+			ResourceVersion *string           `json:"resourceVersion"`
+		} `json:"metadata"`
+	}
+
+	It("should produce a patch limited to the api version annotations", func() {
+		payload, err := controller.LatestApiVersionMergePatch()
+		Expect(err).ToNot(HaveOccurred())
+
+		var patch patchMetadata
+		Expect(json.Unmarshal(payload, &patch)).To(Succeed())
+		Expect(patch.Metadata.Annotations).To(Equal(map[string]string{
+			v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
+			v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
+		}))
+		Expect(patch.Metadata.Labels).To(BeNil())
+		Expect(patch.Metadata.ResourceVersion).To(BeNil())
+
+		var topLevel map[string]json.RawMessage
+		Expect(json.Unmarshal(payload, &topLevel)).To(Succeed())
+		Expect(topLevel).To(HaveLen(1))
+		Expect(topLevel).To(HaveKey("metadata"))
+
+		var metadataKeys map[string]json.RawMessage
+		Expect(json.Unmarshal(topLevel["metadata"], &metadataKeys)).To(Succeed())
+		Expect(metadataKeys).To(HaveLen(1))
+		Expect(metadataKeys).To(HaveKey("annotations"))
+	})
+
+})
 
 var _ = Describe("Controller", func() {
 
