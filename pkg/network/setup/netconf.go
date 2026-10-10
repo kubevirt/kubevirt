@@ -21,7 +21,9 @@ package network
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"kubevirt.io/client-go/log"
@@ -81,17 +83,58 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 	}
 }
 
+// networkConfigStateKey returns a key for tracking network preparation state.
+// The key includes the active virt-launcher pod UID so a new pod always starts
+// with a fresh network setup, even when the VMI UID is unchanged.
+func networkConfigStateKey(vmi *v1.VirtualMachineInstance) string {
+	vmiUID := string(vmi.UID)
+	nodeName := vmi.Status.NodeName
+	if nodeName == "" || len(vmi.Status.ActivePods) == 0 {
+		return vmiUID
+	}
+
+	var matchingPodUIDs []string
+	for podUID, podNodeName := range vmi.Status.ActivePods {
+		if podNodeName == nodeName {
+			matchingPodUIDs = append(matchingPodUIDs, string(podUID))
+		}
+	}
+
+	switch len(matchingPodUIDs) {
+	case 0:
+		return vmiUID
+	case 1:
+		return vmiUID + "/" + matchingPodUIDs[0]
+	default:
+		sort.Strings(matchingPodUIDs)
+		log.Log.Object(vmi).Warningf(
+			"multiple active pods (%v) found on node %s; using %s for network state key",
+			matchingPodUIDs, nodeName, matchingPodUIDs[0],
+		)
+		return vmiUID + "/" + matchingPodUIDs[0]
+	}
+}
+
+func deleteNetworkConfigStatesForVMI(state map[string]*netpod.State, vmiUID string) {
+	for key := range state {
+		if key == vmiUID || strings.HasPrefix(key, vmiUID+"/") {
+			delete(state, key)
+		}
+	}
+}
+
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
 func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error {
+	stateKey := networkConfigStateKey(vmi)
 	c.configStateMutex.RLock()
-	state, ok := c.state[string(vmi.UID)]
+	state, ok := c.state[stateKey]
 	c.configStateMutex.RUnlock()
 	if !ok {
 		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
 		ns := c.nsFactory(launcherPid)
 		state = netpod.NewState(&configStateCache, ns)
 		c.configStateMutex.Lock()
-		c.state[string(vmi.UID)] = state
+		c.state[stateKey] = state
 		c.configStateMutex.Unlock()
 	}
 
@@ -123,7 +166,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 	c.configStateMutex.Lock()
-	delete(c.state, string(vmi.UID))
+	deleteNetworkConfigStatesForVMI(c.state, string(vmi.UID))
 	c.configStateMutex.Unlock()
 	podCache := cache.NewPodInterfaceCache(c.cacheCreator, string(vmi.UID))
 	if err := podCache.Remove(); err != nil {
