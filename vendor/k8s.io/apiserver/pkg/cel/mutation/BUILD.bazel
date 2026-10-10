@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "jsonpatch.go",
+        "typeresolver.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apiserver/pkg/cel/mutation",
+    importpath = "k8s.io/apiserver/pkg/cel/mutation",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/google/cel-go/cel:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/cel/common:go_default_library",
+        "//vendor/k8s.io/apiserver/pkg/cel/mutation/dynamic:go_default_library",
+    ],
+)
