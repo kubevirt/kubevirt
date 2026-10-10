@@ -31,18 +31,25 @@ set -o pipefail
 
 VIRTTYPE=qemu
 
+# Device setup is best-effort: in restricted environments (e.g. rootless podman)
+# we may not be able to create or chmod the device, so we fall back to software
+# emulation rather than failing the init container and blocking the deployment.
 if [ ! -e "$HYPERVISOR_DEV_PATH" ] && [ -n "$HYPERVISOR_DEV_MINOR" ]; then
-  mknod "$HYPERVISOR_DEV_PATH" c 10 "$HYPERVISOR_DEV_MINOR"
+  mknod "$HYPERVISOR_DEV_PATH" c 10 "$HYPERVISOR_DEV_MINOR" || echo "Warning: cannot create $HYPERVISOR_DEV_PATH, falling back to software emulation (virttype=qemu)"
 fi
 
 if [ -e "$HYPERVISOR_DEV_PATH" ]; then
-    chmod o+rw "$HYPERVISOR_DEV_PATH"
-    VIRTTYPE=${PREFERRED_VIRTTYPE}
+    # Keep hardware acceleration if the device is (or can be made) writable.
+    if chmod o+rw "$HYPERVISOR_DEV_PATH" || [ -w "$HYPERVISOR_DEV_PATH" ]; then
+        VIRTTYPE=${PREFERRED_VIRTTYPE}
+    else
+        echo "Warning: cannot access $HYPERVISOR_DEV_PATH, falling back to software emulation (virttype=qemu)"
+    fi
 fi
 
 if [ -e /dev/sev ]; then
-  # QEMU requires RW access to query SEV capabilities
-  chmod o+rw /dev/sev
+  # QEMU requires RW access to query SEV capabilities; skip if we cannot chmod it.
+  chmod o+rw /dev/sev || echo "Warning: cannot chmod /dev/sev, SEV capabilities may not be detected"
 fi
 
 virtqemud -d
