@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
@@ -55,7 +55,7 @@ func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
@@ -66,7 +66,7 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
+	vm, err := virtClient.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
@@ -88,8 +88,13 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 		}
 	}
 
+	k8sClient, err := clientconfig.K8sClientFromContext(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("error getting kubernetes client: %w", err)
+	}
+
 	for _, secretName := range filteredSecrets {
-		err := removeKeyFromSecret(cmd.Context(), cli, vm, secretName, sshKey, r.Force)
+		err := removeKeyFromSecret(cmd.Context(), k8sClient, vm, secretName, sshKey, r.Force)
 		if err != nil {
 			return err
 		}
@@ -100,7 +105,7 @@ func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []strin
 
 func removeKeyFromSecret(
 	ctx context.Context,
-	cli kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	vm *v1.VirtualMachine,
 	secretName string,
 	key string,
@@ -114,7 +119,7 @@ func removeKeyFromSecret(
 		default:
 		}
 
-		secret, err := cli.CoreV1().Secrets(vm.Namespace).Get(ctx, secretName, metav1.GetOptions{})
+		secret, err := k8sClient.CoreV1().Secrets(vm.Namespace).Get(ctx, secretName, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			// Secret does not exist, nothing to do
 			return nil
@@ -139,7 +144,7 @@ func removeKeyFromSecret(
 			}
 		}
 
-		_, err = cli.CoreV1().Secrets(vm.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
+		_, err = k8sClient.CoreV1().Secrets(vm.Namespace).Update(ctx, secret, metav1.UpdateOptions{})
 		if errors.IsNotFound(err) {
 			return nil
 		}
