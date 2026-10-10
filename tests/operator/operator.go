@@ -1445,7 +1445,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				uid := vmi.GetObjectMeta().GetUID()
-				labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+				labelSelector := v1.CreatedByLabel + "=" + string(uid)
 				pods, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred(), "Should get virt-launcher")
 				Expect(pods.Items).To(HaveLen(1))
