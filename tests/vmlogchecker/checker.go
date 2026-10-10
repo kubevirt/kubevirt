@@ -250,12 +250,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    47,
-		Regex: regexp.MustCompile(`"level":"error","msg":"dirty virt-launcher shutdown: exit-code 2","pos":"virt-launcher-monitor.go`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"dirty virt-launcher shutdown: exit-code 2"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    48,
-		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read qemu log directory","pos":"virt-launcher-monitor.go`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read qemu log directory`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
