@@ -341,7 +341,8 @@ var _ = Describe("interface link state update", func() {
 		) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
-				&fakeVMConfigurator{})
+				&fakeVMConfigurator{},
+			)
 			Expect(networkInterfaceManager.updateDomainLinkState(domainFrom, domainTo)).To(Succeed())
 		},
 

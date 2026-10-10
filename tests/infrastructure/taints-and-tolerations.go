@@ -97,7 +97,8 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			Expect(err).ToNot(HaveOccurred())
 			_, err = virtClient.CoreV1().Nodes().Patch(
 				context.Background(), selectedNode.Name,
-				types.JSONPatchType, patchData, metav1.PatchOptions{})
+				types.JSONPatchType, patchData, metav1.PatchOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -128,7 +129,8 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.CoreV1().Nodes().Patch(
 				context.Background(), selectedNode.Name,
-				types.JSONPatchType, patchData, metav1.PatchOptions{})
+				types.JSONPatchType, patchData, metav1.PatchOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Waiting until all affected deployments have at least 1 ready replica

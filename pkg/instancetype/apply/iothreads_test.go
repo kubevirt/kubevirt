@@ -61,7 +61,8 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 		vmi := libvmi.New(libvmi.WithIOThreads(virtv1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(userProvidedThreadCount)}))
 
 		Expect(applier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)).To(
-			ContainElement(conflict.New("spec", "template", "spec", "domain", "ioThreads", "supplementalPoolThreadCount")))
+			ContainElement(conflict.New("spec", "template", "spec", "domain", "ioThreads", "supplementalPoolThreadCount")),
+		)
 		Expect(vmi.Spec.Domain.IOThreads).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount).To(HaveValue(Equal(userProvidedThreadCount)))

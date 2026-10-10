@@ -65,9 +65,11 @@ var _ = Describe("Credentials remove-ssh-key", func() {
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
-			virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault),
+		).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+		).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 		vmi = libvmi.New(

@@ -51,7 +51,8 @@ func StopVirtualMachineWithTimeout(vm *v1.VirtualMachine, timeout time.Duration)
 	}
 
 	EventuallyWithOffset(1, matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(timeout).WithPolling(time.Second).Should(
-		matcher.BeGone(), "The vmi did not disappear")
+		matcher.BeGone(), "The vmi did not disappear",
+	)
 
 	By("Waiting for VM to stop")
 	EventuallyWithOffset(1, matcher.ThisVM(vm), timeout, 1*time.Second).Should(Not(matcher.BeReady()))
@@ -66,7 +67,8 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 
 	ExpectWithOffset(1, virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
 	EventuallyWithOffset(1, matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(
-		flags.VMIStartupTimeoutInSeconds()).WithPolling(time.Second).Should(matcher.Exist())
+		flags.VMIStartupTimeoutInSeconds(),
+	).WithPolling(time.Second).Should(matcher.Exist())
 
 	By("Waiting for VM to be ready")
 	EventuallyWithOffset(1, matcher.ThisVM(vm), flags.VMReadyTimeoutInSeconds(), 1*time.Second).Should(matcher.BeReady())

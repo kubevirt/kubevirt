@@ -247,7 +247,8 @@ func NewCommand() *cobra.Command {
 			vddk, params.Supported(dataVolumeSourceVDDK{}),
 			snapshot, params.Supported(dataVolumeSource{}),
 			ds, params.Supported(dataVolumeSource{}),
-		))
+		),
+	)
 
 	cmd.Flags().StringVar(&c.sysprepVolume, SysprepVolumeFlag, c.sysprepVolume,
 		fmt.Sprintf("Specify a ConfigMap or Secret to be used as sysprep volume by the VM.\n"+
@@ -344,7 +345,8 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 			}
 			return fmt.Errorf(
 				"this datavolume is not valid to infer an instancetype or preference from " +
-					"(source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)")
+					"(source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)",
+			)
 		}
 	}
 

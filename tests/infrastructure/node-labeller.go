@@ -202,7 +202,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		var kvConfig *v1.KubeVirtConfiguration
 
 		BeforeEach(func() {
-			node = &(libnode.GetAllSchedulableNodes(virtClient).Items[0])
+			node = &libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			obsoleteModel = libnode.GetNodeHostModel(node)
 
 			By("Updating Kubevirt CR , this should wake node-labeller ")
@@ -232,7 +232,8 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				if !obsoleteModelLabelFound {
 					return fmt.Errorf(
 						"node %s is expected to have a label with %s substring. node-labeller is not enabled for the node",
-						node.Name, v1.NodeHostModelIsObsoleteLabel)
+						node.Name, v1.NodeHostModelIsObsoleteLabel,
+					)
 				}
 
 				return nil
@@ -257,7 +258,8 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				if obsoleteHostModelLabel {
 					return fmt.Errorf(
 						"node %s is expected to have a label with %s prefix. node-labeller is not enabled for the node",
-						node.Name, v1.HostModelCPULabel)
+						node.Name, v1.HostModelCPULabel,
+					)
 				}
 
 				return nil
@@ -279,7 +281,8 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			By("Checking that the VMI failed")
 			Eventually(func() bool {
 				vmiObj, err := virtClient.VirtualMachineInstance(
-					testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					testsuite.GetTestNamespace(vmi),
+				).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for _, condition := range vmiObj.Status.Conditions {
 					if condition.Type == v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled) && condition.Status == k8sv1.ConditionFalse {

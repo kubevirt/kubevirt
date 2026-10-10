@@ -381,7 +381,8 @@ var _ = Describe("KSM", func() {
 			By("canceling memory pressure and expecting to decrease pages and stop running when reaching minimum")
 			data := fmt.Appendf(nil, `{"metadata": { "annotations": {%q: %q}}}`, kubevirtv1.KSMFreePercentOverride, "0.1")
 			node, err := fakeClient.CoreV1().Nodes().Patch(
-				context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+				context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fakeNodeStore.Update(node)).To(Succeed())
 			handler.spin()

@@ -81,7 +81,8 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	patchedVM, err := u.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
-		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
+		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{},
+	)
 	if err != nil {
 		return err
 	}
@@ -90,7 +91,8 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 
 	if newInstancetypeCR != nil {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
+			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+		); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
 		}
 		vm.Status.InstancetypeRef.ControllerRevisionRef.Name = newInstancetypeCR.Name
@@ -98,7 +100,8 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 
 	if newPreferenceCR != nil {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
+			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+		); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
 		vm.Status.PreferenceRef.ControllerRevisionRef.Name = newPreferenceCR.Name
@@ -114,7 +117,8 @@ func (u *upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *
 		return nil, nil
 	}
 	return u.upgradeControllerRevision(
-		vm, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, "/status/instancetypeRef/controllerRevisionRef/name", vmPatchSet)
+		vm, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, "/status/instancetypeRef/controllerRevisionRef/name", vmPatchSet,
+	)
 }
 
 func (u *upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
@@ -122,7 +126,8 @@ func (u *upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *pa
 		return nil, nil
 	}
 	return u.upgradeControllerRevision(
-		vm, vm.Status.PreferenceRef.ControllerRevisionRef.Name, "/status/preferenceRef/controllerRevisionRef/name", vmPatchSet)
+		vm, vm.Status.PreferenceRef.ControllerRevisionRef.Name, "/status/preferenceRef/controllerRevisionRef/name", vmPatchSet,
+	)
 }
 
 func (u *upgrader) upgradeControllerRevision(

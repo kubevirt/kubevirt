@@ -45,7 +45,8 @@ func checkCPU(
 		if instancetypeSpec.CPU.Guest < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{conflict.New("spec", "instancetype")},
 				fmt.Errorf(
-					InsufficientInstanceTypeCPUResourcesErrorFmt, instancetypeSpec.CPU.Guest, preferenceSpec.Requirements.CPU.Guest)
+					InsufficientInstanceTypeCPUResourcesErrorFmt, instancetypeSpec.CPU.Guest, preferenceSpec.Requirements.CPU.Guest,
+				)
 		}
 		return nil, nil
 	}
@@ -61,19 +62,22 @@ func checkCPU(
 		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("threads")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads",
+				)
 		}
 	case v1beta1.DeprecatedPreferCores, v1beta1.Cores:
 		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("cores")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores",
+				)
 		}
 	case v1beta1.DeprecatedPreferSockets, v1beta1.Sockets:
 		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("sockets")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets",
+				)
 		}
 	case v1beta1.DeprecatedPreferSpread, v1beta1.Spread:
 		return checkSpread(preferenceSpec, vmiSpec)

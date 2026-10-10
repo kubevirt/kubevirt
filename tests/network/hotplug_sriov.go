@@ -66,7 +66,8 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
-			time.Minute)
+			time.Minute,
+		)
 	})
 
 	Context("a running VM", func() {
@@ -93,7 +94,8 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(
-				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected),
+			)
 			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
 				context.Background(),
 				hotPluggedVM.Name,
