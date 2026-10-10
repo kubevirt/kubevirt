@@ -31,6 +31,7 @@ go_library(
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/memorydump:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
@@ -53,6 +54,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
@@ -64,6 +66,8 @@ go_library(
         "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
         "//vendor/k8s.io/utils/net:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
     ],
 )
 
@@ -132,5 +136,6 @@ go_test(
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1beta1:go_default_library",
     ],
 )
