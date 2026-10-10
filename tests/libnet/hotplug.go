@@ -133,7 +133,8 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 			Name: iface.Name,
 			InfoSource: vmispec.NewInfoSource(
-				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent,
+				vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus),
 			QueueCount:       queueCount,
 			PodInterfaceName: namescheme.GenerateHashedInterfaceName(iface.Name),
 		}

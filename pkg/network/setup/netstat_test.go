@@ -312,6 +312,54 @@ var _ = Describe("netstat", func() {
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, secondaryNetworkName)).To(BeTrue())
 		})
 
+		DescribeTable("run status and preserve the secondary-network info sources reported by the virt-controller",
+			func(reportedInfoSource, expectedInfoSource string) {
+				Expect(
+					setup.addNetworkInterface(
+						newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+						newVMISpecMultusNetwork(secondaryNetworkName),
+						newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+						secondaryPodIPv4, secondaryPodIPv6,
+					),
+				).To(Succeed())
+
+				setup.addGuestAgentInterfaces(
+					newDomainStatusIface([]string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, secondaryIfaceName),
+				)
+
+				setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+					{Name: secondaryNetworkName, InfoSource: reportedInfoSource},
+				}
+
+				Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+				Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+					{
+						Name:          secondaryNetworkName,
+						InterfaceName: secondaryIfaceName,
+						IP:            secondaryPodIPv4,
+						IPs:           []string{secondaryPodIPv4, secondaryPodIPv6},
+						MAC:           secondaryMAC,
+						InfoSource:    expectedInfoSource,
+						QueueCount:    netsetup.DefaultInterfaceQueueCount,
+						LinkState:     linkStateUp,
+					},
+				}))
+			},
+			Entry("multus-status and pod-status",
+				netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus),
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)),
+			Entry("pod-status only",
+				netvmispec.InfoSourcePodStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourcePodStatus)),
+			Entry("multus-status only",
+				netvmispec.InfoSourceMultusStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus)),
+		)
+
 		It("run status and expect an interfaces (with masquerade) to be reported based on pod & guest-agent data", func() {
 			// Guest data collected by the guest-agent
 			const (

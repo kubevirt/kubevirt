@@ -108,10 +108,11 @@ var _ = Describe(SIG("Infosource", func() {
 		})
 
 		It("should have the expected entries in vmi status", func() {
-			infoSourceDomainAndMultusStatus := netvmispec.NewInfoSource(
-				netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus)
-			infoSourceDomainAndGAAndMultusStatus := netvmispec.NewInfoSource(
-				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
+			infoSourceDomainMultusPod := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
+			infoSourceDomainGAMultusPod := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+				netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
 
 			const linkStateUp = "up"
 
@@ -125,7 +126,7 @@ var _ = Describe(SIG("Infosource", func() {
 					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource:       infoSourceDomainAndGAAndMultusStatus,
+					InfoSource:       infoSourceDomainGAMultusPod,
 					InterfaceName:    "eth1",
 					MAC:              secondaryInterface1Mac,
 					Name:             secondaryInterface1Name,
@@ -134,7 +135,7 @@ var _ = Describe(SIG("Infosource", func() {
 					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource:       infoSourceDomainAndMultusStatus,
+					InfoSource:       infoSourceDomainMultusPod,
 					MAC:              secondaryInterface2Mac,
 					Name:             secondaryInterface2Name,
 					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface2Name),

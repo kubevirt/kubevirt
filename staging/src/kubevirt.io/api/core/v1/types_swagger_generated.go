@@ -205,7 +205,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"ipAddresses":      "List of all IP addresses of a Virtual Machine interface",
 		"podInterfaceName": "PodInterfaceName represents the name of the pod network interface",
 		"interfaceName":    "The interface name inside the Virtual Machine",
-		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.",
 		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
 		"linkState":        "LinkState Reports the current operational link state`. values: up, down.",
 	}

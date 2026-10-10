@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/controllers"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Status Update", func() {
@@ -89,6 +90,8 @@ var _ = Describe("Status Update", func() {
 
 		customIfaceName = "custom-iface"
 	)
+
+	multusAndPodStatus := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus)
 
 	DescribeTable("Shouldn't generate interface status for a VMI without interfaces", func(podAnnotations map[string]string) {
 		vmi := libvmi.New(
@@ -295,7 +298,7 @@ var _ = Describe("Status Update", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			},
 			[]v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 			},
 		),
 		Entry("When using ordinal naming scheme",
@@ -304,7 +307,7 @@ var _ = Describe("Status Update", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
 			},
 			[]v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: multusAndPodStatus},
 			},
 		),
 	)
@@ -323,7 +326,7 @@ var _ = Describe("Status Update", func() {
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: defaultNetworkName, PodInterfaceName: expectedPrimaryInterfaceName},
-				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 			}
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -366,7 +369,7 @@ var _ = Describe("Status Update", func() {
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -392,15 +395,15 @@ var _ = Describe("Status Update", func() {
 		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
 
-	It("Should remove the Multus info source when VMI.status has an interface but it is not reported by Multus network-status", func() {
+	It("Should remove the Multus and pod info sources when the interface is not reported by Multus network-status", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 		}
 
 		vmi := libvmi.New(
@@ -468,7 +471,7 @@ var _ = Describe("Status Update", func() {
 		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
 			{Name: "", InfoSource: vmispec.InfoSourceGuestAgent, IP: "192.168.50.10"},
 		}
 
@@ -536,6 +539,63 @@ var _ = Describe("Status Update", func() {
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
+
+	const (
+		draClaimName = "dra-claim"
+		redIfaceName = "red"
+		redMAC       = "de:ad:00:00:be:ef"
+	)
+	domainGAPod := vmispec.NewInfoSource(
+		vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourcePodStatus)
+
+	redDomainGA := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, MAC: redMAC, InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+	}
+	redDomainGAPod := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, MAC: redMAC, InterfaceName: "eth1", InfoSource: domainGAPod},
+	}
+	redPodOnly := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, InfoSource: vmispec.InfoSourcePodStatus},
+	}
+	assignedClaim := []k8scorev1.PodResourceClaimStatus{
+		{Name: draClaimName, ResourceClaimName: pointer.P(draClaimName + "-abc123")},
+	}
+	unneededClaim := []k8scorev1.PodResourceClaimStatus{
+		{Name: draClaimName, ResourceClaimName: nil},
+	}
+	directClaim := []k8scorev1.PodResourceClaim{
+		{Name: draClaimName, ResourceClaimName: pointer.P(draClaimName + "-preexisting")},
+	}
+
+	DescribeTable("Should report the pod-status info source for a DRA interface based on its resource claim",
+		func(
+			existing []v1.VirtualMachineInstanceNetworkInterface,
+			podClaims []k8scorev1.PodResourceClaim,
+			claimStatuses []k8scorev1.PodResourceClaimStatus,
+			expected []v1.VirtualMachineInstanceNetworkInterface,
+		) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, "req1")),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existing))),
+			)
+
+			pod := newPodFromVMI(vmi, map[string]string{})
+			pod.Spec.ResourceClaims = podClaims
+			pod.Status.ResourceClaimStatuses = claimStatuses
+
+			Expect(controllers.UpdateVMIStatus(vmi, pod)).To(Succeed())
+
+			Expect(vmi.Status.Interfaces).To(Equal(expected))
+		},
+		Entry("adds pod-status when the resource claim template is assigned", redDomainGA, nil, assignedClaim, redDomainGAPod),
+		Entry("reports pod-status only before the virt-handler reports the interface", nil, nil, assignedClaim, redPodOnly),
+		Entry("does not add pod-status when the resource claim is not needed", redDomainGA, nil, unneededClaim, redDomainGA),
+		Entry("removes pod-status but keeps other sources when the claim is unassigned", redDomainGAPod, nil, nil, redDomainGA),
+		Entry("omits the interface when removing pod-status leaves no info source", redPodOnly, nil, nil, nil),
+		Entry("adds pod-status for a directly referenced resource claim", nil, directClaim, nil, redPodOnly),
+	)
 })
 
 func newPodFromVMI(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8scorev1.Pod {
