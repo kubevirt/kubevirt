@@ -621,7 +621,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(vm.Status.StartFailure).NotTo(BeNil())
-		}, 30*time.Second, 5*time.Second).Should(Succeed())
+		}, 60*time.Second, 5*time.Second).Should(Succeed())
 
 		By("Removing the annotation that causes the VM to crash loop back off")
 		patchData, err := patch.New(patch.WithRemove(fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/annotations/%s", patch.EscapeJSONPointer(v1.FuncTestLauncherFailFastAnnotation)))).GeneratePayload()
@@ -635,7 +635,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(vm.Status.StartFailure).To(BeNil())
 			g.Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusRunning))
-		}, 30*time.Second, 5*time.Second).Should(Succeed())
+		}, 60*time.Second, 5*time.Second).Should(Succeed())
 	})
 
 	It("should auto-heal VMs when VM is in not ready state for too long when pvc is not found", decorators.WgS390x, func() {

@@ -1562,6 +1562,14 @@ func (t *TemplateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
+	if istio.ProxyInjectionEnabled(vmi) {
+		if val, exists := vmi.Annotations[istio.NativeSidecarAnnotation]; exists {
+			annotationsSet[istio.NativeSidecarAnnotation] = val
+		} else {
+			annotationsSet[istio.NativeSidecarAnnotation] = "true"
+		}
+	}
+
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
 
 	for _, generator := range t.annotationsGenerators {

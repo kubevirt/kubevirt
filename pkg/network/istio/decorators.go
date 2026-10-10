@@ -38,4 +38,10 @@ const (
 	// https://istio.io/latest/docs/reference/config/annotations/#IoIstioRerouteVirtualInterfaces
 	// Introduced in Istio v1.25
 	RerouteVirtualInterfacesAnnotation = "istio.io/reroute-virtual-interfaces"
+
+	// NativeSidecarAnnotation forces Istio to inject the sidecar as a native
+	// sidecar (init container with restartPolicy: Always) so the kubelet
+	// manages its lifecycle. KubeVirt sets this unconditionally when injection
+	// is enabled because virt-launcher-monitor does not terminate the proxy.
+	NativeSidecarAnnotation = "sidecar.istio.io/nativeSidecar"
 )
