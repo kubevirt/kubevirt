@@ -1,0 +1,39 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+ARG HANDLERBASE_IMAGE=quay.io/vamsi_siddu/handlerbase:latest
+ARG LIBVIRT_DEVEL_IMAGE=quay.io/vamsi_siddu/libvirt-devel:latest
+
+FROM ${LIBVIRT_DEVEL_IMAGE} AS devel-deps
+FROM ${HANDLERBASE_IMAGE} AS handlerbase
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY --from=devel-deps /usr/lib64/pkgconfig /devel/usr/lib64/pkgconfig
+COPY --from=devel-deps /usr/include /devel/usr/include
+COPY --from=devel-deps /usr/lib64 /devel/usr/lib64
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    export PKG_CONFIG_PATH="/devel/usr/lib64/pkgconfig:${PKG_CONFIG_PATH}" && \
+    export C_INCLUDE_PATH="/devel/usr/include" && \
+    export LIBRARY_PATH="/devel/usr/lib64" && \
+    export CGO_CFLAGS="-I/devel/usr/include" && \
+    export CGO_LDFLAGS="-L/devel/usr/lib64" && \
+    BIN_NAME=virt-handler KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/virt-handler && \
+    BIN_NAME=virt-chroot KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/virt-chroot
+
+FROM ${HANDLERBASE_IMAGE}
+
+COPY --from=builder /workspace/cmd/virt-handler/nsswitch.conf /etc/nsswitch.conf
+
+COPY --from=builder /workspace/_out/cmd/virt-handler/virt-handler /usr/bin/virt-handler
+COPY --from=builder /workspace/_out/cmd/virt-chroot/virt-chroot /usr/bin/virt-chroot
+
+COPY --from=builder /workspace/.version /.version
+
+ENTRYPOINT ["/usr/bin/virt-handler"]
