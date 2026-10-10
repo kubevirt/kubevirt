@@ -98,7 +98,8 @@ var _ = Describe("Notify", func() {
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
 			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
-			client = NewNotifier(shareDir)
+			notifyClient := NewOldNotifyClient(shareDir)
+			client = NewNotifier(&notifyClient)
 
 			DeferCleanup(
 				func() {
@@ -736,7 +737,8 @@ var _ = Describe("Notify", func() {
 			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
 			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
-			client = NewNotifier(shareDir)
+			notfifyClient := NewOldNotifyClient(shareDir)
+			client = NewNotifier(&notfifyClient)
 
 			DeferCleanup(func() {
 				close(stop)
@@ -909,11 +911,13 @@ var _ = Describe("Notify", func() {
 	Describe("gRPC status error handling", func() {
 		newTestNotifier := func(fake *fakeNotifyClient) *Notifier {
 			return &Notifier{
-				v1client:        fake,
-				conn:            &grpc.ClientConn{},
-				intervalTimeout: 100 * time.Millisecond,
-				sendTimeout:     1 * time.Second,
-				totalTimeout:    3 * time.Second,
+				client: &notifyClient{
+					v1client:        fake,
+					conn:            &grpc.ClientConn{},
+					intervalTimeout: 100 * time.Millisecond,
+					sendTimeout:     1 * time.Second,
+					totalTimeout:    3 * time.Second,
+				},
 			}
 		}
 
@@ -1059,8 +1063,10 @@ var _ = Describe("Notify", func() {
 					filepath.Join(shareDir, "domain-notify-pipe.sock"),
 				)).To(Succeed())
 
-				retryClient = NewNotifier(shareDir)
-				retryClient.SetCustomTimeouts(50*time.Millisecond, 1*time.Second, 5*time.Second)
+				notifyClient := NewOldNotifyClientWithCustomTimeouts(shareDir,
+					50*time.Millisecond, 1*time.Second, 5*time.Second,
+				)
+				retryClient = NewNotifier(&notifyClient)
 				return retryClient
 			}
 

@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
+	notifymanager "kubevirt.io/kubevirt/pkg/virt-handler/notify-manager"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -276,7 +277,10 @@ func (app *virtHandlerApp) Run() {
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer, directChan := virtcache.NewSharedInformer(
+		app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder,
+		vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second,
+	)
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
@@ -387,7 +391,11 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+	notifyManager := notifymanager.NewUpgradeAwareManager(
+		notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir),
+		notifymanager.NewNotifyV2Manager(directChan, recorder, podIsolationDetector),
+	)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector, notifyManager)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat()

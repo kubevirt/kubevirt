@@ -294,7 +294,7 @@ func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientCon
 	}
 }
 
-func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) LauncherClient {
+func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) *VirtLauncherClient {
 	return &VirtLauncherClient{
 		v1client: client,
 		conn:     conn,

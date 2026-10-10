@@ -30,6 +30,8 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
+	"google.golang.org/grpc"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -43,6 +45,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	kgrpc "kubevirt.io/kubevirt/pkg/grpc"
+	v2 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v2"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
@@ -53,6 +57,7 @@ import (
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	notifyserver "kubevirt.io/kubevirt/pkg/virt-launcher/notify-server"
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
@@ -82,13 +87,25 @@ func markReady() {
 	log.Log.Info("Marked as ready")
 }
 
-func startCmdServer(socketPath string,
+func startLauncherServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) chan struct{} {
-	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	options *cmdserver.ServerOptions,
+	watchNotification <-chan *watch.Event, eventNotification <-chan *k8sv1.Event,
+) <-chan struct{} {
+
+	done, err := kgrpc.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(
+			cmdserver.NewLauncher(domainManager, options),
+		),
+		func(grpcServer *grpc.Server) {
+			v2.RegisterNotifyServer(grpcServer,
+				notifyserver.NewNotifyServer(watchNotification, eventNotification),
+			)
+		},
+	)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
+		log.Log.Reason(err).Error("Failed to start launcher server")
 		panic(err)
 	}
 
@@ -436,7 +453,9 @@ func main() {
 
 	var agentStore = agentpoller.NewAsyncAgentStore()
 
-	notifier := notifyclient.NewNotifier(*virtShareDir)
+	client := notifyclient.NewClient()
+
+	notifier := notifyclient.NewNotifier(client)
 	defer notifier.Close()
 
 	metadataCache := metadata.NewCache()
@@ -484,7 +503,9 @@ func main() {
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*allowEmulation).WithVMStatsCollector(*vmStatsCollectorEnabled).WithNotifier(notifier).WithVMI(vmi)
 	cmdclient.SetBaseDir(*virtShareDir)
-	cmdServerDone := startCmdServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options)
+	cmdServerDone := startLauncherServer(cmdclient.UninitializedSocketOnGuest(), domainManager, stopChan, options,
+		client.DomainEventChan(), client.K8SEventChan(),
+	)
 
 	gracefulShutdownCallback := func() {
 		domainManager.MarkGracefulShutdownVMI()

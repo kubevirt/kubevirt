@@ -20,21 +20,15 @@
 package launcher_clients
 
 import (
-	"context"
-	"fmt"
-	"net"
 	"time"
 
 	"golang.org/x/sync/singleflight"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
-	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type LauncherClientsManager interface {
@@ -45,22 +39,29 @@ type LauncherClientsManager interface {
 	IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error)
 }
 
+type notifyManager interface {
+	StartDomainNotify(<-chan struct{}, *v1.VirtualMachineInstance) error
+}
+
 type launcherClientsManager struct {
 	virtShareDir         string
 	connGroup            singleflight.Group
 	launcherClients      virtcache.LauncherClientInfoByVMI
 	podIsolationDetector isolation.PodIsolationDetector
+	notifyManager        notifyManager
 }
 
 func NewLauncherClientsManager(
 	virtShareDir string,
 	podIsolationDetector isolation.PodIsolationDetector,
+	notifyManager notifyManager,
 ) LauncherClientsManager {
 
 	l := &launcherClientsManager{
 		virtShareDir:         virtShareDir,
 		launcherClients:      virtcache.LauncherClientInfoByVMI{},
 		podIsolationDetector: podIsolationDetector,
+		notifyManager:        notifyManager,
 	}
 
 	return l
@@ -109,18 +110,18 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			return nil, err
 		}
 
-		domainPipeStopChan := make(chan struct{})
-		err = l.startDomainNotifyPipe(domainPipeStopChan, vmi)
+		domainNotifyStopChan := make(chan struct{})
+		err = l.notifyManager.StartDomainNotify(domainNotifyStopChan, vmi)
 		if err != nil {
 			client.Close()
-			close(domainPipeStopChan)
+			close(domainNotifyStopChan)
 			return nil, err
 		}
 
 		l.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
 			Client:              client,
 			SocketFile:          socketFile,
-			DomainPipeStopChan:  domainPipeStopChan,
+			DomainPipeStopChan:  domainNotifyStopChan,
 			NotInitializedSince: time.Now(),
 			Ready:               true,
 		})
@@ -203,36 +204,4 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 		clientInfo.SocketFile = socketFile
 	}
 	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
-}
-
-func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-	logger := log.Log.Object(vmi)
-	fdChan := pipe.ChanFromListener(ctx, logger, ln)
-
-	// Process new connections
-	// exit when stop encountered
-	go pipe.Pipe(ctx, fdChan, func(conn net.Conn) {
-		pipe.Proxy(logger, conn, pipe.NewConnectToNotifyFunc(virtShareDir))
-	})
-}
-
-func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
-
-	res, err := l.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
-	}
-
-	listener, err := pipe.InjectNotify(res, l.virtShareDir, vmitrait.IsNonRoot(vmi))
-	if err != nil {
-		return err
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-domainPipeStopChan
-		cancel()
-	}()
-	handleDomainNotifyPipe(ctx, listener, l.virtShareDir, vmi)
-
-	return nil
 }
