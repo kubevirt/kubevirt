@@ -102,34 +102,62 @@ func getVolumes(obj metav1.Object, volumes []v1.Volume, client kubecli.KubevirtC
 }
 
 func getBackendPVCName(obj metav1.Object, client kubecli.KubevirtClient) (string, error) {
+	var vmiSpec *v1.VirtualMachineInstanceSpec
+	var volStatus *v1.VolumeStatus
+
 	switch obj := obj.(type) {
 	case *v1.VirtualMachineInstance:
 		return backendstorage.CurrentPVCName(obj), nil
-	default:
-		// TODO: This could be way more simpler if the backend PVC name was accessible from the VM spec/status.
-		// Refactor this once the backend PVC is more accessible.
-		if client == nil {
-			return "", fmt.Errorf("no client provided")
+	case *v1.VirtualMachine:
+		volStatus = obj.Status.VirtualMachineStateVolume
+		if obj.Spec.Template != nil {
+			vmiSpec = &obj.Spec.Template.Spec
 		}
-		pvcs, err := client.CoreV1().PersistentVolumeClaims(obj.GetNamespace()).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", backendstorage.PVCPrefix, obj.GetName()),
-		})
-		if err != nil {
-			return "", err
-		}
-		switch len(pvcs.Items) {
-		case 1:
-			return pvcs.Items[0].Name, nil
-		case 0:
-			return "", ErrNoBackendPVC
-		default:
-			pvc, err := getNewestNonTerminatingPVC(pvcs.Items)
-			if err != nil {
-				return "", fmt.Errorf("no non-terminating PVC found")
-			}
-			return pvc.Name, nil
+	case *snapshotv1.VirtualMachine:
+		volStatus = obj.Status.VirtualMachineStateVolume
+		if obj.Spec.Template != nil {
+			vmiSpec = &obj.Spec.Template.Spec
 		}
 	}
+
+	if name := backendPVCNameFromStatus(volStatus); name != "" {
+		return name, nil
+	}
+
+	// Declarative PVCs never carry the legacy label below, so there's nothing more to look up.
+	if vmiSpec != nil && backendstorage.HasDeclarativeVMState(vmiSpec) {
+		return "", ErrNoBackendPVC
+	}
+
+	// Falls back to the legacy label for PVCs not yet resolved into status above.
+	if client == nil {
+		return "", fmt.Errorf("no client provided")
+	}
+	pvcs, err := client.CoreV1().PersistentVolumeClaims(obj.GetNamespace()).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", backendstorage.PVCPrefix, obj.GetName()),
+	})
+	if err != nil {
+		return "", err
+	}
+	switch len(pvcs.Items) {
+	case 1:
+		return pvcs.Items[0].Name, nil
+	case 0:
+		return "", ErrNoBackendPVC
+	default:
+		pvc, err := getNewestNonTerminatingPVC(pvcs.Items)
+		if err != nil {
+			return "", fmt.Errorf("no non-terminating PVC found")
+		}
+		return pvc.Name, nil
+	}
+}
+
+func backendPVCNameFromStatus(volStatus *v1.VolumeStatus) string {
+	if volStatus == nil || volStatus.PersistentVolumeClaimInfo == nil {
+		return ""
+	}
+	return volStatus.PersistentVolumeClaimInfo.ClaimName
 }
 
 func needsBackendPVC(obj metav1.Object, opts []VolumeOption) bool {

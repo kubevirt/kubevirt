@@ -279,6 +279,20 @@ var _ = Describe("Clone", func() {
 				expectCloneBeInPhase(clone.Failed)
 			})
 
+			It("clone should proceed if source VM uses the declarative virtualMachineState API", func() {
+				sourceVM.Spec.Template.Spec.VirtualMachineState = &virtv1.VirtualMachineStateSpec{
+					Source: &virtv1.VirtualMachineStateSource{Name: "vmstate-pvc"},
+				}
+				addVM(sourceVM)
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				sanityExecute()
+				expectEvent(SnapshotCreated)
+				expectSnapshotExists()
+				expectCloneBeInPhase(clone.SnapshotInProgress)
+			})
+
 			It("should report event if VM volumeSnapshots are invalid", func() {
 				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "disk0",

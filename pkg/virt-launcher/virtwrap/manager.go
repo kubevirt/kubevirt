@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -86,6 +87,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/emptydisk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1079,7 +1081,321 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if err := l.prepareVMStateLayout(vmi, domain); err != nil {
+		return domain, fmt.Errorf("preparing the VirtualMachineState layout failed: %v", err)
+	}
+
 	return domain, err
+}
+
+// prepareVMStateLayout sets up the canonical VMState PVC layout and libvirt's ephemeral symlinks.
+func (l *LibvirtDomainManager) prepareVMStateLayout(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if !kutil.HasDeclarativeVMState(vmi) {
+		return nil
+	}
+	return l.prepareVMStateLayoutAt(log.Log.Object(vmi), vmi, domain,
+		kutil.VMStatePVCMountPath, kutil.PathForSwtpm(vmi), kutil.PathForSwtpmLocalca(vmi))
+}
+
+func (l *LibvirtDomainManager) prepareVMStateLayoutAt(logger *log.FilteredLogger, vmi *v1.VirtualMachineInstance, domain *api.Domain, mountRoot, swtpmRoot, localca string) error {
+	if err := l.normalizeLegacyVMStateLayoutAt(logger, mountRoot); err != nil {
+		return err
+	}
+
+	for _, dir := range []string{
+		kutil.VMStateDirTPM,
+		kutil.VMStateDirSwtpmLocalca,
+		kutil.VMStateDirEFI,
+		kutil.VMStateDirCBT,
+		kutil.VMStateDirMeta,
+	} {
+		if err := os.MkdirAll(filepath.Join(mountRoot, dir), 0755); err != nil {
+			return fmt.Errorf("failed to create VMState directory %q: %v", dir, err)
+		}
+	}
+
+	if err := ensureCBTOwnership(mountRoot, vmi); err != nil {
+		return fmt.Errorf("failed to reconcile VMState CBT ownership: %v", err)
+	}
+
+	if !tpm.HasPersistentDevice(&vmi.Spec) {
+		// Only a persistent TPM needs the symlinks below.
+		return nil
+	}
+
+	// libvirt derives the swtpm path from the domain UUID, so pin it to the firmware UUID.
+	if domain.Spec.UUID == "" && vmi.Spec.Domain.Firmware != nil {
+		domain.Spec.UUID = string(vmi.Spec.Domain.Firmware.UUID)
+	}
+	if domain.Spec.UUID == "" {
+		return fmt.Errorf("cannot set up TPM state symlink: domain UUID is empty")
+	}
+
+	// swtpmRoot/<uuid> -> <mount>/tpm
+	if err := os.MkdirAll(swtpmRoot, 0755); err != nil {
+		return fmt.Errorf("failed to create swtpm root %q: %v", swtpmRoot, err)
+	}
+	if err := ensureVMStateSymlink(filepath.Join(mountRoot, kutil.VMStateDirTPM), filepath.Join(swtpmRoot, domain.Spec.UUID)); err != nil {
+		return fmt.Errorf("failed to create swtpm state symlink: %v", err)
+	}
+
+	// localca -> <mount>/swtpm-localca
+	if err := os.MkdirAll(filepath.Dir(localca), 0755); err != nil {
+		return fmt.Errorf("failed to create swtpm local-CA parent dir: %v", err)
+	}
+	if err := ensureVMStateSymlink(filepath.Join(mountRoot, kutil.VMStateDirSwtpmLocalca), localca); err != nil {
+		return fmt.Errorf("failed to create swtpm local-CA symlink: %v", err)
+	}
+
+	logger.V(4).Infof("prepared declarative VirtualMachineState layout (domain uuid %s)", domain.Spec.UUID)
+	return nil
+}
+
+// Mirrors ownerUIDForVMI in backend-storage.go.
+func vmStateOwnerUID(vmi *v1.VirtualMachineInstance) string {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
+		return string(controllerRef.UID)
+	}
+	return string(vmi.UID)
+}
+
+// A missing or different owner marker means cbt/ belongs to a different VM, so clear it.
+func ensureCBTOwnership(root string, vmi *v1.VirtualMachineInstance) error {
+	ownerFile := filepath.Join(root, kutil.VMStateDirMeta, kutil.VMStateFileCBTOwner)
+	owner := vmStateOwnerUID(vmi)
+
+	previous, err := os.ReadFile(ownerFile)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to read CBT owner marker: %v", err)
+	}
+	if err == nil && strings.TrimSpace(string(previous)) == owner {
+		return nil
+	}
+
+	cbtDir := filepath.Join(root, kutil.VMStateDirCBT)
+	entries, err := os.ReadDir(cbtDir)
+	if err != nil {
+		return fmt.Errorf("failed to read cbt directory: %v", err)
+	}
+	for _, entry := range entries {
+		if err := os.RemoveAll(filepath.Join(cbtDir, entry.Name())); err != nil {
+			return fmt.Errorf("failed to clear cbt directory: %v", err)
+		}
+	}
+
+	tmp := ownerFile + ".tmp"
+	if err := os.WriteFile(tmp, []byte(owner+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write CBT owner marker: %v", err)
+	}
+	if err := os.Rename(tmp, ownerFile); err != nil {
+		return fmt.Errorf("failed to commit CBT owner marker: %v", err)
+	}
+	return nil
+}
+
+// ensureVMStateSymlink idempotently creates a symlink at link -> target, refusing a non-empty directory.
+func ensureVMStateSymlink(target, link string) error {
+	if fi, err := os.Lstat(link); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			// Already a symlink (idempotent re-run within the same pod).
+			return nil
+		}
+		if fi.IsDir() {
+			entries, err := os.ReadDir(link)
+			if err != nil {
+				return err
+			}
+			if len(entries) != 0 {
+				return fmt.Errorf("refusing to replace non-empty directory %q with a symlink", link)
+			}
+			if err := os.Remove(link); err != nil {
+				return err
+			}
+		}
+	}
+	if err := os.Symlink(target, link); err != nil && !os.IsExist(err) {
+		return err
+	}
+	return nil
+}
+
+// legacyTPMUUIDDirRegex matches the legacy per-VM TPM state directory name, <uuid>/tpm2/.
+var legacyTPMUUIDDirRegex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+func (l *LibvirtDomainManager) normalizeLegacyVMStateLayoutAt(logger *log.FilteredLogger, root string) error {
+	// Nothing to do if the PVC is already at or ahead of the current layout version.
+	version, err := readVMStateLayoutVersion(root)
+	if err != nil {
+		return err
+	}
+	if version >= kutil.VMStateLayoutVersion {
+		return nil
+	}
+
+	if err := l.normalizeLegacyTPM(logger, root); err != nil {
+		return err
+	}
+	if err := normalizeLegacyEFI(logger, root); err != nil {
+		return err
+	}
+
+	// Record the version so subsequent boots skip normalization.
+	return writeVMStateLayoutVersion(root, kutil.VMStateLayoutVersion)
+}
+
+// readVMStateLayoutVersion returns the layout version recorded in meta/layout, or 0 if absent.
+func readVMStateLayoutVersion(root string) (int, error) {
+	data, err := os.ReadFile(filepath.Join(root, kutil.VMStateDirMeta, kutil.VMStateFileLayout))
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("failed to read VMState layout marker: %v", err)
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse VMState layout marker %q: %v", string(data), err)
+	}
+	return version, nil
+}
+
+func writeVMStateLayoutVersion(root string, version int) error {
+	metaDir := filepath.Join(root, kutil.VMStateDirMeta)
+	if err := os.MkdirAll(metaDir, 0755); err != nil {
+		return fmt.Errorf("failed to create VMState meta directory: %v", err)
+	}
+	marker := filepath.Join(metaDir, kutil.VMStateFileLayout)
+	tmp := marker + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strconv.Itoa(version)+"\n"), 0644); err != nil {
+		return fmt.Errorf("failed to write VMState layout marker: %v", err)
+	}
+	if err := os.Rename(tmp, marker); err != nil {
+		return fmt.Errorf("failed to commit VMState layout marker: %v", err)
+	}
+	return nil
+}
+
+// normalizeLegacyTPM renames a legacy swtpm/<uuid> TPM dir to tpm/, via a crash-recoverable staged rename.
+func (l *LibvirtDomainManager) normalizeLegacyTPM(logger *log.FilteredLogger, root string) error {
+	tpmCanonical := filepath.Join(root, kutil.VMStateDirTPM)
+	if exists, err := pathExists(tpmCanonical); err != nil {
+		return fmt.Errorf("failed to stat canonical TPM directory: %v", err)
+	} else if exists {
+		return nil
+	}
+
+	// Finish a rename interrupted by a crash: promote a leftover staged directory to tpm/.
+	migrating := tpmCanonical + ".migrating"
+	if exists, err := pathExists(migrating); err != nil {
+		return fmt.Errorf("failed to stat staged TPM directory: %v", err)
+	} else if exists {
+		if err := os.Rename(migrating, tpmCanonical); err != nil {
+			return fmt.Errorf("failed to recover staged legacy TPM directory: %v", err)
+		}
+		logger.Info("recovered staged legacy TPM directory to canonical tpm/")
+		return nil
+	}
+
+	uuidDirs, err := findLegacyTPMUUIDDirs(root)
+	if err != nil {
+		return err
+	}
+	switch len(uuidDirs) {
+	case 0:
+		// EFI-only or fresh PVC: nothing to migrate.
+		return nil
+	case 1:
+		legacyTPMDir := filepath.Join(root, kutil.VMStateDirSwtpmLegacy, uuidDirs[0])
+		if err := os.Rename(legacyTPMDir, migrating); err != nil {
+			return fmt.Errorf("failed to stage legacy TPM directory: %v", err)
+		}
+		if err := os.Rename(migrating, tpmCanonical); err != nil {
+			return fmt.Errorf("failed to promote legacy TPM directory: %v", err)
+		}
+		logger.Infof("normalized legacy TPM state directory %q to canonical tpm/", uuidDirs[0])
+		return nil
+	default:
+		// Can't tell which UUID directory is the real one, so leave them in place and start fresh.
+		logger.Warningf("found multiple legacy TPM UUID directories %v in the VMState PVC; cannot determine which to adopt, starting from fresh TPM state and leaving them in place", uuidDirs)
+		return nil
+	}
+}
+
+// normalizeLegacyEFI moves a legacy nvram/<vmname>_VARS.fd file to efi/efi_vars.fd.
+func normalizeLegacyEFI(logger *log.FilteredLogger, root string) error {
+	efiCanonical := filepath.Join(root, kutil.VMStateDirEFI, kutil.VMStateEFIVarsFile)
+	if exists, err := pathExists(efiCanonical); err != nil {
+		return fmt.Errorf("failed to stat canonical EFI vars file: %v", err)
+	} else if exists {
+		return nil
+	}
+
+	legacyVars, err := findLegacyNVRAMVarsFile(root)
+	if err != nil {
+		return err
+	}
+	if legacyVars == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Join(root, kutil.VMStateDirEFI), 0755); err != nil {
+		return fmt.Errorf("failed to create canonical efi directory: %v", err)
+	}
+	if err := os.Rename(legacyVars, efiCanonical); err != nil {
+		return fmt.Errorf("failed to normalize legacy EFI vars file: %v", err)
+	}
+	logger.Infof("normalized legacy EFI vars file %q to canonical efi/efi_vars.fd", legacyVars)
+	return nil
+}
+
+// findLegacyTPMUUIDDirs returns the UUID-named subdirectories under the legacy swtpm/ directory.
+func findLegacyTPMUUIDDirs(root string) ([]string, error) {
+	swtpmDir := filepath.Join(root, kutil.VMStateDirSwtpmLegacy)
+	entries, err := os.ReadDir(swtpmDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read legacy swtpm directory: %v", err)
+	}
+	var dirs []string
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "lost+found" {
+			continue
+		}
+		if legacyTPMUUIDDirRegex.MatchString(e.Name()) {
+			dirs = append(dirs, e.Name())
+		}
+	}
+	return dirs, nil
+}
+
+func findLegacyNVRAMVarsFile(root string) (string, error) {
+	nvramDir := filepath.Join(root, kutil.VMStateDirNVRAMLegacy)
+	entries, err := os.ReadDir(nvramDir)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("failed to read legacy nvram directory: %v", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), "_VARS.fd") {
+			return filepath.Join(nvramDir, e.Name()), nil
+		}
+	}
+	return "", nil
+}
+
+// pathExists reports whether path exists, telling a real absence apart from a stat error.
+func pathExists(path string) (bool, error) {
+	if _, err := os.Stat(path); err == nil {
+		return true, nil
+	} else if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else {
+		return false, err
+	}
 }
 
 func isPVCBacked(volumeName string, vmi *v1.VirtualMachineInstance) bool {

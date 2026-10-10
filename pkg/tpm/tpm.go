@@ -8,7 +8,13 @@ func HasDevice(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 }
 
 func HasPersistentDevice(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	return HasDevice(vmiSpec) &&
-		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
-		*vmiSpec.Domain.Devices.TPM.Persistent
+	if !HasDevice(vmiSpec) {
+		return false
+	}
+	persistent := vmiSpec.Domain.Devices.TPM.Persistent
+	// A declarative state PVC implies TPM state is kept unless explicitly opted out.
+	if vmiSpec.VirtualMachineState != nil {
+		return persistent == nil || *persistent
+	}
+	return persistent != nil && *persistent
 }

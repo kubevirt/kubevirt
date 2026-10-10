@@ -718,51 +718,49 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 	}
 
 	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
-	backendIncludedInSnapshot := false
+	var backupPVCName string
 	for _, vb := range content.Spec.VolumeBackups {
 		if vb.VolumeName == backendVolumeName {
-			backendIncludedInSnapshot = true
+			backupPVCName = vb.PersistentVolumeClaim.Name
 			break
 		}
 	}
 
 	// If the backend volume was not included in the snapshot (e.g., due to missing VolumeSnapshotClass),
 	// skip reconciliation. VM will reuse the existing backend PVC.
-	if !backendIncludedInSnapshot {
+	if backupPVCName == "" {
 		log.Log.Object(t.vmRestore).Warningf("Backend storage volume %s not included in the snapshot, VMState StorageClass might not have snapshot support. A new empty backend storage volume will be created when the VM starts.", backendVolumeName)
 		return true, nil
 	}
 
+	// Prefer the live lookup over the snapshot-recorded name, which may change (for example, after a migration).
+	backendPVCName := backupPVCName
 	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
-	if err != nil {
-		// Not checking for ErrNoBackendPVC, simply returning
-		// error as backend PVC should exist now
+	switch {
+	case err == nil && len(volumes) > 0:
+		backendPVCName = volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName
+	case err != nil && !storageutils.IsErrNoBackendPVC(err):
 		return false, err
 	}
 
-	isRestorePVCUpdated := false
-	for _, volume := range volumes {
-		pvc, err := t.controller.getPVC(snapshotVM.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
-		if err != nil || pvc == nil {
-			return false, err
-		}
-
-		// Step 1: Remove backend label from the original backend PVC
-		updated, err := t.removeBackendLabelFromPVC(pvc, snapshotVM.Name)
-		if err != nil {
-			return false, err
-		}
-
-		// Step 2: Update the restore PVC with backend labels
-		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc)
-		if err != nil {
-			return false, err
-		}
-
-		isRestorePVCUpdated = updated || isRestorePVCUpdated
+	pvc, err := t.controller.getPVC(snapshotVM.Namespace, backendPVCName)
+	if err != nil || pvc == nil {
+		return false, err
 	}
 
-	return isRestorePVCUpdated, nil
+	// Step 1: Remove backend label from the original backend PVC
+	updated, err := t.removeBackendLabelFromPVC(pvc, snapshotVM.Name)
+	if err != nil {
+		return false, err
+	}
+
+	// Step 2: Update the restore PVC with backend labels
+	isRestorePVCUpdated, err := t.updateRestorePVCWithBackendLabel(pvc)
+	if err != nil {
+		return false, err
+	}
+
+	return updated || isRestorePVCUpdated, nil
 }
 
 func (t *vmRestoreTarget) removeBackendLabelFromPVC(pvc *corev1.PersistentVolumeClaim, snapshotVMName string) (bool, error) {
@@ -1014,12 +1012,28 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
+	t.restoreVirtualMachineState(newVM, snapshotVM)
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 	if snapshotVM.Name == newVM.Name {
 		setLegacyFirmwareUUID(newVM)
 	}
 
 	return newVM, nil
+}
+
+// restoreVirtualMachineState points virtualMachineState.source at the PVC the restore just created.
+func (t *vmRestoreTarget) restoreVirtualMachineState(newVM *kubevirtv1.VirtualMachine, snapshotVM *snapshotv1.VirtualMachine) {
+	vmState := newVM.Spec.Template.Spec.VirtualMachineState
+	if vmState == nil {
+		return
+	}
+	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
+	for _, vr := range t.vmRestore.Status.Restores {
+		if vr.VolumeName == backendVolumeName {
+			vmState.Source = &kubevirtv1.VirtualMachineStateSource{Name: vr.PersistentVolumeClaimName}
+			return
+		}
+	}
 }
 
 func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (bool, error) {
@@ -1364,6 +1378,10 @@ func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.
 			return err
 		}
 		for _, pvc := range pvcs.Items {
+			// A source-adopted PVC may not have been created by Kubevirt, so don't delete it.
+			if !backendstorage.IsControllerOwnedPVC(&pvc) {
+				continue
+			}
 			err = ctrl.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err

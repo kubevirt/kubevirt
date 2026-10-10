@@ -2894,6 +2894,66 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Message).To(ContainSubstring("SCSI persistent reservation"))
 		})
 
+		Context("with a declarative VirtualMachineState", func() {
+			vmiWithVMState := func(template *k8sv1.PersistentVolumeClaimTemplate, accessModes ...k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachineInstance {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{
+					Source:              &v1.VirtualMachineStateSource{Name: "vmstate-pvc"},
+					VolumeClaimTemplate: template,
+				}
+				if len(accessModes) > 0 {
+					vmi.Status.VirtualMachineStateVolume = &v1.VolumeStatus{
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{AccessModes: accessModes},
+					}
+				}
+				return vmi
+			}
+
+			It("should not be allowed to live-migrate an RWO VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteOnce)
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable))
+			})
+
+			It("should not be allowed to live-migrate while the VirtualMachineState access mode is unknown", func() {
+				vmi := vmiWithVMState(nil)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable))
+			})
+
+			It("should be allowed to live-migrate a RWX VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteMany)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			It("should be allowed to live-migrate an RWO VirtualMachineState PVC backed by a volumeClaimTemplate", func() {
+				vmi := vmiWithVMState(&k8sv1.PersistentVolumeClaimTemplate{}, k8sv1.ReadWriteOnce)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			It("should not be allowed to storage-migrate an RWO VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteOnce)
+
+				condition := controller.calculateLiveStorageMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Message).To(ContainSubstring("VirtualMachineState"))
+			})
+		})
+
 		Context("with network configuration", func() {
 			It("should block migration for bridge binding assigned to the pod network", func() {
 				vmi := api2.NewMinimalVMI("testvmi")

@@ -608,6 +608,55 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Entry("target exists", true),
 			)
 
+			It("should allow restore to a different VM when the snapshotted VM uses the declarative virtualMachineState API", func() {
+				const targetVMName = "new-test-vm"
+
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						VirtualMachineState: &v1.VirtualMachineStateSpec{
+							Source: &v1.VirtualMachineStateSource{Name: "vmstate-pvc"},
+						},
+					},
+				}
+
+				vmSnapshotContent := &snapshotv1.VirtualMachineSnapshotContent{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "snapshot-content",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+						Source: snapshotv1.SourceSpec{
+							VirtualMachine: &snapshotv1.VirtualMachine{
+								ObjectMeta: vm.ObjectMeta,
+								Spec:       vm.Spec,
+								Status:     vm.Status,
+							},
+						},
+					},
+				}
+				snapshot.Status.VirtualMachineSnapshotContentName = pointer.P(vmSnapshotContent.Name)
+
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     targetVMName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, snapshot, vmSnapshotContent).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
 			Context("when using Patches", func() {
 
 				var restore *snapshotv1.VirtualMachineRestore

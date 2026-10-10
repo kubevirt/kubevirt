@@ -52,13 +52,36 @@ const (
 	PVCPrefix  = "persistent-state-for"
 	PVCSize    = "10Mi"
 	VolumeName = PVCPrefix + "-this-vm"
+
+	// VMStateOwnerLabel maps a VirtualMachineState PVC to its owning VM by UID.
+	VMStateOwnerLabel = "kubevirt.io/vmStateOwner"
+	// VMStateInUseByLabel records the UID of the VMI currently using the PVC.
+	VMStateInUseByLabel = "kubevirt.io/vmStateInUseBy"
 )
+
+var ErrVMStatePVCNotFound = fmt.Errorf("virtualMachineState source PVC not found")
+
+func HasDeclarativeVMState(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
+	state := vmiSpec.VirtualMachineState
+	return state != nil && (state.VolumeClaimTemplate != nil || state.Source != nil)
+}
+
+func ownerUIDForVMI(vmi *corev1.VirtualMachineInstance) string {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
+		return string(controllerRef.UID)
+	}
+	return string(vmi.UID)
+}
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + "-" + vmi.Name
 }
 
 func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+	if HasDeclarativeVMState(&vmi.Spec) {
+		return declarativePVCForVMI(pvcStore, vmi)
+	}
+
 	var legacyPVC *v1.PersistentVolumeClaim
 
 	objs := pvcStore.List()
@@ -80,6 +103,59 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 	}
 
 	return legacyPVC
+}
+
+// declarativePVCForVMI resolves the live VirtualMachineState PVC: status, then owner label, then source.name.
+func declarativePVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
+	getByName := func(name string) *v1.PersistentVolumeClaim {
+		if name == "" {
+			return nil
+		}
+		obj, exists, err := pvcStore.GetByKey(controller.NamespacedKey(vmi.Namespace, name))
+		if err != nil || !exists {
+			return nil
+		}
+		pvc := obj.(*v1.PersistentVolumeClaim)
+		if pvc.DeletionTimestamp != nil {
+			return nil
+		}
+		return pvc
+	}
+
+	if vmi.Status.VirtualMachineStateVolume != nil && vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo != nil {
+		if pvc := getByName(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName); pvc != nil {
+			return pvc
+		}
+	}
+
+	ownerUID := ownerUIDForVMI(vmi)
+	var owned *v1.PersistentVolumeClaim
+	for _, obj := range pvcStore.List() {
+		pvc := obj.(*v1.PersistentVolumeClaim)
+		if pvc.Namespace != vmi.Namespace || pvc.DeletionTimestamp != nil {
+			continue
+		}
+		if pvc.Labels[VMStateOwnerLabel] != ownerUID {
+			continue
+		}
+		// Multiple PVCs can share the owner label after an interrupted migration; pick the newest.
+		if owned == nil ||
+			pvc.CreationTimestamp.After(owned.CreationTimestamp.Time) ||
+			(pvc.CreationTimestamp.Equal(&owned.CreationTimestamp) && pvc.Name > owned.Name) {
+			owned = pvc
+		}
+	}
+	if owned != nil {
+		return owned
+	}
+
+	if source := vmi.Spec.VirtualMachineState.Source; source != nil {
+		if pvc := getByName(source.Name); pvc != nil {
+			return pvc
+		}
+	}
+
+	return nil
 }
 
 func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
@@ -146,7 +222,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 		switch c.Type {
 		case batchv1.JobComplete:
 			if c.Status == v1.ConditionTrue {
-				err = MigrationHandoff(client, pvcStore, migration)
+				err = MigrationHandoff(client, pvcStore, migration, vmi)
 				if err == nil {
 					migration.Status.Phase = corev1.MigrationSucceeded
 				}
@@ -275,11 +351,17 @@ func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 }
 
 func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Domain.Firmware != nil &&
-		vmiSpec.Domain.Firmware.Bootloader != nil &&
-		vmiSpec.Domain.Firmware.Bootloader.EFI != nil &&
-		vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent != nil &&
-		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+	if vmiSpec.Domain.Firmware == nil ||
+		vmiSpec.Domain.Firmware.Bootloader == nil ||
+		vmiSpec.Domain.Firmware.Bootloader.EFI == nil {
+		return false
+	}
+	persistent := vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
+	// A declarative state PVC implies EFI state is kept unless explicitly opted out.
+	if HasDeclarativeVMState(vmiSpec) {
+		return persistent == nil || *persistent
+	}
+	return persistent != nil && *persistent
 }
 
 func IsBackendStorageNeeded(obj interface{}) bool {
@@ -288,7 +370,8 @@ func IsBackendStorageNeeded(obj interface{}) bool {
 		if obj.Spec.Template == nil {
 			return false
 		}
-		return tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
+		return HasDeclarativeVMState(&obj.Spec.Template.Spec) ||
+			tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
 			HasPersistentEFI(&obj.Spec.Template.Spec) ||
 			cbt.HasCBTStateEnabled(obj.Status.ChangedBlockTracking)
 	case *snapshotv1.VirtualMachine:
@@ -296,10 +379,12 @@ func IsBackendStorageNeeded(obj interface{}) bool {
 			return false
 		}
 		// CBT alone doesn't require backend storage restoration for snapshot VMs
-		return tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
+		return HasDeclarativeVMState(&obj.Spec.Template.Spec) ||
+			tpm.HasPersistentDevice(&obj.Spec.Template.Spec) ||
 			HasPersistentEFI(&obj.Spec.Template.Spec)
 	case *corev1.VirtualMachineInstance:
-		return tpm.HasPersistentDevice(&obj.Spec) ||
+		return HasDeclarativeVMState(&obj.Spec) ||
+			tpm.HasPersistentDevice(&obj.Spec) ||
 			HasPersistentEFI(&obj.Spec) ||
 			cbt.HasCBTStateEnabled(obj.Status.ChangedBlockTracking)
 	default:
@@ -308,9 +393,26 @@ func IsBackendStorageNeeded(obj interface{}) bool {
 	}
 }
 
+// HasLegacyBackendStorage reports whether obj needs the implicit API's VM-specific backend storage.
+func HasLegacyBackendStorage(obj interface{}) bool {
+	if !IsBackendStorageNeeded(obj) {
+		return false
+	}
+	switch obj := obj.(type) {
+	case *corev1.VirtualMachine:
+		return !HasDeclarativeVMState(&obj.Spec.Template.Spec)
+	case *snapshotv1.VirtualMachine:
+		return !HasDeclarativeVMState(&obj.Spec.Template.Spec)
+	case *corev1.VirtualMachineInstance:
+		return !HasDeclarativeVMState(&obj.Spec)
+	default:
+		return true
+	}
+}
+
 // MigrationHandoff runs at the end of a successful live migration.
 // It labels the target backend-storage PVC as current for the VM and deletes the source backend-storage PVC.
-func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
+func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration, vmi *corev1.VirtualMachineInstance) error {
 	if migration == nil || migration.Status.MigrationState == nil ||
 		(migration.Status.MigrationState.SourcePersistentStatePVCName == "" && !migration.IsDecentralized()) ||
 		migration.Status.MigrationState.TargetPersistentStatePVCName == "" {
@@ -358,13 +460,38 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 	}
 
 	if sourcePVC != "" {
-		err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete PVC: %v", err)
+		controllerOwned, err := isControllerOwnedPVCByNameAndOwner(pvcStore, migration.Namespace, sourcePVC, vmi)
+		if err != nil {
+			return err
+		}
+		// A source-adopted PVC may not have been created by Kubevirt, so don't delete it.
+		if controllerOwned {
+			err := client.CoreV1().PersistentVolumeClaims(migration.Namespace).Delete(context.Background(), sourcePVC, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete PVC: %v", err)
+			}
 		}
 	}
 
 	return nil
+}
+
+// IsControllerOwnedPVC reports whether pvc carries a controller owner reference.
+func IsControllerOwnedPVC(pvc *v1.PersistentVolumeClaim) bool {
+	return metav1.GetControllerOf(pvc) != nil
+}
+
+func IsControllerOwnedPVCByObject(pvc *v1.PersistentVolumeClaim, owner metav1.Object) bool {
+	controllerRef := metav1.GetControllerOf(pvc)
+	return controllerRef != nil && controllerRef.UID == owner.GetUID()
+}
+
+func isControllerOwnedPVCByNameAndOwner(pvcStore cache.Store, namespace, name string, owner metav1.Object) (bool, error) {
+	obj, exists, err := pvcStore.GetByKey(controller.NamespacedKey(namespace, name))
+	if err != nil || !exists {
+		return false, err
+	}
+	return IsControllerOwnedPVCByObject(obj.(*v1.PersistentVolumeClaim), owner), nil
 }
 
 // MigrationAbort runs at the end of a failed live migration.
@@ -561,11 +688,115 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 	return pvc, nil
 }
 
+func declarativeOwnerReferences(vmi *corev1.VirtualMachineInstance) []metav1.OwnerReference {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
+		return []metav1.OwnerReference{*controllerRef}
+	}
+	return []metav1.OwnerReference{
+		*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
+	}
+}
+
+func (bs *BackendStorage) createPVCFromTemplate(vmi *corev1.VirtualMachineInstance, labels map[string]string) (*v1.PersistentVolumeClaim, error) {
+	template := vmi.Spec.VirtualMachineState.VolumeClaimTemplate
+	spec := template.Spec.DeepCopy()
+
+	mode := v1.PersistentVolumeFilesystem
+	spec.VolumeMode = &mode
+
+	if spec.StorageClassName == nil || *spec.StorageClassName == "" {
+		storageClass, err := bs.getStorageClass()
+		if err != nil {
+			return nil, err
+		}
+		spec.StorageClassName = &storageClass
+	}
+
+	if len(spec.AccessModes) == 0 {
+		spec.AccessModes = []v1.PersistentVolumeAccessMode{bs.getAccessMode(*spec.StorageClassName, mode)}
+	}
+
+	if spec.Resources.Requests == nil {
+		spec.Resources.Requests = v1.ResourceList{}
+	}
+	if _, ok := spec.Resources.Requests[v1.ResourceStorage]; !ok {
+		spec.Resources.Requests[v1.ResourceStorage] = resource.MustParse(PVCSize)
+	}
+
+	// Merge the template's metadata, letting the controller-managed labels take precedence.
+	for k, v := range template.ObjectMeta.Labels {
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+	// Needed for the CDI WebhookPvcRendering mutating webhook; see createPVC for details.
+	labels[storagetypes.LabelApplyStorageProfile] = "true"
+
+	pvc := &v1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName:    basePVC(vmi) + "-",
+			OwnerReferences: declarativeOwnerReferences(vmi),
+			Labels:          labels,
+			Annotations:     template.ObjectMeta.Annotations,
+		},
+		Spec: *spec,
+	}
+
+	pvc, err := bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return pvc, nil
+}
+
+func addLabelPatch(pvc *v1.PersistentVolumeClaim, key, value string) ([]byte, error) {
+	labelPatch := patch.New()
+	if len(pvc.Labels) == 0 {
+		labelPatch.AddOption(patch.WithAdd("/metadata/labels", map[string]string{key: value}))
+	} else {
+		labelPatch.AddOption(patch.WithAdd("/metadata/labels/"+patch.EscapeJSONPointer(key), value))
+	}
+	return labelPatch.GeneratePayload()
+}
+
+// ensureOwnerLabel stamps the owner-UID label onto an adopted PVC that doesn't carry it yet.
+func (bs *BackendStorage) ensureOwnerLabel(vmi *corev1.VirtualMachineInstance, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
+	owner := ownerUIDForVMI(vmi)
+	if pvc.Labels[VMStateOwnerLabel] == owner {
+		return pvc, nil
+	}
+
+	payload, err := addLabelPatch(pvc, VMStateOwnerLabel, owner)
+	if err != nil {
+		return nil, err
+	}
+	return bs.client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+}
+
+// AcquireVMStateLock records the holder VMI's UID in the PVC's in-use lock label.
+func (bs *BackendStorage) AcquireVMStateLock(pvc *v1.PersistentVolumeClaim, holderUID string) error {
+	if pvc.Labels[VMStateInUseByLabel] == holderUID {
+		return nil
+	}
+
+	payload, err := addLabelPatch(pvc, VMStateInUseByLabel, holderUID)
+	if err != nil {
+		return err
+	}
+	_, err = bs.client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	return err
+}
+
 func (bs *BackendStorage) DeletePVCForVMI(vmi *corev1.VirtualMachineInstance, pvcName string) error {
 	return bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
 }
 
 func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
+	if HasDeclarativeVMState(&vmi.Spec) {
+		return bs.createOrAdoptDeclarativePVC(vmi)
+	}
+
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc == nil {
 		return bs.createPVC(vmi, map[string]string{PVCPrefix: vmi.Name})
@@ -578,6 +809,18 @@ func (bs *BackendStorage) CreatePVCForVMI(vmi *corev1.VirtualMachineInstance) (*
 	return pvc, nil
 }
 
+func (bs *BackendStorage) createOrAdoptDeclarativePVC(vmi *corev1.VirtualMachineInstance) (*v1.PersistentVolumeClaim, error) {
+	if pvc := PVCForVMI(bs.pvcStore, vmi); pvc != nil {
+		return bs.ensureOwnerLabel(vmi, pvc)
+	}
+
+	if vmi.Spec.VirtualMachineState.Source != nil {
+		return nil, ErrVMStatePVCNotFound
+	}
+
+	return bs.createPVCFromTemplate(vmi, map[string]string{VMStateOwnerLabel: ownerUIDForVMI(vmi)})
+}
+
 func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachineInstance, migrationName string) (*v1.PersistentVolumeClaim, error) {
 	pvc := PVCForVMI(bs.pvcStore, vmi)
 	if pvc != nil {
@@ -585,6 +828,13 @@ func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachine
 			// The source PVC is RWX, so it can be used for the target too
 			return pvc, nil
 		}
+	}
+
+	if HasDeclarativeVMState(&vmi.Spec) {
+		if vmi.Spec.VirtualMachineState.VolumeClaimTemplate == nil {
+			return nil, fmt.Errorf("cannot create a VirtualMachineState migration target: RWO PVC is referenced through source only, with no volumeClaimTemplate")
+		}
+		return bs.createPVCFromTemplate(vmi, map[string]string{corev1.MigrationNameLabel: migrationName})
 	}
 
 	return bs.createPVC(vmi, map[string]string{corev1.MigrationNameLabel: migrationName})
