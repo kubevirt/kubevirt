@@ -30,6 +30,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -47,6 +49,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
@@ -65,6 +69,8 @@ const (
 	backendResponseHeaderTimeout = 30 * time.Second
 	serverIdleTimeout            = 60 * time.Second
 	serverReadHeaderTimeout      = 10 * time.Second
+
+	proxyRateLimitedBody = "rate limited"
 )
 
 type exportProxyApp struct {
@@ -79,10 +85,14 @@ type exportProxyApp struct {
 	// reverseProxy is a shared template; proxyHandler takes a shallow copy per
 	// request and sets a per-request Rewrite closure on the copy.
 	reverseProxy *httputil.ReverseProxy
+	// ipLimiter caps concurrent proxied requests per client RemoteAddr.
+	ipLimiter *admission.IPConcurrencyLimiter
 }
 
 func NewExportProxyApp() service.Service {
-	return &exportProxyApp{}
+	return &exportProxyApp{
+		ipLimiter: admission.NewIPConcurrencyLimiter(admission.MaxConcurrentRequestsPerIP),
+	}
 }
 
 func (app *exportProxyApp) AddFlags() {
@@ -107,11 +117,16 @@ func (app *exportProxyApp) Run() {
 
 	app.initReverseProxy()
 
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.proxyHandler)
-	mux.HandleFunc("/healthz", app.healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.HandleFunc("/readyz", app.readyzHandler)
+	mux.HandleFunc("/api/", app.proxyHandler)
 
 	server := &http.Server{
 		Addr:              app.Address(),
@@ -133,6 +148,10 @@ func (app *exportProxyApp) healthzHandler(w http.ResponseWriter, r *http.Request
 	io.WriteString(w, "OK")
 }
 
+func (app *exportProxyApp) readyzHandler(w http.ResponseWriter, r *http.Request) {
+	exportproxymetrics.WriteReadyzResponse(w)
+}
+
 var proxyPathMatcher = regexp.MustCompile(`^/api/` + apiGroup + "/" + "(" + apiVersions + ")" + `/namespaces/([^/]+)/` + exportResourceName + `/([^/]+)/(.*)$`)
 
 func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) {
@@ -142,30 +161,41 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	key := fmt.Sprintf("%s/%s", match[2], match[3])
-	obj, exists, err := app.exportStore.GetByKey(key)
+	namespace := match[2]
+	exportName := match[3]
+	backendPath := "/" + match[4]
+
+	serviceName, ready, err := app.resolveServiceName(namespace, exportName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	export := obj.(*exportv1.VirtualMachineExport)
-	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+	if !ready {
+		if serviceName == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	backendHost, status := app.backendAddr(match[2], export.Status.ServiceName)
+	// Cap concurrent proxied requests per TCP peer before touching the backend.
+	// Transfer/HPA admission happens later in admittingTransport after auth.
+	clientIP := admission.ClientIP(r.RemoteAddr)
+	if app.ipLimiter != nil && !app.ipLimiter.TryAcquire(clientIP) {
+		writeRateLimited(w)
+		return
+	}
+	if app.ipLimiter != nil {
+		defer app.ipLimiter.Release(clientIP)
+	}
+
+	backendHost, status := app.backendAddr(namespace, serviceName)
 	if status != 0 {
 		w.WriteHeader(status)
 		return
 	}
-	backendPath := "/" + match[4]
+
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
@@ -177,6 +207,13 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		pr.Out.Host = ""
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func writeRateLimited(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	w.Header().Set("Connection", "close")
+	w.WriteHeader(http.StatusTooManyRequests)
+	io.WriteString(w, proxyRateLimitedBody)
 }
 
 func (app *exportProxyApp) backendAddr(namespace, serviceName string) (string, int) {
@@ -206,8 +243,65 @@ func (app *exportProxyApp) initReverseProxy() {
 		ResponseHeaderTimeout: backendResponseHeaderTimeout,
 	}
 	app.reverseProxy = &httputil.ReverseProxy{
-		Transport:     transport,
+		// admittingTransport records HPA/admission only after the export server
+		// accepts the request (non-401/403), so unauthenticated floods do not scale pods.
+		Transport:     &admittingTransport{base: transport},
 		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
+	}
+}
+
+// admittingTransport wraps the backend RoundTripper and admits transfers only
+// after the export server returns a response that is not Unauthorized/Forbidden.
+type admittingTransport struct {
+	base http.RoundTripper
+}
+
+func (t *admittingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	resp, err := base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if isUnauthenticatedExportResponse(resp.StatusCode) {
+		// Auth failures must not consume soft-admission slots or HPA metrics.
+		return resp, nil
+	}
+
+	transfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		// Close without draining: the body may be a multi-GB export stream, and
+		// draining it under SoftTransferLimit overload would amplify load.
+		// Closing may prevent keep-alive reuse for this backend connection.
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		return rateLimitedProxyResponse(req), nil
+	}
+	resp.Body = exportproxymetrics.NewAdmittedTransferBody(resp.Body, transfer.Finish)
+	return resp, nil
+}
+
+func isUnauthenticatedExportResponse(statusCode int) bool {
+	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
+}
+
+func rateLimitedProxyResponse(req *http.Request) *http.Response {
+	header := make(http.Header)
+	header.Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	header.Set("Content-Type", "text/plain; charset=utf-8")
+	body := proxyRateLimitedBody
+	return &http.Response{
+		StatusCode:    http.StatusTooManyRequests,
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        header,
+		Body:          io.NopCloser(strings.NewReader(body)),
+		ContentLength: int64(len(body)),
+		Request:       req,
 	}
 }
 
@@ -273,6 +367,26 @@ func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error
 		return fmt.Errorf("could not verify backend certificate: %w", err)
 	}
 	return nil
+}
+
+func (app *exportProxyApp) resolveServiceName(namespace, exportName string) (serviceName string, ready bool, err error) {
+	key := fmt.Sprintf("%s/%s", namespace, exportName)
+	obj, exists, err := app.exportStore.GetByKey(key)
+	if err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, nil
+	}
+
+	export := obj.(*exportv1.VirtualMachineExport)
+	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+		if export.Status == nil {
+			return "", false, nil
+		}
+		return export.Status.ServiceName, false, nil
+	}
+	return export.Status.ServiceName, true, nil
 }
 
 func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) error {

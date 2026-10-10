@@ -4,6 +4,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtapi "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
+	virtexportproxy "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	virthandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	virtoperator "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-operator"
 	synccontrollermetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-synchronization-controller"
@@ -36,6 +37,10 @@ func RegisterAllMetrics() error {
 	}
 
 	if err := synccontrollermetrics.SetupMetrics(); err != nil {
+		return err
+	}
+
+	if err := virtexportproxy.SetupMetrics(); err != nil {
 		return err
 	}
 

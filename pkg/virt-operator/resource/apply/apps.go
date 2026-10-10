@@ -52,18 +52,43 @@ const (
 // injectDeploymentPlacement applies node placement once during reconciliation.
 // Synchronization controllers use SynchronizationPlacement when set; otherwise
 // they fall back to Infra, or the default control-plane placement when both are
-// unset. Placement is not applied at generation time so Infra node selectors
-// cannot stack on top of generated control-plane affinity.
+// unset. Export-proxy uses Workloads / AnyNode so HPA scale-out can schedule on
+// worker nodes. Placement is not applied at generation time so Infra node
+// selectors cannot stack on top of generated control-plane affinity.
 func injectDeploymentPlacement(kv *v1.KubeVirt, deployment *appsv1.Deployment) {
 	componentConfig := kv.Spec.Infra
 	nodePlacementOption := placement.RequireControlPlanePreferNonWorker
-	if deployment.Name == components.VirtSynchronizationControllerName {
+	switch deployment.Name {
+	case components.VirtExportProxyName:
+		componentConfig = kv.Spec.Workloads
+		nodePlacementOption = placement.AnyNode
+	case components.VirtSynchronizationControllerName:
 		if kv.Spec.SynchronizationPlacement != nil {
 			componentConfig = kv.Spec.SynchronizationPlacement
 			nodePlacementOption = placement.AnyNode
 		}
 	}
 	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, nodePlacementOption)
+}
+
+// applyExportProxyReplicaPolicy sets Spec.Replicas before syncDeployment.
+// Single-node clusters force one replica; otherwise the cached count is kept so HPA can scale.
+func (r *Reconciler) applyExportProxyReplicaPolicy(deployment *appsv1.Deployment, desiredReplicas int32) {
+	if replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtExportProxyName) {
+		return
+	}
+	if desiredReplicas == 1 {
+		deployment.Spec.Replicas = pointer.P(desiredReplicas)
+		return
+	}
+	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
+	if !exists {
+		return
+	}
+	cached := obj.(*appsv1.Deployment)
+	if cached.Spec.Replicas != nil {
+		deployment.Spec.Replicas = pointer.P(*cached.Spec.Replicas)
+	}
 }
 
 func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
@@ -82,7 +107,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 		replicas := int32(*kv.Spec.Infra.Replicas)
 		if (deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas) &&
 			deployment.Name != components.VirtTemplateApiserverDeploymentName &&
-			deployment.Name != components.VirtTemplateControllerDeploymentName {
+			deployment.Name != components.VirtTemplateControllerDeploymentName &&
+			deployment.Name != components.VirtExportProxyName {
 			deployment.Spec.Replicas = &replicas
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
@@ -386,13 +412,26 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	return r.syncPodDisruptionBudget(deployment.Namespace, components.NewPodDisruptionBudgetForDeployment(deployment))
+}
+
+func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment, desiredReplicas int32) error {
+	pdb := components.NewExportProxyPodDisruptionBudget(deployment)
+	// Single-replica clusters do not need disruption protection; HPA-managed clusters use a fixed minAvailable.
+	if desiredReplicas <= 1 {
+		minAvailable := intstr.FromInt(0)
+		pdb.Spec.MinAvailable = &minAvailable
+	}
+	return r.syncPodDisruptionBudget(deployment.Namespace, pdb)
+}
+
+func (r *Reconciler) syncPodDisruptionBudget(namespace string, podDisruptionBudget *policyv1.PodDisruptionBudget) error {
 	kv := r.kv
-	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
