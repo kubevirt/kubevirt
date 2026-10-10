@@ -29,32 +29,62 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
+func constructHostDevMap(hostDevs []libvirtxml.DomainHostdev) map[string]*libvirtxml.DomainHostdev {
+	hostDevMap := make(map[string]*libvirtxml.DomainHostdev, len(hostDevs))
+	for i := range hostDevs {
+		hostDev := &hostDevs[i]
+		if hostDev.Alias == nil {
+			continue
+		}
+		// Keep the first device for a repeated alias, matching the previous linear scan.
+		if _, exists := hostDevMap[hostDev.Alias.Name]; exists {
+			continue
+		}
+		hostDevMap[hostDev.Alias.Name] = hostDev
+	}
+	return hostDevMap
+}
+
+func matchHostDevice(gpu api.HostDevice, hostDevsMap map[string]*libvirtxml.DomainHostdev) (*libvirtxml.DomainHostdev, error) {
+	if gpu.Alias == nil {
+		return nil, fmt.Errorf("GPU host device has no alias")
+	}
+	want := api.UserAliasPrefix + gpu.Alias.GetName()
+	hostDev, ok := hostDevsMap[want]
+	if !ok {
+		return nil, fmt.Errorf("no matching host device for GPU alias %s", want)
+	}
+	return hostDev, nil
+}
+
 // VGPULiveMigration mutates the mdev uuid for the target's domain XML in vGPU live migrations
 func VGPULiveMigration(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	gpuDevs := c.GPUHostDevices
 
-	// skip hook if no GPU is present
-	if len(gpuDevs) == 0 || len(domain.Devices.Hostdevs) == 0 {
+	if len(gpuDevs) == 0 || domain.Devices == nil || len(domain.Devices.Hostdevs) == 0 {
 		return nil
 	}
 
-	if len(domain.Devices.Hostdevs) > 1 || len(gpuDevs) > 1 {
-		return fmt.Errorf("the migrating vmi should only have one vGPU")
+	hostDevMap := constructHostDevMap(domain.Devices.Hostdevs)
+	for _, gpuDev := range gpuDevs {
+		if gpuDev.Source.Address == nil {
+			return fmt.Errorf("failed to retrieve host GPU address for host device")
+		}
+		if gpuDev.Type != api.HostDeviceMDev {
+			return fmt.Errorf("unsupporting gpu type for migration: %s", gpuDev.Type)
+		}
+		hostDev, err := matchHostDevice(gpuDev, hostDevMap)
+		if err != nil {
+			return fmt.Errorf("failed to locate corresponding host device for GPU: %v", err)
+		}
+		if hostDev.SubsysMDev == nil {
+			return fmt.Errorf("failed to retrieve mdev vGPU from domain")
+		}
+		if hostDev.SubsysMDev.Source.Address == nil {
+			return fmt.Errorf("failed to retrieve host GPU address")
+		}
+		hostDev.SubsysMDev.Source.Address.UUID = gpuDev.Source.Address.UUID
 	}
-
-	if gpuDevs[0].Source.Address == nil {
-		return fmt.Errorf("failed to retrieve host GPU address")
-	}
-
-	if gpuDevs[0].Type != api.HostDeviceMDev {
-		return fmt.Errorf("unsupporting gpu type for migration: %s", gpuDevs[0].Type)
-	}
-
-	if domain.Devices.Hostdevs[0].SubsysMDev == nil {
-		return fmt.Errorf("failed to retrieve mdev vGPU from domain")
-	}
-
-	domain.Devices.Hostdevs[0].SubsysMDev.Source.Address.UUID = gpuDevs[0].Source.Address.UUID
 
 	log.Log.Object(vmi).Info("vGPU-hook: mdev uuid mutation completed")
 	return nil
