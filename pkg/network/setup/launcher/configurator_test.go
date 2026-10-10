@@ -190,7 +190,8 @@ func newStubNetworkHandler(podIfaceName string) stubNetworkHandler {
 			podIfaceName: &netlink.GenericLink{
 				Name:         podIfaceName,
 				MTU:          1500,
-				HardwareAddr: net.HardwareAddr{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF}},
+				HardwareAddr: net.HardwareAddr{0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},
+			},
 		},
 	}
 }
