@@ -1312,6 +1312,55 @@ var _ = Describe("netstat", func() {
 			}))
 		})
 
+		It("skips a domain interface with no alias", func() {
+			domainIface := newDomainSpecIface(networkName, MAC)
+			domainIface.Alias = nil
+			setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, domainIface)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(BeEmpty())
+		})
+
+		It("reports a domain interface with no MAC", func() {
+			domainIface := newDomainSpecIface(networkName, MAC)
+			domainIface.MAC = nil
+			setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, domainIface)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:       networkName,
+					InfoSource: netvmispec.InfoSourceDomain,
+					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
+				},
+			}), "the interface should still be reported as present in the domain")
+		})
+
+		It("reports valid domain interfaces when another interface is malformed", func() {
+			domainIfaceWithoutAlias := newDomainSpecIface("malformed", MAC)
+			domainIfaceWithoutAlias.Alias = nil
+			setup.Domain.Spec.Devices.Interfaces = append(
+				setup.Domain.Spec.Devices.Interfaces,
+				domainIfaceWithoutAlias,
+				newDomainSpecIface(networkName, MAC),
+			)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:       networkName,
+					MAC:        MAC,
+					InfoSource: netvmispec.InfoSourceDomain,
+					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
+				},
+			}))
+		})
+
 		It("has interface in VMI spec but not in domain spec", func() {
 			setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces, newVMISpecIfaceWithBridgeBinding(networkName))
 			setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecPodNetwork(networkName))
