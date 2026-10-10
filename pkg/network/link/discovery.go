@@ -62,8 +62,7 @@ func linkByNames(handler driver.NetworkHandler, names []string) (netlink.Link, e
 		if err == nil {
 			return link, nil
 		}
-		var linkNotFoundErr netlink.LinkNotFoundError
-		if !errors.As(err, &linkNotFoundErr) {
+		if _, ok := errors.AsType[netlink.LinkNotFoundError](err); !ok {
 			errs = append(errs, fmt.Sprintf("could not get link with name %q: %v", name, err))
 		}
 	}

@@ -34,14 +34,10 @@ type VMOption func(vm *v1.VirtualMachine)
 
 func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.VirtualMachine {
 	vm := &v1.VirtualMachine{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachine",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmi.Name,
-			Namespace: vmi.Namespace,
-		},
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachine",
+		Name:       vmi.Name,
+		Namespace:  vmi.Namespace,
 		Spec: v1.VirtualMachineSpec{
 			RunStrategy: pointer.P(v1.RunStrategyHalted),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{

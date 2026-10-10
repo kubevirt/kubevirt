@@ -75,7 +75,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 
 	DescribeTable("should convert APIC feature", func(enabled *bool, expectedFeatures *api.Features) {
 		vmi := libvmi.New(withFeatures(v1.Features{
-			APIC: &v1.FeatureAPIC{FeatureState: v1.FeatureState{Enabled: enabled}},
+			APIC: &v1.FeatureAPIC{Enabled: enabled},
 		}))
 		var domain api.Domain
 
@@ -180,21 +180,21 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 					IPI:             &v1.FeatureState{Enabled: new(true)},
 					EVMCS:           &v1.FeatureState{Enabled: new(true)},
 					Spinlocks: &v1.FeatureSpinlocks{
-						FeatureState: v1.FeatureState{Enabled: new(true)},
-						Retries:      &retries,
+						Enabled: new(true),
+						Retries: &retries,
 					},
 					VendorID: &v1.FeatureVendorID{
-						FeatureState: v1.FeatureState{Enabled: new(true)},
-						VendorID:     "myvendor",
+						Enabled:  new(true),
+						VendorID: "myvendor",
 					},
 					SyNICTimer: &v1.SyNICTimer{
-						FeatureState: v1.FeatureState{Enabled: new(true)},
-						Direct:       &v1.FeatureState{Enabled: new(true)},
+						Enabled: new(true),
+						Direct:  &v1.FeatureState{Enabled: new(true)},
 					},
 					TLBFlush: &v1.TLBFlush{
-						FeatureState: v1.FeatureState{Enabled: new(true)},
-						Direct:       &v1.FeatureState{Enabled: new(true)},
-						Extended:     &v1.FeatureState{Enabled: new(true)},
+						Enabled:  new(true),
+						Direct:   &v1.FeatureState{Enabled: new(true)},
+						Extended: &v1.FeatureState{Enabled: new(true)},
 					},
 				},
 			}))

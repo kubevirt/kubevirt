@@ -289,10 +289,8 @@ func createMultusDefaultNetwork(name, networkName string) virtv1.Network {
 func createMultusNetwork(name, networkName string) virtv1.Network {
 	return virtv1.Network{
 		Name: name,
-		NetworkSource: virtv1.NetworkSource{
-			Multus: &virtv1.MultusNetwork{
-				NetworkName: networkName,
-			},
+		Multus: &virtv1.MultusNetwork{
+			NetworkName: networkName,
 		},
 	}
 }
@@ -300,8 +298,6 @@ func createMultusNetwork(name, networkName string) virtv1.Network {
 func newPodNetwork() virtv1.Network {
 	return virtv1.Network{
 		Name: "default",
-		NetworkSource: virtv1.NetworkSource{
-			Pod: &virtv1.PodNetwork{},
-		},
+		Pod:  &virtv1.PodNetwork{},
 	}
 }

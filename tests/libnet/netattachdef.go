@@ -76,8 +76,8 @@ func NewMacvtapNetAttachDef(name, lowerDevice string) *nadv1.NetworkAttachmentDe
 
 func NewNetAttachDef(name, config string) *nadv1.NetworkAttachmentDefinition {
 	return &nadv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec:       nadv1.NetworkAttachmentDefinitionSpec{Config: config},
+		Name: name,
+		Spec: nadv1.NetworkAttachmentDefinitionSpec{Config: config},
 	}
 }
 

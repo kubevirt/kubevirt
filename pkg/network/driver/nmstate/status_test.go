@@ -358,23 +358,19 @@ func newTestAdapter() *testAdapter {
 
 func newVethLink(name string) vishnetlink.Link {
 	return &vishnetlink.Veth{
-		LinkAttrs: vishnetlink.LinkAttrs{
-			Name:         name,
-			HardwareAddr: []byte("123456"),
-			MTU:          defaultMTU,
-			OperState:    vishnetlink.OperUp,
-		},
+		Name:         name,
+		HardwareAddr: []byte("123456"),
+		MTU:          defaultMTU,
+		OperState:    vishnetlink.OperUp,
 	}
 }
 
 func newBridgeLink(name string) vishnetlink.Link {
 	return &vishnetlink.Bridge{
-		LinkAttrs: vishnetlink.LinkAttrs{
-			Name:         name,
-			HardwareAddr: []byte("123456"),
-			MTU:          defaultMTU,
-			OperState:    vishnetlink.OperUp,
-		},
+		Name:         name,
+		HardwareAddr: []byte("123456"),
+		MTU:          defaultMTU,
+		OperState:    vishnetlink.OperUp,
 	}
 }
 

@@ -136,10 +136,8 @@ func (ps *PodSimulator) bindAndSetReady(ctx context.Context, pod *k8sv1.Pod) boo
 
 	if pod.Spec.NodeName == "" {
 		binding := &k8sv1.Binding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
+			Name:      name,
+			Namespace: namespace,
 			Target: k8sv1.ObjectReference{
 				Kind: "Node",
 				Name: ps.nodeName,

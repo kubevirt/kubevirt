@@ -95,9 +95,9 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Networks: []v1.Network{generateNetwork(networkName, nadName)},
 					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
-						Name:                   networkName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-						State:                  v1.InterfaceStateAbsent,
+						Name:   networkName,
+						Bridge: &v1.InterfaceBridge{},
+						State:  v1.InterfaceStateAbsent,
 					}}}},
 				},
 				Status: v1.VirtualMachineInstanceStatus{
@@ -115,8 +115,8 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Networks: []v1.Network{generateNetwork(networkName, nadName)},
 					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
-						Name:                   networkName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+						Name:   networkName,
+						Bridge: &v1.InterfaceBridge{},
 					}}}},
 				},
 				Status: v1.VirtualMachineInstanceStatus{
@@ -134,8 +134,8 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Networks: []v1.Network{generateNetwork(networkName, nadName)},
 					Domain: v1.DomainSpec{Devices: v1.Devices{Interfaces: []v1.Interface{{
-						Name:                   networkName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+						Name:  networkName,
+						SRIOV: &v1.InterfaceSRIOV{},
 					}}}},
 				},
 				Status: v1.VirtualMachineInstanceStatus{
@@ -249,15 +249,15 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 		),
 		Entry("given 1 VMI non-absent interface and an associated interface in the domain",
 			[]v1.Interface{{Name: networkName}},
-			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
+			[]v1.Network{{Name: networkName, Multus: &v1.MultusNetwork{}}},
 			[]api.Interface{{Alias: api.NewUserDefinedAlias(networkName)}},
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using ordinal device",
 			[]v1.Interface{
-				{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: networkName, State: v1.InterfaceStateAbsent, Bridge: &v1.InterfaceBridge{}},
 			},
-			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
+			[]v1.Network{{Name: networkName, Multus: &v1.MultusNetwork{}}},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: ordinalDevice}, Alias: api.NewUserDefinedAlias(networkName)},
 			},
@@ -265,9 +265,9 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
 			[]v1.Interface{
-				{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: networkName, State: v1.InterfaceStateAbsent, Bridge: &v1.InterfaceBridge{}},
 			},
-			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
+			[]v1.Network{{Name: networkName, Multus: &v1.MultusNetwork{}}},
 			[]api.Interface{
 				{
 					Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName),
@@ -427,10 +427,8 @@ func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName, nadName string
 			Domain: v1.DomainSpec{
 				Devices: v1.Devices{
 					Interfaces: []v1.Interface{{
-						Name: ifaceName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
+						Name:   ifaceName,
+						Bridge: &v1.InterfaceBridge{},
 					}},
 				},
 			},
@@ -446,10 +444,8 @@ func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName, nadName string
 
 func generateNetwork(name, nadName string) v1.Network {
 	return v1.Network{
-		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{NetworkName: nadName},
-		},
+		Name:   name,
+		Multus: &v1.MultusNetwork{NetworkName: nadName},
 	}
 }
 

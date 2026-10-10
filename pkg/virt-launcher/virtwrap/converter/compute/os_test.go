@@ -375,10 +375,8 @@ func withSecretVolume(volumeName string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: volumeName,
-				},
+			Secret: &v1.SecretVolumeSource{
+				SecretName: volumeName,
 			},
 		})
 	}
