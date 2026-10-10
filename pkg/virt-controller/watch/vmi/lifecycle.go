@@ -318,6 +318,20 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	switch {
 	case vmi.IsUnprocessed():
+		// Keep the warning while the current sync still reports a missing PVC.
+		pvcStillMissing := syncErr != nil && syncErr.Reason() == controller.FailedPvcNotFoundReason
+		podScheduled := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+		// These are the two messages written for a missing PVC. Synchronized is not
+		// a reliable marker: CheckFailure can retain an older message or clear it.
+		missingPVCMessage := podScheduled != nil && ((strings.HasPrefix(podScheduled.Message, "PVC "+vmi.Namespace+"/") &&
+			strings.HasSuffix(podScheduled.Message, " does not exist, waiting for it to appear")) ||
+			strings.HasPrefix(podScheduled.Message, "failed to render launch manifest: didn't find PVC "))
+		syntheticPVCCondition := missingPVCMessage && podScheduled.Status == k8sv1.ConditionFalse && podScheduled.Reason == k8sv1.PodReasonUnschedulable
+		// Clear only our synthetic condition before the Pod branch: the PVC may become
+		// ready and create the launcher Pod in this sync, skipping Pending.
+		if !pvcStillMissing && syntheticPVCCondition {
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+		}
 		if vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil || hasFailedDataVolume {
@@ -379,8 +393,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.QOSClass = &pod.Status.QOSClass
 			}
 
-			// Add PodScheduled False condition to the VM
+			// AddPodCondition keeps an existing condition, so remove a stale PVC
+			// message first when the launcher Pod reports its own scheduling error.
 			if podConditionManager.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse) {
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 				conditionManager.AddPodCondition(vmiCopy, podConditionManager.GetCondition(pod, k8sv1.PodScheduled))
 			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 				// Remove PodScheduling condition from the VM
