@@ -15,6 +15,30 @@ KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION:-9}
 TARGET_SUFFIX="_cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
 CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
+# CentOS Stream compose snapshot configuration:
+# Pinned compose snapshots ensure deterministic and idempotent RPM dependency resolution
+# across runs, developers, and CI builders, avoiding mirror drift in rolling repositories.
+# Defaults can be overridden with CENTOS_STREAM_COMPOSE or version-specific variables.
+# Example: CENTOS_STREAM_COMPOSE="CentOS-Stream-9-20260908.0" or "latest-CentOS-Stream"
+CENTOS_STREAM_COMPOSE_BASEURL=${CENTOS_STREAM_COMPOSE_BASEURL:-"https://composes.stream.centos.org"}
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    CENTOS_STREAM_COMPOSE=${CENTOS_STREAM_10_COMPOSE:-${CENTOS_STREAM_COMPOSE:-""}}
+else
+    CENTOS_STREAM_COMPOSE=${CENTOS_STREAM_9_COMPOSE:-${CENTOS_STREAM_COMPOSE:-""}}
+fi
+
+# Solver best-version flag:
+# Passing --nobest to bazeldnf allows libsolv to pick arbitrary non-optimal candidate
+# package versions instead of the best/highest candidate. This leads to non-deterministic
+# dependency resolution across different runs and mirrors.
+# Default to enforcing best-version selection (omitting --nobest). Pass BAZELDNF_NOBEST=true
+# if --nobest behavior is explicitly needed.
+BAZELDNF_NOBEST=${BAZELDNF_NOBEST:-"false"}
+SOLVER_FLAGS="--public"
+if [ "${BAZELDNF_NOBEST}" = "true" ]; then
+    SOLVER_FLAGS="--public --nobest"
+fi
+
 # Version-specific package versions
 if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
     # CS10 pinned versions
@@ -42,11 +66,61 @@ else
     LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.20.3-4.el9}
 fi
 
+# Critical shared base library versions (optional override for explicit version pinning)
+GLIB2_VERSION=${GLIB2_VERSION:-""}
+GNUTLS_VERSION=${GNUTLS_VERSION:-""}
+SYSTEMD_LIBS_VERSION=${SYSTEMD_LIBS_VERSION:-""}
+LIBCAP_NG_VERSION=${LIBCAP_NG_VERSION:-""}
+
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
-# Select repo file based on version
-bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+# Select repo file based on version or compose snapshot
+if [ -n "${CENTOS_STREAM_COMPOSE}" ]; then
+    COMPOSE_REPO_FILE="rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}-compose.yaml"
+    cat > "${KUBEVIRT_DIR}/${COMPOSE_REPO_FILE}" <<EOF
+repositories:
+- arch: x86_64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/BaseOS/x86_64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-baseos-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: x86_64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/AppStream/x86_64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-appstream-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: x86_64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/CRB/x86_64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-crb-x86_64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: aarch64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/BaseOS/aarch64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-baseos-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: aarch64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/AppStream/aarch64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-appstream-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: aarch64
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/CRB/aarch64/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-crb-aarch64
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/BaseOS/s390x/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-baseos-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/AppStream/s390x/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-appstream-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+- arch: s390x
+  baseurl: ${CENTOS_STREAM_COMPOSE_BASEURL}/stream-${KUBEVIRT_CENTOS_STREAM_VERSION}/production/${CENTOS_STREAM_COMPOSE}/compose/CRB/s390x/os/
+  name: centos/stream${KUBEVIRT_CENTOS_STREAM_VERSION}-crb-s390x
+  gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official
+EOF
+    bazeldnf_repos="--repofile ${COMPOSE_REPO_FILE}"
+else
+    bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
+fi
 if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
     bazeldnf_repos="--repofile rpm/repo-virt-preview.yaml ${bazeldnf_repos}"
 fi
@@ -85,8 +159,12 @@ centos_main="
 "
 centos_extra="
   coreutils-single
+  glib2${GLIB2_VERSION:+-${GLIB2_VERSION}}
   glibc-minimal-langpack
+  gnutls${GNUTLS_VERSION:+-${GNUTLS_VERSION}}
+  libcap-ng${LIBCAP_NG_VERSION:+-${LIBCAP_NG_VERSION}}
   libcurl-minimal
+  systemd-libs${SYSTEMD_LIBS_VERSION:+-${SYSTEMD_LIBS_VERSION}}
 "
 
 # create a rpmtree for our test image with misc. tools.
@@ -248,7 +326,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name testimage_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -260,7 +338,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libvirt-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -272,7 +350,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libnbd-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -283,7 +361,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sandboxroot_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -294,7 +372,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name launcherbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
@@ -324,7 +402,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name handlerbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
@@ -337,7 +415,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name passt_tree_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -345,7 +423,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
     bazel run \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libguestfs-tools_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         $centos_main \
@@ -364,7 +442,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name exportserverbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -375,7 +453,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name pr-helper_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -386,7 +464,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sidecar-shim_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -420,7 +498,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name testimage_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -432,7 +510,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libvirt-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -444,7 +522,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libnbd-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -455,7 +533,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sandboxroot_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -466,7 +544,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -475,7 +553,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name launcherbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
@@ -491,7 +569,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         bazel run \
             --config=${ARCHITECTURE} \
             //:bazeldnf -- rpmtree \
-            --public --nobest \
+            ${SOLVER_FLAGS} \
             --name launcherbase_crossarch_aarch64${TARGET_SUFFIX} \
             --basesystem ${BASESYSTEM} \
             --force-ignore-with-dependencies '^mozjs60' \
@@ -506,7 +584,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name handlerbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
@@ -519,7 +597,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name exportserverbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -530,7 +608,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name pr-helper_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -541,7 +619,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sidecar-shim_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -574,7 +652,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name testimage_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -586,7 +664,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libvirt-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -598,7 +676,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libnbd-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -609,7 +687,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sandboxroot_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -620,7 +698,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name launcherbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
@@ -635,7 +713,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -645,7 +723,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name handlerbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
@@ -658,7 +736,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name exportserverbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
@@ -668,7 +746,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
 
     bazel run \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name libguestfs-tools_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         $centos_main \
@@ -687,7 +765,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
-        --public --nobest \
+        ${SOLVER_FLAGS} \
         --name sidecar-shim_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
