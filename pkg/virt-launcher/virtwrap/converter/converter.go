@@ -201,16 +201,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-// GetVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
-func GetVolumeNameByTarget(domain *api.Domain, target string) string {
-	for _, d := range domain.Spec.Devices.Disks {
-		if d.Target.Device == target {
-			return d.Alias.GetName()
-		}
-	}
-	return ""
-}
-
 func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
 	if input == nil {
 		return nil
