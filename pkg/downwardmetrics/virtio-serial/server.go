@@ -53,7 +53,7 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) error {
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) {
 	report := newMetricsReporter(nodeName, launcherSocketPath)
 
 	server := downwardMetricsServer{
@@ -63,7 +63,6 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 		reportFn:           report,
 	}
 	go server.start(ctx)
-	return nil
 }
 
 type metricsReporter func() (*api.Metrics, error)
