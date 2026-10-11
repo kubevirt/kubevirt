@@ -131,20 +131,19 @@ var _ = Describe("Changed Block Tracking", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("dv-volume", "test-dv", false),
-				newHostDiskVolume("host-disk-volume", "/path/to/disk"),
+				newHostDiskVolume("host-disk-volume", "/data/disk.img"),
 			}
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(createQCOW2OverlayCalled).To(Equal(3))
+			Expect(createQCOW2OverlayCalled).To(Equal(2))
+			Expect(converterContext.ApplyCBT).ToNot(HaveKey("host-disk-volume"))
 			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
 			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
 			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
 			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("host-disk-volume"))
-			Expect(converterContext.ApplyCBT["host-disk-volume"]).To(ContainSubstring("host-disk-volume.qcow2"))
 		})
 
 		It("should process block volumes that support CBT", func() {
