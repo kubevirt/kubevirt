@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -61,6 +62,26 @@ var _ = Describe("Changed Block Tracking", func() {
 			createQCOW2OverlayCalled++
 			return nil
 		}
+	}
+
+	setClaimUID := func(volumeName string) {
+		vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+			Name:                      volumeName,
+			PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimUID: types.UID(volumeName + "-uid")},
+		})
+	}
+
+	withVolumes := func(volumes ...v1.Volume) {
+		vmi.Spec.Volumes = volumes
+		for _, volume := range volumes {
+			if volume.PersistentVolumeClaim != nil || volume.DataVolume != nil {
+				setClaimUID(volume.Name)
+			}
+		}
+	}
+
+	overlayPath := func(volumeName string) string {
+		return cbt.QCOW2OverlayPathForClaim(vmi, types.UID(volumeName+"-uid"))
 	}
 
 	Context("ShouldCreateQCOW2Overlay", func() {
@@ -107,6 +128,18 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).ToNot(Succeed())
 			Expect(os.ReadFile(target)).To(Equal([]byte("target")))
 		})
+
+		It("should refuse a claim directory reached through a symlink", func() {
+			root := filepath.Join(dir, "cbt")
+			elsewhere := filepath.Join(dir, "elsewhere")
+			Expect(os.Mkdir(root, 0o755)).To(Succeed())
+			Expect(os.Mkdir(elsewhere, 0o755)).To(Succeed())
+			Expect(os.Symlink(elsewhere, filepath.Join(root, "volumes"))).To(Succeed())
+
+			overlay := filepath.Join(root, "volumes", "claim-uid", "overlay.qcow2")
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).ToNot(Succeed())
+			Expect(os.ReadDir(elsewhere)).To(BeEmpty())
+		})
 	})
 
 	Context("ApplyChangedBlockTracking", func() {
@@ -116,10 +149,10 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should skip volumes that don't support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newConfigMapVolume("config-map-volume"),
 				newSecretVolume("secret-volume"),
-			}
+			)
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
@@ -128,33 +161,31 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should process fs volumes that support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("dv-volume", "test-dv", false),
 				newHostDiskVolume("host-disk-volume", "/path/to/disk"),
 				newHostDiskVolume("user-host-disk", "/data/disk.img"),
-			}
-			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "host-disk-volume", PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{}}}
+			)
+			setClaimUID("host-disk-volume")
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(3))
-			Expect(converterContext.ApplyCBT).ToNot(HaveKey("user-host-disk"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("host-disk-volume"))
-			Expect(converterContext.ApplyCBT["host-disk-volume"]).To(ContainSubstring("host-disk-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{
+				"pvc-volume":       overlayPath("pvc-volume"),
+				"dv-volume":        overlayPath("dv-volume"),
+				"host-disk-volume": overlayPath("host-disk-volume"),
+			}))
 		})
 
 		It("should process block volumes that support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("dv-volume", "test-dv", false),
-			}
+			)
 			converterContext.IsBlockPVC["pvc-volume"] = true
 			converterContext.IsBlockDV["dv-volume"] = true
 
@@ -169,17 +200,17 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(2))
 			Expect(capturedPaths).To(ConsistOf(volumepath.BlockDevice("pvc-volume"), volumepath.BlockDevice("dv-volume")))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{
+				"pvc-volume": overlayPath("pvc-volume"),
+				"dv-volume":  overlayPath("dv-volume"),
+			}))
 		})
 
 		It("should process hotplug volumes with correct paths", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true),
 				newDVVolume("hotplug-dv-volume", "test-hotplug-dv", true),
-			}
+			)
 			converterContext.IsBlockPVC["hotplug-pvc-volume"] = false
 			converterContext.IsBlockDV["hotplug-dv-volume"] = false
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
@@ -205,9 +236,9 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should process hotplug block volumes with correct paths", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("hotplug-block-volume", "test-hotplug-block-pvc", true),
-			}
+			)
 			converterContext.IsBlockPVC["hotplug-block-volume"] = true
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-block-volume": {Name: "hotplug-block-volume", Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -229,22 +260,21 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should apply cbt to domain but skip creation when CBT is already enabled", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("pvc-volume", "test-pvc", false),
-			}
+			)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{"pvc-volume": overlayPath("pvc-volume")}))
 		})
 
 		It("should create overlay for hotplug volume when CBT is already enabled", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("hotplug-pvc-volume", "test-pvc", true),
-			}
+			)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -253,14 +283,13 @@ var _ = Describe("Changed Block Tracking", func() {
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(1))
-			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
-			Expect(converterContext.ApplyCBT["hotplug-pvc-volume"]).To(ContainSubstring("hotplug-pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{"hotplug-pvc-volume": overlayPath("hotplug-pvc-volume")}))
 		})
 
 		It("should skip overlay creation for hotplug volume when phase is VolumeReady", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("hotplug-pvc-volume", "test-pvc", true),
-			}
+			)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -269,14 +298,30 @@ var _ = Describe("Changed Block Tracking", func() {
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
-			Expect(converterContext.ApplyCBT["hotplug-pvc-volume"]).To(ContainSubstring("hotplug-pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{"hotplug-pvc-volume": overlayPath("hotplug-pvc-volume")}))
 		})
 
-		It("should return error when overlay creation fails", func() {
+		It("should skip hotplug volumes that are not attached yet", func() {
+			withVolumes(newPVCVolume("pvc-volume", "test-pvc", false))
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true))
+
+			Expect(ApplyChangedBlockTracking(vmi, converterContext)).To(Succeed())
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{"pvc-volume": overlayPath("pvc-volume")}))
+		})
+
+		It("should fail when the claim UID of a volume is not known yet", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("pvc-volume", "test-pvc", false),
 			}
+
+			Expect(ApplyChangedBlockTracking(vmi, converterContext)).ToNot(Succeed())
+			Expect(createQCOW2OverlayCalled).To(Equal(0))
+		})
+
+		It("should return error when overlay creation fails", func() {
+			withVolumes(
+				newPVCVolume("pvc-volume", "test-pvc", false),
+			)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 
 			errMsg := "failed to create overlay"
@@ -314,6 +359,16 @@ var _ = Describe("Changed Block Tracking", func() {
 			}}
 		}
 
+		It("should remove the claim directory of a per-claim overlay", func() {
+			overlay := touch(filepath.Join(dir, "volumes", "claim-uid", "overlay.qcow2"))
+			touch(filepath.Join(dir, "volumes", "claim-uid", "overlay.map"))
+			other := touch(filepath.Join(dir, "volumes", "other-uid", "overlay.qcow2"))
+
+			Expect(DeleteQCOW2Overlay(overlayDisk(overlay))).To(Succeed())
+			Expect(filepath.Dir(overlay)).ToNot(BeAnExistingFile())
+			Expect(other).To(BeAnExistingFile())
+		})
+
 		DescribeTable("should remove only the file of a flat overlay", func(name string) {
 			overlay := touch(filepath.Join(dir, name))
 			other := touch(filepath.Join(dir, "other.qcow2"))
@@ -323,7 +378,27 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(other).To(BeAnExistingFile())
 		},
 			Entry("of a volume", "disk0.qcow2"),
+			Entry("of a volume named like the per-claim overlay", "overlay.qcow2"),
 		)
+
+		It("should not follow a symlinked claim directory", func() {
+			elsewhere := GinkgoT().TempDir()
+			kept := touch(filepath.Join(elsewhere, "kept"))
+			Expect(os.MkdirAll(filepath.Join(dir, "volumes"), 0o755)).To(Succeed())
+			Expect(os.Symlink(elsewhere, filepath.Join(dir, "volumes", "claim-uid"))).To(Succeed())
+
+			Expect(DeleteQCOW2Overlay(overlayDisk(filepath.Join(dir, "volumes", "claim-uid", "overlay.qcow2")))).To(Succeed())
+			Expect(kept).To(BeAnExistingFile())
+		})
+
+		It("should refuse a claim directory reached through a symlink", func() {
+			elsewhere := GinkgoT().TempDir()
+			kept := touch(filepath.Join(elsewhere, "claim-uid", "kept"))
+			Expect(os.Symlink(elsewhere, filepath.Join(dir, "volumes"))).To(Succeed())
+
+			Expect(DeleteQCOW2Overlay(overlayDisk(filepath.Join(dir, "volumes", "claim-uid", "overlay.qcow2")))).ToNot(Succeed())
+			Expect(kept).To(BeAnExistingFile())
+		})
 
 		It("should ignore disks without an overlay", func() {
 			image := touch(filepath.Join(dir, "disk.img"))
@@ -339,10 +414,10 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should skip volumes that don't support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newConfigMapVolume("config-map-volume"),
 				newSecretVolume("secret-volume"),
-			}
+			)
 
 			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
@@ -351,10 +426,10 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		DescribeTable("should leave overlay creation to the premigration hook", func(setMigrationState func(*v1.VirtualMachineInstance)) {
-			vmi.Spec.Volumes = []v1.Volume{
+			withVolumes(
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("hotplug-dv-volume", "test-dv", true),
-			}
+			)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-dv-volume": {Name: "hotplug-dv-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
 			}
@@ -362,12 +437,22 @@ var _ = Describe("Changed Block Tracking", func() {
 
 			Expect(ApplyChangedBlockTrackingForMigration(vmi, converterContext)).To(Succeed())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("pvc-volume", cbt.GetQCOW2OverlayPath(vmi, "pvc-volume")))
-			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("hotplug-dv-volume", cbt.GetQCOW2OverlayPath(vmi, "hotplug-dv-volume")))
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{
+				"pvc-volume":        overlayPath("pvc-volume"),
+				"hotplug-dv-volume": overlayPath("hotplug-dv-volume"),
+			}))
 		},
 			Entry("with RWO backend storage", setRWOMigrationState),
 			Entry("with RWX backend storage", setRWXMigrationState),
 		)
+
+		It("should skip hotplug volumes that are not attached yet", func() {
+			withVolumes(newPVCVolume("pvc-volume", "test-pvc", false))
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true))
+
+			Expect(ApplyChangedBlockTrackingForMigration(vmi, converterContext)).To(Succeed())
+			Expect(converterContext.ApplyCBT).To(Equal(map[string]string{"pvc-volume": overlayPath("pvc-volume")}))
+		})
 	})
 })
 

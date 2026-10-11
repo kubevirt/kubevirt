@@ -535,7 +535,7 @@ var _ = Describe(SIG("Backup", func() {
 		pvcName := backendstorage.CurrentPVCName(vmi)
 		Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
 		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
-		cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
+		cbtOverlayPath := backendOverlayPath(vmi, volumeName)
 
 		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 		Expect(err).ToNot(HaveOccurred())

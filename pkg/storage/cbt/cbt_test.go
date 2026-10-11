@@ -27,6 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -587,6 +588,36 @@ var _ = Describe("CBT", func() {
 		It("should not consider a user HostDisk eligible", func() {
 			volume := &v1.Volume{Name: "test-volume", VolumeSource: v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/data/disk.img"}}}
 			Expect(cbt.IsCBTEligibleVolume(libvmi.New(), volume)).To(BeFalse())
+		})
+	})
+
+	Context("GetQCOW2OverlayPath", func() {
+		withClaim := func(volumeName string, uid types.UID) *v1.VirtualMachineInstance {
+			return libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+					Name:                      volumeName,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "claim", ClaimUID: uid},
+				}),
+			)))
+		}
+
+		overlayOf := func(vmi *v1.VirtualMachineInstance, volumeName string) string {
+			path, err := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+			Expect(err).ToNot(HaveOccurred())
+			return path
+		}
+
+		It("should give the same claim the same overlay under any volume name", func() {
+			Expect(overlayOf(withClaim("disk0", "claim-uid"), "disk0")).To(Equal(overlayOf(withClaim("renamed", "claim-uid"), "renamed")))
+		})
+
+		It("should give a recreated claim a different overlay", func() {
+			Expect(overlayOf(withClaim("disk0", "original-uid"), "disk0")).ToNot(Equal(overlayOf(withClaim("disk0", "recreated-uid"), "disk0")))
+		})
+
+		It("should fail when the claim UID is not known yet", func() {
+			_, err := cbt.GetQCOW2OverlayPath(withClaim("disk0", ""), "disk0")
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

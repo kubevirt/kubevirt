@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
@@ -69,6 +71,11 @@ var CreateQCOW2Overlay = createQCOW2Overlay
 
 // XXX: Use keep_data_file once QEMU 11 lands.
 func createQCOW2Overlay(overlayPath, imagePath string) error {
+	if cbt.IsClaimOverlayPath(overlayPath) {
+		if err := ensureClaimDir(filepath.Dir(overlayPath)); err != nil {
+			return fmt.Errorf("failed to prepare QCOW2 overlay directory for %s: %w", overlayPath, err)
+		}
+	}
 	if fi, err := os.Lstat(overlayPath); err == nil {
 		if !fi.Mode().IsRegular() {
 			return fmt.Errorf("QCOW2 overlay %s is not a regular file", overlayPath)
@@ -133,10 +140,42 @@ func DeleteQCOW2Overlay(disk api.Disk) error {
 		return nil
 	}
 	target := disk.Source.File
+	if cbt.IsClaimOverlayPath(target) {
+		target = filepath.Dir(target)
+		if err := requireDir(filepath.Dir(target)); errors.Is(err, os.ErrNotExist) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
+		}
+	}
 	if err := os.RemoveAll(target); err != nil {
 		return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
 	}
 	log.Log.Infof("QCOW2 overlay %s deleted", target)
+	return nil
+}
+
+func ensureClaimDir(dir string) error {
+	for _, d := range []string{filepath.Dir(dir), dir} {
+		// #nosec G301: qemu has to traverse the directory.
+		if err := os.Mkdir(d, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+			return err
+		}
+		if err := requireDir(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func requireDir(path string) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("%s is not a directory", path)
+	}
 	return nil
 }
 
@@ -148,12 +187,15 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	for _, volume := range vmi.Spec.Volumes {
 		volumeName := volume.Name
 		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
-		if !cbt.IsCBTEligibleVolume(vmi, &volume) {
+		if !cbt.IsCBTEligibleVolume(vmi, &volume) || isPendingHotplug(&volume, c) {
 			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
 			continue
 		}
 
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		overlayPath, err := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		if err != nil {
+			return err
+		}
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
 
 		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
@@ -166,8 +208,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath)
-		if err != nil {
+		if err := CreateQCOW2Overlay(overlayPath, imagePath); err != nil {
 			return err
 		}
 		applyCBTMap[volumeName] = overlayPath
@@ -177,12 +218,24 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	return nil
 }
 
+func isPendingHotplug(volume *v1.Volume, c *convertertypes.ConverterContext) bool {
+	if !storagetypes.IsHotplugVolume(volume) {
+		return false
+	}
+	return !storagetypes.IsHotplugVolumeAttachable(c.HotplugVolumes[volume.Name].Phase)
+}
+
 func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
 	applyCBTMap := make(map[string]string)
 	for _, volume := range vmi.Spec.Volumes {
-		if cbt.IsCBTEligibleVolume(vmi, &volume) {
-			applyCBTMap[volume.Name] = cbt.GetQCOW2OverlayPath(vmi, volume.Name)
+		if !cbt.IsCBTEligibleVolume(vmi, &volume) || isPendingHotplug(&volume, c) {
+			continue
 		}
+		overlayPath, err := cbt.GetQCOW2OverlayPath(vmi, volume.Name)
+		if err != nil {
+			return err
+		}
+		applyCBTMap[volume.Name] = overlayPath
 	}
 	c.ApplyCBT = applyCBTMap
 	return nil
