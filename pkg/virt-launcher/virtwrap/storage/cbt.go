@@ -128,19 +128,15 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 	return nil
 }
 
-func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error {
-	if !cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+func DeleteQCOW2Overlay(disk api.Disk) error {
+	if !DiskHasDataStore(&disk) || disk.Source.File == "" {
 		return nil
 	}
-
-	overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-	if err := os.Remove(overlayPath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete QCOW2 overlay %s for volume %s: %w", overlayPath, volumeName, err)
+	target := disk.Source.File
+	if err := os.RemoveAll(target); err != nil {
+		return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
 	}
-	log.Log.Infof("QCOW2 overlay %s deleted for unplugged volume %s", overlayPath, volumeName)
+	log.Log.Infof("QCOW2 overlay %s deleted", target)
 	return nil
 }
 
