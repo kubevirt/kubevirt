@@ -35975,6 +35975,13 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotContentStatus
 							Format:      "int32",
 						},
 					},
+					"quiesceFailed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiesceFailed records that the snapshot fell back to crash consistency after a freeze error.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -36055,6 +36062,13 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 						SchemaProps: spec.SchemaProps{
 							Description: "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
+						},
+					},
+					"quiescePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiescePolicy controls filesystem quiescing for online snapshots. When empty or omitted, defaults to RequireIfAgentConnected: quiesce when the guest agent is connected and retry freeze errors until FailureDeadline, without falling back. BestEffort allows a crash-consistent snapshot when freeze retries are exhausted or another retry would leave insufficient time before FailureDeadline. Skip takes a snapshot without attempting quiescing. Offline snapshots and paused VMs are not quiesced. Without a guest agent, online snapshots are crash-consistent regardless of this policy.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -37028,6 +37042,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotContentStatus(
 							Format:      "int32",
 						},
 					},
+					"quiesceFailed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiesceFailed records that the snapshot fell back to crash consistency after a freeze error.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -37108,6 +37129,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 						SchemaProps: spec.SchemaProps{
 							Description: "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
+						},
+					},
+					"quiescePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QuiescePolicy controls filesystem quiescing for online snapshots. When empty or omitted, defaults to RequireIfAgentConnected: quiesce when the guest agent is connected and retry freeze errors until FailureDeadline, without falling back. BestEffort allows a crash-consistent snapshot when freeze retries are exhausted or another retry would leave insufficient time before FailureDeadline. Skip takes a snapshot without attempting quiescing. Offline snapshots and paused VMs are not quiesced. Without a guest agent, online snapshots are crash-consistent regardless of this policy.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

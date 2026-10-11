@@ -576,8 +576,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should unlock source VirtualMachine", func() {
+			DescribeTable("should unlock source VirtualMachine", func(policy snapshotv1.QuiescePolicy) {
 				vmSnapshot := createVMSnapshotSuccess()
+				vmSnapshot.Spec.QuiescePolicy = policy
 				vm := createLockedVM()
 				updatedVM := vm.DeepCopy()
 				updatedVM.Finalizers = []string{}
@@ -593,7 +594,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmInterface.EXPECT().UpdateStatus(context.Background(), statusUpdate, metav1.UpdateOptions{}).Return(statusUpdate, nil).Times(1)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
-			})
+			},
+				Entry("with a supported policy", snapshotv1.QuiescePolicy("")),
+				Entry("with an unknown policy after completion", snapshotv1.QuiescePolicy("FuturePolicy")),
+			)
 
 			It("shouldn't unlock if snapshot deleting before completed and content not deleted", func() {
 				vmSnapshot := createVMSnapshotInProgress()
@@ -789,6 +793,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 						snapshotv1.VMSnapshotNoGuestAgentIndication,
 						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						snapshotv1.VMSnapshotQuiesceSkippedIndication,
 					}
 					updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 						{
@@ -798,6 +803,10 @@ var _ = Describe("Snapshot controlleer", func() {
 						{
 							Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
 							Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+						},
+						{
+							Indication: snapshotv1.VMSnapshotQuiesceSkippedIndication,
+							Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceSkippedIndication),
 						},
 					}
 				}
@@ -1083,6 +1092,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					snapshotv1.VMSnapshotQuiesceSkippedIndication,
 				}
 				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1092,6 +1102,10 @@ var _ = Describe("Snapshot controlleer", func() {
 					{
 						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceSkippedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceSkippedIndication),
 					},
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -1188,6 +1202,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					snapshotv1.VMSnapshotQuiesceSkippedIndication,
 				}
 				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1198,6 +1213,10 @@ var _ = Describe("Snapshot controlleer", func() {
 						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
 					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceSkippedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceSkippedIndication),
+					},
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
@@ -1207,10 +1226,15 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*createCalls).To(Equal(1))
 			})
 
-			It("should update VirtualMachineSnapshotStatus", func() {
+			DescribeTable("should update VirtualMachineSnapshotStatus on completion", func(quiesceFailed bool, unknownPolicy bool) {
 				vmSnapshotContent := createReadyVMSnapshotContent()
+				vmSnapshotContent.Status.QuiesceFailed = quiesceFailed
 
 				vmSnapshot := createVMSnapshotInProgress()
+				if unknownPolicy {
+					vmSnapshot.Spec.QuiescePolicy = "FuturePolicy"
+					vmSnapshot.Status.Phase = snapshotv1.Succeeded
+				}
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.SourceUID = &vmUID
@@ -1220,6 +1244,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.SourceIndications = nil
+				if quiesceFailed {
+					updatedSnapshot.Status.Indications = []snapshotv1.Indication{snapshotv1.VMSnapshotQuiesceFailedIndication}
+					updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{{
+						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					}}
+				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Ready"),
@@ -1229,6 +1260,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				vm := createLockedVM()
+				if unknownPolicy {
+					vm = createVM()
+				}
 
 				vmSource.Add(vm)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
@@ -1236,7 +1270,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
-			})
+			},
+				Entry("without fallback", false, false),
+				Entry("when content already completed after fallback", true, false),
+				Entry("preserving completed snapshots with a newer policy", false, true),
+			)
 
 			It("should update included and excluded volume in VirtualMachineSnapshotStatus", func() {
 				vmSnapshotContent := createReadyVMSnapshotContent()
@@ -1638,62 +1676,109 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should fall back to crash-consistent snapshot after max freeze retries", func() {
-				storageClass := createStorageClass()
-				storageClassSource.Add(storageClass)
+			It("should not fall back after the overall deadline expires", func() {
+				snapshot := createVMSnapshotInProgress()
+				snapshot.Spec.QuiescePolicy = snapshotv1.QuiescePolicyBestEffort
+				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: -time.Second}
+				snapshot.CreationTimestamp = metav1.Now()
+				Expect(shouldFallback(snapshot, MaxFreezeRetries)).To(BeFalse())
+			})
 
+			It("should pause unsupported quiesce policy values", func() {
 				vmSnapshot := createVMSnapshotInProgress()
-				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshot.Spec.QuiescePolicy = "FuturePolicy"
+				vmSource.Add(createLockedVM())
+				content := createVMSnapshotContent()
+				content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{ReadyToUse: pointer.P(false)}
+				vmSnapshotContentSource.Add(content)
+				addVirtualMachineSnapshot(vmSnapshot)
 
-				vmSnapshotContent := createVMSnapshotContent()
-				vmSnapshotContent.UID = contentUID
-				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					FreezeFailures: MaxFreezeRetries - 1,
-				}
-				vmSnapshotContentSource.Add(vmSnapshotContent)
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &content.Name
+				progressing := newProgressingCondition(corev1.ConditionFalse, "UnsupportedValue")
+				progressing.Message = "Unsupported quiescePolicy \"FuturePolicy\""
+				ready := newReadyCondition(corev1.ConditionFalse, "UnsupportedValue")
+				ready.Message = progressing.Message
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{progressing, ready}
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
-				vm := createLockedVM()
-				vmSource.Add(vm)
-
-				vmi := createVMI(vm)
-				agentCondition := v1.VirtualMachineInstanceCondition{
-					Type:          v1.VirtualMachineInstanceAgentConnected,
-					LastProbeTime: metav1.Now(),
-					Status:        corev1.ConditionTrue,
-				}
-				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
-				vmiSource.Add(vmi)
-
-				updatedContent := vmSnapshotContent.DeepCopy()
-				updatedContent.ResourceVersion = "1"
-				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
-					ReadyToUse:     pointer.P(false),
-					FreezeFailures: MaxFreezeRetries,
-				}
-
-				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
-				for i := range volumeSnapshots {
-					vss := snapshotv1.VolumeSnapshotStatus{
-						VolumeSnapshotName: volumeSnapshots[i].Name,
-					}
-					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
-				}
-
-				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				addVolumeSnapshotClass(volumeSnapshotClass)
-
-				errorMessage := "Guest agent is not responding"
-				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf("%s", errorMessage)).Times(1)
-				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
-				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
-
+				controller.processVMSnapshotWorkItem()
 				controller.processVMSnapshotContentWorkItem()
-				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
-				Expect(*snapshotCreates).To(Equal(1))
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should set QuiesceFailed indication when content has max freeze attempts", func() {
+			DescribeTable("should apply quiesce policy to freeze failures",
+				func(policy snapshotv1.QuiescePolicy, failures int32, deadline time.Duration, fallback bool, alreadyFallback bool) {
+					vmSnapshot := createVMSnapshotInProgress()
+					vmSnapshot.Spec.QuiescePolicy = policy
+					vmSnapshot.Spec.FailureDeadline = &metav1.Duration{Duration: deadline}
+					vmSnapshot.CreationTimestamp = metav1.Now()
+					vmSnapshotSource.Add(vmSnapshot)
+					vm := createLockedVM()
+					vmSource.Add(vm)
+					vmi := createVMI(vm)
+					vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceAgentConnected,
+						Status: corev1.ConditionTrue,
+					})
+					vmiSource.Add(vmi)
+					content := createVMSnapshotContent()
+					content.UID = contentUID
+					content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+						FreezeFailures: failures,
+						QuiesceFailed:  alreadyFallback,
+					}
+					vmSnapshotContentSource.Add(content)
+					storageClassSource.Add(createStorageClass())
+					volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+					addVolumeSnapshotClass(volumeSnapshotClass)
+
+					updatedContent := content.DeepCopy()
+					updatedContent.Status.ReadyToUse = pointer.P(false)
+					errorMessage := "permission denied"
+					if !alreadyFallback {
+						vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, deadline).Return(fmt.Errorf("%s", errorMessage))
+						updatedContent.Status.FreezeFailures++
+					}
+					updatedContent.Status.QuiesceFailed = fallback
+					if fallback && alreadyFallback {
+						volumeSnapshots := createVolumeSnapshots(content)
+						for _, vs := range volumeSnapshots {
+							updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, snapshotv1.VolumeSnapshotStatus{VolumeSnapshotName: vs.Name})
+						}
+						expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, content)
+					} else if !fallback {
+						updatedContent.Status.Error = &snapshotv1.Error{Time: timeFunc(), Message: &errorMessage}
+					}
+					updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+					controller.processVMSnapshotContentWorkItem()
+					Expect(*updateStatusCalls).To(Equal(1))
+					if fallback && !alreadyFallback {
+						// The fallback decision must be stored before any volume is created.
+						mockVMSnapshotContentQueue.ExpectAdds(1)
+						vmSnapshotContentSource.Modify(updatedContent)
+						mockVMSnapshotContentQueue.Wait()
+						createdContent := updatedContent.DeepCopy()
+						for _, vs := range createVolumeSnapshots(content) {
+							createdContent.Status.VolumeSnapshotStatus = append(createdContent.Status.VolumeSnapshotStatus, snapshotv1.VolumeSnapshotStatus{VolumeSnapshotName: vs.Name})
+						}
+						expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, content)
+						createStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, createdContent)
+						controller.processVMSnapshotContentWorkItem()
+						Expect(*createStatusCalls).To(Equal(1))
+					}
+				},
+				Entry("omitted default keeps retrying", snapshotv1.QuiescePolicy(""), int32(MaxFreezeRetries), time.Duration(0), false, false),
+				Entry("explicit default keeps retrying", snapshotv1.QuiescePolicyRequireIfAgentConnected, int32(MaxFreezeRetries), time.Duration(0), false, false),
+				Entry("default preserves a short deadline", snapshotv1.QuiescePolicyRequireIfAgentConnected, int32(0), 10*time.Second, false, false),
+				Entry("best effort with no deadline retries below the limit", snapshotv1.QuiescePolicyBestEffort, int32(0), time.Duration(0), false, false),
+				Entry("best effort with sufficient budget keeps retrying", snapshotv1.QuiescePolicyBestEffort, int32(0), time.Minute, false, false),
+				Entry("best effort falls back after the sixth failure", snapshotv1.QuiescePolicyBestEffort, int32(MaxFreezeRetries-1), time.Duration(0), true, false),
+				Entry("best effort reserves time before the deadline", snapshotv1.QuiescePolicyBestEffort, int32(0), 10*time.Second, true, false),
+				Entry("best effort preserves its recorded fallback", snapshotv1.QuiescePolicyBestEffort, int32(1), time.Duration(0), true, true),
+			)
+
+			It("should set QuiesceFailed indication for an early fallback", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1708,7 +1793,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse:     pointer.P(false),
-					FreezeFailures: MaxFreezeRetries,
+					FreezeFailures: 1,
+					QuiesceFailed:  true,
 				}
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
@@ -1735,6 +1821,57 @@ var _ = Describe("Snapshot controlleer", func() {
 					{
 						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
 						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					},
+				}
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should set QuiesceSkipped indication with the Skip policy", func() {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse:     pointer.P(false),
+					FreezeFailures: MaxFreezeRetries,
+				}
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.QuiescePolicy = snapshotv1.QuiescePolicySkip
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.ReadyToUse = pointer.P(false)
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					snapshotv1.VMSnapshotQuiesceSkippedIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceSkippedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceSkippedIndication),
 					},
 				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -1943,6 +2080,52 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*snapshotCreates).To(Equal(1))
 			})
 
+			It("should not freeze with the Skip policy", func() {
+				storageClass := createStorageClass()
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.QuiescePolicy = snapshotv1.QuiescePolicySkip
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				storageClassSource.Add(storageClass)
+
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+				controller.processVMSnapshotContentWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*snapshotCreates).To(Equal(1))
+			})
+
 			DescribeTable("should set appropriate indications based on VM state",
 				func(vmiCondition *v1.VirtualMachineInstanceCondition, expectedIndications []snapshotv1.Indication) {
 					vm := createLockedVM()
@@ -2014,6 +2197,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					[]snapshotv1.Indication{
 						snapshotv1.VMSnapshotNoGuestAgentIndication,
 						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						snapshotv1.VMSnapshotQuiesceSkippedIndication,
 					},
 				),
 			)
@@ -2346,6 +2530,62 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("created and not ready", timeFunc(), false),
 				Entry("created and ready", timeFunc(), true),
 			)
+
+			It("should not unfreeze with the Skip policy", func() {
+				storageClass := createStorageClass()
+				storageClassSource.Add(storageClass)
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.QuiescePolicy = snapshotv1.QuiescePolicySkip
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				createdAt := timeFunc()
+				ready := true
+				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					volumeSnapshots[i].Status.ReadyToUse = &ready
+					volumeSnapshots[i].Status.CreationTime = createdAt
+					volumeSnapshotSource.Add(&volumeSnapshots[i])
+				}
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				updatedContent := createVMSnapshotContent()
+				updatedContent.UID = contentUID
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					CreationTime: createdAt,
+					ReadyToUse:   &ready,
+				}
+				for i := range volumeSnapshots {
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+						ReadyToUse:         volumeSnapshots[i].Status.ReadyToUse,
+						CreationTime:       volumeSnapshots[i].Status.CreationTime,
+						Error:              translateError(volumeSnapshots[i].Status.Error),
+					})
+				}
+
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				addVolumeSnapshotClass(volumeSnapshotClass)
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
 
 			DescribeTable("should attempt to unfreeze vm and remove content finalizer if vmsnapshot deleting", func(unfreezeError error) {
 				vm := createLockedVM()

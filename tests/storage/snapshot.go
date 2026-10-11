@@ -157,7 +157,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			if running {
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotQuiesceSkippedIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, false)
 			} else {
@@ -254,10 +254,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 			checkVMFreeze := func(snapshot *snapshotv1.VirtualMachineSnapshot, vmi *v1.VirtualMachineInstance, hasGuestAgent bool, assertionFunc func(*v1.VirtualMachineInstance)) {
 				var expectedIndications []snapshotv1.Indication
-				if hasGuestAgent {
+				if snapshot.Spec.QuiescePolicy == snapshotv1.QuiescePolicySkip {
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotQuiesceSkippedIndication}
+				} else if hasGuestAgent {
 					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
 				} else {
-					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotQuiesceSkippedIndication}
 				}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 
@@ -327,7 +329,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 30)).To(Succeed())
 			}
 
-			It("[test_id:6767]with volumes and guest agent available", decorators.StorageCritical, func() {
+			DescribeTable("with volumes and guest agent available", decorators.StorageCritical, func(policy snapshotv1.QuiescePolicy) {
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
 					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
@@ -365,17 +367,33 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				snapshot.Spec.QuiescePolicy = policy
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
-				checkVMFreeze(snapshot, vmi, true, ensureFreezeFedora)
+				if policy == snapshotv1.QuiescePolicySkip {
+					checkVMFreeze(snapshot, vmi, true, func(vmi *v1.VirtualMachineInstance) {
+						Expect(console.LoginToFedora(vmi)).To(Succeed())
+						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+							&expect.BSnd{S: fmt.Sprintf(grepCmd, "journalctl --file /var/log/journal/*/system.journal", "executing fsfreeze hook with arg 'freeze'")},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("1")},
+						}, 30)).To(Succeed())
+					})
+				} else {
+					checkVMFreeze(snapshot, vmi, true, ensureFreezeFedora)
+				}
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 				checkContentSourceAndMemory(vm.DeepCopy(), contentName, initialMemory)
-			})
+			},
+				Entry("[test_id:6767]with the default policy", snapshotv1.QuiescePolicy("")),
+				Entry("with the Skip policy", snapshotv1.QuiescePolicySkip),
+			)
 
 			It("[test_id:6768]with volumes and no guest agent available", decorators.StorageCritical, func() {
 				dv := libdv.NewDataVolume(
@@ -686,6 +704,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 20)).To(Succeed())
 
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				snapshot.Spec.QuiescePolicy = snapshotv1.QuiescePolicyBestEffort
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -706,6 +725,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content.Status).ToNot(BeNil())
+				Expect(content.Status.QuiesceFailed).To(BeTrue())
 				Expect(content.Status.FreezeFailures).To(BeNumerically(">=", snapshotcontroller.MaxFreezeRetries))
 			})
 
