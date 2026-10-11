@@ -3,7 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "guest_definition.go",
         "pipeline.go",
+        "pre_boot.go",
+        "pre_migration_source.go",
         "select.go",
         "sidecar.go",
         "store.go",
@@ -11,8 +14,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/hooks/plugins/v1alpha1:go_default_library",
+        "//pkg/plugins/cel:go_default_library",
         "//pkg/util/net/grpc:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/translate:go_default_library",
@@ -20,7 +23,10 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/plugin/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
         "//vendor/google.golang.org/grpc/status:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
@@ -28,21 +34,29 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "guest_definition_test.go",
         "pipeline_deadline_test.go",
         "pipeline_test.go",
         "plugins_suite_test.go",
+        "pre_migration_source_test.go",
         "select_test.go",
         "sidecar_test.go",
+        "store_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/hooks/plugins/v1alpha1:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/plugin/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+        "//vendor/google.golang.org/grpc/status:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/libvirt.org/go/libvirt:go_default_library",
     ],
 )
