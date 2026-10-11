@@ -462,5 +462,33 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 			Entry("should fall back to plugin-level Ignore when hook has none", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategy(""), false),
 			Entry("should let hook-level Fail override plugin-level Ignore", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategyFail, true),
 		)
+
+		DescribeTable("applies the failure strategy per hook across the loop", func(firstHookStrategy pluginv1alpha1.FailureStrategy, expectErr bool) {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "two-hooks"},
+				Spec: pluginv1alpha1.PluginSpec{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
+						{
+							FailureStrategy: firstHookStrategy,
+							CEL:             &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `invalid!!! expression`},
+						},
+						{
+							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "second"}`},
+						},
+					},
+				},
+			}
+
+			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			if expectErr {
+				Expect(err).To(HaveOccurred())
+				return
+			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(xmlStr).To(ContainSubstring("second"), "the hook after the ignored failure must still run and mutate")
+		},
+			Entry("continues past an ignored hook failure", pluginv1alpha1.FailureStrategyIgnore, false),
+			Entry("stops at a Fail-strategy hook failure", pluginv1alpha1.FailureStrategyFail, true),
+		)
 	})
 })

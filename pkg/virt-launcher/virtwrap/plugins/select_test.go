@@ -20,34 +20,24 @@
 package plugins
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 )
 
+// invalidCondition is a CEL expression that fails to compile, used to exercise the
+// condition-evaluation-error paths below.
+const invalidCondition = "invalid!!! expression"
+
 var _ = Describe("selectHooks", func() {
-	var evalCondition func(expr string) (bool, error)
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
-		evalCondition = func(expr string) (bool, error) {
-			switch expr {
-			case "":
-				return true, nil
-			case "true":
-				return true, nil
-			case "false":
-				return false, nil
-			case "error":
-				return false, errors.New("condition evaluation boom")
-			default:
-				return true, nil
-			}
-		}
+		vmi = &v1.VirtualMachineInstance{}
 	})
 
 	Context("hook point filtering", func() {
@@ -61,7 +51,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(1))
 			Expect(resolved[0].pluginName).To(Equal("plugin"))
@@ -77,7 +67,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -92,7 +82,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(1))
 		})
@@ -107,7 +97,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -116,14 +106,14 @@ var _ = Describe("selectHooks", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "node-hooks-only"},
 				Spec: pluginv1alpha1.PluginSpec{
-					Condition: "error",
+					Condition: invalidCondition,
 					NodeHooks: []pluginv1alpha1.NodeHook{
 						{Socket: "/tmp/node.sock", PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart}},
 					},
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -141,7 +131,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -157,7 +147,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(1))
 		})
@@ -166,14 +156,14 @@ var _ = Describe("selectHooks", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
-					Condition: "error",
+					Condition: invalidCondition,
 					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: "Domain{}"}},
 					},
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("plugin plugin condition evaluation failed"))
 			Expect(resolved).To(BeNil())
@@ -191,7 +181,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -201,12 +191,12 @@ var _ = Describe("selectHooks", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "plugin"},
 				Spec: pluginv1alpha1.PluginSpec{
 					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{Condition: "error", CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: "Domain{}"}},
+						{Condition: invalidCondition, CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: "Domain{}"}},
 					},
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("plugin plugin hook 0 condition evaluation failed"))
 			Expect(resolved).To(BeNil())
@@ -218,12 +208,12 @@ var _ = Describe("selectHooks", func() {
 				Spec: pluginv1alpha1.PluginSpec{
 					Condition: "false",
 					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{Condition: "error", CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: "Domain{}"}},
+						{Condition: invalidCondition, CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: "Domain{}"}},
 					},
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(BeEmpty())
 		})
@@ -241,7 +231,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(1))
 			Expect(resolved[0].failureStrategy).To(Equal(expected))
@@ -271,7 +261,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{pluginB, pluginA}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{pluginB, pluginA}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(2))
 			Expect(resolved[0].pluginName).To(Equal("a-plugin"))
@@ -289,7 +279,7 @@ var _ = Describe("selectHooks", func() {
 				},
 			}
 
-			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resolved).To(HaveLen(2))
 			Expect(resolved[0].index).To(Equal(0))

@@ -71,6 +71,14 @@ var _ = Describe("Sidecar readiness deadline", func() {
 		}
 	}
 
+	testOpts := func(socketBaseDir string, readinessTimeout time.Duration, socketReady func(path string) (bool, error)) sidecarCallOptions {
+		return sidecarCallOptions{
+			socketBaseDir: socketBaseDir,
+			readiness:     readinessBudget{deadline: time.Now().Add(readinessTimeout), total: readinessTimeout},
+			socketReady:   socketReady,
+		}
+	}
+
 	// All sidecars are containers of the same virt-launcher pod and start at roughly the same
 	// time, so the readiness budget belongs to the pipeline, not to each hook.
 	//
@@ -95,7 +103,7 @@ var _ = Describe("Sidecar readiness deadline", func() {
 			sidecarPlugin("dev", readySocket, pluginv1alpha1.FailureStrategyFail),
 		}
 
-		_, _, err := applyGuestDefinitionHooks(plugins, vmi, spec, pluginv1alpha1.InvocationContextBoot, testSharedReadinessTimeout, "/", socketReady)
+		_, _, err := applyGuestDefinitionHooks(plugins, vmi, spec, pluginv1alpha1.InvocationContextBoot, testOpts("/", testSharedReadinessTimeout, socketReady))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(readySocket))
 		Expect(err.Error()).To(ContainSubstring("not ready after"),
@@ -113,7 +121,7 @@ var _ = Describe("Sidecar readiness deadline", func() {
 
 		plugins := []pluginv1alpha1.Plugin{sidecarPlugin("b", socketPath, pluginv1alpha1.FailureStrategyFail)}
 
-		_, _, err := applyGuestDefinitionHooks(plugins, vmi, spec, pluginv1alpha1.InvocationContextBoot, testReadinessTimeout, socketBaseDir, osStatSocketReady)
+		_, _, err := applyGuestDefinitionHooks(plugins, vmi, spec, pluginv1alpha1.InvocationContextBoot, testOpts(socketBaseDir, testReadinessTimeout, osStatSocketReady))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("not ready after"),
 			"readiness must succeed here, so the failure has to come from the call itself")
@@ -127,7 +135,7 @@ var _ = Describe("Sidecar readiness deadline", func() {
 		socketReady := func(string) (bool, error) { return false, nil }
 
 		_, _, err := applyGuestDefinitionHooks(
-			[]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot, 0, pluginSocketBaseDir, socketReady,
+			[]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot, testOpts(pluginSocketBaseDir, 0, socketReady),
 		)
 
 		Expect(err).To(HaveOccurred())
@@ -140,7 +148,7 @@ var _ = Describe("Sidecar readiness deadline", func() {
 		socketReady := func(string) (bool, error) { return false, nil }
 
 		result, xmlStr, err := applyGuestDefinitionHooks(
-			[]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot, 0, pluginSocketBaseDir, socketReady,
+			[]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot, testOpts(pluginSocketBaseDir, 0, socketReady),
 		)
 
 		Expect(err).NotTo(HaveOccurred())
