@@ -572,8 +572,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.DisableHotplug = false
-			c.UseVirtioTransitional = true
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = &c.UseVirtioTransitional
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		},
@@ -1503,7 +1502,7 @@ var _ = Describe("Converter", func() {
 
 				vmi.Status.VSOCKCID = pointer.P(uint32(100))
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-				c.UseVirtioTransitional = useVirtioTransitional
+				vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(useVirtioTransitional)
 				c.VSOCKProcPath = fakeProc
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
