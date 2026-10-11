@@ -5110,3 +5110,31 @@ var _ = Describe("findDiskFileInImageVolume", func() {
 		Expect(err.Error()).To(ContainSubstring("failed to read image volume directory"))
 	})
 })
+
+var _ = Describe("PreBoot artifact paths", func() {
+	var manager *LibvirtDomainManager
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		ephemeralDir := GinkgoT().TempDir()
+		manager = &LibvirtDomainManager{ephemeralDiskDir: ephemeralDir, virtShareDir: ephemeralDir}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "test-uid"}}
+	})
+
+	It("omits a cloud-init artifact when none was generated", func() {
+		paths := manager.preBootArtifactPaths(vmi)
+		Expect(paths).NotTo(HaveKey("cloudInitISO"))
+		Expect(paths).To(HaveKeyWithValue("ephemeralDiskDir", manager.ephemeralDiskDir))
+	})
+
+	It("includes the cloud-init artifact once its ISO exists on disk", func() {
+		manager.cloudInitDataStore = &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceNoCloud}
+		isoPath := cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, vmi.Name, vmi.Namespace)
+		Expect(os.MkdirAll(filepath.Dir(isoPath), 0755)).To(Succeed())
+		Expect(os.WriteFile(isoPath, []byte("iso"), 0600)).To(Succeed())
+		DeferCleanup(os.RemoveAll, filepath.Dir(isoPath))
+
+		paths := manager.preBootArtifactPaths(vmi)
+		Expect(paths).To(HaveKeyWithValue("cloudInitISO", isoPath))
+	})
+})

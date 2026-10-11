@@ -72,6 +72,21 @@ var _ = Describe("selectHooks", func() {
 			Expect(resolved).To(BeEmpty())
 		})
 
+		It("skips a CEL hook at a lifecycle hook point", func() {
+			plugin := pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "plugin"},
+				Spec: pluginv1alpha1.PluginSpec{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
+						{CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookPreBoot, Expression: "Domain{}"}},
+					},
+				},
+			}
+
+			resolved, err := selectHooks([]pluginv1alpha1.Plugin{plugin}, vmi, pluginv1alpha1.LauncherHookPreBoot)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resolved).To(BeEmpty())
+		})
+
 		It("selects a sidecar hook whose permittedHooks include the hook point", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "plugin"},

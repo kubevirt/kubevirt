@@ -100,6 +100,25 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Expect(admit(p).Allowed).To(BeTrue())
 	})
 
+	DescribeTable("validates lifecycle conditions with the VMI-only environment", func(point pluginv1alpha1.LauncherHookPoint, condition string, pluginCondition, allowed bool) {
+		p := newMinimalPlugin()
+		hook := pluginv1alpha1.LauncherHook{Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+			SocketPath: "/var/run/kubevirt-plugin/test/hook.sock", PermittedHooks: []pluginv1alpha1.LauncherHookPoint{point},
+		}}
+		if pluginCondition {
+			p.Spec.Condition = condition
+		} else {
+			hook.Condition = condition
+		}
+		p.Spec.LauncherHooks = []pluginv1alpha1.LauncherHook{hook}
+		Expect(admit(p).Allowed).To(Equal(allowed))
+	},
+		Entry("PreBoot VMI condition", pluginv1alpha1.LauncherHookPreBoot, `vmi.Name != ""`, false, true),
+		Entry("PreBoot domain condition", pluginv1alpha1.LauncherHookPreBoot, `domainSpec.Name != ""`, false, false),
+		Entry("plugin domain condition with lifecycle hooks", pluginv1alpha1.LauncherHookPreBoot, `domainSpec.Name != ""`, true, false),
+		Entry("guest definition rejects domain conditions", pluginv1alpha1.LauncherHookGuestDefinition, `domainSpec.Name != ""`, false, false),
+	)
+
 	It("should accept an empty spec with no hooks or admission references", func() {
 		p := newMinimalPlugin()
 		resp := admit(p)

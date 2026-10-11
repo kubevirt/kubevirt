@@ -71,6 +71,7 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	pluginsv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/plugins/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -109,6 +110,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage/diskdriver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -1675,6 +1677,9 @@ func (l *LibvirtDomainManager) startDomain(
 	if err := l.generateCloudInitISO(vmi, &dom); err != nil {
 		return err
 	}
+	if err := plugins.ApplyPreBootHooks(plugins.GetPlugins(), vmi, l.preBootArtifactPaths); err != nil {
+		return err
+	}
 
 	createFlags := getDomainCreateFlags(vmi)
 	if err := dom.CreateWithFlags(createFlags); err != nil {
@@ -1688,6 +1693,30 @@ func (l *LibvirtDomainManager) startDomain(
 		l.paused.add(vmi.UID)
 	}
 	return nil
+}
+
+// preBootArtifactPaths returns the paths of PreBoot artifacts that exist on disk, keyed by
+// artifact name. An artifact is omitted (never an error) whenever it has no path or a stat on it
+// fails for any reason, since missing artifacts are expected (e.g. no cloud-init data) and must
+// not block VM start.
+func (l *LibvirtDomainManager) preBootArtifactPaths(vmi *v1.VirtualMachineInstance) map[string]string {
+	candidates := map[string]string{
+		pluginsv1alpha1.PreBootArtifactEphemeralDisk: l.ephemeralDiskDir,
+	}
+	if l.cloudInitDataStore != nil {
+		candidates[pluginsv1alpha1.PreBootArtifactCloudInitISO] = cloudinit.GetIsoFilePath(l.cloudInitDataStore.DataSource, vmi.Name, vmi.Namespace)
+	}
+	paths := make(map[string]string)
+	for key, path := range candidates {
+		if path == "" {
+			continue
+		}
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		paths[key] = path
+	}
+	return paths
 }
 
 func (l *LibvirtDomainManager) lookupOrCreateVirDomain(

@@ -23,6 +23,15 @@ message ExecuteNodeHookResponse {}
 
 service LauncherHookService {
     rpc GuestDefinition(GuestDefinitionRequest) returns (GuestDefinitionResponse);
+    // PreBoot runs after the boot artifacts were generated and before the guest
+    // starts. It may be retried after a failed start, so implementations must be
+    // idempotent; filesystem changes are never rolled back. Volumes hotplugged
+    // while the VM runs never pass through PreBoot. A hook whose failure
+    // strategy is Ignore is not stopped when it exceeds its execution timeout:
+    // the launcher proceeds while the hook may still be working, so hooks with
+    // filesystem side effects should use the Fail strategy, write transactionally
+    // (temp file plus atomic rename), honor the context, and remain idempotent.
+    rpc PreBoot(PreBootRequest) returns (PreBootResponse);
 }
 
 message SidecarContext {
@@ -40,3 +49,17 @@ message GuestDefinitionRequest {
 message GuestDefinitionResponse {
     bytes domain = 1;
 }
+
+message PreBootContext {
+    // Generated artifacts, at their absolute paths inside the launcher. Sidecars
+    // must mount the corresponding volumes at the same paths. Keys: cloudInitISO,
+    // ephemeralDiskDir. Missing artifacts are omitted.
+    map<string, string> artifact_paths = 1;
+}
+
+message PreBootRequest {
+    bytes vmi = 1; // JSON-encoded VirtualMachineInstance
+    PreBootContext pre_boot_context = 2;
+}
+
+message PreBootResponse {}

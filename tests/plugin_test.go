@@ -39,12 +39,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmicloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -53,10 +55,17 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	preBootOriginalMarker = "VEP190_PREBOOT_BEFORE"
+	preBootMutatedMarker  = "VEP190_PREBOOT_AFTER!"
+	preBootMarkerPath     = "/tmp/vep190-preboot-marker"
 )
 
 var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
@@ -210,7 +219,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 			}
 		})
 
-		deploySidecarInjectorMAP := func(pluginName, socketPath string, sidecarCommand []string) {
+		deploySidecarInjectorMAP := func(pluginName, socketPath string, sidecarCommand []string, mountEphemeralDisks bool) {
 			virtClient := kubevirt.Client()
 			testNamespace := testsuite.GetTestNamespace(nil)
 			policyName := fmt.Sprintf("plugin-sidecar-injector-%s", pluginName)
@@ -227,7 +236,24 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 				commandCEL += fmt.Sprintf("%q", c)
 			}
 			commandCEL += "]"
+			volumeMountsCEL := fmt.Sprintf(`[Object.spec.containers.volumeMounts{
+                name: "kubevirt-plugin-sockets",
+                mountPath: "/var/run/kubevirt-plugin/%s/",
+                subPath: %q
+            }]`, pluginName, pluginName)
+			if mountEphemeralDisks {
+				volumeMountsCEL = fmt.Sprintf(`[Object.spec.containers.volumeMounts{
+                name: "kubevirt-plugin-sockets",
+                mountPath: "/var/run/kubevirt-plugin/%s/",
+                subPath: %q
+            }, Object.spec.containers.volumeMounts{
+                name: "ephemeral-disks",
+                mountPath: "/var/run/kubevirt-ephemeral-disks"
+            }]`, pluginName, pluginName)
+			}
 
+			// The sidecar runs as qemu (107) so it can read and rewrite the boot
+			// artifacts that virt-launcher generated on the shared volume.
 			By("Creating MutatingAdmissionPolicy for sidecar injection")
 			policy := &unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -277,6 +303,8 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
             securityContext: Object.spec.containers.securityContext{
                 allowPrivilegeEscalation: false,
                 runAsNonRoot: true,
+                runAsUser: 107,
+                runAsGroup: 107,
                 seccompProfile: Object.spec.containers.securityContext.seccompProfile{
                     type: "RuntimeDefault"
                 },
@@ -284,14 +312,10 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
                     drop: ["ALL"]
                 }
             },
-            volumeMounts: [Object.spec.containers.volumeMounts{
-                name: "kubevirt-plugin-sockets",
-                mountPath: "/var/run/kubevirt-plugin/%s/",
-                subPath: %q
-            }]
+            volumeMounts: %s
         }
     }
-]`, pluginName, sidecarImage, commandCEL, pluginName, pluginName),
+]`, pluginName, sidecarImage, commandCEL, volumeMountsCEL),
 								},
 							},
 						},
@@ -324,6 +348,10 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 			By("Waiting for MutatingAdmissionPolicy to become active")
 			expectedSidecarName := fmt.Sprintf("plugin-sidecar-%s", pluginName)
 			Eventually(func(g Gomega) {
+				probeVolumes := []k8sv1.Volume{{Name: "kubevirt-plugin-sockets", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}}
+				if mountEphemeralDisks {
+					probeVolumes = append(probeVolumes, k8sv1.Volume{Name: "ephemeral-disks", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
+				}
 				probePod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{Name: "map-readiness-probe", Namespace: testNamespace, Labels: map[string]string{"kubevirt.io": "virt-launcher"}},
 					Spec: k8sv1.PodSpec{
@@ -338,7 +366,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 								Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 							},
 						}},
-						Volumes: []k8sv1.Volume{{Name: "kubevirt-plugin-sockets", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}},
+						Volumes: probeVolumes,
 					},
 				}
 				result, err := virtClient.CoreV1().Pods(testNamespace).Create(context.Background(), probePod, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
@@ -353,19 +381,76 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 
 		deploySleepingSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--sleep"})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--sleep"}, false)
 		}
 
 		deployErrorSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", socketPath}, false)
 		}
+
+		createSidecarLauncherPlugin := func(pluginName, socketPath string, permittedHooks []pluginv1alpha1.LauncherHookPoint, failureStrategy pluginv1alpha1.FailureStrategy) {
+			createPlugin(&pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
+				Spec: pluginv1alpha1.PluginSpec{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+							PermittedHooks: permittedHooks,
+						},
+						FailureStrategy: failureStrategy,
+					}},
+				},
+			})
+		}
+
+		newPreBootVMI := func() *v1.VirtualMachineInstance {
+			userData := fmt.Sprintf("#cloud-config\nruncmd:\n  - echo %s > %s\n", preBootOriginalMarker, preBootMarkerPath)
+			return libvmifact.NewAlpineWithTestTooling(libvmi.WithCloudInitNoCloud(libvmicloudinit.WithNoCloudUserData(userData)))
+		}
+
+		It("should run PreBoot after cloud-init generation and expose its mutation to the guest", func() {
+			const pluginName = "preboot-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, true)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreBoot}, pluginv1alpha1.FailureStrategyFail)
+
+			By("Starting a VMI with a cloud-init marker that the sidecar replaces")
+			vmi := newPreBootVMI()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+
+			By("Checking the sidecar-modified cloud-init command ran in the guest")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			output, err := console.RunCommandAndStoreOutput(vmi, "cat "+preBootMarkerPath+"\n", 30*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).To(ContainSubstring(preBootMutatedMarker))
+
+			By("Checking the generated cloud-init ISO contains the sidecar mutation")
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			isoPath := "/var/run/kubevirt-ephemeral-disks/cloud-init-data/" + vmi.Namespace + "/" + vmi.Name + "/noCloud.iso"
+			_, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"grep", "-a", "-q", preBootMutatedMarker, isoPath})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should prevent boot when PreBoot fails with FailureStrategy Fail", func() {
+			const pluginName = "preboot-fail-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", "PreBoot", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreBoot}, pluginv1alpha1.FailureStrategyFail)
+
+			vmi := libvmifact.NewAlpine()
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 90)
+			Eventually(ThisVMI(vmi), 2*time.Minute, time.Second).Should(
+				HaveConditionFalseWithMessage(v1.VirtualMachineInstanceSynchronized, "intentional test error for PreBoot"))
+			Expect(ThisVMI(vmi)()).ToNot(BeInPhase(v1.Running))
+		})
 
 		It("should apply both CEL and sidecar launcher hooks", func() {
 			const pluginName = "composition-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
 
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
 
 			By("Creating Plugin with CEL watchdog hook and sidecar launcher hook")
 			createPlugin(&pluginv1alpha1.Plugin{
@@ -406,7 +491,7 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 			const pluginName = "migration-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
 
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
 
 			By("Creating Plugin with sidecar launcher hook")
 			createPlugin(&pluginv1alpha1.Plugin{
