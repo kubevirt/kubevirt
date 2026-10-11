@@ -45,7 +45,9 @@ type resolvedHook struct {
 }
 
 func hookMatchesPoint(hook pluginv1alpha1.LauncherHook, hookPoint pluginv1alpha1.LauncherHookPoint) bool {
-	if hook.CEL != nil && hook.CEL.HookPoint == hookPoint {
+	// CEL hooks only run at GuestDefinition. The other hook points have no
+	// structured input a CEL expression could transform.
+	if hook.CEL != nil && hookPoint == pluginv1alpha1.LauncherHookGuestDefinition && hook.CEL.HookPoint == hookPoint {
 		return true
 	}
 	if hook.Sidecar != nil && slices.Contains(hook.Sidecar.PermittedHooks, hookPoint) {

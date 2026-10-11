@@ -145,18 +145,20 @@ type LauncherHook struct {
 }
 
 // LauncherHookPoint identifies a point in the VM lifecycle where a launcher hook can run.
-// Only hook points implemented by virt-launcher are accepted.
+// GuestDefinition accepts CEL and sidecar hooks; PreBoot is sidecar-only.
 // +enum
-// +kubebuilder:validation:XValidation:rule="self == 'GuestDefinition'",message="hook point must be GuestDefinition"
+// +kubebuilder:validation:XValidation:rule="self in ['GuestDefinition','PreBoot']",message="hook point must be one of: GuestDefinition, PreBoot"
 type LauncherHookPoint string
 
 const (
 	LauncherHookGuestDefinition LauncherHookPoint = "GuestDefinition"
+	LauncherHookPreBoot         LauncherHookPoint = "PreBoot"
 )
 
 type CELLauncherHook struct {
 	// HookPoint specifies which launcher hook point this CEL expression applies to.
 	// GuestDefinition is the only currently supported launcher hook point for CEL.
+	// +kubebuilder:validation:XValidation:rule="self == 'GuestDefinition'",message="CEL is only supported for the GuestDefinition hook point"
 	HookPoint LauncherHookPoint `json:"hookPoint"`
 	// Expression is the CEL expression applied at the specified hook point.
 	// +kubebuilder:validation:MinLength=1
