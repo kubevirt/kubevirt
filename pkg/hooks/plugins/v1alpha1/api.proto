@@ -32,6 +32,12 @@ service LauncherHookService {
     // filesystem side effects should use the Fail strategy, write transactionally
     // (temp file plus atomic rename), honor the context, and remain idempotent.
     rpc PreBoot(PreBootRequest) returns (PreBootResponse);
+    // PreMigrationSource runs on the migration source just before libvirt is
+    // asked to migrate. The response replaces the migration configuration, and
+    // the hook has full control over the exposed parameters, including the
+    // migration URIs and the destination domain XML. The time the hook takes
+    // counts towards the migration timeouts.
+    rpc PreMigrationSource(PreMigrationSourceRequest) returns (PreMigrationSourceResponse);
 }
 
 message SidecarContext {
@@ -63,3 +69,68 @@ message PreBootRequest {
 }
 
 message PreBootResponse {}
+
+message PreMigrationSourceRequest {
+    bytes vmi = 1; // JSON-encoded VirtualMachineInstance
+    oneof migration_config {
+        LibvirtMigrationConfig libvirt = 2;
+        // future non-libvirt backends: add a field here (additive, non-breaking)
+    }
+}
+
+message PreMigrationSourceResponse {
+    oneof migration_config {
+        LibvirtMigrationConfig libvirt = 1;
+    }
+}
+
+message LibvirtMigrationConfig {
+    uint64 flags = 1; // VIR_MIGRATE_* flag bitmask, as passed to MigrateToURI3
+    LibvirtDomainMigrateParameters params = 2;
+}
+
+// The Optional* wrappers give proto3 scalar fields explicit presence, matching
+// libvirt's XxxSet convention. The legacy protoc-gen-go pinned by this repo
+// cannot express that with the proto3 `optional` keyword.
+message OptionalString {
+    string value = 1;
+}
+
+message OptionalUint64 {
+    uint64 value = 1;
+}
+
+message OptionalInt32 {
+    int32 value = 1;
+}
+
+message LibvirtDomainMigrateParameters {
+    // Field names mirror libvirt's documented VIR_MIGRATE_PARAM_* names. A set
+    // wrapper means the parameter is present, an unset one that it is omitted.
+    // Repeated fields cannot express "set but empty": an empty list is
+    // indistinguishable from an unset one.
+    OptionalString uri = 1;                               // VIR_MIGRATE_PARAM_URI
+    OptionalString dest_name = 2;                         // VIR_MIGRATE_PARAM_DEST_NAME
+    OptionalString dest_xml = 3;                          // VIR_MIGRATE_PARAM_DEST_XML
+    OptionalString persist_xml = 4;                       // VIR_MIGRATE_PARAM_PERSIST_XML
+    OptionalUint64 bandwidth = 5;                         // VIR_MIGRATE_PARAM_BANDWIDTH
+    OptionalInt32 parallel_connections = 6;               // VIR_MIGRATE_PARAM_PARALLEL_CONNECTIONS
+    repeated string migrate_disks = 7;                    // VIR_MIGRATE_PARAM_MIGRATE_DISKS
+    repeated string migrate_disks_detect_zeroes_list = 8; // VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES
+    OptionalString disks_uri = 9;                         // VIR_MIGRATE_PARAM_DISKS_URI
+    OptionalString compression = 10;                      // VIR_MIGRATE_PARAM_COMPRESSION
+    OptionalString graphics_uri = 11;                    // VIR_MIGRATE_PARAM_GRAPHICS_URI
+    OptionalString listen_address = 12;                  // VIR_MIGRATE_PARAM_LISTEN_ADDRESS
+    OptionalInt32 disks_port = 13;                       // VIR_MIGRATE_PARAM_DISKS_PORT
+    OptionalInt32 compression_mt_level = 14;             // VIR_MIGRATE_PARAM_COMPRESSION_MT_LEVEL
+    OptionalInt32 compression_mt_threads = 15;           // VIR_MIGRATE_PARAM_COMPRESSION_MT_THREADS
+    OptionalInt32 compression_mt_dthreads = 16;          // VIR_MIGRATE_PARAM_COMPRESSION_MT_DTHREADS
+    OptionalUint64 compression_xbzrle_cache = 17;        // VIR_MIGRATE_PARAM_COMPRESSION_XBZRLE_CACHE
+    OptionalInt32 auto_converge_initial = 18;            // VIR_MIGRATE_PARAM_AUTO_CONVERGE_INITIAL
+    OptionalInt32 auto_converge_increment = 19;          // VIR_MIGRATE_PARAM_AUTO_CONVERGE_INCREMENT
+    OptionalString tls_destination = 20;                 // VIR_MIGRATE_PARAM_TLS_DESTINATION
+    OptionalInt32 compression_zlib_level = 21;           // VIR_MIGRATE_PARAM_COMPRESSION_ZLIB_LEVEL
+    OptionalInt32 compression_zstd_level = 22;           // VIR_MIGRATE_PARAM_COMPRESSION_ZSTD_LEVEL
+    OptionalUint64 bandwidth_avail_switchover = 23;      // VIR_MIGRATE_PARAM_BANDWIDTH_AVAIL_SWITCHOVER
+    repeated string migrate_disks_target_zero = 24;      // VIR_MIGRATE_PARAM_MIGRATE_DISKS_TARGET_ZERO
+}

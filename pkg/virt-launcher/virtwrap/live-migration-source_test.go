@@ -20,6 +20,7 @@
 package virtwrap
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"time"
@@ -1830,4 +1831,89 @@ var _ = Describe("tuneDowntime", func() {
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(0)))
 	})
+})
+
+var _ = Describe("Migration preparation cancellation", func() {
+	var manager *LibvirtDomainManager
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		manager = &LibvirtDomainManager{}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}}
+		manager.metadataCache = metadata.NewCache()
+		manager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	})
+
+	It("aborts an in-flight preparation when cancelMigration runs during preparation", func() {
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		manager.activeMigrationPreparation.Store(prep)
+
+		manager.CancelVMIMigration(vmi)
+
+		Expect(prep.abort()).To(BeFalse(), "the abort was already claimed by cancelMigration")
+		Expect(prep.ctx.Err()).To(Equal(context.Canceled))
+		migration, exists := manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
+	})
+
+	Context("migrationPreparation", func() {
+		It("lets exactly one abort claim win and cancel the context", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.abort()).To(BeTrue())
+			Expect(prep.abort()).To(BeFalse())
+			Expect(prep.ctx.Err()).To(Equal(context.Canceled))
+		})
+
+		It("reports an abort at handoff only when one was claimed", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.abort()).To(BeTrue())
+			Expect(prep.handoff()).To(BeTrue())
+		})
+
+		It("cannot abort a preparation that was already handed off", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.handoff()).To(BeFalse())
+			Expect(prep.abort()).To(BeFalse(), "handoff consumed the claim, so a later cancelMigration falls through to the active-migration abort path")
+		})
+	})
+
+})
+
+var _ = Describe("PreMigrationSource launcher hook", func() {
+	const domainXML = "<domain type='kvm'><name>default_test</name><devices/></domain>"
+	var manager *LibvirtDomainManager
+	var domain *cli.MockVirDomain
+	var connection *cli.MockConnection
+	var vmi *v1.VirtualMachineInstance
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		domain = cli.NewMockVirDomain(ctrl)
+		connection = cli.NewMockConnection(ctrl)
+		ephemeralDir := GinkgoT().TempDir()
+		manager = &LibvirtDomainManager{virConn: connection, ephemeralDiskDir: ephemeralDir, virtShareDir: ephemeralDir}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "test-uid"}}
+	})
+
+	It("fails with an aborted-before-libvirt error when preparation was already cancelled before the hooks ran", func() {
+		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil)
+		domain.EXPECT().Free().Return(nil)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
+
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		manager.activeMigrationPreparation.Store(prep)
+		// Simulate a concurrent CancelVMIMigration that claimed the preparation
+		// after the hooks returned but before migrateHelper's post-hook check.
+		prep.claimed.Store(true)
+
+		err := manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")})
+		Expect(err).To(MatchError(ContainSubstring("aborted before it reached libvirt")))
+	})
+
 })

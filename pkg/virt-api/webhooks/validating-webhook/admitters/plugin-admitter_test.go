@@ -117,6 +117,8 @@ var _ = Describe("Validating Plugin Admitter", func() {
 		Entry("PreBoot domain condition", pluginv1alpha1.LauncherHookPreBoot, `domainSpec.Name != ""`, false, false),
 		Entry("plugin domain condition with lifecycle hooks", pluginv1alpha1.LauncherHookPreBoot, `domainSpec.Name != ""`, true, false),
 		Entry("guest definition rejects domain conditions", pluginv1alpha1.LauncherHookGuestDefinition, `domainSpec.Name != ""`, false, false),
+		Entry("PreMigrationSource VMI condition", pluginv1alpha1.LauncherHookPreMigrationSource, `vmi.Name != ""`, false, true),
+		Entry("PreMigrationSource domain condition", pluginv1alpha1.LauncherHookPreMigrationSource, `domainSpec.Name != ""`, false, false),
 	)
 
 	It("should accept an empty spec with no hooks or admission references", func() {

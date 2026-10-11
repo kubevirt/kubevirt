@@ -21,6 +21,7 @@ package cmdserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -39,6 +40,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -51,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -97,6 +100,24 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("server", func() {
+		It("retains the source plugin snapshot from sync when migration is requested", func() {
+			previous := plugins.GetPlugins()
+			DeferCleanup(plugins.SetPlugins, previous)
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			pluginList := []pluginv1alpha1.Plugin{{ObjectMeta: metav1.ObjectMeta{Name: "migration-plugin"}}}
+			data, err := json.Marshal(pluginList)
+			Expect(err).NotTo(HaveOccurred())
+			syncOptions := &cmdv1.VirtualMachineOptions{PluginsJson: data}
+			domain := api.NewMinimalDomain("testvmi")
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, syncOptions).Return(&domain.Spec, nil)
+			Expect(client.SyncVirtualMachine(vmi, syncOptions)).To(Succeed())
+			domainManager.EXPECT().MigrateVMI(vmi, gomock.Any()).DoAndReturn(func(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error {
+				Expect(plugins.GetPlugins()).To(Equal(pluginList))
+				return nil
+			})
+			Expect(client.MigrateVirtualMachine(vmi, &cmdclient.MigrationOptions{})).To(Succeed())
+		})
+
 		It("should start a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domain := api.NewMinimalDomain("testvmi")

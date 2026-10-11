@@ -43,8 +43,9 @@ import (
 const (
 	usage = "usage: test-launcher-hook-sidecar <socket-path> | --sleep | --error [hook-point] <socket-path>"
 
-	guestDefinitionHook = "GuestDefinition"
-	preBootHook         = "PreBoot"
+	guestDefinitionHook    = "GuestDefinition"
+	preBootHook            = "PreBoot"
+	preMigrationSourceHook = "PreMigrationSource"
 
 	// These strings are deliberately the same length. The test sidecar uses a
 	// byte-for-byte replacement in the generated ISO so the resulting image
@@ -133,6 +134,34 @@ func (s *server) PreBoot(_ context.Context, req *pluginsv1alpha1.PreBootRequest)
 
 	log.Printf("PreBoot mutated cloud-init ISO %s: %s -> %s", isoPath, preBootOriginal, preBootMutated)
 	return &pluginsv1alpha1.PreBootResponse{}, nil
+}
+
+func (s *server) PreMigrationSource(_ context.Context, req *pluginsv1alpha1.PreMigrationSourceRequest) (*pluginsv1alpha1.PreMigrationSourceResponse, error) {
+	if err := s.errorFor(preMigrationSourceHook); err != nil {
+		return nil, err
+	}
+	requestConfig, ok := req.MigrationConfig.(*pluginsv1alpha1.PreMigrationSourceRequest_Libvirt)
+	if !ok || requestConfig.Libvirt == nil {
+		return nil, fmt.Errorf("unsupported migration configuration variant %T", req.MigrationConfig)
+	}
+	config := requestConfig.Libvirt
+
+	// A copy keeps every field of the config intact instead of dropping the ones this sidecar doesn't touch.
+	mutated := &pluginsv1alpha1.LibvirtMigrationConfig{Flags: config.Flags, Params: &pluginsv1alpha1.LibvirtDomainMigrateParameters{}}
+	if config.Params != nil {
+		*mutated.Params = *config.Params
+	}
+
+	// VIR_MIGRATE_PARALLEL = 1<<17 (libvirt-domain.h); hardcoded to avoid linking cgo libvirt bindings into this sidecar image.
+	const virMigrateParallel = 1 << 17
+	mutated.Flags |= virMigrateParallel
+	mutated.Params.ParallelConnections = &pluginsv1alpha1.OptionalInt32{Value: 2}
+
+	log.Printf("PreMigrationSource mutated migration config: parallel connections=%d flags=%d", mutated.Params.ParallelConnections.Value, mutated.Flags)
+
+	return &pluginsv1alpha1.PreMigrationSourceResponse{
+		MigrationConfig: &pluginsv1alpha1.PreMigrationSourceResponse_Libvirt{Libvirt: mutated},
+	}, nil
 }
 
 func (s *server) errorFor(hookPoint string) error {

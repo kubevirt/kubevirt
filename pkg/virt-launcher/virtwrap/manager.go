@@ -270,6 +270,10 @@ type LibvirtDomainManager struct {
 	guestAgentProbePaused atomic.Bool
 	abortWg               sync.WaitGroup
 
+	// activeMigrationPreparation tracks a migration that has not reached
+	// libvirt yet. Set while such a migration is in flight, nil otherwise.
+	activeMigrationPreparation atomic.Pointer[migrationPreparation]
+
 	// iommuFD holds the IOMMUFD file descriptor received from the device plugin
 	// via SCM_RIGHTS. A value of -1 means no IOMMUFD FD is available.
 	// See: https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainFDAssociate
