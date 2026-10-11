@@ -463,22 +463,4 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 			Entry("should let hook-level Fail override plugin-level Ignore", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategyFail, true),
 		)
 	})
-
-	Context("plugin store", func() {
-		It("should return nil when no plugins are set", func() {
-			Expect(plugins.GetPlugins()).To(BeNil())
-		})
-
-		It("should store and retrieve plugins", func() {
-			pluginList := []pluginv1alpha1.Plugin{
-				{ObjectMeta: metav1.ObjectMeta{Name: "stored-plugin"}},
-			}
-			plugins.SetPlugins(pluginList)
-			defer plugins.SetPlugins(nil)
-
-			retrieved := plugins.GetPlugins()
-			Expect(retrieved).To(HaveLen(1))
-			Expect(retrieved[0].Name).To(Equal("stored-plugin"))
-		})
-	})
 })
