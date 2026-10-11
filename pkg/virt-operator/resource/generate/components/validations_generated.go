@@ -10650,6 +10650,9 @@ var CRDsValidation map[string]string = map[string]string{
                           claimName:
                             description: ClaimName is the name of the PVC
                             type: string
+                          claimUID:
+                            description: ClaimUID is the UID of the PVC
+                            type: string
                           filesystemOverhead:
                             description: Percentage of filesystem's size to be reserved
                               when resizing the PVC
@@ -10699,6 +10702,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           claimName:
                             description: ClaimName is the name of the PVC
+                            type: string
+                          claimUID:
+                            description: ClaimUID is the UID of the PVC
                             type: string
                           filesystemOverhead:
                             description: Percentage of filesystem's size to be reserved
@@ -16639,6 +16645,9 @@ var CRDsValidation map[string]string = map[string]string{
                   claimName:
                     description: ClaimName is the name of the PVC
                     type: string
+                  claimUID:
+                    description: ClaimUID is the UID of the PVC
+                    type: string
                   filesystemOverhead:
                     description: Percentage of filesystem's size to be reserved when
                       resizing the PVC
@@ -16688,6 +16697,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   claimName:
                     description: ClaimName is the name of the PVC
+                    type: string
+                  claimUID:
+                    description: ClaimUID is the UID of the PVC
                     type: string
                   filesystemOverhead:
                     description: Percentage of filesystem's size to be reserved when
@@ -17323,6 +17335,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   claimName:
                     description: ClaimName is the name of the PVC
+                    type: string
+                  claimUID:
+                    description: ClaimUID is the UID of the PVC
                     type: string
                   filesystemOverhead:
                     description: Percentage of filesystem's size to be reserved when
@@ -34672,6 +34687,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ClaimName is the name of the
                                           PVC
                                         type: string
+                                      claimUID:
+                                        description: ClaimUID is the UID of the PVC
+                                        type: string
                                       filesystemOverhead:
                                         description: Percentage of filesystem's size
                                           to be reserved when resizing the PVC
@@ -34722,6 +34740,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       claimName:
                                         description: ClaimName is the name of the
                                           PVC
+                                        type: string
+                                      claimUID:
+                                        description: ClaimUID is the UID of the PVC
                                         type: string
                                       filesystemOverhead:
                                         description: Percentage of filesystem's size

@@ -76,6 +76,7 @@ func (c *Controller) appendMigratedVolume(vmi *v1.VirtualMachineInstance, claimN
 		VolumeName: volume.Name,
 		SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
 			ClaimName:   claimName,
+			ClaimUID:    pvc.UID,
 			AccessModes: pvc.Spec.AccessModes,
 			VolumeMode:  pvc.Spec.VolumeMode,
 			Requests:    pvc.Spec.Resources.Requests,
@@ -83,6 +84,7 @@ func (c *Controller) appendMigratedVolume(vmi *v1.VirtualMachineInstance, claimN
 		},
 		DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
 			ClaimName:   claimName,
+			ClaimUID:    pvc.UID,
 			AccessModes: pvc.Spec.AccessModes,
 			VolumeMode:  pvc.Spec.VolumeMode,
 			Requests:    pvc.Spec.Resources.Requests,

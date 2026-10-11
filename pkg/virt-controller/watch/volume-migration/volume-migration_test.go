@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
@@ -409,6 +410,22 @@ var _ = Describe("Volume Migration", func() {
 					generateDiskNameFromIndex(1): {src: "src1", dst: "dst1"}}),
 			Entry("without any update", []string{"vol0"}, []string{"vol0"}, map[string]migVolumes{}),
 		)
+
+		It("should record the source and destination claim UIDs", func() {
+			for name, uid := range map[string]types.UID{"src0": "src-uid", "dst0": "dst-uid"} {
+				Expect(pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns, UID: uid},
+				})).To(Succeed())
+			}
+			vmi := libvmi.New(append(addVMIOptionsForVolumes([]string{"src0"}), libvmi.WithNamespace(ns))...)
+			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes([]string{"dst0"}), libvmi.WithNamespace(ns))...))
+
+			migVols, err := volumemigration.GenerateMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migVols).To(HaveLen(1))
+			Expect(migVols[0].SourcePVCInfo.ClaimUID).To(Equal(types.UID("src-uid")))
+			Expect(migVols[0].DestinationPVCInfo.ClaimUID).To(Equal(types.UID("dst-uid")))
+		})
 
 		It("should generate correct migrated volumes for two sequential migrations", func() {
 			// Migration 1: disk0 moves from pvc-a → pvc-b
