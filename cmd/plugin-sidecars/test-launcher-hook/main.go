@@ -43,8 +43,9 @@ import (
 const (
 	usage = "usage: test-launcher-hook-sidecar <socket-path> | --sleep | --error [hook-point] <socket-path>"
 
-	guestDefinitionHook = "GuestDefinition"
-	preBootHook         = "PreBoot"
+	guestDefinitionHook    = "GuestDefinition"
+	preBootHook            = "PreBoot"
+	preMigrationSourceHook = "PreMigrationSource"
 
 	// These strings are deliberately the same length. The test sidecar uses a
 	// byte-for-byte replacement in the generated ISO so the resulting image
@@ -133,6 +134,32 @@ func (s *server) PreBoot(_ context.Context, req *pluginsv1alpha1.PreBootRequest)
 
 	log.Printf("PreBoot mutated cloud-init ISO %s: %s -> %s", isoPath, preBootOriginal, preBootMutated)
 	return &pluginsv1alpha1.PreBootResponse{}, nil
+}
+
+func (s *server) PreMigrationSource(_ context.Context, req *pluginsv1alpha1.PreMigrationSourceRequest) (*pluginsv1alpha1.PreMigrationSourceResponse, error) {
+	if err := s.errorFor(preMigrationSourceHook); err != nil {
+		return nil, err
+	}
+	requestConfig, ok := req.MigrationConfig.(*pluginsv1alpha1.PreMigrationSourceRequest_Libvirt)
+	if !ok || requestConfig.Libvirt == nil {
+		return nil, fmt.Errorf("unsupported migration configuration variant %T", req.MigrationConfig)
+	}
+
+	// VIR_MIGRATE_PARALLEL = 1<<17 (libvirt-domain.h); hardcoded to avoid linking cgo libvirt bindings into this sidecar image.
+	const virMigrateParallel = 1 << 17
+
+	// The response carries only the change: set_flags adds a bit to the flags KubeVirt
+	// computed, so the flags KubeVirt always sets survive untouched.
+	change := &pluginsv1alpha1.LibvirtMigrationConfigChanges{
+		SetFlags: virMigrateParallel,
+		Params:   &pluginsv1alpha1.LibvirtDomainMigrateParameters{ParallelConnections: &pluginsv1alpha1.OptionalInt32{Kind: &pluginsv1alpha1.OptionalInt32_Value{Value: 2}}},
+	}
+
+	log.Printf("PreMigrationSource mutated migration config: parallel connections=%d set_flags=%d", change.GetParams().GetParallelConnections().GetValue(), change.GetSetFlags())
+
+	return &pluginsv1alpha1.PreMigrationSourceResponse{
+		MigrationConfig: &pluginsv1alpha1.PreMigrationSourceResponse_Libvirt{Libvirt: change},
+	}, nil
 }
 
 func (s *server) errorFor(hookPoint string) error {

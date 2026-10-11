@@ -446,6 +446,58 @@ var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCom
 			Expect(ThisVMI(vmi)()).ToNot(BeInPhase(v1.Running))
 		})
 
+		containerLogs := func(pod *k8sv1.Pod, containerName string) (string, error) {
+			var tailLines int64 = 200
+			logs, err := kubevirt.Client().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &k8sv1.PodLogOptions{
+				TailLines: &tailLines,
+				Container: containerName,
+			}).DoRaw(context.Background())
+			return string(logs), err
+		}
+		sidecarLogs := func(pod *k8sv1.Pod, pluginName string) string {
+			logs, _ := containerLogs(pod, "plugin-sidecar-"+pluginName)
+			return logs
+		}
+
+		It("should invoke PreMigrationSource on the source and apply the returned parallel migration config", decorators.RequiresTwoSchedulableNodes, func() {
+			const pluginName = "premigration-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}, pluginv1alpha1.FailureStrategyFail)
+
+			// A CPU limit disables KubeVirt's automatic parallel migration, so the
+			// hook must enable it as well as setting the connection count.
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), libvmi.WithCPULimit("2"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			migration := libmigration.RunMigration(kubevirt.Client(), libmigration.New(vmi.Name, vmi.Namespace))
+			By("Waiting for the source sidecar to record the mutated migration config")
+			Eventually(func() string { return sidecarLogs(sourcePod, pluginName) }, 30*time.Second, time.Second).Should(
+				ContainSubstring(`parallel connections=2`),
+			)
+			By("Checking virt-launcher accepted the sidecar's migration changes")
+			libmigration.ExpectMigrationToSucceed(kubevirt.Client(), migration, flags.MigrationTimeout())
+		})
+
+		It("should fail migration when PreMigrationSource fails with FailureStrategy Fail", decorators.RequiresTwoSchedulableNodes, func() {
+			const pluginName = "premigration-fail-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", "PreMigrationSource", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}, pluginv1alpha1.FailureStrategyFail)
+
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+			_ = libmigration.RunMigrationAndExpectFailure(libmigration.New(vmi.Name, vmi.Namespace), flags.MigrationTimeout())
+			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(WithTransform(func(vmi *v1.VirtualMachineInstance) string {
+				if vmi.Status.MigrationState == nil {
+					return ""
+				}
+				return vmi.Status.MigrationState.FailureReason
+			}, ContainSubstring("intentional test error for PreMigrationSource")))
+		})
+
 		It("should apply both CEL and sidecar launcher hooks", func() {
 			const pluginName = "composition-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
