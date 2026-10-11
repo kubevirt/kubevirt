@@ -35,6 +35,7 @@ type DefaultFs struct {
 var _ Fs = &DefaultFs{}
 
 // NewTempFs returns a fake Filesystem in temporary directory, useful for unit tests
+//nolint:domain-funcs
 func New() *DefaultFs {
 	return &DefaultFs{}
 }
