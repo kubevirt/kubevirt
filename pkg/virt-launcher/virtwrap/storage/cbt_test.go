@@ -130,7 +130,9 @@ var _ = Describe("Changed Block Tracking", func() {
 				newPVCVolume("pvc-volume", "test-pvc", false),
 				newDVVolume("dv-volume", "test-dv", false),
 				newHostDiskVolume("host-disk-volume", "/path/to/disk"),
+				newHostDiskVolume("user-host-disk", "/data/disk.img"),
 			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "host-disk-volume", PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{}}}
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
@@ -138,6 +140,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(3))
 			Expect(blockDevCalled).To(Equal(0))
+			Expect(converterContext.ApplyCBT).ToNot(HaveKey("user-host-disk"))
 			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
 			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
 			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
