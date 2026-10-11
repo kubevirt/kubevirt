@@ -20,7 +20,6 @@
 package hotplug_volume
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -43,7 +42,6 @@ import (
 	"kubevirt.io/client-go/api"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -56,6 +54,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/mountrecord"
 )
 
 const (
@@ -78,6 +77,19 @@ var (
 	orgFindMntByDevice     = findMntByDevice
 	orgNodeIsolationResult = nodeIsolationResult
 )
+
+// persistedEntries reads the mount record of the VMI the way a restarted virt-handler would.
+func persistedEntries(vmi *v1.VirtualMachineInstance) ([]mountrecord.Entry, error) {
+	return mountrecord.NewStore(checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir())).Entries(vmi.UID)
+}
+
+func entriesFor(targetFiles ...string) []mountrecord.Entry {
+	var entries []mountrecord.Entry
+	for _, targetFile := range targetFiles {
+		entries = append(entries, mountrecord.Entry{TargetFile: targetFile})
+	}
+	return entries
+}
 
 var _ = Describe("HotplugVolume", func() {
 	var (
@@ -153,113 +165,22 @@ var _ = Describe("HotplugVolume", func() {
 	})
 
 	Context("mount target records", func() {
-		var (
-			m      *volumeMounter
-			err    error
-			vmi    *v1.VirtualMachineInstance
-			record *vmiMountTargetRecord
-		)
-
-		BeforeEach(func() {
+		It("deleteMountRecord should remove both record file and entry file", func() {
 			tempDir = GinkgoT().TempDir()
-			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
-			Expect(err).ToNot(HaveOccurred())
-			vmi = api.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "1234"
-
-			m = &volumeMounter{
-				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
-				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
+			m := &volumeMounter{
+				mountRecords: mountrecord.NewStore(checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir())),
 			}
-			record = &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{
-						TargetFile: filepath.Join(tempDir, "test"),
-					},
-				},
-			}
-			err := m.setMountTargetRecord(vmi, record)
-			Expect(err).ToNot(HaveOccurred())
-			expectedBytes, err := json.Marshal(record)
-			Expect(err).ToNot(HaveOccurred())
-			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(bytes).To(Equal(expectedBytes))
-		})
+			entryFile := filepath.Join(tempDir, "test")
+			Expect(os.WriteFile(entryFile, []byte("test"), 0644)).To(Succeed())
+			entries := entriesFor(entryFile)
+			Expect(m.mountRecords.Add(vmi.UID, entries...)).To(Succeed())
 
-		It("setMountTargetRecord should fail if vmi.UID is empty", func() {
-			vmi.UID = ""
-			record := &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{
-						TargetFile: filepath.Join(tempDir, "test"),
-					},
-				},
-			}
-			err := m.setMountTargetRecord(vmi, record)
-			Expect(err).To(HaveOccurred())
-		})
+			Expect(m.deleteMountRecord(vmi, entries)).To(Succeed())
 
-		It("getMountTargetRecord should get record from file if not in cache", func() {
-			res, err := m.getMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(equality.Semantic.DeepEqual(*res, *record)).To(BeTrue())
-		})
-
-		It("getMountTargetRecord should get record from cache if in cache", func() {
-			cacheRecord := &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{
-						TargetFile: "test2",
-					},
-				},
-			}
-			m.mountRecords[vmi.UID] = cacheRecord
-			res, err := m.getMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(equality.Semantic.DeepEqual(*res, *cacheRecord)).To(BeTrue())
-		})
-
-		It("getMountTargetRecord should error if vmi UID is empty", func() {
-			vmi.UID = ""
-			_, err := m.getMountTargetRecord(vmi)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("getMountTargetRecord should return nil not in cache and nothing stored in file", func() {
-			err := m.deleteMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			res, err := m.getMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(&vmiMountTargetRecord{UsesSafePaths: true}))
-		})
-
-		It("deleteMountTargetRecord should remove both record file and entry file", func() {
-			err := os.WriteFile(filepath.Join(tempDir, "test"), []byte("test"), 0644)
-			Expect(err).ToNot(HaveOccurred())
-			err = m.deleteMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			recordFile := filepath.Join(tempDir, string(vmi.UID))
-			_, err = os.Stat(recordFile)
-			Expect(err).To(HaveOccurred())
-			_, err = os.Stat(filepath.Join(tempDir, "test"))
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("writePathToMountRecord should not duplicate existing entry", func() {
-			duplicatePath := record.MountTargetEntries[0].TargetFile
-			originalLength := len(record.MountTargetEntries)
-			originalBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-
-			err = m.writePathToMountRecord(duplicatePath, vmi, record)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(record.MountTargetEntries).To(HaveLen(originalLength))
-
-			updatedBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(updatedBytes).To(Equal(originalBytes))
+			Expect(filepath.Join(tempDir, string(vmi.UID))).ToNot(BeAnExistingFile())
+			Expect(entryFile).ToNot(BeAnExistingFile())
 		})
 	})
 
@@ -268,7 +189,6 @@ var _ = Describe("HotplugVolume", func() {
 			m             *volumeMounter
 			err           error
 			vmi           *v1.VirtualMachineInstance
-			record        *vmiMountTargetRecord
 			targetPodPath string
 		)
 
@@ -286,11 +206,8 @@ var _ = Describe("HotplugVolume", func() {
 			err = os.MkdirAll(targetPodPath, 0755)
 			Expect(err).ToNot(HaveOccurred())
 
-			record = &vmiMountTargetRecord{}
-
 			m = &volumeMounter{
-				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
+				mountRecords:       mountrecord.NewStore(checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir())),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
@@ -376,9 +293,7 @@ var _ = Describe("HotplugVolume", func() {
 			err = m.mountFromPod(vmi, "", cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
-			record, err := m.getMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(record.MountTargetEntries).To(BeEmpty())
+			Expect(m.mountRecords.Entries(vmi.UID)).To(BeEmpty())
 		})
 
 		It("should skip mounting hotplug volumes no longer in VMI spec", func() {
@@ -400,9 +315,7 @@ var _ = Describe("HotplugVolume", func() {
 			err = m.mountFromPod(vmi, "", cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
-			record, err := m.getMountTargetRecord(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(record.MountTargetEntries).To(BeEmpty())
+			Expect(m.mountRecords.Entries(vmi.UID)).To(BeEmpty())
 		})
 
 		It("should mount volumes still in spec while skipping removed ones", func() {
@@ -457,11 +370,11 @@ var _ = Describe("HotplugVolume", func() {
 			err = m.mountFromPod(vmi, "", cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
-			record, err = m.getMountTargetRecord(vmi)
+			entries, err := m.mountRecords.Entries(vmi.UID)
 			Expect(err).ToNot(HaveOccurred())
 			// Only the kept-vol should have been mounted
-			Expect(record.MountTargetEntries).To(HaveLen(1))
-			Expect(record.MountTargetEntries[0].TargetFile).To(ContainSubstring("kept-vol"))
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].TargetFile).To(ContainSubstring("kept-vol"))
 		})
 
 		It("findVirtlauncherUID should find the right UID", func() {
@@ -503,7 +416,7 @@ var _ = Describe("HotplugVolume", func() {
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(2)
 			expectCgroupRule(devices.BlockDevice, 482, 64, true)
-			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Unmounting, we verify the reverse process happens")
@@ -724,7 +637,6 @@ var _ = Describe("HotplugVolume", func() {
 			m             *volumeMounter
 			err           error
 			vmi           *v1.VirtualMachineInstance
-			record        *vmiMountTargetRecord
 			targetPodPath *safepath.Path
 		)
 
@@ -744,11 +656,8 @@ var _ = Describe("HotplugVolume", func() {
 			targetPodPath, err = newDir(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks")
 			Expect(err).ToNot(HaveOccurred())
 
-			record = &vmiMountTargetRecord{}
-
 			m = &volumeMounter{
-				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
+				mountRecords:       mountrecord.NewStore(checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir())),
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
 			}
@@ -850,10 +759,9 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), record, false)
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(sourcePodUID), false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(record.MountTargetEntries).To(HaveLen(1))
-			Expect(record.MountTargetEntries[0].TargetFile).To(Equal(unsafepath.UnsafeAbsolute(targetFilePath.Raw())))
+			Expect(m.mountRecords.Entries(vmi.UID)).To(Equal(entriesFor(unsafepath.UnsafeAbsolute(targetFilePath.Raw()))))
 
 			unmountCommand = func(diskPath *safepath.Path) ([]byte, error) {
 				Expect(targetFilePath).To(Equal(diskPath))
@@ -874,7 +782,7 @@ var _ = Describe("HotplugVolume", func() {
 				return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", tempDir), nil
 			}
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), false)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(os.ErrNotExist), "expected os.ErrNotExist for missing disk.img")
 		})
@@ -886,7 +794,7 @@ var _ = Describe("HotplugVolume", func() {
 				}
 			}
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), false)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ErrWaitingForHotplugMount), "expected error waiting for hotplug mount")
 		})
@@ -926,7 +834,7 @@ var _ = Describe("HotplugVolume", func() {
 			m.kubeletPodsDir = "/var/lib/kubelet/pods"
 			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
 
-			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(expectedSourceUID), record, false)
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID(expectedSourceUID), false)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uidWasVerified).To(BeTrue(), "parentPathForMount mock should have been called and verified the UID")
 		})
@@ -996,8 +904,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			m = &volumeMounter{
-				mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-				checkpointManager:  checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir()),
+				mountRecords:       mountrecord.NewStore(checkpoint.NewSimpleCheckpointManager(tempDir, GinkgoT().TempDir())),
 				skipSafetyCheck:    true,
 				hotplugDiskManager: hotplugdisk.NewHotplugDiskWithOptions(tempDir),
 				ownershipManager:   ownershipManager,
@@ -1047,21 +954,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("Verifying there are %d records in tempDir/1234", len(expectedPaths)))
-			record := &vmiMountTargetRecord{
-				UsesSafePaths: true,
-			}
-
-			for _, path := range expectedPaths {
-				record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-					TargetFile: path,
-				})
-			}
-
-			expectedBytes, err := json.Marshal(record)
-			Expect(err).ToNot(HaveOccurred())
-			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(bytes).To(Equal(expectedBytes))
+			Expect(persistedEntries(vmi)).To(Equal(entriesFor(expectedPaths...)))
 			for _, path := range expectedPaths {
 				_, err = os.Stat(path)
 				Expect(err).ToNot(HaveOccurred())
@@ -1207,13 +1100,7 @@ var _ = Describe("HotplugVolume", func() {
 			badPathAbs := unsafepath.UnsafeAbsolute(badPath.Raw())
 			goodPathAbs := unsafepath.UnsafeAbsolute(goodPath.Raw())
 
-			record := &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{TargetFile: badPathAbs},
-					{TargetFile: goodPathAbs},
-				},
-			}
-			Expect(m.setMountTargetRecord(vmi, record)).To(Succeed())
+			Expect(m.mountRecords.Add(vmi.UID, entriesFor(badPathAbs, goodPathAbs)...)).To(Succeed())
 
 			// Inject block probe failure
 			DeferCleanup(func() {
@@ -1243,12 +1130,7 @@ var _ = Describe("HotplugVolume", func() {
 			_, err = os.Stat(badPathAbs)
 			Expect(err).ToNot(HaveOccurred(), "failed volume should remain %s", badPathAbs)
 
-			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			updated := &vmiMountTargetRecord{}
-			Expect(json.Unmarshal(bytes, updated)).To(Succeed())
-			Expect(updated.MountTargetEntries).To(HaveLen(1))
-			Expect(updated.MountTargetEntries[0].TargetFile).To(Equal(badPathAbs))
+			Expect(persistedEntries(vmi)).To(Equal(entriesFor(badPathAbs)))
 		})
 
 		It("Should not do anything if vmi has no hotplug volumes", func() {
@@ -1368,22 +1250,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying there are 2 records in tempDir/1234")
-			record := &vmiMountTargetRecord{
-				MountTargetEntries: []vmiMountTargetEntry{
-					{
-						TargetFile: targetFilePath,
-					},
-					{
-						TargetFile: blockVolume,
-					},
-				},
-				UsesSafePaths: true,
-			}
-			expectedBytes, err := json.Marshal(record)
-			Expect(err).ToNot(HaveOccurred())
-			bytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(bytes).To(Equal(expectedBytes))
+			Expect(persistedEntries(vmi)).To(Equal(entriesFor(targetFilePath, blockVolume)))
 			_, err = os.Stat(targetFilePath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(capturedPaths).To(ContainElements(expectedPaths))
