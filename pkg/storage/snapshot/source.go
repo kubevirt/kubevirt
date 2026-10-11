@@ -430,6 +430,10 @@ func (s *vmSnapshotSource) GuestAgent() bool {
 	return s.state.guestAgent
 }
 
+func (s *vmSnapshotSource) skipQuiesce() bool {
+	return s.snapshot != nil && s.snapshot.Spec.SkipQuiesce
+}
+
 func (s *vmSnapshotSource) Frozen() bool {
 	return s.state.frozen
 }
@@ -444,6 +448,10 @@ func (s *vmSnapshotSource) Freeze() error {
 
 	if s.Paused() {
 		log.Log.Warningf("VM %s is paused - taking snapshot without filesystem freeze. Paused VMs cannot flush memory buffers to disk, which may result in inconsistent snapshots.", s.vm.Name)
+		return nil
+	}
+
+	if s.skipQuiesce() {
 		return nil
 	}
 
@@ -469,7 +477,7 @@ func (s *vmSnapshotSource) Freeze() error {
 }
 
 func (s *vmSnapshotSource) Unfreeze() error {
-	if !s.Locked() || !s.GuestAgent() || s.Paused() {
+	if !s.Locked() || !s.GuestAgent() || s.Paused() || s.skipQuiesce() {
 		return nil
 	}
 

@@ -36057,6 +36057,13 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotSpec(ref comm
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkipQuiesce indicates whether the VM's filesystem should not be quiesced before the snapshot",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
@@ -37108,6 +37115,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 						SchemaProps: spec.SchemaProps{
 							Description: "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
+						},
+					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkipQuiesce indicates whether the VM's filesystem should not be quiesced before the snapshot",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

@@ -22908,6 +22908,10 @@
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      },
+     "skipQuiesce": {
+      "description": "SkipQuiesce indicates whether the VM's filesystem should not be quiesced before the snapshot",
+      "type": "boolean"
+     },
      "source": {
       "default": {},
       "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"

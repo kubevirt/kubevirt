@@ -72,6 +72,10 @@ type VirtualMachineSnapshotSpec struct {
 	// Defaults to DefaultFailureDeadline - 5min
 	// +optional
 	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
+
+	// SkipQuiesce indicates whether the VM's filesystem should not be quiesced before the snapshot
+	// +optional
+	SkipQuiesce bool `json:"skipQuiesce,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
@@ -83,6 +87,7 @@ const (
 	VMSnapshotGuestAgentIndication      Indication = "GuestAgent"
 	VMSnapshotQuiesceTimeoutIndication  Indication = "QuiesceTimeout"
 	VMSnapshotQuiesceFailedIndication   Indication = "QuiesceFailed"
+	VMSnapshotQuiesceSkippedIndication  Indication = "QuiesceSkipped"
 	VMSnapshotPausedIndication          Indication = "Paused"
 	VMSnapshotPartialSnapshotIndication Indication = "PartialSnapshot"
 )

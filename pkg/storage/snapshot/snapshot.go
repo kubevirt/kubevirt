@@ -82,6 +82,7 @@ var snapshotIndicationMessages = map[snapshotv1.Indication]string{
 	snapshotv1.VMSnapshotNoGuestAgentIndication:    "Guest agent was not available. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotQuiesceTimeoutIndication:  "Guest agent quiesced the filesystem, but the freeze window timed out before completion. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotQuiesceFailedIndication:   "Filesystem quiescing failed after exhausting retries. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotQuiesceSkippedIndication:  "Filesystem quiesce was skipped. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotPausedIndication:          "Snapshot taken while the VM was paused. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotPartialSnapshotIndication: "Not all snapshotable volumes were included in the snapshot. Check status.snapshotVolumes for excluded volumes and VM VolumeSnapshotStatus for details.",
 }
@@ -884,6 +885,8 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 
 		if source.Paused() {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotPausedIndication)
+		} else if snapshot.Spec.SkipQuiesce {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceSkippedIndication)
 		} else if source.GuestAgent() {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
@@ -896,7 +899,7 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
 			}
 		} else {
-			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotQuiesceSkippedIndication)
 		}
 
 		indicationsList := sets.List(indications)
