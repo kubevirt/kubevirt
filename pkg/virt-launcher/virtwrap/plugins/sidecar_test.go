@@ -20,6 +20,8 @@
 package plugins
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -66,14 +68,14 @@ var _ = Describe("Sidecar hooks", func() {
 
 			readinessTimeout := 2 * time.Second
 			budget := readinessBudget{deadline: time.Now().Add(-1 * time.Second), total: readinessTimeout}
-			Expect(waitForSidecarSocket(socketPath, budget, osStatSocketReady)).To(Succeed())
+			Expect(waitForSidecarSocket(context.Background(), socketPath, budget, osStatSocketReady)).To(Succeed())
 		})
 
 		It("should return error when deadline passes and socket does not exist", func() {
 			socketPath := filepath.Join(GinkgoT().TempDir(), "test-plugin", "nonexistent.sock")
 			readinessTimeout := 200 * time.Millisecond
 			budget := readinessBudget{deadline: time.Now().Add(-1 * time.Second), total: readinessTimeout}
-			err := waitForSidecarSocket(socketPath, budget, osStatSocketReady)
+			err := waitForSidecarSocket(context.Background(), socketPath, budget, osStatSocketReady)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("not ready"))
 			Expect(err.Error()).To(ContainSubstring(readinessTimeout.String()))
@@ -89,7 +91,7 @@ var _ = Describe("Sidecar hooks", func() {
 
 			readinessTimeout := 200 * time.Millisecond
 			budget := readinessBudget{deadline: time.Now().Add(readinessTimeout), total: readinessTimeout}
-			err := waitForSidecarSocket(filepath.Join(notDirectory, "hook.sock"), budget, osStatSocketReady)
+			err := waitForSidecarSocket(context.Background(), filepath.Join(notDirectory, "hook.sock"), budget, osStatSocketReady)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("checking socket"))
 		})
@@ -102,8 +104,37 @@ var _ = Describe("Sidecar hooks", func() {
 			}
 			readinessTimeout := 2 * time.Second
 			budget := readinessBudget{deadline: time.Now().Add(readinessTimeout), total: readinessTimeout}
-			Expect(waitForSidecarSocket("fake.sock", budget, socketReady)).To(Succeed())
+			Expect(waitForSidecarSocket(context.Background(), "fake.sock", budget, socketReady)).To(Succeed())
 			Expect(probes).To(Equal(2))
+		})
+
+		It("returns the parent context error when it is already canceled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+
+			budget := readinessBudget{deadline: time.Now().Add(time.Minute), total: time.Minute}
+			err := waitForSidecarSocket(ctx, "fake.sock", budget, func(string) (bool, error) { return false, nil })
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+		})
+
+		It("stops polling when the parent context is canceled mid-poll", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			probes := 0
+			socketReady := func(string) (bool, error) {
+				probes++
+				if probes > 1 {
+					cancel()
+				}
+				return false, nil
+			}
+			budget := readinessBudget{deadline: time.Now().Add(time.Minute), total: time.Minute}
+			err := waitForSidecarSocket(ctx, "fake.sock", budget, socketReady)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+			Expect(probes).To(Equal(2), "the poll must exit via the context instead of polling to the deadline")
 		})
 	})
 

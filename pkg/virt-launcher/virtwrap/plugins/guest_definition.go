@@ -20,9 +20,9 @@
 package plugins
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	libvirtxml "libvirt.org/go/libvirtxml"
 
@@ -31,70 +31,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
-	plugincel "kubevirt.io/kubevirt/pkg/plugins/cel"
+	pluginsv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/plugins/v1alpha1"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 	celutil "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel"
 )
 
-type hookApplier interface {
-	Apply(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain, invocationContext string) (*libvirtxml.Domain, error)
-}
-
-type celHookApplier struct {
-	evaluator  *celutil.Evaluator
-	expression string
-}
-
-func (c *celHookApplier) Apply(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain, _ string) (*libvirtxml.Domain, error) {
-	return c.evaluator.EvaluateMutation(c.expression, vmi, domain)
-}
-
-type sidecarHookApplier struct {
-	socketPath    string
-	pluginName    string
-	timeout       time.Duration
-	readiness     readinessBudget
-	socketBaseDir string
-	socketReady   func(path string) (bool, error)
-}
-
-type readinessBudget struct {
-	deadline time.Time
-	total    time.Duration
-}
-
-func (s *sidecarHookApplier) Apply(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain, invocationContext string) (*libvirtxml.Domain, error) {
-	if err := waitForSidecarSocket(s.socketPath, s.readiness, s.socketReady); err != nil {
-		return nil, err
-	}
-
-	domainXML, err := domain.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal domain: %w", err)
-	}
-	vmiJSON, err := json.Marshal(vmi)
-	if err != nil {
-		return nil, fmt.Errorf("marshal VMI: %w", err)
-	}
-
-	resultXML, err := callSidecarHook(s.socketPath, s.pluginName, s.socketBaseDir, []byte(domainXML), vmiJSON, invocationContext, s.timeout)
-	if err != nil {
-		return nil, err
-	}
-
-	mutated := &libvirtxml.Domain{}
-	if err := mutated.Unmarshal(string(resultXML)); err != nil {
-		return nil, fmt.Errorf("unmarshal sidecar response: %w", err)
-	}
-	return mutated, nil
-}
-
 func ApplyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) (*virtwrapApi.DomainSpec, string, error) {
-	return applyGuestDefinitionHooks(plugins, vmi, spec, invocationContext, defaultSidecarReadinessTimeout, pluginSocketBaseDir, osStatSocketReady)
+	return applyGuestDefinitionHooks(plugins, vmi, spec, invocationContext, defaultSidecarCallOptions())
 }
 
-func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext, readinessTimeout time.Duration, socketBaseDir string, socketReady func(path string) (bool, error)) (*virtwrapApi.DomainSpec, string, error) {
+func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *virtwrapApi.DomainSpec, invocationContext pluginv1alpha1.InvocationContext, opts sidecarCallOptions) (*virtwrapApi.DomainSpec, string, error) {
 	if len(plugins) == 0 {
 		return spec, "", nil
 	}
@@ -104,16 +51,7 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 		return nil, "", fmt.Errorf("converting DomainSpec to libvirtxml: %w", err)
 	}
 
-	evaluator := celutil.GetEvaluator()
-	conditionEvaluator, err := plugincel.NewEvaluator()
-	if err != nil {
-		return nil, "", fmt.Errorf("creating VMI condition evaluator: %w", err)
-	}
-	evalCondition := func(expr string) (bool, error) {
-		return conditionEvaluator.EvaluateCondition(expr, map[string]any{"vmi": vmi})
-	}
-
-	resolvedHooks, err := selectHooks(plugins, pluginv1alpha1.LauncherHookGuestDefinition, evalCondition)
+	hooks, err := selectHooks(plugins, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 	if err != nil {
 		return nil, "", err
 	}
@@ -121,51 +59,58 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 	// No plugin contributed a guest definition hook (e.g. a plugin only declares NodeHooks).
 	// Return the spec untouched; an empty XML string signals to the caller that no hooks ran
 	// and it should keep its own domain XML rather than adopting this round-trip.
-	if len(resolvedHooks) == 0 {
+	if len(hooks) == 0 {
 		return spec, "", nil
 	}
 
-	// All sidecars are containers of the same virt-launcher pod and start at roughly the same
-	// time, so readiness is bounded once for the whole pipeline rather than per hook. Otherwise
-	// N sidecars could delay startup by N*readinessTimeout and the first hook would be
-	// judged most strictly. This is the readiness budget only; per-hook execution time is
-	// bounded separately by the hook timeout below.
-	sidecarReadiness := readinessBudget{
-		deadline: time.Now().Add(readinessTimeout),
-		total:    readinessTimeout,
+	vmiJSON, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, "", fmt.Errorf("marshal VMI: %w", err)
 	}
 
-	for _, resolved := range resolvedHooks {
-		var applier hookApplier
-		switch {
-		case resolved.hook.CEL != nil:
-			applier = &celHookApplier{evaluator: evaluator, expression: resolved.hook.CEL.Expression}
-		case resolved.hook.Sidecar != nil:
-			timeout := defaultSidecarCallTimeout
-			if resolved.hook.Timeout != nil {
-				timeout = resolved.hook.Timeout.Duration
+	evaluator := celutil.GetEvaluator()
+
+	err = runHooks(context.Background(), pluginv1alpha1.LauncherHookGuestDefinition, hooks, func(ctx context.Context, hook resolvedHook) error {
+		if hook.hook.CEL != nil {
+			mutated, err := evaluator.EvaluateMutation(hook.hook.CEL.Expression, vmi, domain)
+			if err != nil {
+				return err
 			}
-			applier = &sidecarHookApplier{
-				socketPath:    resolved.hook.Sidecar.SocketPath,
-				pluginName:    resolved.pluginName,
-				timeout:       timeout,
-				readiness:     sidecarReadiness,
-				socketBaseDir: socketBaseDir,
-				socketReady:   socketReady,
-			}
-		default:
-			return nil, "", fmt.Errorf("plugin %s hook %d defines neither cel nor sidecar", resolved.pluginName, resolved.index)
+			domain = mutated
+			return nil
+		}
+		if hook.hook.Sidecar == nil {
+			return fmt.Errorf("plugin %s hook %d defines neither cel nor sidecar", hook.pluginName, hook.index)
 		}
 
-		mutated, err := applier.Apply(vmi, domain, string(invocationContext))
+		domainXML, err := domain.Marshal()
 		if err != nil {
-			if resolved.failureStrategy == pluginv1alpha1.FailureStrategyIgnore {
-				log.Log.Warningf("Plugin %s hook %d failed (ignored): %v", resolved.pluginName, resolved.index, err)
-				continue
-			}
-			return nil, "", fmt.Errorf("plugin %s hook %d failed: %w", resolved.pluginName, resolved.index, err)
+			return fmt.Errorf("marshal domain: %w", err)
 		}
-		domain = mutated
+
+		return callSidecar(ctx, hook, opts, func(ctx context.Context, client pluginsv1alpha1.LauncherHookServiceClient) error {
+			resp, err := client.GuestDefinition(ctx, &pluginsv1alpha1.GuestDefinitionRequest{
+				DomainType: domainTypeLibvirt,
+				Domain:     []byte(domainXML),
+				Vmi:        vmiJSON,
+				SidecarContext: &pluginsv1alpha1.SidecarContext{
+					InvocationContext: string(invocationContext),
+				},
+			})
+			if err != nil {
+				return err
+			}
+
+			mutated := &libvirtxml.Domain{}
+			if err := mutated.Unmarshal(string(resp.Domain)); err != nil {
+				return fmt.Errorf("unmarshal sidecar response: %w", err)
+			}
+			domain = mutated
+			return nil
+		})
+	})
+	if err != nil {
+		return nil, "", err
 	}
 
 	xmlStr, err := domain.Marshal()
@@ -178,6 +123,6 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 		return nil, "", fmt.Errorf("converting domain back to DomainSpec: %w", err)
 	}
 
-	log.Log.Infof("Processed %d guest definition hook(s)", len(resolvedHooks))
+	log.Log.Infof("Processed %d guest definition hook(s)", len(hooks))
 	return updatedSpec, xmlStr, nil
 }
