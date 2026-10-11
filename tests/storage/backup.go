@@ -47,8 +47,10 @@ import (
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -569,6 +571,124 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Verifying second backup is a full backup")
 		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
+	})
+
+	When("the disk's PVC is replaced while the VM is stopped", func() {
+		var (
+			tracker          *backupv1.VirtualMachineBackupTracker
+			volumeName       string
+			originalClaimUID types.UID
+		)
+
+		newDataVolume := func() *cdiv1.DataVolume {
+			return libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(libdv.StorageWithVolumeSize(cd.AlpineVolumeSize)),
+			)
+		}
+
+		claimUID := func() types.UID {
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			for _, status := range vmi.Status.VolumeStatus {
+				if status.Name == volumeName && status.PersistentVolumeClaimInfo != nil {
+					return status.PersistentVolumeClaimInfo.ClaimUID
+				}
+			}
+			return ""
+		}
+
+		BeforeEach(func() {
+			vm = libstorage.RenderVMWithDataVolumeTemplate(newDataVolume(),
+				libvmi.WithLabels(cbt.CBTLabel),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+				withCloudInitNoCloudDummy(),
+			)
+			volumeName = vm.Spec.Template.Spec.Volumes[0].Name
+
+			By(fmt.Sprintf("Creating VM %s", vm.Name))
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			By("Creating BackupTracker")
+			tracker = createBackupTracker(virtClient, vm)
+
+			By("Creating first full backup")
+			fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+			fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+			Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+
+			originalClaimUID = claimUID()
+			Expect(originalClaimUID).ToNot(BeEmpty())
+
+			By("Stopping the VM")
+			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				return err
+			}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+		})
+
+		expectFullBackupAfterRestart := func() {
+			By("Starting the VM again")
+			err := virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			By("Verifying the disk is backed by a different claim")
+			Expect(claimUID()).ToNot(Equal(originalClaimUID))
+
+			By("Verifying the checkpoint could not be redefined on the replaced disk")
+			events.ExpectEvent(tracker, corev1.EventTypeWarning, "CheckpointRedefinitionFailed")
+
+			By("Creating second backup - should be Full since the disk was replaced")
+			secondBackupPVC := libstorage.CreateFSPVC("second-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+			secondBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, secondBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+			Expect(secondBackup.Status.Type).To(Equal(backupv1.Full), "Backup should fall back to Full when the disk's PVC was replaced")
+			diskSize := resource.MustParse(cd.AlpineVolumeSize)
+			verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{diskSize.Value()})
+		}
+
+		It("should fall back to Full when the DataVolume is recreated under the same name", func() {
+			By("Recreating the DataVolume")
+			dvName := vm.Spec.DataVolumeTemplates[0].Name
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), dvName, metav1.DeleteOptions{
+				PropagationPolicy: new(metav1.DeletePropagationForeground),
+			})).To(Succeed())
+			Eventually(func() types.UID {
+				current, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return ""
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return current.UID
+			}, 180*time.Second, 2*time.Second).ShouldNot(Equal(pvc.UID))
+
+			expectFullBackupAfterRestart()
+		})
+
+		It("should fall back to Full when the volume is pointed at another PVC", func() {
+			By("Pointing the volume at another DataVolume")
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), newDataVolume(), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
+			payload, err := patch.New(
+				patch.WithReplace("/spec/template/spec/volumes/0/dataVolume/name", dv.Name),
+				patch.WithRemove("/spec/dataVolumeTemplates/0"),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			expectFullBackupAfterRestart()
+		})
 	})
 
 	It("Checkpoint redefinition succeeds after hotplug volume removal", func() {
