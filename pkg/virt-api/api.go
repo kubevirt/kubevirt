@@ -112,7 +112,6 @@ type virtAPIApp struct {
 	k8sClient        kubernetes.Interface
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
-	certsDirectory   string
 	clusterConfig    *virtconfig.ClusterConfig
 
 	namespace               string
@@ -186,10 +185,6 @@ func (app *virtAPIApp) Execute() {
 
 	app.authorizor = authorizor
 
-	app.certsDirectory, err = os.MkdirTemp("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
 		panic(err)

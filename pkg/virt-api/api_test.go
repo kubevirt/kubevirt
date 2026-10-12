@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -51,7 +50,6 @@ const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Virt-api", func() {
 	var app virtAPIApp
-	var tmpDir string
 	var server *ghttp.Server
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
@@ -62,11 +60,8 @@ var _ = Describe("Virt-api", func() {
 		server = ghttp.NewServer()
 
 		backend = httptest.NewServer(nil)
-		tmpDir, err := os.MkdirTemp("", "api_tmp_dir")
-		Expect(err).ToNot(HaveOccurred())
 		app.virtClient, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.k8sClient, _ = kubecli.GetK8sClientFromFlags(server.URL(), "")
-		app.certsDirectory = tmpDir
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
@@ -295,6 +290,5 @@ var _ = Describe("Virt-api", func() {
 	AfterEach(func() {
 		backend.Close()
 		server.Close()
-		os.RemoveAll(tmpDir)
 	})
 })
