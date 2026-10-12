@@ -5,7 +5,12 @@ metadata:
   name: default-deny
   namespace: kubevirt
 spec:
-  podSelector: { }
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: NotIn
+        values:
+          - dra-network-test-driver
   policyTypes:
     - Ingress
     - Egress
