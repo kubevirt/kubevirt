@@ -61,7 +61,7 @@ func (s *VMSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMSource) ConfigurePod(pod *corev1.Pod) {

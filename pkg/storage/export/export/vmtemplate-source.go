@@ -75,7 +75,7 @@ func (s *VMTemplateSource) SourceCondition() exportv1.Condition {
 }
 
 func (s *VMTemplateSource) ReadyCondition() exportv1.Condition {
-	return s.sourceVolumes.readyCondition
+	return s.sourceVolumes.ReadyCondition()
 }
 
 func (s *VMTemplateSource) ConfigurePod(pod *corev1.Pod) {
