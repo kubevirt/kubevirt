@@ -62,56 +62,32 @@ var _ = Describe("Validate network DRA", func() {
 		Expect(causes).To(BeEmpty())
 	})
 
-	It("should reject DRA network with empty claimName", func() {
+	DescribeTable("should reject invalid DRA network", func(network *v1.Network, expectedCause metav1.StatusCause) {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface("dra-net",
 				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "", "vf")),
+			libvmi.WithNetwork(network),
 			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
-		causes := validator.Validate()
-		expectedCauses := []metav1.StatusCause{{
+		Expect(validator.Validate()).To(Equal([]metav1.StatusCause{expectedCause}))
+	},
+		Entry("empty claimName", libvmi.DRANetwork("dra-net", "", "vf"), metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: "claimName is required for DRA network",
 			Field:   "fake.networks[0].resourceClaim.claimName",
-		}}
-		Expect(causes).To(Equal(expectedCauses))
-	})
-
-	It("should reject DRA network with empty requestName", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("dra-net",
-				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "")),
-			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
-		)
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
-		causes := validator.Validate()
-		expectedCauses := []metav1.StatusCause{{
+		}),
+		Entry("empty requestName", libvmi.DRANetwork("dra-net", "claim1", ""), metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
 			Message: "requestName is required for DRA network",
 			Field:   "fake.networks[0].resourceClaim.requestName",
-		}}
-		Expect(causes).To(Equal(expectedCauses))
-	})
-
-	It("should reject DRA network with non-existent resourceClaim reference", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("dra-net",
-				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "missing-claim", "vf")),
-			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
-		)
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
-		causes := validator.Validate()
-		expectedCauses := []metav1.StatusCause{{
+		}),
+		Entry("non-existent resourceClaim reference", libvmi.DRANetwork("dra-net", "missing-claim", "vf"), metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotFound,
 			Message: `network references resourceClaim "missing-claim" which is not defined in spec.resourceClaims`,
 			Field:   "fake.networks[0].resourceClaim.claimName",
-		}}
-		Expect(causes).To(Equal(expectedCauses))
-	})
+		}),
+	)
 
 	It("should reject duplicate claimName/requestName across DRA networks", func() {
 		vmi := libvmi.New(
