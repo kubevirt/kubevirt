@@ -232,32 +232,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vmi"))
-		controller, _ = NewController(mockQueue,
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
-			vmiInformer,
-			vmInformer,
-			podInformer,
-			pvcInformer,
-			migrationInformer,
-			storageClassInformer,
-			recorder,
-			virtClient,
-			dataVolumeInformer,
-			storageProfileInformer,
-			cdiInformer,
-			cdiConfigInformer,
-			kubeVirtInformer,
-			config,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
-			stubNetworkAnnotationsGenerator{},
-			stubStorageAnnotationsGenerator{},
-			stubNetStatusUpdate,
-			validateNetVMISpecStub(),
-			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
-			&fakeAllocator{},
-			[]string{},
-			[]string{},
-		)
+		controller, _ = NewController(ControllerConfig{
+			Queue:         mockQueue,
+			Client:        virtClient,
+			Recorder:      recorder,
+			ClusterConfig: config,
+			TemplateService: services.NewTemplateService(
+				"a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g",
+				rqInformer.GetStore(), nsInformer.GetStore(),
+			),
+			Informers: Informers{
+				VMI:            vmiInformer,
+				VM:             vmInformer,
+				Pod:            podInformer,
+				PVC:            pvcInformer,
+				Migration:      migrationInformer,
+				StorageClass:   storageClassInformer,
+				DataVolume:     dataVolumeInformer,
+				StorageProfile: storageProfileInformer,
+				CDI:            cdiInformer,
+				CDIConfig:      cdiConfigInformer,
+				KubeVirt:       kubeVirtInformer,
+			},
+			Network: NetworkDependencies{
+				AnnotationsGenerator: stubNetworkAnnotationsGenerator{},
+				StatusUpdater:        stubNetStatusUpdate,
+				SpecValidator:        validateNetVMISpecStub(),
+				MigrationEvaluator:   stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			},
+			StorageAnnotationsGenerator:       stubStorageAnnotationsGenerator{},
+			TopologyHinter:                    topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
+			VsockAllocator:                    &fakeAllocator{},
+			AdditionalLauncherAnnotationsSync: []string{},
+			AdditionalLauncherLabelsSync:      []string{},
+		})
 
 		sanityExecute = func() {
 			controllertesting.SanityExecute(controller, []cache.Store{
