@@ -1165,6 +1165,11 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	for key, value := range vmExport.Annotations {
 		podManifest.Annotations[key] = value
 	}
+	const (
+		annOpenDefaultPorts = "k8s.ovn.org/open-default-ports"
+		openDefaultPorts    = `[{"protocol":"tcp","port":8443}]`
+	)
+	podManifest.Annotations[annOpenDefaultPorts] = openDefaultPorts
 	podManifest.Spec.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot:   pointer.P(true),
 		FSGroup:        pointer.P(int64(kvm)),
