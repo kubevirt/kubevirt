@@ -779,15 +779,16 @@ var _ = Describe("Live migration source", func() {
 				maxDowntimeMs:        options.MaxDowntimeMs,
 			}
 			monitor = &migrationMonitor{
-				l:                        libvirtDomainManager,
-				vmi:                      vmi,
-				options:                  options,
-				start:                    time.Now().UTC().UnixNano(),
-				acceptableCompletionTime: testCompletionTimeSec,
-				switchOverDeadline:       testCompletionTimeSec,
-				stallDetectionEnabled:    true,
-				stallDetector:            sd,
-				logger:                   log.Log.Object(vmi),
+				l:                     libvirtDomainManager,
+				vmi:                   vmi,
+				options:               options,
+				start:                 time.Now().UTC().UnixNano(),
+				initialCopyTimeoutSec: testCompletionTimeSec,
+				convergenceTimeoutSec: 0,
+				switchOverDeadline:    testCompletionTimeSec,
+				stallDetectionEnabled: true,
+				stallDetector:         sd,
+				logger:                log.Log.Object(vmi),
 			}
 		})
 
@@ -840,6 +841,7 @@ var _ = Describe("Live migration source", func() {
 				sd.initialMaxDowntimeSet = true
 				sd.ewmaBandwidthBps = 1000
 				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+				monitor.initialCopyDoneSec = testCompletionTimeSec
 
 				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
@@ -1419,6 +1421,7 @@ var _ = Describe("Live migration source", func() {
 				mockDomain = cli.NewMockVirDomain(ctrl)
 				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
 				monitor.iterationRecord.iterationNumber = 2
+				monitor.initialCopyDoneSec = testCompletionTimeSec
 			})
 
 			It("should not trigger abort when timeout has not been reached", func() {
@@ -1463,10 +1466,10 @@ var _ = Describe("Live migration source", func() {
 
 				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
 
-				originalTimeout := monitor.acceptableCompletionTime
+				originalTimeout := monitor.acceptableCompletionTime()
 				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
 				Expect(sd.switchoverInitiated).To(BeTrue())
-				Expect(monitor.acceptableCompletionTime).To(Equal(originalTimeout * 2))
+				Expect(monitor.acceptableCompletionTime()).To(Equal(originalTimeout * 2))
 				elapsedSeconds := pastTimeoutNs() / int64(time.Second)
 				Expect(monitor.switchOverDeadline).To(Equal(elapsedSeconds + testSwitchoverTimeout))
 			})
@@ -1478,9 +1481,9 @@ var _ = Describe("Live migration source", func() {
 
 				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
 
-				originalTimeout := monitor.acceptableCompletionTime
+				originalTimeout := monitor.acceptableCompletionTime()
 				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
-				Expect(monitor.acceptableCompletionTime).To(Equal(originalTimeout * 3))
+				Expect(monitor.acceptableCompletionTime()).To(Equal(originalTimeout * 3))
 			})
 
 			It("should trigger abort when AllowPostCopy is true but migration cannot finish by deadline", func() {
@@ -1527,13 +1530,13 @@ var _ = Describe("Live migration source", func() {
 
 				mockDomain.EXPECT().MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, uint32(0)).Times(1).Return(fmt.Errorf("set max downtime failed"))
 
-				originalTimeout := monitor.acceptableCompletionTime
+				originalTimeout := monitor.acceptableCompletionTime()
 				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), estimatedDowntimeMs, monitor.logger)
 				Expect(sd.switchoverInitiated).To(BeFalse())
-				Expect(monitor.acceptableCompletionTime).To(Equal(originalTimeout))
+				Expect(monitor.acceptableCompletionTime()).To(Equal(originalTimeout))
 				Expect(monitor.isAbortInProgress()).To(BeFalse())
 
-				elapsedPastSwitchoverBudget := (monitor.acceptableCompletionTime*2 + 1) * int64(time.Second)
+				elapsedPastSwitchoverBudget := (monitor.acceptableCompletionTime()*2 + 1) * int64(time.Second)
 				setupSuccessfulAbortContext(mockDomain)
 				monitor.processCompletionTimeouts(mockDomain, elapsedPastSwitchoverBudget, estimatedDowntimeMs, monitor.logger)
 				Expect(sd.switchoverInitiated).To(BeFalse())
