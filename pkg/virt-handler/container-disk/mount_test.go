@@ -43,8 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 
 var _ = Describe("ContainerDisk", func() {
@@ -298,9 +296,7 @@ var _ = Describe("ContainerDisk", func() {
 
 			// verify the file actually exists
 			recordFile := filepath.Join(tmpDir, string(vmi.UID))
-			exists, err := diskutils.FileExists(recordFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeTrue())
+			Expect(recordFile).To(BeAnExistingFile())
 
 			// verify we can read a result
 			record, err = m.getMountTargetRecord(vmi)
@@ -327,9 +323,7 @@ var _ = Describe("ContainerDisk", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// verify the file is actually removed
-			exists, err = diskutils.FileExists(recordFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			Expect(recordFile).ToNot(BeAnExistingFile())
 
 			// verify deleting results that don't exist won't fail
 			err = m.deleteMountTargetRecord(vmi)
