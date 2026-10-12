@@ -60,10 +60,10 @@ Prepare domain XML ──── send XML ─────────────
                                             Receive XML
                                             Apply hooks:
                                               1. CPU
-                                              2. disk source path
-                                              3. CBT overlay
-                                              4. network naming
-                                              5. vGPU
+                                              2. disk (source paths, then
+                                                 CBT overlays)
+                                              3. network naming
+                                              4. vGPU
                                             Return modified XML
          ◀──────────── receive XML ────────────  │
 Continue migration
