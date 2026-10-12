@@ -575,8 +575,8 @@ var _ = Describe("Migration watcher", func() {
 					TargetNode:        "node01",
 					SourceNode:        "node02",
 					TargetNodeAddress: "10.10.10.10:1234",
-					StartTimestamp:    pointer.P(metav1.Now()),
-					EndTimestamp:      pointer.P(metav1.Now()),
+					StartTimestamp:    new(metav1.Now()),
+					EndTimestamp:      new(metav1.Now()),
 					Failed:            false,
 					Completed:         true,
 				}
@@ -664,7 +664,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 4 migrations are there which are in non-final state
-			for i := 0; i < 4; i++ {
+			for i := range 4 {
 				newVMI := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
 				addNodeNameToVMI(newVMI, fmt.Sprintf("node%v", i))
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), newVMI.Name, v1.MigrationScheduling)
@@ -674,7 +674,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			// Add two pending migrations without a target pod to see that tye get ignored
-			for i := 0; i < 2; i++ {
+			for i := range 2 {
 				newVMI := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), v1.Running)
 				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), newVMI.Name, v1.MigrationPending)
 				addNodeNameToVMI(newVMI, fmt.Sprintf("node%v", i))
@@ -687,7 +687,7 @@ var _ = Describe("Migration watcher", func() {
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-			for i := 0; i < 2; i++ {
+			for i := range 2 {
 				expectPodDoesNotExist(vmi.Namespace, fmt.Sprintf("xtestvmi%v", i), fmt.Sprintf("xtestmigration%v", i))
 			}
 		})
@@ -702,7 +702,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 5 migrations are there which are in non-final state
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 				addNodeNameToVMI(vmi, fmt.Sprintf("node%v", i))
@@ -726,7 +726,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 3 migrations are there which are running
-			for i := 0; i < 3; i++ {
+			for i := range 3 {
 				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 				addNodeNameToVMI(vmi, fmt.Sprintf("node%v", i))
@@ -736,7 +736,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			// Ensure that 2 migrations are pending but have a target pod
-			for i := 0; i < 2; i++ {
+			for i := range 2 {
 				vmi := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), v1.Running)
 				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), vmi.Name, v1.MigrationPending)
 				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
@@ -763,7 +763,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 4 migrations are there which are in non-final state
-			for i := 0; i < 1; i++ {
+			for i := range 1 {
 				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
 				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
 
@@ -784,7 +784,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
-			for i := 0; i < otherMigrations; i++ {
+			for i := range otherMigrations {
 				vmi := newReceiverVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.WaitingForSync, fmt.Sprintf("testmigration%v", i))
 				migration := newDecentralizedReceiverMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationRunning)
 				if sameNode {
@@ -820,7 +820,7 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				addPod(newSourcePodForVirtualMachine(vmi))
 
-				for i := 0; i < defaultMaxOutboundMigrationsPerNode; i++ {
+				for i := range defaultMaxOutboundMigrationsPerNode {
 					generateVMIandMigration(i)
 				}
 				sanityExecute()
@@ -1570,7 +1570,7 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration should immediately fail if", func() {
 		DescribeTable("vmi moves to final state", func(phase v1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", v1.Succeeded)
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 			migration := newMigration("testmigration", vmi.Name, phase)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: migration.UID,
@@ -1602,7 +1602,7 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID: migration.UID,
 			}
 			if phase == v1.MigrationTargetReady {
-				vmi.Status.MigrationState.StartTimestamp = pointer.P(metav1.Now())
+				vmi.Status.MigrationState.StartTimestamp = new(metav1.Now())
 			}
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodSucceeded)
 			targetPod.Spec.NodeName = "node01"
@@ -1632,8 +1632,8 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID:   migration.UID,
 				Failed:         true,
 				Completed:      true,
-				StartTimestamp: pointer.P(metav1.Now()),
-				EndTimestamp:   pointer.P(metav1.Now()),
+				StartTimestamp: new(metav1.Now()),
+				EndTimestamp:   new(metav1.Now()),
 			}
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
 			targetPod.Spec.NodeName = "node01"
@@ -1949,7 +1949,7 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    pointer.P(metav1.Now()),
+				StartTimestamp:    new(metav1.Now()),
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -1973,9 +1973,9 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:                     "node01",
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
-				StartTimestamp:                 pointer.P(metav1.Now()),
-				EndTimestamp:                   pointer.P(metav1.Now()),
-				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 new(metav1.Now()),
+				EndTimestamp:                   new(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: new(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
 			}
@@ -2015,8 +2015,8 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:                     "node01",
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
-				StartTimestamp:                 pointer.P(metav1.Now()),
-				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 new(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: new(metav1.Now()),
 			}
 
 			addVirtualMachineInstance(vmi)
@@ -2051,9 +2051,9 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:                     "node01",
 				SourceNode:                     "node02",
 				TargetNodeAddress:              "10.10.10.10:1234",
-				StartTimestamp:                 pointer.P(metav1.Now()),
-				EndTimestamp:                   pointer.P(metav1.Now()),
-				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 new(metav1.Now()),
+				EndTimestamp:                   new(metav1.Now()),
+				TargetNodeDomainReadyTimestamp: new(metav1.Now()),
 				Failed:                         false,
 				Completed:                      true,
 			}
@@ -2084,8 +2084,8 @@ var _ = Describe("Migration watcher", func() {
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    pointer.P(metav1.Now()),
-				EndTimestamp:      pointer.P(metav1.Now()),
+				StartTimestamp:    new(metav1.Now()),
+				EndTimestamp:      new(metav1.Now()),
 				Failed:            false,
 				Completed:         true,
 			}
@@ -2122,13 +2122,13 @@ var _ = Describe("Migration watcher", func() {
 			migration.Status.Conditions = append(migration.Status.Conditions, condition)
 			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
 			targetPod.Spec.NodeName = "node01"
-			migration.DeletionTimestamp = pointer.P(metav1.Now())
+			migration.DeletionTimestamp = new(metav1.Now())
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      migration.UID,
 				TargetNode:        "node01",
 				SourceNode:        "node02",
 				TargetNodeAddress: "10.10.10.10:1234",
-				StartTimestamp:    pointer.P(metav1.Now()),
+				StartTimestamp:    new(metav1.Now()),
 			}
 			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
 			addMigration(migration)
@@ -2426,7 +2426,7 @@ var _ = Describe("Migration watcher", func() {
 				"TargetPod":           Equal(targetPod.Name),
 				"SourceNode":          Equal("tefwegwrerg"),
 				"MigrationUID":        Equal(types.UID("testmigration")),
-				"MigrationPolicyName": Equal(pointer.P(migrationPolicy.Name)),
+				"MigrationPolicyName": Equal(new(migrationPolicy.Name)),
 			}
 			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, fields)))
 
@@ -2443,13 +2443,13 @@ var _ = Describe("Migration watcher", func() {
 			)
 		},
 			Entry("allow auto converge",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(true) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = new(true) },
 				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeTrue())
 				},
 			),
 			Entry("deny auto converge",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = pointer.P(false) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowAutoConverge = new(false) },
 				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowAutoConverge).To(BeFalse())
 				},
@@ -2467,13 +2467,13 @@ var _ = Describe("Migration watcher", func() {
 				},
 			),
 			Entry("set force migration completion",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = pointer.P(true) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowWorkloadDisruption = new(true) },
 				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowWorkloadDisruption).To(BeTrue())
 				},
 			),
 			Entry("deny post copy",
-				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = pointer.P(false) },
+				func(p *migrationsv1.MigrationPolicySpec) { p.AllowPostCopy = new(false) },
 				func(c *v1.VMIMConfigurationOptions) {
 					Expect(*c.AllowPostCopy).To(BeFalse())
 				},
@@ -2514,8 +2514,8 @@ var _ = Describe("Migration watcher", func() {
 			It("uses policy overrides when cluster defaults are unset", func() {
 				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
 					migrationPolicy := generatePolicyAndAlignVMI(vmi)
-					migrationPolicy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(600))
-					migrationPolicy.Spec.AllowPostCopy = pointer.P(true)
+					migrationPolicy.Spec.CompletionTimeoutPerGiB = new(int64(600))
+					migrationPolicy.Spec.AllowPostCopy = new(true)
 					return migrationPolicy
 				}, true)
 			})
@@ -2523,8 +2523,8 @@ var _ = Describe("Migration watcher", func() {
 			It("uses cluster defaults when no policy matches", func() {
 				setConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						AllowAutoConverge: pointer.P(true),
-						ProgressTimeout:   pointer.P(int64(200)),
+						AllowAutoConverge: new(true),
+						ProgressTimeout:   new(int64(200)),
 					},
 				})
 				expectResolvedMigrationConfig(func(*v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy { return nil }, false)
@@ -2537,13 +2537,13 @@ var _ = Describe("Migration watcher", func() {
 			It("merges cluster defaults with policy overrides", func() {
 				setConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						AllowAutoConverge: pointer.P(false),
-						ProgressTimeout:   pointer.P(int64(300)),
+						AllowAutoConverge: new(false),
+						ProgressTimeout:   new(int64(300)),
 					},
 				})
 				expectResolvedMigrationConfig(func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
 					migrationPolicy := generatePolicyAndAlignVMI(vmi)
-					migrationPolicy.Spec.AllowAutoConverge = pointer.P(true)
+					migrationPolicy.Spec.AllowAutoConverge = new(true)
 					return migrationPolicy
 				}, true)
 			})
@@ -2576,7 +2576,7 @@ var _ = Describe("Migration watcher", func() {
 				node.Labels = make(map[string]string)
 			}
 			node.Labels[v1.HostModelCPULabel+"other-fake-model"] = "true"
-			targetPod.CreationTimestamp = metav1.NewTime(pointer.P(metav1.Now()).Time.Add(time.Duration(-defaultUnschedulablePendingTimeoutSeconds) * time.Second))
+			targetPod.CreationTimestamp = metav1.NewTime(new(metav1.Now()).Time.Add(time.Duration(-defaultUnschedulablePendingTimeoutSeconds) * time.Second))
 			targetPod.Status.Conditions = append(targetPod.Status.Conditions, k8sv1.PodCondition{
 				Type:   k8sv1.PodScheduled,
 				Status: k8sv1.ConditionFalse,
@@ -2677,7 +2677,7 @@ var _ = Describe("Migration watcher", func() {
 		BeforeEach(func() {
 			vmi = newVirtualMachine("testvmi", v1.Running)
 			migration = newMigration("testmigration", vmi.Name, v1.MigrationPending)
-			migration.DeletionTimestamp = pointer.P(metav1.Now())
+			migration.DeletionTimestamp = new(metav1.Now())
 
 			Expect(controller.isMigrationHandedOff(migration, vmi)).To(BeFalse(), "this test assumes migration was not handed off yet")
 			addMigration(migration)
@@ -2829,7 +2829,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should not be forced to the SELinux level of the source if the CR option is set to false", func() {
 			setConfig(&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{
-					MatchSELinuxLevelOnMigration: pointer.P(false),
+					MatchSELinuxLevelOnMigration: new(false),
 				},
 			})
 			vmi := newVirtualMachine("testvmi", v1.Running)
@@ -3086,7 +3086,7 @@ var _ = Describe("Migration watcher", func() {
 					},
 				},
 				Status: cdiv1.StorageProfileStatus{
-					StorageClass: pointer.P(sc.Name),
+					StorageClass: new(sc.Name),
 					ClaimPropertySets: []cdiv1.ClaimPropertySet{
 						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
 					},
@@ -3102,10 +3102,10 @@ var _ = Describe("Migration watcher", func() {
 		It("should not require source backend PVC on decentralized target VMI waiting for sync", func() {
 			setupVMStateStorageClass()
 			vmi := newReceiverVirtualMachine("testvmi", v1.WaitingForSync, "testmigration")
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
-					EFI: &v1.EFI{Persistent: pointer.P(true)},
+					EFI: &v1.EFI{Persistent: new(true)},
 				},
 			}
 			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -3121,7 +3121,7 @@ var _ = Describe("Migration watcher", func() {
 
 		It("should require source backend PVC for local migration", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			err := controller.handleBackendStorage(migration, vmi)
@@ -3130,7 +3130,7 @@ var _ = Describe("Migration watcher", func() {
 
 		It("should require source backend PVC for decentralized source migration", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
 
 			err := controller.handleBackendStorage(migration, vmi)
@@ -3141,7 +3141,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should set SourcePersistentStatePVCName for decentralized source migration when source PVC exists", func() {
 			const sourcePVCName = "source-backend-pvc"
 			vmi := newVirtualMachine("testvmi", v1.Running)
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 			setBackendStorageVolumeStatus(vmi, sourcePVCName)
 			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
 			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -3156,7 +3156,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should set SourcePersistentStatePVCName on decentralized target when previous migration completed", func() {
 			const sourcePVCName = "handoff-backend-pvc"
 			vmi := newReceiverVirtualMachine("testvmi", v1.Running, "testmigration")
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: new(true)}
 			setBackendStorageVolumeStatus(vmi, sourcePVCName)
 			vmi.Status.MigrationState.Completed = true
 			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -3466,7 +3466,7 @@ func getDefaultMigrationConfiguration() *v1.MigrationConfiguration {
 		ProgressTimeout:                   &progressTimeout,
 		UnsafeMigrationOverride:           &unsafeMigrationOverride,
 		AllowPostCopy:                     &allowPostCopy,
-		AllowWorkloadDisruption:           pointer.P(allowPostCopy),
+		AllowWorkloadDisruption:           new(allowPostCopy),
 	}
 }
 
@@ -3511,7 +3511,7 @@ func preparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, names
 	labelValuePattern := policyName + "-value-%d"
 
 	applyLabels := func(policyLabels, vmiOrNSLabels map[string]string, labelCount int) {
-		for i := 0; i < labelCount; i++ {
+		for i := range labelCount {
 			labelKey := fmt.Sprintf(labelKeyPattern, i)
 			labelValue := fmt.Sprintf(labelValuePattern, i)
 

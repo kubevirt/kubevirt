@@ -1,5 +1,6 @@
 pkg/libvmi
 pkg/network
+pkg/virt-controller/watch/migration
 pkg/virt-controller/watch/vmi
 pkg/virt-handler/cache
 pkg/virt-handler/cgroup

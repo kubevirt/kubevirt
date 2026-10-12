@@ -288,7 +288,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.hasSynced)
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -315,7 +315,7 @@ func (c *Controller) Execute() bool {
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing Migration %v", key)
-		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(priority), RateLimited: true}, key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: new(priority), RateLimited: true}, key)
 	} else {
 		log.Log.V(4).Infof("processed Migration %v", key)
 		c.Queue.Forget(key)
@@ -978,9 +978,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 		if err != nil {
 			return err
 		}
-		for k, v := range nodeSelectors {
-			templatePod.Spec.NodeSelector[k] = v
-		}
+		maps.Copy(templatePod.Spec.NodeSelector, nodeSelectors)
 	}
 
 	// Ensure migration happens only between nodes with the same CPU vendor
@@ -1519,10 +1517,7 @@ func timeSinceCreationSeconds(objectMeta *metav1.ObjectMeta) int64 {
 
 	now := time.Now().UTC().Unix()
 	creationTime := objectMeta.CreationTimestamp.Time.UTC().Unix()
-	seconds := now - creationTime
-	if seconds < 0 {
-		seconds = 0
-	}
+	seconds := max(now-creationTime, 0)
 
 	return seconds
 }
@@ -1826,13 +1821,13 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 					// This is a decentralized target, generate the source pod template, we don't care about
 					// the backend-storage PVC here because it will be created in the target namespace/cluster.
 					// this is purely a fake source pod template.
-					vmiCopy.Spec.Domain.Devices.TPM.Enabled = pointer.P(false)
+					vmiCopy.Spec.Domain.Devices.TPM.Enabled = new(false)
 				}
 				if backendstorage.HasPersistentEFI(&vmiCopy.Spec) {
 					// This is a decentralized target, generate the source pod template, we don't care about
 					// the backend-storage PVC here because it will be created in the target namespace/cluster.
 					// this is purely a fake source pod template.
-					vmiCopy.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+					vmiCopy.Spec.Domain.Firmware.Bootloader.EFI.Persistent = new(false)
 				}
 				sourcePod, err = c.templateService.RenderLaunchManifest(vmiCopy)
 				if err != nil {
@@ -1985,19 +1980,19 @@ func (c *Controller) listMatchingTargetPods(migration *virtv1.VirtualMachineInst
 	return pods, nil
 }
 
-func (c *Controller) addMigration(obj interface{}) {
+func (c *Controller) addMigration(obj any) {
 	c.enqueueMigration(obj)
 }
 
-func (c *Controller) deleteMigration(obj interface{}) {
+func (c *Controller) deleteMigration(obj any) {
 	c.enqueueMigration(obj)
 }
 
-func (c *Controller) updateMigration(_, curr interface{}) {
+func (c *Controller) updateMigration(_, curr any) {
 	c.enqueueMigration(curr)
 }
 
-func (c *Controller) enqueueMigration(obj interface{}) {
+func (c *Controller) enqueueMigration(obj any) {
 	logger := log.Log
 	migration := obj.(*virtv1.VirtualMachineInstanceMigration)
 	key, err := controller.KeyFunc(migration)
@@ -2050,7 +2045,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 }
 
 // When a pod is created, enqueue the migration that manages it and update its podExpectations.
-func (c *Controller) addPod(obj interface{}) {
+func (c *Controller) addPod(obj any) {
 	pod := obj.(*k8sv1.Pod)
 
 	if pod.DeletionTimestamp != nil {
@@ -2077,7 +2072,7 @@ func (c *Controller) addPod(obj interface{}) {
 // When a pod is updated, figure out what migration manages it and wake them
 // up. If the labels of the pod have changed we need to awaken both the old
 // and new migration. old and cur must be *v1.Pod types.
-func (c *Controller) updatePod(old, cur interface{}) {
+func (c *Controller) updatePod(old, cur any) {
 	curPod := cur.(*k8sv1.Pod)
 	oldPod := old.(*k8sv1.Pod)
 	if curPod.ResourceVersion == oldPod.ResourceVersion {
@@ -2121,7 +2116,7 @@ func (c *Controller) updatePod(old, cur interface{}) {
 
 // When a resourceQuota is updated, figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
-func (c *Controller) updateResourceQuota(_, cur interface{}) {
+func (c *Controller) updateResourceQuota(_, cur any) {
 	curResourceQuota := cur.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(curResourceQuota).Infof("ResourceQuota updated")
 	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, curResourceQuota.Namespace)
@@ -2141,7 +2136,7 @@ func (c *Controller) updateResourceQuota(_, cur interface{}) {
 
 // When a resourceQuota is deleted, figure out if there are pending migration in the namespace
 // if there are we should push them into the queue to accelerate the target creation process
-func (c *Controller) deleteResourceQuota(obj interface{}) {
+func (c *Controller) deleteResourceQuota(obj any) {
 	resourceQuota := obj.(*k8sv1.ResourceQuota)
 	log.Log.V(4).Object(resourceQuota).Infof("ResourceQuota deleted")
 	objs, _ := c.migrationIndexer.ByIndex(cache.NamespaceIndex, resourceQuota.Namespace)
@@ -2159,7 +2154,7 @@ func (c *Controller) deleteResourceQuota(obj interface{}) {
 	return
 }
 
-func (c *Controller) updateKubeVirt(org, cur interface{}) {
+func (c *Controller) updateKubeVirt(org, cur any) {
 	curKubevirt := cur.(*virtv1.KubeVirt)
 	orgKubevirt := org.(*virtv1.KubeVirt)
 
@@ -2181,7 +2176,7 @@ func (c *Controller) updateKubeVirt(org, cur interface{}) {
 
 // When a pod is deleted, enqueue the migration that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
-func (c *Controller) deletePod(obj interface{}) {
+func (c *Controller) deletePod(obj any) {
 	pod, ok := obj.(*k8sv1.Pod)
 
 	// When a delete is dropped, the relist will notice a pod in the store not
@@ -2214,7 +2209,7 @@ func (c *Controller) deletePod(obj interface{}) {
 	c.enqueueMigration(migration)
 }
 
-func (c *Controller) addPVC(obj interface{}) {
+func (c *Controller) addPVC(obj any) {
 	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
 		return
@@ -2344,7 +2339,7 @@ func (c *Controller) listBackoffEligibleMigrations(namespace string, name string
 	return eligibleMigrations, nil
 }
 
-func (c *Controller) addVMI(obj interface{}) {
+func (c *Controller) addVMI(obj any) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	if vmi.DeletionTimestamp != nil {
 		c.deleteVMI(vmi)
@@ -2360,7 +2355,7 @@ func (c *Controller) addVMI(obj interface{}) {
 	}
 }
 
-func (c *Controller) updateVMI(old, cur interface{}) {
+func (c *Controller) updateVMI(old, cur any) {
 	curVMI := cur.(*virtv1.VirtualMachineInstance)
 	oldVMI := old.(*virtv1.VirtualMachineInstance)
 	if curVMI.ResourceVersion == oldVMI.ResourceVersion {
@@ -2392,7 +2387,7 @@ func (c *Controller) updateVMI(old, cur interface{}) {
 		c.enqueueMigration(migration)
 	}
 }
-func (c *Controller) deleteVMI(obj interface{}) {
+func (c *Controller) deleteVMI(obj any) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 	// When a delete is dropped, the relist will notice a vmi in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -2556,13 +2551,13 @@ func getHostCpuModelFromMap(selectorMap map[string]string) (map[string]string, s
 	var hostCpuModel, nodeSelectorKeyForHostModel, hostModelLabelValue string
 
 	for key, value := range selectorMap {
-		if strings.HasPrefix(key, virtv1.HostModelCPULabel) {
-			hostCpuModel = strings.TrimPrefix(key, virtv1.HostModelCPULabel)
+		if after, ok := strings.CutPrefix(key, virtv1.HostModelCPULabel); ok {
+			hostCpuModel = after
 			hostModelLabelValue = value
 		}
 
-		if strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
-			requiredFeature := strings.TrimPrefix(key, virtv1.HostModelRequiredFeaturesLabel)
+		if after, ok := strings.CutPrefix(key, virtv1.HostModelRequiredFeaturesLabel); ok {
+			requiredFeature := after
 			result[virtv1.CPUFeatureLabel+requiredFeature] = value
 		}
 	}
