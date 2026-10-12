@@ -235,17 +235,6 @@ pull(
     repository = "busybox",
 )
 
-virt_template = use_extension("//images/virt-template:deps.bzl", "virt_template_ext")
-use_repo(
-    virt_template,
-    "virt_template_apiserver",
-    "virt_template_apiserver_aarch64",
-    "virt_template_apiserver_s390x",
-    "virt_template_controller",
-    "virt_template_controller_aarch64",
-    "virt_template_controller_s390x",
-)
-
 # Standalone non-vendored Go tools for winrmcli image
 _go_repository(
     name = "com_github_masterzen_winrmcli",

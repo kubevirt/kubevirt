@@ -53,7 +53,9 @@ if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
     fi
 fi
 
-# Push virt-template images
-${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"
+# Mirror pinned virt-template images for this cluster-sync architecture.
+# An unset BUILD_ARCH is the host architecture, matching the image build above.
+virt_template_arch="${BUILD_ARCH:-$(uname -m)}"
+${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${virt_template_arch} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"
 
 echo "Done $0"
