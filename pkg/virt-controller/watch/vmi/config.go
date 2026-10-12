@@ -20,6 +20,8 @@
 package vmi
 
 import (
+	"reflect"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -61,6 +63,19 @@ type Informers struct {
 	CDI            cache.SharedIndexInformer
 	CDIConfig      cache.SharedIndexInformer
 	KubeVirt       cache.SharedIndexInformer
+}
+
+// HasSynced reports whether all informer caches have completed their initial sync.
+// A missing informer is considered unsynced.
+func (i Informers) HasSynced() bool {
+	value := reflect.ValueOf(i)
+	for _, field := range value.Fields() {
+		informer, ok := field.Interface().(cache.SharedIndexInformer)
+		if !ok || informer == nil || !informer.HasSynced() {
+			return false
+		}
+	}
+	return true
 }
 
 // NetworkDependencies supplies the network collaborators used by a VMI controller.

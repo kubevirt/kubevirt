@@ -86,13 +86,7 @@ func NewController(config ControllerConfig) (*Controller, error) {
 		netMigrationEvaluator:             config.Network.MigrationEvaluator,
 		additionalLauncherAnnotationsSync: config.AdditionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      config.AdditionalLauncherLabelsSync,
-	}
-
-	c.hasSynced = func() bool {
-		return informers.VM.HasSynced() && informers.VMI.HasSynced() && informers.Pod.HasSynced() &&
-			informers.DataVolume.HasSynced() && informers.CDIConfig.HasSynced() && informers.CDI.HasSynced() &&
-			informers.PVC.HasSynced() && informers.StorageClass.HasSynced() && informers.StorageProfile.HasSynced() &&
-			informers.KubeVirt.HasSynced()
+		hasSynced:                         informers.HasSynced,
 	}
 
 	_, err := informers.VMI.AddEventHandler(cache.ResourceEventHandlerFuncs{
