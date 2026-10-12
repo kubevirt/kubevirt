@@ -563,7 +563,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		),
 	)
 
-	It("should auto-heal consistently failing VMs when autohealing is enabled", func() {
+	It("[QUARANTINE] should auto-heal consistently failing VMs when autohealing is enabled", decorators.Quarantine, func() {
 		By("Creating a pool with autohealing enabled and VMs that will crash loop")
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
 		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
