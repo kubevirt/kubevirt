@@ -388,6 +388,7 @@ func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, produ
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -490,6 +491,7 @@ func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, prod
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -631,6 +633,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 							},
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: pointer.P(false),
+								ReadOnlyRootFilesystem:   pointer.P(true),
 								Capabilities: &corev1.Capabilities{
 									Drop: []corev1.Capability{"ALL"},
 								},
@@ -740,6 +743,7 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -856,6 +860,7 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 
 	container.SecurityContext = &corev1.SecurityContext{
 		AllowPrivilegeEscalation: pointer.P(false),
+		ReadOnlyRootFilesystem:   pointer.P(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
