@@ -160,6 +160,7 @@ func applyExperimentalMigrationOptions(base, spec *k6tv1.ExperimentalMigrationOp
 		result.DowntimeTuning = applyDowntimeTuningOptions(result.DowntimeTuning, spec.DowntimeTuning)
 	}
 	setIfNotNil(&result.Compression, spec.Compression)
+	setIfNotNil(&result.ConvergenceTimeoutSec, spec.ConvergenceTimeoutSec)
 
 	return result
 }

@@ -90,6 +90,8 @@ type MigrationOptions struct {
 	StallDetectorOptions     *StallDetectorOptions
 	Compression              *string
 	DowntimeTuning           *v1.DowntimeTuningOptions
+	// ConvergenceTimeoutSec overrides the converge-phase budget after MemIteration > 1; nil uses the default.
+	ConvergenceTimeoutSec *int64
 }
 
 type LauncherClient interface {

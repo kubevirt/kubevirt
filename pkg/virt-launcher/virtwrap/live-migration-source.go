@@ -404,6 +404,13 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationA
 	log.Log.V(2).Infof("set migration abort status in metadata: %s", l.metadataCache.Migration.String())
 }
 
+func convergenceTimeoutSecFromOptions(options *cmdclient.MigrationOptions) int64 {
+	if options != nil && options.ConvergenceTimeoutSec != nil {
+		return *options.ConvergenceTimeoutSec
+	}
+	return defaultConvergenceTimeoutSec
+}
+
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
 	stallDetectorEnabled := options.StallDetectorOptions != nil
 	monitor := &migrationMonitor{
@@ -415,7 +422,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		remainingData:         0,
 		progressTimeout:       options.ProgressTimeout,
 		initialCopyTimeoutSec: options.CompletionTimeoutPerGiB * getVMIMigrationDataSize(vmi, l.ephemeralDiskDir),
-		convergenceTimeoutSec: defaultConvergenceTimeoutSec,
+		convergenceTimeoutSec: convergenceTimeoutSecFromOptions(options),
 		stallDetectionEnabled: stallDetectorEnabled,
 		logger:                log.Log.Object(vmi),
 	}
