@@ -446,20 +446,6 @@ image_push(
     repository = "kubevirt/winrmcli",
 )
 
-image_push(
-    name = "push-virt-template-apiserver",
-    image = "//images/virt-template:virt-template-apiserver-image",
-    registry = "quay.io",
-    repository = "kubevirt/virt-template-apiserver",
-)
-
-image_push(
-    name = "push-virt-template-controller",
-    image = "//images/virt-template:virt-template-controller-image",
-    registry = "quay.io",
-    repository = "kubevirt/virt-template-controller",
-)
-
 genrule(
     name = "build-virtctl",
     srcs = [

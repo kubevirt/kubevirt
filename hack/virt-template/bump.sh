@@ -27,8 +27,17 @@ function image_digest() {
         jq -r ".manifests[] | select(.platform.architecture == \"${arch}\") | .digest"
 }
 
+# Get the multi-arch manifest list digest mirrored by push-images.sh
+function list_digest() {
+    local image="$1"
+    local tag="$2"
+    skopeo inspect --format '{{.Digest}}' "docker://quay.io/kubevirt/${image}:${tag}"
+}
+
 version=$(latest_version)
 yaml_checksum=$(checksum "${version}" "install-virt-operator.yaml")
+apiserver_list=$(list_digest "virt-template-apiserver" "${version}")
+controller_list=$(list_digest "virt-template-controller" "${version}")
 
 # Get image digests for all architectures
 apiserver_amd64=$(image_digest "virt-template-apiserver" "${version}" "amd64")
@@ -39,9 +48,11 @@ controller_amd64=$(image_digest "virt-template-controller" "${version}" "amd64")
 controller_arm64=$(image_digest "virt-template-controller" "${version}" "arm64")
 controller_s390x=$(image_digest "virt-template-controller" "${version}" "s390x")
 
-# Update default.sh with version and yaml checksum
+# Update default.sh with version, yaml checksum, and manifest list digests
 sed -i "/^[[:blank:]]*virt_template_version[[:blank:]]*=/s/=.*/=\${VIRT_TEMPLATE_VERSION:-\"${version}\"}/" "$(dirname "$0")/default.sh"
 sed -i "/^[[:blank:]]*virt_template_yaml_sha256[[:blank:]]*=/s/=.*/=\${VIRT_TEMPLATE_YAML_SHA256:-\"${yaml_checksum}\"}/" "$(dirname "$0")/default.sh"
+sed -i "/^[[:blank:]]*virt_template_apiserver_digest[[:blank:]]*=/s/=.*/=\${VIRT_TEMPLATE_APISERVER_DIGEST:-\"${apiserver_list}\"}/" "$(dirname "$0")/default.sh"
+sed -i "/^[[:blank:]]*virt_template_controller_digest[[:blank:]]*=/s/=.*/=\${VIRT_TEMPLATE_CONTROLLER_DIGEST:-\"${controller_list}\"}/" "$(dirname "$0")/default.sh"
 
 # Update deps.bzl with new digests
 deps_file="$(dirname "$0")/../../images/virt-template/deps.bzl"
