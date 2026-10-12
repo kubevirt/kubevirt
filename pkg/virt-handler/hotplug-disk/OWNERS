@@ -1,0 +1,6 @@
+reviewers:
+  - sig-storage-reviewers
+approvers:
+  - sig-storage-approvers
+labels:
+  - sig/storage
