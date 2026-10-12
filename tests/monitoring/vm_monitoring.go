@@ -468,7 +468,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()), //nolint:staticcheck
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
