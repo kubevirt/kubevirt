@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: dra-network-test-driver
-  namespace: kubevirt
 spec:
   selector:
     matchLabels:
