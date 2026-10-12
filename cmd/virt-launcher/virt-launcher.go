@@ -449,8 +449,7 @@ func main() {
 
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
-		disk.DiskSourcePathHook,
-		disk.CBTOverlayHook,
+		disk.Hook,
 		network.UpgradeOrdinalNamingScheme,
 	}
 	if *vGPUDedicatedHookEnabled {
