@@ -140,7 +140,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
 		Expect(err).ToNot(HaveOccurred())
 
-		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+		os.MkdirAll(filepath.Join(vmiShareDir, "run", "kubevirt"), 0755)
 
 		cmdclient.SetPodsBaseDir(podsDir)
 
