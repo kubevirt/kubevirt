@@ -21,6 +21,7 @@ package vmi
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -246,6 +247,11 @@ type Controller struct {
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
+	var workers sync.WaitGroup
+	// Queue shutdown unblocks Get but does not wait for reconciliations to finish.
+	// Join the workers before returning so callers can safely release shared
+	// resources, including the API server in integration tests.
+	defer workers.Wait()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting vmi controller.")
 
@@ -262,7 +268,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 
 	// Start the actual work
 	for range threadiness {
-		go wait.Until(c.runWorker, time.Second, stopCh)
+		workers.Go(func() { wait.Until(c.runWorker, time.Second, stopCh) })
 	}
 
 	<-stopCh

@@ -491,25 +491,11 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy := &Strategy{}
 
-	functions := []func() (*extv1.CustomResourceDefinition, error){
-		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
-		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
-		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
-		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
-		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
-		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineExportCrd,
-		components.NewVirtualMachineCloneCrd, components.NewVirtualMachineBackupCrd,
-		components.NewVirtualMachineBackupTrackerCrd,
-		components.NewPluginCrd,
+	crds, err := components.NewInstallStrategyCRDs()
+	if err != nil {
+		return nil, err
 	}
-	for _, f := range functions {
-		crd, err := f()
-		if err != nil {
-			return nil, err
-		}
-		strategy.crds = append(strategy.crds, crd)
-	}
+	strategy.crds = crds
 
 	rbaclist := make([]runtime.Object, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster()...)

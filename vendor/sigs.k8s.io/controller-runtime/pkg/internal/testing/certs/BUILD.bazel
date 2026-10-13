@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["tinyca.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/certs",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/internal/testing/certs",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg:__subpackages__"],
+    deps = ["//vendor/k8s.io/client-go/util/cert:go_default_library"],
+)
