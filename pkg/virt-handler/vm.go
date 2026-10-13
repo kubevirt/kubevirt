@@ -1803,16 +1803,6 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			}
 
 		} else if volSrc.HostDisk != nil {
-			// Check if this is a translated PVC.
-			volumeStatus, ok := volumeStatusMap[volume.Name]
-			if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
-				if !storagetypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) && !storagetypes.IsMigratedVolume(volumeStatus.Name, vmi) {
-					return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volumeStatus.PersistentVolumeClaimInfo.ClaimName)
-				} else {
-					continue
-				}
-			}
-
 			shared := volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared
 			if !shared {
 				return true, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
