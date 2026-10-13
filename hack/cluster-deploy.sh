@@ -63,8 +63,9 @@ function configure_prometheus() {
 }
 
 function _deploy_dra_network_test_driver() {
-    _kubectl apply -f ${KUBEVIRT_DIR}/cmd/test-helpers/dra-network-test-driver/manifests
-    _kubectl rollout status daemonset dra-network-test-driver -n kubevirt --timeout=5m
+    _kubectl apply -f "${KUBEVIRT_DIR}"/cmd/test-helpers/dra-network-test-driver/manifests/namespace.yaml
+    _kubectl apply -f "${KUBEVIRT_DIR}"/cmd/test-helpers/dra-network-test-driver/manifests
+    _kubectl rollout status daemonset dra-network-test-driver -n kubevirt-test-dra --timeout=5m
 }
 
 trap dump_kubevirt EXIT

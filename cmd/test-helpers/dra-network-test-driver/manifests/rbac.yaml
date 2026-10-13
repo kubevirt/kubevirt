@@ -33,7 +33,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: dra-network-test-driver
-  namespace: kubevirt
+  namespace: kubevirt-test-dra
 roleRef:
   kind: ClusterRole
   name: dra-network-test-driver
