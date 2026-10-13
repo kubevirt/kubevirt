@@ -40,6 +40,7 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -79,7 +80,10 @@ var _ = Describe("Virt remote commands", func() {
 
 		allowEmulation = true
 		options = NewServerOptions(allowEmulation)
-		RunServer(socketPath, domainManager, stop, options)
+		_, err := grpcserver.RunServer(stop, socketPath,
+			RegisterCmdServer(NewLauncher(domainManager, options)),
+		)
+		Expect(err).ToNot(HaveOccurred())
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
 	})

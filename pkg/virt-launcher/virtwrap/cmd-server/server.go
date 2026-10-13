@@ -28,8 +28,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	"kubevirt.io/kubevirt/pkg/grpcserver"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -687,15 +685,6 @@ func RegisterCmdServer(cmdServer cmdv1.CmdServer) func(grpcServer *grpc.Server) 
 		registerInfoServer(server)
 		cmdv1.RegisterCmdServer(server, cmdServer)
 	}
-}
-
-func RunServer(socketPath string,
-	domainManager virtwrap.DomainManager,
-	stopChan chan struct{},
-	options *ServerOptions) (<-chan struct{}, error) {
-	return grpcserver.RunServer(stopChan, socketPath,
-		RegisterCmdServer(NewLauncher(domainManager, options)),
-	)
 }
 
 func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Response, error) {

@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -586,7 +587,11 @@ func runCMDServer(wg *sync.WaitGroup, socketPath string,
 	stopChan chan struct{},
 	options *cmdserver.ServerOptions) {
 	wg.Add(1)
-	done, _ := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+
+	done, err := grpcserver.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(cmdserver.NewLauncher(domainManager, options)),
+	)
+	Expect(err).To(Not(HaveOccurred()))
 	go func() {
 		<-done
 		wg.Done()
