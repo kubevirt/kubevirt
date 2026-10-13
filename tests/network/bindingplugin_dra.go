@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -57,14 +58,22 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		resourceClaimName         = "dra-net-claim"
 		requestName               = "netdev"
 
-		deviceClassName = "vhostuser.net.kubevirt.io"
-
 		agentTimeout    = 5 * time.Minute
 		pollingInterval = 5 * time.Second
+
+		draPort = 5201
 	)
 
-	newDRAVMI := func() *v1.VirtualMachineInstance {
+	var (
+		serverVM, clientVM *v1.VirtualMachine
+		clientVMI          *v1.VirtualMachineInstance
+		serverIP           string
+		ns                 string
+	)
+
+	newDRAVMI := func(name string) *v1.VirtualMachineInstance {
 		return libvmifact.NewAlpineWithTestTooling(
+			libvmi.WithName(name),
 			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName, v1.PluginBinding{Name: bindingName})),
 			libvmi.WithNetwork(libvmi.DRANetwork(networkName, resourceClaimName, requestName)),
 			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
@@ -72,6 +81,12 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 				ResourceClaimTemplateName: new(resourceClaimTemplateName),
 			}),
 		)
+	}
+
+	connectClientToServer := func() error {
+		return console.RunCommand(clientVMI,
+			fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null", serverIP, draPort),
+			15*time.Second)
 	}
 
 	BeforeEach(func() {
@@ -90,6 +105,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 	})
 
 	BeforeEach(func() {
+		const deviceClassName = "vhostuser.net.kubevirt.io"
 		resourceClaimTemplate := newResourceClaimTemplate(resourceClaimTemplateName, requestName, deviceClassName)
 		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
 			context.Background(),
@@ -99,17 +115,22 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("two VMs connected to a secondary DRA network should communicate", func() {
-		serverVMI := newDRAVMI()
-		clientVMI := newDRAVMI()
+	BeforeEach(func() {
+		const (
+			draServerVMI = "dra-server"
+			draClientVMI = "dra-client"
+		)
+		serverVMISpec := newDRAVMI(draServerVMI)
+		clientVMISpec := newDRAVMI(draClientVMI)
 
-		ns := testsuite.GetTestNamespace(nil)
+		ns = testsuite.GetTestNamespace(nil)
 
-		serverVM := libvmi.NewVirtualMachine(serverVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		serverVM, err := kubevirt.Client().VirtualMachine(ns).Create(context.Background(), serverVM, metav1.CreateOptions{})
+		var err error
+		serverVM = libvmi.NewVirtualMachine(serverVMISpec, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		serverVM, err = kubevirt.Client().VirtualMachine(ns).Create(context.Background(), serverVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		clientVM := libvmi.NewVirtualMachine(clientVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		clientVM = libvmi.NewVirtualMachine(clientVMISpec, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		clientVM, err = kubevirt.Client().VirtualMachine(ns).Create(context.Background(), clientVM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -119,15 +140,12 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		Eventually(matcher.ThisVM(clientVM)).WithTimeout(agentTimeout).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-		serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), serverVM.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
 		clientVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), clientVM.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
 		Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
 
 		By("Verifying the DRA network interface is reported in the VMI status")
+		var serverVMI *v1.VirtualMachineInstance
 		Eventually(func(g Gomega) {
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), serverVM.Name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
@@ -135,19 +153,22 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			g.Expect(serverVMI.Status.Interfaces[0].InfoSource).To(Equal(vmispec.InfoSourceDomainAndGA))
 			g.Expect(serverVMI.Status.Interfaces[0].IPs).ToNot(BeEmpty())
 		}, agentTimeout, pollingInterval).Should(Succeed())
+		serverIP = serverVMI.Status.Interfaces[0].IPs[0]
 
-		serverIP := serverVMI.Status.Interfaces[0].IPs[0]
-
-		const draPort = 5201
 		By("Starting a TCP server on the server VM")
 		vmnetserver.StartTCPServer(serverVMI, draPort, console.LoginToAlpine)
+	})
 
+	It("two VMs on a secondary DRA network should communicate across client migration", decorators.RequiresThreeSchedulableNodes, func() {
 		By("Connecting from the client VM to the server over the DRA network")
-		Eventually(func() error {
-			return console.RunCommand(clientVMI,
-				fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null", serverIP, draPort),
-				15*time.Second)
-		}, 30*time.Second, pollingInterval).Should(Succeed())
+		Eventually(connectClientToServer, 30*time.Second, pollingInterval).Should(Succeed())
+
+		By("Migrating the client VM")
+		migration := libmigration.New(clientVMI.Name, clientVMI.Namespace)
+		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
+
+		By("Connecting from the migrated client VM to the server over the DRA network")
+		Eventually(connectClientToServer, 30*time.Second, pollingInterval).Should(Succeed())
 	})
 }))
 
