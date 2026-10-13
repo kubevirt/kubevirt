@@ -3,7 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 go_test(
     name = "go_default_test",
     srcs = [
-        "integration_suite_test.go",
+        "compute_suite_test.go",
         "vm_lifecycle_test.go",
     ],
     deps = [
