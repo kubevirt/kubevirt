@@ -20,331 +20,35 @@
 package hostdisk
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"path"
-	"path/filepath"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/record"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/storage/diskimg"
 )
 
 var _ = Describe("HostDisk", func() {
-	var (
-		tempDir                    string
-		recorder                   *record.FakeRecorder
-		hostDiskCreator            DiskImgCreator
-		hostDiskCreatorWithReserve DiskImgCreator
-	)
-
-	createTempDiskImg := func(volumeName string) os.FileInfo {
-		imgPath := path.Join(tempDir, volumeName, "disk.img")
-
-		// 67108864 = 64Mi
-		dir := filepath.Dir(imgPath)
-
-		err := os.Mkdir(dir, 0755)
-		Expect(err).NotTo(HaveOccurred())
-
-		sDir, err := safepath.JoinAndResolveWithRelativeRoot(tempDir, volumeName)
-		Expect(err).To(Not(HaveOccurred()))
-
-		err = createSparseRaw(sDir, filepath.Base(imgPath), 67108864)
-		Expect(err).NotTo(HaveOccurred())
-
-		file, err := os.Stat(imgPath)
-		Expect(err).NotTo(HaveOccurred())
-		return file
-	}
-
-	BeforeEach(func() {
-		tempDir = GinkgoT().TempDir()
-		Expect(os.MkdirAll(filepath.Join(tempDir, "run", "kubevirt-private", "vmi-disks"), 0777)).To(Succeed())
-		Expect(os.Mkdir(filepath.Join(tempDir, "var"), 0777)).To(Succeed())
-		Expect(os.Symlink(filepath.Join(tempDir, "run"), filepath.Join(tempDir, "var", "run"))).To(Succeed())
-		tempDir = filepath.Join(tempDir, "/var/run/kubevirt-private/vmi-disks")
-
-		pvcBaseDir = tempDir
-
-		recorder = record.NewFakeRecorder(100)
-		recorder.IncludeObject = true
-
-		root, err := safepath.JoinAndResolveWithRelativeRoot("/")
-		Expect(err).NotTo(HaveOccurred())
-
-		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, root)
-		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
-
-	})
-	createHostDisk := func(volumeName string) string {
-		if err := os.Mkdir(path.Join(tempDir, volumeName), 0755); err != nil {
-			Expect(err).To(MatchError(os.ErrExist))
-		}
-		return path.Join(tempDir, volumeName, "disk.img")
-	}
-
-	Describe("HostDisk with 'Disk' type", func() {
-		It("Should not create a disk.img when it exists", func() {
-			By("Creating a disk.img before adding a HostDisk volume")
-			tmpDiskImg := createTempDiskImg("volume1")
-
-			By("Creating a new VMI with HostDisk volume")
+	Describe("Images", func() {
+		It("should only return images for DiskOrCreate HostDisks", func() {
 			vmi := libvmi.New(
-				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), v1.HostDiskExists),
+				libvmi.WithHostDisk("exists", "/data/exists/disk.img", v1.HostDiskExists),
+				libvmi.WithHostDiskAndCapacity("create", "/data/create/my.img", v1.HostDiskExistsOrCreate, "64Mi"),
+				libvmi.WithHostDisk("unknown", "/data/unknown/disk.img", "UnknownType"),
+				libvmi.WithPersistentVolumeClaim("pvc", "claim"),
 			)
 
-			By("Executing CreateHostDisks which should not create a disk.img")
-			err := hostDiskCreator.Create(vmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			// check if disk.img has the same modification time
-			// which means that CreateHostDisks function did not create a new disk.img
-			hostDiskImg, _ := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-			Expect(tmpDiskImg.ModTime()).To(Equal(hostDiskImg.ModTime()))
-		})
-		It("Should not create a disk.img when it does not exist", func() {
-			By("Creating a new VMI with HostDisk volumes")
-			vmi := libvmi.New(
-				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), v1.HostDiskExists),
-			)
-
-			By("Executing CreateHostDisks which should not create disk.img")
-			err := hostDiskCreator.Create(vmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			// disk.img should not exist
-			_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-			Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
-		})
-	})
-
-	Describe("HostDisk with 'DiskOrCreate' type", func() {
-		Context("With multiple HostDisk volumes", func() {
-			Context("With non existing disk.img", func() {
-				It("Should create disk.img if there is enough space", func() {
-					By("Creating a new VMI with HostDisk volumes")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "128Mi"),
-						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "80Mi"),
-					)
-
-					By("Executing CreateHostDisks which should create disk.img")
-					err := hostDiskCreator.Create(vmi)
-					Expect(err).NotTo(HaveOccurred())
-
-					// Check if images exist and the size is adequate to requirements
-					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
-
-					img2, err := os.Stat(vmi.Spec.Volumes[1].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img2.Size()).To(Equal(int64(134217728))) // 128Mi
-
-					img3, err := os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img3.Size()).To(Equal(int64(83886080))) // 80Mi
-				})
-				It("Should stop creating disk images if there is not enough space and should return err", func() {
-					By("Creating a new VMI with HostDisk volumes")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "1E"),
-						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "128Mi"),
-					)
-
-					By("Executing CreateHostDisks func which should not create a disk.img")
-					err := hostDiskCreator.Create(vmi)
-					Expect(err).To(HaveOccurred())
-
-					// only first disk.img should be created
-					// when there is not enough space anymore
-					// function should return err and stop creating images
-					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
-
-					_, err = os.Stat(vmi.Spec.Volumes[1].HostDisk.Path)
-					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
-
-					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
-					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
-				})
-				It("Should NOT subtract reserve if there is enough space on storage for requested size", func() {
-					By("Creating a new VMI with HostDisk volumes")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-					)
-
-					By("Executing CreateHostDisks func which should create a full-size disk.img")
-					err := hostDiskCreatorWithReserve.Create(vmi)
-					Expect(err).NotTo(HaveOccurred())
-
-					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
-				})
-				It("Should subtract reserve if there is NOT enough space on storage for requested size", func() {
-					By("Creating a new VMI with a HostDisk volume")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-					)
-
-					dirAvailable := uint64(64 << 20)
-
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(_ *safepath.Path, reserve uint64) (uint64, error) {
-						return dirAvailable - reserve, nil
-					}
-
-					By("Executing CreateHostDisks function which should create disk.img minus reserve")
-					err := hostDiskCreatorWithReserve.Create(vmi)
-					Expect(err).NotTo(HaveOccurred())
-
-					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.minimumPVCReserveBytes)) // 64Mi minus reserve
-				})
-				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func() {
-					By("Creating a new VMI with a HostDisk volume")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-					)
-
-					dirAvailable := uint64(64 << 20)
-
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(_ *safepath.Path, reserve uint64) (uint64, error) {
-						return dirAvailable - reserve, nil
-					}
-					hostDiskCreatorWithReserve.setlessPVCSpaceToleration(1) // 1% of 64Mi, tolerate up to 671088 bytes lost
-
-					By("Executing CreateHostDisks func which should NOT create disk.img minus reserve")
-					err := hostDiskCreatorWithReserve.Create(vmi)
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("unable to create"))
-
-					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
-				})
-				It("Should take lessPVCSpaceToleration into account when creating disk images", func() {
-					By("Creating a new VMI with a HostDisk volumes")
-					vmi := libvmi.New(
-						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
-						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "64Mi"),
-						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "64Mi"),
-					)
-
-					toleration := 5
-					hostDiskCreator.setlessPVCSpaceToleration(5)
-					size64Mi := uint64(67108864) // 64 Mi
-
-					calcToleratedSize := func(origSize uint64, diff int) uint64 {
-						return origSize * (100 - uint64(toleration) + uint64(diff)) / 100
-					}
-
-					fakeDirBytesAvailable := func(dir *safepath.Path, reserve uint64) (uint64, error) {
-						base, err := dir.Base()
-						Expect(err).NotTo(HaveOccurred())
-						if base == "volume1" {
-							// toleration +1
-							return calcToleratedSize(size64Mi, 1), nil
-						} else if base == "volume2" {
-							// exact toleration
-							return calcToleratedSize(size64Mi, 0), nil
-						} else if base == "volume3" {
-							// toleration -1
-							return calcToleratedSize(size64Mi, -1), nil
-						} else {
-							return 0, fmt.Errorf("fix your test please")
-						}
-					}
-
-					By("Setting the capacity for each HostDisk volume")
-
-					By("Executing CreateHostDisks func which should not create a disk.img")
-					hostDiskCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
-					err := hostDiskCreator.Create(vmi)
-					Expect(err).To(HaveOccurred())
-
-					// only first and second disk.img should be created, with the exact available size
-					// third disk is beyond toleration, function should return err and stop creating images
-					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(uint64(img1.Size())).To(Equal(calcToleratedSize(size64Mi, 1))) // 64Mi - (toleration + 1%)
-
-					img2, err := os.Stat(vmi.Spec.Volumes[1].HostDisk.Path)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(uint64(img2.Size())).To(Equal(calcToleratedSize(size64Mi, 0))) // 64Mi
-
-					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
-					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
-
-					testutils.ExpectEvent(recorder, "PV size too small")
-				})
-
-			})
-		})
-		Context("With existing disk.img", func() {
-			AfterEach(func() {
-				By("Switching back to the regular mock ownership manager")
-				ephemeraldiskutils.MockDefaultOwnershipManager()
-			})
-
-			It("Should not re-create or chown disk.img", func() {
-				By("Switching to an ownership manager that panics when called")
-				ephemeraldiskutils.MockDefaultOwnershipManagerWithFailure()
-				By("Creating a disk.img before adding a HostDisk volume")
-				tmpDiskImg := createTempDiskImg("volume1")
-				By("Creating a new VMI with a HostDisk volumes")
-				vmi := libvmi.New(
-					libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "128Mi"),
-				)
-
-				By("Executing CreateHostDisks which should not create a disk.img")
-				err := hostDiskCreator.Create(vmi)
-				Expect(err).NotTo(HaveOccurred())
-
-				// check if disk.img has the same modification time
-				// which means that CreateHostDisks function did not create a new disk.img
-				capacity := vmi.Spec.Volumes[0].HostDisk.Capacity
-				specSize, _ := capacity.AsInt64()
-				hostDiskImg, _ := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-				Expect(tmpDiskImg.ModTime()).To(Equal(hostDiskImg.ModTime()))
-				// check if img has the same size as before
-				Expect(tmpDiskImg.Size()).NotTo(Equal(specSize))
-				Expect(tmpDiskImg.Size()).To(Equal(int64(67108864)))
-			})
-		})
-	})
-
-	Describe("HostDisk with unknown type", func() {
-		It("Should not create a disk.img", func() {
-			By("Creating a new VMI with a HostDisk volume and unknown type")
-			vmi := libvmi.New(
-				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), "UnknownType"),
-			)
-
-			By("Executing CreateHostDisks which should not create a disk.img")
-			err := hostDiskCreator.Create(vmi)
-			Expect(err).NotTo(HaveOccurred())
-
-			// disk.img should not exist
-			_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
-			Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
+			Expect(Images(vmi)).To(Equal([]diskimg.Image{{
+				Dir:  GetMountedHostDiskDir("create"),
+				Name: "my.img",
+				Size: 64 << 20,
+			}}))
 		})
 	})
 
