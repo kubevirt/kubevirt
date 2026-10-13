@@ -24,7 +24,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -141,6 +143,80 @@ func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error
 		return fmt.Errorf("failed to delete QCOW2 overlay %s for volume %s: %w", overlayPath, volumeName, err)
 	}
 	log.Log.Infof("QCOW2 overlay %s deleted for unplugged volume %s", overlayPath, volumeName)
+	return nil
+}
+
+// CleanupChangedBlockTrackingOverlays removes all QCOW2 overlays under the CBT
+// directory when CBT is not active on the VMI. Used after CBT disable when the
+// backend PVC is retained (e.g. TPM/EFI). Disabled is the common case and may
+// run on every SyncVMI until the directory is empty; nil/Undefined are effectively
+// no-ops when no overlays exist. Callers must ensure the domain is not using
+// these overlays (CBT disable requires a restart).
+func CleanupChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance) error {
+	// Mirror SyncVMI: only wipe when CBT is not Initializing/Enabled.
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		return nil
+	}
+	return reconcileQCOW2Overlays(vmi, nil)
+}
+
+// ReconcileChangedBlockTrackingOverlays is a GC pass for overlays whose volumes
+// are no longer on the VMI. Hot-unplug deletes the matching overlay via
+// DeleteQCOW2Overlay during syncDisks; this reconciler catches orphans that miss
+// that path (and removes leftover *.qcow2.tmp files). Must run after disk detach
+// so QEMU is not still referencing a path that is about to be unlinked. An empty
+// desired set (no eligible volumes) removes every overlay.
+func ReconcileChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance) error {
+	desiredVolumes := make(map[string]struct{})
+	for _, volume := range vmi.Spec.Volumes {
+		if cbt.IsCBTEligibleVolume(&volume) {
+			desiredVolumes[volume.Name] = struct{}{}
+		}
+	}
+	return reconcileQCOW2Overlays(vmi, desiredVolumes)
+}
+
+func reconcileQCOW2Overlays(vmi *v1.VirtualMachineInstance, desiredVolumes map[string]struct{}) error {
+	return reconcileQCOW2OverlaysInDir(cbt.PathForCBT(vmi), desiredVolumes)
+}
+
+func reconcileQCOW2OverlaysInDir(cbtDir string, desiredVolumes map[string]struct{}) error {
+	entries, err := os.ReadDir(cbtDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to list CBT overlays in %s: %w", cbtDir, err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		// Also reclaim leftover createQCOW2Overlay temp files (*.qcow2.tmp).
+		if strings.HasSuffix(name, ".qcow2.tmp") {
+			overlayPath := filepath.Join(cbtDir, name)
+			if err := os.Remove(overlayPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("failed to delete stale QCOW2 overlay temp file %s: %w", overlayPath, err)
+			}
+			log.Log.Infof("stale QCOW2 overlay temp file %s deleted", overlayPath)
+			continue
+		}
+		if !strings.HasSuffix(name, ".qcow2") {
+			continue
+		}
+		volumeName := strings.TrimSuffix(name, ".qcow2")
+		if _, keep := desiredVolumes[volumeName]; keep {
+			continue
+		}
+		overlayPath := filepath.Join(cbtDir, name)
+		// Safe after domain detach: guest data lives in the raw data_file, not this metadata overlay.
+		if err := os.Remove(overlayPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to delete orphaned QCOW2 overlay %s: %w", overlayPath, err)
+		}
+		log.Log.Infof("QCOW2 overlay %s deleted (volume no longer in CBT set)", overlayPath)
+	}
 	return nil
 }
 

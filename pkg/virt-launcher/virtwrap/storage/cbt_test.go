@@ -125,6 +125,63 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 	})
 
+	Context("reconcileQCOW2OverlaysInDir", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		It("should remove orphaned overlays and keep desired ones", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2"), []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "disk-b.qcow2"), []byte("b"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("keep"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{"disk-a": {}})).To(Succeed())
+
+			Expect(filepath.Join(dir, "disk-a.qcow2")).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, "disk-b.qcow2")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "readme.txt")).To(BeAnExistingFile())
+		})
+
+		It("should remove all overlays when the desired set is empty", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2"), []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "disk-b.qcow2"), []byte("b"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, nil)).To(Succeed())
+
+			Expect(filepath.Join(dir, "disk-a.qcow2")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "disk-b.qcow2")).NotTo(BeAnExistingFile())
+		})
+
+		It("should remove leftover overlay temp files", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2.tmp"), []byte("tmp"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2"), []byte("a"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{"disk-a": {}})).To(Succeed())
+
+			Expect(filepath.Join(dir, "disk-a.qcow2")).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, "disk-a.qcow2.tmp")).NotTo(BeAnExistingFile())
+		})
+
+		It("should no-op when the CBT directory does not exist", func() {
+			Expect(reconcileQCOW2OverlaysInDir(filepath.Join(dir, "missing"), map[string]struct{}{"disk-a": {}})).To(Succeed())
+		})
+	})
+
+	Context("CleanupChangedBlockTrackingOverlays", func() {
+		It("should no-op when ChangedBlockTracking status is nil", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi)).To(Succeed())
+		})
+
+		It("should no-op when CBT is still enabled", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi)).To(Succeed())
+		})
+	})
+
 	Context("ApplyChangedBlockTracking", func() {
 		BeforeEach(func() {
 			setupCBTTest()

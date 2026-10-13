@@ -1499,6 +1499,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			logger.Reason(err).Error("failed to apply CBT")
 			return nil, err
 		}
+	} else if err := storage.CleanupChangedBlockTrackingOverlays(vmi); err != nil {
+		// Safe only because CBT disable requires a VM restart: the new domain
+		// never references CBT overlays, so wiping them before syncDisks is OK.
+		logger.Reason(err).Error("failed to cleanup CBT overlays")
+		return nil, err
 	}
 
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
@@ -1559,6 +1564,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	if err := l.syncDisks(domain, oldSpec, dom, vmi); err != nil {
 		return nil, err
+	}
+
+	// Prune orphaned overlays after detach so QEMU is not still using the path.
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		if err := storage.ReconcileChangedBlockTrackingOverlays(vmi); err != nil {
+			logger.Reason(err).Error("failed to reconcile CBT overlays")
+			return nil, err
+		}
 	}
 
 	var domainAttachments map[string]string
