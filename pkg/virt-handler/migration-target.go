@@ -56,7 +56,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -801,10 +800,6 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	// In the case of migrated volumes, we need to replace the original volume information with the
 	// destination volume properties.
 	replaceMigratedVolumesStatus(vmi)
-	err := hostdisk.ReplacePVCByHostDisk(vmi)
-	if err != nil {
-		return err
-	}
 
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := c.launcherClients.GetLauncherClientInfo(vmi)
@@ -817,8 +812,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	}
 
 	// Mount container disks
-	err = c.containerDiskMounter.MountAndVerify(vmi)
-	if err != nil {
+	if err := c.containerDiskMounter.MountAndVerify(vmi); err != nil {
 		return err
 	}
 
@@ -836,29 +830,22 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	return nil
 }
 
-func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachineInstance) error {
-	// The VolumeStatus is used to retrieve additional information for the volume handling.
-	// For example, for filesystem PVC, the information is used to create a right size image.
+func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstance) error {
 	// In the case of migrated volumes, we need to replace the original volume information with the
 	// destination volume properties.
-	replaceMigratedVolumesStatus(originalVMI)
-	vmiCopy := originalVMI.DeepCopy()
-	err := hostdisk.ReplacePVCByHostDisk(vmiCopy)
-	if err != nil {
-		return err
-	}
+	replaceMigratedVolumesStatus(vmi)
 
-	if err = c.containerDiskMounter.Unmount(vmiCopy); err != nil {
+	if err := c.containerDiskMounter.Unmount(vmi); err != nil {
 		return err
 	}
 
 	// Unmount all hotplug volumes
-	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
+		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
-		if err = c.hotplugVolumeMounter.UnmountAll(vmiCopy, cgroupManager); err != nil {
+		if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 			return fmt.Errorf("failed to unmount all hotplug volumes: %v", err)
 		}
 	}
