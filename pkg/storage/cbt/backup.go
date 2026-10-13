@@ -581,6 +581,10 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 			return err
 		}
 		ctrl.setAborting(backup, backupAborting)
+	} else if isBackupTTLExpired(backup) {
+		if err := ctrl.handleBackupTTLExpiry(backup, vmi); err != nil {
+			return err
+		}
 	} else if isPullMode(backup) {
 		if err := ctrl.handlePullMode(backup, vmi); err != nil {
 			return err
