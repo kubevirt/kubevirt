@@ -617,7 +617,7 @@ chpasswd: { expire: False }`
 				pvcName      = "my-pvc"
 			)
 
-			out, err := runCmd(setFlag(ClonePvcVolumeFlag, params))
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -662,14 +662,14 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Preference.InferFromVolume).To(Equal(vm.Spec.DataVolumeTemplates[0].Name))
 			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(PointTo(Equal(v1.IgnoreInferFromVolumeFailure)))
 		},
-			Entry("with src", "src:my-ns/my-pvc", "", "", 0),
-			Entry("with src and name", "src:my-ns/my-pvc,name:my-dvt", "my-dvt", "", 0),
-			Entry("with src and size", "src:my-ns/my-pvc,size:10Gi", "", "10Gi", 0),
-			Entry("with src and bootorder", "src:my-ns/my-pvc,bootorder:1", "", "", 1),
-			Entry("with src, name and size", "src:my-ns/my-pvc,name:my-dvt,size:10Gi", "my-dvt", "10Gi", 0),
-			Entry("with src, name and bootorder", "src:my-ns/my-pvc,name:my-dvt,bootorder:2", "my-dvt", "", 2),
-			Entry("with src, size and bootorder", "src:my-ns/my-pvc,size:10Gi,bootorder:3", "", "10Gi", 3),
-			Entry("with src, name, size and bootorder", "src:my-ns/my-pvc,name:my-dvt,size:10Gi,bootorder:4", "my-dvt", "10Gi", 4),
+			Entry("with src", "type:pvc,src:my-ns/my-pvc", "", "", 0),
+			Entry("with src and name", "type:pvc,src:my-ns/my-pvc,name:my-dvt", "my-dvt", "", 0),
+			Entry("with src and size", "type:pvc,src:my-ns/my-pvc,size:10Gi", "", "10Gi", 0),
+			Entry("with src and bootorder", "type:pvc,src:my-ns/my-pvc,bootorder:1", "", "", 1),
+			Entry("with src, name and size", "type:pvc,src:my-ns/my-pvc,name:my-dvt,size:10Gi", "my-dvt", "10Gi", 0),
+			Entry("with src, name and bootorder", "type:pvc,src:my-ns/my-pvc,name:my-dvt,bootorder:2", "my-dvt", "", 2),
+			Entry("with src, size and bootorder", "type:pvc,src:my-ns/my-pvc,size:10Gi,bootorder:3", "", "10Gi", 3),
+			Entry("with src, name, size and bootorder", "type:pvc,src:my-ns/my-pvc,name:my-dvt,size:10Gi,bootorder:4", "my-dvt", "10Gi", 4),
 		)
 
 		DescribeTable("VM with specified pvc", func(params, volName string, bootOrder int) {
@@ -1602,26 +1602,26 @@ chpasswd: { expire: False }`
 			Entry("dash at the beginning", "type:ds,src:my-ds,name:-notallowed", nameDashBeginningError),
 		)
 
-		DescribeTable("Invalid parameters to ClonePvcVolumeFlag", func(params, errMsg string) {
-			out, err := runCmd(setFlag(ClonePvcVolumeFlag, params))
+		DescribeTable("Invalid parameters to VolumeImportFlag with pvc", func(params, errMsg string) {
+			out, err := runCmd(setFlag(VolumeImportFlag, params))
 			Expect(err).To(MatchError("failed to parse \"--volume-import\" flag: " + errMsg))
 			Expect(out).To(BeEmpty())
 		},
 			Entry("Empty params", "", paramsEmptyError),
 			Entry("Invalid param", "test=test", paramsInvalidError),
-			Entry("Unknown param", "test:test", paramsUnknownError),
-			Entry("Missing src", "name:test", srcMissingError),
-			Entry("Empty name in src", "src:my-ns/", srcEmptyNameError),
-			Entry("Invalid slashes count in src", "src:my-ns/my-pvc/madethisup", srcInvalidSlashCountError),
-			Entry("Missing namespace in src", "src:my-pvc", pvcMissingNamespaceError),
-			Entry("Invalid quantity in size", "size:10Gu", sizeInvalidError),
-			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
-			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
-			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", bootOrderZeroError),
-			Entry("invalid character (dot)", "src:my-ns/my-pvc,name:name.with.dot", nameDotsError),
-			Entry("name has more than 63 characters", "src:my-ns/my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
-			Entry("upper case", "src:my-ns/my-pvc,name:NOTALLOWED", nameUpperCaseError),
-			Entry("dash at the beginning", "src:my-ns/my-pvc,name:-notallowed", nameDashBeginningError),
+			Entry("Unknown param", "type:pvc,test:test", paramsUnknownError),
+			Entry("Missing src", "type:pvc,name:test", srcMissingError),
+			Entry("Empty name in src", "type:pvc,src:my-ns/", srcEmptyNameError),
+			Entry("Invalid slashes count in src", "type:pvc,src:my-ns/my-pvc/madethisup", srcInvalidSlashCountError),
+			Entry("Missing namespace in src", "type:pvc,src:my-pvc", pvcMissingNamespaceError),
+			Entry("Invalid quantity in size", "type:pvc,size:10Gu", sizeInvalidError),
+			Entry("Invalid number in bootorder", "type:pvc,bootorder:10Gu", bootOrderInvalidError),
+			Entry("Negative number in bootorder", "type:pvc,bootorder:-1", bootOrderNegativeError),
+			Entry("Bootorder set to 0", "type:pvc,src:my-ns/my-pvc,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "type:pvc,src:my-ns/my-pvc,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "type:pvc,src:my-ns/my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "type:pvc,src:my-ns/my-pvc,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "type:pvc,src:my-ns/my-pvc,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to PvcVolumeFlag", func(params, errMsg string) {
