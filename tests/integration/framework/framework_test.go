@@ -64,6 +64,23 @@ func (q *blockingQueue) Done(key string) {
 	q.done <- key
 }
 
+var _ = Describe("Framework configuration", func() {
+	It("ignores a nil configuration without discarding an earlier option", func() {
+		strategy := virtv1.VMRolloutStrategyStage
+		config := &virtv1.KubeVirtConfiguration{VMRolloutStrategy: &strategy}
+		f := New(WithKubeVirtConfig(config), WithKubeVirtConfig(nil))
+		Expect(f.kvConfig).To(Equal(config))
+
+		strategy = virtv1.VMRolloutStrategyLiveUpdate
+		Expect(*f.kvConfig.VMRolloutStrategy).To(Equal(virtv1.VMRolloutStrategyStage))
+	})
+
+	It("preserves the default configuration when given nil", func() {
+		f := New(WithKubeVirtConfig(nil))
+		Expect(f.kvConfig).To(Equal(&virtv1.KubeVirtConfiguration{}))
+	})
+})
+
 var _ = Describe("Framework shutdown", func() {
 	DescribeTable("waits for controller workers before stopping",
 		func(ctx SpecContext, useVMI, afterGet bool) {
