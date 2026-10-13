@@ -32,7 +32,6 @@ import (
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -158,9 +157,11 @@ func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolu
 	return false
 }
 
-func dirBytesAvailable(path string, reserve uint64) (uint64, error) {
+func dirBytesAvailable(dir *safepath.Path, reserve uint64) (uint64, error) {
 	var stat syscall.Statfs_t
-	err := syscall.Statfs(path, &stat)
+	err := dir.ExecuteNoFollow(func(safePath string) error {
+		return syscall.Statfs(safePath, &stat)
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -215,7 +216,7 @@ func GetMountedHostDiskDir(volumeName string) string {
 }
 
 type DiskImgCreator struct {
-	dirBytesAvailableFunc  func(path string, reserve uint64) (uint64, error)
+	dirBytesAvailableFunc  func(dir *safepath.Path, reserve uint64) (uint64, error)
 	recorder               record.EventRecorder
 	lessPVCSpaceToleration int
 	minimumPVCReserveBytes uint64
@@ -282,7 +283,7 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 }
 
 func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir *safepath.Path, diskName string, hostDisk *v1.HostDisk) error {
-	size, err := hdc.dirBytesAvailableFunc(unsafepath.UnsafeAbsolute(diskDir.Raw()), hdc.minimumPVCReserveBytes)
+	size, err := hdc.dirBytesAvailableFunc(diskDir, hdc.minimumPVCReserveBytes)
 	availableSize := int64(size)
 	if err != nil {
 		return err
@@ -296,8 +297,7 @@ func (hdc *DiskImgCreator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.Virtual
 	}
 	err = createSparseRaw(diskDir, diskName, requestedSize)
 	if err != nil {
-		fullPath := filepath.Join(unsafepath.UnsafeAbsolute(diskDir.Raw()), diskName)
-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file for disk path: %s, error: %v", fullPath, err)
+		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file %s in %s, error: %v", diskName, diskDir, err)
 		return err
 	}
 	return nil
