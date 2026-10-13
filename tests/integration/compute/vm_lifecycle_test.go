@@ -14,9 +14,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/integration/framework"
 )
 
 var _ = Describe("VM Lifecycle", func() {
+	var f *framework.Framework
+
+	BeforeEach(func() {
+		f = framework.New()
+		f.Start(context.Background())
+	})
+
 	It("should create a VMI and pod when a VM is created with RunStrategyAlways", func(ctx SpecContext) {
 		ns := f.CreateNamespace(ctx)
 
