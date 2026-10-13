@@ -139,6 +139,36 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations).To(HaveKeyWithValue(istio.RerouteVirtualInterfacesAnnotation, "k6t-eth0"))
 		})
 
+		DescribeTable("nativeSidecar annotation", func(vmiOpts []libvmi.Option, matcher OmegaMatcher) {
+			vmi := libvmi.New(vmiOpts...)
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(annotations).To(matcher)
+		},
+			Entry("should default to true when injection is enabled",
+				[]libvmi.Option{libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "true")},
+				HaveKeyWithValue(istio.NativeSidecarAnnotation, "true"),
+			),
+			Entry("should propagate user-supplied false",
+				[]libvmi.Option{
+					libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "true"),
+					libvmi.WithAnnotation(istio.NativeSidecarAnnotation, "false"),
+				},
+				HaveKeyWithValue(istio.NativeSidecarAnnotation, "false"),
+			),
+			Entry("should not be set without any Istio annotations",
+				[]libvmi.Option{},
+				Not(HaveKey(istio.NativeSidecarAnnotation)),
+			),
+			Entry("should not be set when injection is disabled",
+				[]libvmi.Option{libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "false")},
+				Not(HaveKey(istio.NativeSidecarAnnotation)),
+			),
+		)
+
 		DescribeTable("should not generate Istio annotation", func(vmi *v1.VirtualMachineInstance) {
 			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations, err := generator.Generate(vmi)
