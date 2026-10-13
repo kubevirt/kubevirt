@@ -25,7 +25,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -208,7 +207,7 @@ var _ = Describe("HostDisk", func() {
 
 					dirAvailable := uint64(64 << 20)
 
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
+					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(_ *safepath.Path, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 
@@ -228,7 +227,7 @@ var _ = Describe("HostDisk", func() {
 
 					dirAvailable := uint64(64 << 20)
 
-					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
+					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(_ *safepath.Path, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 					hostDiskCreatorWithReserve.setlessPVCSpaceToleration(1) // 1% of 64Mi, tolerate up to 671088 bytes lost
@@ -257,14 +256,16 @@ var _ = Describe("HostDisk", func() {
 						return origSize * (100 - uint64(toleration) + uint64(diff)) / 100
 					}
 
-					fakeDirBytesAvailable := func(path string, reserve uint64) (uint64, error) {
-						if strings.Contains(path, "volume1") {
+					fakeDirBytesAvailable := func(dir *safepath.Path, reserve uint64) (uint64, error) {
+						base, err := dir.Base()
+						Expect(err).NotTo(HaveOccurred())
+						if base == "volume1" {
 							// toleration +1
 							return calcToleratedSize(size64Mi, 1), nil
-						} else if strings.Contains(path, "volume2") {
+						} else if base == "volume2" {
 							// exact toleration
 							return calcToleratedSize(size64Mi, 0), nil
-						} else if strings.Contains(path, "volume3") {
+						} else if base == "volume3" {
 							// toleration -1
 							return calcToleratedSize(size64Mi, -1), nil
 						} else {
