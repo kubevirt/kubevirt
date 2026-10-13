@@ -228,7 +228,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("should boot, live migrate, and login to a VMI using a raw ORAS artifact", func() {
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithResourceMemory("256Mi"),
 				libvmi.WithContainerDiskAndPullPolicy("rootdisk", flags.OrasTestArtifactImage, k8sv1.PullAlways),
@@ -293,14 +293,14 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		},
 			Entry("using simple Alpine vmi",
 				libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 				console.LoginToAlpine,
 			),
 			Entry("using Cirros vmi with custom location", decorators.Periodic,
 				libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					overrideCustomLocation,
 				),
@@ -321,7 +321,7 @@ func overrideCustomLocation(vmi *v1.VirtualMachineInstance) {
 
 func newAlpineWithKernelBoot() *v1.VirtualMachineInstance {
 	vmi := libvmifact.NewAlpine(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	utils.AddKernelBootToVMI(vmi)

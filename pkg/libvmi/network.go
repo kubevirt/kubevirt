@@ -143,13 +143,6 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
-// InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
-//
-// Deprecated: use NewInterface(name, WithMasqueradeBinding()) instead.
-func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
-	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
-}
-
 // InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
 //
 // Deprecated: use NewInterface(name, WithBridgeBinding()) instead.
