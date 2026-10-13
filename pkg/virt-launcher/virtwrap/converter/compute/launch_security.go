@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type LaunchSecurityDomainConfigurator struct {
@@ -61,32 +62,36 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 
 func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
-	if launchSec.SEV == nil && launchSec.SNP != nil {
-		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
-		domain := &api.LaunchSecurity{
-			Type: "sev-snp",
-		}
-		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		return domain
-	} else if launchSec.SEV != nil {
+	// The AMD firmware rejects a direct kernel boot unless the kernel, initrd
+	// and cmdline hashes are measured into the launch digest.
+	kernelHashes := ""
+	if vmitrait.HasDirectKernelBoot(vmi) {
+		kernelHashes = "yes"
+	}
+
+	// Admission guarantees exactly one launch security type is set.
+	switch {
+	case launchSec.SEV != nil:
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
-		domain := &api.LaunchSecurity{
-			Type:   "sev",
-			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+		return &api.LaunchSecurity{
+			Type:         "sev",
+			Policy:       "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+			KernelHashes: kernelHashes,
+			DHCert:       launchSec.SEV.DHCert,
+			Session:      launchSec.SEV.Session,
 		}
-		if launchSec.SEV.DHCert != "" {
-			domain.DHCert = launchSec.SEV.DHCert
+	case launchSec.SNP != nil:
+		// Use Default Policy
+		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+		return &api.LaunchSecurity{
+			Type:         "sev-snp",
+			Policy:       "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16),
+			KernelHashes: kernelHashes,
 		}
-		if launchSec.SEV.Session != "" {
-			domain.Session = launchSec.SEV.Session
-		}
-		return domain
-	} else if launchSec.TDX != nil {
-		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
+	case launchSec.TDX != nil:
 		return &api.LaunchSecurity{
 			Type:                   "tdx",
-			QuoteGenerationService: &api.QGS{Path: qgsSocketPath},
+			QuoteGenerationService: &api.QGS{Path: vmi.Annotations[v1.QGSSocketPathAnnotation]},
 		}
 	}
 
