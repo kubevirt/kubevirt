@@ -51,7 +51,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 	It("[test_id:4119]should migrate a running VM", decorators.RequiresTwoSchedulableNodes, func() {
 		By("Creating a VM with RunStrategyAlways")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -76,7 +76,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 	It("[test_id:7743]should not migrate a running vm if dry-run option is passed", decorators.RequiresTwoSchedulableNodes, func() {
 		By("Creating a VM with RunStrategyAlways")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
