@@ -1670,20 +1670,6 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 	}, nil
 }
 
-func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVolumeClaim) []sourceVolume {
-	if len(pvcs) == 0 {
-		return nil
-	}
-	volumes := make([]sourceVolume, 0, len(pvcs))
-	for _, pvc := range pvcs {
-		volumes = append(volumes, sourceVolume{
-			pvc:                 pvc,
-			kubevirtContentType: ctrl.isKubevirtContentType(pvc),
-		})
-	}
-	return volumes
-}
-
 func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
 	kv := ctrl.clusterConfig.GetConfigFromKubeVirtCR()
 	if kv == nil || kv.Spec.Configuration.TLSConfiguration == nil {

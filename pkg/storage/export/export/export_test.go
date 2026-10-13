@@ -930,7 +930,7 @@ var _ = Describe("Export controller", func() {
 		populateInitialVMExportStatus(testVMExport)
 
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(testPVC),
+			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
 			isPopulated: true,
 		}
 		source := createSource(sv)
@@ -1275,7 +1275,7 @@ var _ = Describe("Export controller", func() {
 		}
 		populateInitialVMExportStatus(testVMExport)
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(testPVC),
+			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
 			isPopulated: true,
 		}
 		snapSource := NewVMSnapshotSource(sv, "test-vm-name")
@@ -1395,7 +1395,7 @@ var _ = Describe("Export controller", func() {
 				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock)},
 			},
 		} {
-			sv.volumes = append(sv.volumes, sourceVolume{pvc: pvc})
+			sv.volumes = append(sv.volumes, sourceVolume{pvc: pvc, volumeName: "volume-of-" + pvc.Name})
 		}
 		pod := &k8sv1.Pod{Spec: k8sv1.PodSpec{Containers: []k8sv1.Container{{}}}}
 		sv.configurePodVolumes(pod)
@@ -1405,6 +1405,7 @@ var _ = Describe("Export controller", func() {
 		for _, volume := range sv.volumes {
 			vi := paths.GetVolumeInfo(volume.pvc.Name)
 			Expect(vi).ToNot(BeNil())
+			Expect(vi.VolumeName).To(Equal(volume.volumeName))
 			volumePaths[vi.Path] = true
 		}
 		Expect(volumePaths).To(HaveLen(len(sv.volumes)))
@@ -1543,7 +1544,7 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(pvc),
+			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
 			isPopulated: true,
 		}
 		pvcSource := NewPVCSource(sv)
@@ -1602,7 +1603,7 @@ var _ = Describe("Export controller", func() {
 			return true, secret, nil
 		})
 		sv := &sourceVolumes{
-			volumes:     controller.pvcsToSourceVolumes(pvc),
+			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
 			isPopulated: true,
 		}
 		pvcSource := NewPVCSource(sv)
