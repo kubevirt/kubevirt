@@ -62,7 +62,6 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
@@ -1849,11 +1848,6 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 	}
 
 	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
-
-	err = hostdisk.ReplacePVCByHostDisk(vmi)
-	if err != nil {
-		return err
-	}
 
 	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err != nil {
