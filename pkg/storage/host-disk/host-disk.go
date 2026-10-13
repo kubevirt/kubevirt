@@ -21,7 +21,6 @@ package hostdisk
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -32,9 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/diskimg"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 )
-
-var pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -90,7 +88,7 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
 func replaceForHostDisk(volumeSource *v1.VolumeSource, volumeName string, pvcVolume map[string]v1.VolumeStatus) error {
 	volumeStatus := pvcVolume[volumeName]
 	isShared := types.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes)
-	file := getPVCDiskImgPath(volumeName, "disk.img")
+	file := volumepath.Filesystem(volumeName)
 	capacity, capacityOk := volumeStatus.PersistentVolumeClaimInfo.Capacity[k8sv1.ResourceStorage]
 	requested, requestedOk := volumeStatus.PersistentVolumeClaimInfo.Requests[k8sv1.ResourceStorage]
 
@@ -143,16 +141,12 @@ func shouldSkipVolumeSource(passthoughFSVolumes map[string]struct{}, hotplugVolu
 	return false
 }
 
-func getPVCDiskImgPath(volumeName string, diskName string) string {
-	return path.Join(pvcBaseDir, volumeName, diskName)
-}
-
 func GetMountedHostDiskPath(volumeName string, path string) string {
-	return getPVCDiskImgPath(volumeName, filepath.Base(path))
+	return filepath.Join(volumepath.FilesystemDir(volumeName), filepath.Base(path))
 }
 
 func GetMountedHostDiskDir(volumeName string) string {
-	return getPVCDiskImgPath(volumeName, "")
+	return volumepath.FilesystemDir(volumeName)
 }
 
 func Images(vmi *v1.VirtualMachineInstance) []diskimg.Image {

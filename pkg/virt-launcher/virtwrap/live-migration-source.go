@@ -37,9 +37,9 @@ import (
 
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -1311,7 +1311,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 			if hotplugVol {
 				path = hotplugdisk.GetVolumeMountDir(name) + ".img"
 			} else {
-				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+				path = volumepath.Filesystem(name)
 			}
 			source.File = &libvirtxml.DomainDiskSourceFile{File: path}
 			source.Block = nil
