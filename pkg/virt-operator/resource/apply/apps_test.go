@@ -264,6 +264,9 @@ var _ = Describe("Apply Apps", func() {
 		markHandlerReady := func(deamonSet *appsv1.DaemonSet) {
 			daemonSet.Status.DesiredNumberScheduled = 1
 			daemonSet.Status.NumberReady = 1
+			daemonSet.Status.UpdatedNumberScheduled = daemonSet.Status.DesiredNumberScheduled
+			daemonSet.Status.NumberAvailable = 1
+			daemonSet.Status.ObservedGeneration = daemonSet.Generation
 			pod := createDaemonSetPod(kv, daemonSet, corev1.PodRunning, true)
 			mockPodCacheStore.ListFunc = func() []interface{} {
 				return []interface{}{pod}
@@ -322,9 +325,9 @@ var _ = Describe("Apply Apps", func() {
 				Namespace:       Namespace,
 			}
 			daemonSet = components.NewHandlerDaemonSet(virtHandlerConfig, "", "", "")
-			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
 			daemonSet.Generation = 1
+			markHandlerReady(daemonSet)
 		})
 
 		Context("setting virt-handler maxDevices flag", func() {
@@ -434,10 +437,11 @@ var _ = Describe("Apply Apps", func() {
 			addCustomTargetDeployment := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
 				version := "custom.version"
 				registry := "custom.registry"
-				id := "custom.id"
-				kv.Status.TargetKubeVirtVersion = version
-				kv.Status.TargetKubeVirtRegistry = registry
-				kv.Status.TargetDeploymentID = id
+				kv.Spec.ImageTag = version
+				kv.Spec.ImageRegistry = registry
+				config := util.GetTargetConfigFromKV(kv)
+				Expect(config.SetTargetDeploymentConfig(kv)).To(Succeed())
+				id := config.GetDeploymentID()
 
 				daemonSet.ObjectMeta.Annotations = map[string]string{
 					v1.InstallStrategyVersionAnnotation:    version,

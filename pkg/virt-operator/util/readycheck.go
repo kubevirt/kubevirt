@@ -105,9 +105,10 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 }
 
 func annotationsMatchTarget(annotations map[string]string, kv *v1.KubeVirt) bool {
-	return annotations[v1.InstallStrategyVersionAnnotation] == kv.Status.TargetKubeVirtVersion &&
-		annotations[v1.InstallStrategyRegistryAnnotation] == kv.Status.TargetKubeVirtRegistry &&
-		annotations[v1.InstallStrategyIdentifierAnnotation] == kv.Status.TargetDeploymentID
+	config := GetTargetConfigFromKV(kv)
+	return annotations[v1.InstallStrategyVersionAnnotation] == config.GetKubeVirtVersion() &&
+		annotations[v1.InstallStrategyRegistryAnnotation] == config.GetImageRegistry() &&
+		annotations[v1.InstallStrategyIdentifierAnnotation] == config.GetDeploymentID()
 }
 
 func DaemonSetIsUpToDate(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) bool {

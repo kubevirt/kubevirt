@@ -35,7 +35,6 @@ var _ = Describe("DaemonsetIsReady", func() {
 	const (
 		targetVersion  = "1.0.0"
 		targetRegistry = "registry.example.com"
-		targetID       = "abc123"
 	)
 
 	var (
@@ -44,13 +43,17 @@ var _ = Describe("DaemonsetIsReady", func() {
 	)
 
 	BeforeEach(func() {
+		originalEnvVarManager := DefaultEnvVarManager
+		DefaultEnvVarManager = &EnvVarManagerMock{}
+		DeferCleanup(func() { DefaultEnvVarManager = originalEnvVarManager })
 		kv = &v1.KubeVirt{
-			Status: v1.KubeVirtStatus{
-				TargetKubeVirtVersion:  targetVersion,
-				TargetKubeVirtRegistry: targetRegistry,
-				TargetDeploymentID:     targetID,
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kubevirt"},
+			Spec: v1.KubeVirtSpec{
+				ImageTag:      targetVersion,
+				ImageRegistry: targetRegistry,
 			},
 		}
+		config := GetTargetConfigFromKV(kv)
 		daemonset = &appsv1.DaemonSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "virt-handler",
@@ -58,7 +61,7 @@ var _ = Describe("DaemonsetIsReady", func() {
 				Annotations: map[string]string{
 					v1.InstallStrategyVersionAnnotation:    targetVersion,
 					v1.InstallStrategyRegistryAnnotation:   targetRegistry,
-					v1.InstallStrategyIdentifierAnnotation: targetID,
+					v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 				},
 			},
 			Status: appsv1.DaemonSetStatus{
@@ -81,6 +84,21 @@ var _ = Describe("DaemonsetIsReady", func() {
 	stores := func(ds *appsv1.DaemonSet) Stores {
 		return Stores{DaemonSetCache: storeWith(ds)}
 	}
+
+	It("uses the environment-derived target when status is stale", func() {
+		kv.Spec.ImageTag = ""
+		kv.Spec.ImageRegistry = ""
+		kv.Status.TargetKubeVirtVersion = "old.version"
+		kv.Status.TargetKubeVirtRegistry = "old.registry"
+		kv.Status.TargetDeploymentID = "old.id"
+		Expect(DefaultEnvVarManager.Setenv(VirtOperatorImageEnvName, "env.registry/virt-operator:env.version")).To(Succeed())
+		config := GetTargetConfigFromKV(kv)
+		daemonset.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
+		daemonset.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
+		daemonset.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
+
+		Expect(DaemonsetIsReady(kv, daemonset, stores(daemonset))).To(BeTrue())
+	})
 
 	DescribeTable("status and version checks",
 		func(mutate func(*appsv1.DaemonSet), expectedReady bool) {
@@ -135,7 +153,6 @@ var _ = Describe("DeploymentIsReady", func() {
 	const (
 		targetVersion  = "1.0.0"
 		targetRegistry = "registry.example.com"
-		targetID       = "abc123"
 	)
 
 	var (
@@ -144,13 +161,17 @@ var _ = Describe("DeploymentIsReady", func() {
 	)
 
 	BeforeEach(func() {
+		originalEnvVarManager := DefaultEnvVarManager
+		DefaultEnvVarManager = &EnvVarManagerMock{}
+		DeferCleanup(func() { DefaultEnvVarManager = originalEnvVarManager })
 		kv = &v1.KubeVirt{
-			Status: v1.KubeVirtStatus{
-				TargetKubeVirtVersion:  targetVersion,
-				TargetKubeVirtRegistry: targetRegistry,
-				TargetDeploymentID:     targetID,
+			ObjectMeta: metav1.ObjectMeta{Namespace: "kubevirt"},
+			Spec: v1.KubeVirtSpec{
+				ImageTag:      targetVersion,
+				ImageRegistry: targetRegistry,
 			},
 		}
+		config := GetTargetConfigFromKV(kv)
 		deployment = &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "virt-api",
@@ -158,7 +179,7 @@ var _ = Describe("DeploymentIsReady", func() {
 				Annotations: map[string]string{
 					v1.InstallStrategyVersionAnnotation:    targetVersion,
 					v1.InstallStrategyRegistryAnnotation:   targetRegistry,
-					v1.InstallStrategyIdentifierAnnotation: targetID,
+					v1.InstallStrategyIdentifierAnnotation: config.GetDeploymentID(),
 				},
 			},
 			Status: appsv1.DeploymentStatus{
@@ -181,6 +202,21 @@ var _ = Describe("DeploymentIsReady", func() {
 	stores := func(dep *appsv1.Deployment) Stores {
 		return Stores{DeploymentCache: storeWith(dep)}
 	}
+
+	It("uses the environment-derived target when status is stale", func() {
+		kv.Spec.ImageTag = ""
+		kv.Spec.ImageRegistry = ""
+		kv.Status.TargetKubeVirtVersion = "old.version"
+		kv.Status.TargetKubeVirtRegistry = "old.registry"
+		kv.Status.TargetDeploymentID = "old.id"
+		Expect(DefaultEnvVarManager.Setenv(VirtOperatorImageEnvName, "env.registry/virt-operator:env.version")).To(Succeed())
+		config := GetTargetConfigFromKV(kv)
+		deployment.Annotations[v1.InstallStrategyVersionAnnotation] = config.GetKubeVirtVersion()
+		deployment.Annotations[v1.InstallStrategyRegistryAnnotation] = config.GetImageRegistry()
+		deployment.Annotations[v1.InstallStrategyIdentifierAnnotation] = config.GetDeploymentID()
+
+		Expect(DeploymentIsReady(kv, deployment, stores(deployment))).To(BeTrue())
+	})
 
 	DescribeTable("condition and version checks",
 		func(mutate func(*appsv1.Deployment), inCache bool, expectedReady bool) {
