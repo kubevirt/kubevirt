@@ -42,7 +42,19 @@ type sourceVolumes struct {
 
 type sourceVolume struct {
 	pvc                 *corev1.PersistentVolumeClaim
+	volumeName          string
 	kubevirtContentType bool
+}
+
+// newSourceVolume builds a volume to export from a PVC and the name of the
+// volume referencing it in the source. The volume name is empty for sources
+// that have no VM.
+func (ctrl *VMExportController) newSourceVolume(pvc *corev1.PersistentVolumeClaim, volumeName string) sourceVolume {
+	return sourceVolume{
+		pvc:                 pvc,
+		volumeName:          volumeName,
+		kubevirtContentType: ctrl.isKubevirtContentType(pvc),
+	}
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -103,7 +115,7 @@ func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
 				},
 			},
 		})
-		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint, volume.kubevirtContentType)
+		volume.addEnvironmentVariables(&podManifest.Spec.Containers[0], i, mountPoint)
 	}
 }
 
@@ -174,35 +186,38 @@ func (sv *sourceVolumes) populateLink(
 	}
 }
 
-func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string, isKubevirt bool) {
+func (v sourceVolume) addEnvironmentVariables(exportContainer *corev1.Container, index int, mountPoint string) {
 	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
+	}, corev1.EnvVar{
+		Name:  fmt.Sprintf("VOLUME%d_EXPORT_VOLUME_NAME", index),
+		Value: v.volumeName,
 	})
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+	if types.IsPVCBlock(v.pvc.Spec.VolumeMode) {
 		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-			Value: rawURI(pvc),
+			Value: rawURI(v.pvc),
 		}, corev1.EnvVar{
 			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-			Value: rawGzipURI(pvc),
+			Value: rawGzipURI(v.pvc),
 		})
 	} else {
-		if isKubevirt {
+		if v.kubevirtContentType {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-				Value: rawURI(pvc),
+				Value: rawURI(v.pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-				Value: rawGzipURI(pvc),
+				Value: rawGzipURI(v.pvc),
 			})
 		} else {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: archiveURI(pvc),
+				Value: archiveURI(v.pvc),
 			}, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: dirURI(pvc),
+				Value: dirURI(v.pvc),
 			})
 		}
 	}

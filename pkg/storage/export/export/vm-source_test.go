@@ -704,6 +704,22 @@ var _ = Describe("PVC source", func() {
 		Expect(updated.Status.Phase).To(Equal(exportv1.Ready))
 	})
 
+	It("Should collect the volume name of every PVC of a VM", func() {
+		vm := createVMWithPVCs()
+		vm.Spec.Template.Spec.Volumes[0].Name = "rootdisk"
+		controller.VMInformer.GetStore().Add(vm)
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+
+		volumesToExport, _, err := controller.getSourceVolumesFromVM(vm)
+		Expect(err).ToNot(HaveOccurred())
+		var volumeNames []string
+		for _, volume := range volumesToExport {
+			volumeNames = append(volumeNames, volume.volumeName)
+		}
+		Expect(volumeNames).To(ConsistOf("rootdisk", "volume2"))
+	})
+
 	It("Should be in skipped phase when VM does not exist", func() {
 		testVMExport := createVMVMExport()
 		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
