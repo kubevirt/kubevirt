@@ -79,66 +79,56 @@ func (c *Creator) Create(vmi *v1.VirtualMachineInstance, images []Image) error {
 func (c *Creator) createIfMissing(vmi *v1.VirtualMachineInstance, img Image) error {
 	diskDir, err := c.mountRoot.AppendAndResolveWithRelativeRoot(img.Dir)
 	if err != nil {
-		return fmt.Errorf("Resolve diskdir : %v", err)
+		return fmt.Errorf("failed to resolve disk image directory %s: %w", img.Dir, err)
 	}
 
-	diskPath, err := safepath.JoinNoFollow(diskDir, img.Name)
-	fileNotExists := errors.Is(err, unix.ENOENT)
-	if err != nil && !fileNotExists {
-		return fmt.Errorf("Resolve diskPath :%v", err)
+	_, err = safepath.JoinNoFollow(diskDir, img.Name)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, unix.ENOENT) {
+		return fmt.Errorf("failed to resolve disk image %s in %s: %w", img.Name, diskDir, err)
 	}
 
-	if fileNotExists {
-		if err := c.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, img); err != nil {
-			return err
-		}
-
-		diskPath, err = safepath.JoinNoFollow(diskDir, img.Name)
-		if err != nil {
-			return fmt.Errorf("last %v", err)
-		}
-		if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
-			log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
-			return err
-		}
+	size, err := c.imageSize(diskDir, img)
+	if err != nil {
+		return err
+	}
+	diskPath, err := createSparseRaw(diskDir, img.Name, size)
+	if err != nil {
+		return fmt.Errorf("failed to create disk image %s in %s: %w", img.Name, diskDir, err)
+	}
+	if err := ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
+		return fmt.Errorf("failed to set ownership of disk image %s in %s: %w", img.Name, diskDir, err)
+	}
+	if size < img.Size {
+		msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", img.Size, size, c.lessPVCSpaceToleration)
+		log.Log.Info(msg)
+		c.recorder.Event(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 	}
 	return nil
 }
 
-func (c *Creator) handleRequestedSizeAndCreateSparseRaw(vmi *v1.VirtualMachineInstance, diskDir *safepath.Path, img Image) error {
-	size, err := c.dirBytesAvailableFunc(diskDir, c.minimumPVCReserveBytes)
-	availableSize := int64(size)
+func (c *Creator) imageSize(diskDir *safepath.Path, img Image) (int64, error) {
+	available, err := c.dirBytesAvailableFunc(diskDir, c.minimumPVCReserveBytes)
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("failed to determine available space in %s: %w", diskDir, err)
 	}
-	requestedSize := img.Size
-	if requestedSize > availableSize {
-		requestedSize, err = c.shrinkRequestedSize(vmi, requestedSize, availableSize, img)
-		if err != nil {
-			return err
-		}
+	if img.Size <= int64(available) {
+		return img.Size, nil
 	}
-	err = createSparseRaw(diskDir, img.Name, requestedSize)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Couldn't create a sparse raw file %s in %s, error: %v", img.Name, diskDir, err)
-		return err
-	}
-	return nil
+	return c.shrinkRequestedSize(int64(available), img)
 }
 
-func (c *Creator) shrinkRequestedSize(vmi *v1.VirtualMachineInstance, requestedSize int64, availableSize int64, img Image) (int64, error) {
+func (c *Creator) shrinkRequestedSize(availableSize int64, img Image) (int64, error) {
 	// Some storage provisioners provide less space than requested, due to filesystem overhead etc.
 	// We tolerate some difference in requested and available capacity up to some degree.
 	// This can be configured with pvcTolerateLessSpaceUpToPercent in the KubeVirt CR's developerConfiguration.
-	toleratedSize := requestedSize * (100 - int64(c.lessPVCSpaceToleration)) / 100
+	toleratedSize := img.Size * (100 - int64(c.lessPVCSpaceToleration)) / 100
 	if toleratedSize > availableSize {
 		return 0, fmt.Errorf("unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %v %% toleration into account",
-			filepath.Join(img.Dir, img.Name), uint64(requestedSize), availableSize, c.lessPVCSpaceToleration)
+			filepath.Join(img.Dir, img.Name), uint64(img.Size), availableSize, c.lessPVCSpaceToleration)
 	}
-
-	msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, c.lessPVCSpaceToleration)
-	log.Log.Info(msg)
-	c.recorder.Event(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 	return availableSize, nil
 }
 
@@ -157,37 +147,25 @@ func dirBytesAvailable(dir *safepath.Path, reserve uint64) (uint64, error) {
 	return free - reserve, nil
 }
 
-func createSparseRaw(diskdir *safepath.Path, diskName string, size int64) (err error) {
-	offset := size - 1
-	if filepath.Base(diskName) != diskName {
-		return fmt.Errorf("Disk name needs to be base")
+func createSparseRaw(diskDir *safepath.Path, diskName string, size int64) (*safepath.Path, error) {
+	if err := safepath.TouchAtNoFollow(diskDir, diskName, 0666); err != nil {
+		return nil, err
 	}
-
-	err = safepath.TouchAtNoFollow(diskdir, filepath.Base(diskName), 0666)
+	diskPath, err := safepath.JoinNoFollow(diskDir, diskName)
 	if err != nil {
-		return fmt.Errorf("Failed touch %s,%s : %v", diskdir, diskName, err)
+		return nil, err
 	}
-
-	diskPath, err := safepath.JoinNoFollow(diskdir, diskName)
-	if err != nil {
-		return fmt.Errorf("Failed append  %s,%s : %v", diskdir, diskName, err)
-	}
-
-	sFile, err := safepath.OpenAtNoFollow(diskPath)
-	if err != nil {
-		return fmt.Errorf("Failed NewFile %s,%s : %v", diskdir, diskName, err)
-	}
-	defer util.CloseIOAndCheckErr(sFile, &err)
-
-	f, err := os.OpenFile(sFile.SafePath(), os.O_WRONLY, 0666)
-	if err != nil {
+	err = diskPath.ExecuteNoFollow(func(safePath string) (err error) {
+		f, err := os.OpenFile(safePath, os.O_WRONLY, 0)
+		if err != nil {
+			return err
+		}
+		defer util.CloseIOAndCheckErr(f, &err)
+		_, err = f.WriteAt([]byte{0}, size-1)
 		return err
-	}
-	defer util.CloseIOAndCheckErr(f, &err)
-
-	_, err = f.WriteAt([]byte{0}, offset)
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return diskPath, nil
 }

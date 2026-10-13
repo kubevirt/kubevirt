@@ -189,7 +189,8 @@ var _ = Describe("Creator", func() {
 			existing := image("volume1", size64Mi)
 			dir, err := safepath.JoinAndResolveWithRelativeRoot(existing.Dir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(createSparseRaw(dir, existing.Name, existing.Size)).To(Succeed())
+			_, err = createSparseRaw(dir, existing.Name, existing.Size)
+			Expect(err).NotTo(HaveOccurred())
 			before, err := os.Stat(imagePath(existing))
 			Expect(err).NotTo(HaveOccurred())
 
