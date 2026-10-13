@@ -1031,11 +1031,7 @@ func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
 	return getExportPodVolumeNameFromStr(pvc.Name)
 }
 
-// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name to match the volume name used in the Pod.
-//
-// CRITICAL: This logic must stay strictly in sync with the volume naming logic used in 'createExportPod'.
-// If the logic in createExportPod changes (e.g. prefix or hashing algorithm), this function MUST be updated
-// to match, otherwise the export server will fail to locate the mounted volumes.
+// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the volume name used in the Pod.
 func getExportPodVolumeNameFromStr(claimName string) string {
 	pvcName := strings.ReplaceAll(claimName, ".", "-")
 	// Using the formatted PVC name if it's under the max length.
