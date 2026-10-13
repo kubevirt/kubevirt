@@ -57,6 +57,28 @@ const (
 )
 
 var _ = ginkgo.Describe("Schema", func() {
+	ginkgo.It("should preserve ARM64 UEFI variable storage when reading and copying domain XML", func() {
+		const domainXML = `<domain><os firmware="efi">
+			<type arch="aarch64" machine="virt">hvm</type>
+			<loader readonly="yes" type="rom">/usr/share/edk2/aarch64/QEMU_EFI.qemuvars.fd</loader>
+			<varstore path="/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json" template="/usr/share/edk2/aarch64/vars.secboot.json"/>
+		</os></domain>`
+		var domain DomainSpec
+		Expect(xml.Unmarshal([]byte(domainXML), &domain)).To(Succeed())
+		expectedVarStore := &VarStore{
+			Path:     "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json",
+			Template: "/usr/share/edk2/aarch64/vars.secboot.json",
+		}
+		Expect(domain.OS.VarStore).To(Equal(expectedVarStore))
+
+		copiedDomain := domain.DeepCopy()
+		domain.OS.VarStore.Path = "/changed.json"
+		Expect(copiedDomain.OS.VarStore).To(Equal(expectedVarStore))
+		xmlBytes, err := xml.Marshal(copiedDomain)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<varstore path="/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json" template="/usr/share/edk2/aarch64/vars.secboot.json"></varstore>`))
+	})
+
 	templateToString := func(templateStr, templateInput string) string {
 		tmpl, err := template.New("schema").Parse(templateStr)
 		Expect(err).ToNot(HaveOccurred())

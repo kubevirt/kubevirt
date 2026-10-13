@@ -3334,6 +3334,35 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
 		})
 
+		DescribeTable("should keep ARM64 Secure Boot variables in the EFI storage directory", func(runtimeUser uint64, persistent *bool, expectedPath string) {
+			vmi.Spec.Architecture = "arm64"
+			vmi.Status.RuntimeUser = runtimeUser
+			c.Architecture = archconverter.NewConverter("arm64")
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+						Persistent: persistent,
+					},
+				},
+			}
+
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(Equal("efi"))
+			Expect(domainSpec.OS.BootLoader).To(BeNil())
+			Expect(domainSpec.OS.NVRam).To(BeNil())
+			Expect(domainSpec.OS.VarStore).To(Equal(&api.VarStore{Path: expectedPath}))
+		},
+			Entry("persistent EFI when running as root", uint64(0), pointer.P(true), "/var/lib/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("persistent EFI when running as non-root", uint64(107), pointer.P(true), "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("ephemeral EFI when running as root", uint64(0), nil, "/var/lib/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("ephemeral EFI when running as non-root", uint64(107), pointer.P(false), "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json"),
+		)
+
 		It("should use pflash for ARM64 EFI without Secure Boot", func() {
 			vmi.Spec.Architecture = "arm64"
 			c.EFIConfiguration = &convertertypes.EFIConfiguration{
@@ -3353,6 +3382,7 @@ var _ = Describe("Converter", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.OS.Firmware).To(BeEmpty())
 			Expect(domainSpec.OS.FirmwareInfo).To(BeNil())
+			Expect(domainSpec.OS.VarStore).To(BeNil())
 			Expect(domainSpec.OS.BootLoader).ToNot(BeNil())
 			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
 			Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
