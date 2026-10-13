@@ -124,6 +124,9 @@ var (
 	// RequiresDiscardSupport requires a storage backend that supports discard/TRIM.
 	RequiresDiscardSupport = Label("RequiresDiscardSupport")
 
+	/* Kubernetes versions */
+	Kubernetes137 = Label("kubernetes137")
+
 	/* architecture working groups */
 
 	WgS390x = Label("wg-s390x")
