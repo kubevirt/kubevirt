@@ -909,7 +909,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					vmi := libvmi.New(append(vmiOpts,
 						libvmi.WithMemoryRequest("256Mi"),
 						libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-						libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					)...)
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())

@@ -137,7 +137,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := libvmi.New(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -169,7 +169,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
 				By("Enabling network boot")
 				var bootOrder uint = 1
-				interfaceDeviceWithMasqueradeBinding := libvmi.InterfaceDeviceWithMasqueradeBinding()
+				interfaceDeviceWithMasqueradeBinding := libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())
 				interfaceDeviceWithMasqueradeBinding.BootOrder = &bootOrder
 
 				By("Creating a VMI with no disk and an explicit network interface")
@@ -287,7 +287,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			fedoraWithUefi := libvmifact.NewFedora(
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithUefi(withSecureBoot),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
