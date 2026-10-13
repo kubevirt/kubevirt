@@ -434,9 +434,12 @@ var _ = ginkgo.Describe("JSON marshal of the alias of a domain device", func() {
 
 var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 	ginkgo.Context("LaunchSecurity round-trip", func() {
-		ginkgo.It("should round-trip SEV-SNP launch security with all fields", func() {
+		// dhCert and session are SEV-only and quoteGenerationService is TDX-only,
+		// so they are deliberately left unset here.
+		ginkgo.It("should round-trip SEV-SNP launch security with every SEV-SNP field", func() {
 			launchSecurity := &LaunchSecurity{
 				Type:            "sev-snp",
+				KernelHashes:    "yes",
 				Policy:          "0x30000",
 				Cbitpos:         "51",
 				ReducedPhysBits: "1",
@@ -445,12 +448,19 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			xmlBytes, err := xml.Marshal(launchSecurity)
 			Expect(err).ToNot(HaveOccurred())
 
+			// type and kernelHashes must be attributes, the rest child elements.
+			expectedXML := `<LaunchSecurity type="sev-snp" kernelHashes="yes">` +
+				`<cbitpos>51</cbitpos><reducedPhysBits>1</reducedPhysBits><policy>0x30000</policy>` +
+				`</LaunchSecurity>`
+			Expect(string(xmlBytes)).To(Equal(expectedXML))
+
 			var unmarshalled LaunchSecurity
 			err = xml.Unmarshal(xmlBytes, &unmarshalled)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedLaunchSecurity := LaunchSecurity{
 				Type:            "sev-snp",
+				KernelHashes:    "yes",
 				Policy:          "0x30000",
 				Cbitpos:         "51",
 				ReducedPhysBits: "1",

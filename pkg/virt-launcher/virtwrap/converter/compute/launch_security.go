@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type LaunchSecurityDomainConfigurator struct {
@@ -68,6 +69,11 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 		}
 		// Use Default Policy
 		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+		// The AMD firmware rejects a direct kernel boot unless the kernel,
+		// initrd and cmdline hashes are measured into the launch digest.
+		if hasDirectKernelBoot(vmi) {
+			domain.KernelHashes = "yes"
+		}
 		return domain
 	} else if launchSec.SEV != nil {
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
@@ -91,4 +97,11 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	}
 
 	return nil
+}
+
+// hasDirectKernelBoot reports whether the VMI will produce an <os><kernel>
+// element. The domain cannot be checked directly: the OS configurator runs later.
+func hasDirectKernelBoot(vmi *v1.VirtualMachineInstance) bool {
+	return vmitrait.HasKernelBootContainerImage(vmi) &&
+		vmi.Spec.Domain.Firmware.KernelBoot.Container.KernelPath != ""
 }
