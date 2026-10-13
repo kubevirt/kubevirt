@@ -274,16 +274,20 @@ func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Pa
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
-func (c *BaseController) configureHostDisks(
+func (c *BaseController) configureDiskImages(
 	vmi *v1.VirtualMachineInstance,
 	virtLauncherRootMount *safepath.Path,
 	recorder record.EventRecorder) error {
 	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
 
+	pvcImages, err := diskimg.ImageBackedPVCImages(vmi)
+	if err != nil {
+		return err
+	}
 	creator := diskimg.NewCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-	if err := creator.Create(vmi, hostdisk.Images(vmi)); err != nil {
-		return fmt.Errorf("preparing host-disks failed: %v", err)
+	if err := creator.Create(vmi, append(hostdisk.Images(vmi), pvcImages...)); err != nil {
+		return fmt.Errorf("preparing disk images failed: %w", err)
 	}
 	return nil
 }
@@ -336,7 +340,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		}
 	}
 
-	if err := c.configureHostDisks(vmi, virtLauncherRootMount, recorder); err != nil {
+	if err := c.configureDiskImages(vmi, virtLauncherRootMount, recorder); err != nil {
 		return err
 	}
 
