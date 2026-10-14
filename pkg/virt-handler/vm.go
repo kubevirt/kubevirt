@@ -756,10 +756,12 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
-func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
-	if !c.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+func updateSoftwareEmulationCondition(config *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if !config.CrossArchitectureVirtualizationEnabled() {
 		return
 	}
+
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	isCrossArchEmulation := domain != nil && domain.Spec.Type == "qemu" &&
 		vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH
@@ -767,7 +769,7 @@ func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.Virt
 	if isCrossArchEmulation {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
 			now := metav1.Now()
-			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 				Type:               v1.VirtualMachineInstanceSoftwareEmulation,
 				Status:             k8sv1.ConditionTrue,
 				LastProbeTime:      now,
@@ -776,9 +778,9 @@ func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.Virt
 				Message:            fmt.Sprintf("VM running with software emulation (host=%s, guest=%s)", runtime.GOARCH, vmi.Spec.Architecture),
 			})
 		}
-	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
-		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
+		return
 	}
+	condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
 }
 
 func dumpTargetFile(vmiName, volName string) string {
@@ -987,7 +989,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
-	c.updateSoftwareEmulationCondition(vmi, domain, condManager)
+	updateSoftwareEmulationCondition(c.clusterConfig, vmi, domain)
 
 	return nil
 }
