@@ -28,6 +28,8 @@ import (
 
 	"google.golang.org/grpc"
 
+	kubevirtGrpc "kubevirt.io/kubevirt/pkg/grpc"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -38,7 +40,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -681,53 +682,20 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 	return resp, nil
 }
 
+func RegisterCmdServer(cmdServer cmdv1.CmdServer) func(grpcServer *grpc.Server) {
+	return func(server *grpc.Server) {
+		registerInfoServer(server)
+		cmdv1.RegisterCmdServer(server, cmdServer)
+	}
+}
+
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *ServerOptions) (chan struct{}, error) {
-	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
-	if options == nil {
-		options = NewServerOptions(false)
-	}
-	server := NewLauncher(domainManager, options)
-	registerInfoServer(grpcServer)
-
-	// register more versions as soon as needed
-	// and add them to info.go
-	cmdv1.RegisterCmdServer(grpcServer, server)
-
-	sock, err := grpcutil.CreateSocket(socketPath)
-	if err != nil {
-		return nil, err
-	}
-
-	done := make(chan struct{})
-
-	go func() {
-		<-stopChan
-		log.Log.Info("stopping cmd server")
-		stopped := make(chan struct{})
-		go func() {
-			grpcServer.Stop()
-			close(stopped)
-		}()
-
-		select {
-		case <-stopped:
-			log.Log.Info("cmd server stopped")
-		case <-time.After(1 * time.Second):
-			log.Log.Error("timeout on stopping the cmd server, continuing anyway.")
-		}
-		sock.Close()
-		os.Remove(socketPath)
-		close(done)
-	}()
-
-	go func() {
-		grpcServer.Serve(sock)
-	}()
-
-	return done, nil
+	options *ServerOptions) (<-chan struct{}, error) {
+	return kubevirtGrpc.RunServer(stopChan, socketPath,
+		RegisterCmdServer(NewLauncher(domainManager, options)),
+	)
 }
 
 func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Response, error) {

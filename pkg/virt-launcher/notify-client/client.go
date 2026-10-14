@@ -3,7 +3,6 @@ package eventsclient
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,18 +17,14 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
-	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -51,14 +45,7 @@ var (
 )
 
 type Notifier struct {
-	v1client       notifyv1.NotifyClient
-	conn           *grpc.ClientConn
-	connLock       sync.Mutex
-	pipeSocketPath string
-
-	intervalTimeout time.Duration
-	sendTimeout     time.Duration
-	totalTimeout    time.Duration
+	client notifierClient
 
 	firstAdd    *sync.Once
 	firstDelete *sync.Once
@@ -71,14 +58,11 @@ type libvirtEvent struct {
 	JobCompletedEvent *libvirt.DomainEventJobCompleted
 }
 
-func NewNotifier(virtShareDir string) *Notifier {
+func NewNotifier(client notifierClient) *Notifier {
 	return &Notifier{
-		pipeSocketPath:  filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
-		intervalTimeout: defaultIntervalTimeout,
-		sendTimeout:     defaultSendTimeout,
-		totalTimeout:    defaultTotalTimeout,
-		firstAdd:        &sync.Once{},
-		firstDelete:     &sync.Once{},
+		client:      client,
+		firstAdd:    &sync.Once{},
+		firstDelete: &sync.Once{},
 	}
 }
 
@@ -120,56 +104,6 @@ func negotiateVersion(infoClient info.NotifyInfoClient) (uint32, error) {
 	return version, nil
 }
 
-// used by unit tests
-func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
-	n.intervalTimeout = interval
-	n.sendTimeout = send
-	n.totalTimeout = total
-
-}
-
-func (n *Notifier) detectSocketPath() string {
-	// default to using the new pipe socket
-	return n.pipeSocketPath
-}
-
-func (n *Notifier) connect() error {
-	if n.conn != nil {
-		// already connected
-		return nil
-	}
-
-	socketPath := n.detectSocketPath()
-
-	// dial socket
-	conn, err := grpcutil.DialSocketWithTimeout(socketPath, 5)
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
-		return err
-	}
-
-	version, err := negotiateVersion(info.NewNotifyInfoClient(conn))
-	if err != nil {
-		log.Log.Reason(err).Infof("failed to negotiate version")
-		conn.Close()
-		return err
-	}
-
-	// create cmd v1client
-	switch version {
-	case 1:
-		client := notifyv1.NewNotifyClient(conn)
-		n.v1client = client
-		n.conn = conn
-	default:
-		conn.Close()
-		return fmt.Errorf("cmd v1client version %v not implemented yet", version)
-	}
-
-	log.Log.Infof("Successfully connected to domain notify socket at %s", socketPath)
-	return nil
-}
-
 func isTransientError(err error) bool {
 	st, ok := grpcstatus.FromError(err)
 	if !ok {
@@ -187,77 +121,7 @@ func isTransientError(err error) bool {
 
 //nolint:dupl
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
-
-	var domainJSON []byte
-	var statusJSON []byte
-	var err error
-
-	if event.Type == watch.Error {
-		status := event.Object.(*metav1.Status)
-		statusJSON, err = json.Marshal(status)
-		if err != nil {
-			log.Log.Reason(err).Infof("JSON marshal of notify ERROR event failed")
-			return err
-		}
-	} else {
-		domain := event.Object.(*api.Domain)
-		domainJSON, err = json.Marshal(domain)
-		if err != nil {
-			log.Log.Reason(err).Infof("JSON marshal of notify event failed")
-			return err
-		}
-	}
-	request := notifyv1.DomainEventRequest{
-		DomainJSON: domainJSON,
-		StatusJSON: statusJSON,
-		EventType:  string(event.Type),
-	}
-
-	var response *notifyv1.Response
-	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
-		n.connLock.Lock()
-		defer n.connLock.Unlock()
-
-		err = n.connect()
-		if err != nil {
-			log.Log.Reason(err).Errorf("Failed to connect to notify server")
-			return false, nil
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
-		defer cancel()
-		response, err = n.v1client.HandleDomainEvent(ctx, &request)
-		if err != nil {
-			// Retry transient errors (connection issues), propagate other errors immediately
-			if isTransientError(err) {
-				log.Log.Reason(err).Errorf("failed to notify domain event. closing connection.")
-				n._close()
-				return false, nil
-			}
-			log.Log.Reason(err).Errorf("failed to notify domain event")
-			return false, err
-		}
-
-		return true, nil
-
-	})
-
-	if err != nil {
-		if st, ok := grpcstatus.FromError(err); ok {
-			return fmt.Errorf("failed to send domain notify event with %s: %w", st.Code(), err)
-		}
-		return err
-	}
-
-	// Fallback for old servers that embed errors in Response instead of using gRPC status codes.
-	// The additional response.Message != "" check handles the case where a fully migrated server
-	// no longer sets the Success field - in the legacy server, every
-	// error response always includes a non-empty Message, so this condition is safe
-	if response != nil && !response.Success && response.Message != "" {
-		return fmt.Errorf("failed to notify domain event: %s", response.Message)
-	}
-
-	return nil
+	return n.client.HandleDomainEvent(&event)
 }
 
 func (n *Notifier) updateEvents(event watch.Event, domain *api.Domain, events chan watch.Event) {
@@ -472,91 +336,31 @@ func (n *Notifier) StartDomainNotifier(
 
 	reconnectChan := make(chan bool, 10)
 
-	var domainCache *api.Domain
-
 	domainConn.SetReconnectChan(reconnectChan)
 
-	agentPoller := agentpoller.CreatePoller(
-		domainConn,
-		vmi.UID,
-		domainName,
-		agentStore,
-		qemuAgentSysInterval,
-		qemuAgentFileInterval,
-		qemuAgentUserInterval,
-		qemuAgentVersionInterval,
-		qemuAgentFSFreezeStatusInterval,
-	)
-
 	// Run the event process logic in a separate go-routine to not block libvirt
-	go func() {
-		var interfaceStatuses []api.InterfaceStatus
-		var guestOsInfo *api.GuestOSInfo
-		var fsFreezeStatus *api.FSFreeze
-		var eventCaller eventCaller
+	//
+	go worker(eventChan, metadataCache, domainConn, deleteNotificationSent, vmi, reconnectChan,
+		agentpoller.CreatePoller(
+			domainConn,
+			vmi.UID,
+			domainName,
+			agentStore,
+			qemuAgentSysInterval,
+			qemuAgentFileInterval,
+			qemuAgentUserInterval,
+			qemuAgentVersionInterval,
+			qemuAgentFSFreezeStatusInterval,
+		), agentStore, nonRoot, n, domainName)
 
-		for {
-			select {
-			case event := <-eventChan:
-				metadataCache.ResetNotification()
-				prevPanicInfo := (*api.GuestPanicInfo)(nil)
-				var prevPanicCount int
-				if domainCache != nil {
-					prevPanicInfo = domainCache.Status.GuestPanicInfo
-					prevPanicCount = domainCache.Status.PanicCount
-				}
-				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				domainCache.Status.GuestPanicInfo = prevPanicInfo
-				domainCache.Status.PanicCount = prevPanicCount
-				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
-				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
-				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
-			case agentUpdate := <-agentStore.AgentUpdated:
-				metadataCache.ResetNotification()
-				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
-				guestOsInfo = agentUpdate.DomainInfo.OSInfo
-				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
+	err := registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
-			case <-reconnectChan:
-				log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", domainName)
-				if domainCache != nil {
-					eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-						interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
-				}
-			case <-metadataCache.Listen():
-				// Metadata cache updates should be processed only *after* at least one
-				// libvirt event arrived (which creates the first domainCache).
-				if domainCache != nil {
-					prevPanicInfo := domainCache.Status.GuestPanicInfo
-					prevPanicCount := domainCache.Status.PanicCount
-					domainCache = util.NewDomainFromName(
-						util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
-						vmi.UID,
-					)
-					domainCache.Status.GuestPanicInfo = prevPanicInfo
-					domainCache.Status.PanicCount = prevPanicCount
-					eventCaller.eventCallback(
-						domainConn,
-						domainCache,
-						libvirtEvent{},
-						n,
-						deleteNotificationSent,
-						interfaceStatuses,
-						guestOsInfo,
-						vmi,
-						fsFreezeStatus,
-						metadataCache,
-						nonRoot,
-					)
-				} else {
-					log.Log.Object(vmi).Warning("Dropping metadata cache notification")
-				}
-			}
-		}
-	}()
-
+func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) error {
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 
 		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
@@ -687,73 +491,11 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 		Message:        message,
 	}
 
-	json, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	request := notifyv1.K8SEventRequest{
-		EventJSON: json,
-	}
-
-	var response *notifyv1.Response
-	err = virtwait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
-		n.connLock.Lock()
-		defer n.connLock.Unlock()
-
-		err = n.connect()
-		if err != nil {
-			log.Log.Reason(err).Errorf("Failed to connect to notify server")
-			return false, nil
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
-		defer cancel()
-		response, err = n.v1client.HandleK8SEvent(ctx, &request)
-		if err != nil {
-			// Retry transient errors (connection issues), propagate business errors immediately
-			if isTransientError(err) {
-				log.Log.Reason(err).Errorf("failed to send k8s notify event. closing connection.")
-				n._close()
-				return false, nil
-			}
-			log.Log.Reason(err).Errorf("failed to send k8s notify event")
-			return false, err
-		}
-
-		return true, nil
-	})
-
-	if err != nil {
-		if st, ok := grpcstatus.FromError(err); ok {
-			return fmt.Errorf("failed to notify k8s event with %s: %w", st.Code(), err)
-		}
-		return err
-	}
-
-	// Fallback for old servers that embed errors in Response instead of using gRPC status codes.
-	// The additional response.Message != "" check handles the case where a fully migrated server
-	// no longer sets the Success field - in the legacy server, every
-	// error response always includes a non-empty Message, so this condition is safe
-	if response != nil && !response.Success && response.Message != "" {
-		return fmt.Errorf("failed to notify k8s event: %s", response.Message)
-	}
-
-	return nil
-}
-
-func (n *Notifier) _close() {
-	if n.conn != nil {
-		n.conn.Close()
-		n.conn = nil
-	}
+	return n.client.HandleK8SEvent(&event)
 }
 
 func (n *Notifier) Close() {
-	n.connLock.Lock()
-	defer n.connLock.Unlock()
-	n._close()
-
+	n.client.Close()
 }
 
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
@@ -847,4 +589,82 @@ func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEve
 		monitor.StartMonitor()
 	}
 	return false
+}
+
+func worker(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainConn cli.Connection,
+	deleteNotificationSent chan watch.Event, vmi *v1.VirtualMachineInstance, reconnectChan chan bool,
+	agentPoller *agentpoller.AgentPoller, agentStore *agentpoller.AsyncAgentStore, nonRoot bool,
+	n *Notifier, domainName string) {
+	var interfaceStatuses []api.InterfaceStatus
+	var guestOsInfo *api.GuestOSInfo
+	var fsFreezeStatus *api.FSFreeze
+	var eventCaller eventCaller
+	var domainCache *api.Domain
+
+	for {
+		select {
+		case event := <-eventChan:
+			metadataCache.ResetNotification()
+			prevPanicInfo := (*api.GuestPanicInfo)(nil)
+			var prevPanicCount int
+			if domainCache != nil {
+				prevPanicInfo = domainCache.Status.GuestPanicInfo
+				prevPanicCount = domainCache.Status.PanicCount
+			}
+			domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
+			domainCache.Status.GuestPanicInfo = prevPanicInfo
+			domainCache.Status.PanicCount = prevPanicCount
+			eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+			log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
+			agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
+		case agentUpdate := <-agentStore.AgentUpdated:
+			metadataCache.ResetNotification()
+			interfaceStatuses = agentUpdate.DomainInfo.Interfaces
+			guestOsInfo = agentUpdate.DomainInfo.OSInfo
+			fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
+
+			eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+				interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+		case <-reconnectChan:
+			log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", domainName)
+			if domainCache != nil {
+				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+			}
+		case <-metadataCache.Listen():
+			// Metadata cache updates should be processed only *after* at least one
+			// libvirt event arrived (which creates the first domainCache).
+			if domainCache != nil {
+				prevPanicInfo := domainCache.Status.GuestPanicInfo
+				prevPanicCount := domainCache.Status.PanicCount
+				domainCache = util.NewDomainFromName(
+					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
+					vmi.UID,
+				)
+				domainCache.Status.GuestPanicInfo = prevPanicInfo
+				domainCache.Status.PanicCount = prevPanicCount
+				eventCaller.eventCallback(
+					domainConn,
+					domainCache,
+					libvirtEvent{},
+					n,
+					deleteNotificationSent,
+					interfaceStatuses,
+					guestOsInfo,
+					vmi,
+					fsFreezeStatus,
+					metadataCache,
+					nonRoot,
+				)
+			} else {
+				log.Log.Object(vmi).Warning("Dropping metadata cache notification")
+			}
+		}
+	}
+}
+
+type notifierClient interface {
+	HandleDomainEvent(*watch.Event) error
+	HandleK8SEvent(*k8sv1.Event) error
+	Close()
 }

@@ -10,9 +10,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/grpc:go_default_library",
         "//pkg/handler-launcher-com/cmd/info:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
-        "//pkg/util/net/grpc:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
