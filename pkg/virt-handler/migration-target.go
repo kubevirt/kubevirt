@@ -535,36 +535,48 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	}
 
 	defer c.migrationProxy.StopTargetListener(migrationProxyKey(vmi))
-	client, err := c.launcherClients.GetLauncherClient(vmi)
-	if err != nil {
-		return err
+	client, clientErr := c.launcherClients.GetLauncherClient(vmi)
+	if clientErr != nil && !vmi.Status.MigrationState.Failed {
+		// A migration that did not fail still needs the launcher: only it can
+		// finalize the domain, so there is no cleanup to make progress on here.
+		return clientErr
 	}
 
 	if vmi.Status.MigrationState.Failed {
-		err = client.SignalTargetPodCleanup(vmi)
-		if err != nil {
+		// Of everything below, only SignalTargetPodCleanup needs a reachable
+		// launcher; the rest is node-local. The launcher is legitimately gone on a
+		// retry, because an earlier pass signaled it to exit and then failed further
+		// down - a checkpoint delete error, say - dropping the cached client on its
+		// way out. Returning here would make every retry fail at GetLauncherClient
+		// against a socket that no longer exists, stranding the migration-target
+		// label and leaking the ghost record this cleanup exists to remove.
+		if clientErr != nil {
+			c.logger.Object(vmi).Warningf("Target launcher is unreachable during failed-migration cleanup: %v. Continuing with node-local teardown.", clientErr)
+		} else if err := client.SignalTargetPodCleanup(vmi); err != nil {
 			c.logger.Object(vmi).Warningf("Failed to signal target pod cleanup: %v, ignoring.", err)
+		} else {
+			c.logger.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
 		}
-		err = c.unmountVolumes(vmi)
-		if err != nil {
+		if err := c.unmountVolumes(vmi); err != nil {
 			return err
 		}
-		c.logger.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
 
 		// tear down network cache
-		if err = c.netConf.Teardown(vmi); err != nil {
+		if err := c.netConf.Teardown(vmi); err != nil {
 			return fmt.Errorf("failed to delete VMI Network cache files: %s", err.Error())
 		}
 		c.netStat.Teardown(vmi)
 		// The migration failed. As the target virt-handler, the domain doesn't belong to our store anymore
-		if err = c.domainStore.Delete(vmi); err != nil {
+		if err := c.domainStore.Delete(vmi); err != nil {
 			return err
 		}
-		c.launcherClients.CloseLauncherClient(vmi)
+		if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
+			return err
+		}
 	} else {
 		options := &cmdv1.VirtualMachineOptions{}
 		options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
-		if err = client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
+		if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
 			return err
 		}
 	}
@@ -677,7 +689,9 @@ func (c *MigrationTargetController) execute(key string) error {
 		_ = c.unmountVolumes(vmi)
 		_ = c.netConf.Teardown(vmi)
 		c.netStat.Teardown(vmi)
-		c.launcherClients.CloseLauncherClient(vmi)
+		if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
+			c.logger.Object(vmi).Reason(err).Warning("Failed to close the launcher client during best-effort cleanup")
+		}
 		return nil
 	}
 
@@ -854,9 +868,16 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 
 	// Unmount all hotplug volumes
 	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
+		// Building a cgroup manager detects the pod's isolation through the launcher
+		// socket, so it fails once the target pod has exited - which is exactly the
+		// retry this cleanup has to survive. Returning here would strand the
+		// migration-target label the same way requiring a launcher client did.
+		// UnmountAll is best effort and documents that a nil cgroupManager is safe,
+		// which is how VirtualMachineController.processVmCleanup already calls it.
 		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
-			return err
+			c.logger.Object(vmiCopy).Reason(err).Warning("Could not build a cgroup manager for hotplug volume cleanup, continuing without one.")
+			cgroupManager = nil
 		}
 		if err = c.hotplugVolumeMounter.UnmountAll(vmiCopy, cgroupManager); err != nil {
 			return fmt.Errorf("failed to unmount all hotplug volumes: %v", err)

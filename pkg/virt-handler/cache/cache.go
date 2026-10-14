@@ -21,6 +21,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -76,7 +77,7 @@ func NewIterableCheckpointManager(base, tempPath string) IterableCheckpointManag
 	}
 }
 
-type ghostRecord struct {
+type GhostRecord struct {
 	Name       string    `json:"name"`
 	Namespace  string    `json:"namespace"`
 	SocketFile string    `json:"socketFile"`
@@ -86,7 +87,7 @@ type ghostRecord struct {
 var GhostRecordGlobalStore GhostRecordStore
 
 type GhostRecordStore struct {
-	cache             map[string]ghostRecord
+	cache             map[string]GhostRecord
 	checkpointManager checkpoint.CheckpointManager
 	sync.Mutex
 }
@@ -94,19 +95,19 @@ type GhostRecordStore struct {
 func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
 
 	GhostRecordGlobalStore = GhostRecordStore{
-		cache:             make(map[string]ghostRecord),
+		cache:             make(map[string]GhostRecord),
 		checkpointManager: iterableCPManager,
 	}
 
 	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
-		ghostRecord := ghostRecord{}
-		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		record := GhostRecord{}
+		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &record); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
-		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		GhostRecordGlobalStore.cache[key] = ghostRecord
+		key := record.Namespace + "/" + record.Name
+		GhostRecordGlobalStore.cache[key] = record
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
 	return &GhostRecordGlobalStore
@@ -124,11 +125,11 @@ func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
 	return record.UID
 }
 
-func (store *GhostRecordStore) list() []ghostRecord {
+func (store *GhostRecordStore) list() []GhostRecord {
 	store.Lock()
 	defer store.Unlock()
 
-	var records []ghostRecord
+	var records []GhostRecord
 
 	for _, record := range store.cache {
 		records = append(records, record)
@@ -137,7 +138,7 @@ func (store *GhostRecordStore) list() []ghostRecord {
 	return records
 }
 
-func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, bool) {
+func (store *GhostRecordStore) findBySocket(socketFile string) (GhostRecord, bool) {
 	store.Lock()
 	defer store.Unlock()
 
@@ -147,7 +148,7 @@ func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, boo
 		}
 	}
 
-	return ghostRecord{}, false
+	return GhostRecord{}, false
 }
 
 func (store *GhostRecordStore) Exists(namespace string, name string) bool {
@@ -177,7 +178,7 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	record, ok := store.cache[key]
 	if !ok {
 		// record doesn't exist, so add new one.
-		record := ghostRecord{
+		record := GhostRecord{
 			Name:       name,
 			Namespace:  namespace,
 			SocketFile: socketFile,
@@ -204,6 +205,53 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	return nil
 }
 
+// ErrGhostRecordUIDMismatch is returned by DeleteIfUID when the stored
+// record belongs to a different UID than the caller expected.
+var ErrGhostRecordUIDMismatch = errors.New("ghost record exists with differing UID")
+
+// Get returns a copy of the ghost record for namespace/name, if one exists.
+func (store *GhostRecordStore) Get(namespace string, name string) (GhostRecord, bool) {
+	store.Lock()
+	defer store.Unlock()
+
+	record, ok := store.cache[namespace+"/"+name]
+	return record, ok
+}
+
+// DeleteIfUID removes the ghost record and its checkpoint only when the
+// stored UID equals expectedUID, so cleanup for an old VMI incarnation can
+// never remove the record of a newer one under the same name. An absent
+// record is treated as success.
+func (store *GhostRecordStore) DeleteIfUID(namespace string, name string, expectedUID types.UID) error {
+	store.Lock()
+	defer store.Unlock()
+
+	if string(expectedUID) == "" {
+		return fmt.Errorf("unable to delete ghost record with empty expected UID")
+	}
+
+	key := namespace + "/" + name
+	record, ok := store.cache[key]
+	if !ok {
+		// already deleted
+		return nil
+	}
+
+	if record.UID != expectedUID {
+		return fmt.Errorf("unable to delete ghost record %s with UID %s: %w", key, expectedUID, ErrGhostRecordUIDMismatch)
+	}
+
+	// A checkpoint that is already gone counts as deleted; otherwise the
+	// in-memory record could never be removed and every retry would fail.
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
+	}
+
+	delete(store.cache, key)
+
+	return nil
+}
+
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
@@ -218,7 +266,7 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
-	if err := store.checkpointManager.Delete(string(record.UID)); err != nil {
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
 	}
 
@@ -279,7 +327,7 @@ func listAllKnownDomains() []*api.Domain {
 	return domains
 }
 
-func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
+func newDomainFromGhostRecord(record GhostRecord, status api.DomainStatus) *api.Domain {
 	domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
 	domain.ObjectMeta.UID = record.UID
 	domain.Spec.Metadata.KubeVirt.UID = record.UID
@@ -288,7 +336,7 @@ func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.
 	return domain
 }
 
-func getDomainFromRecord(record ghostRecord) *api.Domain {
+func getDomainFromRecord(record GhostRecord) *api.Domain {
 	socketFile := record.SocketFile
 
 	exists, err := diskutils.FileExists(socketFile)

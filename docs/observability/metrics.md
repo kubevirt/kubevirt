@@ -20,6 +20,7 @@
 | kubevirt_virt_controller_leading_status | Metric | Gauge | Indication for an operating virt-controller. |
 | kubevirt_virt_controller_ready_status | Metric | Gauge | Indication for a virt-controller that is ready to take the lead. |
 | kubevirt_virt_handler_ready_status | Metric | Gauge | Indication for a virt-handler that is ready to serve requests. |
+| kubevirt_virt_handler_stale_vmi_reconciliations_total | Metric | Counter | Number of terminal stale VMI reconciliation outcomes by result (cleaned, error). |
 | kubevirt_virt_operator_leading_status | Metric | Gauge | Indication for an operating virt-operator. |
 | kubevirt_virt_operator_ready_status | Metric | Gauge | Indication for a virt-operator that is ready to take the lead. |
 | kubevirt_vm_create_date_timestamp_seconds | Metric | Gauge | Virtual Machine creation timestamp. |
