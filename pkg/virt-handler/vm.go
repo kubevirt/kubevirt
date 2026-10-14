@@ -2057,7 +2057,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}
-		if msg, ok := c.detectDiskWriteLockError(err, vmi); ok {
+		if msg, ok := detectDiskWriteLockError(err, vmi); ok {
 			return fmt.Errorf("%s", msg)
 		}
 	}
@@ -2065,7 +2065,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	return err
 }
 
-func (c *VirtualMachineController) detectDiskWriteLockError(err error, vmi *v1.VirtualMachineInstance) (string, bool) {
+func detectDiskWriteLockError(err error, vmi *v1.VirtualMachineInstance) (string, bool) {
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, `Failed to get "write" lock`) &&
 		!strings.Contains(errMsg, "Is another process using the image") {
