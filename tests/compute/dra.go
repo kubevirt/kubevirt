@@ -28,11 +28,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -212,6 +214,28 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 
 		By("Waiting for the VMI to reach Running")
 		waitForVMIToBeRunning(createdVMI)
+	})
+
+	It("should fail when the matchattribute has different values", func() {
+		By("creating the ResourceClaimTemplate with matchAttribute on pciBusID across two requests")
+		createVFIOGPUResourceClaimTemplate(
+			WithVfioGPUMultipleRequests(draVfioMatchAttributeRequestCount),
+			WithVfioGPURequestMatchAttribute(
+				"resource.kubernetes.io/pciBusID",
+				vfioGPUIndexedRequestName(0),
+				vfioGPUIndexedRequestName(1),
+			),
+		)
+
+		By("creating the VMI with two GPUs backed by the matched requests")
+		vmi := createVFIOGPUVMI(
+			WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+			WithVfioGPUMultipleGPUs(draVfioMatchAttributeRequestCount),
+		)
+
+		Eventually(matcher.ThisVMI(vmi), 30*time.Second, pollingInterval).Should(matcher.BeInPhase(v1.Scheduling))
+		Consistently(matcher.ThisVMI(vmi), 30*time.Second, pollingInterval).Should(matcher.BeInPhase(v1.Scheduling))
+		verifyVMIPodUnschedulable(vmi.Name, ContainSubstring("cannot allocate all claims"))
 	})
 })
 
@@ -404,6 +428,22 @@ func WithVfioGPUClaimRequest(claimName, requestName string) vfioGPUOption {
 		}
 	}
 }
+
+func verifyVMIPodUnschedulable(vmiName string, messageMatcher OmegaMatcher) {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmiName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(
+		vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+	)
+	Expect(cond).NotTo(BeNil())
+	Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
+	Expect(cond.Reason).To(SatisfyAny(
+		Equal(k8sv1.PodReasonUnschedulable),
+		Equal(k8sv1.PodReasonSchedulerError),
+	))
+	Expect(cond.Message).To(messageMatcher)
+}
+
 func withVfioGPUMultiDeviceMemory() vfioGPUVMIOption {
 	return func(vmi *v1.VirtualMachineInstance) {
 		libvmi.WithMemoryRequest("128Mi")(vmi)
