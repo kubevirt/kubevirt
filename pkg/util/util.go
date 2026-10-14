@@ -30,7 +30,7 @@ const (
 )
 
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
+	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi) || IsCCAVMI(vmi)
 }
 
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
