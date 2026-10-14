@@ -21,6 +21,7 @@ package storage
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"google.golang.org/grpc"
 
@@ -47,6 +48,8 @@ type StorageManager struct {
 
 	activeBackupTunnel *backupTunnelManager
 	backupTunnelMu     sync.Mutex
+
+	freezing atomic.Bool
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache, registerNBD RegisterNBDFunc) *StorageManager {
@@ -62,4 +65,17 @@ func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache,
 func (m *StorageManager) MigrationInProgress() bool {
 	migrationMetadata, exists := m.metadataCache.Migration.Load()
 	return exists && migrationMetadata.StartTimestamp != nil && migrationMetadata.EndTimestamp == nil
+}
+
+// beginFreezing marks a freeze as in progress, returning false if one already is.
+func (m *StorageManager) beginFreezing() bool {
+	return m.freezing.CompareAndSwap(false, true)
+}
+
+func (m *StorageManager) endFreezing() {
+	m.freezing.Store(false)
+}
+
+func (m *StorageManager) IsFreezing() bool {
+	return m.freezing.Load()
 }

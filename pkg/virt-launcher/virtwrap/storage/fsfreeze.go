@@ -22,6 +22,7 @@ package storage
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -29,7 +30,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
-	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -37,19 +37,18 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	if m.MigrationInProgress() {
 		return fmt.Errorf("failed to freeze VMI, VMI is currently during migration")
 	}
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
-	fsfreezeStatus, err := m.getParsedFSStatus(domainName)
-	if err != nil {
-		log.Log.Errorf("failed to get fs status before freeze vmi %s, %s", vmi.Name, err.Error())
-		return err
-	}
-
-	// idempotent - prevent failure in case fs is already frozen
-	if fsfreezeStatus == api.FSFrozen {
+	fsFreeze, _ := m.metadataCache.FSFreezeStatus.Load()
+	if fsFreeze.Status == api.FSFrozen {
 		return nil
 	}
+	if !m.beginFreezing() {
+		return fmt.Errorf("freezing is already in progress for VMI %s", vmi.Name)
+	}
+	defer m.endFreezing()
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
 	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
 	// directory to ensure data integrity. This explicit sync ensures that pending
@@ -70,10 +69,13 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	}
 	defer domain.Free()
 
+	log.Log.V(3).Infof("Freezing VMI %s", vmi.Name)
 	if err := domain.FSFreeze(nil, 0); err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
 	}
+
+	m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSFrozen})
 
 	m.cancelSafetyUnfreeze()
 	if safetyUnfreezeTimeout != 0 {
@@ -84,15 +86,17 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 
 func (m *StorageManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	m.cancelSafetyUnfreeze()
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	fsfreezeStatus, err := m.getParsedFSStatus(domainName)
-	if err == nil {
-		// prevent initating fs thaw to prevent rerunning the thaw hook
-		if fsfreezeStatus == api.FSThawed {
-			return nil
-		}
+
+	if m.IsFreezing() {
+		return fmt.Errorf("cannot unfreeze VMI %s, freezing is still in progress", vmi.Name)
 	}
 
+	fsFreeze, _ := m.metadataCache.FSFreezeStatus.Load()
+	if fsFreeze.Status == api.FSThawed {
+		return nil
+	}
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
 	domain, err := m.virConn.LookupDomainByName(domainName)
 	if err != nil {
 		log.Log.Errorf("Domain lookup failed: %v", err)
@@ -100,10 +104,20 @@ func (m *StorageManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer domain.Free()
 
-	if err := domain.FSThaw(nil, 0); err != nil {
-		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
-		return err
+	thawErr := domain.FSThaw(nil, 0)
+
+	// Only record thawed once the guest is known to be thawed. A failed thaw must keep
+	// the frozen state so the next unfreeze isn't short circuited, except when VSS
+	// already released the freeze itself.
+	if thawErr == nil || strings.Contains(thawErr.Error(), api.VSSFreezeLimitReached) {
+		m.metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
 	}
+
+	if thawErr != nil {
+		log.Log.Errorf("Failed to unfreeze vmi, %s", thawErr.Error())
+		return thawErr
+	}
+
 	return nil
 }
 
@@ -124,17 +138,4 @@ func (m *StorageManager) cancelSafetyUnfreeze() {
 	case m.cancelSafetyUnfreezeChan <- struct{}{}:
 	default:
 	}
-}
-
-func (m *StorageManager) getParsedFSStatus(domainName string) (string, error) {
-	cmdResult, err := m.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, domainName)
-	if err != nil {
-		return "", err
-	}
-	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
-	if err != nil {
-		return "", err
-	}
-
-	return fsfreezeStatus.Status, nil
 }

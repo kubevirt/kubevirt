@@ -44,6 +44,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -425,14 +426,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 						Message: pointer.P(err.Error()),
 					}
 					contentCpy.Status.ReadyToUse = pointer.P(false)
-					// Retry again in 5 seconds
+					// Freeze may be in progress (async). The VMI watch will
+					// enqueue this content as soon as FSFreezeStatus changes,
+					// so the 5s retry is just a safety fallback.
 					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
-
-				// assuming that VM is frozen once Freeze() returns
-				// which should be the case
-				// if Freeze() were async, we'd have to return
-				// and only continue when source.Frozen() == true
 
 				didFreeze = true
 			}
@@ -485,7 +483,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
-			if strings.Contains(err.Error(), VSSFreezeLimitReached) {
+			if strings.Contains(err.Error(), launcherapi.VSSFreezeLimitReached) {
 				contentCpy.Status.CreationTime = nil
 				contentCpy.Status.Error = &snapshotv1.Error{
 					Time:    currentTime(),
@@ -874,7 +872,7 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
-				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
+				strings.Contains(*snapErr.Message, launcherapi.VSSFreezeLimitReached) {
 				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceTimeoutIndication)
 			}
 		} else {
