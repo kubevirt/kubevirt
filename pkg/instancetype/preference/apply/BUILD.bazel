@@ -31,6 +31,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "annotations_test.go",
         "apply_suite_test.go",
         "architecture_test.go",
         "clock_test.go",
