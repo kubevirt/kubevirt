@@ -287,6 +287,18 @@ type KubeInformerFactory interface {
 	// Ingress
 	Ingress() cache.SharedIndexInformer
 
+	// Watches Services labeled as synchronization endpoints
+	SynchronizationService() cache.SharedIndexInformer
+
+	// Watches Ingresses labeled as synchronization endpoints
+	SynchronizationIngress() cache.SharedIndexInformer
+
+	// Watches Routes labeled as synchronization endpoints (OpenShift)
+	SynchronizationRoute() cache.SharedIndexInformer
+
+	// Fake synchronization Route informer for non-OpenShift clusters
+	DummySynchronizationRoute() cache.SharedIndexInformer
+
 	// ConfigMaps for operator install strategies
 	OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer
 
@@ -1387,6 +1399,47 @@ func (f *kubeInformerFactory) OperatorRoute() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) DummyOperatorRoute() cache.SharedIndexInformer {
 	return f.getInformer("FakeOperatorRoute", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
+		return informer
+	})
+}
+
+func (f *kubeInformerFactory) SynchronizationService() cache.SharedIndexInformer {
+	return f.getInformer("SynchronizationServiceInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(kubev1.SynchronizationEndpointLabel)
+		if err != nil {
+			panic(err)
+		}
+		lw := NewListWatchFromClient(f.k8sClient.CoreV1().RESTClient(), "services", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Service{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) SynchronizationIngress() cache.SharedIndexInformer {
+	return f.getInformer("SynchronizationIngressInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(kubev1.SynchronizationEndpointLabel)
+		if err != nil {
+			panic(err)
+		}
+		lw := NewListWatchFromClient(f.k8sClient.NetworkingV1().RESTClient(), "ingresses", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &networkingv1.Ingress{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) SynchronizationRoute() cache.SharedIndexInformer {
+	return f.getInformer("SynchronizationRouteInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(kubev1.SynchronizationEndpointLabel)
+		if err != nil {
+			panic(err)
+		}
+		restClient := f.virtClient.RouteClient().RESTClient()
+		lw := NewListWatchFromClient(restClient, "routes", f.kubevirtNamespace, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &routev1.Route{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) DummySynchronizationRoute() cache.SharedIndexInformer {
+	return f.getInformer("FakeSynchronizationRoute", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&routev1.Route{})
 		return informer
 	})
