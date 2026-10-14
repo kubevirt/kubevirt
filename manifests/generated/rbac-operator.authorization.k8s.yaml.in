@@ -967,15 +967,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - backup.kubevirt.io
-  resources:
-  - virtualmachinebackuptrackers
-  - virtualmachinebackuptrackers/status
-  verbs:
-  - list
-  - watch
-  - patch
-- apiGroups:
   - plugin.kubevirt.io
   resources:
   - plugins

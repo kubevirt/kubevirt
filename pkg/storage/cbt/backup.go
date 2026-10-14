@@ -55,22 +55,21 @@ const (
 	backupCompletedWithWarningEvent = "VirtualMachineBackupCompletedWithWarning"
 	backupFailedEvent               = "VirtualMachineBackupFailed"
 
-	backupInProgress                     = "Backup is in progress"
-	backupPreparingVMExport              = "Backup export is being initialized"
-	backupExportReady                    = "Backup export is ready to pull"
-	backupAborting                       = "Backup is aborting"
-	backupCompleted                      = "Successfully completed VirtualMachineBackup"
-	backupFailed                         = "Backup has failed: %s"
-	backupCompletedWithWarningMsg        = "Completed VirtualMachineBackup, warning: %s"
-	vmNotFoundMsg                        = "VM %s/%s doesnt exist"
-	vmNotRunningMsg                      = "vm %s is not running, cannot do backup"
-	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
-	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
-	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
-	trackerDeletingMsg                   = "tracker %s is being deleted"
-	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
-	invalidBackupModeMsg                 = "invalid backup mode: %s"
-	vmMigrationInProgressMsg             = "vm %s is currently migrating, waiting for migration to complete before starting backup"
+	backupInProgress              = "Backup is in progress"
+	backupPreparingVMExport       = "Backup export is being initialized"
+	backupExportReady             = "Backup export is ready to pull"
+	backupAborting                = "Backup is aborting"
+	backupCompleted               = "Successfully completed VirtualMachineBackup"
+	backupFailed                  = "Backup has failed: %s"
+	backupCompletedWithWarningMsg = "Completed VirtualMachineBackup, warning: %s"
+	vmNotFoundMsg                 = "VM %s/%s doesnt exist"
+	vmNotRunningMsg               = "vm %s is not running, cannot do backup"
+	vmNoVolumesToBackupMsg        = "vm %s has no volumes to backup"
+	vmNoChangedBlockTrackingMsg   = "vm %s has no ChangedBlockTracking, cannot start backup"
+	backupTrackerNotFoundMsg      = "BackupTracker %s does not exist"
+	trackerDeletingMsg            = "tracker %s is being deleted"
+	invalidBackupModeMsg          = "invalid backup mode: %s"
+	vmMigrationInProgressMsg      = "vm %s is currently migrating, waiting for migration to complete before starting backup"
 )
 
 var (
@@ -270,9 +269,6 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 
 	if isTrackerDeleting(tracker) && controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
 		log.Log.V(3).Infof("enqueued tracker %q for deletion cleanup", key)
-		ctrl.trackerQueue.Add(key)
-	} else if trackerNeedsCheckpointRedefinition(tracker) {
-		log.Log.V(3).Infof("enqueued tracker %q for checkpoint redefinition", key)
 		ctrl.trackerQueue.Add(key)
 	}
 
@@ -553,9 +549,6 @@ func (ctrl *VMBackupController) checkPrerequisites(backup *backupv1.VirtualMachi
 	}
 	if isTrackerDeleting(backupTracker) {
 		return fmt.Sprintf(trackerDeletingMsg, backupTracker.Name), nil
-	}
-	if trackerNeedsCheckpointRedefinition(backupTracker) {
-		return fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name), nil
 	}
 	if migrations.IsMigrating(vmi) {
 		return fmt.Sprintf(vmMigrationInProgressMsg, vmi.Name), nil

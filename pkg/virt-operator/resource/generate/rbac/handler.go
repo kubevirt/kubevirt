@@ -159,18 +159,6 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"backup.kubevirt.io",
-				},
-				Resources: []string{
-					"virtualmachinebackuptrackers",
-					"virtualmachinebackuptrackers/status",
-				},
-				Verbs: []string{
-					"list", "watch", "patch",
-				},
-			},
-			{
-				APIGroups: []string{
 					plugin.GroupName,
 				},
 				Resources: []string{
