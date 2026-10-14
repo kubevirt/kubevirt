@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -25,13 +23,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -806,107 +800,4 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 		caCert = cert
 	}
 	return caCert, nil
-}
-
-func (r *Reconciler) updateSynchronizationAddress() (err error) {
-	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-	// Find the lease associated with the virt-synchronization controller
-	lease, err := r.k8sClient.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.kv.Status.SynchronizationAddresses = nil
-			return nil
-		}
-		return err
-	}
-	podName := ""
-	if lease.Spec.HolderIdentity != nil {
-		podName = *lease.Spec.HolderIdentity
-	}
-	if podName == "" {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-	pod, err := r.k8sClient.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.kv.Status.SynchronizationAddresses = nil
-			return nil
-		}
-		return err
-	}
-	if pod.DeletionTimestamp != nil {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-
-	// Check for the migration network address in the pod annotations.
-	ips := r.getIpsFromAnnotations(pod)
-	if len(ips) == 0 && pod.Status.PodIPs != nil &&
-		!(r.isDecentralizedLiveMigrationProxyEnabled() && r.isCrossClusterMigrationNetworkConfigured()) {
-		// Did not find annotations, use the pod ip address instead
-		ips = make([]string, len(pod.Status.PodIPs))
-		for i, podIP := range pod.Status.PodIPs {
-			ips[i] = podIP.IP
-		}
-	}
-	if len(ips) == 0 {
-		return nil
-	}
-	port := util.DefaultSynchronizationPort
-	if r.kv.Spec.SynchronizationPort != "" {
-		p, err := strconv.Atoi(r.kv.Spec.SynchronizationPort)
-		if err != nil {
-			return err
-		}
-		port = int32(p)
-	}
-	addresses := make([]string, len(ips))
-	for i, ip := range ips {
-		addresses[i] = net.JoinHostPort(ip, strconv.Itoa(int(port)))
-	}
-	r.kv.Status.SynchronizationAddresses = addresses
-	return nil
-}
-
-func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	// Priority for advertised SynchronizationAddresses (must match where the
-	// sync controller actually listens for peer gRPC):
-	// 1. crosscluster0 when Proxy datapath is enabled and crossClusterNetwork is set
-	// 2. migration0 when Direct datapath (or Proxy not enabled)
-	// 3. (caller falls back to pod IP when Proxy peer binds on pod network)
-
-	if r.isDecentralizedLiveMigrationProxyEnabled() {
-		if r.isCrossClusterMigrationNetworkConfigured() {
-			ips := multus.GetMigrationNetworkIPs(pod, v1.CrossClusterMigrationInterfaceName)
-			if len(ips) > 0 {
-				return ips
-			}
-		}
-		// Proxy without crossClusterNetwork: peer gRPC binds on pod IP, not migration0.
-		return nil
-	}
-
-	return multus.GetMigrationNetworkIPs(pod, v1.MigrationInterfaceName)
-}
-
-func (r *Reconciler) isCrossClusterMigrationNetworkConfigured() bool {
-	mig := r.kv.Spec.Configuration.MigrationConfiguration
-	return mig != nil && mig.CrossClusterNetwork != nil
-}
-
-// isDecentralizedLiveMigrationProxyEnabled mirrors virtconfig.DecentralizedLiveMigrationProxyEnabled:
-// CrossClusterMigrationProxy feature gate + decentralizedLiveMigrationDatapath=Proxy.
-func (r *Reconciler) isDecentralizedLiveMigrationProxyEnabled() bool {
-	if !r.isFeatureGateEnabled(featuregate.CrossClusterMigrationProxy) {
-		return false
-	}
-	mig := r.kv.Spec.Configuration.MigrationConfiguration
-	if mig == nil || mig.DecentralizedLiveMigrationDatapath == nil {
-		return false
-	}
-	return *mig.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy
 }
