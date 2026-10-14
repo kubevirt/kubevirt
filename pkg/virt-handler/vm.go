@@ -967,7 +967,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
-	c.updateBackupStatus(vmi, domain)
+	updateBackupStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
@@ -2414,7 +2414,7 @@ func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
 	return nil
 }
 
-func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+func updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Backup == nil ||
 		vmi.Status.ChangedBlockTracking == nil ||

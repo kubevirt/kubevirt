@@ -3466,107 +3466,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
-	Context("updateBackupStatus", func() {
-		startTime := metav1.Now()
-		endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
-
-		DescribeTable("should not update when",
-			func(cbtStatus *v1.ChangedBlockTrackingStatus) {
-				vmi := clientgoapi.NewMinimalVMI("testvmi")
-				vmi.UID = vmiTestUUID
-				vmi.Status.ChangedBlockTracking = cbtStatus
-
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
-					Name:      "test-backup",
-					Completed: true,
-				}
-
-				controller.updateBackupStatus(vmi, domain)
-				Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
-			},
-			Entry("VMI ChangedBlockTracking is nil", nil),
-			Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
-		)
-
-		DescribeTable("should",
-			func(vmiBackupStatus *v1.VirtualMachineInstanceBackupStatus, domainBackupMetadata *api.BackupMetadata, expectUpdate bool) {
-				vmi := clientgoapi.NewMinimalVMI("testvmi")
-				vmi.UID = vmiTestUUID
-				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
-					State: v1.ChangedBlockTrackingEnabled,
-				}
-				vmi.Status.ChangedBlockTracking.BackupStatus = vmiBackupStatus
-
-				backupMsg := "backup completed successfully"
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Spec.Metadata.KubeVirt.Backup = domainBackupMetadata
-
-				controller.updateBackupStatus(vmi, domain)
-
-				if expectUpdate {
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(domainBackupMetadata.EndTimestamp))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(domainBackupMetadata.CheckpointName))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(domainBackupMetadata.BackupMsg))
-				} else {
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(BeNil())
-				}
-			},
-			Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "new-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "old-backup",
-					StartTimestamp: &startTime,
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, false,
-			),
-			Entry("not update backupStatus when backupStatus StartTimestamp and backupMetadata StartTimestamp do not match (race condition)",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "test-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "test-backup",
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, false,
-			),
-			Entry("update backupStatus when backupStatus name and backupMetadata name match",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "test-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "test-backup",
-					StartTimestamp: &startTime,
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, true,
-			),
-		)
-	})
-
 	Context("updateSoftwareEmulationCondition", func() {
 		It("should be a no-op when the feature gate is disabled", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
@@ -3886,6 +3785,113 @@ var _ = Describe("CurrentMemory in Libvirt Domain", func() {
 		Entry("Mi (M)", &api.Memory{Value: 512, Unit: "M"}, resource.MustParse("512Mi")),
 		Entry("Gi (G)", &api.Memory{Value: 512, Unit: "G"}, resource.MustParse("512Gi")),
 		Entry("Ti (T)", &api.Memory{Value: 512, Unit: "T"}, resource.MustParse("512Ti")),
+	)
+})
+
+var _ = Describe("updateBackupStatus", func() {
+	var vmiTestUUID types.UID
+
+	BeforeEach(func() {
+		vmiTestUUID = uuid.NewUUID()
+	})
+
+	startTime := metav1.Now()
+	endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
+
+	DescribeTable("should not update when",
+		func(cbtStatus *v1.ChangedBlockTrackingStatus) {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.ChangedBlockTracking = cbtStatus
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+				Name:      "test-backup",
+				Completed: true,
+			}
+
+			updateBackupStatus(vmi, domain)
+			Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
+		},
+		Entry("VMI ChangedBlockTracking is nil", nil),
+		Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
+	)
+
+	DescribeTable("should",
+		func(vmiBackupStatus *v1.VirtualMachineInstanceBackupStatus, domainBackupMetadata *api.BackupMetadata, expectUpdate bool) {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				State: v1.ChangedBlockTrackingEnabled,
+			}
+			vmi.Status.ChangedBlockTracking.BackupStatus = vmiBackupStatus
+
+			backupMsg := "backup completed successfully"
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Spec.Metadata.KubeVirt.Backup = domainBackupMetadata
+
+			updateBackupStatus(vmi, domain)
+
+			if expectUpdate {
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(domainBackupMetadata.EndTimestamp))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(domainBackupMetadata.CheckpointName))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(domainBackupMetadata.BackupMsg))
+			} else {
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(BeNil())
+			}
+		},
+		Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "new-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "old-backup",
+				StartTimestamp: &startTime,
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, false,
+		),
+		Entry("not update backupStatus when backupStatus StartTimestamp and backupMetadata StartTimestamp do not match (race condition)",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "test-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "test-backup",
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, false,
+		),
+		Entry("update backupStatus when backupStatus name and backupMetadata name match",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "test-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "test-backup",
+				StartTimestamp: &startTime,
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, true,
+		),
 	)
 })
 
