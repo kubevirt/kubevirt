@@ -807,7 +807,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		Context("MTU verification", func() {
 			var vmi *v1.VirtualMachineInstance
-			var anotherVmi *v1.VirtualMachineInstance
+			var anotherVMI *v1.VirtualMachineInstance
 
 			getMtu := func(pod *k8sv1.Pod, ifaceName string) int {
 				output, err := exec.ExecuteCommandOnPod(
@@ -875,9 +875,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create another VMI")
-				anotherVmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+				anotherVMI = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
-					Create(context.Background(), libvmi.NewVirtualMachine(anotherVmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+					Create(context.Background(), libvmi.NewVirtualMachine(anotherVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
@@ -885,11 +885,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					WithPolling(time.Second).
 					Should(matcher.Exist())
 
-				anotherVmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				anotherVMI, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
-				anotherVmi = libwait.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
+				anotherVMI = libwait.WaitUntilVMIReady(anotherVMI, console.LoginToAlpine)
 
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})
@@ -932,7 +932,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipHeaderSize = 40
 				}
 				payloadSize := primaryIfaceMtu - ipHeaderSize - icmpHeaderSize
-				addr := libnet.GetVmiPrimaryIPByFamily(anotherVmi, ipFamily)
+				addr := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize), "-M do")).To(Succeed())
 
 				By("checking the VirtualMachineInstance cannot send bigger than MTU sized frames to another VirtualMachineInstance")
@@ -963,15 +963,15 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 		return nil, err
 	}
 
-	net := v1.DefaultPodNetwork()
-	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
+	podNetwork := v1.DefaultPodNetwork()
+	podNetwork.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
 	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.NewInterface(
 			v1.DefaultPodNetwork().Name,
 			libvmi.WithMasqueradeBinding(),
 			libvmi.WithPorts(ports...),
 		)),
-		libvmi.WithNetwork(net),
+		libvmi.WithNetwork(podNetwork),
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 	)
 
