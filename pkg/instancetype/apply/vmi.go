@@ -29,17 +29,23 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
-type preferenceApplier interface {
-	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta)
+type preferenceVMIApplier interface {
+	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstance)
+}
+
+type preferenceVMApplier interface {
+	ApplyToTemplate(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceTemplateSpec)
 }
 
 type vmiApplier struct {
-	preferenceApplier preferenceApplier
+	preferenceVMIApplier preferenceVMIApplier
+	preferenceVMApplier  preferenceVMApplier
 }
 
 func NewVMIApplier() *vmiApplier {
 	return &vmiApplier{
-		preferenceApplier: preferenceApply.New(),
+		preferenceVMIApplier: preferenceApply.NewVMI(),
+		preferenceVMApplier:  preferenceApply.NewVM(),
 	}
 }
 
@@ -47,32 +53,62 @@ func (a *vmiApplier) ApplyToVMI(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-	vmiMetadata *metav1.ObjectMeta,
+	vmi *virtv1.VirtualMachineInstance,
 ) conflict.Conflicts {
 	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil
 	}
 
-	if instancetypeSpec != nil {
-		baseConflict := conflict.NewFromPath(field)
-		conflicts := conflict.Conflicts{}
-		conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyIOThreads(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
-		if len(conflicts) > 0 {
-			return conflicts
-		}
+	if conflicts := applyInstancetype(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
+		return conflicts
 	}
 
-	a.preferenceApplier.Apply(preferenceSpec, vmiSpec, vmiMetadata)
+	a.preferenceVMIApplier.Apply(preferenceSpec, vmi)
 
 	return nil
+}
+
+func (a *vmiApplier) ApplyToTemplate(
+	field *k8sfield.Path,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	template *virtv1.VirtualMachineInstanceTemplateSpec,
+) conflict.Conflicts {
+	if instancetypeSpec == nil && preferenceSpec == nil {
+		return nil
+	}
+
+	if conflicts := applyInstancetype(field, instancetypeSpec, preferenceSpec, &template.Spec, &template.ObjectMeta); len(conflicts) > 0 {
+		return conflicts
+	}
+
+	a.preferenceVMApplier.ApplyToTemplate(preferenceSpec, template)
+
+	return nil
+}
+
+func applyInstancetype(
+	field *k8sfield.Path,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	vmiMetadata *metav1.ObjectMeta,
+) conflict.Conflicts {
+	if instancetypeSpec == nil {
+		return nil
+	}
+
+	baseConflict := conflict.NewFromPath(field)
+	conflicts := conflict.Conflicts{}
+	conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyIOThreads(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
+	conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
+	return conflicts
 }

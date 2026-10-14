@@ -50,7 +50,7 @@ var _ = Describe("instancetype.spec.SchedulerName", func() {
 			SchedulerName: "ultra-scheduler",
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.SchedulerName).To(Equal(instancetypeSpec.SchedulerName))
 	})
@@ -59,7 +59,7 @@ var _ = Describe("instancetype.spec.SchedulerName", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{}
 		vmi.Spec.SchedulerName = "super-fast-scheduler"
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.SchedulerName).To(Equal("super-fast-scheduler"))
 	})
@@ -70,7 +70,7 @@ var _ = Describe("instancetype.spec.SchedulerName", func() {
 		}
 		vmi.Spec.SchedulerName = "slow-scheduler"
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.schedulerName"))
 	})

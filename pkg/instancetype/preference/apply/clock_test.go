@@ -60,7 +60,7 @@ var _ = Describe("Preference.Clock", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Clock.ClockOffset).To(Equal(*preferenceSpec.Clock.PreferredClockOffset))
 		Expect(vmi.Spec.Domain.Clock.Timer).To(HaveValue(Equal(*preferenceSpec.Clock.PreferredTimer)))

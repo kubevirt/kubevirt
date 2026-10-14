@@ -45,6 +45,7 @@ go_test(
         "memory_test.go",
         "nodeselector_test.go",
         "scheduler_test.go",
+        "template_test.go",
     ],
     race = "on",
     deps = [

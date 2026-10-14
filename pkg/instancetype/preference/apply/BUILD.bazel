@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "annotations.go",
+        "apply.go",
         "architecture.go",
         "clock.go",
         "cpu.go",
@@ -16,6 +17,7 @@ go_library(
         "machine.go",
         "subdomain.go",
         "termination.go",
+        "vm.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/preference/apply",
@@ -42,7 +44,10 @@ go_test(
         "machine_test.go",
         "subdomain_test.go",
         "termination_test.go",
+        "vm_test.go",
+        "vmi_test.go",
     ],
+    embed = [":go_default_library"],
     race = "on",
     deps = [
         "//pkg/instancetype/apply:go_default_library",

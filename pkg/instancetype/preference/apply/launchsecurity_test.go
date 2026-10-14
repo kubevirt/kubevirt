@@ -72,7 +72,7 @@ var _ = Describe("Preference.LaunchSecurity", func() {
 			preferenceSpec.PreferredLaunchSecurity = preferenceLaunchSecurity
 			instancetypeSpec.LaunchSecurity = instancetypeLaunchSecurity
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
 
 			if expectError {
 				Expect(conflicts).ToNot(BeEmpty())

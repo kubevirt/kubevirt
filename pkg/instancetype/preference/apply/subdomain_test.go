@@ -50,7 +50,7 @@ var _ = Describe("Preference.PreferredSubdomain", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			PreferredSubdomain: pointer.P("kubevirt.io"),
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
 	})
 
@@ -60,7 +60,7 @@ var _ = Describe("Preference.PreferredSubdomain", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			PreferredSubdomain: pointer.P("kubevirt.io"),
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Subdomain).To(Equal(userDefinedValue))
 	})
 })

@@ -52,7 +52,7 @@ var _ = Describe("Preference.Machine", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
 	})

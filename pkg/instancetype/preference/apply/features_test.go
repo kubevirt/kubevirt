@@ -88,7 +88,7 @@ var _ = Describe("Preference.Features", func() {
 	})
 
 	It("should apply to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Features.ACPI).To(Equal(*preferenceSpec.Features.PreferredAcpi))
 		Expect(vmi.Spec.Domain.Features.APIC).To(HaveValue(Equal(*preferenceSpec.Features.PreferredApic)))
@@ -107,7 +107,7 @@ var _ = Describe("Preference.Features", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled).To(HaveValue(BeFalse()))
 	})
 })

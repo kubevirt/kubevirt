@@ -51,7 +51,7 @@ var _ = Describe("Preference.Architecture", func() {
 			PreferredArchitecture: pointer.P("arm64"),
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Architecture).To(Equal("arm64"))
 	})
 
@@ -61,12 +61,12 @@ var _ = Describe("Preference.Architecture", func() {
 			PreferredArchitecture: pointer.P("arm64"),
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Architecture).To(Equal("amd64"))
 	})
 
 	DescribeTable("should not apply when", func(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Architecture).To(BeEmpty())
 	},
 		Entry("PreferenceSpec is nil", nil),
