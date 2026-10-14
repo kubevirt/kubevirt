@@ -677,6 +677,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	backupType := backupv1.Full
 	if isIncrementalBackup(backup, backupTracker) {
 		backupOptions.Incremental = pointer.P(backupTracker.Status.LatestCheckpoint.Name)
+		backupOptions.IncrementalCreationTime = backupTracker.Status.LatestCheckpoint.CreationTime
 		backupType = backupv1.Incremental
 		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}

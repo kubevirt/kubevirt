@@ -20645,6 +20645,9 @@
      "incremental": {
       "type": "string"
      },
+     "incrementalCreationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
      "mode": {
       "type": "string"
      },

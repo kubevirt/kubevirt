@@ -107,6 +107,10 @@ func (in *BackupOptions) DeepCopyInto(out *BackupOptions) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.IncrementalCreationTime != nil {
+		in, out := &in.IncrementalCreationTime, &out.IncrementalCreationTime
+		*out = (*in).DeepCopy()
+	}
 	if in.TargetPath != nil {
 		in, out := &in.TargetPath, &out.TargetPath
 		*out = new(string)

@@ -17678,6 +17678,11 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"incrementalCreationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
 					"targetPath": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

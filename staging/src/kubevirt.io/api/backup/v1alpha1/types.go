@@ -111,13 +111,14 @@ const (
 
 // BackupOptions are options used to configure virtual machine backup job
 type BackupOptions struct {
-	BackupName      string       `json:"backupName,omitempty"`
-	Cmd             BackupCmd    `json:"cmd,omitempty"`
-	Mode            BackupMode   `json:"mode,omitempty"`
-	BackupStartTime *metav1.Time `json:"backupStartTime,omitempty"`
-	Incremental     *string      `json:"incremental,omitempty"`
-	TargetPath      *string      `json:"targetPath,omitempty"`
-	SkipQuiesce     bool         `json:"skipQuiesce,omitempty"`
+	BackupName              string       `json:"backupName,omitempty"`
+	Cmd                     BackupCmd    `json:"cmd,omitempty"`
+	Mode                    BackupMode   `json:"mode,omitempty"`
+	BackupStartTime         *metav1.Time `json:"backupStartTime,omitempty"`
+	Incremental             *string      `json:"incremental,omitempty"`
+	IncrementalCreationTime *metav1.Time `json:"incrementalCreationTime,omitempty"`
+	TargetPath              *string      `json:"targetPath,omitempty"`
+	SkipQuiesce             bool         `json:"skipQuiesce,omitempty"`
 }
 
 // VirtualMachineBackupTracker defines the way to track the latest checkpoint of
