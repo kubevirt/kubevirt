@@ -272,7 +272,6 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
-	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
@@ -407,7 +406,6 @@ func (app *virtHandlerApp) Run() {
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
-		backupTrackerInformer.HasSynced,
 		pluginInformer.HasSynced,
 	)
 
@@ -491,7 +489,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
+	cbtHandler := virthandler.NewCBTHandler()
 
 	vmController, err := virthandler.NewVirtualMachineController(
 		workqueue.NewTypedRateLimitingQueueWithConfig(

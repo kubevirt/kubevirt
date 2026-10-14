@@ -430,42 +430,6 @@ var _ = Describe("Backup Controller", func() {
 		Expect(statusUpdated).To(BeTrue())
 	})
 
-	It("should wait when backupTracker needs checkpoint redefinition", func() {
-		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
-		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
-		controller.backupTrackerInformer.GetStore().Add(backupTracker)
-
-		backup := createBackupWithTracker(backupName, vmName, pvcName)
-		addBackup(backup)
-
-		vm := createVM(vmName)
-		controller.vmStore.Add(vm)
-
-		vmi := createVMIWithPVCAttached()
-		controller.vmiStore.Add(vmi)
-
-		statusUpdated := false
-		kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update := action.(testing.UpdateAction)
-			if update.GetSubresource() != "status" {
-				return false, nil, nil
-			}
-			statusUpdated = true
-			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-
-			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionProgressing))
-			Expect(cond).NotTo(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(backupv1.ReasonInitializing))
-			Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
-			return true, updateObj, nil
-		})
-
-		err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(statusUpdated).To(BeTrue())
-	})
-
 	It("should wait when backupTracker is being deleted", func() {
 		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
 		now := metav1.Now()
