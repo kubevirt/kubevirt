@@ -140,4 +140,74 @@ var _ = Describe("Deployments", func() {
 			}
 		})
 	})
+
+	Context("SecurityContext", func() {
+		DescribeTable("should set ReadOnlyRootFilesystem to true on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				for _, c := range podSpec.Containers {
+					Expect(c.SecurityContext).ToNot(BeNil(),
+						"container %s should have SecurityContext", c.Name)
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).ToNot(BeNil(),
+						"container %s should have ReadOnlyRootFilesystem set", c.Name)
+					Expect(*c.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue(),
+						"container %s should have ReadOnlyRootFilesystem=true", c.Name)
+				}
+			},
+			Entry(VirtAPIName, func() corev1.PodSpec {
+				d := NewApiServerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
+
+		DescribeTable("should NOT have tmp-dir volume on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				Expect(podSpec.Volumes).ToNot(
+					ContainElement(HaveField("Name", "/tmp")),
+					"deployment should not have tmp-dir volume")
+			},
+			Entry(VirtAPIName, func() corev1.PodSpec {
+				deployment := NewApiServerDeployment(
+					&util.KubeVirtDeploymentConfig{},
+					"",
+					"",
+					"",
+				)
+				return deployment.Spec.Template.Spec
+			}),
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
+	})
 })
