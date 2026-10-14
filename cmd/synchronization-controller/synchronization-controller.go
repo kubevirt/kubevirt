@@ -301,6 +301,7 @@ func (app *synchronizationControllerApp) Run() {
 		app.virtCli,
 		vmiInformer,
 		migrationInformer,
+		factory.KubeVirt().GetStore(),
 		app.clientTLSConfig,
 		app.serverTLSConfig,
 		app.migrationClientTLSConfig,
