@@ -275,13 +275,16 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	It("VMI with an interface that has ACPI Index set", func() {
 		const acpiIndex = 101
 		const pciAddress = "0000:01:00.0"
-		iface := *v1.DefaultMasqueradeNetworkInterface()
-		iface.ACPIIndex = acpiIndex
-		iface.PciAddress = pciAddress
+
 		testVMI := libvmifact.NewAlpine(
-			libvmi.WithInterface(iface),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+				libvmi.WithMasqueradeBinding(),
+				libvmi.WithPciAddress(pciAddress),
+				libvmi.WithACPIIndex(acpiIndex),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
+
 		var err error
 		testVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), testVMI, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
