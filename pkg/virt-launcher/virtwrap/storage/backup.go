@@ -155,6 +155,16 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
+	var disksWithoutBitmap sets.Set[string]
+	if isIncrementalBackup(backupOptions) {
+		base := checkpointDefinition(*backupOptions.Incremental, backupOptions.IncrementalCreationTime)
+		_, disksWithoutBitmap, err = redefineCheckpointOnUsableDisks(dom, domainDisks, base)
+		if err != nil && !errors.Is(err, errNoUsableCheckpointBitmap) {
+			logger.Reason(err).Errorf("failed to redefine base checkpoint %s", base.Name)
+			return err
+		}
+	}
+
 	var nbdSocketPath string
 	if backupOptions.Mode == backupv1.PullMode {
 		if nbdSocketPath, err = preparePullBackupSocket(vmi); err != nil {
@@ -162,7 +172,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			return err
 		}
 	}
-	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath)
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath, disksWithoutBitmap)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -213,14 +223,11 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
-	if isIncrementalBackup(backupOptions) {
-		log.Log.Infof("Generating incremental backup %s from checkpoint: %s", backupOptions.BackupName, *backupOptions.Incremental)
-		domainBackup.Incremental = backupOptions.Incremental
-	}
+	incremental := isIncrementalBackup(backupOptions)
 	if backupOptions.Mode == backupv1.PullMode {
 		domainBackup.Server = &api.DomainBackupServer{
 			Transport: api.BackupUnixTransport,
@@ -232,6 +239,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
 	var backupVolumesInfo []v1.VirtualMachineInstanceBackupVolumeInfo
+	anyIncremental := false
 	// the name of the volume should match the alias
 	for _, disk := range disks {
 		if disk.Target.Device == "" {
@@ -255,8 +263,20 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 				setBackupDiskTargetPath(&backupDisk, backupOptions, volumeName, backupPath)
 			}
 			checkpointDisk.Checkpoint = "bitmap"
+
+			volumeType := backupv1.Full
+			if incremental {
+				if disksWithoutBitmap.Has(disk.Target.Device) {
+					backupDisk.BackupMode = "full"
+				} else {
+					volumeType = backupv1.Incremental
+					anyIncremental = true
+				}
+			}
+
 			backupVolumesInfo = append(backupVolumesInfo, v1.VirtualMachineInstanceBackupVolumeInfo{
 				VolumeName: volumeName,
+				Type:       string(volumeType),
 			})
 		} else {
 			backupDisk.Backup = "no"
@@ -264,6 +284,12 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		}
 		backupDisks.Disks = append(backupDisks.Disks, backupDisk)
 		checkpointDisks.Disks = append(checkpointDisks.Disks, checkpointDisk)
+	}
+
+	// Name the base only when a disk is actually backed up against it.
+	if anyIncremental {
+		log.Log.Infof("Generating incremental backup %s from checkpoint: %s", backupOptions.BackupName, *backupOptions.Incremental)
+		domainBackup.Incremental = backupOptions.Incremental
 	}
 
 	domainBackup.BackupDisks = backupDisks
@@ -477,14 +503,7 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 		return false, fmt.Errorf("failed to get domain disks: %w", err)
 	}
 
-	domainCheckpoint := &api.DomainCheckpoint{
-		Name: checkpoint.Name,
-	}
-	if checkpoint.CreationTime != nil {
-		ct := uint64(checkpoint.CreationTime.Unix())
-		domainCheckpoint.CreationTime = &ct
-	}
-
+	domainCheckpoint := checkpointDefinition(checkpoint.Name, checkpoint.CreationTime)
 	checkpointDisks, disksWithoutBitmap, err := redefineCheckpointOnUsableDisks(dom, disks, domainCheckpoint)
 	if disksWithoutBitmap.Len() > 0 {
 		logger.V(3).Infof("Disks without checkpoint bitmap: %v", sets.List(disksWithoutBitmap))
@@ -503,6 +522,14 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 
 	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpointDisks.Disks))
 	return false, nil
+}
+
+func checkpointDefinition(name string, creationTime *metav1.Time) *api.DomainCheckpoint {
+	domainCheckpoint := &api.DomainCheckpoint{Name: name}
+	if creationTime != nil {
+		domainCheckpoint.CreationTime = new(uint64(creationTime.Unix()))
+	}
+	return domainCheckpoint
 }
 
 var errNoUsableCheckpointBitmap = errors.New("no disk carries a usable checkpoint bitmap")

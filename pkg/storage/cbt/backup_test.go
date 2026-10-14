@@ -1602,6 +1602,7 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.TargetPath).ToNot(BeNil())
 				Expect(options.Incremental).ToNot(BeNil())
 				Expect(*options.Incremental).To(Equal(checkpointName))
+				Expect(options.IncrementalCreationTime).To(Equal(backupTracker.Status.LatestCheckpoint.CreationTime))
 				return nil
 			})
 
