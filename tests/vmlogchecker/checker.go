@@ -523,6 +523,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		Regex: regexp.MustCompile(`"level":"error","msg":"checkpoint inconsistent: missing or broken bitmap '[^']+' for disk '[^']+'","pos":"qemuCheckpointRedefineValidateBitmaps`),
 		SIGs:  SIGStorage,
 	},
+	{
+		ID:    111,
+		Regex: regexp.MustCompile(`"level":"error","msg":"failed to sync guest time"`),
+		SIGs:  SIGCompute,
+	},
 }
 
 // errorKeywordPatterns provides broad keyword-based error detection for the
