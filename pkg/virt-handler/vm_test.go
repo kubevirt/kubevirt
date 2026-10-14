@@ -27,7 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -42,7 +41,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -80,7 +78,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -110,9 +107,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var sockFile string
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
-	var stop chan struct{}
-	var wg *sync.WaitGroup
-	var eventChan chan watch.Event
 
 	const migratableNetworkBindingPlugin = "mig_plug"
 	const host = "master"
@@ -125,10 +119,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	BeforeEach(func() {
 		diskutils.MockDefaultOwnershipManager()
 
-		wg = &sync.WaitGroup{}
-		stop = make(chan struct{})
-		eventChan = make(chan watch.Event, 100)
-		shareDir := GinkgoT().TempDir()
 		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(os.RemoveAll, podsDir)
@@ -234,15 +224,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
 
-		wg.Add(1)
-
-		go func() {
-			err = notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
-			wg.Done()
-			Expect(err).ToNot(HaveOccurred())
-		}()
-		time.Sleep(1 * time.Second)
-
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		clientInfo := &virtcache.LauncherClientInfo{
 			Client:             client,
@@ -255,8 +236,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	AfterEach(func() {
-		close(stop)
-		wg.Wait()
 		var events []string
 		// Ensure that we add checks for expected events to every test
 		for len(recorder.Events) > 0 {
