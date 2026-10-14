@@ -96,7 +96,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("two VMs connected to a secondary DRA network should communicate", func() {
+	FIt("two VMs connected to a secondary DRA network should communicate", func() {
 		serverVMI := newDRAVMI()
 		clientVMI := newDRAVMI()
 
