@@ -62,7 +62,6 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -3443,31 +3442,6 @@ func newNode(name string) *k8sv1.Node {
 	node.Status.Phase = k8sv1.NodeRunning
 
 	return node
-}
-
-func getDefaultMigrationConfiguration() *v1.MigrationConfiguration {
-	nodeTaintKey := "kubevirt.io/drain"
-	parallelOutboundMigrationsPerNode := virtconfig.ParallelOutboundMigrationsPerNodeDefault
-	parallelMigrationsPerCluster := virtconfig.ParallelMigrationsPerClusterDefault
-	allowAutoConverge := virtconfig.MigrationAllowAutoConverge
-	bandwidthPerMigration := resource.MustParse(virtconfig.BandwidthPerMigrationDefault)
-	completionTimeoutPerGiB := virtconfig.MigrationCompletionTimeoutPerGiB
-	progressTimeout := virtconfig.MigrationProgressTimeout
-	unsafeMigrationOverride := virtconfig.DefaultUnsafeMigrationOverride
-	allowPostCopy := virtconfig.MigrationAllowPostCopy
-
-	return &v1.MigrationConfiguration{
-		NodeDrainTaintKey:                 &nodeTaintKey,
-		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
-		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
-		AllowAutoConverge:                 &allowAutoConverge,
-		BandwidthPerMigration:             &bandwidthPerMigration,
-		CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
-		ProgressTimeout:                   &progressTimeout,
-		UnsafeMigrationOverride:           &unsafeMigrationOverride,
-		AllowPostCopy:                     &allowPostCopy,
-		AllowWorkloadDisruption:           new(allowPostCopy),
-	}
 }
 
 func preparePolicyAndVMIWithNSAndVMILabels(vmi *v1.VirtualMachineInstance, namespace *k8sv1.Namespace, matchingVmiLabels, matchingNSLabels int) *migrationsv1.MigrationPolicy {
