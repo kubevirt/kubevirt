@@ -63,6 +63,9 @@ var _ = Describe("Node-labeller ", func() {
 		var err error
 		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), fakeNodeStore, nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return nil, fmt.Errorf("open /sys/module/nvidia_vgpu_vfio/version: no such file or directory")
+		}
 	}
 
 	BeforeEach(func() {
@@ -510,7 +513,100 @@ var _ = Describe("Node-labeller ", func() {
 		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, arm64),
 	)
 
+	It("should label the node with the vGPU host driver version", func() {
+		enableVGPULiveMigration(nlController)
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return []byte("595.91.04\n"), nil
+		}
+
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(nvidiaVGPUHostDriverVersionLabel, "595.91.04"))
+	})
+
+	It("should omit the vGPU host driver version label when the version file has no driver version", func() {
+		enableVGPULiveMigration(nlController)
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return []byte("\n"), nil
+		}
+
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).NotTo(HaveKey(nvidiaVGPUHostDriverVersionLabel))
+	})
+
+	It("should omit the vGPU host driver version label when the nvidia driver version file is unavailable", func() {
+		enableVGPULiveMigration(nlController)
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).NotTo(HaveKey(nvidiaVGPUHostDriverVersionLabel))
+	})
+
+	It("should omit the vGPU host driver version label when live migration is disabled", func() {
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return []byte("595.91.04\n"), nil
+		}
+
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).NotTo(HaveKey(nvidiaVGPUHostDriverVersionLabel))
+	})
+
+	It("should remove the vGPU host driver version label when the nvidia driver version becomes unavailable", func() {
+		enableVGPULiveMigration(nlController)
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return []byte("595.91.04\n"), nil
+		}
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(nvidiaVGPUHostDriverVersionLabel, "595.91.04"))
+		Expect(fakeNodeStore.Update(node)).To(Succeed())
+
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return nil, fmt.Errorf("open /sys/module/nvidia_vgpu_vfio/version: no such file or directory")
+		}
+		nlController.queue.Add(nodeName)
+		Expect(nlController.execute()).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		Expect(node.Labels).NotTo(HaveKey(nvidiaVGPUHostDriverVersionLabel))
+		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
+	})
+
+	It("should remove the vGPU host driver version label when live migration is disabled", func() {
+		enableVGPULiveMigration(nlController)
+		nlController.vgpuQuery = func() ([]byte, error) {
+			return []byte("595.91.04\n"), nil
+		}
+		Expect(nlController.execute()).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(nvidiaVGPUHostDriverVersionLabel, "595.91.04"))
+		Expect(fakeNodeStore.Update(node)).To(Succeed())
+
+		nlController.clusterConfig.GetConfig().DeveloperConfiguration.FeatureGates = nil
+		nlController.queue.Add(nodeName)
+		Expect(nlController.execute()).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		Expect(node.Labels).NotTo(HaveKey(nvidiaVGPUHostDriverVersionLabel))
+		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
+	})
+
 })
+
+func enableVGPULiveMigration(nl *NodeLabeller) {
+	cfg := nl.clusterConfig.GetConfig()
+	if cfg.DeveloperConfiguration == nil {
+		cfg.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+	}
+	cfg.DeveloperConfiguration.FeatureGates = append(cfg.DeveloperConfiguration.FeatureGates, featuregate.VGPULiveMigration)
+}
 
 func newNode(name string) *k8sv1.Node {
 	return &k8sv1.Node{
