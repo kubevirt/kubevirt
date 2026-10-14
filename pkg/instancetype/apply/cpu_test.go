@@ -41,7 +41,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 		field      = k8sfield.NewPath("spec", "template", "spec")
 	)
 
@@ -70,7 +70,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	})
 
 	It("should default to PreferSockets", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 		Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -86,7 +86,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	It("should default to Sockets, when instancetype is used with PreferAny", func() {
 		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Any)
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 		Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -96,7 +96,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	It("should apply in full with PreferCores selected", func() {
 		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Cores)
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 		Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(instancetypeSpec.CPU.Guest))
@@ -111,7 +111,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	It("should apply in full with PreferThreads selected", func() {
 		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(1)))
 		Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -126,7 +126,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	It("should apply in full with PreferSockets selected", func() {
 		preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Sockets)
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeSpec.CPU.Guest))
 		Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(1)))
@@ -146,7 +146,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			}
 			preferenceSpec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Spread)
 
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, &preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, &preferenceSpec, vmi)).To(Succeed())
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(expectedCPU.Sockets))
 			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(expectedCPU.Cores))
 			Expect(vmi.Spec.Domain.CPU.Threads).To(Equal(expectedCPU.Threads))
@@ -464,7 +464,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			Threads: 1,
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(3))
 		Expect(conflicts).To(Equal(conflict.Conflicts{
 			conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"),
@@ -486,7 +486,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			},
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.cpu"))
 	})
@@ -504,7 +504,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			},
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
 	})
@@ -532,7 +532,7 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(2))
 		Expect(vmi.Spec.Domain.CPU.Features).To(ContainElements([]virtv1.CPUFeature{
 			{

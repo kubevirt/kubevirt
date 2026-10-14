@@ -38,7 +38,7 @@ var _ = Describe("Preference.Machine", func() {
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 	)
 
 	BeforeEach(func() {
@@ -52,7 +52,7 @@ var _ = Describe("Preference.Machine", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Machine.Type).To(Equal(preferenceSpec.Machine.PreferredMachineType))
 	})

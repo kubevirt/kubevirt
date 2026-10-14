@@ -190,7 +190,7 @@ func (h *revisionHandler) checkForInstancetypeConflicts(
 ) error {
 	// Apply the instancetype to a copy of the template as we don't want to persist any changes in the VM being passed around.
 	templateCopy := template.DeepCopy()
-	conflicts := apply.NewVMIApplier().ApplyToTemplate(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, templateCopy)
+	conflicts := apply.NewVM().ApplyToTemplate(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, templateCopy)
 	if len(conflicts) > 0 {
 		return conflicts
 	}

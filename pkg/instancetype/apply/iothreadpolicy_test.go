@@ -36,7 +36,7 @@ var _ = Describe("instancetype.Spec.ioThreadsPolicy", func() {
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier         = apply.NewVMIApplier()
+		vmiApplier         = apply.NewVMI()
 		field              = k8sfield.NewPath("spec", "template", "spec")
 		instancetypePolicy = virtv1.IOThreadsPolicyShared
 		instancetypeSpec   = &v1beta1.VirtualMachineInstancetypeSpec{
@@ -49,7 +49,7 @@ var _ = Describe("instancetype.Spec.ioThreadsPolicy", func() {
 	})
 
 	It("should apply to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.IOThreadsPolicy).To(HaveValue(Equal(*instancetypeSpec.IOThreadsPolicy)))
 	})
@@ -57,7 +57,7 @@ var _ = Describe("instancetype.Spec.ioThreadsPolicy", func() {
 	It("should detect IOThreadsPolicy conflict", func() {
 		vmi.Spec.Domain.IOThreadsPolicy = &instancetypePolicy
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.ioThreadsPolicy"))
 	})

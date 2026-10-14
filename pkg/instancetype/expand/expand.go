@@ -64,7 +64,7 @@ func New(
 ) *expander {
 	return &expander{
 		clusterConfig:        clusterConfig,
-		templateApplier:      apply.NewVMIApplier(),
+		templateApplier:      apply.NewVM(),
 		specFinder:           instancetypeFinder,
 		preferenceSpecFinder: preferenceFinder,
 	}

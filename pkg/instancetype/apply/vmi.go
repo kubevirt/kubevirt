@@ -19,7 +19,6 @@
 package apply
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -33,23 +32,19 @@ type preferenceVMIApplier interface {
 	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstance)
 }
 
-type preferenceVMApplier interface {
-	ApplyToTemplate(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceTemplateSpec)
-}
-
 type vmiApplier struct {
-	preferenceVMIApplier preferenceVMIApplier
-	preferenceVMApplier  preferenceVMApplier
+	specApplier       *specApplier
+	preferenceApplier preferenceVMIApplier
 }
 
-func NewVMIApplier() *vmiApplier {
+func NewVMI() *vmiApplier {
 	return &vmiApplier{
-		preferenceVMIApplier: preferenceApply.NewVMI(),
-		preferenceVMApplier:  preferenceApply.NewVM(),
+		specApplier:       NewSpec(),
+		preferenceApplier: preferenceApply.NewVMI(),
 	}
 }
 
-func (a *vmiApplier) ApplyToVMI(
+func (a *vmiApplier) Apply(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
@@ -59,56 +54,11 @@ func (a *vmiApplier) ApplyToVMI(
 		return nil
 	}
 
-	if conflicts := applyInstancetype(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
+	if conflicts := a.specApplier.Apply(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
 		return conflicts
 	}
 
-	a.preferenceVMIApplier.Apply(preferenceSpec, vmi)
+	a.preferenceApplier.Apply(preferenceSpec, vmi)
 
 	return nil
-}
-
-func (a *vmiApplier) ApplyToTemplate(
-	field *k8sfield.Path,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-	template *virtv1.VirtualMachineInstanceTemplateSpec,
-) conflict.Conflicts {
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil
-	}
-
-	if conflicts := applyInstancetype(field, instancetypeSpec, preferenceSpec, &template.Spec, &template.ObjectMeta); len(conflicts) > 0 {
-		return conflicts
-	}
-
-	a.preferenceVMApplier.ApplyToTemplate(preferenceSpec, template)
-
-	return nil
-}
-
-func applyInstancetype(
-	field *k8sfield.Path,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-	vmiMetadata *metav1.ObjectMeta,
-) conflict.Conflicts {
-	if instancetypeSpec == nil {
-		return nil
-	}
-
-	baseConflict := conflict.NewFromPath(field)
-	conflicts := conflict.Conflicts{}
-	conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyIOThreads(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
-	conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
-	return conflicts
 }

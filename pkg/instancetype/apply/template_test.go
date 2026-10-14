@@ -38,7 +38,7 @@ var _ = Describe("ApplyToTemplate", func() {
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
-		applier = apply.NewVMIApplier()
+		applier = apply.NewVM()
 		field   = k8sfield.NewPath("spec", "template", "spec")
 	)
 
@@ -63,6 +63,28 @@ var _ = Describe("ApplyToTemplate", func() {
 		Expect(template.ObjectMeta.Annotations).To(Equal(map[string]string{"shared": "instancetype", "preferred": "value"}))
 	})
 
+	It("should apply to the VM template while preserving VM annotations", func() {
+		vm := &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: template}}
+		vm.Annotations = map[string]string{"vm-annotation": "preserved"}
+
+		Expect(applier.Apply(field, instancetypeSpec, preferenceSpec, vm)).To(Succeed())
+		Expect(template.Spec.Domain.CPU.Cores).To(Equal(uint32(2)))
+		Expect(template.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
+		Expect(template.ObjectMeta.Annotations).To(Equal(map[string]string{"shared": "instancetype", "preferred": "value"}))
+		Expect(vm.Annotations).To(Equal(map[string]string{"vm-annotation": "preserved"}))
+	})
+
+	It("should return VM template conflicts before applying preferences", func() {
+		vm := &virtv1.VirtualMachine{Spec: virtv1.VirtualMachineSpec{Template: template}}
+		template.ObjectMeta.Annotations = map[string]string{"shared": "user-value"}
+
+		conflicts := applier.Apply(field, instancetypeSpec, preferenceSpec, vm)
+		Expect(conflicts).To(HaveLen(1))
+		Expect(conflicts[0].String()).To(Equal("annotations.shared"))
+		Expect(template.Spec.Subdomain).To(BeEmpty())
+		Expect(template.ObjectMeta.Annotations).To(Equal(map[string]string{"shared": "user-value"}))
+	})
+
 	It("should apply preferences without an instancetype", func() {
 		Expect(applier.ApplyToTemplate(field, nil, preferenceSpec, template)).To(Succeed())
 		Expect(template.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
@@ -79,7 +101,8 @@ var _ = Describe("ApplyToTemplate", func() {
 	})
 
 	It("should return early for nil specs without dereferencing the target", func() {
+		Expect(applier.Apply(nil, nil, nil, nil)).To(Succeed())
 		Expect(applier.ApplyToTemplate(field, nil, nil, nil)).To(Succeed())
-		Expect(apply.NewVMIApplier().ApplyToVMI(field, nil, nil, nil)).To(Succeed())
+		Expect(apply.NewVMI().Apply(field, nil, nil, nil)).To(Succeed())
 	})
 })

@@ -36,7 +36,7 @@ var _ = Describe("instancetype.Spec.LaunchSecurity", func() {
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier       = apply.NewVMIApplier()
+		vmiApplier       = apply.NewVMI()
 		field            = k8sfield.NewPath("spec", "template", "spec")
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
 			LaunchSecurity: &virtv1.LaunchSecurity{
@@ -50,7 +50,7 @@ var _ = Describe("instancetype.Spec.LaunchSecurity", func() {
 	})
 
 	It("should apply to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.LaunchSecurity).To(HaveValue(Equal(*instancetypeSpec.LaunchSecurity)))
 	})
@@ -60,7 +60,7 @@ var _ = Describe("instancetype.Spec.LaunchSecurity", func() {
 			SEV: &virtv1.SEV{},
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.launchSecurity"))
 	})

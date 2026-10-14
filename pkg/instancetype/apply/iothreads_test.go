@@ -38,7 +38,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 	)
 
 	var (
-		applier          = apply.NewVMIApplier()
+		applier          = apply.NewVMI()
 		field            = k8sfield.NewPath("spec", "template", "spec")
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
 			IOThreads: &virtv1.DiskIOThreads{
@@ -48,7 +48,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 	)
 
 	DescribeTable("should apply SupplementalPoolThreadCount when", func(vmi *virtv1.VirtualMachineInstance) {
-		Expect(applier.ApplyToVMI(field, instancetypeSpec, nil, vmi)).To(Succeed())
+		Expect(applier.Apply(field, instancetypeSpec, nil, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.IOThreads).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount).To(HaveValue(Equal(expectedThreadCount)))
@@ -60,7 +60,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 	It("should not apply SupplementalPoolThreadCount when SupplementalPoolThreadCount provided within VMI", func() {
 		vmi := libvmi.New(libvmi.WithIOThreads(virtv1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(userProvidedThreadCount)}))
 
-		Expect(applier.ApplyToVMI(field, instancetypeSpec, nil, vmi)).To(
+		Expect(applier.Apply(field, instancetypeSpec, nil, vmi)).To(
 			ContainElement(conflict.New("spec", "template", "spec", "domain", "ioThreads", "supplementalPoolThreadCount")))
 		Expect(vmi.Spec.Domain.IOThreads).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount).ToNot(BeNil())

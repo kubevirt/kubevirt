@@ -43,7 +43,7 @@ var _ = Describe("Preference.Devices", func() {
 		userDefinedBlockSize *virtv1.BlockSize
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 	)
 
 	BeforeEach(func() {
@@ -153,13 +153,13 @@ var _ = Describe("Preference.Devices", func() {
 					Pod: &virtv1.PodNetwork{},
 				},
 			}}
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
 			Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(BeNil())
 		})
 		It("should not be applied on interface that has another binding set", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = &virtv1.InterfaceSRIOV{}
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 			Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
 		})
@@ -167,13 +167,13 @@ var _ = Describe("Preference.Devices", func() {
 			vmi.Spec.Networks = []virtv1.Network{{
 				Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
 			}}
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 		})
 	})
 
 	It("should apply to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Devices.Disks[0].Cache).To(Equal(virtv1.CacheWriteBack))
 		Expect(vmi.Spec.Domain.Devices.Disks[0].IO).To(Equal(virtv1.IONative))
@@ -208,7 +208,7 @@ var _ = Describe("Preference.Devices", func() {
 	It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
 		vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk = nil
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(preferenceSpec.Devices.PreferredDiskBus))
 	})
@@ -217,14 +217,14 @@ var _ = Describe("Preference.Devices", func() {
 		diskTypeForTest := virtv1.DiskBusSCSI
 
 		vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus = diskTypeForTest
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Devices.Disks[1].DiskDevice.Disk.Bus).To(Equal(diskTypeForTest))
 	})
 
 	Context("PreferredDiskDedicatedIoThread", func() {
 		DescribeTable("should be ignored when", func(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
 				if disk.DiskDevice.Disk != nil {
 					Expect(disk.DedicatedIOThread).To(BeNil())
@@ -246,7 +246,7 @@ var _ = Describe("Preference.Devices", func() {
 					PreferredDiskDedicatedIoThread: pointer.P(true),
 				},
 			}
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
 				if disk.DiskDevice.Disk != nil {
 					if disk.DiskDevice.Disk.Bus == virtv1.DiskBusVirtio {
@@ -264,7 +264,7 @@ var _ = Describe("Preference.Devices", func() {
 			func(vmiTPM, preferenceTPM, expectedTPM *virtv1.TPMDevice) {
 				vmi.Spec.Domain.Devices.TPM = vmiTPM
 				preferenceSpec.Devices.PreferredTPM = preferenceTPM
-				Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+				Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 				Expect(vmi.Spec.Domain.Devices.TPM).To(Equal(expectedTPM))
 			},
 			Entry("only apply when TPM device is nil within VMI spec",
@@ -295,7 +295,7 @@ var _ = Describe("Preference.Devices", func() {
 			func(preferredPanicDeviceModel *virtv1.PanicDeviceModel, vmiPanicDevices, expectedPanicDevices []virtv1.PanicDevice) {
 				vmi.Spec.Domain.Devices.PanicDevices = vmiPanicDevices
 				preferenceSpec.Devices.PreferredPanicDeviceModel = preferredPanicDeviceModel
-				Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+				Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 				Expect(vmi.Spec.Domain.Devices.PanicDevices).To(Equal(expectedPanicDevices))
 			},
 			Entry("not apply when preferredPanicDeviceModel is nil",
@@ -325,7 +325,7 @@ var _ = Describe("Preference.Devices", func() {
 			func(preferredVideoType *string, vmiVideo, expectedVideo *virtv1.VideoDevice) {
 				vmi.Spec.Domain.Devices.Video = vmiVideo
 				preferenceSpec.Devices.PreferredVideoType = preferredVideoType
-				Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+				Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 				Expect(vmi.Spec.Domain.Devices.Video).To(Equal(expectedVideo))
 			},
 			Entry("only apply when video device type is empty within VMI spec",
@@ -386,7 +386,7 @@ var _ = Describe("Preference.Devices", func() {
 		for name, f := range autoAttachFields {
 			*f.preference = preferenceValue
 			*f.vmi = vmiValue
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 			Expect(*f.vmi).To(match, fmt.Sprintf("%s not applied correctly", name))
 		}
 	},

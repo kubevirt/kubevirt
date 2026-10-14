@@ -71,7 +71,7 @@ func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
 		instancetypeFinder:   find.NewSpecFinder(nil, nil, nil, virtClient),
 		preferenceFinder:     preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
 		requirementsChecker:  requirements.New(),
-		applyTemplateHandler: apply.NewVMIApplier(),
+		applyTemplateHandler: apply.NewVM(),
 	}
 }
 

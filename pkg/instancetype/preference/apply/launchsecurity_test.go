@@ -39,7 +39,7 @@ var _ = Describe("Preference.LaunchSecurity", func() {
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 
 		vmiLaunchSecurity = &virtv1.LaunchSecurity{
 			SEV: &virtv1.SEV{},
@@ -72,7 +72,7 @@ var _ = Describe("Preference.LaunchSecurity", func() {
 			preferenceSpec.PreferredLaunchSecurity = preferenceLaunchSecurity
 			instancetypeSpec.LaunchSecurity = instancetypeLaunchSecurity
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)
+			conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 
 			if expectError {
 				Expect(conflicts).ToNot(BeEmpty())

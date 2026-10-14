@@ -36,7 +36,7 @@ var _ = Describe("Preference.Annotations", func() {
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 		field      = k8sfield.NewPath("spec", "template", "spec")
 	)
 
@@ -52,7 +52,7 @@ var _ = Describe("Preference.Annotations", func() {
 	})
 
 	It("should apply to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, nil, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, nil, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Annotations).To(Equal(preferenceSpec.Annotations))
 	})
 
@@ -63,7 +63,7 @@ var _ = Describe("Preference.Annotations", func() {
 			"user-annotation": "preserved",
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, nil, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, nil, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Annotations).To(Equal(map[string]string{
 			"annotation-1":    "user-value",
 			"annotation-2":    "",
@@ -79,7 +79,7 @@ var _ = Describe("Preference.Annotations", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Annotations).To(Equal(map[string]string{
 			"annotation-1": "instancetype-value",
 			"annotation-2": "2",

@@ -21,16 +21,32 @@ package apply
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts conflict.Conflicts) {
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
+type annotations struct{}
+
+func (annotations) Apply(
+	_ *conflict.Conflict,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	_ *v1beta1.VirtualMachinePreferenceSpec,
+	_ *virtv1.VirtualMachineInstanceSpec,
+	vmiMetadata *metav1.ObjectMeta,
+) conflict.Conflicts {
+	if instancetypeSpec == nil {
+		return nil
 	}
 
-	targetAnnotations := target.GetAnnotations()
-	for key, value := range annotations {
+	if vmiMetadata.Annotations == nil {
+		vmiMetadata.Annotations = make(map[string]string)
+	}
+
+	targetAnnotations := vmiMetadata.Annotations
+	var conflicts conflict.Conflicts
+	for key, value := range instancetypeSpec.Annotations {
 		if targetValue, exists := targetAnnotations[key]; exists {
 			if targetValue != value {
 				conflicts = append(conflicts, conflict.New("annotations", key))

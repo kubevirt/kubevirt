@@ -19,66 +19,67 @@
 package apply
 
 import (
-	"fmt"
-
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
-type templateApplyHandler interface {
-	ApplyToTemplate(
-		field *k8sfield.Path,
-		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-		template *virtv1.VirtualMachineInstanceTemplateSpec,
-	) (conflicts conflict.Conflicts)
-}
-
-type specFinder interface {
-	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
-}
-
-type preferenceSpecFinder interface {
-	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+type preferenceVMApplier interface {
+	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachine)
+	ApplyToTemplate(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceTemplateSpec)
 }
 
 type vmApplier struct {
-	templateApplyHandler
-	specFinder
-	preferenceSpecFinder
+	specApplier       *specApplier
+	preferenceApplier preferenceVMApplier
 }
 
-func NewVMApplier(instancetypeFinder specFinder, preferenceFinder preferenceSpecFinder) *vmApplier {
+func NewVM() *vmApplier {
 	return &vmApplier{
-		templateApplyHandler: NewVMIApplier(),
-		specFinder:           instancetypeFinder,
-		preferenceSpecFinder: preferenceFinder,
+		specApplier:       NewSpec(),
+		preferenceApplier: preferenceApply.NewVM(),
 	}
 }
 
-func (a *vmApplier) ApplyToVM(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+func (a *vmApplier) Apply(
+	field *k8sfield.Path,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vm *virtv1.VirtualMachine,
+) conflict.Conflicts {
+	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil
 	}
-	instancetypeSpec, err := a.Find(vm)
-	if err != nil {
-		return err
+
+	template := vm.Spec.Template
+	if conflicts := a.specApplier.Apply(field, instancetypeSpec, preferenceSpec, &template.Spec, &template.ObjectMeta); len(conflicts) > 0 {
+		return conflicts
 	}
-	preferenceSpec, err := a.FindPreference(vm)
-	if err != nil {
-		return err
+
+	a.preferenceApplier.Apply(preferenceSpec, vm)
+
+	return nil
+}
+
+func (a *vmApplier) ApplyToTemplate(
+	field *k8sfield.Path,
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	template *virtv1.VirtualMachineInstanceTemplateSpec,
+) conflict.Conflicts {
+	if instancetypeSpec == nil && preferenceSpec == nil {
+		return nil
 	}
-	if conflicts := a.ApplyToTemplate(
-		k8sfield.NewPath("spec"),
-		instancetypeSpec,
-		preferenceSpec,
-		vm.Spec.Template,
-	); len(conflicts) > 0 {
-		return fmt.Errorf("VM conflicts with instancetype spec in fields: [%s]", conflicts.String())
+
+	if conflicts := a.specApplier.Apply(field, instancetypeSpec, preferenceSpec, &template.Spec, &template.ObjectMeta); len(conflicts) > 0 {
+		return conflicts
 	}
+
+	a.preferenceApplier.ApplyToTemplate(preferenceSpec, template)
+
 	return nil
 }
