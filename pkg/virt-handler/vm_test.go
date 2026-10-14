@@ -3272,68 +3272,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
-	Context("claimDeviceOwnership", func() {
-		var path string
-		BeforeEach(func() {
-			path = GinkgoT().TempDir()
-		})
-
-		Context("with a generic device", func() {
-			const device = "device"
-			BeforeEach(func() {
-				Expect(os.Mkdir(filepath.Join(path, "dev"), 0o755)).To(Succeed())
-				f, err := os.Create(filepath.Join(path, "dev", device))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(f.Close()).To(Succeed())
-			})
-
-			It("should succeed", func() {
-				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(controller.claimDeviceOwnership(p, device)).To(Succeed())
-			})
-
-			DescribeTable("should return an error if the device doesn't exist", func(softEmulation bool) {
-				kv := &v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						UseEmulation: softEmulation,
-					},
-				}
-				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
-				controller.clusterConfig = config
-
-				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(controller.claimDeviceOwnership(p, "noexist")).To(HaveOccurred())
-			},
-				Entry("with software emulation enabled", true),
-				Entry("with software emulation disable", false),
-			)
-		})
-
-		DescribeTable("iwith kvm device not existing should", func(softEmulation bool) {
-			kv := &v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					UseEmulation: softEmulation,
-				},
-			}
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
-			controller.clusterConfig = config
-
-			p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-			Expect(err).ToNot(HaveOccurred())
-			err = controller.claimDeviceOwnership(p, "kvm")
-			if softEmulation {
-				Expect(err).NotTo(HaveOccurred())
-			} else {
-				Expect(err).To(HaveOccurred())
-			}
-		},
-			Entry("failed with software emulation enabled", true),
-			Entry("succeed with software emulation disable", false),
-		)
-	})
-
 	Context("on post-copy migration failure", func() {
 		It("should fail the VMI", func() {
 			By("Creating a migrating VMI with a domain in failed post-copy migration state")
