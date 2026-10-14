@@ -691,6 +691,7 @@ func RunServer(socketPath string,
 	}
 	server := NewLauncher(domainManager, options)
 	registerInfoServer(grpcServer)
+	registerAuthServer(grpcServer)
 
 	// register more versions as soon as needed
 	// and add them to info.go

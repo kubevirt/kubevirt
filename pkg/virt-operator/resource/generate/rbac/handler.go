@@ -180,6 +180,17 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"authentication.k8s.io",
+				},
+				Resources: []string{
+					"tokenreviews",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
 		},
 	}
 }

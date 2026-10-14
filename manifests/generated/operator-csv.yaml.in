@@ -942,6 +942,12 @@ spec:
           - list
           - watch
         - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
           - export.kubevirt.io
           resources:
           - virtualmachineexports

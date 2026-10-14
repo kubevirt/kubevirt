@@ -328,6 +328,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -371,6 +372,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -455,7 +457,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 			}
 			lw := &cache.ListWatch{
 				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails), nil
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil, nil), nil
 				},
 			}
 

@@ -269,6 +269,17 @@ const (
 	// migration convergence via the ExperimentalMigrationOptions.DowntimeTuning field.
 	MigrationDowntimeTuning = "MigrationDowntimeTuning"
 
+	// Owner: sig-compute / @jean-edouard
+	// Alpha: v1.10.0
+	//
+	// LauncherSocketAuthentication enables authenticated, cache-free
+	// discovery of virt-launcher command sockets. When enabled,
+	// virt-handler verifies a projected ServiceAccount token from each
+	// virt-launcher via the TokenReview API before communicating over
+	// the socket, and discovers launchers from the pod informer instead
+	// of on-disk ghost record caches.
+	LauncherSocketAuthentication = "LauncherSocketAuthentication"
+
 	// Owner: sig-compute / @lyarwood
 	// Alpha: v1.9.0
 	//
@@ -332,4 +343,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LauncherSocketAuthentication, State: Alpha})
 }
