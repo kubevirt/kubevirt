@@ -103,7 +103,7 @@ func executeBackendDevice(ctx context.Context, hostPath, targetInterface string,
 	}
 
 	socketPath := socketPathFor(hostPath)
-	gwIP, err := ipv4Addr(targetInterface)
+	gwIP4, gwIP6, err := ifaceGlobalIPs(targetInterface)
 	if err != nil {
 		return err
 	}
@@ -112,8 +112,9 @@ func executeBackendDevice(ctx context.Context, hostPath, targetInterface string,
 		"--vhost-user",
 		"-s", socketPath,
 		"--outbound-if4", targetInterface,
-		"-g", gwIP,
-		"-4",
+		"--outbound-if6", targetInterface,
+		"-g", gwIP4,
+		"-g", gwIP6,
 		"--one-off",
 		"-t", strconv.Itoa(targetPort),
 		"--pid", pidFilePath(hostPath),
@@ -153,23 +154,35 @@ func executeBackendDevice(ctx context.Context, hostPath, targetInterface string,
 	return nil
 }
 
-func ipv4Addr(ifaceName string) (string, error) {
+func ifaceGlobalIPs(ifaceName string) (ipv4, ipv6 string, err error) {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		return "", fmt.Errorf("failed to find interface %s: %w", ifaceName, err)
+		return "", "", fmt.Errorf("failed to find interface %s: %w", ifaceName, err)
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
-		return "", fmt.Errorf("failed to get addresses for %s: %w", ifaceName, err)
+		return "", "", fmt.Errorf("failed to get addresses for %s: %w", ifaceName, err)
 	}
 	for _, addr := range addrs {
 		ipNet, ok := addr.(*net.IPNet)
 		if !ok {
 			continue
 		}
-		if ip := ipNet.IP.To4(); ip != nil && ip.IsGlobalUnicast() {
-			return ip.String(), nil
+		ip := ipNet.IP
+		if ipv4 == "" {
+			if ip4 := ip.To4(); ip4 != nil && ip4.IsGlobalUnicast() {
+				ipv4 = ip4.String()
+			}
+		}
+		if ipv6 == "" && ip.To4() == nil && ip.To16() != nil && ip.IsGlobalUnicast() {
+			ipv6 = ip.String()
+		}
+		if ipv4 != "" && ipv6 != "" {
+			return ipv4, ipv6, nil
 		}
 	}
-	return "", fmt.Errorf("no IPv4 address found on %s", ifaceName)
+	if ipv4 == "" {
+		return "", "", fmt.Errorf("no IPv4 address found on %s", ifaceName)
+	}
+	return "", "", fmt.Errorf("no IPv6 address found on %s", ifaceName)
 }
