@@ -42,7 +42,10 @@ var _ = Describe("VerifyVMIMigratable", func() {
 	}
 
 	DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(netmigration.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+		clusterConfig := stubClusterConfigurer{
+			bindingPlugins: bindingPlugins,
+		}
+		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).To(Succeed())
 	},
 		Entry("when the VMI uses masquerade to connect to the pod network",
 			libvmi.New(
@@ -72,7 +75,10 @@ var _ = Describe("VerifyVMIMigratable", func() {
 	)
 
 	DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(netmigration.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
+		clusterConfig := stubClusterConfigurer{
+			bindingPlugins: bindingPlugins,
+		}
+		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).ToNot(Succeed())
 	},
 		Entry("when the VMI uses bridge binding to connect to the pod network",
 			libvmi.New(
@@ -94,4 +100,12 @@ func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
 		Name:    name,
 		Binding: &v1.PluginBinding{Name: pluginName},
 	}
+}
+
+type stubClusterConfigurer struct {
+	bindingPlugins map[string]v1.InterfaceBindingPlugin
+}
+
+func (c stubClusterConfigurer) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+	return c.bindingPlugins
 }

@@ -28,7 +28,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[string]v1.InterfaceBindingPlugin) error {
+type clusterConfigurer interface {
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+}
+
+func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, config clusterConfigurer) error {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	if len(ifaces) == 0 {
 		return nil
@@ -40,6 +44,8 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	}
 
 	primaryIface := vmispec.LookupInterfaceByName(ifaces, podNetwork.Name)
+
+	bindingPlugins := config.GetNetworkBindings()
 
 	switch {
 	case primaryIface == nil:

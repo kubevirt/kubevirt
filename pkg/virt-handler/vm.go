@@ -1758,7 +1758,7 @@ func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstan
 }
 
 func (c *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	return netmigration.VerifyVMIMigratable(vmi, c.clusterConfig.GetNetworkBindings())
+	return netmigration.VerifyVMIMigratable(vmi, c.clusterConfig)
 }
 
 func isReadOnlyDisk(disk *v1.Disk) bool {
