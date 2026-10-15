@@ -22,16 +22,7 @@ import (
 	"strings"
 )
 
-const (
-	sysctlBase            = "/proc/sys"
-	NetIPv6Forwarding     = "net/ipv6/conf/all/forwarding"
-	NetIPv4Forwarding     = "net/ipv4/ip_forward"
-	Ipv4ArpIgnoreAll      = "net/ipv4/conf/all/arp_ignore"
-	Ipv4ArpIgnore         = "net/ipv4/conf/%s/arp_ignore"
-	PingGroupRange        = "net/ipv4/ping_group_range"
-	IPv4RouteLocalNet     = "net/ipv4/conf/%s/route_localnet"
-	UnprivilegedPortStart = "net/ipv4/ip_unprivileged_port_start"
-)
+const sysctlBase = "/proc/sys"
 
 // Interface is an injectable interface for running sysctl commands.
 type Interface interface {

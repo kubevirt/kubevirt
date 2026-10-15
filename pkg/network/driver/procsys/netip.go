@@ -32,16 +32,26 @@ type ProcSys struct{}
 
 var sysCtl = sysctl.New()
 
+const (
+	netIPv6Forwarding = "net/ipv6/conf/all/forwarding"
+	netIPv4Forwarding = "net/ipv4/ip_forward"
+	ipv4ArpIgnore     = "net/ipv4/conf/%s/arp_ignore"
+	ipv4RouteLocalNet = "net/ipv4/conf/%s/route_localnet"
+
+	PingGroupRange        = "net/ipv4/ping_group_range"
+	UnprivilegedPortStart = "net/ipv4/ip_unprivileged_port_start"
+)
+
 var (
 	enable = "1"
 )
 
 func (p ProcSys) IPv4SetArpIgnore(iface string, replyMode ArpReplyMode) error {
-	return sysCtl.SetSysctl(fmt.Sprintf(sysctl.Ipv4ArpIgnore, iface), strconv.Itoa(int(replyMode)))
+	return sysCtl.SetSysctl(fmt.Sprintf(ipv4ArpIgnore, iface), strconv.Itoa(int(replyMode)))
 }
 
 func (p ProcSys) IPv4GetArpIgnore(iface string) (ArpReplyMode, error) {
-	val, err := sysCtl.GetSysctl(fmt.Sprintf(sysctl.Ipv4ArpIgnore, iface))
+	val, err := sysCtl.GetSysctl(fmt.Sprintf(ipv4ArpIgnore, iface))
 	if err != nil {
 		return 0, err
 	}
@@ -53,20 +63,20 @@ func (p ProcSys) IPv4GetArpIgnore(iface string) (ArpReplyMode, error) {
 }
 
 func (p ProcSys) IPv4EnableForwarding() error {
-	return sysCtl.SetSysctl(sysctl.NetIPv4Forwarding, enable)
+	return sysCtl.SetSysctl(netIPv4Forwarding, enable)
 }
 
 func (p ProcSys) IPv4GetForwarding() (bool, error) {
-	val, err := sysCtl.GetSysctl(sysctl.NetIPv4Forwarding)
+	val, err := sysCtl.GetSysctl(netIPv4Forwarding)
 	return val == enable, err
 }
 
 func (p ProcSys) IPv6EnableForwarding() error {
-	return sysCtl.SetSysctl(sysctl.NetIPv6Forwarding, enable)
+	return sysCtl.SetSysctl(netIPv6Forwarding, enable)
 }
 
 func (p ProcSys) IPv6GetForwarding() (bool, error) {
-	val, err := sysCtl.GetSysctl(sysctl.NetIPv6Forwarding)
+	val, err := sysCtl.GetSysctl(netIPv6Forwarding)
 
 	//when ipv6 has disabled, val will not exist, so need default return false
 	if errors.Is(err, os.ErrNotExist) {
@@ -77,11 +87,11 @@ func (p ProcSys) IPv6GetForwarding() (bool, error) {
 }
 
 func (p ProcSys) IPv4SetPingGroupRange(from, to int) error {
-	return sysCtl.SetSysctl(sysctl.PingGroupRange, fmt.Sprintf("%d %d", from, to))
+	return sysCtl.SetSysctl(PingGroupRange, fmt.Sprintf("%d %d", from, to))
 }
 
 func (p ProcSys) IPv4GetPingGroupRange() (int, int, error) {
-	val, err := sysCtl.GetSysctl(sysctl.PingGroupRange)
+	val, err := sysCtl.GetSysctl(PingGroupRange)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -91,22 +101,22 @@ func (p ProcSys) IPv4GetPingGroupRange() (int, int, error) {
 }
 
 func (p ProcSys) IPv4EnableRouteLocalNet(linkName string) error {
-	routeLocalNetForLink := fmt.Sprintf(sysctl.IPv4RouteLocalNet, linkName)
+	routeLocalNetForLink := fmt.Sprintf(ipv4RouteLocalNet, linkName)
 	return sysCtl.SetSysctl(routeLocalNetForLink, enable)
 }
 
 func (p ProcSys) IPv4GetRouteLocalNet(linkName string) (bool, error) {
-	routeLocalNetForLink := fmt.Sprintf(sysctl.IPv4RouteLocalNet, linkName)
+	routeLocalNetForLink := fmt.Sprintf(ipv4RouteLocalNet, linkName)
 	val, err := sysCtl.GetSysctl(routeLocalNetForLink)
 	return val == enable, err
 }
 
 func (p ProcSys) IPv4SetUnprivilegedPortStart(port int) error {
-	return sysCtl.SetSysctl(sysctl.UnprivilegedPortStart, strconv.Itoa(port))
+	return sysCtl.SetSysctl(UnprivilegedPortStart, strconv.Itoa(port))
 }
 
 func (p ProcSys) IPv4GetUnprivilegedPortStart() (int, error) {
-	val, err := sysCtl.GetSysctl(sysctl.UnprivilegedPortStart)
+	val, err := sysCtl.GetSysctl(UnprivilegedPortStart)
 	if err != nil {
 		return 0, err
 	}
