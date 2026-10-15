@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package cpuhook
+package cpuhook_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,7 +96,7 @@ var _ = Describe("Premigration Hook Server", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to parse input domain XML")
 
 			By("running the CPU dedicated hook")
-			err = CPUDedicatedHook(c, vmi, &domain)
+			err = cpuhook.CPUDedicatedHook(c, vmi, &domain)
 			Expect(err).NotTo(HaveOccurred(), "failed to modify domain")
 
 			By("marshaling the modified domain back to XML")
