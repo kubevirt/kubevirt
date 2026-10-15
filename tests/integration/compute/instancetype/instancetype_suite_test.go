@@ -58,4 +58,5 @@ var _ = Describe("Instancetype", Ordered, ContinueOnFailure, func() {
 	s.describeReferences()
 	s.describeApplication()
 	s.describeRevisions()
+	s.describeMemoryOvercommit()
 })
