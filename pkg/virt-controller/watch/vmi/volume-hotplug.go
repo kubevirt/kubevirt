@@ -288,6 +288,7 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
 
+	var createErr common.SyncError
 	currentPod, oldPods := getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
 	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
 		if rateLimited, waitTime := c.requeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10)); rateLimited {
@@ -299,7 +300,7 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 			c.Queue.AddAfter(key, waitTime)
 		} else {
 			if newPod, err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
-				return err
+				createErr = err
 			} else {
 				currentPod = newPod
 			}
@@ -307,6 +308,9 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 	}
 	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
 		return err
+	}
+	if createErr != nil {
+		return createErr
 	}
 	// A trigger pod that could not be created is the more actionable of the two, so it names the
 	// reason when both happened.
@@ -321,7 +325,10 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 }
 
 func (c *Controller) createAttachmentPod(vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*v1.Volume) (*k8sv1.Pod, common.SyncError) {
-	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes)
+	attachmentPodTemplate, err := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes)
+	if err != nil {
+		return nil, common.NewSyncError(fmt.Errorf("Error rendering attachment pod template %v", err), controller.FailedCreatePodReason)
+	}
 	if attachmentPodTemplate == nil {
 		return nil, nil
 	}

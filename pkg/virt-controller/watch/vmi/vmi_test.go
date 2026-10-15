@@ -4037,6 +4037,61 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(attachmentPods[0].Spec.Volumes).ToNot(ContainElement(HaveField("Name", "wffc")))
 		})
 
+		It("Should fail the sync and still clean up old attachment pods when the attachment pod template cannot be rendered", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "served",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "served-pvc"},
+							Hotpluggable:                      true,
+						},
+					},
+				},
+				{
+					Name: "ready",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "ready-pvc"},
+							Hotpluggable:                      true,
+						},
+					},
+				},
+			}
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			servingPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-served", "abcd", k8sv1.PodRunning)
+			servingPod.Spec.Volumes = append(servingPod.Spec.Volumes, k8sv1.Volume{
+				Name: "served",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "served-pvc"},
+				},
+			})
+			oldPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-old", "efgh", k8sv1.PodRunning)
+			oldPod.Spec.Volumes = append(oldPod.Spec.Volumes, k8sv1.Volume{
+				Name: "unplugged",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "unplugged"},
+				},
+			})
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(servingPod)
+			addPod(oldPod)
+			readyPVC := newPvc(k8sv1.NamespaceDefault, "ready-pvc")
+			readyPVC.Status.Phase = k8sv1.ClaimBound
+			Expect(controller.pvcIndexer.Add(readyPVC)).To(Succeed())
+
+			hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+			syncErr := controller.handleHotplugVolumes(hotplugVolumes, []*k8sv1.Pod{servingPod, oldPod}, vmi, virtlauncherPod, nil)
+			Expect(syncErr).To(HaveOccurred())
+			Expect(syncErr.Reason()).To(Equal(kvcontroller.FailedCreatePodReason))
+			Expect(syncErr.Error()).To(ContainSubstring("served-pvc"))
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+			expectPodDoesNotExist(oldPod.Namespace, oldPod.Name)
+			expectPodExists(servingPod.Namespace, servingPod.Name)
+		})
+
 		It("Should set error for utility volume with block mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
