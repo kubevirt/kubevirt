@@ -57,15 +57,18 @@ import (
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
 	exportServer "kubevirt.io/kubevirt/pkg/storage/export/virt-exportserver"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -1215,6 +1218,75 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Verifying endpoints are accessible again after recreation")
 		verifyPullEndpoints(virtClient, backup, backup.Status.Type, tokenValue)
+	})
+
+	Context("with a root virt-launcher", Serial, func() {
+		var clusterIsRoot bool
+
+		BeforeEach(func() {
+			clusterIsRoot = checks.HasFeature(featuregate.Root)
+			if !clusterIsRoot {
+				kvconfig.EnableFeatureGate(featuregate.Root)
+			}
+		})
+
+		AfterEach(func() {
+			if !clusterIsRoot {
+				kvconfig.DisableFeatureGate(featuregate.Root)
+			}
+		})
+
+		It("should serve a pull mode backup", func() {
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(
+					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+				),
+			)
+			vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+				libvmi.WithLabels(backup.CBTLabel),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+
+			By(fmt.Sprintf("Creating VM %s", vm.Name))
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.RuntimeUser).To(BeZero(), "The VM should run in a root virt-launcher")
+
+			By("Creating Secret with custom token for pull mode backup")
+			tokenValue := "backup-token-" + rand.String(5)
+			tokenSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "backup-secret-" + rand.String(5),
+					Namespace: vm.Namespace,
+				},
+				StringData: map[string]string{
+					"token": tokenValue,
+				},
+			}
+			_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating scratch PVC for the Pull Mode Backup")
+			scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+			By("Creating Pull Mode Backup")
+			pullBackup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
+			pullBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+			pullBackup.Spec.TokenSecretRef = tokenSecret.Name
+
+			pullBackup, err = virtClient.VirtualMachineBackup(pullBackup.Namespace).Create(context.Background(), pullBackup, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pullBackup = waitBackupExportReady(virtClient, pullBackup.Namespace, pullBackup.Name)
+			verifyPullEndpoints(virtClient, pullBackup, pullBackup.Status.Type, tokenValue)
+		})
 	})
 }))
 

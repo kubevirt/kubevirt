@@ -27,7 +27,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirt"
@@ -36,6 +38,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -409,11 +413,37 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 var preparePullBackupSocket = preparePullBackupSocketFunc
 
 func preparePullBackupSocketFunc(vmi *v1.VirtualMachineInstance) (string, error) {
-	dir := cbt.PathForBackupNBD(vmi)
+	dir := cbt.PathForBackupNBDSocketDir(vmi)
 	if err := kutil.MkdirAllWithNosec(dir); err != nil {
 		return "", fmt.Errorf("failed to create %s: %w", dir, err)
 	}
+	if err := relabelWithoutCategories(dir); err != nil {
+		return "", fmt.Errorf("failed to relabel %s: %w", dir, err)
+	}
+	safeDir, err := safepath.JoinAndResolveWithRelativeRoot("/", dir)
+	if err != nil {
+		return "", err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(safeDir); err != nil {
+		return "", fmt.Errorf("failed to set the ownership of %s: %w", dir, err)
+	}
 	return filepath.Join(dir, cbt.NBDSocketName), nil
+}
+
+func relabelWithoutCategories(path string) error {
+	label, err := selinux.FileLabel(path)
+	if errors.Is(err, syscall.ENODATA) || errors.Is(err, syscall.ENOTSUP) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	ctx, err := selinux.NewContext(label)
+	if err != nil {
+		return err
+	}
+	ctx["level"] = "s0"
+	return selinux.SetFileLabel(path, ctx.Get())
 }
 
 func (m *StorageManager) ExportVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {

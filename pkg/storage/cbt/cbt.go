@@ -60,6 +60,7 @@ var (
 const (
 	NBDSocketName    = "backup-nbd-sock"
 	BackupNBDSubPath = "cbt-nbd"
+	NBDSocketDir     = "sock"
 )
 
 func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingState {
@@ -330,6 +331,10 @@ func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 
 func PathForBackupNBD(vmi *v1.VirtualMachineInstance) string {
 	return filepath.Join(qemuStatePath(vmi), BackupNBDSubPath)
+}
+
+func PathForBackupNBDSocketDir(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(PathForBackupNBD(vmi), NBDSocketDir)
 }
 
 const rootQEMUStateDir = "/var/lib/libvirt/qemu"
