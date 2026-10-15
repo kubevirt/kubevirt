@@ -23,13 +23,10 @@ import (
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirtxml"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Premigration Hook Server", func() {
@@ -56,20 +53,12 @@ var _ = Describe("Premigration Hook Server", func() {
 </domain>`
 
 			By("creating a VMI with dedicated CPU cores")
-			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "testns",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Domain: v1.DomainSpec{
-						CPU: &v1.CPU{
-							Cores:                 2,
-							DedicatedCPUPlacement: true,
-						},
-					},
-				},
-			}
+			vmi := libvmi.New(
+				libvmi.WithName("kubevirt"),
+				libvmi.WithNamespace("testns"),
+				libvmi.WithCPUCount(2, 0, 0),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
 
 			By("making up a target topology and CPU set")
 			topology := &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
