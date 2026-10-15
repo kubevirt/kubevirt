@@ -107,7 +107,7 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+dump:
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
