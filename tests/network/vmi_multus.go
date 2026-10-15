@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -165,9 +166,19 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(libvmi.MultusNetwork("ptp", fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2))),
 				)
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(detachedVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				detachedVMI, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				detachedVMI = libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
 			})
@@ -183,9 +194,19 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, ptpConf1)),
 				)
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(detachedVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				detachedVMI, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				detachedVMI = libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				cmdCheck := "ip link set eth1 up && udhcpc -i eth1 -n -q > /dev/null 2>&1\n"
 				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
@@ -230,9 +251,19 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					}),
 				)
 
-				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(detachedVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				detachedVMI, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				detachedVMI = libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
 
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
@@ -271,14 +302,32 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 			}
 
 			DescribeTable("should be able to ping between two vms", func(vmiOpts []libvmi.Option, ifaceName string) {
-				ns := testsuite.GetTestNamespace(nil)
-				vmiOne, err := virtClient.VirtualMachineInstance(ns).Create(context.Background(), libvmifact.NewAlpine(vmiOpts...), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vmiTwo, err := virtClient.VirtualMachineInstance(ns).Create(context.Background(), libvmifact.NewAlpine(vmiOpts...), metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpine(vmiOpts...), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmiOne, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpine(vmiOpts...), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmiTwo, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				vmiTwo = libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
@@ -329,14 +378,32 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						withCoLocationAffinity("linux-bridge-ipam"),
 					)
 				}
-				ns := testsuite.GetTestNamespace(nil)
-				vmiOne, err := virtClient.VirtualMachineInstance(ns).Create(context.Background(), newVMI(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vmiTwo, err := virtClient.VirtualMachineInstance(ns).Create(context.Background(), newVMI(), metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(newVMI(), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmiOne, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(newVMI(), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmiTwo, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
+				vmiTwo = libwait.WaitUntilVMIReady(vmiTwo, console.LoginToAlpine)
 
 				Expect(configureAlpineInterfaceIP(vmiOne, ifaceName, "")).To(Succeed())
 				By(fmt.Sprintf("checking virtual machine interface %s state", ifaceName))
@@ -376,8 +443,18 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					withCoLocationAffinity("custom-mac"),
 				)
-				vmiTwo, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(vmiTwo, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmiTwo, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 			})
 
@@ -404,7 +481,16 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					withCoLocationAffinity("custom-mac"),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -441,10 +527,19 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				updatedVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -498,7 +593,16 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -551,8 +655,17 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 						withCoLocationAffinity("mac-spoof-check"),
 					)
-					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+						Create(context.Background(), libvmi.NewVirtualMachine(vmiUnderTest, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+					Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+						WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+						WithPolling(time.Second).
+						Should(matcher.Exist())
+
+					vmiUnderTest, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
 					targetNetworkData, err := cloudinit.NewNetworkData(
@@ -569,8 +682,17 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
 						withCoLocationAffinity("mac-spoof-check"),
 					)
-					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
+					vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+						Create(context.Background(), libvmi.NewVirtualMachine(targetVmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+					Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+						WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+						WithPolling(time.Second).
+						Should(matcher.Exist())
+
+					targetVmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
 					libwait.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
@@ -617,10 +739,20 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithMemoryRequest("1024M"),
 				)
 
-				By("Starting a VirtualMachineInstance")
-				agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				libwait.WaitForSuccessfulVMIStart(agentVMI)
+				By("Starting a VirtualMachine")
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), libvmi.NewVirtualMachine(agentVMI, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should create VM successfully")
+
+				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).
+					WithTimeout(flags.VMIStartupTimeoutInSeconds()).
+					WithPolling(time.Second).
+					Should(matcher.Exist())
+
+				agentVMI, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				agentVMI = libwait.WaitForSuccessfulVMIStart(agentVMI)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(agentVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
