@@ -88,72 +88,98 @@ var _ = Describe("Status Update", func() {
 		alternativeNetworkAttachmentDefinitionName = "alternativeNAD"
 
 		customIfaceName = "custom-iface"
+
+		networkDevicesWithDRAFgEnabled  = true
+		networkDevicesWithDRAFgDisabled = false
 	)
 
-	DescribeTable("Shouldn't generate interface status for a VMI without interfaces", func(podAnnotations map[string]string) {
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithAutoAttachPodInterface(false),
-		)
+	multusAndPodStatus := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus)
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
-		Expect(vmi.Status.Interfaces).To(BeEmpty())
-	},
-		Entry("When the Multus network-status annotation is absent", nil),
-		Entry("When the Multus network-status annotation exists",
+	DescribeTable("Shouldn't generate interface status for a VMI without interfaces",
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithAutoAttachPodInterface(false),
+			)
+
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
+			Expect(vmi.Status.Interfaces).To(BeEmpty())
+		},
+		Entry("When the Multus network-status annotation is absent, DRA FG disabled", networkDevicesWithDRAFgDisabled, nil),
+		Entry("When the Multus network-status annotation exists, DRA FG disabled", networkDevicesWithDRAFgDisabled,
+			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
+		),
+		Entry("When the Multus network-status annotation is absent, DRA FG enabled", networkDevicesWithDRAFgEnabled, nil),
+		Entry("When the Multus network-status annotation exists, DRA FG enabled", networkDevicesWithDRAFgEnabled,
 			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
 		),
 	)
 
-	DescribeTable("Should generate interface status for primary network (not matched on status)", func(podAnnotations map[string]string) {
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
+	DescribeTable("Should generate interface status for primary network (not matched on status)",
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
-		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
-		}
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultNetworkName, PodInterfaceName: "eth0"},
+			}
 
-		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-	},
-		Entry("When Multus network status is absent", map[string]string{}),
-		Entry("When Multus network status does not report interface name",
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		},
+		Entry("When Multus network status is absent, DRA FG disabled", networkDevicesWithDRAFgDisabled, map[string]string{}),
+		Entry("When Multus network status does not report interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
 		),
-		Entry("When Multus network status reports interface name",
+		Entry("When Multus network status reports interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
+			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNetAndIfaceName},
+		),
+		Entry("When Multus network status is absent, DRA FG enabled", networkDevicesWithDRAFgEnabled, map[string]string{}),
+		Entry("When Multus network status does not report interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
+		),
+		Entry("When Multus network status reports interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
 			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNetAndIfaceName},
 		),
 	)
 
-	DescribeTable("Should generate interface status for primary network (matched on status)", func(podAnnotations map[string]string) {
-		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: defaultNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
+	DescribeTable("Should generate interface status for primary network (matched on status)",
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string) {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
 
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
-		)
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
-		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
 
-		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-	},
-		Entry("When Multus network status is absent", map[string]string{}),
-		Entry("When Multus network status does not report interface name",
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		},
+		Entry("When Multus network status is absent, DRA FG disabled", networkDevicesWithDRAFgDisabled, map[string]string{}),
+		Entry("When Multus network status does not report interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
 		),
-		Entry("When Multus network status reports interface name",
+		Entry("When Multus network status reports interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
+			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNetAndIfaceName},
+		),
+		Entry("When Multus network status is absent, DRA FG enabled", networkDevicesWithDRAFgEnabled, map[string]string{}),
+		Entry("When Multus network status does not report interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet},
+		),
+		Entry("When Multus network status reports interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
 			map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNetAndIfaceName},
 		),
 	)
@@ -166,7 +192,7 @@ var _ = Describe("Status Update", func() {
 		)
 
 		annotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithCustomPrimaryNet}
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, annotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, annotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: customIfaceName},
@@ -176,7 +202,7 @@ var _ = Describe("Status Update", func() {
 	})
 
 	DescribeTable("Should generate interface status for Multus default network (not matched on status)",
-		func(podAnnotations map[string]string) {
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(libvmi.NewInterface(alternativeNetworkName, libvmi.WithBridgeBinding())),
@@ -191,7 +217,7 @@ var _ = Describe("Status Update", func() {
 				}),
 			)
 
-			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, map[string]string{}), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: alternativeNetworkName, PodInterfaceName: "eth0"},
@@ -199,16 +225,31 @@ var _ = Describe("Status Update", func() {
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 		},
-		Entry("when Multus network status is absent",
+		Entry("when Multus network status is absent, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName},
 		),
-		Entry("When Multus network status does not report interface name",
+		Entry("When Multus network status does not report interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
 				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNet,
 			},
 		),
-		Entry("When Multus network status reports interface name",
+		Entry("When Multus network status reports interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
+			map[string]string{
+				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
+				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNetAndIfaceName,
+			},
+		),
+		Entry("when Multus network status is absent, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName},
+		),
+		Entry("When Multus network status does not report interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
+				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNet,
+			},
+		),
+		Entry("When Multus network status reports interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
 			map[string]string{
 				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
 				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNetAndIfaceName,
@@ -216,46 +257,64 @@ var _ = Describe("Status Update", func() {
 		),
 	)
 
-	DescribeTable("Should generate interface status for Multus default network (matched on status)", func(podAnnotations map[string]string) {
-		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: alternativeNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
+	DescribeTable("Should generate interface status for Multus default network (matched on status)",
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string) {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: alternativeNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
 
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithInterface(libvmi.NewInterface(alternativeNetworkName, libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name: alternativeNetworkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: alternativeNetworkAttachmentDefinitionName,
-						Default:     true,
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(alternativeNetworkName, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(&v1.Network{
+					Name: alternativeNetworkName,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: alternativeNetworkAttachmentDefinitionName,
+							Default:     true,
+						},
 					},
-				},
-			}),
-			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
-		)
+				}),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
-		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: alternativeNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: alternativeNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
 
-		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-	},
-		Entry("When Multus network status is absent",
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		},
+		Entry("When Multus network status is absent, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
 			},
 		),
-		Entry("When Multus network status does not report interface name",
+		Entry("When Multus network status does not report interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
 				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNet,
 			},
 		),
-		Entry("When Multus network status reports interface name",
+		Entry("When Multus network status reports interface name, DRA FG disabled", networkDevicesWithDRAFgDisabled,
+			map[string]string{
+				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
+				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNetAndIfaceName,
+			},
+		),
+		Entry("When Multus network status is absent, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
+			},
+		),
+		Entry("When Multus network status does not report interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
+				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNet,
+			},
+		),
+		Entry("When Multus network status reports interface name, DRA FG enabled", networkDevicesWithDRAFgEnabled,
 			map[string]string{
 				multus.DefaultNetworkCNIAnnotation: alternativeNetworkAttachmentDefinitionName,
 				networkv1.NetworkStatusAnnot:       multusNetworkStatusWithAlternativePrimaryNetAndIfaceName,
@@ -272,24 +331,27 @@ var _ = Describe("Status Update", func() {
 
 		podAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgEnabled)).To(Succeed())
 
 		Expect(vmi.Status.Interfaces).To(BeEmpty())
 	})
 
 	DescribeTable("Should generate interface status for secondary interface (not matched on status) when Multus network status is reported",
-		func(podAnnotations map[string]string, expectedInterfaces []v1.VirtualMachineInstanceNetworkInterface) {
+		func(networkDevicesWithDRAGateEnabled bool, podAnnotations map[string]string,
+			expectedInterfaces []v1.VirtualMachineInstanceNetworkInterface,
+		) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
 			)
 
-			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfaces))
 		},
-		Entry("When using hashed naming scheme",
+		Entry("When using hashed naming scheme, DRA FG disabled",
+			networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
@@ -298,7 +360,18 @@ var _ = Describe("Status Update", func() {
 				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 			},
 		),
-		Entry("When using ordinal naming scheme",
+		Entry("When using hashed naming scheme, DRA FG enabled",
+			networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			},
+			[]v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: multusAndPodStatus},
+			},
+		),
+		Entry("When using ordinal naming scheme, DRA FG disabled",
+			networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
@@ -307,10 +380,22 @@ var _ = Describe("Status Update", func() {
 				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: vmispec.InfoSourceMultusStatus},
 			},
 		),
+		Entry("When using ordinal naming scheme, DRA FG enabled",
+			networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
+			},
+			[]v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: multusAndPodStatus},
+			},
+		),
 	)
 
 	DescribeTable("Interface status should be reported correctly for VMI with primary and secondary networks",
-		func(podAnnotations map[string]string, expectedPrimaryInterfaceName string) {
+		func(networkDevicesWithDRAGateEnabled bool,
+			podAnnotations map[string]string, expectedPrimaryInterfaceName, expectedSecondaryInfoSource string,
+		) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
@@ -319,28 +404,50 @@ var _ = Describe("Status Update", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
 			)
 
-			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+			Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAGateEnabled)).To(Succeed())
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: defaultNetworkName, PodInterfaceName: expectedPrimaryInterfaceName},
-				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: expectedSecondaryInfoSource},
 			}
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 		},
-		Entry("With default primary pod interface name",
+		Entry("With default primary pod interface name, DRA FG disabled",
+			networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			},
 			"eth0",
+			vmispec.InfoSourceMultusStatus,
 		),
-		Entry("With custom primary pod interface name",
+		Entry("With default primary pod interface name, DRA FG enabled",
+			networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			},
+			"eth0",
+			multusAndPodStatus,
+		),
+		Entry("With custom primary pod interface name, DRA FG disabled",
+			networkDevicesWithDRAFgDisabled,
 			map[string]string{
 				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithCustomPrimaryAndSecondaryNets,
 			},
 			customIfaceName,
+			vmispec.InfoSourceMultusStatus,
+		),
+		Entry("With custom primary pod interface name, DRA FG enabled",
+			networkDevicesWithDRAFgEnabled,
+			map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithCustomPrimaryAndSecondaryNets,
+			},
+			customIfaceName,
+			multusAndPodStatus,
 		),
 	)
 
@@ -362,7 +469,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
@@ -389,7 +496,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
@@ -398,7 +505,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
 
-	It("Should remove the Multus info source when VMI.status has an interface but it is not reported by Multus network-status", func() {
+	It("Should remove the Multus and pod info sources when the interface is not reported by Multus network-status", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
@@ -414,7 +521,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
@@ -439,7 +546,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceGuestAgent},
@@ -465,7 +572,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 		}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
@@ -491,7 +598,7 @@ var _ = Describe("Status Update", func() {
 			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
 		}
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
@@ -526,7 +633,7 @@ var _ = Describe("Status Update", func() {
 			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
 		)
 
-		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, map[string]string{}), networkDevicesWithDRAFgDisabled)).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},

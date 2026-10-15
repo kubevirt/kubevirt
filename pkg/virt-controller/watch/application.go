@@ -752,7 +752,9 @@ func (vca *VirtControllerApp) initCommon() {
 		topologyHinter,
 		netAnnotationsGenerator,
 		storageAnnotationsGenerator,
-		netcontrollers.UpdateVMIStatus,
+		func(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+			return netcontrollers.UpdateVMIStatus(vmi, pod, vca.clusterConfig.NetworkDevicesWithDRAGateEnabled())
+		},
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},

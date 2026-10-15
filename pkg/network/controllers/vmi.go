@@ -33,14 +33,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod, networkDevicesWithDRAGateEnabled bool) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 
 	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
 
-	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
+	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses, networkDevicesWithDRAGateEnabled)
 	if err != nil {
 		return err
 	}
@@ -107,6 +107,7 @@ func calculatePrimaryIfaceStatus(
 func calculateSecondaryIfaceStatuses(
 	vmi *v1.VirtualMachineInstance,
 	networkStatuses []networkv1.NetworkStatus,
+	networkDevicesWithDRAGateEnabled bool,
 ) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
@@ -122,19 +123,29 @@ func calculateSecondaryIfaceStatuses(
 		_, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
+			infoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				infoSource = vmispec.AddInfoSource(infoSource, vmispec.InfoSourcePodStatus)
+			}
 			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
 				Name:             network.Name,
-				InfoSource:       vmispec.InfoSourceMultusStatus,
+				InfoSource:       infoSource,
 				PodInterfaceName: podIfaceName,
 			})
 		case exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		}
