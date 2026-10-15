@@ -147,14 +147,14 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(18))
+				Expect(cr.Labels).To(HaveLen(19))
 
 				Expect(cr.Labels[4]).To(Equal(getVMIPhase(vmis[i])))
 				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
 				Expect(cr.Labels[5]).To(Equal(os))
 				Expect(cr.Labels[6]).To(Equal(workload))
 				Expect(cr.Labels[7]).To(Equal(flavor))
-				Expect(cr.Labels[17]).To(Equal(getVMIPod(vmis[i])))
+				Expect(cr.Labels[18]).To(Equal(getVMIPod(vmis[i])))
 				Expect(cr.ConstLabels).ToNot(HaveKey("vm"))
 			}
 		})
@@ -174,6 +174,38 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(uid).To(Equal(string(vmi.UID)))
 		})
+
+		DescribeTable("should expose has_panic_device correctly", func(panicDevices []k6tv1.PanicDevice, expected string) {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Devices: k6tv1.Devices{
+							PanicDevices: panicDevices,
+						},
+					},
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+			}
+
+			cr := collectVMIInfo(vmi)
+			hasPanic, err := cr.GetLabelValue("has_panic_device")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hasPanic).To(Equal(expected))
+		},
+			Entry("no panic devices", nil, "false"),
+			Entry("empty panic devices slice", []k6tv1.PanicDevice{}, "false"),
+			Entry("with ISA panic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Isa)}}, "true"),
+			Entry("with hyperv panic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Hyperv)}}, "true"),
+			Entry("with pvpanic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Pvpanic)}}, "true"),
+			Entry("with multiple panic devices", []k6tv1.PanicDevice{
+				{Model: panicModel(k6tv1.Isa)},
+				{Model: panicModel(k6tv1.Hyperv)},
+			}, "true"),
+		)
 
 		DescribeTable("should expose vm only for VM-owned VMIs in a scrape", func(vmi *k6tv1.VirtualMachineInstance, expectedVM string) {
 			registry := prometheus.NewRegistry()
@@ -232,8 +264,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
-			Expect(cr.Labels[17]).To(Equal("virt-launcher-targetpod"))
+			Expect(cr.Labels).To(HaveLen(19))
+			Expect(cr.Labels[18]).To(Equal("virt-launcher-targetpod"))
 		})
 
 		It("should return the original pod when migration failed", func() {
@@ -245,8 +277,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
-			Expect(cr.Labels[17]).To(Equal("virt-launcher-originalpod"))
+			Expect(cr.Labels).To(HaveLen(19))
+			Expect(cr.Labels[18]).To(Equal("virt-launcher-originalpod"))
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey, instanceType, expected string) {
@@ -275,7 +307,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
@@ -312,7 +344,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[9]).To(Equal(expected))
 		},
 			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
@@ -937,4 +969,8 @@ func vmiWithNonControllerVMOwner(vmiName, vmName string) *k6tv1.VirtualMachineIn
 		},
 		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
 	}
+}
+
+func panicModel(m k6tv1.PanicDeviceModel) *k6tv1.PanicDeviceModel {
+	return &m
 }

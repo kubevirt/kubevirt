@@ -102,6 +102,29 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
 		})
+
+		It("should expose has_panic_device=false when no panic device is configured", func() {
+			labels := map[string]string{
+				"namespace":        sharedVMI.Namespace,
+				"name":             sharedVMI.Name,
+				"has_panic_device": "false",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+		})
+
+		It("should expose has_panic_device=true when a panic device is configured", func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(
+				libvmifact.NewGuestless(libvmi.WithPanicDevice(v1.Isa)),
+				flags.StartupTimeoutSecondsHuge(),
+			)
+
+			labels := map[string]string{
+				"namespace":        vmi.Namespace,
+				"name":             vmi.Name,
+				"has_panic_device": "true",
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+		})
 	})
 
 	Context("VM status metrics", func() {
