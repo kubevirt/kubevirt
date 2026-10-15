@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/controllers"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Status Update", func() {
@@ -642,6 +643,73 @@ var _ = Describe("Status Update", func() {
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	const (
+		draClaimName = "dra-claim"
+		redIfaceName = "red"
+		redMAC       = "de:ad:00:00:be:ef"
+	)
+	domainGAPod := vmispec.NewInfoSource(
+		vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourcePodStatus)
+
+	redDomainGA := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, MAC: redMAC, InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+	}
+	redDomainGAPod := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, MAC: redMAC, InterfaceName: "eth1", InfoSource: domainGAPod},
+	}
+	redPodOnly := []v1.VirtualMachineInstanceNetworkInterface{
+		{Name: redIfaceName, InfoSource: vmispec.InfoSourcePodStatus},
+	}
+	assignedClaim := []k8scorev1.PodResourceClaimStatus{
+		{Name: draClaimName, ResourceClaimName: pointer.P(draClaimName + "-abc123")},
+	}
+	unneededClaim := []k8scorev1.PodResourceClaimStatus{
+		{Name: draClaimName, ResourceClaimName: nil},
+	}
+
+	DescribeTable("Should report the pod-status info source for a DRA interface based on its resource claim",
+		func(
+			existing []v1.VirtualMachineInstanceNetworkInterface,
+			claimStatuses []k8scorev1.PodResourceClaimStatus,
+			expected []v1.VirtualMachineInstanceNetworkInterface,
+		) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, "req1")),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existing))),
+			)
+
+			pod := newPodFromVMI(vmi, map[string]string{})
+			pod.Status.ResourceClaimStatuses = claimStatuses
+
+			Expect(controllers.UpdateVMIStatus(vmi, pod, true)).To(Succeed())
+
+			Expect(vmi.Status.Interfaces).To(Equal(expected))
+		},
+		Entry("adds pod-status when the resource claim template is assigned", redDomainGA, assignedClaim, redDomainGAPod),
+		Entry("reports pod-status only before the virt-handler reports the interface", nil, assignedClaim, redPodOnly),
+		Entry("does not add pod-status when the resource claim is not needed", redDomainGA, unneededClaim, redDomainGA),
+		Entry("removes pod-status but keeps other sources when the claim is unassigned", redDomainGAPod, nil, redDomainGA),
+		Entry("omits the interface when removing pod-status leaves no info source", redPodOnly, nil, nil),
+	)
+
+	It("Should preserve the DRA interface status without pod-status when the NetworkDevicesWithDRA feature gate is disabled", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, "req1")),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(redDomainGA))),
+		)
+
+		pod := newPodFromVMI(vmi, map[string]string{})
+		pod.Status.ResourceClaimStatuses = assignedClaim
+
+		Expect(controllers.UpdateVMIStatus(vmi, pod, false)).To(Succeed())
+
+		Expect(vmi.Status.Interfaces).To(Equal(redDomainGA))
 	})
 })
 
