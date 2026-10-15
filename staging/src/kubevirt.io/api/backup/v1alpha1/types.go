@@ -109,6 +109,18 @@ const (
 	Abort BackupCmd = "Abort"
 )
 
+// BackupAbortReason indicates why a backup job abort was requested.
+type BackupAbortReason string
+
+const (
+	// BackupAbortCancel cancels an in-progress backup; the backup finalizes as Failed.
+	BackupAbortCancel BackupAbortReason = "Cancel"
+	// BackupAbortFinalize ends a pull-mode backup after the client finished
+	// consuming export data (typically by deleting the VirtualMachineBackup).
+	// The backup finalizes as Complete and checkpoints are recorded.
+	BackupAbortFinalize BackupAbortReason = "Finalize"
+)
+
 // BackupOptions are options used to configure virtual machine backup job
 type BackupOptions struct {
 	BackupName              string       `json:"backupName,omitempty"`
@@ -119,6 +131,11 @@ type BackupOptions struct {
 	IncrementalCreationTime *metav1.Time `json:"incrementalCreationTime,omitempty"`
 	TargetPath              *string      `json:"targetPath,omitempty"`
 	SkipQuiesce             bool         `json:"skipQuiesce,omitempty"`
+	// AbortReason is set when Cmd is Abort.
+	// Cancel marks the backup Failed (TTL expiry, or deleting a push-mode backup).
+	// Finalize marks a pull-mode backup Complete after the client finished pulling.
+	// +optional
+	AbortReason BackupAbortReason `json:"abortReason,omitempty"`
 }
 
 // VirtualMachineBackupTracker defines the way to track the latest checkpoint of
@@ -206,7 +223,10 @@ type VirtualMachineBackupSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
 	// +optional
 	// +kubebuilder:validation:Enum=Push;Pull
-	// Mode specifies the way the backup output will be recieved
+	// Mode specifies the way the backup output will be received.
+	// Deleting an in-progress Pull backup finalizes it as Complete (client finished
+	// pulling). TTL expiry, or deleting an in-progress Push backup, cancels the
+	// job and marks the backup Failed.
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
 	// PvcName required in push mode. Specifies the name of the PVC
@@ -223,10 +243,12 @@ type VirtualMachineBackupSpec struct {
 	// will be used to pull the backup from an associated endpoint
 	TokenSecretRef string `json:"tokenSecretRef,omitempty"`
 	// +optional
-	// TtlDuration limits the lifetime of a pull mode backup and its export
-	// If this field is set, after this duration has passed from counting from CreationTimestamp,
-	// the backup is eligible to be automatically considered as complete.
-	// If this field is omitted, a reasonable default is applied.
+	// TTLDuration limits the lifetime of a pull mode backup and its export.
+	// When set, an in-progress backup past this duration (counting from
+	// CreationTimestamp) is cancelled and marked as Failed.
+	// Deleting the VirtualMachineBackup after a successful client pull still
+	// finalizes the backup as Complete.
+	// When omitted, a reasonable default is applied.
 	// +optional
 	TTLDuration *metav1.Duration `json:"ttlDuration,omitempty"`
 }

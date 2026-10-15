@@ -79,6 +79,24 @@ func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
 	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
 }
 
+func pullBackupTTLDeadline(backup *backupv1.VirtualMachineBackup) time.Time {
+	return backup.CreationTimestamp.Time.Add(getPullBackupTTL(backup).Duration)
+}
+
+// shouldFinalizePullBackupOnDelete reports whether deleting a pull-mode backup
+// should finalize as Complete rather than Cancel.
+//
+// Deletion of the VirtualMachineBackup is the authoritative pull-mode completion
+// signal from the client. Compare DeletionTimestamp to the TTL deadline (not
+// wall-clock now) so a late reconcile after expiry still Finalizes when the
+// client deleted on time.
+func shouldFinalizePullBackupOnDelete(backup *backupv1.VirtualMachineBackup) bool {
+	if !isPullMode(backup) || backup.DeletionTimestamp == nil || backup.DeletionTimestamp.IsZero() {
+		return false
+	}
+	return backup.DeletionTimestamp.Time.Before(pullBackupTTLDeadline(backup))
+}
+
 func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if isPullBackupTTLExpired(backup) {
 		return ctrl.handlePullModeTTLExpiry(backup, vmi)
@@ -205,10 +223,10 @@ func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink 
 
 func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if hasVMIBackupStatus(vmi) && !vmi.Status.ChangedBlockTracking.BackupStatus.Completed {
-		if err := ctrl.handleAbort(backup, vmi); err != nil {
+		if err := ctrl.handleAbort(backup, vmi, backupv1.BackupAbortCancel); err != nil {
 			return err
 		}
-		ctrl.setAborting(backup, fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting))
+		ctrl.setAborting(backup, fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting), backupv1.BackupAbortCancel)
 	}
 	return nil
 }
