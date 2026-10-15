@@ -49,13 +49,18 @@ const (
 	allowedAnnotationPath    = "/metadata/annotations/kubevirt.io~1allowedAnnotation"
 )
 
-var _ = Describe("CEL node restrictions", func() {
+var _ = Describe("CEL node restrictions", Ordered, ContinueOnFailure, func() {
 	var f *framework.Framework
 	var handlerClient kubernetes.Interface
 
-	BeforeEach(func(ctx SpecContext) {
+	BeforeAll(func(ctx SpecContext) {
 		f = framework.New()
 		f.Start(context.Background())
+		handlerClient = newNodeRestrictionClient(ctx, f)
+		installNodeRestrictionPolicy(ctx, f)
+	})
+
+	BeforeEach(func(ctx SpecContext) {
 		for _, name := range []string{ownedNodeName, otherNodeName} {
 			_, err := f.K8sClient().CoreV1().Nodes().Create(ctx, &k8sv1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -71,9 +76,10 @@ var _ = Describe("CEL node restrictions", func() {
 				},
 			}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(f.K8sClient().CoreV1().Nodes().Delete(ctx, name, metav1.DeleteOptions{})).To(Succeed())
+			})
 		}
-		handlerClient = newNodeRestrictionClient(ctx, f)
-		installNodeRestrictionPolicy(ctx, f)
 
 		By("waiting for CEL admission to reject a dry-run spec change")
 		Eventually(ctx, func(g Gomega) {
