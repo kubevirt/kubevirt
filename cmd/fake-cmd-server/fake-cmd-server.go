@@ -8,6 +8,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
@@ -37,7 +38,10 @@ func main() {
 		return "success", nil
 	})
 	log.Log.Info("running fake server")
-	done, err := cmdserver.RunServer(*socket, domainManager, stopChan, options)
+	done, err := grpcserver.RunServer(stopChan, *socket,
+		cmdserver.RegisterCmdServer(
+			cmdserver.NewLauncher(domainManager, options),
+		))
 	if err != nil {
 		log.Log.Reason(err).Critical("running cmd server")
 	}
