@@ -23,8 +23,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -138,6 +141,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmi.New(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithLogSerialConsole(true),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -158,12 +162,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting no bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).NotTo(Succeed())
-				// The expecter *should* have error-ed since the network interface is not marked bootable
+				Expect(expectNetBoot(vmi)).To(MatchError(errNoNetBoot))
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
@@ -178,14 +180,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
 					withSerialBIOS(),
+					libvmi.WithLogSerialConsole(true),
 				)
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting a bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).To(Succeed())
+				Expect(expectNetBoot(vmi)).To(Succeed())
 			})
 		})
 
@@ -1685,6 +1687,80 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
+}
+
+var errNoNetBoot = errors.New("no NIC option ROM output in the serial console")
+
+// expectNetBoot succeeds if the VMI's serial console shows "iPXE", proving the NIC
+// option ROM ran, and reports errNoNetBoot once SeaBIOS reports no boot device. It
+// reads the guest-console-log sidecar rather than a live console, because the firmware
+// prints its banner before a console connection can be established.
+func expectNetBoot(vmi *v1.VirtualMachineInstance) error {
+	const (
+		maxConsoleLog = 64 * 1024 // bound only; the log is normally about a kilobyte
+		readChunk     = 1024
+		// No trailing period: some SeaBIOS builds append a retry notice.
+		noBootableDevice = "No bootable device"
+	)
+
+	virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.Duration(flags.StartupTimeoutSecondsSmall()) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stream, err := kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).
+		GetLogs(virtLauncherPod.Name, &k8sv1.PodLogOptions{
+			Container: "guest-console-log",
+			Follow:    true,
+		}).Stream(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, err)
+	}
+	defer stream.Close()
+
+	// SeaBIOS may interleave escape sequences for letter placement on screen.
+	esc := console.UTFPosEscape
+	netBootMarker := regexp.MustCompile("i(PXE|" + esc + "P" + esc + "X" + esc + "E)")
+
+	// Matched against everything received so far, since a marker may straddle two reads.
+	var consoleLog strings.Builder
+	defer func() { GinkgoWriter.Printf("BIOS output of VMI %s:\n%s\n", vmi.Name, consoleLog.String()) }()
+
+	buf := make([]byte, readChunk)
+	reader := io.LimitReader(stream, maxConsoleLog)
+	for {
+		n, readErr := reader.Read(buf)
+		if n > 0 {
+			consoleLog.Write(buf[:n])
+			if netBootMarker.MatchString(consoleLog.String()) {
+				return nil
+			}
+			// After the ROM marker: the positive case prints both, iPXE first.
+			if strings.Contains(consoleLog.String(), noBootableDevice) {
+				return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
+			}
+		}
+		if readErr != nil {
+			// EOF or a spent budget means the console was read as long as intended,
+			// anything else means it was not read at all.
+			if !errors.Is(readErr, io.EOF) && ctx.Err() == nil {
+				return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, readErr)
+			}
+			break
+		}
+	}
+
+	// No SeaBIOS banner means the boot was never observed, which is not the same as
+	// observing a boot without an option ROM.
+	if !strings.Contains(consoleLog.String(), "SeaBIOS") {
+		return fmt.Errorf("no firmware output in the serial console of VMI %s", vmi.Name)
+	}
+
+	return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
 }
 
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
