@@ -32,10 +32,10 @@ import (
 	"kubevirt.io/kubevirt/tests/integration/framework"
 )
 
-var _ = Describe("VM Admission", func() {
+var _ = Describe("VM Admission", Ordered, ContinueOnFailure, func() {
 	var f *framework.Framework
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		f = framework.New(framework.WithWebhooks())
 		f.Start(context.Background())
 	})
