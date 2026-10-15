@@ -60,6 +60,7 @@ import (
 	vhmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	netmigration "kubevirt.io/kubevirt/pkg/network/migration"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
@@ -1757,7 +1758,7 @@ func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstan
 }
 
 func (c *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
-	return netvmispec.VerifyVMIMigratable(vmi, c.clusterConfig.GetNetworkBindings())
+	return netmigration.VerifyVMIMigratable(vmi, c.clusterConfig.GetNetworkBindings())
 }
 
 func isReadOnlyDisk(disk *v1.Disk) bool {

@@ -70,66 +70,6 @@ var _ = Describe("VMI network spec", func() {
 		})
 	})
 
-	Context("migratable", func() {
-		const (
-			migratablePlugin    = "mig"
-			nonMigratablePlugin = "non_mig"
-			podNet0             = "default"
-		)
-
-		bindingPlugins := map[string]v1.InterfaceBindingPlugin{
-			migratablePlugin:    {Migration: &v1.InterfaceBindingMigration{}},
-			nonMigratablePlugin: {},
-		}
-
-		DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance) {
-			Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-		},
-			Entry("when the VMI uses masquerade to connect to the pod network",
-				libvmi.New(
-					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			),
-			Entry("when the VMI uses bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
-				libvmi.New(
-					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
-				),
-			),
-			Entry("when the VMI uses migratable binding plugin to connect to the pod network",
-				libvmi.New(
-					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, migratablePlugin)),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			),
-			Entry("when the VMI uses passtBinding to connect to the pod network",
-				libvmi.New(
-					libvmi.WithInterface(libvmi.NewInterface(podNet0, libvmi.WithPasstBinding())),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			),
-		)
-
-		DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance) {
-			Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
-		},
-			Entry("when the VMI uses bridge binding to connect to the pod network",
-				libvmi.New(
-					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			),
-			Entry("when the VMI uses non-migratable binding plugin to connect to the pod network",
-				libvmi.New(
-					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				),
-			),
-		)
-	})
-
 	const (
 		deviceInfoPlugin    = "deviceinfo"
 		nonDeviceInfoPlugin = "non_deviceinfo"
