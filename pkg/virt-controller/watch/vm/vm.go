@@ -3367,9 +3367,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	// startVMI() (called from syncRunStrategy) uses ApplyToVMI() which depends on Status refs
 	// being set by Sync().
 	if c.instancetypeController != nil {
-		syncedVM, err := c.instancetypeController.Sync(vm, vmi)
-		if err != nil {
-			return vm, vmi, handleSynchronizerErr(err), nil
+		syncedVM, instancetypeErr := c.instancetypeController.Sync(vm, vmi)
+		if instancetypeErr != nil {
+			return vm, vmi, handleSynchronizerErr(instancetypeErr), nil
 		}
 		vm.ObjectMeta = syncedVM.ObjectMeta
 		vm.Spec = syncedVM.Spec

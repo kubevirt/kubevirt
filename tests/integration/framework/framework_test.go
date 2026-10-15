@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -215,6 +216,22 @@ func (f *fakeFrameworkInformerFactory) KubeVirt() cache.SharedIndexInformer {
 
 func (f *fakeFrameworkInformerFactory) ResourceQuota() cache.SharedIndexInformer {
 	return f.informer(&k8sv1.ResourceQuota{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineInstancetype() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineInstancetype{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineClusterInstancetype() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachinePreference() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachinePreference{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineClusterPreference() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineClusterPreference{})
 }
 
 func (f *fakeFrameworkInformerFactory) DummyDataVolume() cache.SharedIndexInformer {

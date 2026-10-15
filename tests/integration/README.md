@@ -1,12 +1,13 @@
 # Integration tests
 
 Organize integration tests by the SIG responsible for the behavior being tested.
-Each SIG directory with tests has its own Go package, Ginkgo suite entry point,
-and Bazel test target.
+Each suite has its own Go package, Ginkgo suite entry point, and Bazel test
+target. SIG directories can contain area-specific suites with their own OWNERS.
 
 | Directory | Coverage |
 | --- | --- |
 | `compute/` | VM and VMI lifecycle, controllers, and compute admission |
+| `compute/instancetype/` | Instancetype and preference application, revisions, and schema validation |
 | `storage/` | Volumes, storage configuration, and storage admission |
 | `network/` | Network configuration and network admission |
 | `control-plane/` | Operator behavior, cluster configuration, and admission policies |

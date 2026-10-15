@@ -127,7 +127,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
 		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
-		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), originalInstancetypeCR, metav1.CreateOptions{})
+		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalInstancetypeCR, metav1.CreateOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
 			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
@@ -319,7 +321,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
 		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
-		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), originalInstancetypeCR, metav1.CreateOptions{})
+		_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			context.Background(), originalInstancetypeCR, metav1.CreateOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
 			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
