@@ -479,10 +479,14 @@ type BackupMetadata struct {
 	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
 	Completed      bool         `xml:"completed,omitempty"`
 	Failed         bool         `xml:"failed,omitempty"`
-	BackupMsg      string       `xml:"backupMsg,omitempty"`
-	CheckpointName string       `xml:"checkpointName,omitempty"`
-	Volumes        string       `xml:"volumes,omitempty"`
-	QuiesceStatus  string       `xml:"quiesceStatus,omitempty"`
+	// AbortReason is set before AbortJob is called (Cancel or Finalize).
+	// Completion handling uses this with DOMAIN_JOB_CANCELLED instead of
+	// matching libvirt's locale-dependent "Operation canceled" error string.
+	AbortReason    string `xml:"abortReason,omitempty"`
+	BackupMsg      string `xml:"backupMsg,omitempty"`
+	CheckpointName string `xml:"checkpointName,omitempty"`
+	Volumes        string `xml:"volumes,omitempty"`
+	QuiesceStatus  string `xml:"quiesceStatus,omitempty"`
 }
 
 type GracePeriodMetadata struct {
