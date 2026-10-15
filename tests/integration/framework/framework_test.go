@@ -1,3 +1,21 @@
+/*
+This file is part of the KubeVirt project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Copyright The KubeVirt Authors.
+*/
+
 package framework
 
 import (
@@ -18,6 +36,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -63,6 +82,23 @@ func (q *blockingQueue) Done(key string) {
 	q.TypedRateLimitingInterface.Done(key)
 	q.done <- key
 }
+
+var _ = Describe("Framework configuration", func() {
+	It("ignores a nil configuration without discarding an earlier option", func() {
+		strategy := virtv1.VMRolloutStrategyStage
+		config := &virtv1.KubeVirtConfiguration{VMRolloutStrategy: &strategy}
+		f := New(WithKubeVirtConfig(config), WithKubeVirtConfig(nil))
+		Expect(f.kvConfig).To(Equal(config))
+
+		strategy = virtv1.VMRolloutStrategyLiveUpdate
+		Expect(*f.kvConfig.VMRolloutStrategy).To(Equal(virtv1.VMRolloutStrategyStage))
+	})
+
+	It("preserves the default configuration when given nil", func() {
+		f := New(WithKubeVirtConfig(nil))
+		Expect(f.kvConfig).To(Equal(&virtv1.KubeVirtConfiguration{}))
+	})
+})
 
 var _ = Describe("Framework shutdown", func() {
 	DescribeTable("waits for controller workers before stopping",
@@ -180,6 +216,22 @@ func (f *fakeFrameworkInformerFactory) KubeVirt() cache.SharedIndexInformer {
 
 func (f *fakeFrameworkInformerFactory) ResourceQuota() cache.SharedIndexInformer {
 	return f.informer(&k8sv1.ResourceQuota{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineInstancetype() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineInstancetype{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineClusterInstancetype() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachinePreference() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachinePreference{})
+}
+
+func (f *fakeFrameworkInformerFactory) VirtualMachineClusterPreference() cache.SharedIndexInformer {
+	return f.informer(&instancetypev1beta1.VirtualMachineClusterPreference{})
 }
 
 func (f *fakeFrameworkInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
