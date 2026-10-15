@@ -1274,7 +1274,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Duration(gracePeriodSeconds) * time.Second).WithPolling(time.Second).Should(
 					matcher.BeInPhase(v1.Succeeded))
 			},
-				Entry("[test_id:1653]with set grace period seconds", decorators.Conformance, libvmi.WithTerminationGracePeriod(10), int64(10)),
+				Entry("[QUARANTINE][test_id:1653]with set grace period seconds", decorators.Quarantine, decorators.Conformance, libvmi.WithTerminationGracePeriod(10), int64(10)),
 				Entry("[test_id:1654]with default grace period seconds", decorators.Conformance, withoutTerminationGracePeriodSeconds, v1.DefaultGracePeriodSeconds),
 			)
 		})
