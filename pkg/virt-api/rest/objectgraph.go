@@ -21,6 +21,7 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8serrors "k8s.io/apimachinery/pkg/util/errors"
@@ -38,7 +40,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	templateapi "kubevirt.io/virt-template-api/core"
+	templatev1beta1 "kubevirt.io/virt-template-api/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -93,6 +98,7 @@ var objectGraphMap = map[string]schema.GroupKind{
 	"secrets":                            {Group: "", Kind: "Secret"},
 	"pods":                               {Group: "", Kind: "Pod"},
 	"networkattachmentdefinitions":       {Group: "k8s.cni.cncf.io", Kind: "NetworkAttachmentDefinition"},
+	templateapi.PluralResourceName:       {Group: templateapi.GroupName, Kind: "VirtualMachineTemplate"},
 }
 
 // getResourceDependencyType returns the dependency type for a given resource
@@ -103,7 +109,8 @@ func getResourceDependencyType(resource string) DependencyType {
 	case "pods", "virtualmachines", "virtualmachineinstances":
 		return DependencyTypeCompute
 	case "configmaps", "secrets", "virtualmachineinstancetypes", "virtualmachineclusterinstancetypes",
-		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions", "serviceaccounts":
+		"virtualmachinepreferences", "virtualmachineclusterpreferences", "controllerrevisions", "serviceaccounts",
+		templateapi.PluralResourceName:
 		return DependencyTypeConfig
 	case "networkattachmentdefinitions":
 		return DependencyTypeNetwork
@@ -234,6 +241,8 @@ func (og *ObjectGraph) GetObjectGraph(obj any) (v1.ObjectGraphNode, error) {
 		root, err = og.virtualMachineObjectGraph(obj)
 	case *v1.VirtualMachineInstance:
 		root, err = og.virtualMachineInstanceObjectGraph(obj)
+	case *templatev1beta1.VirtualMachineTemplate:
+		root, err = og.virtualMachineTemplateObjectGraph(obj)
 	default:
 		return v1.ObjectGraphNode{}, nil
 	}
@@ -247,8 +256,23 @@ func (og *ObjectGraph) GetObjectGraph(obj any) (v1.ObjectGraphNode, error) {
 }
 
 func (og *ObjectGraph) virtualMachineObjectGraph(vm *v1.VirtualMachine) (v1.ObjectGraphNode, error) {
-	children, errs := og.buildChildrenFromVM(vm)
+	children, errs := og.buildChildrenFromVM(vm, storageutils.WithAllVolumes)
 	root := og.newGraphNode(vm.GetName(), vm.GetNamespace(), "virtualmachines", children, false)
+	if root == nil {
+		return v1.ObjectGraphNode{}, errors.New("could not create root graph node")
+	}
+	return *root, k8serrors.NewAggregate(errs)
+}
+
+func (og *ObjectGraph) virtualMachineTemplateObjectGraph(tpl *templatev1beta1.VirtualMachineTemplate) (v1.ObjectGraphNode, error) {
+	vm, namespaceUnresolved, err := decodeTemplate(tpl)
+	if err != nil {
+		return v1.ObjectGraphNode{}, err
+	}
+
+	children, errs := og.buildChildrenFromVM(vm, storageutils.WithRegularVolumes)
+	children = markUnresolvedTemplateParameters(children, namespaceUnresolved)
+	root := og.newGraphNode(tpl.GetName(), tpl.GetNamespace(), templateapi.PluralResourceName, children, false)
 	if root == nil {
 		return v1.ObjectGraphNode{}, errors.New("could not create root graph node")
 	}
@@ -264,7 +288,7 @@ func (og *ObjectGraph) virtualMachineInstanceObjectGraph(vmi *v1.VirtualMachineI
 	return *root, k8serrors.NewAggregate(errs)
 }
 
-func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine) ([]v1.ObjectGraphNode, []error) {
+func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine, volumeOpts ...storageutils.VolumeOption) ([]v1.ObjectGraphNode, []error) {
 	var children []v1.ObjectGraphNode
 	var errs []error
 
@@ -285,7 +309,7 @@ func (og *ObjectGraph) buildChildrenFromVM(vm *v1.VirtualMachine) ([]v1.ObjectGr
 	children = append(children, og.getAccessCredentialNodes(vm.Spec.Template.Spec.AccessCredentials, vm.GetNamespace())...)
 
 	// Main storage nodes
-	volumeNodes, err := og.addVolumeGraph(vm, vm.GetNamespace())
+	volumeNodes, err := og.addVolumeGraph(vm, vm.GetNamespace(), volumeOpts...)
 	children = append(children, volumeNodes...)
 	errs = append(errs, err)
 	// Main network nodes
@@ -307,7 +331,7 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 
 	children = append(children, og.getAccessCredentialNodes(vmi.Spec.AccessCredentials, vmi.GetNamespace())...)
 	// Main storage nodes
-	volumeNodes, err := og.addVolumeGraph(vmi, vmi.GetNamespace())
+	volumeNodes, err := og.addVolumeGraph(vmi, vmi.GetNamespace(), storageutils.WithAllVolumes)
 	children = append(children, volumeNodes...)
 	errs = append(errs, err)
 	// Main network nodes
@@ -317,9 +341,9 @@ func (og *ObjectGraph) buildChildrenFromVMI(vmi *v1.VirtualMachineInstance) ([]v
 	return children, errs
 }
 
-func (og *ObjectGraph) addVolumeGraph(obj any, namespace string) ([]v1.ObjectGraphNode, error) {
+func (og *ObjectGraph) addVolumeGraph(obj any, namespace string, volumeOpts ...storageutils.VolumeOption) ([]v1.ObjectGraphNode, error) {
 	var nodes []v1.ObjectGraphNode
-	volumes, err := storageutils.GetVolumes(obj, og.virtClient, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(obj, og.virtClient, volumeOpts...)
 	if err != nil {
 		if !storageutils.IsErrNoBackendPVC(err) {
 			return nil, err
@@ -472,6 +496,96 @@ func (og *ObjectGraph) handleNetworkNodes(vmiSpec v1.VirtualMachineInstanceSpec,
 		}
 	}
 
+	return nodes
+}
+
+func decodeTemplate(tpl *templatev1beta1.VirtualMachineTemplate) (*v1.VirtualMachine, bool, error) {
+	if tpl.Spec.VirtualMachine == nil || len(tpl.Spec.VirtualMachine.Raw) == 0 {
+		return nil, false, fmt.Errorf("virtual machine template %s/%s has no embedded VirtualMachine", tpl.GetNamespace(), tpl.GetName())
+	}
+
+	raw := map[string]interface{}{}
+	if err := json.Unmarshal(tpl.Spec.VirtualMachine.Raw, &raw); err != nil {
+		return nil, false, fmt.Errorf("failed to decode embedded VirtualMachine of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+
+	if template, found, err := unstructured.NestedFieldNoCopy(raw, "spec", "template"); err != nil || !found || template == nil {
+		return nil, false, fmt.Errorf("embedded VirtualMachine of template %s/%s is missing spec.template", tpl.GetNamespace(), tpl.GetName())
+	}
+
+	templateSpec, _, err := unstructured.NestedMap(raw, "spec", "template", "spec")
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to decode embedded VirtualMachine of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+
+	vmiSpec := v1.VirtualMachineInstanceSpec{}
+	if err := decodeNestedField(templateSpec, &vmiSpec.Volumes, "volumes"); err != nil {
+		return nil, false, fmt.Errorf("failed to decode volumes of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+	if err := decodeNestedField(templateSpec, &vmiSpec.Networks, "networks"); err != nil {
+		return nil, false, fmt.Errorf("failed to decode networks of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+	if err := decodeNestedField(templateSpec, &vmiSpec.AccessCredentials, "accessCredentials"); err != nil {
+		return nil, false, fmt.Errorf("failed to decode access credentials of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+
+	var instancetype *v1.InstancetypeMatcher
+	if err := decodeNestedField(raw, &instancetype, "spec", "instancetype"); err != nil {
+		return nil, false, fmt.Errorf("failed to decode instance type of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+	var preference *v1.PreferenceMatcher
+	if err := decodeNestedField(raw, &preference, "spec", "preference"); err != nil {
+		return nil, false, fmt.Errorf("failed to decode preference of template %s/%s: %w", tpl.GetNamespace(), tpl.GetName(), err)
+	}
+
+	name, _, _ := unstructured.NestedString(raw, "metadata", "name")
+	namespace, _, _ := unstructured.NestedString(raw, "metadata", "namespace")
+
+	vm := &v1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineSpec{
+			Instancetype: instancetype,
+			Preference:   preference,
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: vmiSpec,
+			},
+		},
+	}
+
+	namespaceUnresolved := containsUnresolvedTemplateParam(vm.Namespace)
+	if !namespaceUnresolved {
+		vm.Namespace = tpl.GetNamespace()
+	}
+	return vm, namespaceUnresolved, nil
+}
+
+func decodeNestedField(obj map[string]interface{}, out interface{}, fields ...string) error {
+	value, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
+	if err != nil || !found {
+		return err
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, out)
+}
+
+func containsUnresolvedTemplateParam(s string) bool {
+	return strings.Contains(s, "${")
+}
+
+func markUnresolvedTemplateParameters(nodes []v1.ObjectGraphNode, namespaceUnresolved bool) []v1.ObjectGraphNode {
+	for i := range nodes {
+		if namespaceUnresolved || containsUnresolvedTemplateParam(nodes[i].ObjectReference.Name) {
+			nodes[i].Optional = pointer.P(true)
+		}
+		nodes[i].Children = markUnresolvedTemplateParameters(nodes[i].Children, namespaceUnresolved)
+	}
 	return nodes
 }
 
