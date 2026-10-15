@@ -5,6 +5,7 @@ go_test(
     srcs = [
         "helpers_test.go",
         "instancetype_suite_test.go",
+        "references_test.go",
         "upgrade_test.go",
     ],
     deps = [

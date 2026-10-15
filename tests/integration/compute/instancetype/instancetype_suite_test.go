@@ -55,4 +55,5 @@ var _ = Describe("Instancetype", Ordered, ContinueOnFailure, func() {
 	})
 
 	s.describeUpgrades()
+	s.describeReferences()
 })
