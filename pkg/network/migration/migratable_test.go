@@ -69,7 +69,7 @@ var _ = Describe("VerifyVMIMigratable", func() {
 		),
 		Entry("when the VMI uses migratable binding plugin to connect to the pod network",
 			libvmi.New(
-				libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, migratablePlugin)),
+				libvmi.WithInterface(libvmi.NewInterface(podNet0, libvmi.WithBindingPlugin(v1.PluginBinding{Name: migratablePlugin}))),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 			draGateEnabled,
@@ -123,7 +123,7 @@ var _ = Describe("VerifyVMIMigratable", func() {
 		),
 		Entry("when the VMI uses non-migratable binding plugin to connect to the pod network",
 			libvmi.New(
-				libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
+				libvmi.WithInterface(libvmi.NewInterface(podNet0, libvmi.WithBindingPlugin(v1.PluginBinding{Name: nonMigratablePlugin}))),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 			draGateEnabled,
@@ -157,13 +157,6 @@ var _ = Describe("VerifyVMIMigratable", func() {
 		),
 	)
 })
-
-func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
-	return v1.Interface{
-		Name:    name,
-		Binding: &v1.PluginBinding{Name: pluginName},
-	}
-}
 
 func newDRAVMI(claim v1.VirtualMachineInstanceResourceClaim, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	const netName = "net1"
