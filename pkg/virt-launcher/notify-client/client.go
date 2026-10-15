@@ -34,7 +34,6 @@ import (
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -399,7 +398,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			log.Log.Reason(err).Error("Could not get disks with errors")
 		}
 		for _, disk := range domainDisksWithErrors {
-			volumeName := converter.GetVolumeNameByTarget(domain, disk.Disk)
+			volumeName := getVolumeNameByTarget(domain, disk.Disk)
 			var reasonError string
 			switch disk.Error {
 			case libvirt.DOMAIN_DISK_ERROR_NONE:
@@ -847,4 +846,15 @@ func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEve
 		monitor.StartMonitor()
 	}
 	return false
+}
+
+// getVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
+// One should not rely on target (vda) as API, use disk serials instead.
+func getVolumeNameByTarget(domain *api.Domain, target string) string {
+	for _, d := range domain.Spec.Devices.Disks {
+		if d.Target.Device == target {
+			return d.Alias.GetName()
+		}
+	}
+	return ""
 }
