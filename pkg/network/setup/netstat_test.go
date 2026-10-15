@@ -312,6 +312,70 @@ var _ = Describe("netstat", func() {
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, secondaryNetworkName)).To(BeTrue())
 		})
 
+		It("reports multus-status and pod-status for a multus interface when the NetworkDevicesWithDRA feature gate is enabled", func() {
+			Expect(setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+				newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+				secondaryPodIPv4, secondaryPodIPv6,
+			)).To(Succeed())
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface([]string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, secondaryIfaceName),
+			)
+			setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, InfoSource: netvmispec.NewInfoSource(
+					netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)},
+			}
+
+			netStat := netsetup.NewNetStateWithCustomFactory(setup.cacheCreator,
+				netsetup.WithFeatureGates(stubFeatureGateChecker{networkDevicesWithDRAGateEnabled: true}))
+			Expect(netStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces[0].InfoSource).To(Equal(netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+				netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)))
+		})
+
+		It("reports pod-status for an interface reported without multus-status when the NetworkDevicesWithDRA feature gate is enabled", func() {
+			Expect(setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+				newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+				secondaryPodIPv4, secondaryPodIPv6,
+			)).To(Succeed())
+			setup.addGuestAgentInterfaces(
+				newDomainStatusIface([]string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, secondaryIfaceName),
+			)
+			setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourcePodStatus},
+			}
+
+			netStat := netsetup.NewNetStateWithCustomFactory(setup.cacheCreator,
+				netsetup.WithFeatureGates(stubFeatureGateChecker{networkDevicesWithDRAGateEnabled: true}))
+			Expect(netStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces[0].InfoSource).To(Equal(netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourcePodStatus)))
+		})
+
+		It("reports the preserved info sources for a spec interface the domain has not reported yet", func() {
+			setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+			setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks,
+				newVMISpecMultusNetwork(secondaryNetworkName))
+			setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, InfoSource: netvmispec.NewInfoSource(
+					netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)},
+			}
+
+			netStat := netsetup.NewNetStateWithCustomFactory(setup.cacheCreator,
+				netsetup.WithFeatureGates(stubFeatureGateChecker{networkDevicesWithDRAGateEnabled: true}))
+			Expect(netStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces[0].InfoSource).To(Equal(netvmispec.NewInfoSource(
+				netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)))
+		})
+
 		It("run status and expect an interfaces (with masquerade) to be reported based on pod & guest-agent data", func() {
 			// Guest data collected by the guest-agent
 			const (
@@ -1373,6 +1437,14 @@ func newTestSetupWithVolatileCache() testSetup {
 	return setup
 }
 
+type stubFeatureGateChecker struct {
+	networkDevicesWithDRAGateEnabled bool
+}
+
+func (s stubFeatureGateChecker) NetworkDevicesWithDRAGateEnabled() bool {
+	return s.networkDevicesWithDRAGateEnabled
+}
+
 func newTestSetup() testSetup {
 	var cacheCreator tempCacheCreator
 	const uid = "123"
@@ -1498,6 +1570,7 @@ func newVMISpecIfaceWithMasqueradeBinding(name string) v1.Interface {
 		},
 	}
 }
+
 func newVMISpecIfaceWithBridgeBinding(name string) v1.Interface {
 	return v1.Interface{
 		Name: name,
@@ -1526,6 +1599,7 @@ func newVMISpecMultusNetwork(name string) v1.Network {
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
 				NetworkName: "test.network",
-			}},
+			},
+		},
 	}
 }

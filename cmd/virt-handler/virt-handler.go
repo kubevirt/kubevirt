@@ -390,7 +390,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
-	netStat := netsetup.NewNetStat()
+	netStat := netsetup.NewNetStat(netsetup.WithFeatureGates(app.clusterConfig))
 	passtRepairHandler := passt.NewRepairManager()
 
 	// Bootstrapping. From here on the startup order matters
