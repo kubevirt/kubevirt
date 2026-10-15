@@ -85,7 +85,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 
 			var alpineCheck = "Welcome to Alpine Linux"
 
-			It("[QUARANTINE] it should fetch logs for a running VM with logs API", decorators.Quarantine, func() {
+			It("it should fetch logs for a running VM with logs API", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(alpineVmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Finding virt-launcher pod")
@@ -119,19 +119,16 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 
 				Consistently(errChan).ShouldNot(Receive())
 
-				logs, err := getConsoleLogs(virtlauncherPod)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Ensuring that logs contain the login attempt")
-				Expect(logs).To(ContainSubstring("localhost login:"))
-
-				// TODO: console.LoginToAlpine is not systematically waiting for `\u001b[8m` to prevent echoing the password, fix it first
-				// By("Ensuring that logs don't contain the login password")
-				// Expect(outputString).ToNot(ContainSubstring("Password: gocubsgo"))
-
-				By("Ensuring that logs contain the test command and its output")
-				Expect(logs).To(ContainSubstring("echo " + testString + "\n"))
-				Expect(logs).To(ContainSubstring("\n" + testString + "\n"))
+				By("Ensuring that logs contain the login attempt and test command output")
+				Eventually(func(g Gomega) {
+					logs, err := getConsoleLogs(virtlauncherPod)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(logs).To(ContainSubstring("localhost login:"))
+					// TODO: console.LoginToAlpine is not systematically waiting for `\u001b[8m` to prevent echoing the password, fix it first
+					// g.Expect(outputString).ToNot(ContainSubstring("Password: gocubsgo"))
+					g.Expect(logs).To(ContainSubstring("echo " + testString + "\n"))
+					g.Expect(logs).To(ContainSubstring("\n" + testString + "\n"))
+				}, 30*time.Second, 2*time.Second).Should(Succeed())
 			})
 
 			It("it should rotate the internal log files", decorators.Periodic, func() {
@@ -154,7 +151,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 				Expect(strings.Count(outputString, "virt-serial0-log")).To(Equal(4))
 			})
 
-			It("[QUARANTINE] it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Quarantine, decorators.Periodic, func() {
+			It("it should not skip any log line even trying to flood the serial console for QOSGuaranteed VMs", decorators.Periodic, func() {
 				alpineVmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1000m"),
@@ -195,7 +192,7 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decora
 						i, err := strconv.Atoi(seqnString)
 						Expect(err).ToNot(HaveOccurred())
 						if prevSeqn > 0 {
-							Expect(i).To(Equal(prevSeqn+1), fmt.Sprintf("log line seq number should match previous+1: previous %d, current: %d.\nprevLine: %s\nline: %s", prevSeqn, i, line, prevLine))
+							Expect(i).To(Equal(prevSeqn+1), fmt.Sprintf("log line seq number should match previous+1: previous %d, current: %d.\nprevLine: %s\nline: %s", prevSeqn, i, prevLine, line))
 						}
 						prevSeqn = i
 						prevLine = line
