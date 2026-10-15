@@ -43,8 +43,14 @@ const (
 	UnknownInterfaceQueueCount = 0
 )
 
+type featureGateChecker interface {
+	NetworkDevicesWithDRAGateEnabled() bool
+}
+
 type NetStat struct {
 	cacheCreator cacheCreator
+
+	featureGates featureGateChecker
 
 	// In memory cache, storing pod interface information.
 	// key is the file path, value is the contents.
@@ -52,13 +58,14 @@ type NetStat struct {
 	podInterfaceVolatileCache sync.Map
 }
 
-func NewNetStat() *NetStat {
-	return NewNetStateWithCustomFactory(cache.CacheCreator{})
+func NewNetStat(featureGates featureGateChecker) *NetStat {
+	return NewNetStateWithCustomFactory(cache.CacheCreator{}, featureGates)
 }
 
-func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
+func NewNetStateWithCustomFactory(cacheCreator cacheCreator, featureGates featureGateChecker) *NetStat {
 	return &NetStat{
 		cacheCreator:              cacheCreator,
+		featureGates:              featureGates,
 		podInterfaceVolatileCache: sync.Map{},
 	}
 }
@@ -94,10 +101,16 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	multusStatusNetworksByName := netvmispec.IndexInterfaceStatusByName(
+	networkDevicesWithDRAGateEnabled := c.featureGates.NetworkDevicesWithDRAGateEnabled()
+
+	secondaryIfacesByName := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			if netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus) {
+				return true
+			}
+			return networkDevicesWithDRAGateEnabled &&
+				netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
 		},
 	)
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
@@ -121,7 +134,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}
 
-	interfacesStatus = ifacesStatusFromSecondaryNetworks(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
+	interfacesStatus = ifacesStatusFromSecondaryNetworks(interfacesStatus, secondaryIfacesByName, vmiInterfacesSpecByName, networkDevicesWithDRAGateEnabled)
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
 	vmi.Status.Interfaces = interfacesStatus
@@ -193,19 +206,34 @@ func movePrimaryIfaceStatusToFront(
 
 func ifacesStatusFromSecondaryNetworks(
 	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+	secondaryIfacesByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 	vmIfacesSpecByName map[string]v1.Interface,
+	networkDevicesWithDRAGateEnabled bool,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	for multusIfaceName := range multusStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, multusIfaceName)
-		_, existInSpec := vmIfacesSpecByName[multusIfaceName]
+	candidateSources := []string{netvmispec.InfoSourceMultusStatus}
+	if networkDevicesWithDRAGateEnabled {
+		candidateSources = append(candidateSources, netvmispec.InfoSourcePodStatus)
+	}
+
+	for ifaceName, secondaryIfaceStatus := range secondaryIfacesByName {
+		var infoSources []string
+		for _, infoSource := range candidateSources {
+			if netvmispec.ContainsInfoSource(secondaryIfaceStatus.InfoSource, infoSource) {
+				infoSources = append(infoSources, infoSource)
+			}
+		}
+
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, ifaceName)
+		_, existInSpec := vmIfacesSpecByName[ifaceName]
 		if existInSpec && ifaceStatus == nil {
 			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       multusIfaceName,
-				InfoSource: netvmispec.InfoSourceMultusStatus,
+				Name:       ifaceName,
+				InfoSource: netvmispec.NewInfoSource(infoSources...),
 			})
 		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			for _, infoSource := range infoSources {
+				ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, infoSource)
+			}
 		}
 	}
 	return interfacesStatus
