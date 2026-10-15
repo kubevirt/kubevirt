@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_test")
 go_test(
     name = "go_default_test",
     srcs = [
+        "application_test.go",
         "helpers_test.go",
         "instancetype_suite_test.go",
         "references_test.go",
