@@ -1133,10 +1133,10 @@ var _ = Describe(SIG("Backup", func() {
 		}, ttlDuration+(2*time.Minute), 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
 			"The VM export should have been cleaned up according to TTL by now")
 
-		events.ExpectEvent(backup, corev1.EventTypeNormal, "VirtualMachineBackupAborting")
+		events.ExpectEvent(backup, corev1.EventTypeWarning, "VirtualMachineBackupAborting")
 
-		By("Verifying the backup gracefully aborts and finishes")
-		waitBackupSucceeded(virtClient, backup.Namespace, backup.Name)
+		By("Verifying the backup is cancelled and marked as failed")
+		waitBackupFailed(virtClient, backup.Namespace, backup.Name)
 	})
 
 	It("Pull Mode Backup should recreate VMExport and maintain endpoint access if VMExport was deleted during backup", func() {
@@ -1506,7 +1506,7 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup {
 	var vmbackup *backupv1.VirtualMachineBackup
 
-	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to succeed", namespace, backupName))
+	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to fail", namespace, backupName))
 	Eventually(func() *backupv1.VirtualMachineBackupStatus {
 		var err error
 		vmbackup, err = virtClient.VirtualMachineBackup(namespace).Get(context.Background(), backupName, metav1.GetOptions{})
