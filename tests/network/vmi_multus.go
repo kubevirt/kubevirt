@@ -305,7 +305,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				),
 				Entry("[test_id:1578]with default network and secondary network", decorators.WgS390x,
 					[]libvmi.Option{
-						libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithInterface(linuxBridgeInterface),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithNetwork(&linuxBridgeNetwork),
@@ -322,7 +322,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				const ifaceName = "eth1"
 				newVMI := func() *v1.VirtualMachineInstance {
 					return libvmifact.NewAlpine(
-						libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+						libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 						libvmi.WithInterface(linuxBridgeInterfaceWithIPAM),
 						libvmi.WithNetwork(v1.DefaultPodNetwork()),
 						libvmi.WithNetwork(&linuxBridgeWithIPAMNetwork),
@@ -436,7 +436,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 			It("[test_id:1756]should report all interfaces in Status", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
@@ -609,7 +609,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
                     ip addr add %s dev ep2
                 `, ep1Cidr, ep2Cidr, ep1CidrV6, ep2CidrV6)
 				agentVMI := libvmifact.NewFedora(
-					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
