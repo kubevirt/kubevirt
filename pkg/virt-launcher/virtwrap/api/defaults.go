@@ -2,11 +2,6 @@ package api
 
 import archdefaulter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api/arch-defaulter"
 
-const (
-	DefaultVMCIDR     = "10.0.2.0/24"
-	DefaultVMIpv6CIDR = "fd10:0:2::/120"
-)
-
 func NewDefaulter(arch string) *Defaulter {
 	return &Defaulter{
 		ArchDefaulter: archdefaulter.NewArchDefaulter(arch),

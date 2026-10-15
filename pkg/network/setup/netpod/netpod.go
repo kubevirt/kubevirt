@@ -39,8 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -430,7 +428,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	if hasIPGlobalUnicast(podIface.IPv4) {
-		ip4GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMNetworkCIDR, api.DefaultVMCIDR)
+		ip4GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMNetworkCIDR, link.DefaultVMCIDR)
 		if err != nil {
 			return nil, err
 		}
@@ -442,7 +440,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	if hasIPGlobalUnicast(podIface.IPv6) {
-		ip6GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMIPv6NetworkCIDR, api.DefaultVMIpv6CIDR)
+		ip6GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMIPv6NetworkCIDR, link.DefaultVMIpv6CIDR)
 		if err != nil {
 			return nil, err
 		}
