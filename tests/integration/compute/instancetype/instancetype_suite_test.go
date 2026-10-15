@@ -53,4 +53,6 @@ var _ = Describe("Instancetype", Ordered, ContinueOnFailure, func() {
 	BeforeEach(func(ctx SpecContext) {
 		s.namespace = s.f.CreateNamespace(ctx)
 	})
+
+	s.describeUpgrades()
 })
