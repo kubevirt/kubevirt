@@ -41,9 +41,12 @@ var _ = Describe("VerifyVMIMigratable", func() {
 		nonMigratablePlugin: {},
 	}
 
-	DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance) {
+	const draGateEnabled = true
+
+	DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance, isDRAEnabled bool) {
 		clusterConfig := stubClusterConfigurer{
 			bindingPlugins: bindingPlugins,
+			isDRAEnabled:   isDRAEnabled,
 		}
 		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).To(Succeed())
 	},
@@ -52,6 +55,7 @@ var _ = Describe("VerifyVMIMigratable", func() {
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
+			draGateEnabled,
 		),
 		Entry("when the VMI uses bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
 			libvmi.New(
@@ -59,24 +63,42 @@ var _ = Describe("VerifyVMIMigratable", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
 			),
+			draGateEnabled,
 		),
 		Entry("when the VMI uses migratable binding plugin to connect to the pod network",
 			libvmi.New(
 				libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, migratablePlugin)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
+			draGateEnabled,
 		),
 		Entry("when the VMI uses passtBinding to connect to the pod network",
 			libvmi.New(
 				libvmi.WithInterface(libvmi.NewInterface(podNet0, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
+			draGateEnabled,
+		),
+		Entry("when the VMI uses a DRA network backed by a ResourceClaimTemplate",
+			newDRAVMI(v1.VirtualMachineInstanceResourceClaim{
+				Name:                      "claim0",
+				ResourceClaimTemplateName: new("claim-template"),
+			}),
+			draGateEnabled,
+		),
+		Entry("when the VMI uses a DRA network backed by a ResourceClaim but the feature gate is disabled",
+			newDRAVMI(v1.VirtualMachineInstanceResourceClaim{
+				Name:              "claim0",
+				ResourceClaimName: new("existing-claim"),
+			}),
+			!draGateEnabled,
 		),
 	)
 
-	DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance) {
+	DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance, isDRAEnabled bool) {
 		clusterConfig := stubClusterConfigurer{
 			bindingPlugins: bindingPlugins,
+			isDRAEnabled:   isDRAEnabled,
 		}
 		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).ToNot(Succeed())
 	},
@@ -85,12 +107,21 @@ var _ = Describe("VerifyVMIMigratable", func() {
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
+			draGateEnabled,
 		),
 		Entry("when the VMI uses non-migratable binding plugin to connect to the pod network",
 			libvmi.New(
 				libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
+			draGateEnabled,
+		),
+		Entry("when the VMI uses a DRA network backed by a ResourceClaim",
+			newDRAVMI(v1.VirtualMachineInstanceResourceClaim{
+				Name:              "claim0",
+				ResourceClaimName: new("existing-claim"),
+			}),
+			draGateEnabled,
 		),
 	)
 })
@@ -102,10 +133,25 @@ func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
 	}
 }
 
+func newDRAVMI(claim v1.VirtualMachineInstanceResourceClaim) *v1.VirtualMachineInstance {
+	const netName = "net1"
+
+	return libvmi.New(
+		libvmi.WithInterface(libvmi.NewInterface(netName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "draBinding"}))),
+		libvmi.WithNetwork(libvmi.DRANetwork(netName, claim.Name, "req0")),
+		libvmi.WithResourceClaim(claim),
+	)
+}
+
 type stubClusterConfigurer struct {
 	bindingPlugins map[string]v1.InterfaceBindingPlugin
+	isDRAEnabled   bool
 }
 
 func (c stubClusterConfigurer) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	return c.bindingPlugins
+}
+
+func (c stubClusterConfigurer) NetworkDevicesWithDRAGateEnabled() bool {
+	return c.isDRAEnabled
 }

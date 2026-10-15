@@ -30,12 +30,17 @@ import (
 
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	NetworkDevicesWithDRAGateEnabled() bool
 }
 
 func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, config clusterConfigurer) error {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	if len(ifaces) == 0 {
 		return nil
+	}
+
+	if config.NetworkDevicesWithDRAGateEnabled() && usesResourceClaim(vmi) {
+		return errors.New("cannot migrate VMI whose DRA network is backed by a ResourceClaim; use a ResourceClaimTemplate instead")
 	}
 
 	podNetwork := vmispec.LookupPodNetwork(vmi.Spec.Networks)
@@ -64,4 +69,25 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, config clusterConfigure
 	}
 
 	return errors.New("cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
+}
+
+// usesResourceClaim reports whether the VMI has a DRA network backed
+// by a ResourceClaim rather than a ResourceClaimTemplate. A ResourceClaim is bound
+// to a specific allocation and cannot be reserved by the migration target pod, so
+// the VMI is not migratable. A ResourceClaimTemplate, in contrast, generates a
+// fresh claim per pod and can be satisfied on the target.
+func usesResourceClaim(vmi *v1.VirtualMachineInstance) bool {
+	draNetworkClaimNames := map[string]struct{}{}
+	for _, network := range vmi.Spec.Networks {
+		if vmispec.IsDRANetwork(network) {
+			draNetworkClaimNames[network.ResourceClaim.ClaimName] = struct{}{}
+		}
+	}
+
+	for _, claim := range vmi.Spec.ResourceClaims {
+		if _, isDRANetworkClaim := draNetworkClaimNames[claim.Name]; isDRANetworkClaim && claim.ResourceClaimName != nil {
+			return true
+		}
+	}
+	return false
 }
