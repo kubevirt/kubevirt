@@ -121,7 +121,7 @@ var _ = Describe("Object Graph", func() {
 			}
 			var config *virtconfig.ClusterConfig
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
-			app = NewSubresourceAPIApp(kvClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+			app = NewSubresourceAPIApp(kvClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 		})
 
 		disableFeatureGates := func() {
