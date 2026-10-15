@@ -483,12 +483,15 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 		return false, nil
 	}
 
-	err = r.createOrUpdateValidatingAdmissionPolicyBindings()
+	// A binding with paramRef is rejected unless its policy already exists.
+	// Without the policy, the apiserver cannot tell which resource the
+	// operator must be allowed to read, and requires list on every resource.
+	err = r.createOrUpdateValidatingAdmissionPolicies()
 	if err != nil {
 		return false, err
 	}
 
-	err = r.createOrUpdateValidatingAdmissionPolicies()
+	err = r.createOrUpdateValidatingAdmissionPolicyBindings()
 	if err != nil {
 		return false, err
 	}
