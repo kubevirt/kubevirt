@@ -261,6 +261,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				"guest_os_machine":        agentVMI.Status.Machine.Type,
 				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+				"has_panic_device":        "true",
 			}
 
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
@@ -677,7 +678,8 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
 	)
 	vmi := libvmops.RunVMIAndExpectLaunch(
-		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), flags.StartupTimeoutSecondsXLarge(),
+		libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithPanicDevice(v1.Isa)),
+		flags.StartupTimeoutSecondsXLarge(),
 	)
 
 	var err error
