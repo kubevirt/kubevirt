@@ -7,6 +7,7 @@ go_test(
         "helpers_test.go",
         "instancetype_suite_test.go",
         "memory_overcommit_test.go",
+        "reference_policy_test.go",
         "references_test.go",
         "revision_test.go",
         "upgrade_test.go",
