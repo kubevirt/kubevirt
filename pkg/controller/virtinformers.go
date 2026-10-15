@@ -194,8 +194,11 @@ type KubeInformerFactory interface {
 	// Watches for changes in kubevirt leases
 	Leases() cache.SharedIndexInformer
 
-	// Watches for the export route config map
+	// Watches for the export route CA config map (kube-root-ca.crt)
 	ExportRouteConfigMap() cache.SharedIndexInformer
+
+	// Watches for the optional export external CA config map (kubevirt-export-external-ca)
+	ExportExternalCAConfigMap() cache.SharedIndexInformer
 
 	// Watches for the kubevirt export service
 	ExportService() cache.SharedIndexInformer
@@ -1146,6 +1149,15 @@ func (f *kubeInformerFactory) ExportRouteConfigMap() cache.SharedIndexInformer {
 	return f.getInformer("extensionsExportRouteConfigMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.k8sClient.CoreV1().RESTClient()
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kube-root-ca.crt")
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) ExportExternalCAConfigMap() cache.SharedIndexInformer {
+	return f.getInformer("extensionsExportExternalCAConfigMapInformer", func() cache.SharedIndexInformer {
+		restClient := f.k8sClient.CoreV1().RESTClient()
+		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-export-external-ca")
 		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
