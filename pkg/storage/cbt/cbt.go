@@ -320,6 +320,11 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
+	// Declarative VMState mounts the whole PVC, so cbt/ is referenced directly, no symlink needed.
+	if util.HasDeclarativeVMState(vmi) {
+		return filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)
+	}
+
 	cbtPath := "/var/lib/libvirt/qemu/cbt"
 	if vmitrait.IsNonRoot(vmi) {
 		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")

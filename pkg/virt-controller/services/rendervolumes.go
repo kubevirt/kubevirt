@@ -416,6 +416,17 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			})
 		}
 
+		if util.HasDeclarativeVMState(vmi) {
+			// Declarative virtualMachineState mounts the whole PVC, no SubPath.
+			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				ReadOnly:  false,
+				MountPath: util.VMStatePVCMountPath,
+			})
+
+			return nil
+		}
+
 		if tpm.HasPersistentDevice(&vmi.Spec) {
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
 				Name:      volumeName,
@@ -425,7 +436,7 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			}, k8sv1.VolumeMount{
 				Name:      volumeName,
 				ReadOnly:  false,
-				MountPath: pathForSwtpmLocalca(vmi),
+				MountPath: util.PathForSwtpmLocalca(vmi),
 				SubPath:   "swtpm-localca",
 			})
 		}
@@ -843,12 +854,4 @@ func shouldAddLauncherBinaryVolume(vmi *v1.VirtualMachineInstance, imageIDs map[
 	}
 	kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
 	return vmitrait.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
-}
-
-func pathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
-	localCaPath := "/var/lib/swtpm-localca"
-	if vmitrait.IsNonRoot(vmi) {
-		localCaPath = filepath.Join(util.VirtPrivateDir, "var", "lib", "swtpm-localca")
-	}
-	return localCaPath
 }

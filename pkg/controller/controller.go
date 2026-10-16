@@ -73,6 +73,10 @@ const (
 	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
 	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
 	BackendStorageNotReadyReason = "BackendStorageNotReady"
+	// VirtualMachineStatePVCNotFoundReason is added when the virtualMachineState.source PVC is missing.
+	VirtualMachineStatePVCNotFoundReason = "VirtualMachineStatePVCNotFound"
+	// VirtualMachineStateInUseReason is added when the VirtualMachineState PVC is held by another VM.
+	VirtualMachineStateInUseReason = "VirtualMachineStateInUse"
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
