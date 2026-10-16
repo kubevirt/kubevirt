@@ -141,28 +141,28 @@ const maxConcurrentHotplugHostDevices = 1
 
 var agentDataCommandTTLs = map[string]time.Duration{
 	// 20sec
-	"guest-get-load":      twentySeconds,
-	"guest-get-cpustats":  twentySeconds,
-	"guest-get-diskstats": twentySeconds,
+	stats.GuestGetLoadKey:      twentySeconds,
+	stats.GuestGetCPUStatsKey:  twentySeconds,
+	stats.GuestGetDiskStatsKey: twentySeconds,
 
 	// 1min
-	"guest-get-time":              oneMinute,
-	"guest-get-vcpus":             oneMinute,
-	"guest-get-memory-block-info": oneMinute,
-	"guest-get-users":             oneMinute,
+	stats.GuestGetTimeKey:            oneMinute,
+	stats.GuestGetVcpusKey:           oneMinute,
+	stats.GuestGetMemoryBlockInfoKey: oneMinute,
+	stats.GuestGetUsersKey:           oneMinute,
 
 	// 5min
-	"guest-get-fsinfo":             fiveMinutes,
-	"guest-get-osinfo":             fiveMinutes,
-	"guest-get-disks":              fiveMinutes,
-	"guest-get-host-name":          fiveMinutes,
-	"guest-get-timezone":           fiveMinutes,
-	"guest-network-get-route":      fiveMinutes,
-	"guest-network-get-interfaces": fiveMinutes,
-	"guest-get-devices":            fiveMinutes,
+	stats.GuestGetFsInfoKey:            fiveMinutes,
+	stats.GuestGetOsInfoKey:            fiveMinutes,
+	stats.GuestGetDisksKey:             fiveMinutes,
+	stats.GuestGetHostNameKey:          fiveMinutes,
+	stats.GuestGetTimezoneKey:          fiveMinutes,
+	stats.GuestNetworkGetRouteKey:      fiveMinutes,
+	stats.GuestNetworkGetInterfacesKey: fiveMinutes,
+	stats.GuestGetDevicesKey:           fiveMinutes,
 
 	// 30min
-	"guest-get-memory-blocks": thirtyMinutes,
+	stats.GuestGetMemoryBlocksKey: thirtyMinutes,
 }
 
 type contextStore struct {
