@@ -152,6 +152,7 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 	_, err = vmiInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			UpdateFunc: c.handleUpdateVMI,
+			DeleteFunc: c.handleDeleteVMI,
 		},
 	)
 	if err != nil {
@@ -227,7 +228,23 @@ func (ctrl *VMBackupController) handleUpdateVMI(oldObj, newObj interface{}) {
 	if equality.Semantic.DeepEqual(ovmi.Status, nvmi.Status) {
 		return
 	}
-	key := types.NamespacedName{Namespace: nvmi.Namespace, Name: nvmi.Name}.String()
+	ctrl.enqueueBackupsOfVMI(nvmi)
+}
+
+func (ctrl *VMBackupController) handleDeleteVMI(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		return
+	}
+	ctrl.enqueueBackupsOfVMI(vmi)
+}
+
+func (ctrl *VMBackupController) enqueueBackupsOfVMI(vmi *v1.VirtualMachineInstance) {
+	key := types.NamespacedName{Namespace: vmi.Namespace, Name: vmi.Name}.String()
 
 	// Find backups directly referencing this VMI
 	keys, err := ctrl.backupInformer.GetIndexer().IndexKeys("vmi", key)
@@ -509,6 +526,11 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 
 	if backup.Status.Type != "" {
 		if !vmiExists {
+			if isPullMode(backup) {
+				if err := ctrl.cleanupBackupExport(backup); err != nil {
+					return err
+				}
+			}
 			ctrl.setFailed(backup, backupv1.ReasonSourceLost, "VMI was deleted during backup")
 			return nil
 		}
