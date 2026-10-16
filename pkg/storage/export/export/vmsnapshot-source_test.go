@@ -538,6 +538,19 @@ var _ = Describe("VMSnapshot source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
+	It("Should collect the volume name of every restored PVC", func() {
+		pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
+		vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
+
+		volumesToExport, _, err := controller.restoreSourceVolumesFromVMSnapshot(createSnapshotVMExport(), createTestVMSnapshot(true))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(volumesToExport).To(HaveLen(1))
+		// The restored PVC matches no claim of the VM, only the volume backup
+		// knows the name of the volume.
+		Expect(volumesToExport[0].pvc.Name).To(Equal("test-test-snapshot"))
+		Expect(volumesToExport[0].volumeName).To(Equal("test-volume"))
+	})
+
 	It("Should stay pending when two volume backups restore to the same PVC", func() {
 		testVMExport := createSnapshotVMExport()
 		// Restore PVCs are named <export>-<pvc>, so both backups collapse onto one.

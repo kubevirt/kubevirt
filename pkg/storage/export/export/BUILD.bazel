@@ -8,6 +8,7 @@ go_library(
         "links.go",
         "paths.go",
         "pvc-source.go",
+        "source-volumes.go",
         "vm-source.go",
         "vmsnapshot-source.go",
         "vmtemplate-source.go",
