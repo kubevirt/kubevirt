@@ -26,3 +26,9 @@ in the builder environment, use, for example:
 ```sh
 hack/dockerized "go test -race ./tests/integration/compute -count=1 -v"
 ```
+
+The control-plane suite exercises operator Lease events through real API
+watches and the operator's work queue. It waits for an install-strategy Job,
+which remains pending because envtest has no Job controller, then counts
+reconciliations, including those that do not write resources. Lease assertions
+allow for the operator's five-second queue delay.
