@@ -768,6 +768,12 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 			},
 		},
 	})
+	if config.DecentralizedLiveMigrationProxyEnabled() {
+		env = append(env, corev1.EnvVar{
+			Name:  operatorutil.DecentralizedLiveMigrationProxyEnvName,
+			Value: "true",
+		})
+	}
 
 	deployment := newBaseDeployment(deploymentName, imageName, config.GetNamespace(), config.GetImageRegistry(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), podAntiAffinity, env)
 
@@ -797,11 +803,13 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerCertSecretName, "/etc/virt-sync-controller/clientcertificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtSynchronizationControllerServerCertSecretName, "/etc/virt-sync-controller/servercertificates")
-	// Migration proxy TLS termination:
+	// Migration proxy TLS termination (only when Proxy datapath is enabled):
 	// - migration client cert: dial target virt-handler (CN=client:migration)
 	// - virt-handler server cert: accept source virt-handler TLS (CN=node:virt-handler)
-	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerMigrationClientCertSecretName, "/etc/virt-handler/migrationclientcertificates")
-	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerServerCertSecretName, "/etc/virt-handler/migrationservercertificates")
+	if config.DecentralizedLiveMigrationProxyEnabled() {
+		attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerMigrationClientCertSecretName, "/etc/virt-handler/migrationclientcertificates")
+		attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerServerCertSecretName, "/etc/virt-handler/migrationservercertificates")
+	}
 	attachProfileVolume(&deployment.Spec.Template.Spec)
 
 	pod := &deployment.Spec.Template.Spec

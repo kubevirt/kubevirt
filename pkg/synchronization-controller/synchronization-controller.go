@@ -196,9 +196,6 @@ func NewSynchronizationController(
 	syncController.grpcServer = grpc.NewServer(grpc.Creds(credentials.NewTLS(serverTLSConfig)))
 	syncv1.RegisterSynchronizeServer(syncController.grpcServer, syncController)
 
-	// Initialize migration tunnel manager for terminating TLS with virt-handlers
-	syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig, migrationServerTLSConfig)
-
 	if ip == "" && bindAddress == "" {
 		return nil, fmt.Errorf("synchronization controller requires a pod IP or bind address")
 	}
@@ -207,7 +204,9 @@ func NewSynchronizationController(
 		podIP = bindAddress
 	}
 
-	if proxyConfig != nil && proxyConfig.Enabled {
+	if proxyEnabled {
+		// Terminating TLS with virt-handlers is only needed for the Proxy datapath.
+		syncController.tunnelManager = NewMigrationTunnelManager(migrationClientTLSConfig, migrationServerTLSConfig)
 		// Proxy was explicitly selected: fail fast on misconfiguration (e.g. a
 		// required Multus interface is missing) rather than starting without the
 		// tunnel and causing opaque migration failures later.
