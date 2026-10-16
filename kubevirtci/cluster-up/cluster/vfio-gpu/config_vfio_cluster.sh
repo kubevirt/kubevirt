@@ -40,7 +40,23 @@ encode_vfio_assets() {
     tar -C "${SCRIPT_PATH}" -cz fake-iommu fake-pci setup-fake-pci-host.sh | base64 | tr -d '\n'
 }
 
+# Some fake VFIO tests require at least 8G of memory. Fail early if the cluster was started with less.
+validate_memory() {
+    local mem_value mem_unit mem_in_mb
+    mem_value=$(echo "${KUBEVIRT_MEMORY_SIZE:-0}" | sed 's/[^0-9]//g')
+    mem_unit=$(echo "${KUBEVIRT_MEMORY_SIZE:-0}" | sed 's/[^a-zA-Z]//g' | tr '[:lower:]' '[:upper:]')
+    case "${mem_unit}" in
+        G) mem_in_mb=$((mem_value * 1024)) ;;
+        *) mem_in_mb=${mem_value} ;;
+    esac
+    if [ "${mem_in_mb}" -lt 8192 ]; then
+        echo "FATAL: fake VFIO requires KUBEVIRT_MEMORY_SIZE >= 8G (8192M). Current value: ${KUBEVIRT_MEMORY_SIZE:-unset}" >&2
+        exit 1
+    fi
+}
+
 validate_inputs() {
+    validate_memory
     if [ ! -d "${SCRIPT_PATH}/fake-iommu" ] || [ ! -d "${SCRIPT_PATH}/fake-pci" ]; then
         echo "FATAL: fake VFIO module sources not found under ${SCRIPT_PATH}" >&2
         exit 1
