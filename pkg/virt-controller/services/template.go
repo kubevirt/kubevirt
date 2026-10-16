@@ -494,7 +494,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			args = append(args, "--firmware-auto-selection")
 		}
 		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ARM64SecureBoot) {
-			command = append(command, "--arm64-secure-boot")
+			args = append(args, "--arm64-secure-boot")
 		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)

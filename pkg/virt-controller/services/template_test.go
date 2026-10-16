@@ -6319,7 +6319,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--arm64-secure-boot"))
+			Expect(pod.Spec.Containers[0].Args).To(ContainElement("--arm64-secure-boot"))
 		})
 
 		It("should not pass --arm64-secure-boot flag when disabled", func() {
@@ -6328,7 +6328,7 @@ var _ = Describe("Template", func() {
 			vmi := libvmi.New(libvmi.WithNamespace("default"))
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.Containers[0].Command).ToNot(ContainElement("--arm64-secure-boot"))
+			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--arm64-secure-boot"))
 		})
 	})
 })

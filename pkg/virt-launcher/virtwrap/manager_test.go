@@ -3785,8 +3785,9 @@ var _ = Describe("Manager", func() {
 			}
 		})
 
-		It("should use firmware auto-selection for standard secure boot when feature gate is enabled", func() {
-			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, true, false, false, nil)
+		DescribeTable("should use firmware auto-selection for secure boot when the required feature gates are enabled", func(arch string, arm64SecureBoot bool) {
+			vmi.Spec.Architecture = arch
+			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, true, arm64SecureBoot, false, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			options := &cmdv1.VirtualMachineOptions{
@@ -3802,9 +3803,31 @@ var _ = Describe("Manager", func() {
 			Expect(converterContext.EFIConfiguration.SecureLoader).To(BeTrue())
 			Expect(converterContext.EFIConfiguration.EFICode).To(BeEmpty())
 			Expect(converterContext.EFIConfiguration.EFIVars).To(BeEmpty())
-		})
+		},
+			Entry("amd64 without the ARM64 gate", "amd64", false),
+			Entry("amd64 with the ARM64 gate", "amd64", true),
+			Entry("arm64 with both gates", "arm64", true),
+		)
+
+		DescribeTable("should reject ARM64 secure boot when either required feature gate is disabled", func(firmwareAutoSelection, arm64SecureBoot bool) {
+			vmi.Spec.Architecture = "arm64"
+			manager, err := newLibvirtDomainManagerDefault()
+			Expect(err).ToNot(HaveOccurred())
+			libvirtManager := manager.(*LibvirtDomainManager)
+			libvirtManager.firmwareAutoSelectionEnabled = firmwareAutoSelection
+			libvirtManager.arm64SecureBootEnabled = arm64SecureBoot
+			libvirtManager.efiEnvironment = efi.DetectEFIEnvironment("arm64", GinkgoT().TempDir())
+
+			_, err = libvirtManager.generateConverterContext(vmi, true, &cmdv1.VirtualMachineOptions{}, false)
+			Expect(err).To(MatchError(ContainSubstring("EFI OVMF roms missing")))
+		},
+			Entry("both gates disabled", false, false),
+			Entry("FirmwareAutoSelection disabled", false, true),
+			Entry("ARM64SecureBoot disabled", true, false),
+		)
 
 		DescribeTable("should use explicit EFI paths when firmware auto-selection does not apply", func(arch string, secureBoot bool, firmwareAutoSelection bool, efiCodeFile, efiVarsFile string, expectedSecureLoader bool) {
+			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = virtpointer.P(secureBoot)
 
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
