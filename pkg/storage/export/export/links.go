@@ -84,7 +84,7 @@ func (ctrl *VMExportController) getLinks(exporterPod *corev1.Pod, export *export
 		return nil, nil
 	}
 
-	paths := CreateServerPaths(ContainerEnvToMap(exporterPod.Spec.Containers[0].Env))
+	paths := serverPathsForPod(exporterPod)
 	exportLink := &exportv1.VirtualMachineExportLink{
 		Cert: cert,
 	}

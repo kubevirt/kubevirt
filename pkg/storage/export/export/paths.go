@@ -31,6 +31,7 @@ import (
 // VolumeInfo contains paths for a volume
 type VolumeInfo struct {
 	Path       string
+	PVCName    string
 	ArchiveURI string
 	DirURI     string
 	RawURI     string
@@ -115,13 +116,37 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 	return result
 }
 
+// serverPathsForPod creates a ServerPaths object from the environment of an
+// exporter pod and resolves the PVC of every volume through the pod volume
+// mounted at its path.
+func serverPathsForPod(pod *corev1.Pod) *ServerPaths {
+	container := pod.Spec.Containers[0]
+	paths := CreateServerPaths(ContainerEnvToMap(container.Env))
+
+	claimByVolume := map[string]string{}
+	for _, v := range pod.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			claimByVolume[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+	claimByPath := map[string]string{}
+	for _, m := range container.VolumeMounts {
+		claimByPath[m.MountPath] = claimByVolume[m.Name]
+	}
+	for _, d := range container.VolumeDevices {
+		claimByPath[d.DevicePath] = claimByVolume[d.Name]
+	}
+	for i := range paths.Volumes {
+		paths.Volumes[i].PVCName = claimByPath[paths.Volumes[i].Path]
+	}
+	return paths
+}
+
 // GetVolumeInfo returns the VolumeInfo for a given PVC name
 func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
-	targetName := getExportPodVolumeNameFromStr(pvcName)
-	for _, v := range sp.Volumes {
-		_, n := filepath.Split(filepath.Clean(v.Path))
-		if n == targetName {
-			return &v
+	for i := range sp.Volumes {
+		if sp.Volumes[i].PVCName == pvcName {
+			return &sp.Volumes[i]
 		}
 	}
 	return nil

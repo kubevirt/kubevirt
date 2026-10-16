@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -1330,31 +1329,32 @@ var _ = Describe("Export controller", func() {
 		Entry("two duplicates sorted", []string{"b", "a", "b", "a"}, []string{"a", "b"}),
 	)
 
-	DescribeTable("GetVolumeInfo should correctly resolve volume paths for various PVC names", func(pvcName string) {
-		targetName := getExportPodVolumeNameFromStr(pvcName)
-		sp := &ServerPaths{
-			Volumes: []VolumeInfo{
-				{
-					Path: "/var/run/kubevirt-export/" + targetName,
-				},
+	It("serverPathsForPod should resolve volumes by the claim mounted at their path", func() {
+		sv := &sourceVolumes{}
+		for _, pvc := range []*k8sv1.PersistentVolumeClaim{
+			{ObjectMeta: metav1.ObjectMeta{Name: "pvc.with.dots"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: strings.Repeat("a", validation.DNS1035LabelMaxLength+1)}},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "block-disk"},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock)},
 			},
+		} {
+			sv.volumes = append(sv.volumes, sourceVolume{pvc: pvc})
 		}
+		pod := &k8sv1.Pod{Spec: k8sv1.PodSpec{Containers: []k8sv1.Container{{}}}}
+		sv.configurePodVolumes(pod)
 
-		result := sp.GetVolumeInfo(pvcName)
-		Expect(result).ToNot(BeNil())
-
-		_, foundName := filepath.Split(filepath.Clean(result.Path))
-		Expect(foundName).To(Equal(targetName))
-
-		if len(pvcName) > validation.DNS1035LabelMaxLength {
-			Expect(len(foundName)).To(BeNumerically("<", 63))
-			Expect(foundName).To(HavePrefix(exportPrefix))
+		paths := serverPathsForPod(pod)
+		volumePaths := map[string]bool{}
+		for _, volume := range sv.volumes {
+			vi := paths.GetVolumeInfo(volume.pvc.Name)
+			Expect(vi).ToNot(BeNil())
+			volumePaths[vi.Path] = true
 		}
-	},
-		Entry("Short name", "pvc-name"),
-		Entry("Name with dots", "pvc.with.dots"),
-		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
-	)
+		Expect(volumePaths).To(HaveLen(len(sv.volumes)))
+		Expect(paths.GetVolumeInfo("block-disk").Path).To(HavePrefix(blockVolumeMountPath))
+		Expect(paths.GetVolumeInfo("does-not-exist")).To(BeNil())
+	})
 
 	It("CreateServerPaths should parse OCI URI", func() {
 		const uri = "/export.oci.tar"
