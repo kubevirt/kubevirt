@@ -102,6 +102,7 @@ var _ = Describe("Live migration source", func() {
 			nil,
 			"", false,
 			false, // firmware auto-selection
+			false, // arm64 secure boot
 			false,
 			nil,
 		)
@@ -244,6 +245,7 @@ var _ = Describe("Live migration source", func() {
 				nil,
 				"", false,
 				false, // firmware auto-selection
+				false, // arm64 secure boot
 				false,
 				nil,
 			)

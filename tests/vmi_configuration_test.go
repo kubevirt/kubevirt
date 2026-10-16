@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -309,6 +310,92 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:1668]should use EFI without secure boot", Serial, false, "SecureBoot disabled", false),
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
+		)
+
+		// Ubuntu 24.04 is used as a container disk for CI convenience; any bootable
+		// ARM64 disk with a valid Secure Boot chain would work.
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
+		DescribeTable("ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func(persistent bool) {
+			kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+			kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "quay.io/containerdisks/ubuntu:24.04"),
+				libvmi.WithMemoryRequest("1Gi"),
+				libvmi.WithRng(),
+				libvmi.WithArchitecture("arm64"),
+				libvmi.WithUefi(true),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
+disable_root: false
+chpasswd:
+  expire: false
+  users:
+    - name: root
+      password: kubevirt
+      type: text
+`)),
+			)
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(persistent)
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyHalted))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			startAndCheckSecureBoot := func() {
+				By("Starting the VM and logging into Ubuntu")
+				vm = libvmops.StartVirtualMachine(vm)
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BCas{C: []expect.Caser{
+						&expect.Case{R: regexp.MustCompile(`(?m)^\S+ login: `), S: "root\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`Password:`), S: "kubevirt\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`root@[^:]+:[^\r\n]*# `), T: expect.OK()},
+					}},
+				}, 5*time.Minute)).To(Succeed())
+				Expect(console.RunCommand(vmi, "stty cols 500 rows 500", 10*time.Second)).To(Succeed())
+
+				By("Checking that the guest reports SecureBoot=1 and SetupMode=0")
+				// Read efivarfs directly so the test does not depend on mokutil
+				// being installed. The first four bytes are variable attributes.
+				const efiGlobalGUID = "8be4df61-93ca-11d2-aa0d-00e098032b8c"
+				for variable, value := range map[string]int{"SecureBoot": 1, "SetupMode": 0} {
+					command := fmt.Sprintf(`test "$(od -An -tu1 -j4 -N1 /sys/firmware/efi/efivars/%s-%s | tr -d '[:space:]')" = %d`, variable, efiGlobalGUID, value)
+					Expect(console.RunCommand(vmi, command, 10*time.Second)).To(Succeed())
+				}
+
+				By("Checking that libvirt resolved a ROM loader and JSON variable store")
+				domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domain.OS.BootLoader).ToNot(BeNil())
+				Expect(domain.OS.BootLoader.Type).To(Equal("rom"))
+				Expect(domain.OS.NVRam).To(BeNil())
+				Expect(domain.OS.VarStore).ToNot(BeNil())
+				Expect(domain.OS.VarStore.Path).To(HaveSuffix("/" + vmi.Name + "_VARS.json"))
+				Expect(domain.OS.VarStore.Template).ToNot(BeEmpty())
+			}
+			startAndCheckSecureBoot()
+			if persistent {
+				const variablePath = "/sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc"
+				By("Creating a nonvolatile EFI variable")
+				Expect(console.RunCommand(vmi, `printf '\x07\x00\x00\x00\x42' > `+variablePath, 10*time.Second)).To(Succeed())
+				previousUID := vmi.UID
+				By("Replacing the VMI and virt-launcher pod by stopping and starting the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				startAndCheckSecureBoot()
+				Expect(vmi.UID).ToNot(Equal(previousUID))
+				By("Checking that the EFI variable survived virt-launcher replacement")
+				Expect(console.RunCommand(vmi, `test "$(od -An -tu1 -j4 -N1 `+variablePath+` | tr -d '[:space:]')" = 66`, 10*time.Second)).To(Succeed())
+			}
+		},
+			Entry("should enable Secure Boot in the guest", false),
+			Entry("should persist firmware variables across VM restarts", decorators.RequiresRWOFsVMStateStorageClass, true),
 		)
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
