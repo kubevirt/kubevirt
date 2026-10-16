@@ -3,8 +3,8 @@ package disk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 )
@@ -22,16 +22,9 @@ const (
 
 func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 	// #nosec No risk for attacker injection. Only get information about an image
-	args := []string{"info", imagePath, "--output", "json"}
-	cmd := exec.Command(QEMUIMGPath, args...)
-	stderr, err := cmd.StderrPipe()
+	out, err := QEMUImg(context.Background(), nil, "info", imagePath, "--output", "json")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stderr for qemu-img command: %v", err)
-	}
-	out, err := cmd.Output()
-	if err != nil {
-		errout, _ := io.ReadAll(stderr)
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v: %s", err, errout)
+		return nil, err
 	}
 	info := &DiskInfo{}
 	err = json.Unmarshal(out, info)
@@ -41,12 +34,15 @@ func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 	return info, err
 }
 
-func QEMUImg(ctx context.Context, extraFiles []*os.File, subcmd string, args ...string) error {
+func QEMUImg(ctx context.Context, extraFiles []*os.File, subcmd string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, QEMUIMGPath, append([]string{subcmd}, args...)...)
 	cmd.ExtraFiles = extraFiles
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		return fmt.Errorf("qemu-img %s failed: %w: %s", subcmd, err, out)
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
+			return nil, fmt.Errorf("qemu-img %s failed: %w: %s", subcmd, err, exitErr.Stderr)
+		}
+		return nil, fmt.Errorf("qemu-img %s failed: %w", subcmd, err)
 	}
-	return nil
+	return out, nil
 }
