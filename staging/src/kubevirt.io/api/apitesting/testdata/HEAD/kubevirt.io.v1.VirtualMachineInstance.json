@@ -1100,6 +1100,7 @@
         "message": "messageValue",
         "persistentVolumeClaimInfo": {
           "claimName": "claimNameValue",
+          "claimUID": "claimUIDValue",
           "accessModes": [
             "accessModesValue"
           ],
@@ -1164,6 +1165,7 @@
         "volumeName": "volumeNameValue",
         "sourcePVCInfo": {
           "claimName": "claimNameValue",
+          "claimUID": "claimUIDValue",
           "accessModes": [
             "accessModesValue"
           ],
@@ -1179,6 +1181,7 @@
         },
         "destinationPVCInfo": {
           "claimName": "claimNameValue",
+          "claimUID": "claimUIDValue",
           "accessModes": [
             "accessModesValue"
           ],

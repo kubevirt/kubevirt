@@ -380,6 +380,11 @@ type StorageMigratedVolumeInfo struct {
 type PersistentVolumeClaimInfo struct {
 	// ClaimName is the name of the PVC
 	ClaimName string `json:"claimName,omitempty"`
+
+	// ClaimUID is the UID of the PVC
+	// +optional
+	ClaimUID types.UID `json:"claimUID,omitempty"`
+
 	// AccessModes contains the desired access modes the volume should have.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
 	// +listType=atomic

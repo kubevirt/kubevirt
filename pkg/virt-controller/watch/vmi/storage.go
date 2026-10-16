@@ -214,6 +214,7 @@ func (c *Controller) processPVCInfo(status *virtv1.VolumeStatus, pvcName string,
 
 		statusCopy.PersistentVolumeClaimInfo = &virtv1.PersistentVolumeClaimInfo{
 			ClaimName:          pvc.Name,
+			ClaimUID:           pvc.UID,
 			AccessModes:        pvc.Spec.AccessModes,
 			VolumeMode:         pvc.Spec.VolumeMode,
 			Capacity:           pvc.Status.Capacity,

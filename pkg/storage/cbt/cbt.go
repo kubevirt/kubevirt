@@ -20,11 +20,13 @@
 package cbt
 
 import (
+	"fmt"
 	"path/filepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -32,6 +34,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
+)
+
+const (
+	claimVolumesDir  = "volumes"
+	claimOverlayFile = "overlay.qcow2"
 )
 
 var (
@@ -313,10 +320,23 @@ func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineI
 	}
 }
 
-func IsCBTEligibleVolume(volume *v1.Volume) bool {
-	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil ||
-		volume.VolumeSource.HostDisk != nil
+func IsCBTEligibleVolume(vmi *v1.VirtualMachineInstance, volume *v1.Volume) bool {
+	switch {
+	case volume.PersistentVolumeClaim != nil, volume.DataVolume != nil:
+		return true
+	case volume.HostDisk != nil:
+		return pvcInfo(vmi, volume.Name) != nil
+	}
+	return false
+}
+
+func pvcInfo(vmi *v1.VirtualMachineInstance, volumeName string) *v1.PersistentVolumeClaimInfo {
+	for i := range vmi.Status.VolumeStatus {
+		if vmi.Status.VolumeStatus[i].Name == volumeName {
+			return vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo
+		}
+	}
+	return nil
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
@@ -328,7 +348,18 @@ func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 	return cbtPath
 }
 
-func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	cbtPath := PathForCBT(vmi)
-	return filepath.Join(cbtPath, volumeName+".qcow2")
+func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) (string, error) {
+	info := pvcInfo(vmi, volumeName)
+	if info == nil || info.ClaimUID == "" {
+		return "", fmt.Errorf("claim UID of volume %s is not known yet", volumeName)
+	}
+	return QCOW2OverlayPathForClaim(vmi, info.ClaimUID), nil
+}
+
+func QCOW2OverlayPathForClaim(vmi *v1.VirtualMachineInstance, claimUID types.UID) string {
+	return filepath.Join(PathForCBT(vmi), claimVolumesDir, string(claimUID), claimOverlayFile)
+}
+
+func IsClaimOverlayPath(path string) bool {
+	return filepath.Base(path) == claimOverlayFile && filepath.Base(filepath.Dir(filepath.Dir(path))) == claimVolumesDir
 }

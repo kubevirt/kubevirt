@@ -20,23 +20,21 @@
 package storage
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"os/exec"
+	"path/filepath"
+	"strconv"
 	"time"
 
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
@@ -44,6 +42,7 @@ import (
 
 const (
 	overlayClusterSize = 1 << 18 // 256KiB
+	stdioFdCount       = 3
 )
 
 func DiskHasDataStore(disk *api.Disk) bool {
@@ -68,195 +67,115 @@ func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, ho
 	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
 }
 
-var CreateQCOW2Overlay = createQCOW2OverlayFunc
+var CreateQCOW2Overlay = createQCOW2Overlay
 
-func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error {
-	if _, err := os.Stat(overlayPath); err == nil {
+// XXX: Use keep_data_file once QEMU 11 lands.
+func createQCOW2Overlay(overlayPath, imagePath string) error {
+	if cbt.IsClaimOverlayPath(overlayPath) {
+		if err := ensureClaimDir(filepath.Dir(overlayPath)); err != nil {
+			return fmt.Errorf("failed to prepare QCOW2 overlay directory for %s: %w", overlayPath, err)
+		}
+	}
+	if fi, err := os.Lstat(overlayPath); err == nil {
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("QCOW2 overlay %s is not a regular file", overlayPath)
+		}
 		log.Log.V(3).Infof("overlay %s already exists", overlayPath)
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		log.Log.Reason(err).Errorf("Error checking QCOW2 overlay %s existence", overlayPath)
-		return err
+		return fmt.Errorf("failed to check QCOW2 overlay %s existence: %w", overlayPath, err)
 	}
-
-	_, err := os.Create(overlayPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Error creating file QCOW2 overlay %s", overlayPath)
-		return err
-	}
-
-	defer func(path string) {
-		if err != nil {
-			log.Log.Errorf("Deleting QCOW2 overlay %s due to failure %s", path, err)
-			os.Remove(path)
-		}
-	}(overlayPath)
 
 	info, err := osdisk.GetDiskInfo(imagePath)
 	if err != nil {
-		err = fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
-		return err
-	}
-	overlaySize := info.VirtualSize
-
-	args := append([]string{},
-		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
-		"--blockdev", fmt.Sprintf("file,node-name=file,filename=%s", overlayPath))
-
-	if blockDev {
-		args = append(args, "--blockdev", fmt.Sprintf("host_device,node-name=data-file,filename=%s", imagePath))
-	} else {
-		args = append(args, "--blockdev", fmt.Sprintf("file,node-name=data-file,filename=%s", imagePath))
+		return fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
 	}
 
-	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
+	fd, err := unix.MemfdCreate("cbt-scratch", unix.MFD_CLOEXEC)
+	if err != nil {
+		return fmt.Errorf("failed to create scratch data file: %w", err)
+	}
+	scratch := os.NewFile(uintptr(fd), "cbt-scratch")
+	defer scratch.Close()
+
+	tmpOverlay := overlayPath + ".tmp"
+	if err := os.Remove(tmpOverlay); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove stale QCOW2 overlay %s: %w", tmpOverlay, err)
+	}
+	// #nosec G302: the overlay is shared between virt-launcher and qemu.
+	tmp, err := os.OpenFile(tmpOverlay, os.O_RDWR|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay %s: %w", tmpOverlay, err)
+	}
+	defer os.Remove(tmpOverlay)
+	defer tmp.Close()
+
+	var extraFiles []*os.File
+	extraFiles = append(extraFiles, scratch)
+	scratchPath := fmt.Sprintf("/proc/self/fd/%d", stdioFdCount+len(extraFiles)-1)
+	extraFiles = append(extraFiles, tmp)
+	tmpPath := fmt.Sprintf("/proc/self/fd/%d", stdioFdCount+len(extraFiles)-1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "qemu-storage-daemon", args...)
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		err = fmt.Errorf("failed to create stdin pipe for qemu-storage-daemon: %w", err)
+	if err := osdisk.QEMUImg(ctx, extraFiles, "create", "-f", "qcow2",
+		"-o", fmt.Sprintf("data_file=%s,data_file_raw=on,cluster_size=%d", scratchPath, overlayClusterSize),
+		tmpPath, strconv.FormatInt(info.VirtualSize, 10)); err != nil {
 		return err
 	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		err = fmt.Errorf("failed to create stdout pipe for qemu-storage-daemon: %w", err)
+	if err := osdisk.QEMUImg(ctx, extraFiles, "amend", "-f", "qcow2", "-o", "data_file="+imagePath, tmpPath); err != nil {
 		return err
 	}
-
-	var stderrBuf bytes.Buffer
-	cmd.Stderr = &stderrBuf
-
-	if err = cmd.Start(); err != nil {
-		err = fmt.Errorf("failed to start qemu-storage-daemon: %w", err)
-		return err
-	}
-
-	output, sessionErr := runOverlayQMPSession(ctx, stdin, stdout, overlaySize, overlayPath)
-	waitErr := cmd.Wait()
-	if sessionErr != nil || waitErr != nil {
-		err = fmt.Errorf("failed to create QCOW2 overlay %s: %w, output: %s%s",
-			overlayPath, errors.Join(sessionErr, waitErr), output, stderrBuf.String())
-		return err
+	if err := os.Rename(tmpOverlay, overlayPath); err != nil {
+		return fmt.Errorf("failed to move QCOW2 overlay into place at %s: %w", overlayPath, err)
 	}
 
 	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
 	return nil
 }
 
-func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.Reader,
-	overlaySize int64, overlayPath string) (string, error) {
-
-	qmpCapabilities := `{"execute": "qmp_capabilities"}`
-	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d, "cluster-size": %d}}}`, overlaySize, overlayClusterSize)
-	queryJobs := `{"execute": "query-jobs"}`
-	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
-	quit := `{"execute": "quit"}`
-
-	var outputBuf bytes.Buffer
-	concludedChan := make(chan struct{})
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		scanner := bufio.NewScanner(stdout)
-		concluded := false
-		var jobErr error
-		for scanner.Scan() {
-			line := scanner.Text()
-			outputBuf.WriteString(line + "\n")
-			resp := parseQMPResponse(line)
-			if !concluded && resp.isJobConcluded() {
-				close(concludedChan)
-				concluded = true
-				continue
-			}
-			if concluded && jobErr == nil {
-				jobErr = resp.jobError()
-			}
-		}
-
-		var errs []error
-		if scanner.Err() != nil {
-			errs = append(errs, fmt.Errorf("error reading qemu-storage-daemon output for overlay %s: %w", overlayPath, scanner.Err()))
-		}
-		if !concluded {
-			errs = append(errs, fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath))
-		}
-		if jobErr != nil {
-			errs = append(errs, fmt.Errorf("blockdev-create job failed for overlay %s: %w", overlayPath, jobErr))
-		}
-		return errors.Join(errs...)
-	})
-
-	fmt.Fprintf(stdin, "%s\n%s\n", qmpCapabilities, blockdevCreate)
-
-	select {
-	case <-concludedChan:
-		fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
-	case <-egCtx.Done():
-		select {
-		case <-concludedChan:
-			fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
-		default:
+func DeleteQCOW2Overlay(disk api.Disk) error {
+	if !DiskHasDataStore(&disk) || disk.Source.File == "" {
+		return nil
+	}
+	target := disk.Source.File
+	if cbt.IsClaimOverlayPath(target) {
+		target = filepath.Dir(target)
+		if err := requireDir(filepath.Dir(target)); errors.Is(err, os.ErrNotExist) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
 		}
 	}
-
-	stdin.Close()
-	egErr := eg.Wait()
-
-	if ctx.Err() != nil {
-		return outputBuf.String(), fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
+	if err := os.RemoveAll(target); err != nil {
+		return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
 	}
-	return outputBuf.String(), egErr
+	log.Log.Infof("QCOW2 overlay %s deleted", target)
+	return nil
 }
 
-type jobInfo struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
-	Error  string `json:"error"`
-}
-
-type qmpResponse struct {
-	Event  string    `json:"event"`
-	Data   jobInfo   `json:"data"`
-	Return []jobInfo `json:"return"`
-}
-
-func parseQMPResponse(line string) qmpResponse {
-	var resp qmpResponse
-	json.Unmarshal([]byte(line), &resp)
-	return resp
-}
-
-func (r qmpResponse) isJobConcluded() bool {
-	return r.Event == "JOB_STATUS_CHANGE" && r.Data.Status == "concluded"
-}
-
-func (r qmpResponse) jobError() error {
-	for _, job := range r.Return {
-		if job.ID == "create" && job.Error != "" {
-			return errors.New(job.Error)
+func ensureClaimDir(dir string) error {
+	for _, d := range []string{filepath.Dir(dir), dir} {
+		// #nosec G301: qemu has to traverse the directory.
+		if err := os.Mkdir(d, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+			return err
+		}
+		if err := requireDir(d); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error {
-	if !cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-		return nil
+func requireDir(path string) error {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return err
 	}
-
-	overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-	if err := os.Remove(overlayPath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete QCOW2 overlay %s for volume %s: %w", overlayPath, volumeName, err)
+	if !fi.IsDir() {
+		return fmt.Errorf("%s is not a directory", path)
 	}
-	log.Log.Infof("QCOW2 overlay %s deleted for unplugged volume %s", overlayPath, volumeName)
 	return nil
 }
 
@@ -268,12 +187,15 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	for _, volume := range vmi.Spec.Volumes {
 		volumeName := volume.Name
 		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
-		if !cbt.IsCBTEligibleVolume(&volume) {
+		if !cbt.IsCBTEligibleVolume(vmi, &volume) || isPendingHotplug(&volume, c) {
 			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
 			continue
 		}
 
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		overlayPath, err := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		if err != nil {
+			return err
+		}
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
 
 		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
@@ -286,8 +208,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock)
-		if err != nil {
+		if err := CreateQCOW2Overlay(overlayPath, imagePath); err != nil {
 			return err
 		}
 		applyCBTMap[volumeName] = overlayPath
@@ -297,43 +218,25 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	return nil
 }
 
-func isMigrationNewBackendStorage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Status.MigrationState == nil {
+func isPendingHotplug(volume *v1.Volume, c *convertertypes.ConverterContext) bool {
+	if !storagetypes.IsHotplugVolume(volume) {
 		return false
 	}
-	sourcePVC := vmi.Status.MigrationState.SourcePersistentStatePVCName
-	targetPVC := vmi.Status.MigrationState.TargetPersistentStatePVCName
-	return sourcePVC != "" && targetPVC != "" && sourcePVC != targetPVC
+	return !storagetypes.IsHotplugVolumeAttachable(c.HotplugVolumes[volume.Name].Phase)
 }
 
 func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
-	logger := log.Log.Object(vmi)
 	applyCBTMap := make(map[string]string)
-
 	for _, volume := range vmi.Spec.Volumes {
-		if !cbt.IsCBTEligibleVolume(&volume) {
+		if !cbt.IsCBTEligibleVolume(vmi, &volume) || isPendingHotplug(&volume, c) {
 			continue
 		}
-
-		volumeName := volume.Name
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-
-		if isMigrationNewBackendStorage(vmi) {
-			_, isHotplug := c.HotplugVolumes[volumeName]
-			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
-			imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
-
-			logger.V(3).Infof("Creating CBT overlay for migration: %s -> %s (block=%v, hotplug=%v)", overlayPath, imagePath, isBlock, isHotplug)
-			if err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock); err != nil {
-				return fmt.Errorf("failed to create CBT overlay for volume %s: %v", volumeName, err)
-			}
-		} else {
-			logger.V(3).Infof("Using existing CBT overlay for migration (RWX backend): %s", overlayPath)
+		overlayPath, err := cbt.GetQCOW2OverlayPath(vmi, volume.Name)
+		if err != nil {
+			return err
 		}
-
-		applyCBTMap[volumeName] = overlayPath
+		applyCBTMap[volume.Name] = overlayPath
 	}
-
 	c.ApplyCBT = applyCBTMap
 	return nil
 }

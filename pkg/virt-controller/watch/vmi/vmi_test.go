@@ -3810,6 +3810,41 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", virtv1.Percent("0.8")),
 		)
 
+		It("Should record the claim UID of PVC and DataVolume volumes", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "pvc-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc-claim"},
+						},
+					},
+				},
+				{
+					Name: "dv-vol",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{Name: "dv-claim"},
+					},
+				},
+			}
+			for name, uid := range map[string]types.UID{"pvc-claim": "pvc-uid", "dv-claim": "dv-uid"} {
+				Expect(controller.pvcIndexer.Add(&k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: k8sv1.NamespaceDefault, UID: uid},
+				})).To(Succeed())
+			}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod)).To(Succeed())
+
+			claimUIDs := map[string]types.UID{}
+			for _, status := range vmi.Status.VolumeStatus {
+				Expect(status.PersistentVolumeClaimInfo).ToNot(BeNil())
+				claimUIDs[status.Name] = status.PersistentVolumeClaimInfo.ClaimUID
+			}
+			Expect(claimUIDs).To(Equal(map[string]types.UID{"pvc-vol": "pvc-uid", "dv-vol": "dv-uid"}))
+		})
+
 		It("Should set error for utility volume with block mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{

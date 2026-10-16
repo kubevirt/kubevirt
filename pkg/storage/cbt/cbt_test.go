@@ -27,6 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -35,6 +36,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -558,19 +560,64 @@ var _ = Describe("CBT", func() {
 	})
 
 	Context("IsCBTEligibleVolume", func() {
+		withPVCInfo := func(volumeName string) *v1.VirtualMachineInstance {
+			return libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+					Name:                      volumeName,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "claim"},
+				}),
+			)))
+		}
+
 		DescribeTable("should return correct eligibility for volume types",
 			func(volumeSource v1.VolumeSource, expected bool) {
 				volume := &v1.Volume{Name: "test-volume", VolumeSource: volumeSource}
-				Expect(cbt.IsCBTEligibleVolume(volume)).To(Equal(expected))
+				Expect(cbt.IsCBTEligibleVolume(withPVCInfo("test-volume"), volume)).To(Equal(expected))
 			},
 			Entry("PVC", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"}}}, true),
 			Entry("DataVolume", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-dv"}}, true),
-			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, true),
+			Entry("filesystem PVC rewritten to a HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/var/run/kubevirt-private/vmi-disks/test-volume/disk.img"}}, true),
+			Entry("MemoryDump", v1.VolumeSource{MemoryDump: &v1.MemoryDumpVolumeSource{}}, false),
 			Entry("ContainerDisk", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}, false),
 			Entry("ConfigMap", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-config"}}}, false),
 			Entry("Secret", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "test-secret"}}, false),
 			Entry("EmptyDisk", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{Capacity: resource.MustParse("1Gi")}}, false),
 			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
 		)
+
+		It("should not consider a user HostDisk eligible", func() {
+			volume := &v1.Volume{Name: "test-volume", VolumeSource: v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/data/disk.img"}}}
+			Expect(cbt.IsCBTEligibleVolume(libvmi.New(), volume)).To(BeFalse())
+		})
+	})
+
+	Context("GetQCOW2OverlayPath", func() {
+		withClaim := func(volumeName string, uid types.UID) *v1.VirtualMachineInstance {
+			return libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+					Name:                      volumeName,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "claim", ClaimUID: uid},
+				}),
+			)))
+		}
+
+		overlayOf := func(vmi *v1.VirtualMachineInstance, volumeName string) string {
+			path, err := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+			Expect(err).ToNot(HaveOccurred())
+			return path
+		}
+
+		It("should give the same claim the same overlay under any volume name", func() {
+			Expect(overlayOf(withClaim("disk0", "claim-uid"), "disk0")).To(Equal(overlayOf(withClaim("renamed", "claim-uid"), "renamed")))
+		})
+
+		It("should give a recreated claim a different overlay", func() {
+			Expect(overlayOf(withClaim("disk0", "original-uid"), "disk0")).ToNot(Equal(overlayOf(withClaim("disk0", "recreated-uid"), "disk0")))
+		})
+
+		It("should fail when the claim UID is not known yet", func() {
+			_, err := cbt.GetQCOW2OverlayPath(withClaim("disk0", ""), "disk0")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })

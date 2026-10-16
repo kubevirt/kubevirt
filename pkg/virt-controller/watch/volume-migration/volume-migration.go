@@ -326,6 +326,7 @@ func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMa
 			VolumeName: v.Name,
 			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
 				ClaimName:   claim,
+				ClaimUID:    pvc.UID,
 				VolumeMode:  pvc.Spec.VolumeMode,
 				AccessModes: pvc.Spec.AccessModes,
 				Requests:    pvc.Spec.Resources.Requests,
@@ -337,6 +338,7 @@ func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMa
 		if ok && oldClaim != nil {
 			migVol.SourcePVCInfo = &virtv1.PersistentVolumeClaimInfo{
 				ClaimName:   oldClaim.ClaimName,
+				ClaimUID:    oldClaim.ClaimUID,
 				VolumeMode:  oldClaim.VolumeMode,
 				AccessModes: oldClaim.AccessModes,
 				Requests:    oldClaim.Requests,
@@ -393,11 +395,13 @@ func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineIns
 			VolumeMode: volMode,
 		}
 		if oldPvc != nil {
+			srcPVCInfo.ClaimUID = oldPvc.UID
 			srcPVCInfo.AccessModes = oldPvc.Spec.AccessModes
 			srcPVCInfo.Requests = oldPvc.Spec.Resources.Requests
 			srcPVCInfo.Capacity = oldPvc.Status.Capacity
 		}
 		if pvc != nil {
+			dstPVCInfo.ClaimUID = pvc.UID
 			dstPVCInfo.AccessModes = pvc.Spec.AccessModes
 			dstPVCInfo.Requests = pvc.Spec.Resources.Requests
 			dstPVCInfo.Capacity = pvc.Status.Capacity

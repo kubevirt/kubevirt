@@ -138,7 +138,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		_, isPermVolume := d.permanentVolumes[disk.Name]
 		// if len(d.permanentVolumes) == 0, it means the vmi is not ready yet, add all disks
 		permReady := isPermVolume || len(d.permanentVolumes) == 0
-		hotplugReady := hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)
+		hotplugReady := hpOk && storagetypes.IsHotplugVolumeAttachable(hpStatus.Phase)
 
 		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)

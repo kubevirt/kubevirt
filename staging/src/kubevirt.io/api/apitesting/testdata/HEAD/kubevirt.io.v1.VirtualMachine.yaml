@@ -940,6 +940,7 @@ status:
           capacity:
             capacityKey: "0"
           claimName: claimNameValue
+          claimUID: claimUIDValue
           filesystemOverhead: filesystemOverheadValue
           preallocated: true
           requests:
@@ -951,6 +952,7 @@ status:
           capacity:
             capacityKey: "0"
           claimName: claimNameValue
+          claimUID: claimUIDValue
           filesystemOverhead: filesystemOverheadValue
           preallocated: true
           requests:

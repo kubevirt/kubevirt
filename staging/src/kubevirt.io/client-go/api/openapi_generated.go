@@ -25160,6 +25160,13 @@ func schema_kubevirtio_api_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"claimUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimUID is the UID of the PVC",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"accessModes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{

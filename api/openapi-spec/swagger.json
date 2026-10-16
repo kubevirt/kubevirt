@@ -16995,6 +16995,10 @@
       "description": "ClaimName is the name of the PVC",
       "type": "string"
      },
+     "claimUID": {
+      "description": "ClaimUID is the UID of the PVC",
+      "type": "string"
+     },
      "filesystemOverhead": {
       "description": "Percentage of filesystem's size to be reserved when resizing the PVC",
       "type": "string"

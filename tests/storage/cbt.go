@@ -22,6 +22,8 @@ package storage
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -87,8 +89,9 @@ var _ = Describe(SIG("CBT", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Verify CBT overlay exists")
-		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
-		Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
+		overlayPath := overlayPathFor(vmi, volumeName)
+		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-path", overlayPath})
+		Expect(stdout).To(ContainSubstring(overlayPath))
 
 		By("Remove CBT Label")
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -177,8 +180,9 @@ var _ = Describe(SIG("CBT", func() {
 		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
-		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
-		Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
+		overlayPath := overlayPathFor(vmi, volumeName)
+		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-path", overlayPath})
+		Expect(stdout).To(ContainSubstring(overlayPath))
 	},
 		Entry("patch vm", func(vm *v1.VirtualMachine) {
 			patch, err := patch.New(patch.WithAdd("/metadata/labels", cbt.CBTLabel)).GeneratePayload()
@@ -246,8 +250,8 @@ var _ = Describe(SIG("CBT", func() {
 			By("Verifying QCOW2 overlay was created for hotplug volume")
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			overlayPath := cbt.GetQCOW2OverlayPath(vmi, hotplugVolumeName)
-			stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
+			overlayPath := overlayPathFor(vmi, hotplugVolumeName)
+			stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-path", overlayPath})
 			Expect(stdout).To(ContainSubstring(overlayPath), "Expected CBT overlay to exist for hotplug volume")
 
 			By("Removing the hotplug volume")
@@ -258,7 +262,7 @@ var _ = Describe(SIG("CBT", func() {
 
 			By("Verifying QCOW2 overlay was deleted for unplugged volume")
 			Eventually(func() string {
-				return libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
+				return libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-path", overlayPath})
 			}, 60*time.Second, 2*time.Second).Should(BeEmpty(), "CBT overlay should be deleted for unplugged volume")
 		},
 		Entry("Filesystem", k8sv1.PersistentVolumeFilesystem),
@@ -335,8 +339,9 @@ func runCBTPersistenceTest(virtClient kubecli.KubevirtClient, op string) {
 		libvmops.StopVirtualMachine(vm)
 		libvmops.StartVirtualMachine(vm)
 	}
-	cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
-	checkCBTIntegrityForPersistenceTest(virtClient, vm, cbtOverlayPath)
+	vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	checkCBTIntegrityForPersistenceTest(virtClient, vm, backendOverlayPath(vmi, volumeName))
 }
 
 func checkCBTIntegrityForPersistenceTest(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, cbtOverlayPath string) {
@@ -362,4 +367,14 @@ func checkCBTIntegrityForPersistenceTest(virtClient kubecli.KubevirtClient, vm *
 	Expect(stdout).To(ContainSubstring("corrupt: false"))
 	err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func backendOverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	return strings.TrimPrefix(overlayPathFor(vmi, volumeName), filepath.Dir(cbt.PathForCBT(vmi)))
+}
+
+func overlayPathFor(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	overlayPath, err := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return overlayPath
 }

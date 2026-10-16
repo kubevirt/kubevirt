@@ -50,6 +50,10 @@ func IsHotpluggableVolumeSource(vol *v1.Volume) bool {
 		vol.MemoryDump != nil
 }
 
+func IsHotplugVolumeAttachable(phase v1.VolumePhase) bool {
+	return phase == v1.HotplugVolumeMounted || phase == v1.VolumeReady
+}
+
 func IsHotplugVolume(vol *v1.Volume) bool {
 	if vol == nil {
 		return false
