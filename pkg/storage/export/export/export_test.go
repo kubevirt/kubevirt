@@ -526,6 +526,132 @@ var _ = Describe("Export controller", func() {
 		}
 	}
 
+	Context("checkPod terminal-phase handling", func() {
+		var vmExport *exportv1.VirtualMachineExport
+
+		BeforeEach(func() {
+			vmExport = createPVCVMExport()
+			vmExport.CreationTimestamp = metav1.Now() // keep the export TTL from firing
+		})
+
+		succeededPod := func() *k8sv1.Pod {
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "exporter", Namespace: testNamespace},
+				Status:     k8sv1.PodStatus{Phase: k8sv1.PodSucceeded},
+			}
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pod
+		}
+
+		podExists := func(name string) bool {
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Get(context.Background(), name, metav1.GetOptions{})
+			return !errors.IsNotFound(err)
+		}
+
+		pushSource := func() *OfflineVMBackupSource {
+			backup := &backupv1.VirtualMachineBackup{
+				ObjectMeta: metav1.ObjectMeta{Name: "backup", Namespace: testNamespace},
+				Spec:       backupv1.VirtualMachineBackupSpec{Mode: pointer.P(backupv1.PushMode)},
+				Status:     &backupv1.VirtualMachineBackupStatus{Offline: pointer.P(true)},
+			}
+			return NewOfflineVMBackupSource(backup, "testvm", nil, nil, nil, "", false, nil)
+		}
+
+		It("keeps a succeeded offline-push exporter pod (one-shot job) for the backup controller to observe", func() {
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, pushSource())).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeTrue())
+		})
+
+		It("deletes a succeeded pod for a recyclable (non-push) source", func() {
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, NewPVCSource(nil))).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeFalse())
+		})
+
+		pullSource := func() *OfflineVMBackupSource {
+			backup := &backupv1.VirtualMachineBackup{
+				ObjectMeta: metav1.ObjectMeta{Name: "backup", Namespace: testNamespace},
+				Spec:       backupv1.VirtualMachineBackupSpec{Mode: pointer.P(backupv1.PullMode)},
+				Status:     &backupv1.VirtualMachineBackupStatus{Offline: pointer.P(true)},
+			}
+			return NewOfflineVMBackupSource(backup, "testvm", nil, nil, nil, "", false, nil)
+		}
+
+		emptyIncrementalPod := func() *k8sv1.Pod {
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "exporter", Namespace: testNamespace},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodFailed,
+					ContainerStatuses: []k8sv1.ContainerStatus{{
+						State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{Message: EmptyIncrementalReason}},
+					}},
+				},
+			}
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pod
+		}
+
+		It("keeps an empty-incremental offline pull exporter pod for the backup controller to observe", func() {
+			pod := emptyIncrementalPod()
+			Expect(controller.checkPod(vmExport, pod, pullSource())).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeTrue())
+		})
+
+		It("keeps a failed offline pull exporter pod instead of recycling it, so the failure can surface", func() {
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "exporter", Namespace: testNamespace},
+				Status:     k8sv1.PodStatus{Phase: k8sv1.PodFailed},
+			}
+			_, err := k8sClient.CoreV1().Pods(testNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(controller.checkPod(vmExport, pod, pullSource())).To(Succeed())
+			Expect(podExists(pod.Name)).To(BeTrue())
+		})
+
+		It("does not expire an offline push export past the default TTL, since it has no pull client", func() {
+			vmExport.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+			_, err := controller.Client.VirtualMachineExport(testNamespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, pushSource())).To(Succeed())
+			_, err = controller.Client.VirtualMachineExport(testNamespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("still expires an offline pull export past the default TTL", func() {
+			vmExport.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+			_, err := controller.Client.VirtualMachineExport(testNamespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			pod := succeededPod()
+			Expect(controller.checkPod(vmExport, pod, pullSource())).To(Succeed())
+			_, err = controller.Client.VirtualMachineExport(testNamespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+
+		It("surfaces PodFailed on the Ready condition for a failed offline pull pod, not just push", func() {
+			populateInitialVMExportStatus(vmExport)
+			vmExportCopy := vmExport.DeepCopy()
+			svc := &k8sv1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test-svc", Namespace: testNamespace}}
+			pod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "exporter", Namespace: testNamespace},
+				Status:     k8sv1.PodStatus{Phase: k8sv1.PodFailed},
+			}
+
+			err := controller.updateCommonVMExportStatusFields(vmExport, vmExportCopy, pod, svc, pullSource())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmExportCopy.Status.Conditions).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Type":   Equal(exportv1.ConditionReady),
+				"Status": Equal(k8sv1.ConditionFalse),
+				"Reason": Equal(podFailedReason),
+			})))
+		})
+	})
+
 	It("should add vmexport to queue if matching PVC is added", func() {
 		vmExport := createPVCVMExport()
 		pvc := &k8sv1.PersistentVolumeClaim{

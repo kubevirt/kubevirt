@@ -672,6 +672,58 @@ var _ = Describe("Backup source", func() {
 			Expect(vmiID).To(Equal("test-vm"))
 		})
 	})
+
+	Context("latestTrackerCheckpointsForVM", func() {
+		trackerFor := func(name, vmName, checkpoint string) *backupv1.VirtualMachineBackupTracker {
+			tracker := &backupv1.VirtualMachineBackupTracker{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+				Spec: backupv1.VirtualMachineBackupTrackerSpec{
+					Source: k8sv1.TypedLocalObjectReference{
+						APIGroup: &virtv1.SchemeGroupVersion.Group,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+				},
+			}
+			if checkpoint != "" {
+				tracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
+					LatestCheckpoint: &backupv1.BackupCheckpoint{Name: checkpoint},
+				}
+			}
+			return tracker
+		}
+
+		BeforeEach(func() {
+			// This lookup needs the VM-keyed index, unlike the rest of this suite's fake informer.
+			indexedInformer, _ := testutils.NewFakeInformerWithIndexersFor(
+				&backupv1.VirtualMachineBackupTracker{}, virtcontroller.GetVirtualMachineBackupTrackerInformerIndexers())
+			controller.VMBackupTrackerInformer = indexedInformer
+		})
+
+		It("returns the latest checkpoint of every tracker for the VM", func() {
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-a", "test-vm", "backup-a-2"))).To(Succeed())
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-b", "test-vm", "backup-b-1"))).To(Succeed())
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-other-vm", "other-vm", "backup-c-1"))).To(Succeed())
+
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(ConsistOf("backup-a-2", "backup-b-1"))
+		})
+
+		It("skips trackers that have no checkpoint yet", func() {
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-a", "test-vm", ""))).To(Succeed())
+
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(BeEmpty())
+		})
+
+		It("returns nothing when the VM has no trackers", func() {
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(BeEmpty())
+		})
+	})
 })
 
 func withBackupCAConfigMap(controller *VMExportController) {

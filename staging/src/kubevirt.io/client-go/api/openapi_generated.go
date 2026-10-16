@@ -18043,6 +18043,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							Ref:         ref(v1alpha1.BackupLinks{}.OpenAPIModelName()),
 						},
 					},
+					"offline": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Offline is set to true when the backup was taken while the VM was stopped (no running VMI), using persisted QCOW2 dirty bitmaps served by qemu-nbd.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

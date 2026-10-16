@@ -748,6 +748,8 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiInformer,
 		vca.cdiConfigInformer,
 		vca.kubeVirtInformer,
+		vca.vmBackupInformer,
+		vca.vmBackupTrackerInformer,
 		vca.clusterConfig,
 		topologyHinter,
 		netAnnotationsGenerator,
@@ -1027,8 +1029,10 @@ func (vca *VirtControllerApp) initBackupController() {
 		vca.persistentVolumeClaimInformer,
 		vca.vmExportInformer,
 		vca.caExportConfigMapInformer,
+		vca.kvPodInformer,
 		recorder,
 		vca.kubevirtNamespace,
+		vca.clusterConfig,
 	)
 	if err != nil {
 		panic(err)

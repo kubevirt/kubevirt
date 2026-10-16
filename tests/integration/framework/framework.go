@@ -274,6 +274,8 @@ func frameworkInformers(factory controller.KubeInformerFactory) []cache.SharedIn
 		factory.DummyStorageProfile(),
 		factory.DummyCDI(),
 		factory.DummyCDIConfig(),
+		factory.VirtualMachineBackup(),
+		factory.VirtualMachineBackupTracker(),
 	}
 }
 
@@ -320,6 +322,8 @@ func buildVMIController(
 		factory.DummyCDI(),
 		factory.DummyCDIConfig(),
 		factory.KubeVirt(),
+		factory.VirtualMachineBackup(),
+		factory.VirtualMachineBackupTracker(),
 		clusterConfig,
 		&noopTopologyHinter{},
 		&noopAnnotationsGenerator{},

@@ -49,6 +49,20 @@ var _ = Describe("test configuration", func() {
 		Entry("is false, AllowEmulation should return false", false, false),
 	)
 
+	DescribeTable("when OfflineIncrementalBackup feature gate", func(gates []string, result bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: gates,
+			},
+		})
+		Expect(clusterConfig.OfflineIncrementalBackupEnabled()).To(Equal(result))
+	},
+		Entry("is disabled without any gate", []string{}, false),
+		Entry("is disabled without the IncrementalBackup dependency", []string{"OfflineIncrementalBackup"}, false),
+		Entry("is disabled with only IncrementalBackup", []string{"IncrementalBackup"}, false),
+		Entry("is enabled with both gates", []string{"IncrementalBackup", "OfflineIncrementalBackup"}, true),
+	)
+
 	trueValue := true
 	falseValue := false
 
