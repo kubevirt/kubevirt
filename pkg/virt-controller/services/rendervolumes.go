@@ -439,14 +439,16 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 			})
 		}
 
-		if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
-				Name:      volumeName,
-				ReadOnly:  false,
-				MountPath: cbt.PathForCBT(vmi),
-				SubPath:   "cbt",
-			})
-		}
+		// Always mount the CBT subpath when backend storage is present so
+		// orphaned overlays can be cleaned up after CBT is disabled while the
+		// PVC is retained for other features (TPM/EFI), and after eligible
+		// disks are removed from the VM.
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			ReadOnly:  false,
+			MountPath: cbt.PathForCBT(vmi),
+			SubPath:   "cbt",
+		})
 
 		return nil
 	}

@@ -340,7 +340,7 @@ var _ = Describe("Container spec renderer", func() {
 		})
 	})
 	Context("With CBT", func() {
-		It("should not mount the CBT subpath when ChangedBlockTracking is not set", func() {
+		It("should not mount the CBT subpath when backend storage is not needed", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
 			var err error
@@ -378,6 +378,23 @@ var _ = Describe("Container spec renderer", func() {
 				},
 			}
 			Expect(vsr.Volumes()).To(ContainElement(expectedVolume))
+
+			expectedMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: cbt.PathForCBT(vmi),
+				SubPath:   "cbt",
+			}
+
+			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
+		})
+
+		It("should mount the CBT subpath when backend storage is retained without CBT enabled", func() {
+			vmi := libvmi.New(libvmi.WithTPM(true))
+
+			var err error
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			Expect(err).NotTo(HaveOccurred())
 
 			expectedMount := k8sv1.VolumeMount{
 				Name:      "vm-state",
