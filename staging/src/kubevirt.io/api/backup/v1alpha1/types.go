@@ -231,10 +231,11 @@ type VirtualMachineBackupSpec struct {
 	// will be used to pull the backup from an associated endpoint
 	TokenSecretRef string `json:"tokenSecretRef,omitempty"`
 	// +optional
-	// TtlDuration limits the lifetime of a pull mode backup and its export
-	// If this field is set, after this duration has passed from counting from CreationTimestamp,
-	// the backup is eligible to be automatically considered as complete.
-	// If this field is omitted, a reasonable default is applied.
+	// TTLDuration limits the lifetime of an in-progress backup and its associated
+	// export. It applies to both push and pull mode backups. When set, any
+	// in-progress backup past this duration (counting from CreationTimestamp) is
+	// canceled; pull mode backups then end Complete and push mode backups end
+	// Failed. When omitted, a 2h default is applied to both modes.
 	// +optional
 	TTLDuration *metav1.Duration `json:"ttlDuration,omitempty"`
 }
