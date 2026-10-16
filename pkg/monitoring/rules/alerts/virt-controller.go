@@ -54,12 +54,14 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "VirtControllerDown",
-			Expr:  intstr.FromString("kubevirt_virt_controller_up == 0"),
+			Expr:  intstr.FromString(componentDownExpr(namespace, "controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "No running virt-controller was detected for the last 10 min.",
+				summaryAnnotationKey:     "No healthy virt-controller was detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-controller", ""),
 			},
 			Labels: map[string]string{
+				namespaceAlertLabelKey:       namespace,
 				severityAlertLabelKey:        "critical",
 				operatorHealthImpactLabelKey: "critical",
 			},
