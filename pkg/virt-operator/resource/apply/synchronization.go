@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -203,15 +204,20 @@ func (r *Reconciler) getSynchronizationEndpointAddress() (string, error) {
 		}
 	}
 
+	// Cache order can change between reconciles. Keep condition messages stable
+	// so the same misconfiguration does not emit repeated Warning events.
 	if len(routes) > 1 {
+		sort.Strings(routeNames)
 		return "", fmt.Errorf("found %d Routes with label %s, expected at most 1: %s",
 			len(routes), v1.SynchronizationEndpointLabel, strings.Join(routeNames, ","))
 	}
 	if len(ingresses) > 1 {
+		sort.Strings(ingressNames)
 		return "", fmt.Errorf("found %d Ingresses with label %s, expected at most 1: %s",
 			len(ingresses), v1.SynchronizationEndpointLabel, strings.Join(ingressNames, ","))
 	}
 	if len(services) > 1 {
+		sort.Strings(serviceNames)
 		return "", fmt.Errorf("found %d Services with label %s, expected at most 1: %s",
 			len(services), v1.SynchronizationEndpointLabel, strings.Join(serviceNames, ","))
 	}
