@@ -1,9 +1,11 @@
 package disk
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 )
 
@@ -37,4 +39,14 @@ func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
 	return info, err
+}
+
+func QEMUImg(ctx context.Context, extraFiles []*os.File, subcmd string, args ...string) error {
+	cmd := exec.CommandContext(ctx, QEMUIMGPath, append([]string{subcmd}, args...)...)
+	cmd.ExtraFiles = extraFiles
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("qemu-img %s failed: %w: %s", subcmd, err, out)
+	}
+	return nil
 }

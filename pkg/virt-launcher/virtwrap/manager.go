@@ -1599,7 +1599,7 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("detaching device")
 			return err
 		}
-		if err := storage.DeleteQCOW2Overlay(vmi, volumeName); err != nil {
+		if err := storage.DeleteQCOW2Overlay(detachDisk); err != nil {
 			logger.Reason(err).Error("deleting CBT overlay")
 			return err
 		}
