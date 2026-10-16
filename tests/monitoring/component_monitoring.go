@@ -48,6 +48,8 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const gomegaHelperCallerOffset = 2
+
 type alerts struct {
 	deploymentName       string
 	downAlert            string
@@ -108,6 +110,94 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 	})
 
 	Context("Up metrics", func() {
+		It("VirtControllerDown should report waiting reason when controller pods have bad image", func() {
+			controllerScales := libmonitoring.NewScaling(virtClient, []string{virtController.deploymentName})
+
+			By("Scaling down the controller so no healthy pods remain during the image patch")
+			controllerScales.UpdateScale(virtController.deploymentName, int32(0))
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_pods_running:count", 0)
+
+			By("Saving the original image for later restoration")
+			deployment, getErr := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtController.deploymentName, metav1.GetOptions{},
+			)
+			Expect(getErr).ToNot(HaveOccurred())
+			originalImage := deployment.Spec.Template.Spec.Containers[0].Image
+			containerName := deployment.Spec.Template.Spec.Containers[0].Name
+
+			patchContainerImage := func(image string) {
+				const (
+					specField          = "spec"
+					containerNameField = "name"
+				)
+				patch := map[string]interface{}{
+					specField: map[string]interface{}{
+						"template": map[string]interface{}{
+							specField: map[string]interface{}{
+								"containers": []map[string]interface{}{
+									{
+										containerNameField: containerName,
+										"image":            image,
+									},
+								},
+							},
+						},
+					},
+				}
+				patchBytes, patchErr := json.Marshal(patch)
+				Expect(patchErr).ToNot(HaveOccurred())
+				_, patchErr = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(
+					context.Background(), virtController.deploymentName,
+					types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{},
+				)
+				Expect(patchErr).ToNot(HaveOccurred())
+			}
+
+			By("Patching the controller deployment with a non-existent image")
+			patchContainerImage("registry.example.com/nonexistent:v0.0.0")
+
+			defer func() {
+				By("Restoring the controller image")
+				patchContainerImage(originalImage)
+				controllerScales.RestoreScale(virtController.deploymentName)
+				libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtController.downAlert)
+			}()
+
+			By("Scaling up to 1 replica — the only pod that starts has the bad image")
+			Eventually(func() error {
+				scale, scaleErr := virtClient.AppsV1().
+					Deployments(flags.KubeVirtInstallNamespace).
+					GetScale(context.Background(), virtController.deploymentName, metav1.GetOptions{})
+				if scaleErr != nil {
+					return scaleErr
+				}
+				scale.Spec.Replicas = 1
+				_, scaleErr = virtClient.AppsV1().
+					Deployments(flags.KubeVirtInstallNamespace).
+					UpdateScale(context.Background(), virtController.deploymentName, scale, metav1.UpdateOptions{})
+				return scaleErr
+			}, 30*time.Second, 1*time.Second).Should(Succeed())
+
+			By("Verifying VirtControllerDown fires with a reason label")
+			Eventually(func(g Gomega) {
+				alerts, alertErr := libmonitoring.GetAlerts(virtClient)
+				g.Expect(alertErr).ToNot(HaveOccurred())
+
+				found := false
+				for _, a := range alerts {
+					if string(a.Labels["alertname"]) != virtController.downAlert {
+						continue
+					}
+					reason := string(a.Labels["reason"])
+					if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
+						found = true
+						break
+					}
+				}
+				g.Expect(found).To(BeTrue(), "expected VirtControllerDown with reason ImagePullBackOff or ErrImagePull")
+			}, 5*time.Minute, 10*time.Second).Should(Succeed())
+		})
+
 		It("VirtOperatorDown should be triggered when virt-operator is down", func() {
 			By("Waiting for the operator to be down")
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", 0)
@@ -283,13 +373,13 @@ func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Sc
 
 		By("Waiting for the operator to be up")
 		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", float64(replica))
-
-		By("Waiting for the operator to be ready")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", float64(replica))
 	}
 
+	By("Waiting for virt-operator ready_status to be scraped")
+	waitForScrapedMetricSumAtLeast(virtClient, "kubevirt_virt_operator_ready_status", 1.0)
+
 	By("Waiting for an operator to be leading")
-	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_leading", 1.0)
+	waitForScrapedMetricSumAtLeast(virtClient, "kubevirt_virt_operator_leading_status", 1.0)
 }
 
 func increaseRateLimit(virtClient kubecli.KubevirtClient) {
@@ -307,4 +397,15 @@ func increaseRateLimit(virtClient kubecli.KubevirtClient) {
 	originalKubeVirt.Spec.Configuration.ControllerConfiguration = rateLimitConfig
 	originalKubeVirt.Spec.Configuration.HandlerConfiguration = rateLimitConfig
 	config.UpdateKubeVirtConfigValueAndWait(originalKubeVirt.Spec.Configuration)
+}
+
+func waitForScrapedMetricSumAtLeast(virtClient kubecli.KubevirtClient, metric string, minimum float64) {
+	libmonitoring.WaitForMetricValueWithLabelsToBe(
+		virtClient,
+		fmt.Sprintf("sum(%s)", metric),
+		nil,
+		gomegaHelperCallerOffset,
+		">=",
+		minimum,
+	)
 }
