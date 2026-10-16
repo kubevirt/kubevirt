@@ -49,6 +49,7 @@ KUBEVIRT_KSM_ON=${KUBEVIRT_KSM_ON:-false}
 KUBVIRT_WITH_CNAO_SKIP_CONFIG=${KUBVIRT_WITH_CNAO_SKIP_CONFIG:-false}
 
 export KUBEVIRT_PROVIDER
+export KUBEVIRT_MEMORY_SIZE
 
 # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
 # http and https ports are accessed by testing framework and should not be randomized
@@ -60,4 +61,4 @@ provider_prefix=${KUBEVIRT_PROVIDER}
 job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
 
 mkdir -p $KUBEVIRTCI_CONFIG_PATH/$KUBEVIRT_PROVIDER
-KUBEVIRTCI_TAG=${KUBEVIRTCI_TAG:-2610140706-70d81eef}
+KUBEVIRTCI_TAG=${KUBEVIRTCI_TAG:-2610160142-7d7d40d7}
