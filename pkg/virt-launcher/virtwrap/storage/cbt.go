@@ -112,12 +112,12 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := osdisk.QEMUImg(ctx, extraFiles, "create", "-f", "qcow2",
+	if _, err := osdisk.QEMUImg(ctx, extraFiles, "create", "-f", "qcow2",
 		"-o", fmt.Sprintf("data_file=%s,data_file_raw=on,cluster_size=%d", scratchPath, overlayClusterSize),
 		tmpPath, strconv.FormatInt(info.VirtualSize, 10)); err != nil {
 		return err
 	}
-	if err := osdisk.QEMUImg(ctx, extraFiles, "amend", "-f", "qcow2", "-o", "data_file="+imagePath, tmpPath); err != nil {
+	if _, err := osdisk.QEMUImg(ctx, extraFiles, "amend", "-f", "qcow2", "-o", "data_file="+imagePath, tmpPath); err != nil {
 		return err
 	}
 	if err := os.Rename(tmpOverlay, overlayPath); err != nil {
