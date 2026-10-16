@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -59,6 +60,8 @@ const (
 	testNodeMaxPods = "110"
 )
 
+var configureLoggingOnce sync.Once
+
 type Option func(*Framework)
 
 // WithKubeVirtConfig configures the VM and VMI controllers before startup.
@@ -91,6 +94,10 @@ type Framework struct {
 
 func New(opts ...Option) *Framework {
 	GinkgoHelper()
+	configureLoggingOnce.Do(func() {
+		// Envtest uses this logger for control plane startup and CRD installation diagnostics.
+		ctrllog.SetLogger(GinkgoLogr)
+	})
 	crds, err := loadCRDs()
 	Expect(err).NotTo(HaveOccurred(), "failed to load CRDs")
 	f := &Framework{

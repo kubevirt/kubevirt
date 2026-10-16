@@ -17,6 +17,9 @@ setup belongs in `framework/`; keep test scenarios in the SIG directories.
 Create a suite entry point and Bazel target when adding the first tests to a SIG
 directory.
 
+The framework configures controller-runtime logging once when first constructed,
+so envtest diagnostics reach Ginkgo output without logger setup in each suite.
+
 Run all integration suites with `make test-integration`. To run one SIG's suite
 in the builder environment, use, for example:
 

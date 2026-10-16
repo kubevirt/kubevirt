@@ -70,7 +70,13 @@ var _ = Describe("Framework configuration", func() {
 		config := &virtv1.KubeVirtConfiguration{VMRolloutStrategy: &strategy}
 		f := New(WithKubeVirtConfig(config), WithKubeVirtConfig(nil))
 		Expect(f.kvConfig).To(Equal(config))
+	})
 
+	It("copies the supplied configuration", func() {
+		strategy := virtv1.VMRolloutStrategyStage
+		config := &virtv1.KubeVirtConfiguration{VMRolloutStrategy: &strategy}
+		f := New(WithKubeVirtConfig(config))
+		Expect(f.kvConfig).To(Equal(config))
 		strategy = virtv1.VMRolloutStrategyLiveUpdate
 		Expect(*f.kvConfig.VMRolloutStrategy).To(Equal(virtv1.VMRolloutStrategyStage))
 	})

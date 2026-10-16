@@ -2,12 +2,12 @@ package compute_test
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,7 +67,6 @@ var _ = Describe("VM Generation Tracking", Ordered, ContinueOnFailure, func() {
 		By("verifying VMI has the generation annotation")
 		vmi, err := f.VirtClient().VirtualMachineInstance(ns).Get(ctx, vmName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		vmiUID := vmi.UID
 		Expect(vmi.Annotations).To(HaveKeyWithValue(
 			virtv1.VirtualMachineGenerationAnnotation,
 			strconv.FormatInt(startGeneration, 10),
@@ -99,15 +98,7 @@ var _ = Describe("VM Generation Tracking", Ordered, ContinueOnFailure, func() {
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("verifying the ControllerRevision was not recreated")
-		vmi, err = f.VirtClient().VirtualMachineInstance(ns).Get(ctx, vmName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(vmi.UID).To(Equal(vmiUID), "non-template changes should preserve the running VMI")
-		Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(revisionName),
-			"ControllerRevision should not change for non-template updates")
-		currentRevision, err := f.K8sClient().AppsV1().ControllerRevisions(ns).Get(ctx, revisionName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(currentRevision.UID).To(Equal(cr.UID), "ControllerRevision should not be recreated")
-		Expect(currentRevision.Data).To(Equal(cr.Data), "ControllerRevision should retain the boot-time spec")
+		expectControllerRevisionUnchanged(ctx, f, vmi, cr)
 
 		By("updating a template field (hostname)")
 		vm = patchVM(ctx, f, vm, patch.WithAdd("/spec/template/spec/hostname", "changed"))
@@ -133,15 +124,7 @@ var _ = Describe("VM Generation Tracking", Ordered, ContinueOnFailure, func() {
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("verifying the ControllerRevision still points to the original")
-		vmi, err = f.VirtClient().VirtualMachineInstance(ns).Get(ctx, vmName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(vmi.UID).To(Equal(vmiUID), "hostname changes should preserve the running VMI")
-		Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(revisionName),
-			fmt.Sprintf("ControllerRevision should still be %s until VMI is restarted", revisionName))
-		currentRevision, err = f.K8sClient().AppsV1().ControllerRevisions(ns).Get(ctx, revisionName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(currentRevision.UID).To(Equal(cr.UID), "ControllerRevision should not be recreated")
-		Expect(currentRevision.Data).To(Equal(cr.Data), "ControllerRevision should retain the boot-time spec")
+		expectControllerRevisionUnchanged(ctx, f, vmi, cr)
 	})
 
 	It("should reproduce the ObservedGeneration lag after live-updatable template changes", func(ctx SpecContext) {
@@ -163,6 +146,22 @@ var _ = Describe("VM Generation Tracking with staged updates", func() {
 		testAffinityGenerationTracking(ctx, f, virtv1.VMRolloutStrategyStage)
 	})
 })
+
+func expectControllerRevisionUnchanged(
+	ctx context.Context, f *framework.Framework, originalVMI *virtv1.VirtualMachineInstance, originalRevision *appsv1.ControllerRevision,
+) {
+	GinkgoHelper()
+	vmi, err := f.VirtClient().VirtualMachineInstance(originalVMI.Namespace).Get(ctx, originalVMI.Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(vmi.UID).To(Equal(originalVMI.UID), "updates should preserve the running VMI")
+	Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(originalRevision.Name),
+		"ControllerRevision should not change until the VMI is restarted")
+	revisions := f.K8sClient().AppsV1().ControllerRevisions(originalRevision.Namespace)
+	revision, err := revisions.Get(ctx, originalRevision.Name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(revision.UID).To(Equal(originalRevision.UID), "ControllerRevision should not be recreated")
+	Expect(revision.Data).To(Equal(originalRevision.Data), "ControllerRevision should retain the boot-time spec")
+}
 
 func testAffinityGenerationTracking(ctx SpecContext, f *framework.Framework, strategy virtv1.VMRolloutStrategy) {
 	GinkgoHelper()
