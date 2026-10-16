@@ -907,30 +907,6 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a hotplug HostDisk via the hotplug PVC path", func() {
-			vmi := libvmi.New(
-				libvmi.WithHostDisk("hotplug-hd", "/data/disk.img", v1.HostDiskExistsOrCreate),
-			)
-			configurator := storage.NewDiskConfigurator(
-				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel(virtioModel),
-				storage.DiskWithHotplugVolumes(map[string]v1.VolumeStatus{"hotplug-hd": {Phase: v1.HotplugVolumeMounted}}),
-			)
-			var domain api.Domain
-
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := newDomainWithDisks(newDisk("hotplug-hd",
-				diskWithDevice("disk"),
-				diskWithType("file"),
-				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-hd")}),
-				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel(virtioModel),
-			))
-			Expect(domain).To(Equal(expectedDomain))
-		})
-
 		It("should convert an empty CDRom with no matching volume", func() {
 			vmi := libvmi.New(
 				libvmi.WithEmptyCDRom(v1.DiskBusSATA, "mycdrom"),

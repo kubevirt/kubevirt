@@ -23,6 +23,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -569,7 +570,7 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		}
 		vr.volumeDevices = append(vr.volumeDevices, device)
 	} else {
-		path := hostdisk.GetMountedHostDiskDir(volume.Name)
+		path := volumepath.FilesystemDir(volume.Name)
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: path,
