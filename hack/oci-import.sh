@@ -139,7 +139,14 @@ fi
 
 blob() { echo "$OCI_DIR/blobs/${1/://}"; }
 
-MANIFEST_BLOB=$(blob "$(jq -r '.manifests[0].digest' "$OCI_DIR/index.json")")
+# Resolve nested indexes
+INDEX_BLOB="$OCI_DIR/index.json"
+while :; do
+    DESC=$(jq -c '.manifests[0]' "$INDEX_BLOB")
+    MANIFEST_BLOB=$(blob "$(jq -r '.digest' <<<"$DESC")")
+    [[ "$(jq -r '.mediaType' <<<"$DESC")" == "application/vnd.oci.image.index.v1+json" ]] || break
+    INDEX_BLOB="$MANIFEST_BLOB"
+done
 
 ARTIFACT_TYPE=$(jq -r '.artifactType // empty' "$MANIFEST_BLOB")
 CONFIG_MEDIA_TYPE=$(jq -r '.config.mediaType // empty' "$MANIFEST_BLOB")
