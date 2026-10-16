@@ -107,33 +107,38 @@ var _ = Describe("Operator Lease events", func() {
 		}, 5*time.Second, 50*time.Millisecond).Should(Succeed())
 	}
 
+	expectIdle := func(ctx SpecContext, before int64) {
+		GinkgoHelper()
+		Consistently(ctx, operator.Reconciliations, leaseObservationWindow, 100*time.Millisecond).
+			Should(Equal(before), "Lease event unexpectedly reconciled KubeVirt")
+	}
+
 	expectReconciliation := func(ctx SpecContext, before int64) {
 		GinkgoHelper()
 		Eventually(ctx, operator.Reconciliations, 15*time.Second, 100*time.Millisecond).
 			Should(BeNumerically(">", before), "Lease event did not reconcile KubeVirt")
 	}
 
-	It("reconciles creation, leader changes, renewals and deletion of unrelated Leases", func(ctx SpecContext) {
-		// FIXME(#19342): Unrelated Lease events should not reconcile KubeVirt.
+	It("ignores creation, leader changes, renewals and deletion of unrelated Leases", func(ctx SpecContext) {
 		before := operator.Reconciliations()
 		By("creating an unrelated leader-election Lease")
 		lease := createLease(ctx, "virt-controller", pointer.P("leader-a"))
-		expectReconciliation(ctx, before)
+		expectIdle(ctx, before)
 
 		By("renewing it and changing its leader")
 		before = operator.Reconciliations()
 		lease.Spec.RenewTime = pointer.P(metav1.NewMicroTime(time.Now()))
 		lease.Spec.HolderIdentity = pointer.P("leader-b")
 		lease = patchLease(ctx, lease)
-		expectReconciliation(ctx, before)
+		expectIdle(ctx, before)
 
 		By("deleting the unrelated Lease")
 		before = operator.Reconciliations()
 		deleteLease(ctx, lease)
-		expectReconciliation(ctx, before)
+		expectIdle(ctx, before)
 	})
 
-	It("reconciles synchronization Lease renewals and its leader lifecycle", func(ctx SpecContext) {
+	It("ignores synchronization Lease renewals but reconciles its leader lifecycle", func(ctx SpecContext) {
 		By("creating the synchronization Lease without a leader")
 		before := operator.Reconciliations()
 		lease := createLease(ctx, components.VirtSynchronizationControllerName, nil)
@@ -146,13 +151,12 @@ var _ = Describe("Operator Lease events", func() {
 		expectReconciliation(ctx, before)
 
 		By("renewing the Lease without changing leadership")
-		// FIXME(#19342): Renewals with unchanged leadership should not reconcile KubeVirt.
 		before = operator.Reconciliations()
 		for range 3 {
 			lease.Spec.RenewTime = pointer.P(metav1.NewMicroTime(time.Now()))
 			lease = patchLease(ctx, lease)
 		}
-		expectReconciliation(ctx, before)
+		expectIdle(ctx, before)
 
 		By("replacing the leader")
 		before = operator.Reconciliations()
