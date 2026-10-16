@@ -93,8 +93,9 @@ const (
 	NAMESPACE = "kubevirt-test"
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
-	resourceCount = 96 + virtTemplateResourceCount
-	patchCount    = 64 + virtTemplatePatchCount
+	// +2 for the host-device ValidatingAdmissionPolicy and its binding
+	resourceCount = 98 + virtTemplateResourceCount
+	patchCount    = 66 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -1432,6 +1433,8 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 
 	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
 	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
+	controllerUser := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.ControllerServiceAccountName)
+	all = append(all, vap.NewHostDevicesValidatingAdmissionPolicy(controllerUser), vap.NewHostDevicesValidatingAdmissionPolicyBinding(config.GetNamespace()))
 	if config.PluginsEnabled() {
 		all = append(all, vap.NewSidecarSubPathValidatingAdmissionPolicy(), vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
 	}
@@ -2784,6 +2787,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			expectedUncreatedResources := 7
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
+			expectHostDevicePolicyBeforeBinding(kvTestData.kubeClient.Fake.Actions())
 
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(22))
@@ -4296,6 +4300,41 @@ func injectMetadata(objectMeta *metav1.ObjectMeta, config *util.KubeVirtDeployme
 	if config.GetProductComponent() != "" {
 		objectMeta.Labels[v1.AppComponentLabel] = config.GetProductComponent()
 	}
+}
+
+// expectHostDevicePolicyBeforeBinding checks that the host-device policy is
+// created before its binding. The apiserver rejects a paramRef binding when
+// the policy is not already present.
+func expectHostDevicePolicyBeforeBinding(actions []testing.Action) {
+	policyIndex := -1
+	bindingIndex := -1
+	for i, action := range actions {
+		if action.GetVerb() != "create" {
+			continue
+		}
+		switch action.GetResource().Resource {
+		case "validatingadmissionpolicies":
+			create, ok := action.(testing.CreateAction)
+			if !ok {
+				continue
+			}
+			policy, ok := create.GetObject().(*admissionregistrationv1.ValidatingAdmissionPolicy)
+			if ok && policy.Name == vap.HostDevicesRestrictionPolicyName {
+				policyIndex = i
+			}
+		case "validatingadmissionpolicybindings":
+			create, ok := action.(testing.CreateAction)
+			if !ok {
+				continue
+			}
+			binding, ok := create.GetObject().(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+			if ok && binding.Name == vap.HostDevicesRestrictionBindingName {
+				bindingIndex = i
+			}
+		}
+	}
+	Expect(policyIndex).To(BeNumerically(">=", 0))
+	Expect(bindingIndex).To(BeNumerically(">", policyIndex))
 }
 
 func shouldExpectStatusConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus, progressing k8sv1.ConditionStatus, degraded k8sv1.ConditionStatus) {

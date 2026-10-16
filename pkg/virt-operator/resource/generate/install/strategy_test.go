@@ -40,6 +40,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
+
 	//"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -240,6 +242,35 @@ var _ = Describe("Install Strategy", func() {
 				delete(original.Labels, v1.ManagedByLabel)
 				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
+		})
+
+		It("should restrict KubeVirt-managed host devices to the virt-controller service account", func() {
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			var foundPolicy, foundBinding bool
+			for _, policy := range strategy.ValidatingAdmissionPolicies() {
+				if policy.Name != vap.HostDevicesRestrictionPolicyName {
+					continue
+				}
+				foundPolicy = true
+				var exprs string
+				for _, variable := range policy.Spec.Variables {
+					exprs += variable.Expression
+				}
+				Expect(exprs).To(ContainSubstring("system:serviceaccount:" + namespace + ":kubevirt-controller"))
+			}
+			for _, binding := range strategy.ValidatingAdmissionPolicyBindings() {
+				if binding.Name != vap.HostDevicesRestrictionBindingName {
+					continue
+				}
+				foundBinding = true
+				Expect(binding.Spec.PolicyName).To(Equal(vap.HostDevicesRestrictionPolicyName))
+				Expect(binding.Spec.ParamRef).NotTo(BeNil())
+				Expect(binding.Spec.ParamRef.Namespace).To(Equal(namespace))
+			}
+			Expect(foundPolicy).To(BeTrue())
+			Expect(foundBinding).To(BeTrue())
 		})
 	})
 
