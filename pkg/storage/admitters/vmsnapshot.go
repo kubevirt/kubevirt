@@ -26,6 +26,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -39,6 +40,7 @@ import (
 
 type vmSnapshotConfigChecker interface {
 	SnapshotEnabled() bool
+	ExternalVMSnapshotEnabled() bool
 }
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
@@ -53,6 +55,39 @@ func NewVMSnapshotAdmitter(config vmSnapshotConfigChecker, client kubecli.Kubevi
 		config: config,
 		Client: client,
 	}
+}
+
+// validateRunningSource rejects an External mode snapshot of a stopped VM. The
+// overlays are put in place through the running domain.
+func (admitter *VMSnapshotAdmitter) validateRunningSource(
+	ctx context.Context,
+	vmSnapshot *snapshotv1.VirtualMachineSnapshot,
+	namespace string,
+	sourceField *k8sfield.Path,
+) (*metav1.StatusCause, error) {
+	if vmSnapshot.Spec.SnapshotMode == nil ||
+		*vmSnapshot.Spec.SnapshotMode != snapshotv1.SnapshotModeExternal {
+		return nil, nil
+	}
+
+	notRunning := &metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s mode requires a running VirtualMachine", snapshotv1.SnapshotModeExternal),
+		Field:   sourceField.Child("name").String(),
+	}
+
+	vmi, err := admitter.Client.VirtualMachineInstance(namespace).
+		Get(ctx, vmSnapshot.Spec.Source.Name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return notRunning, nil
+		}
+		return nil, err
+	}
+	if !vmi.IsRunning() {
+		return notRunning, nil
+	}
+	return nil, nil
 }
 
 // Admit validates an AdmissionReview
@@ -77,6 +112,12 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
+		if vmSnapshot.Spec.SnapshotMode != nil &&
+			*vmSnapshot.Spec.SnapshotMode == snapshotv1.SnapshotModeExternal &&
+			!admitter.config.ExternalVMSnapshotEnabled() {
+			return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot feature gate not enabled"))
+		}
+
 		sourceField := k8sfield.NewPath("spec", "source")
 
 		if vmSnapshot.Spec.Source.APIGroup == nil {
@@ -100,6 +141,15 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 						Field:   sourceField.Child("kind").String(),
 					},
 				}
+				break
+			}
+
+			cause, err := admitter.validateRunningSource(ctx, vmSnapshot, ar.Request.Namespace, sourceField)
+			if err != nil {
+				return webhookutils.ToAdmissionResponseError(err)
+			}
+			if cause != nil {
+				causes = []metav1.StatusCause{*cause}
 			}
 		default:
 			causes = []metav1.StatusCause{

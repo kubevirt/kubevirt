@@ -48,6 +48,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,6 +63,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -72,6 +74,7 @@ import (
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/utilityvolume"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 	storagevmispec "kubevirt.io/kubevirt/pkg/storage/vmispec"
@@ -1357,6 +1360,26 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, fmt.Errorf("failed create validation: %v", validateErr)
 	}
 
+	pendingOverlays, err := c.overlayScratchPVC(vm)
+	if err != nil {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason,
+			"Error looking up the snapshot overlays: %v", err)
+		return vm, err
+	}
+	if pendingOverlays != nil {
+		if vmi.Annotations == nil {
+			vmi.Annotations = make(map[string]string)
+		}
+		vmi.Annotations[virtv1.PendingOverlayRecoveryAnnotation] = pendingOverlays.Name
+		owner := metav1.GetControllerOf(pendingOverlays)
+		reference := storagetypes.SnapshotOverlayReference{ContentUID: owner.UID, ScratchPVCUID: pendingOverlays.UID}
+		encoded, err := json.Marshal(reference)
+		if err != nil {
+			return vm, err
+		}
+		vmi.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] = string(encoded)
+	}
+
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
@@ -1365,10 +1388,229 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return vm, err
 	}
+	if err := c.recoverSnapshotOverlays(pendingOverlays, vmi); err != nil {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason,
+			"Error recovering the snapshot overlays: %v", err)
+		return vm, err
+	}
+
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return vm, nil
+}
+
+// overlayScratchPVC returns the scratch volume of an External mode snapshot
+// that was still in progress, or nil when there is nothing to recover.
+func (c *Controller) overlayScratchPVC(vm *virtv1.VirtualMachine) (*k8score.PersistentVolumeClaim, error) {
+	if vm.Status.SnapshotInProgress == nil {
+		return nil, nil
+	}
+	vmSnapshot, err := c.clientset.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), *vm.Status.SnapshotInProgress, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if vmSnapshot.Status == nil || vmSnapshot.Status.VirtualMachineSnapshotContentName == nil {
+		return nil, nil
+	}
+	content, err := c.clientset.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *vmSnapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) && (vmSnapshot.Spec.SnapshotMode == nil || *vmSnapshot.Spec.SnapshotMode != snapshotv1.SnapshotModeExternal) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if content.Status == nil || content.Status.SnapshotMode == nil {
+		if vmSnapshot.Spec.SnapshotMode != nil && *vmSnapshot.Spec.SnapshotMode == snapshotv1.SnapshotModeExternal {
+			return nil, fmt.Errorf("external snapshot content %s has no recorded recovery mode", content.Name)
+		}
+		return nil, nil
+	}
+	if *content.Status.SnapshotMode != snapshotv1.SnapshotModeExternal {
+		return nil, nil
+	}
+	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), storagetypes.ScratchPVCName(content.UID), metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	owner := metav1.GetControllerOf(pvc)
+	if owner == nil || owner.Kind != "VirtualMachineSnapshotContent" || owner.UID != content.UID || owner.Name != content.Name || pvc.UID == "" {
+		return nil, fmt.Errorf("overlay scratch PVC %s owner does not match content %s", pvc.Name, content.Name)
+	}
+	if !controller.HasFinalizer(pvc, storagetypes.OverlayProtectionFinalizer) {
+		return nil, nil
+	}
+	if err := c.validateOverlayRecoverySource(vm, content); err != nil {
+		return nil, err
+	}
+	return pvc, nil
+}
+
+func (c *Controller) validateOverlayRecoverySource(vm *virtv1.VirtualMachine, content *snapshotv1.VirtualMachineSnapshotContent) error {
+	source := content.Spec.Source.VirtualMachine
+	if source == nil || source.UID == "" || source.UID != vm.UID || source.Name != vm.Name || source.Namespace != vm.Namespace {
+		return fmt.Errorf("overlay recovery source VM does not match snapshot content %s", content.Name)
+	}
+	if source.Spec.Template == nil || vm.Spec.Template == nil ||
+		!equality.Semantic.DeepEqual(source.Spec.Template.Spec.Volumes, vm.Spec.Template.Spec.Volumes) ||
+		!equality.Semantic.DeepEqual(source.Spec.Template.Spec.Domain.Devices.Disks, vm.Spec.Template.Spec.Domain.Devices.Disks) {
+		return fmt.Errorf("overlay recovery disk layout does not match snapshot content %s", content.Name)
+	}
+	return c.validateOverlayRecoveryBackingPVCs(vm.Namespace, vm.Spec.Template.Spec.Volumes, content)
+}
+
+func (c *Controller) validateOverlayRecoveryBackingPVCs(namespace string, volumes []virtv1.Volume, content *snapshotv1.VirtualMachineSnapshotContent) error {
+	backups := make(map[string]snapshotv1.VolumeBackup, len(content.Spec.VolumeBackups))
+	for _, backup := range content.Spec.VolumeBackups {
+		if _, duplicate := backups[backup.VolumeName]; duplicate {
+			return fmt.Errorf("overlay recovery backing PVC metadata repeats volume %s", backup.VolumeName)
+		}
+		backups[backup.VolumeName] = backup
+	}
+	for _, volume := range volumes {
+		name := storagetypes.PVCNameFromVirtVolume(&volume)
+		if name == "" {
+			continue
+		}
+		backup, exists := backups[volume.Name]
+		if !exists || backup.PersistentVolumeClaim.Name != name || backup.PersistentVolumeClaim.UID == "" {
+			return fmt.Errorf("overlay recovery backing PVC metadata is missing or changed for volume %s", volume.Name)
+		}
+		pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("overlay recovery backing PVC %s cannot be read: %w", name, err)
+		}
+		if pvc.UID != backup.PersistentVolumeClaim.UID || pvc.DeletionTimestamp != nil {
+			return fmt.Errorf("overlay recovery backing PVC %s has been replaced or is deleting", name)
+		}
+	}
+	return nil
+}
+
+// recoverSnapshotOverlays hands the scratch volume of a crashed External mode
+// snapshot to the VMI replacing it. Hotplugged rather than put in the spec,
+// which the VMI create admitter rejects, and the owner annotation is repointed
+// so the snapshot controller will act on this VMI and release the volume when
+// the launcher is done with it.
+func (c *Controller) recoverSnapshotOverlays(pvc *k8score.PersistentVolumeClaim, vmi *virtv1.VirtualMachineInstance) error {
+	if pvc == nil || !controller.HasFinalizer(pvc, storagetypes.OverlayProtectionFinalizer) {
+		return nil
+	}
+
+	owner := metav1.GetControllerOf(pvc)
+	if owner == nil || owner.Kind != "VirtualMachineSnapshotContent" {
+		return fmt.Errorf("overlay recovery scratch owner is missing")
+	}
+	content, err := c.clientset.VirtualMachineSnapshotContent(vmi.Namespace).Get(context.Background(), owner.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if content.UID != owner.UID || pvc.Name != storagetypes.ScratchPVCName(content.UID) || pvc.UID == "" {
+		return fmt.Errorf("overlay recovery scratch owner does not match snapshot content")
+	}
+	source := content.Spec.Source.VirtualMachine
+	if source == nil || source.Spec.Template == nil ||
+		!equality.Semantic.DeepEqual(source.Spec.Template.Spec.Volumes, vmi.Spec.Volumes) ||
+		!equality.Semantic.DeepEqual(source.Spec.Template.Spec.Domain.Devices.Disks, vmi.Spec.Domain.Devices.Disks) {
+		return fmt.Errorf("overlay recovery VMI disk layout does not match snapshot content %s", content.Name)
+	}
+	if err := c.validateOverlayRecoveryBackingPVCs(vmi.Namespace, vmi.Spec.Volumes, content); err != nil {
+		return err
+	}
+
+	if err := c.attachOverlayRecoveryScratch(pvc, vmi); err != nil {
+		return err
+	}
+
+	if pvc.Annotations[storagetypes.OverlayOwnerVMIUIDAnnotation] == string(vmi.UID) {
+		return nil
+	}
+	patchSet := patch.New(
+		patch.WithTest("/metadata/uid", pvc.UID),
+		patch.WithTest("/metadata/resourceVersion", pvc.ResourceVersion),
+		patch.WithTest("/metadata/annotations", pvc.Annotations),
+		patch.WithTest("/metadata/finalizers", pvc.Finalizers),
+		patch.WithReplace("/metadata/annotations/"+patch.EscapeJSONPointer(storagetypes.OverlayOwnerVMIUIDAnnotation), string(vmi.UID)),
+	)
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).
+		Patch(context.Background(), pvc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	log.Log.Object(vmi).Infof("Recovering the snapshot overlays from scratch volume %s", pvc.Name)
+	return nil
+}
+
+func (c *Controller) attachOverlayRecoveryScratch(pvc *k8score.PersistentVolumeClaim, vmi *virtv1.VirtualMachineInstance) error {
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name == pvc.Name {
+			if volume.ClaimName != pvc.Name || volume.Type == nil || *volume.Type != virtv1.SnapshotOverlay {
+				return fmt.Errorf("overlay recovery utility volume %s has a different source", volume.Name)
+			}
+			return nil
+		}
+	}
+	volumes := append(append([]virtv1.UtilityVolume(nil), vmi.Spec.UtilityVolumes...), virtv1.UtilityVolume{Name: pvc.Name, PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name}, Type: pointer.P(virtv1.SnapshotOverlay)})
+	patchSet := patch.New(patch.WithTest("/metadata/uid", vmi.UID), patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes), patch.WithAdd("/spec/utilityVolumes", volumes))
+	if vmi.ResourceVersion != "" {
+		patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+	}
+	payload, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	return err
+}
+
+func (c *Controller) reconcilePendingOverlayRecovery(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	reference, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	name := vmi.Annotations[virtv1.PendingOverlayRecoveryAnnotation]
+	if err != nil || reference == nil || name != storagetypes.ScratchPVCName(reference.ContentUID) {
+		return vmi, fmt.Errorf("pending overlay recovery reference is missing or invalid")
+	}
+	pvc, err := c.clientset.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		return vmi, err
+	}
+	owner := metav1.GetControllerOf(pvc)
+	if owner == nil || owner.Kind != "VirtualMachineSnapshotContent" || owner.UID != reference.ContentUID || pvc.UID != reference.ScratchPVCUID {
+		return vmi, fmt.Errorf("pending overlay recovery reference does not match its scratch PVC")
+	}
+	if !controller.HasFinalizer(pvc, storagetypes.OverlayProtectionFinalizer) {
+		annotations := maps.Clone(vmi.Annotations)
+		delete(annotations, virtv1.PendingOverlayRecoveryAnnotation)
+		if utilityvolume.Detached(vmi, name) {
+			delete(annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
+		}
+		patchSet := patch.New(patch.WithTest("/metadata/uid", vmi.UID), patch.WithTest("/metadata/annotations", vmi.Annotations), patch.WithReplace("/metadata/annotations", annotations))
+		if vmi.ResourceVersion != "" {
+			patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+		}
+		payload, err := patchSet.GeneratePayload()
+		if err != nil {
+			return vmi, err
+		}
+		updatedVMI, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+		if err != nil {
+			return vmi, err
+		}
+		return updatedVMI, nil
+	}
+	expected, err := c.overlayScratchPVC(vm)
+	if err != nil {
+		return vmi, err
+	}
+	if expected == nil || expected.UID != pvc.UID {
+		return vmi, fmt.Errorf("pending overlay recovery chain does not match its scratch PVC")
+	}
+	return vmi, c.recoverSnapshotOverlays(pvc, vmi)
 }
 
 func setGenerationAnnotation(generation int64, annotations map[string]string) {
@@ -3225,6 +3467,13 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if !c.satisfiedExpectations(key) {
 		return vm, vmi, nil, nil
+	}
+
+	if vmi != nil && vm.DeletionTimestamp == nil && vmi.DeletionTimestamp == nil && !vmi.IsFinal() && vmi.Annotations[virtv1.PendingOverlayRecoveryAnnotation] != "" {
+		vmi, err = c.reconcilePendingOverlayRecovery(vm, vmi)
+		if err != nil {
+			return vm, vmi, common.NewSyncError(fmt.Errorf("Error recovering snapshot overlays: %w", err), failedCreateReason), nil
+		}
 	}
 
 	if vmi != nil {

@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -47,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -179,6 +181,265 @@ var _ = Describe("VirtualMachine", func() {
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineSnapshot(metav1.NamespaceDefault).Return(
+				virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshots(metav1.NamespaceDefault),
+			).AnyTimes()
+			virtClient.EXPECT().VirtualMachineSnapshotContent(metav1.NamespaceDefault).Return(
+				virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault),
+			).AnyTimes()
+		})
+
+		Context("snapshot overlay recovery", func() {
+			const contentUID = "content-uid"
+
+			inProgress := func(mode snapshotv1.SnapshotMode) *v1.VirtualMachine {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+				vm.Status.SnapshotInProgress = pointer.P("snap")
+				vm.UID = "source-vm-uid"
+
+				content := &snapshotv1.VirtualMachineSnapshotContent{
+					ObjectMeta: metav1.ObjectMeta{Name: "content", Namespace: metav1.NamespaceDefault, UID: contentUID},
+					Spec:       snapshotv1.VirtualMachineSnapshotContentSpec{Source: snapshotv1.SourceSpec{VirtualMachine: &snapshotv1.VirtualMachine{ObjectMeta: vm.ObjectMeta, Spec: *vm.Spec.DeepCopy()}}},
+					Status:     &snapshotv1.VirtualMachineSnapshotContentStatus{SnapshotMode: &mode},
+				}
+				snap := &snapshotv1.VirtualMachineSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: metav1.NamespaceDefault},
+					Spec:       snapshotv1.VirtualMachineSnapshotSpec{SnapshotMode: &mode},
+					Status: &snapshotv1.VirtualMachineSnapshotStatus{
+						VirtualMachineSnapshotContentName: pointer.P("content"),
+					},
+				}
+				Expect(virtFakeClient.Tracker().Add(content)).To(Succeed())
+				Expect(virtFakeClient.Tracker().Add(snap)).To(Succeed())
+				return vm
+			}
+
+			addScratch := func() *k8sv1.PersistentVolumeClaim {
+				pvc := &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            storagetypes.ScratchPVCName(contentUID),
+						UID:             "scratch-uid",
+						ResourceVersion: "1",
+						Finalizers:      []string{storagetypes.OverlayProtectionFinalizer},
+						OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: "content", UID: contentUID, Controller: pointer.P(true)}},
+						Namespace:       metav1.NamespaceDefault,
+						Annotations:     map[string]string{storagetypes.OverlayOwnerVMIUIDAnnotation: "the-vmi-that-crashed"},
+					},
+				}
+				Expect(k8sClient.Tracker().Add(pvc)).To(Succeed())
+				return pvc
+			}
+
+			It("should put pending recovery and its expected reference on the VMI before creation", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				virtFakeClient.PrependReactor("create", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+					vmi := action.(testing.CreateAction).GetObject().(*v1.VirtualMachineInstance)
+					Expect(vmi.Annotations[v1.PendingOverlayRecoveryAnnotation]).To(Equal(storagetypes.ScratchPVCName(contentUID)))
+					ref, err := storagetypes.GetOverlaySnapshotReference(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ref).To(Equal(&storagetypes.SnapshotOverlayReference{ContentUID: contentUID, ScratchPVCUID: "scratch-uid"}))
+					vmi.UID = "replacement-vmi"
+					return false, nil, nil
+				})
+				_, err := controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should retry attachment on reconciliation of an existing pending VMI", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				vmi := SetupVMIFromVM(vm)
+				vmi.UID = "replacement-vmi"
+				vmi.Annotations = map[string]string{
+					v1.PendingOverlayRecoveryAnnotation:             storagetypes.ScratchPVCName(contentUID),
+					storagetypes.OverlaySnapshotReferenceAnnotation: `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`,
+				}
+				virtFakeClient.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+					Expect(string(action.(testing.PatchAction).GetPatch())).To(ContainSubstring("utilityVolumes"))
+					Expect(string(action.(testing.PatchAction).GetPatch())).To(ContainSubstring(`"path":"/metadata/uid"`))
+					return true, nil, fmt.Errorf("attachment needs another reconciliation")
+				})
+				_, _, syncErr, err := controller.sync(vm, vmi, vm.Namespace+"/"+vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(syncErr).To(MatchError(ContainSubstring("attachment needs another reconciliation")))
+			})
+
+			It("should preserve the VMI when pending recovery cleanup needs a retry", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				Expect(virtFakeClient.Tracker().Add(vm)).To(Succeed())
+				pvc := addScratch()
+				pvc.Finalizers = nil
+				Expect(k8sClient.Tracker().Update(k8sv1.SchemeGroupVersion.WithResource("persistentvolumeclaims"), pvc, pvc.Namespace)).To(Succeed())
+				vmi := SetupVMIFromVM(vm)
+				vmi.UID = "replacement-vmi"
+				vmi.Annotations = map[string]string{
+					v1.PendingOverlayRecoveryAnnotation:             pvc.Name,
+					storagetypes.OverlaySnapshotReferenceAnnotation: `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`,
+				}
+				virtFakeClient.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+					var operations []struct {
+						Op, Path string
+						Value    json.RawMessage
+					}
+					Expect(json.Unmarshal(action.(testing.PatchAction).GetPatch(), &operations)).To(Succeed())
+					var annotations map[string]string
+					for _, operation := range operations {
+						if operation.Path == "/metadata/annotations" && operation.Op != "test" {
+							Expect(json.Unmarshal(operation.Value, &annotations)).To(Succeed())
+						}
+					}
+					Expect(annotations).ToNot(HaveKey(v1.PendingOverlayRecoveryAnnotation))
+					Expect(annotations).ToNot(HaveKey(storagetypes.OverlaySnapshotReferenceAnnotation))
+					return true, &v1.VirtualMachineInstance{}, fmt.Errorf("stop after pending cleanup")
+				})
+				_, currentVMI, syncErr, err := controller.sync(vm, vmi, vm.Namespace+"/"+vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(syncErr).To(MatchError(ContainSubstring("stop after pending cleanup")))
+				Expect(currentVMI).To(BeIdenticalTo(vmi))
+			})
+
+			It("should reject recovery into a VMI with a different disk layout", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				pvc := addScratch()
+				vmi := SetupVMIFromVM(vm)
+				vmi.UID = "replacement-vmi"
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{Name: "different"})
+				Expect(virtFakeClient.Tracker().Add(vmi)).To(Succeed())
+				Expect(controller.recoverSnapshotOverlays(pvc, vmi)).To(MatchError(ContainSubstring("layout")))
+			})
+
+			It("should attach scratch and hand its ownership to the recovering VMI", func() {
+				inProgress(snapshotv1.SnapshotModeExternal)
+				pvc := addScratch()
+				vmi := libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithName("vmi"))
+				vmi.UID = "the-new-vmi"
+				Expect(virtFakeClient.Tracker().Add(vmi)).To(Succeed())
+
+				Expect(controller.recoverSnapshotOverlays(pvc, vmi)).To(Succeed())
+
+				patched, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).
+					Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(patched.Spec.UtilityVolumes).To(HaveLen(1))
+				Expect(*patched.Spec.UtilityVolumes[0].Type).To(Equal(v1.SnapshotOverlay))
+				updated, err := k8sClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).
+					Get(context.Background(), pvc.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updated.Annotations[storagetypes.OverlayOwnerVMIUIDAnnotation]).To(Equal("the-new-vmi"))
+			})
+
+			It("should do nothing when there is nothing to recover", func() {
+				vmi := libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithName("vmi"))
+				Expect(controller.recoverSnapshotOverlays(nil, vmi)).To(Succeed())
+			})
+
+			It("should find no scratch volume for a Direct mode snapshot", func() {
+				vm := inProgress(snapshotv1.SnapshotModeDirect)
+				addScratch()
+
+				Expect(controller.overlayScratchPVC(vm)).To(BeNil())
+			})
+
+			It("should fail closed when the locked snapshot is already gone", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+				vm.Status.SnapshotInProgress = pointer.P("snap")
+
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should find no scratch volume before the content exists", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+				vm.Status.SnapshotInProgress = pointer.P("snap")
+				Expect(virtFakeClient.Tracker().Add(&snapshotv1.VirtualMachineSnapshot{
+					ObjectMeta: metav1.ObjectMeta{Name: "snap", Namespace: metav1.NamespaceDefault},
+				})).To(Succeed())
+
+				Expect(controller.overlayScratchPVC(vm)).To(BeNil())
+			})
+
+			It("should fail closed when expected scratch disappeared", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should not recover overlays whose protection was durably released", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				pvc := addScratch()
+				pvc.Finalizers = nil
+				Expect(k8sClient.Tracker().Update(k8sv1.SchemeGroupVersion.WithResource("persistentvolumeclaims"), pvc, pvc.Namespace)).To(Succeed())
+				found, err := controller.overlayScratchPVC(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(found).To(BeNil())
+			})
+
+			It("should fail closed when named external content disappeared", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				Expect(virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(vm.Namespace).Delete(context.Background(), "content", metav1.DeleteOptions{})).To(Succeed())
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(k8serrors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("should reject recovery for a recreated source VM", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				vm.UID = "recreated-source"
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(err).To(MatchError(ContainSubstring("source VM")))
+			})
+
+			DescribeTable("should reject changes to the captured disk layout", func(mutate func(*v1.VirtualMachine)) {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				mutate(vm)
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(err).To(MatchError(ContainSubstring("layout")))
+			},
+				Entry("volumes", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{Name: "different"})
+				}),
+				Entry("disk targets", func(vm *v1.VirtualMachine) {
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{Name: "different"})
+				}),
+			)
+
+			It("should reject a recreated backing PVC", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				content, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(vm.Namespace).Get(context.Background(), "content", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				volume := v1.Volume{Name: "root", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "base"}}}}
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{volume}
+				content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = []v1.Volume{volume}
+				content.Spec.VolumeBackups = []snapshotv1.VolumeBackup{{VolumeName: "root", PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "base", UID: "original-pvc"}}}}
+				_, err = virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(vm.Namespace).Update(context.Background(), content, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(k8sClient.Tracker().Add(&k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "base", Namespace: vm.Namespace, UID: "recreated-pvc"}})).To(Succeed())
+				_, err = controller.overlayScratchPVC(vm)
+				Expect(err).To(MatchError(ContainSubstring("backing PVC")))
+			})
+
+			// H6: a scratch volume that cannot be read means overlays that will
+			// not be committed, so the VMI must not start as if all were well.
+			It("should not swallow an error reading the scratch volume", func() {
+				vm := inProgress(snapshotv1.SnapshotModeExternal)
+				addScratch()
+				k8sClient.Fake.PrependReactor("get", "persistentvolumeclaims",
+					func(action testing.Action) (bool, runtime.Object, error) {
+						return true, nil, fmt.Errorf("etcd is having a day")
+					})
+
+				_, err := controller.overlayScratchPVC(vm)
+				Expect(err).To(MatchError(ContainSubstring("etcd is having a day")))
+			})
+
+			It("should find no scratch volume when no snapshot is in progress", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)))
+
+				Expect(controller.overlayScratchPVC(vm)).To(BeNil())
+			})
 		})
 
 		// TODO: We need to make sure the action was triggered

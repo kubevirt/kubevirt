@@ -79,6 +79,20 @@ func (c *fakeVirtualMachineInstances) Unfreeze(ctx context.Context, name string)
 	return err
 }
 
+func (c *fakeVirtualMachineInstances) ExternalSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "externalsnapshot", name, overlayOptions), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachineInstances) CommitSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "commitsnapshot", name, overlayOptions), nil)
+
+	return err
+}
+
 func (c *fakeVirtualMachineInstances) Reset(ctx context.Context, name string) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "reset", name, struct{}{}), nil)

@@ -1084,6 +1084,10 @@ const (
 
 	// Backup represents a utility volume which will be used to collect backup output
 	Backup UtilityVolumeType = "Backup"
+
+	// SnapshotOverlay represents a utility volume which holds the copy-on-write
+	// overlays of an External mode VirtualMachineSnapshot
+	SnapshotOverlay UtilityVolumeType = "SnapshotOverlay"
 )
 
 type UtilityVolume struct {

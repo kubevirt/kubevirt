@@ -55,6 +55,10 @@ const (
 )
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	if OverlaysActive(m.metadataCache) {
+		return fmt.Errorf("cannot back up the VMI while its disks are on snapshot overlays")
+	}
+
 	logger := log.Log.With("backupName", backupOptions.BackupName)
 	logger.Info("Backup begin called")
 	if m.MigrationInProgress() {

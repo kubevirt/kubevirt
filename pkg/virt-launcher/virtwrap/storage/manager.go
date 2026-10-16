@@ -21,6 +21,7 @@ package storage
 
 import (
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -47,6 +48,9 @@ type StorageManager struct {
 
 	activeBackupTunnel *backupTunnelManager
 	backupTunnelMu     sync.Mutex
+
+	overlayUsage         func(overlayDir string) (int64, error)
+	overlayUsageInterval time.Duration
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache, registerNBD RegisterNBDFunc) *StorageManager {
@@ -56,6 +60,8 @@ func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache,
 		memoryDumpInProgress:     make(chan struct{}, MaxConcurrentMemoryDumps),
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		registerNBD:              registerNBD,
+		overlayUsage:             overlayUsedPercent,
+		overlayUsageInterval:     overlayUsagePollInterval,
 	}
 }
 

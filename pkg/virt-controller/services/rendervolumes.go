@@ -525,7 +525,13 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 			MountPath:        hotplugDiskDir,
 			MountPropagation: &prop,
 		})
-		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(hotplugDisks))
+		volume := emptyDirVolume(hotplugDisks)
+		// Unmount the hotplug root before kubelet removes it, so teardown cannot
+		// traverse utility PVC filesystems still bind-mounted beneath it.
+		volume.EmptyDir.Medium = k8sv1.StorageMediumMemory
+		sizeLimit := resource.MustParse("1Mi")
+		volume.EmptyDir.SizeLimit = &sizeLimit
+		renderer.podVolumes = append(renderer.podVolumes, volume)
 		return nil
 	}
 }

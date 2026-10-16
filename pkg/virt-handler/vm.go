@@ -642,6 +642,53 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 	}
 }
 
+func (c *VirtualMachineController) updateOverlaySnapshotCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+	if domain == nil {
+		// the condition's absence means the overlays were committed, so a domain
+		// that could not be read must not clear it
+		return
+	}
+
+	// the launcher zeroes the metadata rather than dropping the element
+	overlay := domain.Spec.Metadata.KubeVirt.SnapshotOverlay
+	vmi.Status.SnapshotOverlayPVCUID = ""
+	if overlay == nil || overlay.Phase == "" {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+		return
+	}
+	expected, err := storagetypes.GetOverlaySnapshotReference(vmi)
+	if err == nil && expected != nil && overlay.ContentUID == expected.ContentUID && overlay.ScratchPVCUID == expected.ScratchPVCUID {
+		vmi.Status.SnapshotOverlayPVCUID = overlay.ScratchPVCUID
+	}
+
+	status, reason := k8sv1.ConditionTrue, string(overlay.Phase)
+	switch overlay.Phase {
+	case api.SnapshotOverlayInProgress:
+		reason = v1.VirtualMachineInstanceReasonOverlayPreparing
+	case api.SnapshotOverlayReady:
+		reason = v1.VirtualMachineInstanceReasonOverlaysReady
+	case api.SnapshotOverlayCommitting:
+		reason = v1.VirtualMachineInstanceReasonOverlayCommitting
+	case api.SnapshotOverlayCommitFailed:
+		reason = v1.VirtualMachineInstanceReasonOverlayCommitFailed
+	case api.SnapshotOverlayCommitted:
+		status = k8sv1.ConditionFalse
+		reason = v1.VirtualMachineInstanceReasonOverlayCommitted
+	case api.SnapshotOverlaySnapshotFailed:
+		// the only failure that leaves the disks back on their base images
+		status = k8sv1.ConditionFalse
+		reason = v1.VirtualMachineInstanceReasonOverlaySnapshotFailed
+	}
+
+	condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:               v1.VirtualMachineInstanceOverlaySnapshotActive,
+		Status:             status,
+		Reason:             reason,
+		Message:            overlay.Message,
+		LastTransitionTime: metav1.Now(),
+	})
+}
+
 func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
 	// Calculate whether the VM is migratable
 	liveMigrationCondition, isBlockMigration := c.calculateLiveMigrationCondition(vmi)
@@ -981,6 +1028,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
+	c.updateOverlaySnapshotCondition(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
 	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
 	if err != nil {
@@ -1174,6 +1222,13 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if blockErr != nil {
 		return newNonMigratableCondition(blockErr.Error(), v1.VirtualMachineInstanceReasonDisksNotMigratable), isBlockMigration
+	}
+
+	// Last, so a permanent reason is reported ahead of this transient one.
+	if controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue) {
+		return newNonMigratableCondition("VMI disks are on snapshot overlays",
+			v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable), isBlockMigration
 	}
 
 	return &v1.VirtualMachineInstanceCondition{
@@ -1998,6 +2053,13 @@ func (c *VirtualMachineController) handleStartingVMI(
 		}
 	}
 
+	// The scratch volume is hotplugged after the VMI is created, so without
+	// this the domain could start on base images the overlays still shadow.
+	if overlayRecoveryPending(vmi) {
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return false, nil
+	}
+
 	if !c.hotplugVolumesReady(vmi) {
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return false, nil
@@ -2162,6 +2224,21 @@ func (c *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	}
 
 	return nil
+}
+
+// overlayRecoveryPending reports a VMI that expects a scratch volume it has not
+// been given yet. Clears itself once the volume lands in the spec.
+func overlayRecoveryPending(vmi *v1.VirtualMachineInstance) bool {
+	expected, pending := vmi.Annotations[v1.PendingOverlayRecoveryAnnotation]
+	if !pending {
+		return false
+	}
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name == expected && volume.ClaimName == expected && volume.Type != nil && *volume.Type == v1.SnapshotOverlay {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {

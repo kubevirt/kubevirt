@@ -1083,7 +1083,7 @@ var _ = Describe("Backup Controller", func() {
 
 			_, err := syncBackup(backup)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("failed to detach target backup pvc")))
+			Expect(err).To(MatchError(ContainSubstring("failed to detach utility volume")))
 		})
 	})
 

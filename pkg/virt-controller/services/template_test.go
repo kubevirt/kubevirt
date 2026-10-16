@@ -4848,9 +4848,17 @@ var _ = Describe("Template", func() {
 		)
 
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
+			config, kvStore, svc = configFactory(defaultArch)
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerPod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+				Name: hotplugDisks,
+				VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium:    k8sv1.StorageMediumMemory,
+					SizeLimit: pointer.P(resource.MustParse("1Mi")),
+				}},
+			}))
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			volumeName := "testVolume"

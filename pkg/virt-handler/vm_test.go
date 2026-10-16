@@ -22,6 +22,8 @@ package virthandler
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"os"
@@ -67,6 +69,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -2550,6 +2553,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("Filesystem Devices", func() {
 			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
 
+			It("should wait for a scratch volume the VMI is still expecting", func() {
+				vmi := libvmi.New()
+				vmi.Annotations = map[string]string{v1.PendingOverlayRecoveryAnnotation: "snap-scratch-uid"}
+				Expect(overlayRecoveryPending(vmi)).To(BeTrue())
+
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{
+					Name:                              "snap-scratch-uid",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "snap-scratch-uid"},
+					Type:                              pointer.P(v1.SnapshotOverlay),
+				}}
+				Expect(overlayRecoveryPending(vmi)).To(BeFalse())
+			})
+
+			It("should not wait on a VMI that expects no overlays", func() {
+				Expect(overlayRecoveryPending(libvmi.New())).To(BeFalse())
+			})
+
+			It("should not be allowed to live-migrate while the disks are on snapshot overlays", func() {
+				vmi := libvmi.New()
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: k8sv1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlaysReady,
+				})
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable))
+			})
+
 			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
 				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
 
@@ -3790,6 +3824,163 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
+	Context("updateOverlaySnapshotCondition", func() {
+		var (
+			vmi         *v1.VirtualMachineInstance
+			domain      *api.Domain
+			condManager *virtcontroller.VirtualMachineInstanceConditionManager
+		)
+
+		overlayCondition := func() *v1.VirtualMachineInstanceCondition {
+			return condManager.GetCondition(vmi, v1.VirtualMachineInstanceOverlaySnapshotActive)
+		}
+
+		BeforeEach(func() {
+			vmi = api2.NewMinimalVMI("testvmi")
+			domain = &api.Domain{}
+			condManager = virtcontroller.NewVirtualMachineInstanceConditionManager()
+		})
+
+		expectedReference := `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`
+		DescribeTable("should acknowledge only the expected snapshot overlay PVC", func(contentUID, scratchUID, annotation, expected string) {
+			vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: annotation}
+			vmi.Status.SnapshotOverlayPVCUID = "previous-scratch"
+			overlay := &api.SnapshotOverlayMetadata{}
+			Expect(xml.Unmarshal([]byte(`<snapshotOverlay><phase>Committed</phase><contentUID>content-uid</contentUID><scratchPVCUID>scratch-uid</scratchPVCUID></snapshotOverlay>`), overlay)).To(Succeed())
+			overlay.ContentUID, overlay.ScratchPVCUID = types.UID(contentUID), types.UID(scratchUID)
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = overlay
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+			Expect(overlayCondition().Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(overlayCondition().Reason).To(Equal("OverlayCommitted"))
+			encoded, err := json.Marshal(vmi.Status)
+			Expect(err).ToNot(HaveOccurred())
+			if expected == "" {
+				Expect(string(encoded)).ToNot(ContainSubstring(`"snapshotOverlayPVCUID"`))
+			} else {
+				Expect(string(encoded)).To(ContainSubstring(`"snapshotOverlayPVCUID":"` + expected + `"`))
+			}
+			Expect(string(encoded)).ToNot(ContainSubstring(`"snapshotOverlayReference"`))
+		},
+			Entry("matching transaction", "content-uid", "scratch-uid", expectedReference, "scratch-uid"),
+			Entry("different content on the same PVC", "previous-content", "scratch-uid", expectedReference, ""),
+			Entry("recreated scratch PVC", "content-uid", "previous-scratch", expectedReference, ""),
+			Entry("legacy launcher without identity", "", "", expectedReference, ""),
+			Entry("missing expected reference", "content-uid", "scratch-uid", "", ""),
+			Entry("invalid expected reference", "content-uid", "scratch-uid", "{", ""),
+		)
+
+		DescribeTable("should project the launcher's phase", func(phase api.SnapshotOverlayPhase, status k8sv1.ConditionStatus, reason string) {
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: phase}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(overlayCondition()).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Status": Equal(status),
+				"Reason": Equal(reason),
+			})))
+		},
+			Entry("in progress", api.SnapshotOverlayInProgress, k8sv1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayPreparing),
+			Entry("ready", api.SnapshotOverlayReady, k8sv1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlaysReady),
+			Entry("committing", api.SnapshotOverlayCommitting, k8sv1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitting),
+			// A failed commit leaves the overlays live, so the window stays open.
+			Entry("commit failed", api.SnapshotOverlayCommitFailed, k8sv1.ConditionTrue, v1.VirtualMachineInstanceReasonOverlayCommitFailed),
+			// A failed snapshot means the disks are back on base, and only then.
+			Entry("snapshot failed", api.SnapshotOverlaySnapshotFailed, k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed),
+		)
+
+		It("should set the condition to True for an unknown phase", func() {
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: "SomethingNewer"}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(overlayCondition()).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Status": Equal(k8sv1.ConditionTrue),
+				"Reason": Equal("SomethingNewer"),
+			})))
+		})
+
+		It("should set the condition message from the launcher's metadata", func() {
+			const message = "block commit failed on disk vda"
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{
+				Phase:   api.SnapshotOverlayCommitFailed,
+				Message: message,
+			}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(overlayCondition().Message).To(Equal(message))
+		})
+
+		It("should remove the condition once the launcher clears its metadata", func() {
+			vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayReady}
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			// The launcher zeroes the struct rather than dropping the element,
+			// so an empty phase is what a committed snapshot looks like.
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{}
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(overlayCondition()).To(BeNil())
+			Expect(vmi.Status.SnapshotOverlayPVCUID).To(BeEmpty())
+		})
+
+		It("should remove the condition when the domain never had overlays", func() {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+				Status: k8sv1.ConditionTrue,
+			}}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(overlayCondition()).To(BeNil())
+		})
+
+		It("should leave the condition alone when the domain could not be read", func() {
+			vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+			// Removing it here would report a commit that may still be running,
+			// and the controller would delete the scratch volume under it.
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+				Status: k8sv1.ConditionTrue,
+				Reason: v1.VirtualMachineInstanceReasonOverlayCommitting,
+			}}
+
+			controller.updateOverlaySnapshotCondition(vmi, nil, condManager)
+
+			Expect(vmi.Status.SnapshotOverlayPVCUID).To(Equal(types.UID("scratch-uid")))
+			Expect(overlayCondition()).To(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Status": Equal(k8sv1.ConditionTrue),
+				"Reason": Equal(v1.VirtualMachineInstanceReasonOverlayCommitting),
+			})))
+		})
+
+		It("should not add the condition to a VMI that has none when the domain could not be read", func() {
+			controller.updateOverlaySnapshotCondition(vmi, nil, condManager)
+			Expect(vmi.Status.Conditions).To(BeEmpty())
+		})
+
+		It("should keep one condition across repeated syncs", func() {
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayReady}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
+		})
+
+		It("should not touch the other conditions", func() {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceReady,
+				Status: k8sv1.ConditionTrue,
+			}}
+
+			controller.updateOverlaySnapshotCondition(vmi, domain, condManager)
+
+			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceReady)).To(BeTrue())
+		})
+	})
+
 	Context("updateSoftwareEmulationCondition", func() {
 		It("should be a no-op when the feature gate is disabled", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
@@ -4132,5 +4323,18 @@ var _ = Describe("detectDiskWriteLockError", func() {
 		msg, ok := controller.detectDiskWriteLockError(err, vmi)
 		Expect(ok).To(BeTrue())
 		Expect(msg).To(ContainSubstring(expectedSubstr))
+	})
+})
+
+var _ = Describe("Snapshot overlay recovery readiness", func() {
+	It("should require the expected recovery claim before startup", func() {
+		vmi := libvmi.New()
+		vmi.Annotations = map[string]string{v1.PendingOverlayRecoveryAnnotation: "scratch"}
+		vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "unrelated", Type: pointer.P(v1.SnapshotOverlay)}}
+		Expect(overlayRecoveryPending(vmi)).To(BeTrue())
+		vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "scratch", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "scratch"}, Type: pointer.P(v1.SnapshotOverlay)}}
+		Expect(overlayRecoveryPending(vmi)).To(BeFalse())
+		vmi.Spec.UtilityVolumes[0].ClaimName = "another-pvc"
+		Expect(overlayRecoveryPending(vmi)).To(BeTrue())
 	})
 })

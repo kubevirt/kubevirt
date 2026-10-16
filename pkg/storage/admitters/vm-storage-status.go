@@ -71,7 +71,8 @@ func (a *Admitter) validateSnapshotStatus() []metav1.StatusCause {
 		}}
 	}
 
-	if !compareVolumes(oldVM.Spec.Template.Spec.Volumes, a.vm.Spec.Template.Spec.Volumes) {
+	if !compareVolumes(oldVM.Spec.Template.Spec.Volumes, a.vm.Spec.Template.Spec.Volumes) ||
+		!equality.Semantic.DeepEqual(oldVM.Spec.Template.Spec.Domain.Devices.Disks, a.vm.Spec.Template.Spec.Domain.Devices.Disks) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("Cannot update vm disks or volumes until snapshot %q completes", *a.vm.Status.SnapshotInProgress),

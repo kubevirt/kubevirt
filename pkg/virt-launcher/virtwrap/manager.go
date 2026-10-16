@@ -209,6 +209,8 @@ type DomainManager interface {
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	GetGuestAgentVersion() string
 	GetAgentData(dataKey string) (string, error)
+	ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
+	CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
 }
 
 type diskDriverConfigurator interface {
@@ -1079,6 +1081,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// expand disk image files if they're too small
 	expandDiskImagesOffline(vmi, domain)
 
+	if _, err := l.storageManager.RecoverOverlays(vmi, domain); err != nil {
+		return domain, err
+	}
+
 	return domain, err
 }
 
@@ -1662,7 +1668,10 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 
-	l.expandDisksOnline(dom, domain, vmi)
+	// An overlaid disk expands against the scratch volume, not the base image.
+	if !storage.OverlaysActive(l.metadataCache) {
+		l.expandDisksOnline(dom, domain, vmi)
+	}
 
 	return nil
 }
@@ -1687,6 +1696,8 @@ func (l *LibvirtDomainManager) startDomain(
 	if vmi.ShouldStartPaused() {
 		l.paused.add(vmi.UID)
 	}
+
+	l.storageManager.CommitRecoveredOverlays(vmi)
 	return nil
 }
 
@@ -3074,6 +3085,14 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (l *LibvirtDomainManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
 	return l.storageManager.RedefineCheckpoint(vmi, checkpoint)
+}
+
+func (l *LibvirtDomainManager) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	return l.storageManager.ExternalSnapshot(vmi, overlayDir)
+}
+
+func (l *LibvirtDomainManager) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	return l.storageManager.CommitSnapshot(vmi, overlayDir)
 }
 
 func AgentDataCommandTTLKeys() []string {

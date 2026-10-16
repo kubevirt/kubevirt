@@ -101,6 +101,75 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
+		DescribeTable("should admit External mode only against a running VM", func(vmi *v1.VirtualMachineInstance, allowed bool) {
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+					SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
+				},
+			}
+
+			config := stubVMSnapshotConfigChecker{snapshotEnabled: true, externalVMSnapshotEnabled: true}
+			ar := createSnapshotAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(config, nil, vmi).Admit(context.Background(), ar)
+
+			Expect(resp.Allowed).To(Equal(allowed))
+			if !allowed {
+				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("requires a running VirtualMachine"))
+			}
+		},
+			Entry("running", runningVMI(), true),
+			Entry("stopped", stoppedVMI(), false),
+			Entry("no VMI at all", nil, false),
+		)
+
+		It("should admit Direct mode without a running VM", func() {
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+					SnapshotMode: pointer.P(snapshotv1.SnapshotModeDirect),
+				},
+			}
+
+			ar := createSnapshotAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(stubVMSnapshotConfigChecker{snapshotEnabled: true}, nil, nil).
+				Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		DescribeTable("should admit snapshotMode according to the ExternalVMSnapshot feature gate", func(mode snapshotv1.SnapshotMode, externalEnabled, allowed bool) {
+			snapshot := &snapshotv1.VirtualMachineSnapshot{
+				Spec: snapshotv1.VirtualMachineSnapshotSpec{
+					Source: corev1.TypedLocalObjectReference{
+						APIGroup: &apiGroup,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+					SnapshotMode: pointer.P(mode),
+				},
+			}
+
+			config := stubVMSnapshotConfigChecker{snapshotEnabled: true, externalVMSnapshotEnabled: externalEnabled}
+			ar := createSnapshotAdmissionReview(snapshot)
+			resp := createTestVMSnapshotAdmitter(config, nil, runningVMI()).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(Equal(allowed))
+			if !allowed {
+				Expect(resp.Result.Message).Should(Equal("ExternalVMSnapshot feature gate not enabled"))
+			}
+		},
+			Entry("reject External when the gate is disabled", snapshotv1.SnapshotModeExternal, false, false),
+			Entry("allow External when the gate is enabled", snapshotv1.SnapshotModeExternal, true, true),
+			Entry("allow Direct when the gate is disabled", snapshotv1.SnapshotModeDirect, false, true),
+		)
+
 		It("should reject spec update", func() {
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{
@@ -324,11 +393,32 @@ func createSnapshotUpdateAdmissionReview(old, current *snapshotv1.VirtualMachine
 	return ar
 }
 
-func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.VirtualMachine) *admitters.VMSnapshotAdmitter {
+func runningVMI() *v1.VirtualMachineInstance {
+	vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}
+	vmi.Status.Phase = v1.Running
+	return vmi
+}
+
+func stoppedVMI() *v1.VirtualMachineInstance {
+	vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}
+	vmi.Status.Phase = v1.Succeeded
+	return vmi
+}
+
+func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.VirtualMachine, running ...*v1.VirtualMachineInstance) *admitters.VMSnapshotAdmitter {
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 	vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
 	virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
+
+	vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+	virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
+	if len(running) == 0 || running[0] == nil {
+		notFound := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachineinstances"}, "foo")
+		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, notFound).AnyTimes()
+	} else {
+		vmiInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(running[0], nil).AnyTimes()
+	}
 	if vm == nil {
 		err := errors.NewNotFound(schema.GroupResource{Group: "kubevirt.io", Resource: "virtualmachines"}, "foo")
 		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, err).AnyTimes()
@@ -339,7 +429,12 @@ func createTestVMSnapshotAdmitter(config stubVMSnapshotConfigChecker, vm *v1.Vir
 }
 
 type stubVMSnapshotConfigChecker struct {
-	snapshotEnabled bool
+	snapshotEnabled           bool
+	externalVMSnapshotEnabled bool
 }
 
 func (s stubVMSnapshotConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }
+
+func (s stubVMSnapshotConfigChecker) ExternalVMSnapshotEnabled() bool {
+	return s.externalVMSnapshotEnabled
+}
