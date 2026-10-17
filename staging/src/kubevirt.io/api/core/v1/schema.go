@@ -687,7 +687,18 @@ type Filesystem struct {
 	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
 }
 
-type FilesystemVirtiofs struct{}
+type FilesystemVirtiofs struct {
+	// ReadOnly mounts the filesystem as read-only inside the guest.
+	// Defaults to false (read-write).
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty"`
+	// SubPath specifies a sub-directory within the source volume to be
+	// exposed to the guest, instead of the volume's root.
+	// Must be a relative path and must not contain '..' path elements.
+	// Defaults to "" (volume's root).
+	// +optional
+	SubPath string `json:"subPath,omitempty"`
+}
 
 type DownwardMetrics struct{}
 
