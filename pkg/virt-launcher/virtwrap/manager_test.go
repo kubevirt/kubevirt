@@ -3804,6 +3804,19 @@ var _ = Describe("Manager", func() {
 			Expect(converterContext.EFIConfiguration.EFIVars).To(BeEmpty())
 		})
 
+		It("should fail without enrolled keys when the feature gate is disabled", func() {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys = virtpointer.P(false)
+			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, nil, "", false, false, false, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+			}
+
+			_, err = manager.(*LibvirtDomainManager).generateConverterContext(vmi, true, options, false)
+			Expect(err).To(MatchError(ContainSubstring("requires the FirmwareAutoSelection feature gate")))
+		})
+
 		DescribeTable("should use explicit EFI paths when firmware auto-selection does not apply", func(arch string, secureBoot bool, firmwareAutoSelection bool, efiCodeFile, efiVarsFile string, expectedSecureLoader bool) {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = virtpointer.P(secureBoot)
 
