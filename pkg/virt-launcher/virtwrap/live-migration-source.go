@@ -557,7 +557,7 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsedNs int64, logger *log.Fil
 }
 
 func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsedNs int64, logger *log.FilteredLogger) bool {
-	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs, logger) && !m.stallDetectionEnabled
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsedNs, logger) && !m.stallDetectionEnabled && m.iterationRecord.iterationNumber > 1
 }
 
 func (m *migrationMonitor) scaledCompletionDeadlineSeconds(baseSeconds int64) int64 {
@@ -604,7 +604,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 
 	elapsedSeconds := elapsedNs / int64(time.Second)
 
-	if !m.stallDetector.switchoverInitiated {
+	if !m.stallDetector.switchoverInitiated && m.iterationRecord.iterationNumber > 1 {
 
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
@@ -867,6 +867,9 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			m.lastProgressUpdate = now
 		}
 		m.progressWatermark = m.remainingData
+		if stats.MemIterationSet {
+			m.iterationRecord.iterationNumber = stats.MemIteration
+		}
 	}
 
 	if m.stallDetectionEnabled {
@@ -885,6 +888,9 @@ func (m *migrationMonitor) registerIterationCallback(domName string) (int, error
 			return
 		}
 
+		if event.Iteration <= 1 {
+			return
+		}
 		select {
 		case m.iterationCh <- event.Iteration:
 			m.logger.V(4).Infof("queued migration iteration event for iteration #%d", event.Iteration)
