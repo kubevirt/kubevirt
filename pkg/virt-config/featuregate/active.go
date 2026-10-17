@@ -179,10 +179,11 @@ const (
 
 	// Owner: sig-storage / @mhenriks
 	// Alpha: v1.8.0
+	// Beta: v1.10.0
 	//
 	// ContainerPathVolumes enables exposing virt-launcher volumeMount paths to the VM
 	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
-	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
+	// by external systems such as AWS IRSA, Azure Workload Identity, or TEE attestation.
 	ContainerPathVolumesGate = "ContainerPathVolumes"
 
 	// Enables using the spec.domain.memory.ReservedOverhead field which
@@ -318,7 +319,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VGPULiveMigration, State: Alpha})

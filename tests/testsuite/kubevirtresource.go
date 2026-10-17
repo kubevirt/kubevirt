@@ -121,7 +121,6 @@ func AdjustKubeVirtResource() {
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,
-		featuregate.ContainerPathVolumesGate,
 	} {
 		if !unsupportedGates[gate] {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
