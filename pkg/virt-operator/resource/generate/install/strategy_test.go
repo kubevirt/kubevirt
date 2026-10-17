@@ -21,10 +21,13 @@ package install
 
 import (
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -106,6 +109,66 @@ var _ = Describe("Install Strategy", func() {
 				newNS("monitoring"),
 			),
 		)
+
+		Context("with retry", func() {
+			It("should return immediately when the SA exists", func() {
+				client := fake.NewSimpleClientset(
+					newNS("openshift-monitoring"),
+					newSA("openshift-monitoring", "prometheus-k8s"),
+				)
+				ns, err := getMonitorNamespaceWithRetry(client.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ns).To(Equal("openshift-monitoring"))
+			})
+
+			It("should find the SA after retrying", func() {
+				origInterval := monitorRetryInterval
+				origTimeout := monitorRetryTimeout
+				defer func() {
+					monitorRetryInterval = origInterval
+					monitorRetryTimeout = origTimeout
+				}()
+				monitorRetryInterval = 10 * time.Millisecond
+				monitorRetryTimeout = 5 * time.Second
+
+				client := fake.NewSimpleClientset(
+					newNS("openshift-monitoring"),
+				)
+
+				var calls atomic.Int32
+				client.PrependReactor("get", "serviceaccounts", func(action k8stesting.Action) (bool, runtime.Object, error) {
+					if calls.Add(1) >= 3 {
+						client.Tracker().Add(newSA("openshift-monitoring", "prometheus-k8s"))
+					}
+					return false, nil, nil
+				})
+
+				ns, err := getMonitorNamespaceWithRetry(client.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ns).To(Equal("openshift-monitoring"))
+				Expect(calls.Load()).To(BeNumerically(">=", int32(3)))
+			})
+
+			It("should return empty after timeout when SA never appears", func() {
+				origInterval := monitorRetryInterval
+				origTimeout := monitorRetryTimeout
+				defer func() {
+					monitorRetryInterval = origInterval
+					monitorRetryTimeout = origTimeout
+				}()
+				monitorRetryInterval = 10 * time.Millisecond
+				monitorRetryTimeout = 50 * time.Millisecond
+
+				client := fake.NewSimpleClientset(
+					newNS("openshift-monitoring"),
+					newNS("monitoring"),
+				)
+
+				ns, err := getMonitorNamespaceWithRetry(client.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ns).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("should generate", func() {
