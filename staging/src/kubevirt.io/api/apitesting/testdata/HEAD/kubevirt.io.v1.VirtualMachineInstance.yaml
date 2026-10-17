@@ -449,6 +449,7 @@ spec:
       overcommitGuestOverhead: true
       requests:
         requestsKey: "0"
+  emulationPolicy: emulationPolicyValue
   evictionStrategy: evictionStrategyValue
   hostname: hostnameValue
   livenessProbe:

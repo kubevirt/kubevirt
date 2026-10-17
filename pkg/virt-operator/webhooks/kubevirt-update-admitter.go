@@ -88,6 +88,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		&currKV.Spec.Configuration,
 		&newKV.Spec.Configuration,
 	)...)
+	results = append(results, validateEmulationPolicy(&newKV.Spec.Configuration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -658,6 +659,39 @@ func validateDecentralizedLiveMigrationDatapath(config *v1.KubeVirtConfiguration
 		Field:   "spec.configuration.migrations.decentralizedLiveMigrationDatapath",
 		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", featuregate.CrossClusterMigrationProxy),
 	}}
+}
+
+func validateEmulationPolicy(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if config.EmulationPolicy == nil {
+		return causes
+	}
+
+	if !hasFeatureGateEnabled(config, featuregate.CrossArchitectureVirtualization) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.configuration.emulationPolicy",
+			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization),
+		})
+		return causes
+	}
+
+	if !slices.Contains(v1.EmulationPolicies, *config.EmulationPolicy) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.configuration.emulationPolicy",
+			Message: fmt.Sprintf("Unknown EmulationPolicy '%s', allowed values are %v", *config.EmulationPolicy, v1.EmulationPolicies),
+		})
+	}
+	if *config.EmulationPolicy == v1.EmulationPolicyHardware {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.configuration.emulationPolicy",
+			Message: "EmulationPolicy 'Hardware' is not yet implemented",
+		})
+	}
+	return causes
 }
 
 // warnProxyMigrationNetwork reminds operators that migrations.network under Proxy

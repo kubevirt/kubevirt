@@ -4228,6 +4228,69 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
 		})
 	})
+
+	Context("with EmulationPolicy", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithMemoryRequest("128M"),
+			)
+		})
+
+		It("should do nothing when not set", func() {
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		})
+		It("should reject when FeatureGate is not enabled", func() {
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicyNone)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring(fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization)))
+		})
+		It("should reject unkown value", func() {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicy("foo"))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Unknown EmulationPolicy 'foo', allowed values are"))
+		})
+		DescribeTable("should accept valid values", func(value v1.EmulationPolicy) {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(value)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		},
+			Entry("None", v1.EmulationPolicyNone),
+			Entry("Software", v1.EmulationPolicySoftware),
+		)
+		It("should reject Hardware value", func() {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicyHardware)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("EmulationPolicy 'Hardware' is not yet implemented"))
+		})
+	})
 })
 
 var _ = Describe("additional tests", func() {
