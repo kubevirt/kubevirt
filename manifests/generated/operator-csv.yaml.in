@@ -366,6 +366,13 @@ spec:
           - virtualmachinetemplaterequests/source
           verbs:
           - create
+        - apiGroups:
+          - subresources.template.kubevirt.io
+          resources:
+          - virtualmachinetemplates/process
+          - virtualmachinetemplates/create
+          verbs:
+          - create
         - nonResourceURLs:
           - /metrics
           verbs:
