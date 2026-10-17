@@ -217,6 +217,24 @@ func (d *VirtualMachineInstanceConditionManager) UpdateCondition(vmi *v1.Virtual
 	vmi.Status.Conditions = append(vmi.Status.Conditions, *cond)
 }
 
+// SyncReadyConditionForFinalVMI clears stale readiness before a terminal phase is
+// persisted, preserving an existing False condition and its more specific reason.
+func (d *VirtualMachineInstanceConditionManager) SyncReadyConditionForFinalVMI(vmi *v1.VirtualMachineInstance) {
+	if !vmi.IsFinal() || d.HasConditionWithStatus(vmi, v1.VirtualMachineInstanceReady, k8sv1.ConditionFalse) {
+		return
+	}
+
+	now := metav1.Now()
+	d.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:               v1.VirtualMachineInstanceReady,
+		Status:             k8sv1.ConditionFalse,
+		Reason:             v1.GuestNotRunningReason,
+		Message:            "Guest VM is not reported as running",
+		LastProbeTime:      now,
+		LastTransitionTime: now,
+	})
+}
+
 // AddPodCondition add pod condition to the VM.
 func (d *VirtualMachineInstanceConditionManager) AddPodCondition(vmi *v1.VirtualMachineInstance, cond *k8sv1.PodCondition) {
 	if !d.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(cond.Type)) {

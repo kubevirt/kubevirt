@@ -435,6 +435,37 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			return d
 		}
 
+		DescribeTable("should persist terminal migration source phase and False readiness together", func(succeeded bool, phase v1.VirtualMachineInstancePhase) {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
+			if succeeded {
+				now := metav1.Now()
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					TargetNode: "target", Completed: true, EndTimestamp: &now,
+					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{},
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{SyncAddress: pointer.P("target:9185")},
+						DomainDetected: true, DomainReadyTimestamp: &now,
+					},
+				}
+			}
+			createVMI(vmi)
+
+			Expect(controller.sync(vmi, migratedDomain())).To(Succeed())
+			if !succeeded {
+				testutils.ExpectEvent(recorder, v1.Migrated.String())
+			}
+
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.Phase).To(Equal(phase))
+			Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(updatedVMI, v1.VirtualMachineInstanceReady, k8sv1.ConditionFalse)).To(BeTrue())
+		},
+			Entry("after decentralized migration", true, v1.Succeeded),
+			Entry("when migration target is unknown", false, v1.Failed),
+		)
+
 		It("should not finalize handoff while the domain is still running", func() {
 			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithPhase(v1.Running),

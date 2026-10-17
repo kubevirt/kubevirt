@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	k8swatch "k8s.io/apimachinery/pkg/watch"
+	watchtools "k8s.io/client-go/tools/watch"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -589,11 +590,50 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
+			By("Watching readiness before issuing a poweroff command")
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm).To(BeReady())
+			Expect(vmi).To(BeReady())
+			ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+			defer cancel()
+			vmiWatch, err := virtClient.VirtualMachineInstance(vmi.Namespace).Watch(ctx, metav1.ListOptions{
+				FieldSelector: "metadata.name=" + vmi.Name, ResourceVersion: vmi.ResourceVersion,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer vmiWatch.Stop()
+			vmWatch, err := virtClient.VirtualMachine(vm.Namespace).Watch(ctx, metav1.ListOptions{
+				FieldSelector: "metadata.name=" + vm.Name, ResourceVersion: vm.ResourceVersion,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			defer vmWatch.Stop()
+
 			By("Issuing a poweroff command from inside VM")
 			powerOff(vmi)
 
-			By("Ensuring the VirtualMachineInstance enters Succeeded phase")
-			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(HaveSucceeded())
+			By("Checking readiness in the first terminal VMI update")
+			event, err := watchtools.UntilWithoutRetry(ctx, vmiWatch, func(event k8swatch.Event) (bool, error) {
+				updatedVMI, ok := event.Object.(*v1.VirtualMachineInstance)
+				if !ok {
+					return false, fmt.Errorf("unexpected VMI watch event: %v", event)
+				}
+				return updatedVMI.IsFinal(), nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(event.Object).To(HaveSucceeded())
+			Expect(event.Object).To(HaveConditionFalse(v1.VirtualMachineInstanceReady))
+
+			By("Checking readiness in the first Stopped VM update")
+			event, err = watchtools.UntilWithoutRetry(ctx, vmWatch, func(event k8swatch.Event) (bool, error) {
+				updatedVM, ok := event.Object.(*v1.VirtualMachine)
+				if !ok {
+					return false, fmt.Errorf("unexpected VM watch event: %v", event)
+				}
+				return updatedVM.Status.PrintableStatus == v1.VirtualMachineStatusStopped, nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(event.Object).To(HaveConditionFalse(v1.VirtualMachineReady))
+			Expect(event.Object.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
 
 			By("Ensuring the VirtualMachine remains stopped")
 			Consistently(ThisVMI(vmi), 60*time.Second, 5*time.Second).Should(HaveSucceeded())
