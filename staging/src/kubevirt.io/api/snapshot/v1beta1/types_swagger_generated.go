@@ -14,6 +14,7 @@ func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 		"":                "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
 		"deletionPolicy":  "+optional",
 		"failureDeadline": "This time represents the number of seconds we permit the vm snapshot\nto take. In case we pass this deadline we mark this snapshot\nas failed.\nDefaults to DefaultFailureDeadline - 5min\n+optional",
+		"skipQuiesce":     "SkipQuiesce indicates whether the VM's filesystem should not be quiesced before the snapshot\n+optional",
 	}
 }
 
@@ -121,6 +122,7 @@ func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 		"readyToUse":           "+optional",
 		"error":                "+optional",
 		"volumeSnapshotStatus": "+optional\n+listType=atomic",
+		"freezeFailures":       "FreezeFailures is the number of failed filesystem freeze attempts.\n+optional",
 	}
 }
 
