@@ -37,6 +37,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	"kubevirt.io/kubevirt/pkg/coveragehttp"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 
@@ -863,5 +864,9 @@ func main() {
 	app := &virtHandlerApp{}
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
+
+	// No-op unless built with the coverage_e2e tag (--build-cover).
+	coveragehttp.Start("virt-handler")
+
 	app.Run()
 }
