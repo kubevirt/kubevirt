@@ -141,38 +141,45 @@ var _ = Describe("Application", func() {
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
 		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController, _ = vmi.NewController(
-			workqueue.NewTypedRateLimitingQueueWithConfig(
+		app.vmiController, _ = vmi.NewController(vmi.ControllerConfig{
+			Queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 				workqueue.DefaultTypedControllerRateLimiter[string](),
 				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
 			),
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
-			vmiInformer,
-			vmInformer,
-			podInformer,
-			pvcInformer,
-			migrationInformer,
-			storageClassInformer,
-			recorder,
-			virtClient,
-			dataVolumeInformer,
-			storageProfileInformer,
-			cdiInformer,
-			cdiConfigInformer,
-			kvInformer,
-			config,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
-			nil,
-			nil,
-			func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },
-			func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
-				return nil
+			Client:        virtClient,
+			Recorder:      recorder,
+			ClusterConfig: config,
+			TemplateService: services.NewTemplateService(
+				"a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g",
+				resourceQuotaInformer.GetStore(), namespaceInformer.GetStore(),
+			),
+			Informers: vmi.Informers{
+				VMI:            vmiInformer,
+				VM:             vmInformer,
+				Pod:            podInformer,
+				PVC:            pvcInformer,
+				Migration:      migrationInformer,
+				StorageClass:   storageClassInformer,
+				DataVolume:     dataVolumeInformer,
+				StorageProfile: storageProfileInformer,
+				CDI:            cdiInformer,
+				CDIConfig:      cdiConfigInformer,
+				KubeVirt:       kvInformer,
 			},
-			stubMigrationEvaluator{},
-			stubVSOCKAllocator{},
-			[]string{},
-			[]string{},
-		)
+			Network: vmi.NetworkDependencies{
+				AnnotationsGenerator: nil,
+				StatusUpdater:        func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },
+				SpecValidator: func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
+					return nil
+				},
+				MigrationEvaluator: stubMigrationEvaluator{},
+			},
+			StorageAnnotationsGenerator:       nil,
+			TopologyHinter:                    topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
+			VsockAllocator:                    stubVSOCKAllocator{},
+			AdditionalLauncherAnnotationsSync: []string{},
+			AdditionalLauncherLabelsSync:      []string{},
+		})
 		app.rsController, _ = replicaset.NewController(
 			workqueue.NewTypedRateLimitingQueueWithConfig(
 				workqueue.DefaultTypedControllerRateLimiter[string](),
