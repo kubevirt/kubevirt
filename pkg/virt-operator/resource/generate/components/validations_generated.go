@@ -8140,8 +8140,8 @@ var CRDsValidation map[string]string = map[string]string{
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
-                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
-                                  This feature is in Alpha.
+                                  Only supported on masquerade interfaces.
+                                  This feature is in Beta.
                                 items:
                                   description: |-
                                     PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -8171,9 +8171,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: array
                                 x-kubernetes-list-type: atomic
                               ports:
-                                description: |-
-                                  List of ports to be forwarded to the virtual machine.
-                                  Mutually exclusive with portRanges.
+                                description: List of ports to be forwarded to the
+                                  virtual machine.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -14408,8 +14407,8 @@ var CRDsValidation map[string]string = map[string]string{
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
-                          Mutually exclusive with ports. Only supported on masquerade interfaces.
-                          This feature is in Alpha.
+                          Only supported on masquerade interfaces.
+                          This feature is in Beta.
                         items:
                           description: |-
                             PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -14439,9 +14438,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: array
                         x-kubernetes-list-type: atomic
                       ports:
-                        description: |-
-                          List of ports to be forwarded to the virtual machine.
-                          Mutually exclusive with portRanges.
+                        description: List of ports to be forwarded to the virtual
+                          machine.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -18624,8 +18622,8 @@ var CRDsValidation map[string]string = map[string]string{
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
-                          Mutually exclusive with ports. Only supported on masquerade interfaces.
-                          This feature is in Alpha.
+                          Only supported on masquerade interfaces.
+                          This feature is in Beta.
                         items:
                           description: |-
                             PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -18655,9 +18653,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: array
                         x-kubernetes-list-type: atomic
                       ports:
-                        description: |-
-                          List of ports to be forwarded to the virtual machine.
-                          Mutually exclusive with portRanges.
+                        description: List of ports to be forwarded to the virtual
+                          machine.
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -21221,8 +21218,8 @@ var CRDsValidation map[string]string = map[string]string{
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
-                                  Mutually exclusive with ports. Only supported on masquerade interfaces.
-                                  This feature is in Alpha.
+                                  Only supported on masquerade interfaces.
+                                  This feature is in Beta.
                                 items:
                                   description: |-
                                     PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -21252,9 +21249,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: array
                                 x-kubernetes-list-type: atomic
                               ports:
-                                description: |-
-                                  List of ports to be forwarded to the virtual machine.
-                                  Mutually exclusive with portRanges.
+                                description: List of ports to be forwarded to the
+                                  virtual machine.
                                 items:
                                   description: |-
                                     Port represents a port to expose from the virtual machine.
@@ -26405,8 +26401,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       portRanges:
                                         description: |-
                                           List of port ranges to be forwarded to the virtual machine.
-                                          Mutually exclusive with ports. Only supported on masquerade interfaces.
-                                          This feature is in Alpha.
+                                          Only supported on masquerade interfaces.
+                                          This feature is in Beta.
                                         items:
                                           description: |-
                                             PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -26437,9 +26433,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       ports:
-                                        description: |-
-                                          List of ports to be forwarded to the virtual machine.
-                                          Mutually exclusive with portRanges.
+                                        description: List of ports to be forwarded
+                                          to the virtual machine.
                                         items:
                                           description: |-
                                             Port represents a port to expose from the virtual machine.
@@ -32090,8 +32085,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           portRanges:
                                             description: |-
                                               List of port ranges to be forwarded to the virtual machine.
-                                              Mutually exclusive with ports. Only supported on masquerade interfaces.
-                                              This feature is in Alpha.
+                                              Only supported on masquerade interfaces.
+                                              This feature is in Beta.
                                             items:
                                               description: |-
                                                 PortRange represents a range of ports to be forwarded to the virtual machine.
@@ -32122,9 +32117,8 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: array
                                             x-kubernetes-list-type: atomic
                                           ports:
-                                            description: |-
-                                              List of ports to be forwarded to the virtual machine.
-                                              Mutually exclusive with portRanges.
+                                            description: List of ports to be forwarded
+                                              to the virtual machine.
                                             items:
                                               description: |-
                                                 Port represents a port to expose from the virtual machine.
