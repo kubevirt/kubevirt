@@ -3852,6 +3852,38 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(volumeStatus.Message).To(ContainSubstring("must be filesystem mode, not block mode"))
 		})
 
+		It("Should not record PVC info for HostDisk volumes", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{
+				{
+					Name: "pvc-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc-claim"},
+						},
+					},
+				},
+				{
+					Name: "hostdisk-vol",
+					VolumeSource: virtv1.VolumeSource{
+						HostDisk: &virtv1.HostDisk{Path: "/data/disk.img", Type: virtv1.HostDiskExists},
+					},
+				},
+			}
+			Expect(controller.pvcIndexer.Add(&k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "pvc-claim", Namespace: k8sv1.NamespaceDefault},
+			})).To(Succeed())
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod)).To(Succeed())
+
+			hasPVCInfo := map[string]bool{}
+			for _, status := range vmi.Status.VolumeStatus {
+				hasPVCInfo[status.Name] = status.PersistentVolumeClaimInfo != nil
+			}
+			Expect(hasPVCInfo).To(Equal(map[string]bool{"pvc-vol": true, "hostdisk-vol": false}))
+		})
+
 		It("Should accept utility volume with filesystem mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
