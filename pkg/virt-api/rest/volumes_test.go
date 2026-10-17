@@ -53,6 +53,18 @@ import (
 )
 
 var _ = Describe("Add/Remove Volume Subresource api", func() {
+	It("handles empty dry-run options", func() {
+		addOptions := &v1.AddVolumeOptions{}
+		Expect(json.Unmarshal([]byte(`{"dryRun":[]}`), addOptions)).To(Succeed())
+		Expect(addOptions.DryRun).ToNot(BeNil())
+		Expect(getDryRunOption(&v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOptions})).To(BeNil())
+
+		removeOptions := &v1.RemoveVolumeOptions{}
+		Expect(json.Unmarshal([]byte(`{"dryRun":[]}`), removeOptions)).To(Succeed())
+		Expect(removeOptions.DryRun).ToNot(BeNil())
+		Expect(getDryRunOption(&v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: removeOptions})).To(BeNil())
+	})
+
 	var (
 		request    *restful.Request
 		response   *restful.Response
