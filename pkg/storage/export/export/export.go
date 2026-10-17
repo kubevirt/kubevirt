@@ -244,7 +244,7 @@ func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
 	for i, volume := range sv.volumes {
 		var mountPoint string
 		pvc := volume.pvc
-		volumeName := getExportPodVolumeName(pvc)
+		volumeName := fmt.Sprintf("vol%d", i)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
@@ -1020,20 +1020,6 @@ func (ctrl *VMExportController) getExportServiceName(vmExport *exportv1.VirtualM
 
 func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachineExport) string {
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
-}
-
-func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
-	return getExportPodVolumeNameFromStr(pvc.Name)
-}
-
-// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the volume name used in the Pod.
-func getExportPodVolumeNameFromStr(claimName string) string {
-	pvcName := strings.ReplaceAll(claimName, ".", "-")
-	// Using the formatted PVC name if it's under the max length.
-	if len(pvcName) <= validation.DNS1035LabelMaxLength {
-		return pvcName
-	}
-	return naming.GetName(exportPrefix, pvcName, validation.DNS1035LabelMaxLength)
 }
 
 // getExportLabelValue will return the virtual machine's name if it is under the
