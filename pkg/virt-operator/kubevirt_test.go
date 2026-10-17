@@ -134,7 +134,8 @@ type KubeVirtTestData struct {
 	kvInterface      *kubecli.MockKubeVirtInterface
 	apiServiceClient *install.MockAPIServiceInterface
 
-	controller *KubeVirtController
+	controller    *KubeVirtController
+	leaseInformer *eventHandlerRecordingInformer
 
 	recorder *record.FakeRecorder
 
@@ -162,6 +163,18 @@ type KubeVirtTestData struct {
 
 	deploymentPatchReactionFunc testing.ReactionFunc
 	daemonSetPatchReactionFunc  testing.ReactionFunc
+}
+
+type eventHandlerRecordingInformer struct {
+	cache.SharedIndexInformer
+	handler cache.ResourceEventHandler
+}
+
+func (i *eventHandlerRecordingInformer) AddEventHandler(
+	handler cache.ResourceEventHandler,
+) (cache.ResourceEventHandlerRegistration, error) {
+	i.handler = handler
+	return i.SharedIndexInformer.AddEventHandler(handler)
 }
 
 func (k *KubeVirtTestData) BeforeTest() {
@@ -231,6 +244,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	informers.Leases, _ = testutils.NewFakeInformerFor(&coordinationv1.Lease{})
+	k.leaseInformer = &eventHandlerRecordingInformer{SharedIndexInformer: informers.Leases}
+	informers.Leases = k.leaseInformer
 
 	// test OpenShift components
 	config := util.OperatorConfig{
@@ -1866,6 +1881,106 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 }
 
 var _ = Describe("KubeVirt Operator", func() {
+
+	Context("Lease events", func() {
+		var kvTestData KubeVirtTestData
+		var lease *coordinationv1.Lease
+		const kubeVirtKey = NAMESPACE + "/test-install"
+
+		BeforeEach(func() {
+			kvTestData = KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			DeferCleanup(kvTestData.controller.queue.ShutDown)
+			DeferCleanup(kvTestData.AfterTest)
+			Expect(kvTestData.controller.stores.KubeVirtCache.Add(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-install", Namespace: NAMESPACE},
+			})).To(Succeed())
+			lease = &coordinationv1.Lease{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: components.VirtSynchronizationControllerName, Namespace: NAMESPACE, ResourceVersion: "1",
+				},
+				Spec: coordinationv1.LeaseSpec{HolderIdentity: pointer.P("leader")},
+			}
+			expecter := kvTestData.controller.kubeVirtExpectations.ServiceAccount
+			expecter.ExpectDeletions(kubeVirtKey, []string{NAMESPACE + "/" + lease.Name})
+			expecter.RaiseExpectations(kubeVirtKey, 1, 0)
+		})
+
+		AfterEach(func() {
+			expectations, exists, err := kvTestData.controller.kubeVirtExpectations.ServiceAccount.GetExpectations(kubeVirtKey)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+			adds, deletes := expectations.GetExpectations()
+			Expect(adds).To(Equal(int64(1)))
+			Expect(deletes).To(Equal(int64(1)))
+		})
+
+		DescribeTable("synchronization lease lifecycle events", func(name, event string, expected int) {
+			lease.Name = name
+			if event != Added {
+				var obj interface{} = lease
+				if event == "tombstone" {
+					obj = cache.DeletedFinalStateUnknown{Key: NAMESPACE + "/" + name, Obj: lease}
+				}
+				kvTestData.leaseInformer.handler.OnDelete(obj)
+				Expect(kvTestData.mockQueue.GetAddAfterEnqueueCount()).To(Equal(expected))
+			} else {
+				kvTestData.leaseInformer.handler.OnAdd(lease, false)
+				Expect(kvTestData.controller.queue.Len()).To(Equal(expected))
+			}
+		},
+			Entry("synchronization lease created", components.VirtSynchronizationControllerName, Added, 1),
+			Entry("synchronization lease deleted", components.VirtSynchronizationControllerName, Deleted, 1),
+			Entry("synchronization lease tombstone", components.VirtSynchronizationControllerName, "tombstone", 1),
+			Entry("unrelated lease created", "virt-controller", Added, 0),
+			Entry("unrelated lease deleted", "virt-controller", Deleted, 0),
+			Entry("unrelated lease tombstone", "virt-controller", "tombstone", 0),
+		)
+
+		DescribeTable("synchronization lease updates", func(name string, modify func(*coordinationv1.Lease), expected bool) {
+			lease.Name = name
+			updated := lease.DeepCopy()
+			updated.ResourceVersion = "2"
+			modify(updated)
+			kvTestData.leaseInformer.handler.OnUpdate(lease, updated)
+			queued := kvTestData.controller.queue.Len() > 0 || kvTestData.mockQueue.GetAddAfterEnqueueCount() > 0
+			Expect(queued).To(Equal(expected))
+		},
+			Entry("lease renewed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.Spec.RenewTime = pointer.P(metav1.NewMicroTime(time.Now()))
+			}, false),
+			Entry("metadata changed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.Annotations = map[string]string{"test": "value"}
+			}, false),
+			Entry("leader changed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.Spec.HolderIdentity = pointer.P("new-leader")
+			}, true),
+			Entry("leader cleared", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.Spec.HolderIdentity = nil
+			}, true),
+			Entry("leader released", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.Spec.HolderIdentity = pointer.P("")
+			}, true),
+			Entry("lease marked for deletion", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.DeletionTimestamp = pointer.P(metav1.Now())
+			}, true),
+			Entry("unrelated leader changed", "virt-controller", func(l *coordinationv1.Lease) {
+				l.Spec.HolderIdentity = pointer.P("new-leader")
+			}, false),
+			Entry("informer resync", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.ResourceVersion = "1"
+			}, false),
+		)
+
+		It("should reconcile when the synchronization lease acquires a leader", func() {
+			lease.Spec.HolderIdentity = nil
+			updated := lease.DeepCopy()
+			updated.ResourceVersion = "2"
+			updated.Spec.HolderIdentity = pointer.P("leader")
+			kvTestData.leaseInformer.handler.OnUpdate(lease, updated)
+			Expect(kvTestData.controller.queue.Len()).To(Equal(1))
+		})
+	})
 
 	Context("On valid KubeVirt object", func() {
 
