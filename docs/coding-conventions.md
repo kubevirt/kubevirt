@@ -157,6 +157,17 @@ func (p *Programmer) isProfessional () bool {
 }
 ```
 
+# Keep constants in the domain they belong to
+
+Define constants in the package that owns the domain they describe, instead
+of collecting them in generic utility packages. For example, a network
+sysctl path belongs next to the network code operating on it, not in a
+generic sysctl utility. A utility package that accumulates domain-specific
+constants forces consumers to depend on it, even though the domain logic
+lives elsewhere. When several packages need to share a constant of a given
+domain, share it from a package inside that domain, and keep it unexported
+when it is only used inside its own package.
+
 # Uniform import order and naming
 
 - Use the following import order with one block per item:
@@ -219,6 +230,7 @@ coding conventions](#detailed-coding-conventions).
 - [Avoid nesting and complexity by using early returns](#avoid-nesting-and-complexity-by-using-early-returns)
 - [Use the same coding style throughout a file](#use-the-same-coding-style-throughout-a-file)
 - [Document values meaning through constants or variable names](#document-values-meaning-through-constants-or-variable-names)
+- [Keep constants in the domain they belong to](#keep-constants-in-the-domain-they-belong-to)
 - [Uniform import order and naming](#uniform-import-order-and-naming)
 - Be cautious when adding new dependencies.
     - New dependencies should be authored by a trusted and well established
