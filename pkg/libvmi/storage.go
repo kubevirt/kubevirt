@@ -288,6 +288,12 @@ func WithDedicatedIOThreads(enabled bool) DiskOption {
 	}
 }
 
+func WithDiskCache(cache v1.DriverCache) DiskOption {
+	return func(d *v1.Disk) {
+		d.Cache = cache
+	}
+}
+
 func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,
