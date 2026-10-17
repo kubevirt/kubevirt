@@ -265,6 +265,10 @@ func LookupDevicesNumaNodesWithWarnings(pciAddresses []string, domainSpec *api.D
 	// vcpu -> vnuma mapping
 	vCPUToCellMap := make(map[uint32]uint32)
 	for _, cell := range domainSpec.CPU.NUMA.Cells {
+		// Memoryless cells (e.g. Grace GI nodes) carry no CPUs; skip rather than treating "" as a parse error.
+		if cell.CPUs == "" {
+			continue
+		}
 		vcpusInCell, err := ParseCPUSetLine(cell.CPUs, MAX_CPU_LIMIT)
 		if err != nil {
 			warnings = append(warnings, DeviceNUMANodeLookupWarning{
