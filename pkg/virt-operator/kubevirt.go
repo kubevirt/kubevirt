@@ -32,6 +32,7 @@ import (
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -648,15 +650,32 @@ func NewKubeVirtController(
 	if err != nil {
 		return nil, err
 	}
-	_, err = informers.Leases.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+	_, err = informers.Leases.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			o, validationErr := validateDeleteObject(obj)
+			if validationErr != nil {
+				log.Log.Reason(validationErr).Error("Failed to process lease notification")
+				return false
+			}
+			return o.GetName() == components.VirtSynchronizationControllerName
 		},
-		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ServiceAccount)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ServiceAccount)
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.genericAddHandler(obj, nil)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.genericDeleteHandler(obj, nil)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldLease := oldObj.(*coordinationv1.Lease)
+				newLease := newObj.(*coordinationv1.Lease)
+				// Only leader changes affect the synchronization address. Ignore lease renewals.
+				if equality.Semantic.DeepEqual(oldLease.Spec.HolderIdentity, newLease.Spec.HolderIdentity) &&
+					equality.Semantic.DeepEqual(oldLease.DeletionTimestamp, newLease.DeletionTimestamp) {
+					return
+				}
+				c.genericUpdateHandler(oldObj, newObj, nil)
+			},
 		},
 	})
 	if err != nil {
