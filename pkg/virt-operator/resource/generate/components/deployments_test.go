@@ -76,6 +76,51 @@ var _ = Describe("Deployments", func() {
 			),
 		)
 
+		DescribeTable("virt-handler migration cert mounts",
+			func(proxyEnabled bool, expectHandlerCerts bool) {
+				config := &util.KubeVirtDeploymentConfig{
+					Namespace: namespace,
+				}
+				if proxyEnabled {
+					config.AdditionalProperties = map[string]string{
+						util.AdditionalPropertiesDecentralizedLiveMigrationProxy: "",
+					}
+				}
+
+				deployment := NewSynchronizationControllerDeployment(config, "kubevirt", "v1.0.0", "sync-controller")
+				Expect(deployment).ToNot(BeNil())
+				Expect(deployment.Spec.Template.Spec.Containers).NotTo(BeEmpty())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				mounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				env := deployment.Spec.Template.Spec.Containers[0].Env
+
+				Expect(volumes).To(ContainElement(HaveField("Name", VirtSynchronizationControllerCertSecretName)))
+				Expect(volumes).To(ContainElement(HaveField("Name", VirtSynchronizationControllerServerCertSecretName)))
+				Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-sync-controller/clientcertificates")))
+				Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-sync-controller/servercertificates")))
+
+				if expectHandlerCerts {
+					Expect(volumes).To(ContainElement(HaveField("Name", VirtHandlerMigrationClientCertSecretName)))
+					Expect(volumes).To(ContainElement(HaveField("Name", VirtHandlerServerCertSecretName)))
+					Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationclientcertificates")))
+					Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationservercertificates")))
+					Expect(env).To(ContainElement(corev1.EnvVar{
+						Name:  util.DecentralizedLiveMigrationProxyEnvName,
+						Value: "true",
+					}))
+				} else {
+					Expect(volumes).NotTo(ContainElement(HaveField("Name", VirtHandlerMigrationClientCertSecretName)))
+					Expect(volumes).NotTo(ContainElement(HaveField("Name", VirtHandlerServerCertSecretName)))
+					Expect(mounts).NotTo(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationclientcertificates")))
+					Expect(mounts).NotTo(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationservercertificates")))
+					Expect(env).NotTo(ContainElement(HaveField("Name", util.DecentralizedLiveMigrationProxyEnvName)))
+				}
+			},
+			Entry("proxy disabled omits handler certs", false, false),
+			Entry("proxy enabled mounts handler certs", true, true),
+		)
+
 		It("should defer node placement to reconciliation", func() {
 			By("Creating config with SynchronizationPlacement that would previously be applied at generation")
 			config := &util.KubeVirtDeploymentConfig{

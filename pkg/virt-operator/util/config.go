@@ -91,6 +91,13 @@ const (
 	// lookup key in AdditionalProperties — presence means Proxy datapath is selected
 	AdditionalPropertiesDecentralizedLiveMigrationProxy = "DecentralizedLiveMigrationProxy"
 
+	// DecentralizedLiveMigrationProxyEnvName is set on synchronization-controller pods
+	// when the Proxy datapath template is selected (including virt-handler migration
+	// cert mounts). The binary keys Proxy cert loading and proxy init off this env
+	// so old Direct-template pods stay in Direct mode during rollout even if live
+	// ClusterConfig already reports Proxy enabled.
+	DecentralizedLiveMigrationProxyEnvName = "DECENTRALIZED_LIVE_MIGRATION_PROXY"
+
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
@@ -587,6 +594,11 @@ func (c *KubeVirtDeploymentConfig) GetHypervisorName() string {
 
 func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesPersistentReservationEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) DecentralizedLiveMigrationProxyEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesDecentralizedLiveMigrationProxy]
 	return enabled
 }
 

@@ -174,11 +174,14 @@ var _ = Describe("Operator Config", func() {
 			Expect(cfgProxy.ID).ToNot(Equal(cfgDirect.ID))
 			Expect(cfgProxy.AdditionalProperties).To(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
 			Expect(cfgDirect.AdditionalProperties).NotTo(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
+			Expect(cfgProxy.DecentralizedLiveMigrationProxyEnabled()).To(BeTrue())
+			Expect(cfgDirect.DecentralizedLiveMigrationProxyEnabled()).To(BeFalse())
 
 			direct := v1.DecentralizedLiveMigrationDatapathDirect
 			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath = &direct
 			cfgBackToDirect := GetTargetConfigFromKV(kv)
 			Expect(cfgBackToDirect.ID).To(Equal(cfgDirect.ID))
+			Expect(cfgBackToDirect.DecentralizedLiveMigrationProxyEnabled()).To(BeFalse())
 		})
 
 		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
