@@ -224,8 +224,8 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 	return nil
 }
 
-// Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
-// Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
+// MountAndVerify takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
+// Image format validation happens in virt-launcher, see generateConverterContext.
 func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 	if m.clusterConfig.ImageVolumeEnabled() {
 		bindMountNeeded, err := m.needsBindMountFunc(vmi)
