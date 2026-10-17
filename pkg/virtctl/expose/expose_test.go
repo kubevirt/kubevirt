@@ -261,7 +261,7 @@ var _ = Describe("Expose", func() {
 			)
 		})
 
-		It("applies --target-port to introspected ports", func() {
+		It("honors --target-port for inferred service ports", func() {
             ports := []v1.Port{{Name: "a", Protocol: "TCP", Port: 80}, {Name: "b", Protocol: "UDP", Port: 81}}
             vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{Name: "pod", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
             vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{Name: "pod", Ports: ports})
