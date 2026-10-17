@@ -3940,11 +3940,11 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-eo-0__2.34-285.el9.s390x",
-    sha256 = "48b6ee1c8cf79646e82a9f503e74b7105ff49a759cb82be08cb0875fd79573cf",
+    name = "glibc-langpack-eo-0__2.34-285.el9.x86_64",
+    sha256 = "5c89c25841d513d3650e7710995d3185ec33eff983783165f922f19ff53039ef",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-eo-2.34-285.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/48b6ee1c8cf79646e82a9f503e74b7105ff49a759cb82be08cb0875fd79573cf",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-eo-2.34-285.el9.x86_64.rpm",
+        "https://storage.googleapis.com/builddeps/5c89c25841d513d3650e7710995d3185ec33eff983783165f922f19ff53039ef",
     ],
 )
 
@@ -3967,11 +3967,11 @@ rpm(
 )
 
 rpm(
-    name = "glibc-langpack-eu-0__2.34-285.el9.x86_64",
-    sha256 = "f214086e6203b0af74176bd6fc4f4503342f74d7261b33f2807fa929860dc01e",
+    name = "glibc-langpack-fa-0__2.34-285.el9.s390x",
+    sha256 = "59605c25babe58a0bdb4045ec653bc76fff30a6a53bf710c1e620faae2942837",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-eu-2.34-285.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/f214086e6203b0af74176bd6fc4f4503342f74d7261b33f2807fa929860dc01e",
+        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-fa-2.34-285.el9.s390x.rpm",
+        "https://storage.googleapis.com/builddeps/59605c25babe58a0bdb4045ec653bc76fff30a6a53bf710c1e620faae2942837",
     ],
 )
 
