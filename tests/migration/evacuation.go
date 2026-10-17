@@ -248,7 +248,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				By("Verifying that VMI is marked for eviction")
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.IsMarkedForEviction()).To(BeTrue())
+				Expect(vmi.IsMarkedForEviction()).To(BeTrue(), "VMI should be marked for eviction after the evict API call")
 				Expect(vmi.Status.EvacuationNodeName).To(Equal(virtLauncherPod.Spec.NodeName))
 
 				By("Waiting for a migration to be scheduled and to succeed")
@@ -301,7 +301,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 					By("Verifying VMI remains marked for eviction")
 					vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.IsMarkedForEviction()).To(BeTrue())
+					Expect(vmi.IsMarkedForEviction()).To(BeTrue(), "VMI should remain marked for eviction after the migration failed")
 					Expect(vmi.Status.EvacuationNodeName).To(Equal(virtLauncherPod.Spec.NodeName))
 				})
 			})
