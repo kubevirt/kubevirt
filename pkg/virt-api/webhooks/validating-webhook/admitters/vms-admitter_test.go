@@ -1664,6 +1664,71 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
 	})
 
+	It("should validate discontinued feature gates against the instancetype-expanded spec", func() {
+		const fgName = "test-discontinued-expanded"
+		const fgMessage = "discontinued FG triggered by instancetype expansion"
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+			Name:  fgName,
+			State: featuregate.Discontinued,
+			VmiSpecUsed: func(spec *v1.VirtualMachineInstanceSpec) bool {
+				return spec.Domain.CPU != nil && spec.Domain.CPU.Sockets > 0
+			},
+			Message: fgMessage,
+		})
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
+		enableFeatureGate(fgName)
+
+		stub := instancetypeWebhooks.NewAdmitterStub()
+		stub.ApplyToVMFunc = func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2}
+			return nil, nil, nil
+		}
+		vmsAdmitter.InstancetypeAdmitter = stub
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				RunStrategy: pointer.P(v1.RunStrategyHalted),
+				Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+			},
+		}
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result).ToNot(BeNil())
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
+
+	It("should warn about deprecated APIs against the instancetype-expanded spec", func() {
+		const fgName = "test-deprecated-expanded"
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+			Name:  fgName,
+			State: featuregate.Deprecated,
+			VmiSpecUsed: func(spec *v1.VirtualMachineInstanceSpec) bool {
+				return spec.Domain.CPU != nil && spec.Domain.CPU.Sockets > 0
+			},
+		})
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
+		enableFeatureGate(fgName)
+
+		stub := instancetypeWebhooks.NewAdmitterStub()
+		stub.ApplyToVMFunc = func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2}
+			return nil, nil, nil
+		}
+		vmsAdmitter.InstancetypeAdmitter = stub
+
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				RunStrategy: pointer.P(v1.RunStrategyHalted),
+				Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+			},
+		}
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+		Expect(resp.Warnings).To(ContainElement(HavePrefix("feature gate " + fgName + " is deprecated")))
+	})
+
 	Context("run strategy", func() {
 		AfterEach(func() {
 			disableFeatureGates()
