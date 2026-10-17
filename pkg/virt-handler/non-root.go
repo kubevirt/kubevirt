@@ -157,11 +157,54 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 		if group.Name() == "vfio" {
 			continue
 		}
+		if group.Name() == "devices" {
+			if err := prepareVFIOCdevs(vfioBasePath); err != nil {
+				return err
+			}
+			continue
+		}
 		groupPath, err := safepath.JoinNoFollow(vfioBasePath, group.Name())
 		if err != nil {
 			return err
 		}
 		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(groupPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func prepareVFIOCdevs(vfioBasePath *safepath.Path) error {
+	devicesPath, err := safepath.JoinNoFollow(vfioBasePath, "devices")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+
+	var devices []os.DirEntry
+	err = devicesPath.ExecuteNoFollow(func(safePath string) error {
+		var err error
+		devices, err = os.ReadDir(safePath)
+		return err
+	})
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+
+	for _, device := range devices {
+		if device.IsDir() {
+			continue
+		}
+		devicePath, err := safepath.JoinNoFollow(devicesPath, device.Name())
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath); err != nil {
 			return err
 		}
 	}
