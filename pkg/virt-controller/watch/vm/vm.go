@@ -33,9 +33,9 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
-	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/render"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -1335,7 +1335,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	cbt.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
 
-	AutoAttachInputDevice(vmi)
+	render.AutoAttachInputDevice(vmi)
 
 	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
@@ -1893,12 +1893,7 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 
 // SetupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-	vmi := libvmi.New()
-	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
-	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
-	vmi.ObjectMeta.GenerateName = ""
-	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
-	vmi.Spec = *vm.Spec.Template.Spec.DeepCopy()
+	vmi := render.NewVMI(vm)
 
 	if hasStartPausedRequest(vm) {
 		strategy := virtv1.StartStrategyPaused
@@ -1909,13 +1904,6 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	if memorydump.HasCompleted(vm) {
 		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
-
-	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
-	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
-	vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
-	}
-
 	storagevmispec.SetDefaultVolumeDisk(&vmi.Spec)
 
 	return vmi
@@ -3415,22 +3403,6 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 		return nil
 	}
 	return vm.(*virtv1.VirtualMachine)
-}
-
-func AutoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
-	autoAttachInput := vmi.Spec.Domain.Devices.AutoattachInputDevice
-	// Default to False if nil and return, otherwise return if input devices are already present
-	if autoAttachInput == nil || !*autoAttachInput || len(vmi.Spec.Domain.Devices.Inputs) > 0 {
-		return
-	}
-	// Only add the device with an alias here. Preferences for the bus and type might
-	// be applied later and if not the VMI mutation webhook will apply defaults for both.
-	vmi.Spec.Domain.Devices.Inputs = append(
-		vmi.Spec.Domain.Devices.Inputs,
-		virtv1.Input{
-			Name: "default-0",
-		},
-	)
 }
 
 func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
