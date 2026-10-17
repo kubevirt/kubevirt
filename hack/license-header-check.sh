@@ -33,6 +33,7 @@ TARGET_DIRS=(
     "pkg/virt-api"
     "pkg/virt-handler"
     "pkg/handler-launcher-com"
+    "tests/integration"
 )
 
 IGNORE_FILES=(

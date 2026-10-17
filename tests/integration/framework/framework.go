@@ -1,8 +1,27 @@
+/*
+This file is part of the KubeVirt project
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+Copyright The KubeVirt Authors.
+*/
+
 package framework
 
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -59,6 +78,19 @@ const (
 	testNodeMaxPods = "110"
 )
 
+type Option func(*Framework)
+
+// WithKubeVirtConfig configures the VM and VMI controllers before startup.
+// A nil configuration leaves the current configuration unchanged.
+func WithKubeVirtConfig(config *v1.KubeVirtConfiguration) Option {
+	return func(f *Framework) {
+		if config == nil {
+			return
+		}
+		f.kvConfig = config.DeepCopy()
+	}
+}
+
 type Framework struct {
 	env           *envtest.Environment
 	virtClient    kubecli.KubevirtClient
@@ -68,23 +100,32 @@ type Framework struct {
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
 
-	podSimulator *PodSimulator
+	podSimulator    *PodSimulator
+	kvConfig        *v1.KubeVirtConfiguration
+	webhooksEnabled bool
+	webhookServer   *http.Server
+	webhookDone     chan struct{}
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 }
 
-func New() *Framework {
+func New(opts ...Option) *Framework {
 	GinkgoHelper()
 	crds, err := loadCRDs()
 	Expect(err).NotTo(HaveOccurred(), "failed to load CRDs")
-	return &Framework{
+	f := &Framework{
 		env: &envtest.Environment{
 			CRDs:               crds,
 			UseExistingCluster: new(bool),
 		},
+		kvConfig: &v1.KubeVirtConfiguration{},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *Framework) Start(ctx context.Context) {
@@ -100,7 +141,7 @@ func (f *Framework) Start(ctx context.Context) {
 
 	factory := controller.NewKubeInformerFactory(f.virtClient.RestClient(), f.virtClient, f.k8sClient, nil, testNamespace)
 
-	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(f.kvConfig)
 	// A nil Events channel discards events, including during controller shutdown.
 	recorder := new(record.FakeRecorder)
 
@@ -117,6 +158,10 @@ func (f *Framework) Start(ctx context.Context) {
 	}
 	Expect(cache.WaitForCacheSync(f.ctx.Done(), syncs...)).To(BeTrue(), "failed to sync informer caches")
 
+	if f.webhooksEnabled {
+		f.startWebhookServer(clusterConfig, factory)
+	}
+
 	f.wg.Go(func() { f.vmiController.Run(controllerWorkers, f.ctx.Done()) })
 	f.wg.Go(func() { f.vmController.Run(controllerWorkers, f.ctx.Done()) })
 	f.podSimulator.Start(f.ctx)
@@ -131,6 +176,10 @@ func (f *Framework) Stop() {
 		f.podSimulator.Stop()
 	}
 	f.wg.Wait()
+	if f.webhookServer != nil {
+		Expect(f.webhookServer.Close()).To(Succeed())
+		<-f.webhookDone
+	}
 	if f.env != nil {
 		Expect(f.env.Stop()).To(Succeed())
 	}
