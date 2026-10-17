@@ -2269,6 +2269,28 @@ var _ = Describe("Backup Controller", func() {
 			Expect(deleteCalled).To(BeTrue())
 		})
 
+		It("should delete the export when the VMI is deleted during the backup", func() {
+			backup.Status.Type = backupv1.Full
+			Expect(controller.vmiStore.Delete(vmi)).To(Succeed())
+			controller.vmExportStore.Add(vmExport)
+
+			deleteCalled := false
+			kubevirtClient.Fake.PrependReactor("delete", "virtualmachineexports", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				deleteAction := action.(testing.DeleteAction)
+				if deleteAction.GetName() == vmExport.Name && deleteAction.GetNamespace() == backup.Namespace {
+					deleteCalled = true
+				}
+				return false, nil, nil
+			})
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(deleteCalled).To(BeTrue())
+			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond).ToNot(BeNil())
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonSourceLost))
+		})
+
 		It("should reset Links to nil when a new export is created", func() {
 			backup.Status.Links = &backupv1.BackupLinks{
 				Internal: &backupv1.BackupLink{
