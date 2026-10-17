@@ -58,6 +58,7 @@ function up() {
         echo -e "$params"
         exit 1
     fi
+    "${KUBEVIRTCI_PATH}/check.sh"
     eval ${_cli:?} run $params
 
     cli_scp_command "${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf" ".kubeconfig"
