@@ -71,8 +71,20 @@ var _ = Describe("OCI Builder", func() {
 		Expect(layout.Version).To(Equal(ocispec.ImageLayoutVersion))
 
 		Expect(files).To(HaveKey(ocispec.ImageIndexFile))
+		var rootIndex ocispec.Index
+		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &rootIndex)).To(Succeed())
+		Expect(rootIndex.MediaType).To(Equal(ocispec.MediaTypeImageIndex))
+		Expect(rootIndex.SchemaVersion).To(Equal(schemaVersion))
+		Expect(rootIndex.Manifests).To(HaveLen(1))
+		Expect(rootIndex.Manifests[0].MediaType).To(Equal(ocispec.MediaTypeImageIndex))
+		Expect(rootIndex.Manifests[0].Annotations).To(HaveKeyWithValue(ocispec.AnnotationRefName, "latest"))
+
+		indexPath := blobPath(rootIndex.Manifests[0].Digest)
+		Expect(files).To(HaveKey(indexPath))
+		Expect(files[indexPath]).To(HaveLen(int(rootIndex.Manifests[0].Size)))
+
 		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		Expect(json.Unmarshal(files[indexPath], &index)).To(Succeed())
 		Expect(index.MediaType).To(Equal(ocispec.MediaTypeImageIndex))
 		Expect(index.SchemaVersion).To(Equal(schemaVersion))
 		Expect(index.ArtifactType).To(Equal(artifactTypeVM))
@@ -123,8 +135,7 @@ var _ = Describe("OCI Builder", func() {
 		expectedSize := resource.NewQuantity(fi.Size(), resource.BinarySI).String()
 
 		files := readTarFiles(&buf)
-		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		index := readImageIndex(files)
 		var manifest ocispec.Manifest
 		Expect(json.Unmarshal(files[blobPath(index.Manifests[0].Digest)], &manifest)).To(Succeed())
 		Expect(manifest.Layers).To(HaveLen(1))
@@ -144,9 +155,7 @@ var _ = Describe("OCI Builder", func() {
 		Expect(builder.WriteTar(context.Background(), &buf)).To(Succeed())
 
 		files := readTarFiles(&buf)
-		Expect(files).To(HaveKey(ocispec.ImageIndexFile))
-		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		index := readImageIndex(files)
 		Expect(index.Manifests[0].Platform.Architecture).To(Equal(architecture))
 	})
 
@@ -208,8 +217,7 @@ var _ = Describe("OCI Builder", func() {
 
 		files := readTarFiles(&buf)
 
-		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		index := readImageIndex(files)
 		var manifest ocispec.Manifest
 		Expect(json.Unmarshal(files[blobPath(index.Manifests[0].Digest)], &manifest)).To(Succeed())
 		Expect(manifest.Layers).To(HaveLen(2))
@@ -228,8 +236,7 @@ var _ = Describe("OCI Builder", func() {
 
 		files := readTarFiles(&buf)
 
-		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		index := readImageIndex(files)
 		var manifest ocispec.Manifest
 		Expect(json.Unmarshal(files[blobPath(index.Manifests[0].Digest)], &manifest)).To(Succeed())
 		Expect(manifest.Layers).To(BeEmpty())
@@ -332,8 +339,7 @@ var _ = Describe("OCI Builder", func() {
 
 		files := readTarFiles(&buf)
 
-		var index ocispec.Index
-		Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &index)).To(Succeed())
+		index := readImageIndex(files)
 		Expect(index.ArtifactType).To(Equal(artifactTypeVMTemplate))
 
 		var manifest ocispec.Manifest
@@ -351,6 +357,15 @@ func createTestDisk() string {
 	_, err = io.CopyN(f, rand.Reader, 64*1024)
 	Expect(err).ToNot(HaveOccurred())
 	return p
+}
+
+func readImageIndex(files map[string][]byte) ocispec.Index {
+	var rootIndex ocispec.Index
+	Expect(json.Unmarshal(files[ocispec.ImageIndexFile], &rootIndex)).To(Succeed())
+	Expect(rootIndex.Manifests).To(HaveLen(1))
+	var index ocispec.Index
+	Expect(json.Unmarshal(files[blobPath(rootIndex.Manifests[0].Digest)], &index)).To(Succeed())
+	return index
 }
 
 func readTarFiles(r io.Reader) map[string][]byte {
