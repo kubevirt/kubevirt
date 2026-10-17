@@ -34,6 +34,7 @@ import (
 	devices "github.com/opencontainers/cgroups/devices/config"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sys/unix"
+	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -41,7 +42,6 @@ import (
 )
 
 var _ = Describe("cgroup manager", func() {
-
 	var (
 		ctrl                  *gomock.Controller
 		rulesDefined          []*devices.Rule
@@ -170,7 +170,6 @@ var _ = Describe("cgroup manager", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Expect(rulesDefined).To(ContainElement(fakeRule1), "previous rule is expected to not be overridden")
-
 	},
 		Entry("for v1", V1),
 		Entry("for v2", V2),
@@ -189,7 +188,6 @@ var _ = Describe("cgroup manager", func() {
 
 		fakeRule.Permissions = "fake-permissions-456"
 		Expect(rulesDefined).To(ContainElement(fakeRule), "rule needs to be overridden since explicitly re-set")
-
 	},
 		Entry("for v1", V1),
 		Entry("for v2", V2),
@@ -245,9 +243,9 @@ var _ = Describe("GetMiscCapacity", func() {
 	})
 
 	DescribeTable("should return correct capacity",
-		func(fileContent string, key string, expectedCapacity int, expectError bool) {
+		func(fileContent, key string, expectedCapacity int, expectError bool) {
 			if fileContent != "" {
-				err := os.WriteFile(path.Join(tempDir, "misc.capacity"), []byte(fileContent), 0644)
+				err := os.WriteFile(path.Join(tempDir, "misc.capacity"), []byte(fileContent), 0o644)
 				Expect(err).ToNot(HaveOccurred())
 			}
 			capacity, err := GetMiscCapacity(key)
@@ -341,7 +339,7 @@ var _ = Describe("parseDevicesList", func() {
 	)
 
 	DescribeTable("should reject malformed input",
-		func(input string, errSubstring string) {
+		func(input, errSubstring string) {
 			_, err := parseDevicesList(strings.NewReader(input))
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(errSubstring))
@@ -597,6 +595,85 @@ var _ = Describe("generateDeviceRulesForVMI", func() {
 		Expect(rules).To(BeEmpty())
 	})
 })
+
+var _ = Describe("generateDeviceRulesForAttachedHotplugVolumes", func() {
+	var (
+		origStatDevice       func(*safepath.Path, string) (os.FileInfo, error)
+		origResolveDeviceDir func(*safepath.Path, string) (*safepath.Path, error)
+	)
+
+	BeforeEach(func() {
+		origStatDevice = statDevice
+		origResolveDeviceDir = resolveDeviceDir
+	})
+
+	AfterEach(func() {
+		statDevice = origStatDevice
+		resolveDeviceDir = origResolveDeviceDir
+	})
+
+	It("should create rules only for attached hotplug block volumes", func() {
+		block := k8sv1.PersistentVolumeBlock
+		filesystem := k8sv1.PersistentVolumeFilesystem
+		vmi := &v1.VirtualMachineInstance{
+			Status: v1.VirtualMachineInstanceStatus{
+				VolumeStatus: []v1.VolumeStatus{
+					{
+						Name:                      "attached",
+						HotplugVolume:             &v1.HotplugVolumeStatus{},
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &block},
+					},
+					{
+						Name:                      "not-attached-yet",
+						HotplugVolume:             &v1.HotplugVolumeStatus{},
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &block},
+					},
+					{
+						Name:                      "filesystem",
+						HotplugVolume:             &v1.HotplugVolumeStatus{},
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &filesystem},
+					},
+					{
+						Name:                      "not-hotplug",
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &block},
+					},
+				},
+			},
+		}
+		resolveDeviceDir = func(_ *safepath.Path, relPath string) (*safepath.Path, error) {
+			Expect(relPath).To(Equal("/var/run/kubevirt/hotplug-disks"))
+			return nil, nil
+		}
+		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
+			switch relPath {
+			case "attached":
+				return blockDeviceInfo(147, 1192), nil
+			case "filesystem", "not-hotplug":
+				Fail("unexpected stat of " + relPath)
+			}
+			return nil, os.ErrNotExist
+		}
+
+		rules, err := generateDeviceRulesForAttachedHotplugVolumes(vmi, nil)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(rules).To(ConsistOf(
+			PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":        Equal(devices.BlockDevice),
+				"Major":       Equal(int64(147)),
+				"Minor":       Equal(int64(1192)),
+				"Permissions": Equal(devices.Permissions("rwm")),
+				"Allow":       BeTrue(),
+			})),
+		))
+	})
+})
+
+func blockDeviceInfo(major, minor uint32) os.FileInfo {
+	return &fakeFileInfo{
+		mode: os.ModeDevice,
+		rdev: unix.Mkdev(major, minor),
+	}
+}
 
 func charDeviceInfo(major, minor uint32) os.FileInfo {
 	return &fakeFileInfo{
