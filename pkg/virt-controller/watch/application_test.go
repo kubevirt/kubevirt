@@ -294,9 +294,7 @@ var _ = Describe("Application", func() {
 			vmiInformer,
 			pvcInformer,
 			vmExportInformer,
-			configMapInformer,
 			recorder,
-			"",
 		)
 
 		app.readyChan = make(chan bool)

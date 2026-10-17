@@ -64,7 +64,7 @@ var _ = Describe("Backup", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		metadataCache = metadata.NewCache()
-		manager = NewStorageManager(mockConn, metadataCache, nil)
+		manager = NewStorageManager(mockConn, metadataCache)
 
 		vmi = &v1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -221,6 +221,8 @@ var _ = Describe("Backup", func() {
 
 		It("should successfully initiate a pull mode backup", func() {
 			backupOptions.Mode = backupv1.PullMode
+			DeferCleanup(func(f func(*v1.VirtualMachineInstance) (string, error)) { preparePullBackupSocket = f }, preparePullBackupSocket)
+			preparePullBackupSocket = func(*v1.VirtualMachineInstance) (string, error) { return "/backup-nbd-sock", nil }
 			domainXML := `<domain><devices><disk type='file'><source file='/tmp/foo'/><target dev='vda'/><alias name='disk0'/></disk></devices></domain>`
 
 			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
@@ -376,6 +378,8 @@ var _ = Describe("Backup", func() {
 	})
 
 	Describe("generateDomainBackup", func() {
+		const nbdSocketPath = "/var/run/kubevirt-private/libvirt/qemu/cbt-nbd/backup-nbd-sock"
+
 		It("should generate backup XML for disks with DataStore", func() {
 			disks := []api.Disk{
 				{
@@ -389,7 +393,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PushMode)))
@@ -424,11 +428,15 @@ var _ = Describe("Backup", func() {
 					Alias: api.NewUserDefinedAlias("disk0"),
 				},
 			}
-			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(domainCheckpoint).ToNot(BeNil())
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PullMode)))
+			Expect(domainBackup.Server).To(Equal(&api.DomainBackupServer{
+				Transport: api.BackupUnixTransport,
+				Socket:    nbdSocketPath,
+			}))
 			Expect(domainBackup.Incremental).To(BeNil())
 			Expect(domainBackup.BackupDisks).ToNot(BeNil())
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
@@ -453,7 +461,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("no"))
@@ -472,7 +480,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(domainBackup.Incremental).ToNot(BeNil())
 			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
@@ -489,7 +497,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(domainBackup.Incremental).To(BeNil())
 		})
@@ -515,7 +523,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath)
 
 			Expect(volumesInfo).To(HaveLen(2))
 			Expect(volumesInfo[0].VolumeName).To(Equal("rootdisk"))

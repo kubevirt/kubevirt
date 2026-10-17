@@ -53,10 +53,9 @@ func main() {
 		TLSCipherSuites: getTLSCipherSuites(),
 	}
 	if len(config.Paths.Backups) > 0 {
-		config.BackupUID = getBackupUID()
+		config.NBDSocket = getNBDSocket()
 		config.BackupType = getBackupType()
 		config.BackupCheckpoint = getBackupCheckpoint()
-		config.BackupCACert = getBackupCACert()
 	}
 	server, err := exportServer.NewExportServer(config)
 	if err != nil {
@@ -103,12 +102,12 @@ func getDeadline() (result time.Time) {
 	return result
 }
 
-func getBackupUID() string {
-	backupUID := os.Getenv("BACKUP_UID")
-	if backupUID == "" {
-		panic("backup export but not backup UID provided")
+func getNBDSocket() string {
+	socket := os.Getenv("BACKUP_NBD_SOCKET")
+	if socket == "" {
+		panic("backup export but no NBD socket provided")
 	}
-	return backupUID
+	return socket
 }
 
 func getBackupType() string {
@@ -122,14 +121,6 @@ func getBackupType() string {
 func getBackupCheckpoint() string {
 	checkpointName := os.Getenv("BACKUP_CHECKPOINT")
 	return checkpointName
-}
-
-func getBackupCACert() []byte {
-	caCert := os.Getenv("BACKUP_CACERT")
-	if caCert == "" {
-		panic("backup export but no backup CA provided")
-	}
-	return []byte(caCert)
 }
 
 func getTLSMinVersion() uint16 {

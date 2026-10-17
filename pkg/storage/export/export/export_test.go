@@ -767,7 +767,7 @@ var _ = Describe("Export controller", func() {
 			return true, service, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))
@@ -791,7 +791,7 @@ var _ = Describe("Export controller", func() {
 				},
 			}),
 		).To(Succeed())
-		service, err = controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test2"))
@@ -828,7 +828,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).To(Equal(existing))
 	},
@@ -857,7 +857,7 @@ var _ = Describe("Export controller", func() {
 			return true, nil, errors.NewAlreadyExists(schema.GroupResource{Resource: "services"}, controller.getExportServiceName(testVMExport))
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(errors.IsAlreadyExists(err)).To(BeTrue())
 		Expect(service).To(BeNil())
 	})
@@ -958,7 +958,7 @@ var _ = Describe("Export controller", func() {
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			return true, service, nil
 		})
-		service, err = controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		pod, err := controller.createExporterPod(testVMExport, service, source)
 		Expect(err).ToNot(HaveOccurred())
@@ -1272,7 +1272,7 @@ var _ = Describe("Export controller", func() {
 			Expect(service.GetNamespace()).To(Equal(testNamespace))
 			return true, service, nil
 		})
-		service, err = controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err = controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		pod, err := controller.createExporterPod(testVMExport, service, snapSource)
 		Expect(err).ToNot(HaveOccurred())
@@ -1388,7 +1388,7 @@ var _ = Describe("Export controller", func() {
 			return true, service, nil
 		})
 
-		service, err := controller.getOrCreateExportService(testVMExport, NewPVCSource(nil))
+		service, err := controller.getOrCreateExportService(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(service).ToNot(BeNil())
 		Expect(service.Status.Conditions[0].Type).To(Equal("test"))

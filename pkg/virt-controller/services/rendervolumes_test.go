@@ -355,6 +355,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			Expect(vsr.Mounts()).NotTo(ContainElement(expectedMount))
+			Expect(vsr.Mounts()).NotTo(ContainElement(HaveField("SubPath", cbt.BackupNBDSubPath)))
 		})
 
 		It("should mount the vm state volume and CBT subpath when ChangedBlockTracking is initializing in VMI status", func() {
@@ -387,6 +388,15 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
+
+			expectedNBDMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: cbt.PathForBackupNBD(vmi),
+				SubPath:   cbt.BackupNBDSubPath,
+			}
+
+			Expect(vsr.Mounts()).To(ContainElement(expectedNBDMount))
 		})
 	})
 })
