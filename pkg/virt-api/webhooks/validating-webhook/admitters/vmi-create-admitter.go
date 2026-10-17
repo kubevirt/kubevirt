@@ -109,6 +109,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	}
 
 	var causes []metav1.StatusCause
+	causes = append(causes, validateContainerPathVolumesFeatureGate(k8sfield.NewPath("spec"), vmi.Spec.Volumes, nil, admitter.ClusterConfig)...)
 	clusterCfg := admitter.ClusterConfig.GetConfig()
 	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
 		causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
@@ -290,6 +291,29 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
+// Objects already using ContainerPath may update or add ContainerPath volumes after the feature gate is disabled.
+func validateContainerPathVolumesFeatureGate(field *k8sfield.Path, volumes, oldVolumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	if config.ContainerPathVolumesEnabled() {
+		return nil
+	}
+	for _, volume := range oldVolumes {
+		if volume.ContainerPath != nil {
+			return nil
+		}
+	}
+	var causes []metav1.StatusCause
+	for idx, volume := range volumes {
+		if volume.ContainerPath != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "ContainerPathVolumes feature gate is not enabled",
+				Field:   field.Child("volumes").Index(idx).Child("containerPath").String(),
+			})
+		}
+	}
+	return causes
+}
+
 func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Domain.Devices.Filesystems == nil {
 		return causes
@@ -378,9 +402,9 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 				})
 			}
 			// Block reserved paths used by KubeVirt internally
-			reservedPrefixes := []string{"/var/run/kubevirt", "/var/run/libvirt"}
+			reservedPrefixes := []string{"/var/run/kubevirt", "/var/run/libvirt", "/run/kubevirt", "/run/libvirt"}
 			for _, prefix := range reservedPrefixes {
-				if strings.HasPrefix(volume.ContainerPath.Path, prefix) {
+				if strings.HasPrefix(filepath.Clean(volume.ContainerPath.Path), prefix) {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("ContainerPath volume '%s' uses reserved path prefix '%s'", volume.Name, prefix),
