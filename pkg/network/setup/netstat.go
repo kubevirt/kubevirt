@@ -20,9 +20,11 @@
 package network
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -239,9 +241,12 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 	}
 
 	podInterface := &cache.PodIfaceCacheData{}
-	if data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName); err == nil {
-		//FIXME error handling?
+	data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName)
+	switch {
+	case err == nil:
 		podInterface = data
+	case !errors.Is(err, os.ErrNotExist):
+		return nil, fmt.Errorf("failed reading pod interface cache for %s/%s: %w", vmi.UID, ifaceName, err)
 	}
 
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
