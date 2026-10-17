@@ -154,16 +154,25 @@ var _ = Describe("OCI export", func() {
 			dir = GinkgoT().TempDir()
 		})
 
-		It("should collect a directory holding a disk image", func() {
+		It("should collect a directory holding a disk image and name it after the volume of the VM", func() {
 			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
 			disks, err := collectDiskInfo(&export.ServerPaths{
-				Volumes: []export.VolumeInfo{{Path: dir}},
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "fedora-vm-rootdisk", VolumeName: "rootdisk"}},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(disks).To(ConsistOf(oci.DiskInfo{
 				FilePath:   filepath.Join(dir, "disk.img"),
-				VolumeName: filepath.Base(dir),
+				VolumeName: "rootdisk",
 			}))
+		})
+
+		It("should skip a volume without a volume name", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk.img"), []byte("data"), 0o600)).To(Succeed())
+			disks, err := collectDiskInfo(&export.ServerPaths{
+				Volumes: []export.VolumeInfo{{Path: dir, PVCName: "my.disk"}},
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(disks).To(BeEmpty())
 		})
 
 		It("should skip a directory holding no disk image", func() {
@@ -193,7 +202,10 @@ var _ = Describe("OCI export", func() {
 			Expect(os.WriteFile(filepath.Join(state, "vtpm-data"), []byte("state"), 0o600)).To(Succeed())
 
 			disks, err := collectDiskInfo(&export.ServerPaths{
-				Volumes: []export.VolumeInfo{{Path: disk}, {Path: state}},
+				Volumes: []export.VolumeInfo{
+					{Path: disk, VolumeName: "rootdisk"},
+					{Path: state, VolumeName: "persistent-state-for-vm"},
+				},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(disks).To(ConsistOf(oci.DiskInfo{

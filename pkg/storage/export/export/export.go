@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -194,148 +193,6 @@ type exportSource interface {
 	ConfigurePod(pod *corev1.Pod)
 	ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string)
 	UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error)
-}
-
-type sourceVolumes struct {
-	volumes         []sourceVolume
-	inUse           bool
-	isPopulated     bool
-	readyCondition  exportv1.Condition
-	sourceCondition exportv1.Condition
-}
-
-type sourceVolume struct {
-	pvc                 *corev1.PersistentVolumeClaim
-	kubevirtContentType bool
-}
-
-func (sv *sourceVolumes) isSourceAvailable() bool {
-	return !sv.inUse && sv.isPopulated && len(sv.duplicatePVCNames()) == 0
-}
-
-func (sv *sourceVolumes) duplicatePVCNames() []string {
-	seen, duplicates := sets.New[string](), sets.New[string]()
-	for _, volume := range sv.volumes {
-		if volume.pvc == nil {
-			continue
-		}
-		if seen.Has(volume.pvc.Name) {
-			duplicates.Insert(volume.pvc.Name)
-		}
-		seen.Insert(volume.pvc.Name)
-	}
-	return sets.List(duplicates)
-}
-
-func (sv *sourceVolumes) hasContent() bool {
-	return len(sv.volumes) > 0
-}
-
-func (sv *sourceVolumes) ReadyCondition() exportv1.Condition {
-	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
-		return newReadyCondition(corev1.ConditionFalse, duplicatePVCReason,
-			fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
-				strings.Join(duplicates, ", ")))
-	}
-	return sv.readyCondition
-}
-
-func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
-	for i, volume := range sv.volumes {
-		var mountPoint string
-		pvc := volume.pvc
-		volumeName := getExportPodVolumeName(pvc)
-		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
-			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-				Name:       volumeName,
-				DevicePath: mountPoint,
-			})
-		} else {
-			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
-			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-				Name:      volumeName,
-				ReadOnly:  true,
-				MountPath: mountPoint,
-			})
-		}
-		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvc.Name,
-				},
-			},
-		})
-		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint, volume.kubevirtContentType)
-	}
-}
-
-type volumeNamer func(pvcName string) string
-
-func defaultVolumeNamer(pvcName string) string {
-	return pvcName
-}
-
-func (sv *sourceVolumes) populateLink(
-	exportLink *exportv1.VirtualMachineExportLink,
-	paths *ServerPaths,
-	pod *corev1.Pod,
-	hostAndBase, scheme string,
-	namer volumeNamer,
-) {
-	if pod.Status.Phase != corev1.PodRunning {
-		return
-	}
-
-	for _, volume := range sv.volumes {
-		pvc := volume.pvc
-		if pvc == nil {
-			continue
-		}
-
-		volumeInfo := paths.GetVolumeInfo(pvc.Name)
-		if volumeInfo == nil {
-			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
-			continue
-		}
-
-		ev := exportv1.VirtualMachineExportVolume{
-			Name: namer(pvc.Name),
-		}
-
-		if volumeInfo.RawURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawURI),
-			})
-		}
-		if volumeInfo.RawGzURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawGzURI),
-			})
-		}
-		if volumeInfo.DirURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Dir,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.DirURI),
-			})
-		}
-		if volumeInfo.ArchiveURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.ArchiveGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.ArchiveURI),
-			})
-		}
-
-		if len(ev.Formats) == 0 {
-			log.Log.Warningf("No formats found for volume %s", pvc.Name)
-			continue
-		}
-
-		exportLink.Volumes = append(exportLink.Volumes, ev)
-	}
 }
 
 type manifestRenderer interface {
@@ -1022,20 +879,6 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
-func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
-	return getExportPodVolumeNameFromStr(pvc.Name)
-}
-
-// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the volume name used in the Pod.
-func getExportPodVolumeNameFromStr(claimName string) string {
-	pvcName := strings.ReplaceAll(claimName, ".", "-")
-	// Using the formatted PVC name if it's under the max length.
-	if len(pvcName) <= validation.DNS1035LabelMaxLength {
-		return pvcName
-	}
-	return naming.GetName(exportPrefix, pvcName, validation.DNS1035LabelMaxLength)
-}
-
 // getExportLabelValue will return the virtual machine's name if it is under the
 // DNS1035-specified max length, or a normalized name otherwise.
 func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMachineExport) string {
@@ -1461,40 +1304,6 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 	return nil, nil
 }
 
-func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string, isKubevirt bool) {
-	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
-		Value: mountPoint,
-	})
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-			Value: rawURI(pvc),
-		}, corev1.EnvVar{
-			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-			Value: rawGzipURI(pvc),
-		})
-	} else {
-		if isKubevirt {
-			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-				Value: rawURI(pvc),
-			}, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-				Value: rawGzipURI(pvc),
-			})
-		} else {
-			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: archiveURI(pvc),
-			}, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: dirURI(pvc),
-			})
-		}
-	}
-}
-
 func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolumeClaim) bool {
 	// Block volumes are assumed always KubevirtContentType
 	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
@@ -1859,20 +1668,6 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 			},
 		},
 	}, nil
-}
-
-func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVolumeClaim) []sourceVolume {
-	if len(pvcs) == 0 {
-		return nil
-	}
-	volumes := make([]sourceVolume, 0, len(pvcs))
-	for _, pvc := range pvcs {
-		volumes = append(volumes, sourceVolume{
-			pvc:                 pvc,
-			kubevirtContentType: ctrl.isKubevirtContentType(pvc),
-		})
-	}
-	return volumes
 }
 
 func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
