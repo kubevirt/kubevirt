@@ -16,6 +16,16 @@ It has these top-level messages:
 	SidecarContext
 	GuestDefinitionRequest
 	GuestDefinitionResponse
+	PreBootContext
+	PreBootRequest
+	PreBootResponse
+	PreMigrationSourceRequest
+	PreMigrationSourceResponse
+	LibvirtMigrationConfig
+	OptionalString
+	OptionalUint64
+	OptionalInt32
+	LibvirtDomainMigrateParameters
 */
 package v1alpha1
 
@@ -171,6 +181,522 @@ func (m *GuestDefinitionResponse) GetDomain() []byte {
 	return nil
 }
 
+type PreBootContext struct {
+	// Generated artifacts, at their absolute paths inside the launcher. Sidecars
+	// must mount the corresponding volumes at the same paths. Keys: cloudInitISO,
+	// ephemeralDiskDir. Missing artifacts are omitted.
+	ArtifactPaths map[string]string `protobuf:"bytes,1,rep,name=artifact_paths,json=artifactPaths" json:"artifact_paths,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+}
+
+func (m *PreBootContext) Reset()                    { *m = PreBootContext{} }
+func (m *PreBootContext) String() string            { return proto.CompactTextString(m) }
+func (*PreBootContext) ProtoMessage()               {}
+func (*PreBootContext) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
+
+func (m *PreBootContext) GetArtifactPaths() map[string]string {
+	if m != nil {
+		return m.ArtifactPaths
+	}
+	return nil
+}
+
+type PreBootRequest struct {
+	Vmi            []byte          `protobuf:"bytes,1,opt,name=vmi,proto3" json:"vmi,omitempty"`
+	PreBootContext *PreBootContext `protobuf:"bytes,2,opt,name=pre_boot_context,json=preBootContext" json:"pre_boot_context,omitempty"`
+}
+
+func (m *PreBootRequest) Reset()                    { *m = PreBootRequest{} }
+func (m *PreBootRequest) String() string            { return proto.CompactTextString(m) }
+func (*PreBootRequest) ProtoMessage()               {}
+func (*PreBootRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+
+func (m *PreBootRequest) GetVmi() []byte {
+	if m != nil {
+		return m.Vmi
+	}
+	return nil
+}
+
+func (m *PreBootRequest) GetPreBootContext() *PreBootContext {
+	if m != nil {
+		return m.PreBootContext
+	}
+	return nil
+}
+
+type PreBootResponse struct {
+}
+
+func (m *PreBootResponse) Reset()                    { *m = PreBootResponse{} }
+func (m *PreBootResponse) String() string            { return proto.CompactTextString(m) }
+func (*PreBootResponse) ProtoMessage()               {}
+func (*PreBootResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
+
+type PreMigrationSourceRequest struct {
+	Vmi []byte `protobuf:"bytes,1,opt,name=vmi,proto3" json:"vmi,omitempty"`
+	// Types that are valid to be assigned to MigrationConfig:
+	//	*PreMigrationSourceRequest_Libvirt
+	MigrationConfig isPreMigrationSourceRequest_MigrationConfig `protobuf_oneof:"migration_config"`
+}
+
+func (m *PreMigrationSourceRequest) Reset()                    { *m = PreMigrationSourceRequest{} }
+func (m *PreMigrationSourceRequest) String() string            { return proto.CompactTextString(m) }
+func (*PreMigrationSourceRequest) ProtoMessage()               {}
+func (*PreMigrationSourceRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
+
+type isPreMigrationSourceRequest_MigrationConfig interface{ isPreMigrationSourceRequest_MigrationConfig() }
+
+type PreMigrationSourceRequest_Libvirt struct {
+	Libvirt *LibvirtMigrationConfig `protobuf:"bytes,2,opt,name=libvirt,oneof"`
+}
+
+func (*PreMigrationSourceRequest_Libvirt) isPreMigrationSourceRequest_MigrationConfig() {}
+
+func (m *PreMigrationSourceRequest) GetMigrationConfig() isPreMigrationSourceRequest_MigrationConfig {
+	if m != nil {
+		return m.MigrationConfig
+	}
+	return nil
+}
+
+func (m *PreMigrationSourceRequest) GetVmi() []byte {
+	if m != nil {
+		return m.Vmi
+	}
+	return nil
+}
+
+func (m *PreMigrationSourceRequest) GetLibvirt() *LibvirtMigrationConfig {
+	if x, ok := m.GetMigrationConfig().(*PreMigrationSourceRequest_Libvirt); ok {
+		return x.Libvirt
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PreMigrationSourceRequest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _PreMigrationSourceRequest_OneofMarshaler, _PreMigrationSourceRequest_OneofUnmarshaler, _PreMigrationSourceRequest_OneofSizer, []interface{}{
+		(*PreMigrationSourceRequest_Libvirt)(nil),
+	}
+}
+
+func _PreMigrationSourceRequest_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PreMigrationSourceRequest)
+	// migration_config
+	switch x := m.MigrationConfig.(type) {
+	case *PreMigrationSourceRequest_Libvirt:
+		b.EncodeVarint(2<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Libvirt); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PreMigrationSourceRequest.MigrationConfig has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PreMigrationSourceRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PreMigrationSourceRequest)
+	switch tag {
+	case 2: // migration_config.libvirt
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(LibvirtMigrationConfig)
+		err := b.DecodeMessage(msg)
+		m.MigrationConfig = &PreMigrationSourceRequest_Libvirt{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _PreMigrationSourceRequest_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*PreMigrationSourceRequest)
+	// migration_config
+	switch x := m.MigrationConfig.(type) {
+	case *PreMigrationSourceRequest_Libvirt:
+		s := proto.Size(x.Libvirt)
+		n += proto.SizeVarint(2<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type PreMigrationSourceResponse struct {
+	// Types that are valid to be assigned to MigrationConfig:
+	//	*PreMigrationSourceResponse_Libvirt
+	MigrationConfig isPreMigrationSourceResponse_MigrationConfig `protobuf_oneof:"migration_config"`
+}
+
+func (m *PreMigrationSourceResponse) Reset()                    { *m = PreMigrationSourceResponse{} }
+func (m *PreMigrationSourceResponse) String() string            { return proto.CompactTextString(m) }
+func (*PreMigrationSourceResponse) ProtoMessage()               {}
+func (*PreMigrationSourceResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+
+type isPreMigrationSourceResponse_MigrationConfig interface{ isPreMigrationSourceResponse_MigrationConfig() }
+
+type PreMigrationSourceResponse_Libvirt struct {
+	Libvirt *LibvirtMigrationConfig `protobuf:"bytes,1,opt,name=libvirt,oneof"`
+}
+
+func (*PreMigrationSourceResponse_Libvirt) isPreMigrationSourceResponse_MigrationConfig() {}
+
+func (m *PreMigrationSourceResponse) GetMigrationConfig() isPreMigrationSourceResponse_MigrationConfig {
+	if m != nil {
+		return m.MigrationConfig
+	}
+	return nil
+}
+
+func (m *PreMigrationSourceResponse) GetLibvirt() *LibvirtMigrationConfig {
+	if x, ok := m.GetMigrationConfig().(*PreMigrationSourceResponse_Libvirt); ok {
+		return x.Libvirt
+	}
+	return nil
+}
+
+// XXX_OneofFuncs is for the internal use of the proto package.
+func (*PreMigrationSourceResponse) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _PreMigrationSourceResponse_OneofMarshaler, _PreMigrationSourceResponse_OneofUnmarshaler, _PreMigrationSourceResponse_OneofSizer, []interface{}{
+		(*PreMigrationSourceResponse_Libvirt)(nil),
+	}
+}
+
+func _PreMigrationSourceResponse_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*PreMigrationSourceResponse)
+	// migration_config
+	switch x := m.MigrationConfig.(type) {
+	case *PreMigrationSourceResponse_Libvirt:
+		b.EncodeVarint(1<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Libvirt); err != nil {
+			return err
+		}
+	case nil:
+	default:
+		return fmt.Errorf("PreMigrationSourceResponse.MigrationConfig has unexpected type %T", x)
+	}
+	return nil
+}
+
+func _PreMigrationSourceResponse_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*PreMigrationSourceResponse)
+	switch tag {
+	case 1: // migration_config.libvirt
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(LibvirtMigrationConfig)
+		err := b.DecodeMessage(msg)
+		m.MigrationConfig = &PreMigrationSourceResponse_Libvirt{msg}
+		return true, err
+	default:
+		return false, nil
+	}
+}
+
+func _PreMigrationSourceResponse_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*PreMigrationSourceResponse)
+	// migration_config
+	switch x := m.MigrationConfig.(type) {
+	case *PreMigrationSourceResponse_Libvirt:
+		s := proto.Size(x.Libvirt)
+		n += proto.SizeVarint(1<<3 | proto.WireBytes)
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case nil:
+	default:
+		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
+	}
+	return n
+}
+
+type LibvirtMigrationConfig struct {
+	Flags  uint64                          `protobuf:"varint,1,opt,name=flags" json:"flags,omitempty"`
+	Params *LibvirtDomainMigrateParameters `protobuf:"bytes,2,opt,name=params" json:"params,omitempty"`
+}
+
+func (m *LibvirtMigrationConfig) Reset()                    { *m = LibvirtMigrationConfig{} }
+func (m *LibvirtMigrationConfig) String() string            { return proto.CompactTextString(m) }
+func (*LibvirtMigrationConfig) ProtoMessage()               {}
+func (*LibvirtMigrationConfig) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+
+func (m *LibvirtMigrationConfig) GetFlags() uint64 {
+	if m != nil {
+		return m.Flags
+	}
+	return 0
+}
+
+func (m *LibvirtMigrationConfig) GetParams() *LibvirtDomainMigrateParameters {
+	if m != nil {
+		return m.Params
+	}
+	return nil
+}
+
+// The Optional* wrappers give proto3 scalar fields explicit presence, matching
+// libvirt's XxxSet convention. The legacy protoc-gen-go pinned by this repo
+// cannot express that with the proto3 `optional` keyword.
+type OptionalString struct {
+	Value string `protobuf:"bytes,1,opt,name=value" json:"value,omitempty"`
+}
+
+func (m *OptionalString) Reset()                    { *m = OptionalString{} }
+func (m *OptionalString) String() string            { return proto.CompactTextString(m) }
+func (*OptionalString) ProtoMessage()               {}
+func (*OptionalString) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{12} }
+
+func (m *OptionalString) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+type OptionalUint64 struct {
+	Value uint64 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+}
+
+func (m *OptionalUint64) Reset()                    { *m = OptionalUint64{} }
+func (m *OptionalUint64) String() string            { return proto.CompactTextString(m) }
+func (*OptionalUint64) ProtoMessage()               {}
+func (*OptionalUint64) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{13} }
+
+func (m *OptionalUint64) GetValue() uint64 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type OptionalInt32 struct {
+	Value int32 `protobuf:"varint,1,opt,name=value" json:"value,omitempty"`
+}
+
+func (m *OptionalInt32) Reset()                    { *m = OptionalInt32{} }
+func (m *OptionalInt32) String() string            { return proto.CompactTextString(m) }
+func (*OptionalInt32) ProtoMessage()               {}
+func (*OptionalInt32) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
+
+func (m *OptionalInt32) GetValue() int32 {
+	if m != nil {
+		return m.Value
+	}
+	return 0
+}
+
+type LibvirtDomainMigrateParameters struct {
+	// Field names mirror libvirt's documented VIR_MIGRATE_PARAM_* names. A set
+	// wrapper means the parameter is present, an unset one that it is omitted.
+	// Repeated fields cannot express "set but empty": an empty list is
+	// indistinguishable from an unset one.
+	Uri                          *OptionalString `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	DestName                     *OptionalString `protobuf:"bytes,2,opt,name=dest_name,json=destName" json:"dest_name,omitempty"`
+	DestXml                      *OptionalString `protobuf:"bytes,3,opt,name=dest_xml,json=destXml" json:"dest_xml,omitempty"`
+	PersistXml                   *OptionalString `protobuf:"bytes,4,opt,name=persist_xml,json=persistXml" json:"persist_xml,omitempty"`
+	Bandwidth                    *OptionalUint64 `protobuf:"bytes,5,opt,name=bandwidth" json:"bandwidth,omitempty"`
+	ParallelConnections          *OptionalInt32  `protobuf:"bytes,6,opt,name=parallel_connections,json=parallelConnections" json:"parallel_connections,omitempty"`
+	MigrateDisks                 []string        `protobuf:"bytes,7,rep,name=migrate_disks,json=migrateDisks" json:"migrate_disks,omitempty"`
+	MigrateDisksDetectZeroesList []string        `protobuf:"bytes,8,rep,name=migrate_disks_detect_zeroes_list,json=migrateDisksDetectZeroesList" json:"migrate_disks_detect_zeroes_list,omitempty"`
+	DisksUri                     *OptionalString `protobuf:"bytes,9,opt,name=disks_uri,json=disksUri" json:"disks_uri,omitempty"`
+	Compression                  *OptionalString `protobuf:"bytes,10,opt,name=compression" json:"compression,omitempty"`
+	GraphicsUri                  *OptionalString `protobuf:"bytes,11,opt,name=graphics_uri,json=graphicsUri" json:"graphics_uri,omitempty"`
+	ListenAddress                *OptionalString `protobuf:"bytes,12,opt,name=listen_address,json=listenAddress" json:"listen_address,omitempty"`
+	DisksPort                    *OptionalInt32  `protobuf:"bytes,13,opt,name=disks_port,json=disksPort" json:"disks_port,omitempty"`
+	CompressionMtLevel           *OptionalInt32  `protobuf:"bytes,14,opt,name=compression_mt_level,json=compressionMtLevel" json:"compression_mt_level,omitempty"`
+	CompressionMtThreads         *OptionalInt32  `protobuf:"bytes,15,opt,name=compression_mt_threads,json=compressionMtThreads" json:"compression_mt_threads,omitempty"`
+	CompressionMtDthreads        *OptionalInt32  `protobuf:"bytes,16,opt,name=compression_mt_dthreads,json=compressionMtDthreads" json:"compression_mt_dthreads,omitempty"`
+	CompressionXbzrleCache       *OptionalUint64 `protobuf:"bytes,17,opt,name=compression_xbzrle_cache,json=compressionXbzrleCache" json:"compression_xbzrle_cache,omitempty"`
+	AutoConvergeInitial          *OptionalInt32  `protobuf:"bytes,18,opt,name=auto_converge_initial,json=autoConvergeInitial" json:"auto_converge_initial,omitempty"`
+	AutoConvergeIncrement        *OptionalInt32  `protobuf:"bytes,19,opt,name=auto_converge_increment,json=autoConvergeIncrement" json:"auto_converge_increment,omitempty"`
+	TlsDestination               *OptionalString `protobuf:"bytes,20,opt,name=tls_destination,json=tlsDestination" json:"tls_destination,omitempty"`
+	CompressionZlibLevel         *OptionalInt32  `protobuf:"bytes,21,opt,name=compression_zlib_level,json=compressionZlibLevel" json:"compression_zlib_level,omitempty"`
+	CompressionZstdLevel         *OptionalInt32  `protobuf:"bytes,22,opt,name=compression_zstd_level,json=compressionZstdLevel" json:"compression_zstd_level,omitempty"`
+	BandwidthAvailSwitchover     *OptionalUint64 `protobuf:"bytes,23,opt,name=bandwidth_avail_switchover,json=bandwidthAvailSwitchover" json:"bandwidth_avail_switchover,omitempty"`
+	MigrateDisksTargetZero       []string        `protobuf:"bytes,24,rep,name=migrate_disks_target_zero,json=migrateDisksTargetZero" json:"migrate_disks_target_zero,omitempty"`
+}
+
+func (m *LibvirtDomainMigrateParameters) Reset()         { *m = LibvirtDomainMigrateParameters{} }
+func (m *LibvirtDomainMigrateParameters) String() string { return proto.CompactTextString(m) }
+func (*LibvirtDomainMigrateParameters) ProtoMessage()    {}
+func (*LibvirtDomainMigrateParameters) Descriptor() ([]byte, []int) {
+	return fileDescriptor0, []int{15}
+}
+
+func (m *LibvirtDomainMigrateParameters) GetUri() *OptionalString {
+	if m != nil {
+		return m.Uri
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetDestName() *OptionalString {
+	if m != nil {
+		return m.DestName
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetDestXml() *OptionalString {
+	if m != nil {
+		return m.DestXml
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetPersistXml() *OptionalString {
+	if m != nil {
+		return m.PersistXml
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetBandwidth() *OptionalUint64 {
+	if m != nil {
+		return m.Bandwidth
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetParallelConnections() *OptionalInt32 {
+	if m != nil {
+		return m.ParallelConnections
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetMigrateDisks() []string {
+	if m != nil {
+		return m.MigrateDisks
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetMigrateDisksDetectZeroesList() []string {
+	if m != nil {
+		return m.MigrateDisksDetectZeroesList
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetDisksUri() *OptionalString {
+	if m != nil {
+		return m.DisksUri
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompression() *OptionalString {
+	if m != nil {
+		return m.Compression
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetGraphicsUri() *OptionalString {
+	if m != nil {
+		return m.GraphicsUri
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetListenAddress() *OptionalString {
+	if m != nil {
+		return m.ListenAddress
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetDisksPort() *OptionalInt32 {
+	if m != nil {
+		return m.DisksPort
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionMtLevel() *OptionalInt32 {
+	if m != nil {
+		return m.CompressionMtLevel
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionMtThreads() *OptionalInt32 {
+	if m != nil {
+		return m.CompressionMtThreads
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionMtDthreads() *OptionalInt32 {
+	if m != nil {
+		return m.CompressionMtDthreads
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionXbzrleCache() *OptionalUint64 {
+	if m != nil {
+		return m.CompressionXbzrleCache
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetAutoConvergeInitial() *OptionalInt32 {
+	if m != nil {
+		return m.AutoConvergeInitial
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetAutoConvergeIncrement() *OptionalInt32 {
+	if m != nil {
+		return m.AutoConvergeIncrement
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetTlsDestination() *OptionalString {
+	if m != nil {
+		return m.TlsDestination
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionZlibLevel() *OptionalInt32 {
+	if m != nil {
+		return m.CompressionZlibLevel
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetCompressionZstdLevel() *OptionalInt32 {
+	if m != nil {
+		return m.CompressionZstdLevel
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetBandwidthAvailSwitchover() *OptionalUint64 {
+	if m != nil {
+		return m.BandwidthAvailSwitchover
+	}
+	return nil
+}
+
+func (m *LibvirtDomainMigrateParameters) GetMigrateDisksTargetZero() []string {
+	if m != nil {
+		return m.MigrateDisksTargetZero
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*NodeContext)(nil), "kubevirt.hooks.plugins.v1alpha1.NodeContext")
 	proto.RegisterType((*ExecuteNodeHookRequest)(nil), "kubevirt.hooks.plugins.v1alpha1.ExecuteNodeHookRequest")
@@ -178,6 +704,16 @@ func init() {
 	proto.RegisterType((*SidecarContext)(nil), "kubevirt.hooks.plugins.v1alpha1.SidecarContext")
 	proto.RegisterType((*GuestDefinitionRequest)(nil), "kubevirt.hooks.plugins.v1alpha1.GuestDefinitionRequest")
 	proto.RegisterType((*GuestDefinitionResponse)(nil), "kubevirt.hooks.plugins.v1alpha1.GuestDefinitionResponse")
+	proto.RegisterType((*PreBootContext)(nil), "kubevirt.hooks.plugins.v1alpha1.PreBootContext")
+	proto.RegisterType((*PreBootRequest)(nil), "kubevirt.hooks.plugins.v1alpha1.PreBootRequest")
+	proto.RegisterType((*PreBootResponse)(nil), "kubevirt.hooks.plugins.v1alpha1.PreBootResponse")
+	proto.RegisterType((*PreMigrationSourceRequest)(nil), "kubevirt.hooks.plugins.v1alpha1.PreMigrationSourceRequest")
+	proto.RegisterType((*PreMigrationSourceResponse)(nil), "kubevirt.hooks.plugins.v1alpha1.PreMigrationSourceResponse")
+	proto.RegisterType((*LibvirtMigrationConfig)(nil), "kubevirt.hooks.plugins.v1alpha1.LibvirtMigrationConfig")
+	proto.RegisterType((*OptionalString)(nil), "kubevirt.hooks.plugins.v1alpha1.OptionalString")
+	proto.RegisterType((*OptionalUint64)(nil), "kubevirt.hooks.plugins.v1alpha1.OptionalUint64")
+	proto.RegisterType((*OptionalInt32)(nil), "kubevirt.hooks.plugins.v1alpha1.OptionalInt32")
+	proto.RegisterType((*LibvirtDomainMigrateParameters)(nil), "kubevirt.hooks.plugins.v1alpha1.LibvirtDomainMigrateParameters")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -256,6 +792,21 @@ var _NodeHookService_serviceDesc = grpc.ServiceDesc{
 
 type LauncherHookServiceClient interface {
 	GuestDefinition(ctx context.Context, in *GuestDefinitionRequest, opts ...grpc.CallOption) (*GuestDefinitionResponse, error)
+	// PreBoot runs after the boot artifacts were generated and before the guest
+	// starts. It may be retried after a failed start, so implementations must be
+	// idempotent; filesystem changes are never rolled back. Volumes hotplugged
+	// while the VM runs never pass through PreBoot. A hook whose failure
+	// strategy is Ignore is not stopped when it exceeds its execution timeout:
+	// the launcher proceeds while the hook may still be working, so hooks with
+	// filesystem side effects should use the Fail strategy, write transactionally
+	// (temp file plus atomic rename), honor the context, and remain idempotent.
+	PreBoot(ctx context.Context, in *PreBootRequest, opts ...grpc.CallOption) (*PreBootResponse, error)
+	// PreMigrationSource runs on the migration source just before libvirt is
+	// asked to migrate. The response replaces the migration configuration, and
+	// the hook has full control over the exposed parameters, including the
+	// migration URIs and the destination domain XML. The time the hook takes
+	// counts towards the migration timeouts.
+	PreMigrationSource(ctx context.Context, in *PreMigrationSourceRequest, opts ...grpc.CallOption) (*PreMigrationSourceResponse, error)
 }
 
 type launcherHookServiceClient struct {
@@ -275,10 +826,43 @@ func (c *launcherHookServiceClient) GuestDefinition(ctx context.Context, in *Gue
 	return out, nil
 }
 
+func (c *launcherHookServiceClient) PreBoot(ctx context.Context, in *PreBootRequest, opts ...grpc.CallOption) (*PreBootResponse, error) {
+	out := new(PreBootResponse)
+	err := grpc.Invoke(ctx, "/kubevirt.hooks.plugins.v1alpha1.LauncherHookService/PreBoot", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *launcherHookServiceClient) PreMigrationSource(ctx context.Context, in *PreMigrationSourceRequest, opts ...grpc.CallOption) (*PreMigrationSourceResponse, error) {
+	out := new(PreMigrationSourceResponse)
+	err := grpc.Invoke(ctx, "/kubevirt.hooks.plugins.v1alpha1.LauncherHookService/PreMigrationSource", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for LauncherHookService service
 
 type LauncherHookServiceServer interface {
 	GuestDefinition(context.Context, *GuestDefinitionRequest) (*GuestDefinitionResponse, error)
+	// PreBoot runs after the boot artifacts were generated and before the guest
+	// starts. It may be retried after a failed start, so implementations must be
+	// idempotent; filesystem changes are never rolled back. Volumes hotplugged
+	// while the VM runs never pass through PreBoot. A hook whose failure
+	// strategy is Ignore is not stopped when it exceeds its execution timeout:
+	// the launcher proceeds while the hook may still be working, so hooks with
+	// filesystem side effects should use the Fail strategy, write transactionally
+	// (temp file plus atomic rename), honor the context, and remain idempotent.
+	PreBoot(context.Context, *PreBootRequest) (*PreBootResponse, error)
+	// PreMigrationSource runs on the migration source just before libvirt is
+	// asked to migrate. The response replaces the migration configuration, and
+	// the hook has full control over the exposed parameters, including the
+	// migration URIs and the destination domain XML. The time the hook takes
+	// counts towards the migration timeouts.
+	PreMigrationSource(context.Context, *PreMigrationSourceRequest) (*PreMigrationSourceResponse, error)
 }
 
 func RegisterLauncherHookServiceServer(s *grpc.Server, srv LauncherHookServiceServer) {
@@ -303,6 +887,42 @@ func _LauncherHookService_GuestDefinition_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LauncherHookService_PreBoot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreBootRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LauncherHookServiceServer).PreBoot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/kubevirt.hooks.plugins.v1alpha1.LauncherHookService/PreBoot",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LauncherHookServiceServer).PreBoot(ctx, req.(*PreBootRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LauncherHookService_PreMigrationSource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreMigrationSourceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LauncherHookServiceServer).PreMigrationSource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/kubevirt.hooks.plugins.v1alpha1.LauncherHookService/PreMigrationSource",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LauncherHookServiceServer).PreMigrationSource(ctx, req.(*PreMigrationSourceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _LauncherHookService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "kubevirt.hooks.plugins.v1alpha1.LauncherHookService",
 	HandlerType: (*LauncherHookServiceServer)(nil),
@@ -310,6 +930,14 @@ var _LauncherHookService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GuestDefinition",
 			Handler:    _LauncherHookService_GuestDefinition_Handler,
+		},
+		{
+			MethodName: "PreBoot",
+			Handler:    _LauncherHookService_PreBoot_Handler,
+		},
+		{
+			MethodName: "PreMigrationSource",
+			Handler:    _LauncherHookService_PreMigrationSource_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -319,30 +947,82 @@ var _LauncherHookService_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("api.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 396 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xdd, 0x8a, 0xda, 0x40,
-	0x14, 0xc7, 0x19, 0x23, 0x62, 0x4e, 0x44, 0xed, 0x14, 0xd4, 0x7e, 0x80, 0x92, 0x2b, 0x29, 0x6d,
-	0x8a, 0xf6, 0xa2, 0xbd, 0x6f, 0xa5, 0xa5, 0x14, 0x5b, 0x62, 0x2f, 0x7a, 0x27, 0x63, 0x72, 0xba,
-	0x0e, 0x9a, 0x99, 0x6c, 0x32, 0x09, 0x7a, 0xbf, 0x0f, 0xb1, 0x0b, 0xfb, 0x2a, 0xfb, 0x6e, 0x4b,
-	0x4c, 0x62, 0xfc, 0x5a, 0x74, 0xef, 0x72, 0x4e, 0xe6, 0x70, 0x7e, 0xff, 0x5f, 0x32, 0xa0, 0x33,
-	0x9f, 0x5b, 0x7e, 0x20, 0x95, 0xa4, 0xdd, 0x45, 0x34, 0xc3, 0x98, 0x07, 0xca, 0x9a, 0x4b, 0xb9,
-	0x08, 0x2d, 0x7f, 0x19, 0x5d, 0x71, 0x11, 0x5a, 0xf1, 0x80, 0x2d, 0xfd, 0x39, 0x1b, 0x98, 0xef,
-	0xc0, 0x18, 0x4b, 0x17, 0xbf, 0x4a, 0xa1, 0x70, 0xa5, 0xe8, 0x1b, 0xd0, 0x85, 0x74, 0x71, 0x2a,
-	0x98, 0x87, 0x1d, 0xd2, 0x23, 0x7d, 0xdd, 0xae, 0x26, 0x8d, 0x31, 0xf3, 0xd0, 0xbc, 0x23, 0xd0,
-	0x1a, 0xad, 0xd0, 0x89, 0x14, 0x26, 0x33, 0x3f, 0xa4, 0x5c, 0xd8, 0x78, 0x1d, 0x61, 0xa8, 0xe8,
-	0x5b, 0xd0, 0x93, 0x05, 0x7f, 0x24, 0x17, 0x2a, 0x9b, 0x2b, 0x1a, 0xb4, 0x09, 0x5a, 0xec, 0xf1,
-	0x4e, 0xa9, 0x47, 0xfa, 0x35, 0x3b, 0x79, 0xa4, 0xbf, 0xa1, 0xb6, 0xd9, 0xe3, 0xa4, 0x7b, 0x3b,
-	0x5a, 0x8f, 0xf4, 0x8d, 0xe1, 0x7b, 0xeb, 0x0c, 0xae, 0xb5, 0xc3, 0x6a, 0x1b, 0xa2, 0x28, 0xcc,
-	0x57, 0xd0, 0x3e, 0x42, 0x0b, 0x7d, 0x29, 0x42, 0x34, 0x47, 0x50, 0x9f, 0x70, 0x17, 0x1d, 0x16,
-	0xe4, 0x29, 0x3f, 0x00, 0xe5, 0x22, 0x96, 0x0e, 0x53, 0x5c, 0x8a, 0x2d, 0x43, 0x8a, 0xfd, 0xa2,
-	0x78, 0x93, 0x1d, 0xff, 0x59, 0xae, 0x96, 0x9a, 0x9a, 0xf9, 0x40, 0xa0, 0xf5, 0x3d, 0x09, 0xfb,
-	0x0d, 0xff, 0x73, 0xc1, 0x93, 0x03, 0x79, 0xfa, 0x2e, 0x18, 0xae, 0xf4, 0x18, 0x17, 0x53, 0xb5,
-	0xf6, 0x73, 0x6f, 0x90, 0xb6, 0xfe, 0xae, 0x7d, 0xa4, 0x2d, 0xa8, 0xa4, 0x55, 0xe6, 0x20, 0xab,
-	0x72, 0x31, 0x5a, 0x21, 0xe6, 0x1f, 0x34, 0xc2, 0x14, 0x76, 0xcb, 0x55, 0xde, 0xb8, 0xf9, 0x78,
-	0xd6, 0xcd, 0x7e, 0x48, 0xbb, 0x1e, 0xee, 0xd5, 0xe6, 0x00, 0xda, 0x47, 0xf8, 0xa9, 0xa1, 0x1d,
-	0x3c, 0xb2, 0x8b, 0x37, 0xbc, 0x25, 0xd0, 0xc8, 0x75, 0x4e, 0x30, 0x88, 0xb9, 0x83, 0xf4, 0x86,
-	0x40, 0xe3, 0xc0, 0x34, 0xfd, 0x7c, 0x96, 0xed, 0xf4, 0x6f, 0xf3, 0xfa, 0xcb, 0xf3, 0x07, 0x53,
-	0xe4, 0xe1, 0x3d, 0x81, 0x97, 0xbf, 0x58, 0x24, 0x9c, 0x39, 0x06, 0x87, 0x78, 0x07, 0x31, 0x2f,
-	0xc0, 0x3b, 0xfd, 0x5d, 0x2f, 0xc0, 0x7b, 0xc2, 0xe8, 0xac, 0xb2, 0xb9, 0x7e, 0x9f, 0x1e, 0x03,
-	0x00, 0x00, 0xff, 0xff, 0x23, 0xa4, 0xa5, 0x4f, 0x8b, 0x03, 0x00, 0x00,
+	// 1225 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x98, 0x41, 0x73, 0x1b, 0x35,
+	0x14, 0xc7, 0xd9, 0x38, 0x4d, 0xe2, 0xe7, 0xc4, 0x49, 0xd5, 0xd4, 0xd9, 0x86, 0x0e, 0xcd, 0x98,
+	0x81, 0xc9, 0x30, 0x60, 0x68, 0xca, 0x40, 0x29, 0x07, 0x48, 0x93, 0x42, 0xdb, 0x49, 0x5a, 0xb3,
+	0x69, 0xa1, 0xf4, 0xb2, 0xc8, 0xbb, 0x2f, 0xb6, 0x26, 0xeb, 0xd5, 0x22, 0xc9, 0x6e, 0x92, 0x19,
+	0x6e, 0x30, 0x9c, 0xb8, 0x32, 0xc0, 0x77, 0xe1, 0xc0, 0x37, 0x63, 0xb4, 0xd2, 0xda, 0xbb, 0x4e,
+	0x4a, 0xdc, 0xed, 0x70, 0xb3, 0xb4, 0x4f, 0xbf, 0xff, 0x5f, 0x4f, 0x6f, 0xb5, 0x92, 0xa1, 0x4a,
+	0x13, 0xd6, 0x4a, 0x04, 0x57, 0x9c, 0xdc, 0x38, 0x1a, 0x74, 0x70, 0xc8, 0x84, 0x6a, 0xf5, 0x38,
+	0x3f, 0x92, 0xad, 0x24, 0x1a, 0x74, 0x59, 0x2c, 0x5b, 0xc3, 0x9b, 0x34, 0x4a, 0x7a, 0xf4, 0x66,
+	0xf3, 0x3d, 0xa8, 0x3d, 0xe2, 0x21, 0xee, 0xf0, 0x58, 0xe1, 0xb1, 0x22, 0x6f, 0x42, 0x35, 0xe6,
+	0x21, 0xfa, 0x31, 0xed, 0xa3, 0xeb, 0x6c, 0x38, 0x9b, 0x55, 0x6f, 0x41, 0x77, 0x3c, 0xa2, 0x7d,
+	0x6c, 0xfe, 0xe9, 0x40, 0xe3, 0xde, 0x31, 0x06, 0x03, 0x85, 0x7a, 0xcc, 0x7d, 0xce, 0x8f, 0x3c,
+	0xfc, 0x71, 0x80, 0x52, 0x91, 0xeb, 0x50, 0xd5, 0x02, 0x6d, 0xce, 0x62, 0x65, 0xc7, 0x8d, 0x3b,
+	0xc8, 0x0a, 0x54, 0x86, 0x7d, 0xe6, 0xce, 0x6c, 0x38, 0x9b, 0x8b, 0x9e, 0xfe, 0x49, 0x1e, 0xc3,
+	0x62, 0xaa, 0x13, 0x18, 0x5d, 0xb7, 0xb2, 0xe1, 0x6c, 0xd6, 0xb6, 0xde, 0x6f, 0x5d, 0x60, 0xb7,
+	0x95, 0xf3, 0xea, 0xd5, 0xe2, 0x71, 0xa3, 0x79, 0x0d, 0xd6, 0xce, 0x58, 0x93, 0x09, 0x8f, 0x25,
+	0x36, 0xef, 0x41, 0xfd, 0x80, 0x85, 0x18, 0x50, 0x91, 0xcd, 0xf2, 0x03, 0x20, 0x2c, 0x1e, 0xf2,
+	0x80, 0x2a, 0xc6, 0xe3, 0x91, 0x07, 0x63, 0xfb, 0xf2, 0xf8, 0x89, 0x0d, 0x7f, 0x38, 0xbb, 0x30,
+	0xb3, 0x52, 0x69, 0xfe, 0xed, 0x40, 0xe3, 0x6b, 0x3d, 0xd9, 0x5d, 0x3c, 0x64, 0x31, 0xd3, 0x01,
+	0xd9, 0xec, 0x6f, 0x40, 0x2d, 0xe4, 0x7d, 0xca, 0x62, 0x5f, 0x9d, 0x24, 0x59, 0xde, 0xc0, 0x74,
+	0x3d, 0x39, 0x49, 0x90, 0x34, 0x60, 0xce, 0xb4, 0x6c, 0x0e, 0x6c, 0x2b, 0x4b, 0x4c, 0x65, 0x9c,
+	0x98, 0x67, 0xb0, 0x2c, 0x8d, 0xd9, 0x91, 0xaf, 0xd9, 0x34, 0x37, 0x1f, 0x5e, 0x98, 0x9b, 0xe2,
+	0x24, 0xbd, 0xba, 0x2c, 0xb4, 0x9b, 0x37, 0x61, 0xed, 0x8c, 0x7d, 0x93, 0xa1, 0x9c, 0x3d, 0x27,
+	0x6f, 0x4f, 0x4f, 0xb9, 0xde, 0x16, 0x78, 0x97, 0x73, 0x95, 0xa5, 0x8e, 0x41, 0x9d, 0x0a, 0xc5,
+	0x0e, 0x69, 0xa0, 0xfc, 0x84, 0xaa, 0x9e, 0x74, 0x9d, 0x8d, 0xca, 0x66, 0x6d, 0xeb, 0xee, 0x85,
+	0xf6, 0x8a, 0xa0, 0xd6, 0xb6, 0xa5, 0xb4, 0x35, 0xe4, 0x5e, 0xac, 0xc4, 0x89, 0xb7, 0x44, 0xf3,
+	0x7d, 0xeb, 0x5f, 0x02, 0x39, 0x1b, 0xa4, 0x53, 0x76, 0x84, 0x27, 0x36, 0xc7, 0xfa, 0x27, 0x59,
+	0x85, 0x4b, 0x43, 0x1a, 0x0d, 0x30, 0xcd, 0x6d, 0xd5, 0x33, 0x8d, 0x3b, 0x33, 0xb7, 0x9d, 0xe6,
+	0x4f, 0x23, 0xfb, 0xd9, 0x4a, 0xd9, 0x84, 0x3b, 0xe3, 0x84, 0x7f, 0x0f, 0x2b, 0x89, 0x40, 0xbf,
+	0xc3, 0xb9, 0x1a, 0x65, 0x7c, 0x66, 0xca, 0x8c, 0x17, 0xa7, 0xe4, 0xd5, 0x93, 0x42, 0xbb, 0x79,
+	0x19, 0x96, 0x47, 0xf2, 0xb6, 0x16, 0x7f, 0x77, 0xe0, 0x5a, 0x5b, 0xe0, 0x3e, 0xeb, 0x8a, 0xb4,
+	0xc4, 0x0e, 0xf8, 0x40, 0x04, 0xf8, 0x72, 0x77, 0x07, 0x30, 0x1f, 0xb1, 0x8e, 0xf6, 0x60, 0x4d,
+	0x7d, 0x7a, 0xa1, 0xa9, 0x3d, 0x13, 0x3f, 0x92, 0xd8, 0xe1, 0xf1, 0x21, 0xeb, 0xde, 0x7f, 0xc3,
+	0xcb, 0x48, 0x77, 0x09, 0xac, 0xf4, 0xb3, 0xa7, 0x7a, 0xce, 0x87, 0xac, 0xdb, 0xfc, 0xc5, 0x81,
+	0xf5, 0xf3, 0x8c, 0xd9, 0x0a, 0xc9, 0xf9, 0x70, 0xfe, 0x57, 0x1f, 0xbf, 0x3a, 0xd0, 0x38, 0x7f,
+	0xa4, 0x5e, 0xe7, 0xc3, 0x88, 0x76, 0x65, 0xea, 0x60, 0xd6, 0x33, 0x0d, 0xf2, 0x1d, 0xcc, 0x25,
+	0x54, 0xd0, 0xbe, 0xb4, 0x09, 0xfa, 0x62, 0x5a, 0x63, 0xbb, 0x69, 0x8d, 0x1b, 0x11, 0x6c, 0x6b,
+	0x04, 0x2a, 0x14, 0xd2, 0xb3, 0xb8, 0xe6, 0xbb, 0x50, 0x7f, 0x9c, 0x68, 0x79, 0x1a, 0x1d, 0x28,
+	0xc1, 0xe2, 0xee, 0xb8, 0xd0, 0x9c, 0x5c, 0xa1, 0xe5, 0xe3, 0x9e, 0xb2, 0x58, 0x7d, 0xf2, 0x71,
+	0x31, 0x6e, 0x36, 0x8b, 0x7b, 0x07, 0x96, 0xb2, 0xb8, 0x07, 0xb1, 0xba, 0xb5, 0x55, 0x0c, 0xbb,
+	0x94, 0x85, 0xfd, 0xb3, 0x02, 0x6f, 0xfd, 0xb7, 0x43, 0xb2, 0x0d, 0x95, 0x81, 0x60, 0x76, 0x21,
+	0x2e, 0xae, 0xd2, 0xe2, 0x2c, 0x3c, 0x3d, 0x96, 0xec, 0x41, 0x35, 0x44, 0xa9, 0xcc, 0x3e, 0x3f,
+	0x53, 0x0e, 0xb4, 0xa0, 0x09, 0xfa, 0xc3, 0x40, 0x1e, 0x42, 0xfa, 0xdb, 0x3f, 0xee, 0x47, 0x76,
+	0x27, 0x7f, 0x65, 0xd8, 0xbc, 0x06, 0x3c, 0xeb, 0x47, 0xa4, 0x0d, 0xb5, 0x04, 0x85, 0x64, 0x16,
+	0x37, 0x5b, 0x0e, 0x07, 0x96, 0xa1, 0x89, 0xfb, 0x50, 0xed, 0xd0, 0x38, 0x7c, 0xc1, 0x42, 0xd5,
+	0x73, 0x2f, 0xbd, 0x22, 0xcf, 0x2c, 0xa9, 0x37, 0x26, 0x10, 0x0a, 0xab, 0xba, 0x42, 0xa2, 0x08,
+	0x23, 0x5d, 0xb4, 0x31, 0x06, 0x3a, 0x52, 0xba, 0x73, 0x29, 0xb9, 0x35, 0x35, 0x39, 0x2d, 0x02,
+	0xef, 0x4a, 0xc6, 0xda, 0x19, 0xa3, 0xc8, 0xdb, 0xb0, 0x64, 0x5e, 0x0c, 0xf4, 0x43, 0x26, 0x8f,
+	0xa4, 0x3b, 0xbf, 0x51, 0xd9, 0xac, 0x7a, 0x8b, 0xb6, 0x73, 0x57, 0xf7, 0x91, 0xaf, 0x60, 0xa3,
+	0x10, 0xe4, 0x87, 0xa8, 0x30, 0x50, 0xfe, 0x29, 0x0a, 0x8e, 0xd2, 0x8f, 0x98, 0x54, 0xee, 0x42,
+	0x3a, 0xee, 0x7a, 0x7e, 0xdc, 0x6e, 0x1a, 0xf5, 0x3c, 0x0d, 0xda, 0x63, 0x52, 0xa5, 0xa5, 0x90,
+	0x8e, 0xd7, 0x35, 0x55, 0x2d, 0x5b, 0x0a, 0x9a, 0xf0, 0x54, 0x30, 0xf2, 0x0d, 0xd4, 0x02, 0xde,
+	0x4f, 0x04, 0x4a, 0xc9, 0x78, 0xec, 0x42, 0x39, 0x5e, 0x9e, 0x41, 0x3c, 0x58, 0xec, 0x0a, 0x9a,
+	0xf4, 0x58, 0x60, 0x3c, 0xd6, 0x4a, 0x32, 0x33, 0x88, 0xb6, 0xf9, 0x2d, 0xd4, 0x75, 0x82, 0x30,
+	0xf6, 0x69, 0x18, 0x6a, 0x21, 0x77, 0xb1, 0x1c, 0x75, 0xc9, 0x60, 0xb6, 0x0d, 0x85, 0xec, 0x03,
+	0x98, 0x64, 0x26, 0x5c, 0x28, 0x77, 0xa9, 0x54, 0x49, 0x98, 0xe5, 0x68, 0x73, 0xa1, 0xc8, 0x0f,
+	0xb0, 0x9a, 0xcb, 0x84, 0xdf, 0x57, 0x7e, 0x84, 0x43, 0x8c, 0xdc, 0x7a, 0x29, 0x30, 0xc9, 0xb1,
+	0xf6, 0xd5, 0x9e, 0x26, 0x91, 0x10, 0x1a, 0x13, 0x0a, 0xaa, 0x27, 0x90, 0x86, 0xd2, 0x5d, 0x2e,
+	0xa5, 0xb1, 0x5a, 0xd0, 0x78, 0x62, 0x58, 0xe4, 0x10, 0xd6, 0x26, 0x54, 0xc2, 0x4c, 0x66, 0xa5,
+	0x94, 0xcc, 0xd5, 0x82, 0xcc, 0xae, 0x85, 0x11, 0x06, 0x6e, 0x5e, 0xe7, 0xb8, 0x73, 0x2a, 0x22,
+	0xf4, 0x03, 0x1a, 0xf4, 0xd0, 0xbd, 0x5c, 0xee, 0xcd, 0xcf, 0xa7, 0xe7, 0x59, 0xca, 0xdb, 0xd1,
+	0x38, 0xd2, 0x81, 0xab, 0x74, 0xa0, 0xb8, 0xde, 0x02, 0x86, 0x28, 0xba, 0xe8, 0xa7, 0x87, 0x2a,
+	0x1a, 0xb9, 0xa4, 0xdc, 0x3e, 0xa0, 0x61, 0x3b, 0x96, 0xf5, 0xc0, 0xa0, 0x74, 0xda, 0x26, 0x35,
+	0x02, 0x81, 0x7d, 0x8c, 0x95, 0x7b, 0xa5, 0x5c, 0xda, 0x8a, 0x2a, 0x16, 0xa6, 0x0f, 0x9d, 0x2a,
+	0xd2, 0x1b, 0x88, 0x54, 0x2c, 0x4e, 0x3f, 0xb9, 0xee, 0x6a, 0xb9, 0xd7, 0xa1, 0xae, 0x22, 0xb9,
+	0x3b, 0xc6, 0x4c, 0x96, 0xd7, 0x69, 0xc4, 0x3a, 0xb6, 0x84, 0xaf, 0xbe, 0x76, 0x79, 0x3d, 0x8f,
+	0x58, 0xe7, 0xdc, 0x22, 0x3e, 0x95, 0x2a, 0xb4, 0x2a, 0x8d, 0xd7, 0x57, 0x91, 0x2a, 0x34, 0x2a,
+	0x7d, 0x58, 0x1f, 0x7d, 0x05, 0x7c, 0x3a, 0xa4, 0x2c, 0xf2, 0xe5, 0x0b, 0xa6, 0x82, 0x1e, 0x1f,
+	0xa2, 0x70, 0xd7, 0xca, 0x95, 0x97, 0x3b, 0x42, 0x6e, 0x6b, 0xe2, 0xc1, 0x08, 0x48, 0x3e, 0x83,
+	0x6b, 0xc5, 0xfd, 0x5d, 0x51, 0xd1, 0x45, 0xb3, 0xbf, 0xbb, 0x6e, 0xba, 0xb1, 0x37, 0xf2, 0x1b,
+	0xfb, 0x93, 0xf4, 0xb1, 0xde, 0xd8, 0xb7, 0xfe, 0x70, 0x60, 0x39, 0xbb, 0x06, 0x1d, 0xa0, 0x18,
+	0xb2, 0x00, 0xc9, 0xcf, 0x0e, 0x2c, 0x4f, 0xdc, 0x90, 0xc8, 0xc5, 0x87, 0xb8, 0xf3, 0xaf, 0x7b,
+	0xeb, 0xb7, 0x5f, 0x7d, 0xa0, 0x39, 0x48, 0x6e, 0xfd, 0x55, 0x81, 0x2b, 0x7b, 0x74, 0x10, 0x07,
+	0x3d, 0x14, 0x93, 0xf6, 0x26, 0xae, 0x27, 0x53, 0xd8, 0x3b, 0xff, 0x3e, 0x36, 0x85, 0xbd, 0x97,
+	0xdd, 0x84, 0x22, 0x98, 0xb7, 0x47, 0x76, 0x32, 0xf5, 0xf1, 0x3f, 0x53, 0xfd, 0x68, 0xfa, 0x01,
+	0x56, 0xed, 0x37, 0x07, 0xc8, 0xd9, 0x43, 0x37, 0xb9, 0x33, 0x0d, 0xe8, 0xfc, 0x2b, 0xc4, 0xfa,
+	0xe7, 0xa5, 0xc6, 0x1a, 0x3f, 0x9d, 0xb9, 0xf4, 0x4f, 0x83, 0x5b, 0xff, 0x06, 0x00, 0x00, 0xff,
+	0xff, 0xcc, 0x06, 0xf3, 0x0e, 0x41, 0x10, 0x00, 0x00,
 }

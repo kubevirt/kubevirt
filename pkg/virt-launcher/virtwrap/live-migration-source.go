@@ -20,9 +20,11 @@
 package virtwrap
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"libvirt.org/go/libvirt"
@@ -49,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -333,6 +336,45 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 	return false, nil
 }
 
+// migrationPreparation tracks a migration that has not reached libvirt yet.
+// abort is claimed by cancelMigration; handoff is consumed by migrateHelper
+// once the PreMigrationSource hooks return, so an abort that raced the hooks
+// is reported as a failed migration instead of silently proceeding.
+type migrationPreparation struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	claimed atomic.Bool
+}
+
+func newMigrationPreparation() *migrationPreparation {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &migrationPreparation{ctx: ctx, cancel: cancel}
+}
+
+// abort claims the preparation for cancellation. It returns true for exactly
+// one caller: the winner cancels the context and reports a successful abort.
+func (p *migrationPreparation) abort() bool {
+	if !p.claimed.CompareAndSwap(false, true) {
+		return false
+	}
+	p.cancel()
+	return true
+}
+
+// handoff reports whether an abort was claimed before the migration reached
+// libvirt, and marks the preparation as consumed.
+func (p *migrationPreparation) handoff() bool {
+	return p.claimed.Swap(true)
+}
+
+// startMigrationPreparation registers a preparation for a migration that is
+// about to run, so cancelMigration can abort it before it reaches libvirt.
+func (l *LibvirtDomainManager) startMigrationPreparation() *migrationPreparation {
+	prep := newMigrationPreparation()
+	l.activeMigrationPreparation.Store(prep)
+	return prep
+}
+
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
 	l.metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
 		if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
@@ -346,6 +388,12 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
 			return
 		case v1.MigrationAbortSucceeded:
 			log.Log.Object(vmi).Infof("cancel migration ignored: abort already succeeded")
+			return
+		}
+
+		if prep := l.activeMigrationPreparation.Load(); prep != nil && prep.abort() {
+			migration.AbortStatus = string(v1.MigrationAbortSucceeded)
+			log.Log.Object(vmi).Info("Live migration abort succeeded during source preparation")
 			return
 		}
 
@@ -1321,7 +1369,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
 
 	var err error
 	var params *libvirt.DomainMigrateParameters
@@ -1360,6 +1408,21 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return err
 	}
 
+	// PreMigrationSource hooks run outside domainModifyLock because a blocked sidecar must not
+	// stall other domain operations gated by that lock. The plugin snapshot comes from the
+	// preceding SyncVirtualMachine command.
+	migrateFlags, params, err = plugins.ApplyPreMigrationSourceHooks(prep.ctx, plugins.GetPlugins(), vmi, migrateFlags, params)
+	// Always hand off the preparation once the hooks return, even on failure, so an abort
+	// request can't land after this point and later report success on a migration that
+	// already failed.
+	aborted := prep.handoff()
+	if err == nil && aborted {
+		err = fmt.Errorf("live migration was aborted before it reached libvirt")
+	}
+	if err != nil {
+		return err
+	}
+
 	// initiate the live migration
 	var dstURI string
 	if vmitrait.IsNonRoot(vmi) {
@@ -1394,6 +1457,14 @@ func shouldImmediatelyFailMigration(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+	prep := l.startMigrationPreparation()
+	// The defers run last-in-first-out: the preparation is unregistered before its
+	// context is canceled, so a concurrent cancelMigration cannot claim an abort on
+	// a migration that already finished. CompareAndSwap, not Store: a newer
+	// migration may already have registered itself.
+	defer prep.cancel()
+	defer l.activeMigrationPreparation.CompareAndSwap(prep, nil)
+
 	if shouldImmediatelyFailMigration(vmi) {
 		log.Log.Object(vmi).Error("Live migration failed. Failure is forced by functional tests suite.")
 		l.setMigrationResult(true, "Failed migration to satisfy functional test condition")
@@ -1418,7 +1489,7 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		return
 	}
 
-	err := l.migrateHelper(vmi, options)
+	err := l.migrateHelper(prep, vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 		l.setMigrationResult(true, err.Error())

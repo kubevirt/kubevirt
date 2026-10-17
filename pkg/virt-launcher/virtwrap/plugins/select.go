@@ -24,23 +24,30 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"kubevirt.io/client-go/log"
 
+	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+
+	plugincel "kubevirt.io/kubevirt/pkg/plugins/cel"
 )
 
 // resolvedHook is a launcher hook that has been selected for a given hook point, with its
-// failure strategy already resolved.
+// failure strategy and timeout already resolved.
 type resolvedHook struct {
 	pluginName      string
 	index           int
 	hook            pluginv1alpha1.LauncherHook
 	failureStrategy pluginv1alpha1.FailureStrategy
+	timeout         time.Duration
 }
 
 func hookMatchesPoint(hook pluginv1alpha1.LauncherHook, hookPoint pluginv1alpha1.LauncherHookPoint) bool {
-	if hook.CEL != nil && hook.CEL.HookPoint == hookPoint {
+	// CEL hooks only run at GuestDefinition. The other hook points have no
+	// structured input a CEL expression could transform.
+	if hook.CEL != nil && hookPoint == pluginv1alpha1.LauncherHookGuestDefinition && hook.CEL.HookPoint == hookPoint {
 		return true
 	}
 	if hook.Sidecar != nil && slices.Contains(hook.Sidecar.PermittedHooks, hookPoint) {
@@ -50,10 +57,18 @@ func hookMatchesPoint(hook pluginv1alpha1.LauncherHook, hookPoint pluginv1alpha1
 }
 
 // selectHooks resolves the ordered list of launcher hooks that apply to hookPoint, evaluating
-// plugin- and hook-level conditions via evalCondition. Plugins are sorted alphabetically by
-// name for deterministic ordering across plugins; hooks within a plugin preserve their
-// declaration order.
-func selectHooks(plugins []pluginv1alpha1.Plugin, hookPoint pluginv1alpha1.LauncherHookPoint, evalCondition func(expr string) (bool, error)) ([]resolvedHook, error) {
+// plugin- and hook-level conditions against the VMI. Plugins are sorted alphabetically by name
+// for deterministic ordering across plugins; hooks within a plugin preserve their declaration
+// order.
+func selectHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, hookPoint pluginv1alpha1.LauncherHookPoint) ([]resolvedHook, error) {
+	evaluator, err := plugincel.GetEvaluator()
+	if err != nil {
+		return nil, fmt.Errorf("creating VMI condition evaluator: %w", err)
+	}
+	evalCondition := func(expr string) (bool, error) {
+		return evaluator.EvaluateCondition(expr, map[string]any{"vmi": vmi})
+	}
+
 	sortedPlugins := slices.Clone(plugins)
 	slices.SortStableFunc(sortedPlugins, func(a, b pluginv1alpha1.Plugin) int {
 		return cmp.Compare(a.Name, b.Name)
@@ -101,11 +116,17 @@ func selectHooks(plugins []pluginv1alpha1.Plugin, hookPoint pluginv1alpha1.Launc
 
 			failureStrategy := cmp.Or(hook.FailureStrategy, plugin.Spec.FailureStrategy, pluginv1alpha1.FailureStrategyFail)
 
+			timeout := defaultSidecarCallTimeout
+			if hook.Timeout != nil {
+				timeout = hook.Timeout.Duration
+			}
+
 			resolvedHooks = append(resolvedHooks, resolvedHook{
 				pluginName:      plugin.Name,
 				index:           hookIdx,
 				hook:            hook,
 				failureStrategy: failureStrategy,
+				timeout:         timeout,
 			})
 		}
 	}

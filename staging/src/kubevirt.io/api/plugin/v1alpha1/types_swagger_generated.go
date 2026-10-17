@@ -19,7 +19,7 @@ func (PluginList) SwaggerDoc() map[string]string {
 
 func (PluginSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\nCondition expressions are evaluated once per pipeline invocation, against the VMI/domain\nstate as it existed before any hook in that invocation ran. They are not re-evaluated to\nreflect mutations made by other hooks applied earlier in the same invocation.\n+optional",
+		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\nAn empty condition always matches.\n+optional",
 		"failureStrategy":             "FailureStrategy specifies the default behavior when the plugin itself is unhealthy\n(e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).\nIndividual hooks may override this with their own FailureStrategy.\n+optional",
 		"launcherHooks":               "LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined\npoints in the VM lifecycle.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64",
 		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64",
@@ -35,7 +35,7 @@ func (LauncherHook) SwaggerDoc() map[string]string {
 		"":                "LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle.\nExactly one of cel or sidecar must be specified.\n+kubebuilder:validation:XValidation:rule=\"has(self.cel) != has(self.sidecar)\",message=\"a launcher hook must define exactly one of cel or sidecar\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.timeout) || duration(self.timeout) > duration('0s')\",message=\"timeout must be greater than zero\"",
 		"cel":             "CEL defines a CEL expression hook.\n+optional",
 		"sidecar":         "Sidecar defines a sidecar-based hook that communicates via a Unix socket.\n+optional",
-		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\n+optional",
+		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\n+optional",
 		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",
 	}
@@ -43,7 +43,7 @@ func (LauncherHook) SwaggerDoc() map[string]string {
 
 func (CELLauncherHook) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"hookPoint":  "HookPoint specifies which launcher hook point this CEL expression applies to.\nGuestDefinition is the only currently supported launcher hook point for CEL.",
+		"hookPoint":  "HookPoint specifies which launcher hook point this CEL expression applies to.\nGuestDefinition is the only currently supported launcher hook point for CEL.\n+kubebuilder:validation:XValidation:rule=\"self == 'GuestDefinition'\",message=\"CEL is only supported for the GuestDefinition hook point\"",
 		"expression": "Expression is the CEL expression applied at the specified hook point.\n+kubebuilder:validation:MinLength=1",
 	}
 }
@@ -61,7 +61,7 @@ func (NodeHook) SwaggerDoc() map[string]string {
 		"":                "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events.\nUnlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations\nsuch as configuring networking, storage preparation, or device management.\nHooks may fire multiple times for the same lifecycle event due to reconciliation retries.\nImplementations must be idempotent.\n+kubebuilder:validation:XValidation:rule=\"size(bytes(self.socket)) <= 108\",message=\"socket must be no longer than 108 bytes\"\n+kubebuilder:validation:XValidation:rule=\"!self.socket.contains('..') && !self.socket.contains('//') && !self.socket.endsWith('/')\",message=\"socket must be a clean path: no '..' segments, repeated separators or trailing separator\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.timeout) || duration(self.timeout) > duration('0s')\",message=\"timeout must be greater than zero\"",
 		"socket":          "Socket is the path to the Unix socket for hook communication.\nThe CEL rule enforces the 108-byte sun_path limit; this MaxLength marker bounds the cost estimate.\n+kubebuilder:validation:MinLength=1\n+kubebuilder:validation:MaxLength=108",
 		"permittedHooks":  "PermittedHooks lists the VM lifecycle events this hook handles.\n+kubebuilder:validation:MinItems=1\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64\n+listType=atomic",
-		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\n+optional",
+		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\n+optional",
 		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",
 	}
