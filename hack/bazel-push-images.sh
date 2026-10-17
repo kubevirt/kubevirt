@@ -67,6 +67,7 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         pr-helper
         example-hook-sidecar
         example-disk-mutation-hook-sidecar
+        network-queue-cap
         example-cloudinit-hook-sidecar
         example-node-hook-plugin
         test-launcher-hook-sidecar
