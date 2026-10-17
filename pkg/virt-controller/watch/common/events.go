@@ -29,4 +29,7 @@ const (
 	SuccessfulDeleteVirtualMachineReason = "SuccessfulDelete"
 	// FailedUpdateVirtualMachineReason when a virtual machine is failed to be updated.
 	FailedUpdateVirtualMachineReason = "FailedUpdate"
+	// OversizedTPMEFIStorageReason when the PVC backing persistent vTPM/EFI
+	// state is provisioned larger than the 10Mi it requires.
+	OversizedPersisentStorageReason = "OversizedPersisentStorage"
 )
