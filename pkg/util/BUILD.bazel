@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "amd64.go",
+        "image_hash.go",
         "os_helper.go",
         "s390x.go",
         "util.go",
@@ -19,8 +20,15 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["util_suite_test.go"],
+    srcs = [
+        "image_hash_test.go",
+        "util_suite_test.go",
+    ],
     embed = [":go_default_library"],
     race = "on",
-    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )
