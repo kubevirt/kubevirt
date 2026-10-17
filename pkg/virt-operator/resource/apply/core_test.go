@@ -1505,83 +1505,52 @@ var _ = Describe("Apply", func() {
 				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"ingress-host.example.com:443"}))
 			})
 
-			It("should error and clear addresses when multiple Routes are labeled", func() {
+			DescribeTable("should report duplicate endpoints without repeating warnings when cache order changes", func(kind string, first, second interface{}) {
 				enableProxyWithoutCrossCluster()
 				createLeaseAndPod()
-				for _, name := range []string{"route-1", "route-2"} {
-					Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: kubevirtNamespace,
-						},
-						Spec: routev1.RouteSpec{Host: name + ".example.com"},
-						Status: routev1.RouteStatus{
-							Ingress: []routev1.RouteIngress{
-								{
-									Host: name + ".example.com",
-									Conditions: []routev1.RouteIngressCondition{
-										{Type: routev1.RouteAdmitted, Status: corev1.ConditionTrue},
-									},
-								},
-							},
-						},
-					})).To(Succeed())
+				kv.Status.SynchronizationAddresses = []string{"stale.example.com:443"}
+
+				store := &MockStore{list: []interface{}{second, first}}
+				switch kind {
+				case "Routes":
+					reconciler.stores.SynchronizationRouteCache = store
+				case "Ingresses":
+					reconciler.stores.SynchronizationIngressCache = store
+				case "Services":
+					reconciler.stores.SynchronizationServiceCache = store
 				}
 
-				err := reconciler.updateSynchronizationAddress()
-				Expect(err).ToNot(HaveOccurred())
+				Expect(reconciler.updateSynchronizationAddress()).To(Succeed())
 				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
 				cond := synchronizationEndpointCondition(kv)
 				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(corev1.ConditionFalse))
 				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointMisconfigured))
-
-				By("reconciling again without emitting another Warning event")
+				message := cond.Message
+				Expect(message).To(ContainSubstring("endpoint-1"))
+				Expect(message).To(ContainSubstring("endpoint-2"))
 				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
-				err = reconciler.updateSynchronizationAddress()
-				Expect(err).ToNot(HaveOccurred())
+
+				By("reconciling with the same endpoints in the opposite cache order")
+				store.list = []interface{}{first, second}
+				Expect(reconciler.updateSynchronizationAddress()).To(Succeed())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+				Expect(synchronizationEndpointCondition(kv).Message).To(Equal(message))
 				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
-			})
-
-			It("should error and clear addresses when multiple Ingresses are labeled", func() {
-				enableProxyWithoutCrossCluster()
-				createLeaseAndPod()
-				for _, name := range []string{"ingress-1", "ingress-2"} {
-					Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: kubevirtNamespace,
-						},
-						Spec: networkingv1.IngressSpec{
-							Rules: []networkingv1.IngressRule{{Host: name + ".example.com"}},
-						},
-					})).To(Succeed())
-				}
-
-				err := reconciler.updateSynchronizationAddress()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
-			})
-
-			It("should error and clear addresses when multiple Services are labeled", func() {
-				enableProxyWithoutCrossCluster()
-				createLeaseAndPod()
-				for _, name := range []string{"svc-1", "svc-2"} {
-					Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: kubevirtNamespace,
-						},
-						Spec: corev1.ServiceSpec{
-							Ports: []corev1.ServicePort{{Port: 9185}},
-						},
-					})).To(Succeed())
-				}
-
-				err := reconciler.updateSynchronizationAddress()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
-			})
+			},
+				Entry("Routes", "Routes",
+					&routev1.Route{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&routev1.Route{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+				Entry("Ingresses", "Ingresses",
+					&networkingv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&networkingv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+				Entry("Services", "Services",
+					&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+			)
 
 			It("should fall back to pod IP when no labeled endpoint exists", func() {
 				enableProxyWithoutCrossCluster()
