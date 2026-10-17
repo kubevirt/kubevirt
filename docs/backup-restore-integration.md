@@ -272,11 +272,163 @@ metadata:
 
 See [VirtualMachineInstance](#virtualmachineinstance-object-graph)
 
+### VirtualMachineTemplate Object Graph
+
+```yaml
+apiVersion: template.kubevirt.io/v1beta1
+kind: VirtualMachineTemplate
+metadata:
+  name: vmt1
+  namespace: ns1
+...
+```
+
+- ("template.kubevirt.io", "VirtualMachineTemplate", "ns1", "vmt1")
+
+A VirtualMachineTemplate holds an **unprocessed** VirtualMachine under `spec.virtualMachine`, in which any field may still be a `${PARAMETER}` or `${{PARAMETER}}` placeholder.  The embedded VirtualMachine is traversed like a regular [VirtualMachine](#virtualmachine-object-graph), with three important differences:
+
+1.  **Parameterized references must be skipped, unless the parameter has a fixed value.**  A name or namespace containing `${PARAMETER}` cannot be resolved to a concrete object at backup time unless the corresponding entry's `spec.parameters[*].value` is set, in which case that value can be substituted and the reference followed normally.  A parameter using `generate` (currently only `expression` is supported) produces a random value instead and can never be resolved this way, so it must still be skipped.  Otherwise no graph node should be created for it.
+2.  **Non-string parameters require care when decoding.**  The `${{PARAMETER}}` syntax deliberately stores a string where the VirtualMachine schema expects another type (for example `cpu.cores: ${{COUNT}}`).  This only breaks decoding if the embedded VirtualMachine is unmarshaled into a concrete type; implementations that process it as unstructured data can leave it in place.  Where decoding into a concrete type is required, such fields should preferably be substituted with the parameter's `spec.parameters[*].value` (if set) before processing, rather than simply stripped.
+3.  **No backend storage PVC.**  A template has no running VirtualMachineInstance, so there is no [backend storage PVC](#backend-storage-pvc) to look up.
+
+#### spec.virtualMachine.spec.instancetype / spec.preference
+
+```yaml
+...
+spec:
+  virtualMachine:
+    spec:
+      instancetype:
+        kind: VirtualMachineInstancetype
+        name: small
+      preference:
+        kind: VirtualMachinePreference
+        name: windows
+...
+```
+
+- ("instancetype.kubevirt.io", "VirtualMachineInstancetype", "ns1", "small")
+- ("instancetype.kubevirt.io", "VirtualMachinePreference", "ns1", "windows")
+
+Only **namespaced** kinds (`VirtualMachineInstancetype`, `VirtualMachinePreference`) are part of the graph.  An unset `kind` defaults to the cluster scoped `VirtualMachineClusterInstancetype`/`VirtualMachineClusterPreference` and should not be followed.
+
+KubeVirt matches `kind` case-insensitively and also accepts the plural resource name (e.g. `virtualmachineinstancetypes`), so implementations should not rely on an exact match against the CamelCase singular shown here.  Note also that templates produced by a VirtualMachineTemplateRequest only ever keep cluster-scoped matchers, since namespaced ones are expanded into the spec at template-creation time; a namespaced `kind` therefore only occurs in hand-written templates.
+
+Unlike a [VirtualMachine](#specinstancetype), no ControllerRevision node is added here: a VirtualMachineTemplateRequest always clears `revisionName` when generating a template — either by expanding the instancetype/preference directly into the VM spec, or by keeping a cluster-scoped reference with `revisionName` cleared — specifically so that no ControllerRevision ever needs to be copied into the template.  A hand-written template could still carry a `revisionName` copied in by hand; if so it should be followed and a `("apps", "controllerrevisions", "ns1", "<revisionName>")` node added, but unlike for a real VirtualMachine there is no guarantee the referenced ControllerRevision actually exists.
+
+#### spec.virtualMachine.spec.dataVolumeTemplates[\*].spec.source.pvc
+
+```yaml
+...
+spec:
+  virtualMachine:
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          name: ${NAME}-rootdisk
+        spec:
+          source:
+            pvc:
+              namespace: golden-images
+              name: fedora
+...
+```
+
+- ("", "PersistentVolumeClaim", "golden-images", "fedora")
+- ("cdi.kubevirt.io", "DataVolume", "golden-images", "fedora") \*
+
+This is the **golden image** backing the template's disk.  A template produced from an existing VirtualMachine gets a golden image in its own namespace, while a template referencing a shared base image points at another namespace.  When `namespace` is omitted it defaults to the namespace of the VirtualMachineTemplate — this default applies equally to `source.snapshot` and `sourceRef` below, not just `source.pvc`.  (A DataSource's own `spec.source.*` references instead default to the DataSource's own namespace, not the VirtualMachineTemplate's.)
+
+\* The DataVolume node only exists if a DataVolume of that name actually exists at backup time, since a golden image may be a plain PersistentVolumeClaim.  This cannot be re-checked at restore time, because the source cluster may be gone.  The backup process should therefore **record which golden images had a backing DataVolume** on the VirtualMachineTemplate itself, so that the same graph can be reconstructed at restore time.  The Velero plugin does this with a `velero.kubevirt.io/golden-image-data-volumes` annotation holding a comma separated list of `namespace/name` keys.  Such a record has to be **cleared** when it no longer applies, otherwise a later backup taken after the DataVolume was removed would still ask the restore to look for it.
+
+#### spec.virtualMachine.spec.dataVolumeTemplates[\*].spec.source.snapshot
+
+```yaml
+...
+spec:
+  virtualMachine:
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          name: ${NAME}-rootdisk
+        spec:
+          source:
+            snapshot:
+              namespace: golden-images
+              name: fedora-snapshot
+...
+```
+
+- ("snapshot.storage.k8s.io", "VolumeSnapshot", "golden-images", "fedora-snapshot")
+
+#### spec.virtualMachine.spec.dataVolumeTemplates[\*].spec.sourceRef
+
+```yaml
+...
+spec:
+  virtualMachine:
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          name: ${NAME}-rootdisk
+        spec:
+          sourceRef:
+            kind: DataSource
+            namespace: golden-images
+            name: fedora
+...
+```
+
+- ("cdi.kubevirt.io", "DataSource", "golden-images", "fedora")
+
+A `sourceRef` typically points at a DataSource in a shared OS images namespace that is managed by a `DataImportCron`.  Such a DataSource carries a `cdi.kubevirt.io/dataImportCron: <cron-name>` label.  Restoring or overwriting it risks conflicting with the cron that manages it, so backup solutions should consider warning on or skipping DataImportCron-managed DataSources (identifiable by that label) and relying on the cron to recreate them instead.
+
+A DataSource reached this way carries references of its own under `spec.source.pvc`, `spec.source.snapshot` and `spec.source.dataSource`, which should be followed in turn.
+
+#### spec.virtualMachine.spec.template
+
+The embedded VirtualMachineInstance template contributes the same `spec.volumes[*]` and `spec.accessCredentials[*]` nodes as a regular [VirtualMachineInstance](#virtualmachineinstance-object-graph), minus any parameterized reference.  There is no virt-launcher Pod node, since the template describes a VirtualMachine that has never run.
+
+It also contributes a node for each `spec.networks[*].multus`:
+
+```yaml
+...
+spec:
+  networks:
+  - name: n1
+    multus:
+      networkName: ns2/nad1
+...
+```
+
+- ("k8s.cni.cncf.io", "NetworkAttachmentDefinition", "ns2", "nad1")
+
+`networkName` carries the namespace as a `<namespace>/<name>` prefix.  A bare `<name>` refers to a NetworkAttachmentDefinition in the namespace of the VirtualMachineTemplate.
+
+`spec.networks[*].multus` is a regular VirtualMachineInstance field rather than something specific to templates; adding it to the [VirtualMachineInstance Object Graph](#virtualmachineinstance-object-graph) is tracked as follow-up work.  It is documented here because restoring a VirtualMachineTemplate into a different namespace also needs to remap it (see [VirtualMachineTemplate Restore](#virtualmachinetemplate-restore)).
+
 ## Backup Actions
 
 ### Guest filesystem freeze/thaw hooks
 
 See [this guide](https://github.com/kubevirt/kubevirt/blob/main/docs/freeze.md) for how to execute the freeze/thaw hooks for each VirtualMachineInstance encountered in the object graph.
+
+### VirtualMachineTemplate golden images
+
+A [VirtualMachineTemplate](#virtualmachinetemplate-object-graph) and its golden images should be backed up **as a single unit**, so that a template is never captured without the images it references.
+
+Golden images are the most common way a template backup silently ends up incomplete.  A golden image is a standalone object that carries none of the labels of the template referencing it, and it may live in a **different namespace**.  A backup scoped by label selector or by namespace will therefore match the template but miss its golden image, unless the backup process follows the object graph and pulls the image in explicitly.
+
+Cross-namespace backups are significantly harder to support well, since most backup tools scope both backup and restore to a namespace.  Same-namespace golden images should be treated as the common, well-supported case; a backup process should at minimum warn when a referenced golden image lives outside the namespace being backed up.
+
+It is worth warning the user when a golden image will not be restorable:
+
+- DataVolumes or PersistentVolumeClaims are excluded from the backup entirely.
+- The golden image DataVolume is individually marked as excluded.  Velero uses a `velero.io/exclude-from-backup` label for this.
+
+Unlike a VirtualMachine, an incomplete VirtualMachineTemplate backup does **not** risk a corrupted snapshot.  It just produces a template that cannot be processed into a fully working VirtualMachine.  Missing golden images are therefore a reasonable warning rather than a hard failure.
+
+These checks do not apply to backups that exclude volume data entirely (e.g. Velero's `snapshotVolumes: false`), since such backups never intend to capture volume data in the first place.
 
 ## Restore Actions
 
@@ -318,6 +470,37 @@ PersistentVolumeClaims ***owned by DataVolumes*** must have the following ***ann
 cdi.kubevirt.io/storage.populatedFor: <datavolume name>
 ```
 
+### VirtualMachineTemplate Restore
+
+Backup solutions usually offer to restore into a **different namespace** than the one that was backed up.  Such a namespace mapping is normally applied to `metadata.namespace` only, which is not enough for a VirtualMachineTemplate: its spec is opaque and embeds namespace references of its own.  The following fields should be rewritten according to the namespace mapping:
+
+```
+/spec/virtualMachine/spec/dataVolumeTemplates/<index>/spec/source/pvc/namespace
+/spec/virtualMachine/spec/dataVolumeTemplates/<index>/spec/source/snapshot/namespace
+/spec/virtualMachine/spec/dataVolumeTemplates/<index>/spec/sourceRef/namespace
+/spec/virtualMachine/spec/template/spec/networks/<index>/multus/networkName
+```
+
+`multus.networkName` carries the namespace as a `<namespace>/<name>` prefix, which has to be split off and remapped separately.
+
+A DataSource reached through `sourceRef` carries the same kind of reference one hop further out, in `spec.source.pvc.namespace`, `spec.source.snapshot.namespace` and `spec.source.dataSource.namespace` — note that unlike the other two, `spec.source.dataSource.namespace` must end up matching the DataSource's own (rewritten) namespace, since CDI rejects a cross-namespace `source.dataSource`.
+
+Fields that should be **left alone**:
+
+- `/spec/virtualMachine/metadata/namespace`.  virt-template strips a hardcoded namespace when it processes the template.
+- Any value that is still a `${PARAMETER}` placeholder.
+
+Two limitations are worth being aware of:
+
+- Golden image DataVolumes created by a VirtualMachineTemplateRequest are **owned by** the VirtualMachineTemplate.  Backup solutions that clear `ownerReferences` on restore (Velero does) produce usable DataVolumes that are no longer garbage collected together with their template.  A template referencing a shared golden image in another namespace does not own it.
+- With the Velero plugin, templates using the non-string `${{PARAMETER}}` syntax cannot have their embedded VirtualMachine decoded into a concrete type, so their golden images are not discovered and their namespace references are not rewritten.  The template itself is still backed up and restored intact.  Implementations that process the embedded VirtualMachine as unstructured data are not affected by this limitation.
+
+### VirtualMachineTemplateRequest Backup/Restore
+
+A VirtualMachineTemplateRequest ideally should **not be backed up** in the first place: it is a one shot job with no ongoing purpose once it has produced its VirtualMachineTemplate, which is backed up and restored on its own (see [VirtualMachineTemplate Restore](#virtualmachinetemplate-restore)).
+
+If it is backed up anyway, it should **not be restored**.  Its spec is immutable, so there is no way to recover once a restored request starts reconciling again.  Since restoring an object typically clears its status, a restored request has no `Progressing` condition and is reconciled from scratch.  The controller looks up the existing template before attempting any new snapshot: if the VirtualMachineTemplate was also restored, its `template.kubevirt.io/RequestUID` label no longer matches the restored request's new UID, so the request fails immediately without re-snapshotting.  Only if the VirtualMachineTemplate was *not* restored does the request go on to re-snapshot the source VirtualMachine, which may no longer be the same one by then.  Also note that with `ttlSecondsAfterFinished` set, the request may already be garbage collected by the time a backup is taken.
+
 ## Validate backup partner compatibility
 In this section, we will describe the different scenarios a backup partner should test in order to assess its compatibility with Kubevirt.
 
@@ -336,6 +519,9 @@ You will need to replace manually the storageClassName in each yaml with the sto
 `$kubectl get storageclass`
 or you can use the following command instead of each apply in the tests descriptions:
 `$cat <YAML_PATH> | sed 's/{{KVP_STORAGE_CLASS}}/<DESIRED_STORAGE_CLASS>/g' | kubectl create -f -n <NAMESPACE> -`
+
+`vmtr_from_vm.yaml` contains a `{{KVP_NAMESPACE}}` placeholder (not `{{KVP_STORAGE_CLASS}}`) in `spec.virtualMachineRef.namespace`, which must be substituted with `<NAMESPACE>` before applying it:
+`$cat tests/manifests/vmtr_from_vm.yaml | sed 's/{{KVP_NAMESPACE}}/<NAMESPACE>/g' | kubectl create -f -n <NAMESPACE> -`
 
 #### Stopped VM with DataVolume and DataVolumeTemplate
 Create namespace
@@ -516,3 +702,48 @@ Create restore from the backup and wait for completion.
 Check DV reaches succeeded state right away.
 
 Check VMI reaches Running state.
+
+#### VirtualMachineTemplate backup and restore
+
+Backup and restore of a VirtualMachineTemplate works the same regardless of how the template was created.  This scenario exercises the common path of a template produced from an existing VirtualMachine via a VirtualMachineTemplateRequest.
+
+VirtualMachineTemplates (`template.kubevirt.io/v1beta1`) come out of the box with KubeVirt and are enabled by default; no separate component needs to be installed.
+
+Create namespace
+`$kubectl create ns <NAMESPACE>`
+
+Apply VM yaml and wait for its DataVolume to reach Succeeded state:
+`$kubectl apply -f -n <NAMESPACE> vm_for_template.yaml`
+
+Apply the VirtualMachineTemplateRequest and wait for it to become Ready:
+`$kubectl apply -f -n <NAMESPACE> vmtr_from_vm.yaml`
+
+Take the produced template name from `vmtr.status.templateRef.name` and the golden image name from `vmt.spec.virtualMachine.spec.dataVolumeTemplates[0].spec.source.pvc.name`.
+
+Create backup for the namespace, wait for it to complete successfully.
+
+If your solution supports backing up by label selector, you can use the `a.test.label: included` label that `vmtr_from_vm.yaml` (in the [kubevirt-velero-plugin manifests](https://github.com/kubevirt/kubevirt-velero-plugin/tree/main/tests/manifests)) applies to both the VirtualMachineTemplate and the VirtualMachineTemplateRequest.  The golden image DataVolume is not labeled, so a selector-scoped backup still verifies that it is discovered through the object graph rather than merely swept up with the rest of the namespace.
+
+Delete the VirtualMachineTemplate, the golden image DataVolume and the VirtualMachineTemplateRequest.
+
+Create restore from the backup and wait for completion.
+
+Check the VirtualMachineTemplate exists.
+
+Check the restored template still references the golden image by name under `spec.virtualMachine.spec.dataVolumeTemplates[0].spec.source.pvc.name`.
+
+Check the golden image DataVolume reaches Succeeded state right away.
+
+Check the VirtualMachineTemplateRequest was **not** restored.
+
+#### VirtualMachineTemplate restored into a different namespace
+
+Same as the previous scenario, up to and including the backup.
+
+Create restore from the backup with a namespace mapping to a different namespace, and wait for completion.
+
+Check the VirtualMachineTemplate exists in the target namespace.
+
+Check the golden image DataVolume exists in the target namespace and reaches Succeeded state right away.
+
+Check any hardcoded namespace reference embedded in `spec.virtualMachine` was rewritten to the target namespace, as described in [VirtualMachineTemplate Restore](#virtualmachinetemplate-restore).
