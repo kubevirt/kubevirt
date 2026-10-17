@@ -196,9 +196,51 @@ func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.Dom
 			Capacity:        inItem.Capacity,
 			PhysicalSet:     inItem.PhysicalSet,
 			Physical:        inItem.Physical,
+			LatencyHistograms: stats.DomainStatsBlockLatencyHistograms{
+				Read:  convertLatencyHistogram("read", inItem.LatencyHistograms.Read),
+				Write: convertLatencyHistogram("write", inItem.LatencyHistograms.Write),
+				Flush: convertLatencyHistogram("flush", inItem.LatencyHistograms.Flush),
+			},
 		})
 	}
 	return ret
+}
+
+func convertLatencyHistogram(operation string, in *libvirt.DomainStatsBlockLatencyHistogram) *stats.Histogram {
+	if in == nil {
+		return nil
+	}
+	histogram := &stats.Histogram{
+		Name:    operation,
+		Buckets: make([]stats.HistogramBucket, 0, len(in.Bins)),
+	}
+
+	var cumulativeCount uint64
+
+	for i, bin := range in.Bins {
+		if !bin.StartSet || !bin.ValueSet {
+			return nil
+		}
+
+		histogram.Count += bin.Value
+
+		if i == len(in.Bins)-1 {
+			continue
+		}
+
+		nextBin := in.Bins[i+1]
+		if !nextBin.StartSet {
+			return nil
+		}
+
+		cumulativeCount += bin.Value
+
+		histogram.Buckets = append(histogram.Buckets, stats.HistogramBucket{
+			UpperBound:      nextBin.Start,
+			CumulativeCount: cumulativeCount,
+		})
+	}
+	return histogram
 }
 
 func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJobInfo) *stats.DomainJobInfo {

@@ -41,38 +41,236 @@
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdc" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/cdrom_tray_open/disk.img"></source>
       <target bus="virtio" dev="vdd" tray="open"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="virtio" dev="vde"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="virtio" dev="vdf"></target>
-      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
+      <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -83,44 +281,275 @@
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="virtio" dev="vdg"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="virtio" dev="vdh"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block" model="virtio">
       <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="virtio" dev="vdi"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <disk device="disk" type="block" model="virtio">
       <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="virtio" dev="vdj"></target>
-      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="virtio" dev="vdk"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep.iso"></source>
       <target bus="virtio" dev="vdl" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-sysprep"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/sysprep-disks/sysprep_secret.iso"></source>
       <target bus="virtio" dev="vdm" tray="closed"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="1">
+        <statistics>
+          <latency-histogram type="read">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="write">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+          <latency-histogram type="flush">
+            <bin start="0"></bin>
+            <bin start="1000000"></bin>
+            <bin start="10000000"></bin>
+            <bin start="50000000"></bin>
+            <bin start="100000000"></bin>
+            <bin start="500000000"></bin>
+            <bin start="1000000000"></bin>
+            <bin start="2000000000"></bin>
+          </latency-histogram>
+        </statistics>
+      </driver>
       <alias name="ua-sysprep_secret"></alias>
     </disk>
     <input type="tablet" bus="virtio" model="virtio">
