@@ -404,6 +404,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	)
 
 	Context("with VirtualMachineInstance metadata", func() {
+		const validHookChecksum = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+		checksumAnnotation := func(algorithm, value string) string {
+			return fmt.Sprintf(`[{"configMap":{"name":"hooks","key":"hook.sh","hookPath":%q,`+
+				`"checksum":{"algorithm":%q,"value":%q}}}]`, hooks.OnDefineDomainHookPath, algorithm, value)
+		}
+
 		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
 			func(labels map[string]string, userAccount string) {
@@ -468,7 +474,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				fmt.Sprintf("invalid entry metadata.annotations.%s", v1.IgnitionAnnotation),
 			),
 			Entry("without sidecar feature gate enabled",
-				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				map[string]string{hooks.HookSidecarListAnnotationName: `[{"image":"fake-image"}]`},
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
@@ -491,9 +497,39 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				featuregate.IgnitionGate,
 			),
 			Entry("with sidecar feature gate enabled",
-				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
+				map[string]string{hooks.HookSidecarListAnnotationName: `[{"image":"fake-image"}]`},
 				featuregate.SidecarGate,
 			),
+			Entry("with valid hook checksum",
+				map[string]string{hooks.HookSidecarListAnnotationName: checksumAnnotation("sha256", validHookChecksum)},
+				featuregate.SidecarGate,
+			),
+		)
+
+		DescribeTable("should reject invalid hook sidecar checksums", func(annotation string, expectedMessage string) {
+			enableFeatureGates(featuregate.SidecarGate)
+			vmi := newBaseVmi()
+			vmi.Annotations = map[string]string{hooks.HookSidecarListAnnotationName: annotation}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring(expectedMessage))
+		},
+			Entry("with malformed JSON", `[{`, "invalid hook sidecar annotation"),
+			Entry("with an unsupported algorithm",
+				checksumAnnotation("sha512", "abcd"), "unsupported checksum algorithm"),
+			Entry("with invalid hexadecimal data",
+				checksumAnnotation("sha256", "not-hex"), "decode sha256 checksum"),
+			Entry("with the wrong checksum length",
+				checksumAnnotation("sha256", "abcd"), "invalid sha256 checksum length"),
+			Entry("on the second sidecar only",
+				fmt.Sprintf(`[{"image":"fake-image"},{"configMap":{"name":"hooks","key":"hook.sh","hookPath":%q,`+
+					`"checksum":{"algorithm":"sha512","value":"abcd"}}}]`, hooks.OnDefineDomainHookPath),
+				"invalid checksum for hook sidecar 1"),
 		)
 	})
 
