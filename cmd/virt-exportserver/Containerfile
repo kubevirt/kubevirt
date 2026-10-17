@@ -1,0 +1,24 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+ARG EXPORTSERVERBASE_IMAGE=quay.io/vamsi_siddu/exportserverbase:latest
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    BIN_NAME=virt-exportserver KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/virt-exportserver
+
+FROM ${EXPORTSERVERBASE_IMAGE}
+
+COPY --from=builder /workspace/_out/cmd/virt-exportserver/virt-exportserver /usr/bin/virt-exportserver
+
+COPY --from=builder /workspace/.version /.version
+
+USER 1001
+
+ENTRYPOINT ["/usr/bin/virt-exportserver"]
