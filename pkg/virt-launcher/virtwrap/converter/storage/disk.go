@@ -340,14 +340,19 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
+func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, ioThreadPool *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint, useSupplementalPool bool) (uint, uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
-		if supplementalIOThreads != nil {
-			apiDisk.Driver.IOThreads = supplementalIOThreads
+		// if using supplementalPool, always assign the entire pool
+		if useSupplementalPool {
+			apiDisk.Driver.IOThreads = ioThreadPool
 		} else {
+			// prioritize assigning a dedicatedIOThread if specified
 			if iothreads.HasDedicatedIOThread(*disk) {
 				apiDisk.Driver.IOThread = new(currentDedicatedThread)
 				currentDedicatedThread += 1
+			} else if ioThreadPool != nil {
+				// ioThreadPool will be non-nil when multiIO auto policy is specified
+				apiDisk.Driver.IOThreads = ioThreadPool
 			} else {
 				apiDisk.Driver.IOThread = new(currentAutoThread)
 				// increment the threadId to be used next but wrap around at the thread limit

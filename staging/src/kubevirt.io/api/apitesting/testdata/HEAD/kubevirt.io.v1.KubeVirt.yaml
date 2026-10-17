@@ -201,6 +201,8 @@ spec:
       unsafeMigrationOverride: true
       utilityVolumesTimeout: -21
     minCPUModel: minCPUModelValue
+    multiIOThreadAutoPolicy:
+      enabled: true
     network:
       binding:
         bindingKey:

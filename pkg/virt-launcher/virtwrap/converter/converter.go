@@ -47,9 +47,24 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(c)
 
 	hasIOThreads := iothreads.HasIOThreads(vmi)
-	var ioThreadCount, autoThreads int
+	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
+		// ioThreadCount here accounts for total of autoThreads + dedicatedIOThreads
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
+		if c.SCSIMultiIOThreadEnabled && vmi.Spec.Domain.IOThreadsPolicy != nil {
+			if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+				scsiControllerThreads = ioThreadCount
+			} else {
+				scsiControllerThreads = autoThreads
+				if c.MultiIOThreadAutoPolicyEnabled {
+					dedicatedThreads := ioThreadCount - autoThreads
+					// if multiIO auto is set, cap auto thread pool size for scsi controller allocation
+					scsiControllerThreads = min(autoThreads, iothreads.AutoThreadPoolMax)
+					// total iothreads assigned to domain should use this capped pool size along with any declared dedicated threads
+					ioThreadCount = scsiControllerThreads + dedicatedThreads
+				}
+			}
+		}
 	}
 
 	architecture := c.Architecture.GetArchitecture()
@@ -113,16 +128,19 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			storage.DiskWithApplyCBT(c.ApplyCBT),
 			storage.DiskWithDisksInfo(c.DisksInfo),
 			storage.DiskWithEphemeralDiskCreator(c.EphemeraldiskCreator),
+			storage.DiskWithScsiMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
+			storage.DiskWithMultiIOThreadAutoPolicyEnabled(c.MultiIOThreadAutoPolicyEnabled),
 		),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
 			compute.ControllersWithSCSIModel(scsiControllerModel),
-			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
+			compute.ControllersWithSCSIIOThreads(uint(scsiControllerThreads)),
 			compute.ControllersWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.ControllersWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
+			compute.ControllerWithSCSIMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(
