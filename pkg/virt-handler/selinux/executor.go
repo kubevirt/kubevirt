@@ -23,12 +23,23 @@ package selinux
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
 
 	"github.com/opencontainers/selinux/go-selinux"
 )
+
+// SELinux capability check to avoid false positives on partially-enabled systems.
+// Some custom kernels may mount selinuxfs while the SELinux LSM is not actually
+// enabled in the kernel cmdline, so reading /proc/<pid>/attr/current returns
+// EOPNOTSUPP. A successful read of our own process label is treated as proof that
+// SELinux is functional, consistent with ContextExecutor.isSELinuxEnabled.
+func IsSELinuxFunctional() bool {
+	_, err := selinux.FileLabel(fmt.Sprintf("/proc/%d/attr/current", os.Getpid()))
+	return err == nil
+}
 
 type Executor interface {
 	NewSELinux() (SELinux, bool, error)
