@@ -321,22 +321,33 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		if err != nil {
 			logger.Reason(err).Error("Failed to get final job stats for completed backup.")
 		} else if finalStats != nil {
-			event.Info.Type = finalStats.Type
+			// GetJobStats can report COMPLETED for aborted jobs. Keep an explicit
+			// cancelled/failed type from the event when present.
+			if event.Info.Type != libvirt.DOMAIN_JOB_CANCELLED && event.Info.Type != libvirt.DOMAIN_JOB_FAILED {
+				event.Info.Type = finalStats.Type
+			}
+			if !event.Info.ErrorMessageSet && finalStats.ErrorMessageSet {
+				event.Info.ErrorMessageSet = true
+				event.Info.ErrorMessage = finalStats.ErrorMessage
+			}
 		}
 	}
 
+	// AbortJob may surface as DOMAIN_JOB_COMPLETED with libvirt's
+	// "Operation canceled" error rather than DOMAIN_JOB_CANCELLED.
+	cancelled := event.Info.Type == libvirt.DOMAIN_JOB_CANCELLED ||
+		(event.Info.ErrorMessageSet && event.Info.ErrorMessage == operationCanceledMsg)
+
 	var failed bool
 	var message string
-	switch event.Info.Type {
-	case libvirt.DOMAIN_JOB_COMPLETED:
-		logger.Info("Backup has been completed successfully")
-	case libvirt.DOMAIN_JOB_CANCELLED:
+	switch {
+	case cancelled:
 		logger.Info("Backup has been aborted")
-		failed = backupMetadata.Mode == string(backupv1.PushMode)
-		if failed {
-			message = "backup aborted"
-		}
-	case libvirt.DOMAIN_JOB_FAILED:
+		failed = true
+		message = "backup aborted"
+	case event.Info.Type == libvirt.DOMAIN_JOB_COMPLETED:
+		logger.Info("Backup has been completed successfully")
+	case event.Info.Type == libvirt.DOMAIN_JOB_FAILED:
 		logger.Info("Backup has failed")
 		failed = true
 	default:
@@ -344,9 +355,9 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		failed = true
 	}
 
-	// If we successfully aborted but we didn't fail (i.e., PullMode)
-	// avoid propagating an error message (i.e., Operation canceled)
-	if event.Info.ErrorMessageSet && !(backupMetadata.Mode == string(backupv1.PullMode) && event.Info.ErrorMessage == operationCanceledMsg) {
+	// On cancellation avoid propagating the redundant libvirt error message
+	// (i.e., Operation canceled) on top of the dedicated abort message.
+	if event.Info.ErrorMessageSet && event.Info.ErrorMessage != operationCanceledMsg {
 		err := event.Info.ErrorMessage
 		if message == "" {
 			message = err

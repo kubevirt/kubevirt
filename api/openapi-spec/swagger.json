@@ -20819,7 +20819,7 @@
       "type": "string"
      },
      "ttlDuration": {
-      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+      "description": "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as failed. When omitted, a reasonable default is applied.",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }

@@ -1141,12 +1141,12 @@ var _ = Describe("Backup Controller", func() {
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupAbortingEvent)))
 		})
 
-		It("should record warning event when aborting a push-mode backup", func() {
+		DescribeTable("should record a warning event when aborting a backup", func(mode backupv1.BackupMode) {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, "new-checkpoint")
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
 
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
-			backup.Spec.Mode = pointer.P(backupv1.PushMode)
+			backup.Spec.Mode = pointer.P(mode)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
 				Conditions: []metav1.Condition{
@@ -1168,7 +1168,10 @@ var _ = Describe("Backup Controller", func() {
 			Eventually(recorder.Events).Should(Receive(&event))
 			Expect(event).To(ContainSubstring(backupAbortingEvent))
 			Expect(event).To(ContainSubstring(string(corev1.EventTypeWarning)))
-		})
+		},
+			Entry("push mode", backupv1.PushMode),
+			Entry("pull mode", backupv1.PullMode),
+		)
 
 		It("should re-send idempotent abort if backup is already marked as aborting", func() {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, "new-checkpoint")
@@ -2233,6 +2236,36 @@ var _ = Describe("Backup Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(backupv1.ReasonAborting))
 			Expect(cond.Message).To(ContainSubstring(backupTTLExpiredMsg))
+		})
+
+		It("should finalize the backup as failed when the aborted job completes after TTL expiry", func() {
+			// Backup is already Aborting after TTL expiry triggered handleAbort.
+			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
+				Reason: backupv1.ReasonAborting, Message: fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting),
+			})
+
+			vmiCanceled := createInitializedVMI()
+			vmiCanceled.Spec.UtilityVolumes = nil
+			vmiCanceled.Status.VolumeStatus = nil
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Completed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Failed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = pointer.P("backup aborted")
+			controller.vmiStore.Update(vmiCanceled)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmiCanceled, nil)
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
+			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonFailed))
+			Expect(failedCond.Message).To(ContainSubstring("backup aborted"))
+			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+			Expect(backupCopy.Status.CheckpointName).To(BeNil(), "checkpoint must not be recorded for a failed backup")
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
 		})
 
 		It("should delete the export when the backup completed", func() {

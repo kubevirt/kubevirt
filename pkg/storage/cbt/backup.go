@@ -1015,10 +1015,6 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	return nil
 }
 
-func isPushMode(backup *backupv1.VirtualMachineBackup) bool {
-	return backup.Spec.Mode == nil || *backup.Spec.Mode == backupv1.PushMode
-}
-
 func (ctrl *VMBackupController) cleanupVMIState(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) (bool, error) {
 	if isPullMode(backup) {
 		if err := ctrl.cleanupBackupExport(backup); err != nil {
@@ -1085,11 +1081,7 @@ func setProgressing(backup *backupv1.VirtualMachineBackup) {
 func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup, message string) {
 	cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionProgressing))
 	if cond == nil || cond.Reason != backupv1.ReasonAborting {
-		eventSev := corev1.EventTypeNormal
-		if isPushMode(backup) {
-			eventSev = corev1.EventTypeWarning
-		}
-		ctrl.recorder.Event(backup, eventSev, backupAbortingEvent, message)
+		ctrl.recorder.Event(backup, corev1.EventTypeWarning, backupAbortingEvent, message)
 	}
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
