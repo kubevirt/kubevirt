@@ -31,6 +31,10 @@ import (
 )
 
 var _ = Describe("migration metrics", func() {
+	BeforeEach(func() {
+		_ = SetupMigrationStatsCollector("", nil, nil, nil)
+	})
+
 	It("should register the last downtime gauge", func() {
 		Expect(MigrationStatsCollector.Metrics).To(ContainElement(migrateVmiLastDowntime))
 	})
