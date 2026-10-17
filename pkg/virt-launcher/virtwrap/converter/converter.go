@@ -125,6 +125,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
+		compute.NewPPC64LEMachineDomainConfigurator(architecture),
 		compute.NewCPUDomainConfigurator(
 			compute.CPUWithHotplugSupported(c.Architecture.SupportCPUHotplug()),
 			compute.CPUWithMPXCPUValidation(c.Architecture.RequiresMPXCPUValidation()),

@@ -4613,6 +4613,129 @@ var _ = Describe("Template", func() {
 			}, "hook-sidecar-0", nil, []k8sv1.Capability{"ALL"}),
 		)
 
+		// libvirt needs SYS_RESOURCE to raise the QEMU RLIMIT_MEMLOCK on ppc64le guests. The decision follows the
+		// VMI architecture and only falls back to the cluster architecture when the VMI does not set one.
+		DescribeTable("should only add SYS_RESOURCE to compute for ppc64le VMIs", func(clusterArch, vmiArch string, expectSysResource bool) {
+			config, kvStore, svc = configFactory(clusterArch)
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Architecture = vmiArch
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					if expectSysResource {
+						Expect(container.SecurityContext.Capabilities.Add).To(ContainElement(k8sv1.Capability(CAP_SYS_RESOURCE)))
+					} else {
+						Expect(container.SecurityContext.Capabilities.Add).NotTo(ContainElement(k8sv1.Capability(CAP_SYS_RESOURCE)))
+					}
+					return
+				}
+			}
+			Fail("compute container not found")
+		},
+			Entry("ppc64le cluster, VMI architecture unset", "ppc64le", "", true),
+			Entry("amd64 cluster, VMI architecture unset", "amd64", "", false),
+			Entry("ppc64le cluster, ppc64le VMI", "ppc64le", "ppc64le", true),
+			Entry("amd64 cluster, ppc64le VMI", "amd64", "ppc64le", true),
+			Entry("ppc64le cluster, amd64 VMI", "ppc64le", "amd64", false),
+			Entry("amd64 cluster, amd64 VMI", "amd64", "amd64", false),
+		)
+
+		// Only the compute container of a ppc64le VMI may differ from the other architectures. Every other
+		// container and init container has to keep exactly the security context it had before ppc64le support.
+		DescribeTable("should only add SYS_RESOURCE to the ppc64le compute container and keep all other security contexts", func(arch string, nonRoot bool) {
+			config, kvStore, svc = configFactory(arch)
+			disableFeatureGate(featuregate.ImageVolume)
+
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
+			vmi.Annotations = map[string]string{
+				hooks.HookSidecarListAnnotationName: `[{"args": ["--version", "v1alpha2"],"image": "test/test:test", "imagePullPolicy": "IfNotPresent"}]`,
+			}
+			vmi.Spec.Volumes = []v1.Volume{{
+				Name:         "containerdisk",
+				VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "my-image-1"}},
+			}}
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+				Name:       "containerdisk",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio}},
+			}}
+			if nonRoot {
+				vmi.Status.RuntimeUser = uint64(util.NonRootUID)
+			}
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			dropAll := []k8sv1.Capability{"ALL"}
+			// containers that always run as the unprivileged user, regardless of the launcher user
+			unprivilegedCtx := func() *k8sv1.SecurityContext {
+				return &k8sv1.SecurityContext{
+					RunAsUser:                pointer.P(int64(util.NonRootUID)),
+					RunAsNonRoot:             pointer.P(true),
+					AllowPrivilegeEscalation: pointer.P(false),
+					Capabilities:             &k8sv1.Capabilities{Drop: dropAll},
+				}
+			}
+
+			expected := map[string]*k8sv1.SecurityContext{
+				"guest-console-log":        unprivilegedCtx(),
+				"volumecontainerdisk":      unprivilegedCtx(),
+				"volumecontainerdisk-init": unprivilegedCtx(),
+			}
+			computeCaps := []k8sv1.Capability{CAP_NET_BIND_SERVICE}
+			if nonRoot {
+				nonRootCtx := func(caps *k8sv1.Capabilities) *k8sv1.SecurityContext {
+					return &k8sv1.SecurityContext{
+						RunAsUser:                pointer.P(int64(util.NonRootUID)),
+						RunAsGroup:               pointer.P(int64(util.NonRootUID)),
+						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: pointer.P(false),
+						Capabilities:             caps,
+					}
+				}
+				if arch == "ppc64le" {
+					computeCaps = append(computeCaps, CAP_SYS_RESOURCE)
+				}
+				expected["compute"] = nonRootCtx(&k8sv1.Capabilities{Add: computeCaps, Drop: dropAll})
+				expected["hook-sidecar-0"] = nonRootCtx(&k8sv1.Capabilities{Drop: dropAll})
+				expected["container-disk-binary"] = nonRootCtx(&k8sv1.Capabilities{Drop: dropAll})
+			} else {
+				rootCtx := func(caps *k8sv1.Capabilities) *k8sv1.SecurityContext {
+					return &k8sv1.SecurityContext{
+						RunAsUser:    pointer.P(int64(0)),
+						RunAsNonRoot: pointer.P(false),
+						Capabilities: caps,
+					}
+				}
+				computeCaps = append(computeCaps, CAP_SYS_NICE)
+				if arch == "ppc64le" {
+					computeCaps = append(computeCaps, CAP_SYS_RESOURCE)
+				}
+				expected["compute"] = rootCtx(&k8sv1.Capabilities{Add: computeCaps})
+				expected["hook-sidecar-0"] = rootCtx(nil)
+				expected["container-disk-binary"] = rootCtx(&k8sv1.Capabilities{Drop: dropAll})
+			}
+
+			actual := map[string]*k8sv1.SecurityContext{}
+			for _, container := range slices.Concat(pod.Spec.Containers, pod.Spec.InitContainers) {
+				actual[container.Name] = container.SecurityContext
+			}
+			Expect(actual).To(Equal(expected))
+		},
+			Entry("on amd64 with a root launcher", "amd64", false),
+			Entry("on amd64 with a non-root launcher", "amd64", true),
+			Entry("on arm64 with a root launcher", "arm64", false),
+			Entry("on arm64 with a non-root launcher", "arm64", true),
+			Entry("on s390x with a root launcher", "s390x", false),
+			Entry("on s390x with a non-root launcher", "s390x", true),
+			Entry("on ppc64le with a root launcher", "ppc64le", false),
+			Entry("on ppc64le with a non-root launcher", "ppc64le", true),
+		)
+
 		DescribeTable("should compute the correct security context", func(
 			getVMI func() *v1.VirtualMachineInstance,
 			securityContext *k8sv1.PodSecurityContext) {

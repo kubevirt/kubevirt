@@ -131,6 +131,7 @@ const qemuTimeoutJitterRange = 120
 const (
 	CAP_NET_BIND_SERVICE = "NET_BIND_SERVICE"
 	CAP_SYS_NICE         = "SYS_NICE"
+	CAP_SYS_RESOURCE     = "SYS_RESOURCE"
 )
 
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
@@ -949,6 +950,14 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	if vmitrait.IsNonRoot(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
+	}
+	vmiCPUArch := vmi.Spec.Architecture
+	if vmiCPUArch == "" {
+		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
+	}
+	if vmiCPUArch == "ppc64le" {
+		// libvirt raises the QEMU RLIMIT_MEMLOCK with prlimit() for pseries guests, which needs CAP_SYS_RESOURCE.
+		computeContainerOpts = append(computeContainerOpts, WithAddedCapabilities(CAP_SYS_RESOURCE))
 	}
 	if vmi.Spec.ReadinessProbe != nil {
 		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))
