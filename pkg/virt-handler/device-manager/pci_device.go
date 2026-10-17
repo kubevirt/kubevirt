@@ -183,9 +183,9 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 func (dpi *PCIDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newDeviceWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+		return fmt.Errorf("failed to create a device watcher: %v", err)
 	}
 	defer watcher.Close()
 
