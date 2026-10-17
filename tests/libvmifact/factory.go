@@ -120,7 +120,8 @@ func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 	}
 	opts = append(
 		[]libvmi.Option{libvmi.WithMemoryRequest(qemuMinimumMemory())},
-		opts...)
+		opts...,
+	)
 	return libvmi.New(opts...)
 }
 

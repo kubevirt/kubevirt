@@ -25,8 +25,6 @@ import (
 
 	k8scorev1 "k8s.io/api/core/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -134,8 +132,6 @@ var _ = Describe("Network Status", func() {
 
 func newStubPod(annotations map[string]string) *k8scorev1.Pod {
 	return &k8scorev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: annotations,
-		},
+		Annotations: annotations,
 	}
 }

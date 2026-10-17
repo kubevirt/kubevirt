@@ -74,18 +74,14 @@ func WithWatchdog(action v1.WatchdogAction, arch string) Option {
 func WithDownwardMetricsVolume(volumeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
-			},
+			Name:            volumeName,
+			DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
 		})
 
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: volumeName,
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: v1.DiskBusVirtio,
-				},
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusVirtio,
 			},
 		})
 	}

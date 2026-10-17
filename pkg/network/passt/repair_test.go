@@ -89,11 +89,9 @@ var _ = Describe("Passt Repair Handler", func() {
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(&v1.Network{
 					Name: v1.DefaultPodNetwork().Name,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: "alternative",
-							Default:     true,
-						},
+					Multus: &v1.MultusNetwork{
+						NetworkName: "alternative",
+						Default:     true,
 					},
 				}),
 			),
@@ -126,11 +124,9 @@ var _ = Describe("Passt Repair Handler", func() {
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(&v1.Network{
 					Name: v1.DefaultPodNetwork().Name,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: "alternative",
-							Default:     true,
-						},
+					Multus: &v1.MultusNetwork{
+						NetworkName: "alternative",
+						Default:     true,
 					},
 				}),
 			),

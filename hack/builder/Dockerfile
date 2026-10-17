@@ -7,10 +7,10 @@ ARG ENVTEST_K8S_VERSION=1.37.0
 ARG SETUP_ENVTEST_VERSION=v0.24.1
 
 ENV BAZEL_VERSION=7.5.0
-ENV GIMME_GO_VERSION=1.26.6
+ENV GIMME_GO_VERSION=1.27.2
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
-ENV GOLANGCI_LINT_VERSION=v2.12.2
+ENV GOLANGCI_LINT_VERSION=v2.14.0
 
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
@@ -86,7 +86,10 @@ RUN set -x && \
     go install -v k8s.io/code-generator/cmd/client-gen@v0.32.5 && \
     go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
     go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 && \
-    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@a4b5158 && \
+    git clone -q https://github.com/brianmcarey/kubevirt-monitoring /tmp/kvm && \
+    cd /tmp/kvm && git checkout -q 32e6b90362674decfa6b9f6c1a828c4d2a518267 && \
+    go install -v ./monitoringlinter/cmd/monitoringlinter && \
+    cd /tmp && rm -rf /tmp/kvm && \
     go clean -cache -modcache
 
 RUN set -x && \

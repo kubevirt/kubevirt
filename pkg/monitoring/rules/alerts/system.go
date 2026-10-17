@@ -46,7 +46,8 @@ func systemAlerts(namespace string) []promv1.Rule {
 				"((cluster:kubevirt_nodes_with_kvm:count or on() vector(0)) == 0 " +
 					" and (sum(kubevirt_configuration_emulation_enabled) or on() vector(0)) == 0) " +
 					" or (sum(kube_node_labels{label_kubevirt_io_schedulable='true'} * on(node) group_left() (1 - kube_node_spec_unschedulable)) " +
-					" or on() vector(0)) == 0"),
+					" or on() vector(0)) == 0",
+			),
 			For: ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "There are no available nodes in the cluster to run VMs.",

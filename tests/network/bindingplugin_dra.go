@@ -153,9 +153,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 func newResourceClaimTemplate(templateName, requestName, deviceClassName string) resourcev1.ResourceClaimTemplate {
 	return resourcev1.ResourceClaimTemplate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: templateName,
-		},
+		Name: templateName,
 		Spec: resourcev1.ResourceClaimTemplateSpec{
 			Spec: resourcev1.ResourceClaimSpec{
 				Devices: resourcev1.DeviceClaim{

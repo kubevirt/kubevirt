@@ -312,13 +312,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
 
 			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "attachment-pod",
-					Namespace: vmi.Namespace,
-					Annotations: map[string]string{
-						virtv1.OwnerVMINameAnnotation: vmi.Name,
-						virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
-					},
+				Name:      "attachment-pod",
+				Namespace: vmi.Namespace,
+				Annotations: map[string]string{
+					virtv1.OwnerVMINameAnnotation: vmi.Name,
+					virtv1.OwnerVMIUIDAnnotation:  string(vmi.UID),
 				},
 			}
 
@@ -330,13 +328,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
 
 			pod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "attachment-pod",
-					Namespace: vmi.Namespace,
-					Annotations: map[string]string{
-						virtv1.OwnerVMINameAnnotation: vmi.Name,
-						virtv1.OwnerVMIUIDAnnotation:  "other-uid",
-					},
+				Name:      "attachment-pod",
+				Namespace: vmi.Namespace,
+				Annotations: map[string]string{
+					virtv1.OwnerVMINameAnnotation: vmi.Name,
+					virtv1.OwnerVMIUIDAnnotation:  "other-uid",
 				},
 			}
 
@@ -505,12 +501,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			// Non owned pod that shouldn't be found by waitForFirstConsumerTemporaryPods
 			nonOwnedPod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "unowned-test-pod",
-					Namespace: vmi.Namespace,
-					Annotations: map[string]string{
-						virtv1.EphemeralProvisioningObject: "true",
-					},
+				Name:      "unowned-test-pod",
+				Namespace: vmi.Namespace,
+				Annotations: map[string]string{
+					virtv1.EphemeralProvisioningObject: "true",
 				},
 				Status: k8sv1.PodStatus{
 					Phase: k8sv1.PodRunning,
@@ -601,9 +595,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			DescribeTable("should not create a corresponding Pod on VMI creation with a storage class in Immediate mode", func(mode *storagev1.VolumeBindingMode) {
 				sc := &storagev1.StorageClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testsc123",
-					},
+					Name:              "testsc123",
 					VolumeBindingMode: mode,
 				}
 				Expect(storageClassStore.Add(sc)).To(Succeed())
@@ -623,9 +615,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			It("should create a corresponding Pod on VMI creation with a storage class in WaitForFirstConsumer mode", func() {
 				sc := &storagev1.StorageClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testsc456",
-					},
+					Name:              "testsc456",
 					VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
 				}
 				Expect(storageClassStore.Add(sc)).To(Succeed())
@@ -653,15 +643,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				addVirtualMachine(vmi)
 
 				sc := &storagev1.StorageClass{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testsc123",
-					},
+					Name:              "testsc123",
 					VolumeBindingMode: pointer.P(storagev1.VolumeBindingImmediate),
 				}
 				sp := &cdiv1.StorageProfile{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: sc.Name,
-					},
+					Name: sc.Name,
 					Spec: cdiv1.StorageProfileSpec{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
@@ -732,9 +718,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	Context("On valid VirtualMachineInstance given with PVC source, ownedRef of DataVolume", func() {
 
 		pvcVolumeSource := virtv1.VolumeSource{
-			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: "test1",
-			}},
+			PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: "test1"},
 		}
 		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
 			vmi := newPendingVirtualMachine("testvmi")
@@ -999,10 +984,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		// Add ContainerPath volume with matching filesystem
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 			Name: "token-volume",
-			VolumeSource: virtv1.VolumeSource{
-				ContainerPath: &virtv1.ContainerPathVolumeSource{
-					Path: "/var/run/secrets/token",
-				},
+			ContainerPath: &virtv1.ContainerPathVolumeSource{
+				Path: "/var/run/secrets/token",
 			},
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, virtv1.Filesystem{
@@ -1032,10 +1015,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		// Add ContainerPath volume with matching filesystem
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
 			Name: "token-volume",
-			VolumeSource: virtv1.VolumeSource{
-				ContainerPath: &virtv1.ContainerPathVolumeSource{
-					Path: "/var/run/secrets/token",
-				},
+			ContainerPath: &virtv1.ContainerPathVolumeSource{
+				Path: "/var/run/secrets/token",
 			},
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, virtv1.Filesystem{
@@ -1380,9 +1361,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("when PVC does not exist", kvcontroller.FailedPvcNotFoundReason,
 				virtv1.VolumeSource{
 					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "something",
-						},
+						ClaimName: "something",
 					},
 				}),
 			Entry("when DataVolume does not exist", kvcontroller.FailedPvcNotFoundReason,
@@ -1567,10 +1546,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			dv := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "test-dv",
+				Namespace: vmi.Namespace,
 				Status: cdiv1.DataVolumeStatus{
 					Phase: cdiv1.Pending,
 				},
@@ -1579,11 +1556,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 			volume := virtv1.Volume{
 				Name: "test-dv",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name:         "test-dv",
-						Hotpluggable: true,
-					},
+				DataVolume: &virtv1.DataVolumeSource{
+					Name:         "test-dv",
+					Hotpluggable: true,
 				},
 			}
 			vmi.Spec.Volumes = []virtv1.Volume{volume}
@@ -1596,11 +1571,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			attachmentPod := newPodForVirtlauncher(pod, "hp-test", "abcd", attachmentPodPhase)
 			attachmentPod.Spec.Volumes = append(attachmentPod.Spec.Volumes, k8sv1.Volume{
 				Name: "test-dv",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-dv",
-						ReadOnly:  false,
-					},
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "test-dv",
+					ReadOnly:  false,
 				},
 			})
 			addVirtualMachine(vmi)
@@ -3067,10 +3040,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 			addPod(virtlauncherPod)
 			invalidVolume := &virtv1.Volume{
-				Name: "fake",
-				VolumeSource: virtv1.VolumeSource{
-					ConfigMap: &virtv1.ConfigMapVolumeSource{},
-				},
+				Name:      "fake",
+				ConfigMap: &virtv1.ConfigMapVolumeSource{},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{invalidVolume})
 			Expect(pod).To(BeNil())
@@ -3084,12 +3055,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(virtlauncherPod)
 			nopvcVolume := &virtv1.Volume{
 				Name: "nopvc",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "noclaim",
-						},
-					},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "noclaim",
 				},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{nopvcVolume})
@@ -3107,15 +3074,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addDataVolumePVC(pvc)
 			volume := &virtv1.Volume{
 				Name: "test-pvc-volume",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "test-dv",
-					},
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-dv",
-						},
-					},
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "test-dv",
 				},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
@@ -3129,10 +3092,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimPending)
 			addDataVolumePVC(pvc)
 			dv := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "test-dv",
+				Namespace: vmi.Namespace,
 				Status: cdiv1.DataVolumeStatus{
 					Phase: cdiv1.Pending,
 				},
@@ -3142,15 +3103,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(virtlauncherPod)
 			volume := &virtv1.Volume{
 				Name: "test-pvc-volume",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "test-dv",
-					},
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-dv",
-						},
-					},
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "test-dv",
 				},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
@@ -3171,10 +3128,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
 			dv := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "test-dv",
+				Namespace: vmi.Namespace,
 				Status: cdiv1.DataVolumeStatus{
 					Phase: cdiv1.Pending,
 				},
@@ -3184,15 +3139,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(virtlauncherPod)
 			volume := &virtv1.Volume{
 				Name: "test-pvc-volume",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "test-dv",
-					},
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-dv",
-						},
-					},
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "test-dv",
 				},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
@@ -3207,10 +3158,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pvc := newHotplugPVC("test-dv", vmi.Namespace, k8sv1.ClaimBound)
 			addDataVolumePVC(pvc)
 			dv := &cdiv1.DataVolume{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dv",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "test-dv",
+				Namespace: vmi.Namespace,
 				Status: cdiv1.DataVolumeStatus{
 					Phase: cdiv1.Succeeded,
 				},
@@ -3220,15 +3169,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addPod(virtlauncherPod)
 			volume := &virtv1.Volume{
 				Name: "test-pvc-volume",
-				VolumeSource: virtv1.VolumeSource{
-					DataVolume: &virtv1.DataVolumeSource{
-						Name: "test-dv",
-					},
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "test-dv",
-						},
-					},
+				DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "test-dv",
 				},
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
@@ -3248,24 +3193,18 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			pod := newPodForVirtlauncher(virtlauncherPod, "test-pod", "abcd", k8sv1.PodRunning)
 			pod.Spec.Volumes = make([]k8sv1.Volume, 0)
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "emptydir",
-				VolumeSource: k8sv1.VolumeSource{
-					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-				},
+				Name:     "emptydir",
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			})
 			pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
-				Name: "token",
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{},
-				},
+				Name:   "token",
+				Secret: &k8sv1.SecretVolumeSource{},
 			})
 			for _, index := range indexes {
 				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 					Name: fmt.Sprintf("volume%d", index),
-					VolumeSource: k8sv1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: fmt.Sprintf("claim%d", index),
-						},
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: fmt.Sprintf("claim%d", index),
 					},
 				})
 				pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{
@@ -3297,12 +3236,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, index := range indexes {
 				res = append(res, &virtv1.Volume{
 					Name: fmt.Sprintf("volume%d", index),
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: fmt.Sprintf("claim%d", index),
-							},
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: fmt.Sprintf("claim%d", index),
 					},
 				})
 			}
@@ -3317,22 +3252,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					if i == index {
 						memoryDump = true
 						res = append(res, &virtv1.Volume{
-							Name: fmt.Sprintf("volume%d", index),
-							VolumeSource: virtv1.VolumeSource{
-								MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("claim%d", i)),
-							},
+							Name:       fmt.Sprintf("volume%d", index),
+							MemoryDump: testutils.NewFakeMemoryDumpSource(fmt.Sprintf("claim%d", i)),
 						})
 					}
 				}
 				if !memoryDump {
 					res = append(res, &virtv1.Volume{
 						Name: fmt.Sprintf("volume%d", i),
-						VolumeSource: virtv1.VolumeSource{
-							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: fmt.Sprintf("claim%d", i),
-								},
-							},
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: fmt.Sprintf("claim%d", i),
 						},
 					})
 				}
@@ -3345,10 +3274,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, index := range indexes {
 				res = append(res, k8sv1.Volume{
 					Name: fmt.Sprintf("volume%d", index),
-					VolumeSource: k8sv1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: fmt.Sprintf("claim%d", index),
-						},
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: fmt.Sprintf("claim%d", index),
 					},
 				})
 			}
@@ -3387,10 +3314,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			for _, index := range indexes {
 				pvc := newHotplugPVC(fmt.Sprintf("claim%d", index), k8sv1.NamespaceDefault, k8sv1.ClaimBound)
 				dv := &cdiv1.DataVolume{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("claim%d", index),
-						Namespace: k8sv1.NamespaceDefault,
-					},
+					Name:      fmt.Sprintf("claim%d", index),
+					Namespace: k8sv1.NamespaceDefault,
 					Status: cdiv1.DataVolumeStatus{
 						Phase: cdiv1.Succeeded,
 					},
@@ -3409,9 +3334,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			datavolumes := []*cdiv1.DataVolume{}
 			for _, volume := range hotplugVolumes {
 				datavolumes = append(datavolumes, &cdiv1.DataVolume{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: volume.Name,
-					},
+					Name: volume.Name,
 					Status: cdiv1.DataVolumeStatus{
 						Phase: cdiv1.Succeeded,
 					},
@@ -3464,10 +3387,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			// Add some non owned pods.
 			for i := range 5 {
 				pod := &k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      fmt.Sprintf("unowned-test-pod%d", i),
-						Namespace: vmi.Namespace,
-					},
+					Name:      fmt.Sprintf("unowned-test-pod%d", i),
+					Namespace: vmi.Namespace,
 					Status: k8sv1.PodStatus{
 						Phase: k8sv1.PodRunning,
 					},
@@ -3475,11 +3396,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Expect(controller.podIndexer.Add(pod)).To(Succeed())
 			}
 			otherPod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "owning-test-pod",
-					Namespace: vmi.Namespace,
-					UID:       "something",
-				},
+				Name:      "owning-test-pod",
+				Namespace: vmi.Namespace,
+				UID:       "something",
 				Status: k8sv1.PodStatus{
 					Phase: k8sv1.PodRunning,
 				},
@@ -3726,14 +3645,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("Should get default filesystem overhead if there are multiple CDI instances", func() {
 			cdi := cdiv1.CDI{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testCDI1",
-				},
+				Name: "testCDI1",
 			}
 			cdi2 := cdiv1.CDI{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testCDI2",
-				},
+				Name: "testCDI2",
 			}
 			// We add multiple CDI instances to trigger the error
 			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
@@ -3752,9 +3667,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("Should fail to get filesystem overhead if there's no valid CDI config available", func() {
 			cdi := cdiv1.CDI{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testCDI",
-				},
+				Name: "testCDI",
 			}
 
 			Expect(controller.cdiStore.Add(&cdi)).To(Succeed())
@@ -3767,14 +3680,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("getFilesystemOverhead", func(volumeMode k8sv1.PersistentVolumeMode, scName string, expectedOverhead virtv1.Percent) {
 			cdi := cdiv1.CDI{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testCDI",
-				},
+				Name: "testCDI",
 			}
 			cfg := cdiv1.CDIConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "config",
-				},
+				Name: "config",
 				Status: cdiv1.CDIConfigStatus{
 					FilesystemOverhead: &cdiv1.FilesystemOverhead{
 						Global:       cdiv1.Percent("0.5"),
@@ -3783,13 +3692,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}
 			pvc := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "test",
-					Name:      "test"},
-				Spec: k8sv1.PersistentVolumeClaimSpec{},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  "test",
+				Name:       "test",
+				Spec:       k8sv1.PersistentVolumeClaimSpec{},
 			}
 
 			pvc.Spec.VolumeMode = &volumeMode
@@ -3814,19 +3721,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 				{
-					Name: "utility-vol",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "block-pvc",
-					},
+					Name:      "utility-vol",
+					ClaimName: "block-pvc",
 				},
 			}
 
 			blockMode := k8sv1.PersistentVolumeBlock
 			blockPVC := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "block-pvc",
-					Namespace: k8sv1.NamespaceDefault,
-				},
+				Name:      "block-pvc",
+				Namespace: k8sv1.NamespaceDefault,
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode: &blockMode,
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{
@@ -3856,18 +3759,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 				{
-					Name: "utility-vol",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "filesystem-pvc",
-					},
+					Name:      "utility-vol",
+					ClaimName: "filesystem-pvc",
 				},
 			}
 
 			filesystemPVC := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "filesystem-pvc",
-					Namespace: k8sv1.NamespaceDefault,
-				},
+				Name:      "filesystem-pvc",
+				Namespace: k8sv1.NamespaceDefault,
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{
 						k8sv1.ReadWriteOnce,
@@ -3911,11 +3810,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			pvc := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      legacyPVCName,
-					Namespace: k8sv1.NamespaceDefault,
-					Labels:    map[string]string{backendstorage.PVCPrefix: "testvmi"},
-				},
+				Name:      legacyPVCName,
+				Namespace: k8sv1.NamespaceDefault,
+				Labels:    map[string]string{backendstorage.PVCPrefix: "testvmi"},
 			}
 			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 
@@ -3934,19 +3831,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 					{
-						Name: "utility-vol",
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "block-pvc",
-						},
+						Name:      "utility-vol",
+						ClaimName: "block-pvc",
 					},
 				}
 
 				blockMode := k8sv1.PersistentVolumeBlock
 				blockPVC := &k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "block-pvc",
-						Namespace: k8sv1.NamespaceDefault,
-					},
+					Name:      "block-pvc",
+					Namespace: k8sv1.NamespaceDefault,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: &blockMode,
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
@@ -3962,13 +3855,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				utilityVolume := &virtv1.Volume{
 					Name: "utility-vol",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "block-pvc",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "block-pvc",
+						Hotpluggable: true,
 					},
 				}
 
@@ -3981,19 +3870,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 					{
-						Name: "utility-vol",
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "block-pvc",
-						},
+						Name:      "utility-vol",
+						ClaimName: "block-pvc",
 					},
 				}
 
 				blockMode := k8sv1.PersistentVolumeBlock
 				blockPVC := &k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "block-pvc",
-						Namespace: k8sv1.NamespaceDefault,
-					},
+					Name:      "block-pvc",
+					Namespace: k8sv1.NamespaceDefault,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: &blockMode,
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
@@ -4009,13 +3894,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				nonUtilityVolume := &virtv1.Volume{
 					Name: "non-utility-vol",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "block-pvc",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "block-pvc",
+						Hotpluggable: true,
 					},
 				}
 
@@ -4028,22 +3909,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 					{
-						Name: "utility-vol",
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "missing-pvc",
-						},
+						Name:      "utility-vol",
+						ClaimName: "missing-pvc",
 					},
 				}
 
 				missingPVCVolume := &virtv1.Volume{
 					Name: "utility-vol",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "missing-pvc",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "missing-pvc",
+						Hotpluggable: true,
 					},
 				}
 
@@ -4056,18 +3931,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 					{
-						Name: "utility-vol",
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "filesystem-pvc",
-						},
+						Name:      "utility-vol",
+						ClaimName: "filesystem-pvc",
 					},
 				}
 
 				filesystemPVC := &k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "filesystem-pvc",
-						Namespace: k8sv1.NamespaceDefault,
-					},
+					Name:      "filesystem-pvc",
+					Namespace: k8sv1.NamespaceDefault,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{
 							k8sv1.ReadWriteOnce,
@@ -4082,13 +3953,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 				filesystemVolume := &virtv1.Volume{
 					Name: "utility-vol",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "filesystem-pvc",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "filesystem-pvc",
+						Hotpluggable: true,
 					},
 				}
 
@@ -4103,10 +3970,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 				{
-					Name: "utility-vol",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "block-pvc",
-					},
+					Name:      "utility-vol",
+					ClaimName: "block-pvc",
 				},
 			}
 			vmi.Status.Phase = virtv1.Running
@@ -4116,14 +3981,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			blockMode := k8sv1.PersistentVolumeBlock
 			blockPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "block-pvc",
-				},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  vmi.Namespace,
+				Name:       "block-pvc",
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode: &blockMode,
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{
@@ -4157,40 +4018,28 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			volumes := make([]virtv1.Volume, 0)
 			volumes = append(volumes, virtv1.Volume{
 				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "existing",
-						},
-					},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "existing",
 				},
 			})
 			volumes = append(volumes, virtv1.Volume{
 				Name: "hotplug",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "hotplug",
-						},
-					},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "hotplug",
 				},
 			})
 			vmi.Spec.Volumes = volumes
 			disks := make([]virtv1.Disk, 0)
 			disks = append(disks, virtv1.Disk{
 				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
+				Disk: &virtv1.DiskTarget{
+					Bus: virtv1.DiskBusVirtio,
 				},
 			})
 			disks = append(disks, virtv1.Disk{
 				Name: "hotplug",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusSATA,
-					},
+				Disk: &virtv1.DiskTarget{
+					Bus: virtv1.DiskBusSATA,
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = disks
@@ -4204,30 +4053,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "existing"},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  vmi.Namespace,
+				Name:       "existing",
 			}
 			hpPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "hotplug"},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  vmi.Namespace,
+				Name:       "hotplug",
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: k8sv1.ClaimBound,
 				},
 			}
 			virtlauncherPod.Spec.Volumes = append(virtlauncherPod.Spec.Volumes, k8sv1.Volume{
 				Name: "existing",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
-					},
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "existing",
 				},
 			})
 			addDataVolumePVC(existingPVC)
@@ -4271,20 +4114,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			volumes := make([]virtv1.Volume, 0)
 			volumes = append(volumes, virtv1.Volume{
 				Name: "existing",
-				VolumeSource: virtv1.VolumeSource{
-					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
-					}},
-				},
+				PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "existing"},
 			})
 			vmi.Spec.Volumes = volumes
 			disks := make([]virtv1.Disk, 0)
 			disks = append(disks, virtv1.Disk{
 				Name: "existing",
-				DiskDevice: virtv1.DiskDevice{
-					Disk: &virtv1.DiskTarget{
-						Bus: virtv1.DiskBusVirtio,
-					},
+				Disk: &virtv1.DiskTarget{
+					Bus: virtv1.DiskBusVirtio,
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = disks
@@ -4306,38 +4144,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 
 			existingPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "existing"},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  vmi.Namespace,
+				Name:       "existing",
 			}
 			hpPVC := &k8sv1.PersistentVolumeClaim{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "PersistentVolumeClaim",
-					APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: vmi.Namespace,
-					Name:      "hotplug"},
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+				Namespace:  vmi.Namespace,
+				Name:       "hotplug",
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: k8sv1.ClaimBound,
 				},
 			}
 			virtlauncherPod.Spec.Volumes = append(virtlauncherPod.Spec.Volumes, k8sv1.Volume{
 				Name: "existing",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "existing",
-					},
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "existing",
 				},
 			})
 			hpPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-hotplug", "abcd", k8sv1.PodRunning)
 			hpPod.Spec.Volumes = append(hpPod.Spec.Volumes, k8sv1.Volume{
-				Name: "hotplug",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
-				},
+				Name:                  "hotplug",
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 			})
 			addDataVolumePVC(existingPVC)
 			addDataVolumePVC(hpPVC)
@@ -4402,9 +4232,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 
 			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
+				Name: "testnode",
 			})
 			if currentPod == nil && len(oldPods) > 0 {
 				currentPod = oldPods[0]
@@ -4473,9 +4301,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		DescribeTable("should handle old running pod kept as fallback based on volume status", func(volName string, volPhase virtv1.VolumePhase, inSpec bool, expectDelete bool) {
 			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
+				Name: "testnode",
 			})
 			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
 				{
@@ -4491,13 +4317,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				vmi.Spec.Volumes = []virtv1.Volume{
 					{
 						Name: volName,
-						VolumeSource: virtv1.VolumeSource{
-							PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: volName + "-pvc",
-								},
-								Hotpluggable: true,
-							},
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							ClaimName:    volName + "-pvc",
+							Hotpluggable: true,
 						},
 					},
 				}
@@ -4507,10 +4329,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			readyVolumes := []*virtv1.Volume{{}}
 			oldPod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "old-pod",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "old-pod",
+				Namespace: vmi.Namespace,
 				Spec: k8sv1.PodSpec{
 					Volumes: []k8sv1.Volume{
 						{Name: volName},
@@ -4541,20 +4361,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		It("should keep old running pod as fallback when it has both a Detaching and an in-spec volume", func() {
 			vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testnode",
-				},
+				Name: "testnode",
 			})
 			vmi.Spec.Volumes = []virtv1.Volume{
 				{
 					Name: "active-vol",
-					VolumeSource: virtv1.VolumeSource{
-						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "active-pvc",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "active-pvc",
+						Hotpluggable: true,
 					},
 				},
 			}
@@ -4579,10 +4393,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			readyVolumes := []*virtv1.Volume{{}}
 			oldPod := &k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "old-pod",
-					Namespace: vmi.Namespace,
-				},
+				Name:      "old-pod",
+				Namespace: vmi.Namespace,
 				Spec: k8sv1.PodSpec{
 					Volumes: []k8sv1.Volume{
 						{Name: "detaching-vol"},
@@ -4603,16 +4415,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		DescribeTable("should clean up utility volume attachment pods when replacement pod is running",
 			func(includeUtilityPVC bool, includeUtilityMount bool, expectDelete bool) {
 				vmi := watchtesting.NewRunningVirtualMachine("testvmi", &k8sv1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testnode",
-					},
+					Name: "testnode",
 				})
 				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
 					{
-						Name: "utility-vol",
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "utility-pvc",
-						},
+						Name:      "utility-vol",
+						ClaimName: "utility-pvc",
 					},
 				}
 				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
@@ -4627,18 +4435,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}
 
 				oldPod := &k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "old-pod",
-						Namespace: vmi.Namespace,
-					},
+					Name:      "old-pod",
+					Namespace: vmi.Namespace,
 					Spec: k8sv1.PodSpec{
 						Volumes: []k8sv1.Volume{
 							{
 								Name: "utility-vol",
-								VolumeSource: k8sv1.VolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: "utility-pvc",
-									},
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "utility-pvc",
 								},
 							},
 						},
@@ -4652,10 +4456,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Volumes: []k8sv1.Volume{
 						{
 							Name: "hotplug-vol",
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "hotplug-pvc",
-								},
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "hotplug-pvc",
 							},
 						},
 					},
@@ -4664,10 +4466,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					currentPodSpec.Volumes = append([]k8sv1.Volume{
 						{
 							Name: "utility-vol",
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "utility-pvc",
-								},
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "utility-pvc",
 							},
 						},
 					}, currentPodSpec.Volumes...)
@@ -4686,11 +4486,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					}
 				}
 				currentPod := &k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "new-pod",
-						Namespace: vmi.Namespace,
-					},
-					Spec: currentPodSpec,
+					Name:      "new-pod",
+					Namespace: vmi.Namespace,
+					Spec:      currentPodSpec,
 					Status: k8sv1.PodStatus{
 						Phase: k8sv1.PodRunning,
 					},
@@ -4724,10 +4522,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				Spec: k8sv1.PodSpec{
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "vol",
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
-							},
+							Name:                  "vol",
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
 						},
 					},
 				},
@@ -4745,10 +4541,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "vol",
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
-							},
+							Name:                  "vol",
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
 						},
 					},
 				},
@@ -4766,10 +4560,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 					Volumes: []k8sv1.Volume{
 						{
-							Name: "vol",
-							VolumeSource: k8sv1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
-							},
+							Name:                  "vol",
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc"},
 						},
 					},
 				},
@@ -5297,10 +5089,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			migration := &virtv1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: vmi.Name + "-",
-					Namespace:    vmi.Namespace,
-				},
+				GenerateName: vmi.Name + "-",
+				Namespace:    vmi.Namespace,
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
@@ -5323,10 +5113,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			addVirtualMachine(vmi)
 
 			migration := &virtv1.VirtualMachineInstanceMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: vmi.Name + "-",
-					Namespace:    vmi.Namespace,
-				},
+				GenerateName: vmi.Name + "-",
+				Namespace:    vmi.Namespace,
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
@@ -5570,10 +5358,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
 	dv := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 		Status: cdiv1.DataVolumeStatus{
 			Phase: phase,
 		},
@@ -5692,30 +5478,24 @@ func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.Da
 
 func newPvc(namespace string, name string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
+		Kind:       "PersistentVolumeClaim",
+		APIVersion: "v1",
+		Namespace:  namespace,
+		Name:       name,
 	}
 }
 
 func newPvcWithOwner(namespace string, name string, ownerName string, isController *bool) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "PersistentVolumeClaim",
-			APIVersion: "v1"},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Kind:       "DataVolume",
-					Name:       ownerName,
-					Controller: isController,
-				},
+		Kind:       "PersistentVolumeClaim",
+		APIVersion: "v1",
+		Namespace:  namespace,
+		Name:       name,
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				Kind:       "DataVolume",
+				Name:       ownerName,
+				Controller: isController,
 			},
 		},
 	}
@@ -5758,18 +5538,16 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 		descheduler.EvictOnlyAnnotation: "",
 	}
 	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
-			Namespace: vmi.Namespace,
-			UID:       "virt-launch-uid",
-			Labels: map[string]string{
-				virtv1.AppLabel:       "virt-launcher",
-				virtv1.CreatedByLabel: string(vmi.UID),
-			},
-			Annotations: podAnnotations,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
-			},
+		Name:      "test",
+		Namespace: vmi.Namespace,
+		UID:       "virt-launch-uid",
+		Labels: map[string]string{
+			virtv1.AppLabel:       "virt-launcher",
+			virtv1.CreatedByLabel: string(vmi.UID),
+		},
+		Annotations: podAnnotations,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
@@ -5788,16 +5566,14 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 
 func newHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhase) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: "v1alpha1",
-					Kind:       "DataVolume",
-					Name:       name,
-					Controller: new(true),
-				},
+		Name:      name,
+		Namespace: namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "v1alpha1",
+				Kind:       "DataVolume",
+				Name:       name,
+				Controller: new(true),
 			},
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
@@ -5813,18 +5589,16 @@ func newHotplugPVC(name, namespace string, phase k8sv1.PersistentVolumeClaimPhas
 
 func newPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: virtlauncher.Namespace,
-			UID:       types.UID(uid),
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					Name:       virtlauncher.Name,
-					Kind:       "Pod",
-					APIVersion: "v1",
-					Controller: new(true),
-					UID:        virtlauncher.UID,
-				},
+		Name:      name,
+		Namespace: virtlauncher.Namespace,
+		UID:       types.UID(uid),
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				Name:       virtlauncher.Name,
+				Kind:       "Pod",
+				APIVersion: "v1",
+				Controller: new(true),
+				UID:        virtlauncher.UID,
 			},
 		},
 		Status: k8sv1.PodStatus{
@@ -5834,16 +5608,12 @@ func newPodForVirtlauncher(virtlauncher *k8sv1.Pod, name, uid string, phase k8sv
 			// +2 for empty dir and token
 			Volumes: []k8sv1.Volume{
 				{
-					Name: "hotplug-disks",
-					VolumeSource: k8sv1.VolumeSource{
-						EmptyDir: &k8sv1.EmptyDirVolumeSource{},
-					},
+					Name:     "hotplug-disks",
+					EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 				},
 				{
-					Name: "default-token",
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{},
-					},
+					Name:   "default-token",
+					Secret: &k8sv1.SecretVolumeSource{},
 				},
 			},
 		},
