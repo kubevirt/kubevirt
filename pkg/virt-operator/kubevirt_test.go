@@ -4046,6 +4046,14 @@ var _ = Describe("KubeVirt Operator", func() {
 			_, exists, err := kvTestData.controller.stores.MutatingWebhookCache.GetByKey(components.VirtLauncherPodMutatingWebhookName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse(), "virt-launcher-pod-mutator webhook should not exist when ContainerPathVolumes is disabled")
+
+			for _, action := range kvTestData.kubeClient.Actions() {
+				if action.GetVerb() != "get" || action.GetResource().Resource != "mutatingwebhookconfigurations" {
+					continue
+				}
+				Expect(action.(testing.GetAction).GetName()).ToNot(Equal(components.VirtLauncherPodMutatingWebhookName),
+					"the informer cache should be trusted instead of querying the API server for a disabled webhook")
+			}
 		})
 
 		It("should delete virt-launcher-pod-mutator webhook when ContainerPathVolumes is disabled after being enabled", func() {
