@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "annotations.go",
+        "apply.go",
         "cpu.go",
+        "finder.go",
         "gpu.go",
         "hostdevices.go",
         "iothreadpolicy.go",
@@ -36,6 +38,7 @@ go_test(
     srcs = [
         "annotations_test.go",
         "apply_suite_test.go",
+        "apply_test.go",
         "cpu_test.go",
         "gpu_test.go",
         "hostdevices_test.go",
@@ -45,10 +48,11 @@ go_test(
         "memory_test.go",
         "nodeselector_test.go",
         "scheduler_test.go",
+        "template_test.go",
     ],
+    embed = [":go_default_library"],
     race = "on",
     deps = [
-        ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",

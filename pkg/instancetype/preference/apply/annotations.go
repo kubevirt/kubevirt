@@ -18,18 +18,31 @@
  */
 package apply
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-func applyPreferenceAnnotations(annotations map[string]string, target metav1.Object) {
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
+	virtv1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+)
+
+type annotationPreferences struct{}
+
+func (annotationPreferences) Apply(
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	_ *virtv1.VirtualMachineInstanceSpec,
+	vmiMetadata *metav1.ObjectMeta,
+) {
+	if preferenceSpec == nil {
+		return
 	}
 
-	targetAnnotations := target.GetAnnotations()
-	for key, value := range annotations {
-		if _, exists := targetAnnotations[key]; exists {
-			continue
+	if vmiMetadata.Annotations == nil {
+		vmiMetadata.Annotations = make(map[string]string)
+	}
+
+	for key, value := range preferenceSpec.Annotations {
+		if _, exists := vmiMetadata.Annotations[key]; !exists {
+			vmiMetadata.Annotations[key] = value
 		}
-		targetAnnotations[key] = value
 	}
 }
