@@ -1847,6 +1847,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject NUMA passthrough with transparent hugepages", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{
+					PageSize: "2Mi",
+					Mode:     pointer.P(v1.HugepagesModeTransparent),
+				},
+			}
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.numa.guestMappingPassthrough"))
+			Expect(causes[0].Message).To(ContainSubstring("not supported with transparent hugepages"))
+		})
+
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
@@ -4068,7 +4087,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			// Enabled by default
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
-				libvmi.WithResourceMemory("128M"),
+				libvmi.WithMemoryRequest("128M"),
 			)
 			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
 
@@ -4083,7 +4102,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
-				libvmi.WithResourceMemory("128M"),
+				libvmi.WithMemoryRequest("128M"),
 			)
 			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
 
@@ -4092,6 +4111,96 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy)))
 			Expect(causes[0].Field).To(Equal("fake.domain.rebootPolicy"))
+		})
+	})
+
+	Context("with hugepages mode and policy", func() {
+		newHugepageVMI := func(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+			base := []libvmi.Option{
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithMemoryRequest("64Mi"),
+				libvmi.WithHugepages("2Mi"),
+			}
+			return libvmi.New(append(base, opts...)...)
+		}
+
+		It("should accept omitted mode without feature gate", func() {
+			vmi := newHugepageVMI()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept mode static without feature gate", func() {
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeStatic))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject mode transparent when feature gate is disabled", func() {
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeTransparent))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.mode"))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate is not enabled", featuregate.THPMemoryBacking)))
+		})
+
+		It("should accept mode transparent when feature gate is enabled", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeTransparent))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept transparent mode without pageSize", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeTransparent))
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = ""
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject policy when feature gate is disabled", func() {
+			vmi := newHugepageVMI(
+				libvmi.WithHugepagesMode(v1.HugepagesModeTransparent),
+				libvmi.WithHugepagesPolicy(v1.HugepagesPolicyGuaranteed),
+			)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate is not enabled", featuregate.THPMemoryBacking)))
+		})
+
+		DescribeTable("should accept transparent mode with policy when feature gate is enabled",
+			func(policy v1.HugepagesPolicy) {
+				enableFeatureGates(featuregate.THPMemoryBacking)
+				vmi := newHugepageVMI(
+					libvmi.WithHugepagesMode(v1.HugepagesModeTransparent),
+					libvmi.WithHugepagesPolicy(policy),
+				)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			},
+			Entry("bestEffort", v1.HugepagesPolicyBestEffort),
+			Entry("guaranteed", v1.HugepagesPolicyGuaranteed),
+		)
+
+		It("should reject unknown mode", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi := newHugepageVMI()
+			vmi.Spec.Domain.Memory.Hugepages.Mode = pointer.P(v1.HugepagesMode("bogus"))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.mode"))
+			Expect(causes[0].Message).To(ContainSubstring("not a valid hugepages mode"))
+		})
+
+		It("should reject unknown policy", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeTransparent))
+			vmi.Spec.Domain.Memory.Hugepages.Policy = pointer.P(v1.HugepagesPolicy("bogus"))
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.policy"))
+			Expect(causes[0].Message).To(ContainSubstring("not a valid hugepages policy"))
 		})
 	})
 

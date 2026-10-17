@@ -1,0 +1,43 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "collapse.go",
+        "collapse_linux.go",
+        "collapse_unsupported.go",
+        "maps.go",
+        "process_madvise.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/thp",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/hypervisor/common:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "collapse_linux_test.go",
+        "madvise_stub_linux_test.go",
+        "thp_suite_test.go",
+        "thp_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//pkg/hypervisor/common:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//pkg/hypervisor/common:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

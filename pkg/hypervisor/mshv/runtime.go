@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/thp"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -97,6 +98,14 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		targetProcess)
 
 	return nil
+}
+
+func (m *MshvVirtRuntime) CollapseTransparentHugepages(isolationResult isolation.IsolationResult) (thp.CollapseResult, error) {
+	proc, err := getQEMUProcess(isolationResult)
+	if err != nil {
+		return thp.CollapseResult{}, err
+	}
+	return thp.Collapse(proc.Pid())
 }
 
 func (m *MshvVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
