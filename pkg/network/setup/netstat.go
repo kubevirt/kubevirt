@@ -20,9 +20,11 @@
 package network
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -231,22 +233,45 @@ func (c *NetStat) updateIfacesStatusFromPodCache(ifacesStatus []v1.VirtualMachin
 }
 
 func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, ifaceName string) (*cache.PodIfaceCacheData, error) {
-	// Once the Interface files are set on the handler, they don't change
-	// If already present in the map, don't read again
-	cacheData, exists := c.podInterfaceVolatileCache.Load(vmiInterfaceKey(vmi.UID, ifaceName))
-	if exists {
-		return cacheData.(*cache.PodIfaceCacheData), nil
+	cacheKey := vmiInterfaceKey(vmi.UID, ifaceName)
+	if hit, ok := c.podInterfaceVolatileCache.Load(cacheKey); ok {
+		return hit.(*cache.PodIfaceCacheData), nil
 	}
 
-	podInterface := &cache.PodIfaceCacheData{}
-	if data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName); err == nil {
-		//FIXME error handling?
-		podInterface = data
+	var data *cache.PodIfaceCacheData
+	if pid, ok := launcherPIDsByUID.Load(string(vmi.UID)); ok {
+		entry, err := cache.NewPodInterfaceCache(c.cacheCreator, pid.(int)).IfaceEntry(ifaceName)
+		if err == nil {
+			data, err = entry.Read()
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("reading network state from launcher pod: %w", err)
+			}
+			if errors.Is(err, os.ErrNotExist) {
+				data = nil
+			}
+		}
 	}
 
-	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
+	if data == nil {
+		// Upgrade fallback: check pre-upgrade virt-handler-local path (read-only).
+		data = c.readPreUpgradeNetworkState(vmi, ifaceName)
+	}
 
-	return podInterface, nil
+	if data == nil {
+		data = &cache.PodIfaceCacheData{}
+	}
+	c.podInterfaceVolatileCache.Store(cacheKey, data)
+	return data, nil
+}
+
+// readPreUpgradeNetworkState reads from the virt-handler-local cache path used before this
+// refactor. Remove once all virt-launchers have been upgraded and restarted at least once.
+func (c *NetStat) readPreUpgradeNetworkState(vmi *v1.VirtualMachineInstance, ifaceName string) *cache.PodIfaceCacheData {
+	data, err := cache.ReadLegacyPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName)
+	if err != nil {
+		return nil
+	}
+	return data
 }
 
 func (c *NetStat) removeAbsentIfacesFromVolatileCache(vmi *v1.VirtualMachineInstance) {
