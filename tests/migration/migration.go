@@ -2262,7 +2262,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1))
 				policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("5Mi"))
 				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
-					Compression: pointer.P(v1.MigrationCompressionZstd),
+					Compression:           pointer.P(v1.MigrationCompressionZstd),
+					ConvergenceTimeoutSec: pointer.P(int64(1)),
 				}
 				AlignPolicyAndVmi(vmi, policy)
 				policy = CreateMigrationPolicy(virtClient, policy)

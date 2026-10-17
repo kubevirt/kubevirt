@@ -80,6 +80,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
 		migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
 		migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+		migrationPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+			ConvergenceTimeoutSec: kvpointer.P(int64(1)),
+		}
 	})
 
 	Context("with datavolume", decorators.RequiresRWXFilesystemStorage, func() {
@@ -139,6 +142,8 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				applyMigrationPolicy(vmi)
 			case applyWithKubevirtCR:
 				applyKubevirtCR()
+				// experimental.convergenceTimeoutSec is MigrationPolicy-only (not on KubeVirt CR)
+				applyMigrationPolicy(vmi)
 			}
 
 			By("Starting the VirtualMachineInstance")

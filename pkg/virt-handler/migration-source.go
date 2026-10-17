@@ -599,6 +599,9 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		if c.clusterConfig.MigrationDowntimeTuningEnabled() && exp.DowntimeTuning != nil {
 			options.DowntimeTuning = exp.DowntimeTuning
 		}
+		if exp.ConvergenceTimeoutSec != nil {
+			options.ConvergenceTimeoutSec = exp.ConvergenceTimeoutSec
+		}
 	}
 
 	configureParallelMigrationThreads(options, vmi)
