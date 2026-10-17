@@ -2954,6 +2954,19 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on dirty rate collection", func() {
+		It("should use dirty bitmap mode", func() {
+			expectedDirtyRateStats := []*stats.DomainStatsDirtyRate{{}}
+			mockLibvirt.ConnectionEXPECT().GetDomainDirtyRate(time.Second, libvirt.DOMAIN_DIRTYRATE_MODE_DIRTY_BITMAP).Return(expectedDirtyRateStats, nil)
+
+			manager, _ := newLibvirtDomainManagerDefault()
+			dirtyRateStats, err := manager.(*LibvirtDomainManager).getDomainDirtyRateStats(time.Second)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dirtyRateStats).To(Equal(expectedDirtyRateStats))
+		})
+	})
+
 	Context("device alias injection in getDomainStats", func() {
 		const (
 			domainStats = libvirt.DOMAIN_STATS_BALLOON |
