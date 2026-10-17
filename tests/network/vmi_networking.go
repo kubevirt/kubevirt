@@ -31,6 +31,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/network/link"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
@@ -41,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -473,7 +474,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
 
 				if networkCIDR == "" && flags.PrimaryNetworkBindingPlugin == "" {
-					networkCIDR = api.DefaultVMCIDR
+					networkCIDR = link.DefaultVMCIDR
 				}
 
 				if networkCIDR != "" {
@@ -487,9 +488,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("basic connectivity [IPv4]",
 					conformanceVMI(), conformanceVMI(), 8080, ""),
 				Entry("with a specific port number [IPv4]", decorators.InterfacePorts,
-					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI([]v1.Port{{Name: "http", Port: 8080}}, ""), 8080, api.DefaultVMCIDR),
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI([]v1.Port{{Name: "http", Port: 8080}}, ""), 8080, link.DefaultVMCIDR),
 				Entry("with a specific port used by live migration", decorators.InterfacePorts,
-					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI(portsUsedByLiveMigration(), ""), LibvirtDirectMigrationPort, api.DefaultVMCIDR),
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI(portsUsedByLiveMigration(), ""), LibvirtDirectMigrationPort, link.DefaultVMCIDR),
 				Entry("with custom CIDR [IPv4] containing leading zeros", decorators.NetworkCIDR,
 					masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), 8080, cidrWithLeadingZeros),
 			)
@@ -679,7 +680,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 
 			configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
-				networkCIDR := api.DefaultVMIpv6CIDR
+				networkCIDR := link.DefaultVMIpv6CIDR
 
 				err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
 				if err != nil {
