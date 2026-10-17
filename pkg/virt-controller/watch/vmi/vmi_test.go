@@ -1393,6 +1393,206 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				}),
 		)
 
+		It("should remove the Unschedulable condition added for a missing PVC once the PVC appears", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "test",
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				}},
+			}}
+			addVirtualMachine(vmi)
+
+			// The VMI is synced before CDI creates the PVC for the DataVolume.
+			sanityExecute()
+			testutils.ExpectEvent(recorder, kvcontroller.FailedPvcNotFoundReason)
+			synced, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			getType := func(c virtv1.VirtualMachineInstanceCondition) string { return string(c.Type) }
+			Expect(synced.Status.Conditions).To(ContainElement(WithTransform(getType, Equal(string(k8sv1.PodScheduled)))))
+
+			// CDI creates the PVC while the import is still running.
+			dv := newDv(vmi.Namespace, "test-dv", cdiv1.ImportInProgress)
+			pvc := newPvcWithOwner(vmi.Namespace, "test-dv", dv.Name, pointer.P(true))
+			pvc.Status.Phase = k8sv1.ClaimBound
+			addDataVolume(dv)
+			addDataVolumePVC(pvc)
+
+			Expect(controller.vmiIndexer.Update(synced)).To(Succeed())
+			key, err := kvcontroller.KeyFunc(synced)
+			Expect(err).ToNot(HaveOccurred())
+			mockQueue.Add(key)
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			sanityExecute()
+
+			synced, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(synced.Status.Phase).To(Equal(virtv1.Pending))
+			Expect(synced.Status.Conditions).ToNot(ContainElement(WithTransform(getType, Equal(string(virtv1.VirtualMachineInstanceSynchronized)))))
+			Expect(synced.Status.Conditions).ToNot(ContainElement(WithTransform(getType, Equal(string(k8sv1.PodScheduled)))))
+		})
+
+		It("should clear the missing PVC condition produced while rendering the launcher Pod", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "test",
+				VolumeSource: virtv1.VolumeSource{Ephemeral: &virtv1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"},
+				}},
+			}}
+			addVirtualMachine(vmi)
+
+			// Ephemeral PVCs bypass the DataVolume readiness check and fail during manifest rendering.
+			sanityExecute()
+			testutils.ExpectEvent(recorder, kvcontroller.FailedPvcNotFoundReason)
+			synced, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			conditionManager := kvcontroller.NewVirtualMachineInstanceConditionManager()
+			condition := conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Reason).To(Equal(k8sv1.PodReasonUnschedulable))
+
+			addDataVolumePVC(newPvc(vmi.Namespace, "test-pvc"))
+			Expect(controller.vmiIndexer.Update(synced)).To(Succeed())
+			key, err := kvcontroller.KeyFunc(synced)
+			Expect(err).ToNot(HaveOccurred())
+			mockQueue.Add(key)
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+
+			synced, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(synced.Status.Phase).To(Equal(virtv1.Scheduling))
+			Expect(conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))).To(BeNil())
+		})
+
+		DescribeTable("should only remove a missing PVC condition while the DataVolume imports", func(message string, priorMissingPVC, shouldRemove bool) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "test",
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				}},
+			}}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type: virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled), Status: k8sv1.ConditionFalse,
+				Reason: k8sv1.PodReasonUnschedulable, Message: message,
+			})
+			if priorMissingPVC {
+				vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+					Type: virtv1.VirtualMachineInstanceSynchronized, Status: k8sv1.ConditionFalse,
+					Reason: kvcontroller.FailedPvcNotFoundReason, Message: "PVC default/test-dv does not exist, waiting for it to appear",
+				})
+			}
+			dv := newDv(vmi.Namespace, "test-dv", cdiv1.ImportInProgress)
+			pvc := newPvcWithOwner(vmi.Namespace, "test-dv", dv.Name, new(true))
+			pvc.Status.Phase = k8sv1.ClaimBound
+			addVirtualMachine(vmi)
+			addDataVolume(dv)
+			addDataVolumePVC(pvc)
+			sanityExecute()
+
+			synced, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			condition := kvcontroller.NewVirtualMachineInstanceConditionManager().GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+			if shouldRemove {
+				Expect(condition).To(BeNil())
+				return
+			}
+			Expect(condition).ToNot(BeNil())
+			Expect(condition.Message).To(Equal(message))
+		},
+			Entry("preserves an unrelated scheduling failure", "Insufficient memory", false, false),
+			Entry("preserves a Pod failure despite an older missing-PVC sync", "Insufficient memory", true, false),
+			Entry("clears an older DataVolume missing-PVC condition", "PVC default/test-dv does not exist, waiting for it to appear", false, true),
+			Entry("clears an older render missing-PVC condition", "failed to render launch manifest: didn't find PVC test-dv", false, true),
+		)
+
+		DescribeTable("should clear the missing PVC condition when the PVC is ready", func(podCreationFails, podCannotSchedule bool) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "test",
+				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
+					Name: "test-dv",
+				}},
+			}}
+			addVirtualMachine(vmi)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, kvcontroller.FailedPvcNotFoundReason)
+
+			synced, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kvcontroller.NewVirtualMachineInstanceConditionManager().GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))).ToNot(BeNil())
+
+			dv := newDv(vmi.Namespace, "test-dv", cdiv1.Succeeded)
+			pvc := newPvcWithOwner(vmi.Namespace, "test-dv", dv.Name, new(true))
+			pvc.Status.Phase = k8sv1.ClaimBound
+			addDataVolume(dv)
+			addDataVolumePVC(pvc)
+			if podCreationFails {
+				kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (bool, k8sruntime.Object, error) {
+					return true, nil, fmt.Errorf("pod creation failed")
+				})
+			}
+			Expect(controller.vmiIndexer.Update(synced)).To(Succeed())
+			key, err := kvcontroller.KeyFunc(synced)
+			Expect(err).ToNot(HaveOccurred())
+			mockQueue.Add(key)
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			sanityExecute()
+			if podCreationFails {
+				testutils.ExpectEvent(recorder, kvcontroller.FailedCreatePodReason)
+			} else {
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			}
+
+			synced, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			conditionManager := kvcontroller.NewVirtualMachineInstanceConditionManager()
+			if podCreationFails {
+				Expect(synced.Status.Phase).To(Equal(virtv1.Pending))
+				Expect(conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))).To(BeNil())
+				Expect(conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceSynchronized).Reason).To(Equal(kvcontroller.FailedCreatePodReason))
+				return
+			}
+			Expect(synced.Status.Phase).To(Equal(virtv1.Scheduling))
+			if !podCannotSchedule {
+				Expect(conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))).To(BeNil())
+				return
+			}
+
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			pod := pods.Items[0].DeepCopy()
+			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+				Type: k8sv1.PodScheduled, Status: k8sv1.ConditionFalse,
+				Reason: k8sv1.PodReasonUnschedulable, Message: "Insufficient memory",
+			})
+			Expect(controller.podIndexer.Add(pod)).To(Succeed())
+			_, err = kubeClient.CoreV1().Pods(vmi.Namespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.vmiIndexer.Update(synced)).To(Succeed())
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			controller.podExpectations.SetExpectations(key, 0, 0)
+			mockQueue.Add(key)
+			sanityExecute()
+
+			synced, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			condition := conditionManager.GetCondition(synced, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
+			Expect(condition).ToNot(BeNil())
+			Expect(*condition).To(MatchFields(IgnoreExtras, Fields{
+				"Status": Equal(k8sv1.ConditionFalse), "Reason": Equal(k8sv1.PodReasonUnschedulable), "Message": Equal("Insufficient memory"),
+			}))
+		},
+			Entry("before the launcher Pod reports scheduling status", false, false),
+			Entry("when the launcher Pod reports a real scheduling failure", false, true),
+			Entry("when creating the launcher Pod fails", true, false),
+		)
+
 		DescribeTable("should move the vmi to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {
 			vmi := newPendingVirtualMachine("testvmi")
 			pod := newPodForVirtualMachine(vmi, phase)
@@ -1424,10 +1624,16 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		Context("when pod failed to schedule", func() {
-			It("should set scheduling pod condition on the VirtualMachineInstance", func() {
+			DescribeTable("should reflect the Pod scheduling condition on the VirtualMachineInstance", func(existingMessage string) {
 				vmi := newPendingVirtualMachine("testvmi")
 				setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
 				vmi.Status.Phase = virtv1.Scheduling
+				if existingMessage != "" {
+					vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+						Type:   virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+						Status: k8sv1.ConditionFalse, Reason: k8sv1.PodReasonUnschedulable, Message: existingMessage,
+					})
+				}
 
 				pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
 
@@ -1450,7 +1656,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						"Reason":  Equal("Unschedulable"),
 						"Message": Equal("Insufficient memory"),
 					})))
-			})
+			},
+				Entry("when the VMI has no prior condition", ""),
+				Entry("when the VMI still has an older PVC error", "PVC default/test-dv does not exist, waiting for it to appear"),
+			)
 		})
 
 		Context("when Pod recovers from scheduling issues", func() {
