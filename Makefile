@@ -41,6 +41,13 @@ bazel-build-images:
 bazel-push-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"
 	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
+	# Single-arch builds only. Multi-arch release builds (comma-separated
+	# BUILD_ARCH) skip this so they do not overwrite any upstream virt-template
+	# tags. A single-arch push still can, if DOCKER_PREFIX points at that registry.
+	build_count=$$(echo ${BUILD_ARCH} | awk -F, '{print NF}'); \
+	if [ "$$build_count" -lt 2 ]; then \
+		hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"; \
+	fi
 
 push: bazel-push-images
 
