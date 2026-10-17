@@ -1119,6 +1119,7 @@ func NewUserDefinedAlias(aliasName string) *Alias {
 	return &Alias{name: aliasName, userDefined: true}
 }
 
+//nolint:domain-funcs
 func NewNonUserDefinedAlias(aliasName string) *Alias {
 	return &Alias{name: aliasName, userDefined: false}
 }
