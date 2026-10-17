@@ -33,25 +33,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod, networkDevicesWithDRAGateEnabled bool) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 
 	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
 
-	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
+	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses, networkDevicesWithDRAGateEnabled)
 	if err != nil {
 		return err
 	}
 
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
-	// Keep statuses for spec interfaces that are not managed by the virt-controller updater,
-	// such as DRA resource-claim networks.
-	interfaceStatuses = append(interfaceStatuses,
-		filterDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks)...,
-	)
+	if networkDevicesWithDRAGateEnabled {
+		interfaceStatuses = append(interfaceStatuses,
+			calculateDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks, pod)...,
+		)
+	} else {
+		interfaceStatuses = append(interfaceStatuses,
+			filterDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks)...,
+		)
+	}
 
 	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
 	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
@@ -76,6 +80,55 @@ func filterDRAIfaceStatuses(
 	}
 
 	return preservedIfaceStatuses
+}
+
+func calculateDRAIfaceStatuses(
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	networks []v1.Network,
+	pod *k8scorev1.Pod,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	var draIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	for _, network := range networks {
+		if !vmispec.IsDRANetwork(network) {
+			continue
+		}
+
+		claimAssigned := isResourceClaimInPodStatus(pod.Status.ResourceClaimStatuses, network.ResourceClaim.ClaimName)
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(ifaceStatuses, network.Name)
+		switch {
+		case ifaceStatus != nil:
+			updatedIfaceStatus := *ifaceStatus
+			if claimAssigned {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			} else {
+				updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
+			if updatedIfaceStatus.InfoSource == "" {
+				continue
+			}
+			draIfaceStatuses = append(draIfaceStatuses, updatedIfaceStatus)
+		case claimAssigned:
+			draIfaceStatuses = append(draIfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:       network.Name,
+				InfoSource: vmispec.InfoSourcePodStatus,
+			})
+		}
+	}
+
+	return draIfaceStatuses
+}
+
+func isResourceClaimInPodStatus(
+	resourceClaimStatuses []k8scorev1.PodResourceClaimStatus,
+	claimName string,
+) bool {
+	for _, claimStatus := range resourceClaimStatuses {
+		if claimStatus.Name == claimName {
+			return claimStatus.ResourceClaimName != nil
+		}
+	}
+	return false
 }
 
 func calculatePrimaryIfaceStatus(
@@ -107,6 +160,7 @@ func calculatePrimaryIfaceStatus(
 func calculateSecondaryIfaceStatuses(
 	vmi *v1.VirtualMachineInstance,
 	networkStatuses []networkv1.NetworkStatus,
+	networkDevicesWithDRAGateEnabled bool,
 ) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
@@ -122,19 +176,29 @@ func calculateSecondaryIfaceStatuses(
 		_, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
+			infoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				infoSource = vmispec.AddInfoSource(infoSource, vmispec.InfoSourcePodStatus)
+			}
 			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
 				Name:             network.Name,
-				InfoSource:       vmispec.InfoSourceMultusStatus,
+				InfoSource:       infoSource,
 				PodInterfaceName: podIfaceName,
 			})
 		case exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			if networkDevicesWithDRAGateEnabled {
+				updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		}

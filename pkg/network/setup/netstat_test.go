@@ -312,6 +312,85 @@ var _ = Describe("netstat", func() {
 			Expect(setup.NetStat.PodInterfaceVolatileDataIsCached(setup.Vmi, secondaryNetworkName)).To(BeTrue())
 		})
 
+		DescribeTable("run status and preserve the secondary-network info sources reported by the virt-controller",
+			func(networkDevicesWithDRAGateEnabled, domainReportsInterface bool, reportedInfoSource, expectedInfoSource string) {
+				expected := v1.VirtualMachineInstanceNetworkInterface{
+					Name:       secondaryNetworkName,
+					InfoSource: expectedInfoSource,
+				}
+
+				if domainReportsInterface {
+					Expect(
+						setup.addNetworkInterface(
+							newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+							newVMISpecMultusNetwork(secondaryNetworkName),
+							newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+							secondaryPodIPv4, secondaryPodIPv6,
+						),
+					).To(Succeed())
+
+					setup.addGuestAgentInterfaces(
+						newDomainStatusIface([]string{secondaryPodIPv4, secondaryPodIPv6}, secondaryMAC, secondaryIfaceName),
+					)
+
+					expected.InterfaceName = secondaryIfaceName
+					expected.IP = secondaryPodIPv4
+					expected.IPs = []string{secondaryPodIPv4, secondaryPodIPv6}
+					expected.MAC = secondaryMAC
+					expected.QueueCount = netsetup.DefaultInterfaceQueueCount
+					expected.LinkState = linkStateUp
+				} else {
+					setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+						newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+					setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks,
+						newVMISpecMultusNetwork(secondaryNetworkName))
+				}
+
+				setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+					{Name: secondaryNetworkName, InfoSource: reportedInfoSource},
+				}
+
+				netStat := netsetup.NewNetStateWithCustomFactory(setup.cacheCreator,
+					stubFeatureGateChecker{networkDevicesWithDRAGateEnabled: networkDevicesWithDRAGateEnabled})
+				Expect(netStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+				Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{expected}))
+			},
+			Entry("multus-status and pod-status, DRA FG enabled",
+				true, true,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus),
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)),
+			Entry("pod-status only, DRA FG enabled",
+				true, true,
+				netvmispec.InfoSourcePodStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourcePodStatus)),
+			Entry("multus-status only, DRA FG enabled",
+				true, true,
+				netvmispec.InfoSourceMultusStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus)),
+			Entry("multus-status and pod-status, DRA FG disabled",
+				false, true,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus),
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus)),
+			Entry("pod-status only, DRA FG disabled",
+				false, true,
+				netvmispec.InfoSourcePodStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent)),
+			Entry("multus-status only, DRA FG disabled",
+				false, true,
+				netvmispec.InfoSourceMultusStatus,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+					netvmispec.InfoSourceMultusStatus)),
+			Entry("multus-status and pod-status reported for a spec interface the domain has not reported, DRA FG enabled",
+				true, false,
+				netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus),
+				netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)),
+		)
+
 		It("run status and expect an interfaces (with masquerade) to be reported based on pod & guest-agent data", func() {
 			// Guest data collected by the guest-agent
 			const (
@@ -1373,6 +1452,14 @@ func newTestSetupWithVolatileCache() testSetup {
 	return setup
 }
 
+type stubFeatureGateChecker struct {
+	networkDevicesWithDRAGateEnabled bool
+}
+
+func (s stubFeatureGateChecker) NetworkDevicesWithDRAGateEnabled() bool {
+	return s.networkDevicesWithDRAGateEnabled
+}
+
 func newTestSetup() testSetup {
 	var cacheCreator tempCacheCreator
 	const uid = "123"
@@ -1383,7 +1470,7 @@ func newTestSetup() testSetup {
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
-		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
+		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator, stubFeatureGateChecker{networkDevicesWithDRAGateEnabled: false}),
 		cacheCreator:  &cacheCreator,
 		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}
@@ -1498,6 +1585,7 @@ func newVMISpecIfaceWithMasqueradeBinding(name string) v1.Interface {
 		},
 	}
 }
+
 func newVMISpecIfaceWithBridgeBinding(name string) v1.Interface {
 	return v1.Interface{
 		Name: name,
@@ -1526,6 +1614,7 @@ func newVMISpecMultusNetwork(name string) v1.Network {
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
 				NetworkName: "test.network",
-			}},
+			},
+		},
 	}
 }
