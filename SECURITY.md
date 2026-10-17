@@ -3,7 +3,7 @@
 ## Reporting a Vulnerability
 
 The KubeVirt project treats security vulnerabilities seriously, so we
-strive to take action quickly when required.
+strive to take quick action when required.
 
 The project requests that security issues be disclosed in a responsible
 manner to allow adequate time to respond.  If a security issue or
@@ -28,6 +28,12 @@ Security notices will be sent to the kubevirt-dev@googlegroups.com
 mailing list and published to the
 [Security Advisories](https://github.com/kubevirt/kubevirt/security/advisories)
 page.
+
+## Security Release Process
+
+See the KubeVirt [docs/security-release-process.md](docs/security-release-process.md) 
+for how the KubeVirt security team handles vulnerability reports, develops
+fixes during embargo periods, and cuts security releases.
 
 ## Security Team
 
