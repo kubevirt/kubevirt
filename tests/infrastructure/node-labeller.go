@@ -266,7 +266,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 		It("should not schedule vmi with host-model cpuModel to node with obsolete host-model cpuModel", func() {
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()), //nolint:staticcheck
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
