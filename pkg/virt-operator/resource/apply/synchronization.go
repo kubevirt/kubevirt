@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -202,6 +203,10 @@ func (r *Reconciler) getSynchronizationEndpointAddress() (string, error) {
 			serviceNames = append(serviceNames, svc.Name)
 		}
 	}
+
+	sort.Strings(routeNames)
+	sort.Strings(ingressNames)
+	sort.Strings(serviceNames)
 
 	if len(routes) > 1 {
 		return "", fmt.Errorf("found %d Routes with label %s, expected at most 1: %s",

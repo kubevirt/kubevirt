@@ -1535,12 +1535,12 @@ var _ = Describe("Apply", func() {
 				Expect(cond).ToNot(BeNil())
 				Expect(cond.Status).To(Equal(corev1.ConditionFalse))
 				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointMisconfigured))
+				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(Receive(ContainSubstring(util.ConditionReasonSynchronizationEndpointMisconfigured)))
 
 				By("reconciling again without emitting another Warning event")
-				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
 				err = reconciler.updateSynchronizationAddress()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(HaveLen(1))
+				Expect(reconciler.recorder.(*record.FakeRecorder).Events).ToNot(Receive())
 			})
 
 			It("should error and clear addresses when multiple Ingresses are labeled", func() {
