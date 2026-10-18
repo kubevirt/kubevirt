@@ -133,7 +133,7 @@ var _ = Describe("VMI traits", func() {
 			),
 			Entry("with an SRIOV interface",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov1")), //nolint:staticcheck
+					libvmi.WithInterface(libvmi.NewInterface("sriov1", libvmi.WithSRIOVBinding())),
 					libvmi.WithNetwork(&v1.Network{Name: "sriov1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-net"}}}),
 				),
 			),
