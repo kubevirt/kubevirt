@@ -33,10 +33,10 @@ func ConformancePodNetworkInterface(ports ...v1.Port) v1.Interface {
 	if flags.PrimaryNetworkBindingPlugin == "" {
 		return libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding(), libvmi.WithPorts(ports...))
 	}
-	return libvmi.InterfaceWithBindingPlugin( //nolint:staticcheck
+	return libvmi.NewInterface(
 		v1.DefaultPodNetwork().Name,
-		v1.PluginBinding{Name: flags.PrimaryNetworkBindingPlugin},
-		ports...,
+		libvmi.WithBindingPlugin(v1.PluginBinding{Name: flags.PrimaryNetworkBindingPlugin}),
+		libvmi.WithPorts(ports...),
 	)
 }
 

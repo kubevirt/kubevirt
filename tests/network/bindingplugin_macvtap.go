@@ -83,7 +83,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 		)
 
 		commonOpts := []libvmi.Option{
-			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(macvtapNetworkName, v1.PluginBinding{Name: "macvtap"})),
+			libvmi.WithInterface(libvmi.NewInterface(macvtapNetworkName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}))),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 		}
 		serverVMI := libvmifact.NewAlpineWithTestTooling(append(commonOpts,
