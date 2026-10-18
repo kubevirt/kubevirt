@@ -6276,7 +6276,7 @@ var _ = Describe("Template", func() {
 					"should have single network-info annotation volume mount")
 			},
 			Entry("with SR-IOV interface",
-				[]v1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("network1")},
+				[]v1.Interface{libvmi.NewInterface("network1", libvmi.WithSRIOVBinding())},
 				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
 			),
 			Entry("with binding plugin device-info interface",
@@ -6285,7 +6285,7 @@ var _ = Describe("Template", func() {
 			),
 			Entry("with binding plugin device-info and SR-IOV interfaces",
 				[]v1.Interface{
-					libvmi.InterfaceDeviceWithSRIOVBinding("network1"),
+					libvmi.NewInterface("network1", libvmi.WithSRIOVBinding()),
 					libvmi.InterfaceWithBindingPlugin("network2", v1.PluginBinding{Name: deviceInfoPlugin}),
 				},
 				[]v1.Network{
