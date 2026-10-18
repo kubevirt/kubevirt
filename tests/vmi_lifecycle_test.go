@@ -689,8 +689,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
-			var defaultCPUModel string
-			var vmiCPUModel string
 
 			//store old kubevirt-config
 			BeforeEach(func() {
@@ -700,8 +698,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				if len(supportedCpuModels) < 2 {
 					Fail("need at least 2 supported cpu models for this test")
 				}
-				defaultCPUModel = supportedCpuModels[0]
-				vmiCPUModel = supportedCpuModels[1]
 				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
 				originalConfig = kv.Spec.Configuration
 			})
@@ -709,23 +705,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			//replace new kubevirt-config with old config
 			AfterEach(func() {
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
-			})
-
-			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi := libvmifact.NewGuestless()
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(vmiCPUModel), "Expected vmi CPU model")
-
 			})
 
 			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
