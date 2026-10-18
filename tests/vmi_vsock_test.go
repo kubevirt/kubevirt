@@ -115,7 +115,7 @@ var _ = Describe("[sig-compute]VSOCK", decorators.SigCompute, decorators.VSOCK, 
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
 		vmi := libvmifact.NewFedora(
-			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithAutoattachVSOCK(true),
 		)

@@ -141,7 +141,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Creating a VMI with no disk and an explicit network interface")
 				vmi := libvmi.New(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 					libvmi.WithLogSerialConsole(true),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -172,7 +172,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
 				By("Enabling network boot")
 				var bootOrder uint = 1
-				interfaceDeviceWithMasqueradeBinding := libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())
+				interfaceDeviceWithMasqueradeBinding := libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())
 				interfaceDeviceWithMasqueradeBinding.BootOrder = &bootOrder
 
 				By("Creating a VMI with no disk and an explicit network interface")
@@ -290,7 +290,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			fedoraWithUefi := libvmifact.NewFedora(
 				libvmi.WithMemoryRequest("1Gi"),
 				libvmi.WithUefi(withSecureBoot),
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
@@ -335,7 +335,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithRng(),
 					libvmi.WithArchitecture("arm64"),
 					libvmi.WithUefi(true),
-					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
 disable_root: false

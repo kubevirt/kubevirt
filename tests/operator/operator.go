@@ -2976,7 +2976,7 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 		}
 
 		vmi := libvmifact.NewAlpine(
-			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithSecretDisk(secretName, secretName),

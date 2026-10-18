@@ -169,7 +169,7 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
-				windowsVMI = libvmifact.NewWindows(libvmi.WithNetwork(v1.DefaultPodNetwork()), libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding())))
+				windowsVMI = libvmifact.NewWindows(libvmi.WithNetwork(v1.DefaultPodNetwork()), libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())))
 				var err error
 				windowsVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), windowsVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
