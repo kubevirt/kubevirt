@@ -373,6 +373,51 @@ var _ = Describe("Install Strategy", func() {
 		})
 	})
 
+	Context("generated workload product labels", func() {
+		var deploymentConfig *util.KubeVirtDeploymentConfig
+
+		BeforeEach(func() {
+			deploymentConfig = getConfig("fake-registry", "v9.9.9")
+		})
+
+		DescribeTable("should default invalid or missing product values", func(productProperties map[string]string) {
+			deploymentConfig.AdditionalProperties = productProperties
+			strategy, err := GenerateCurrentInstallStrategy(deploymentConfig, "monitoring", namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			var workloadLabelSets []map[string]string
+			for _, deployment := range strategy.Deployments() {
+				workloadLabelSets = append(workloadLabelSets, deployment.Labels, deployment.Spec.Template.Labels)
+			}
+			for _, daemonSet := range strategy.DaemonSets() {
+				workloadLabelSets = append(workloadLabelSets, daemonSet.Labels, daemonSet.Spec.Template.Labels)
+			}
+			Expect(workloadLabelSets).ToNot(BeEmpty())
+			for _, workloadLabels := range workloadLabelSets {
+				Expect(workloadLabels).To(HaveKeyWithValue(v1.AppComponentLabel, v1.AppComponent))
+				Expect(workloadLabels).ToNot(HaveKey(v1.AppVersionLabel))
+				Expect(workloadLabels).ToNot(HaveKey(v1.AppPartOfLabel))
+			}
+		},
+			Entry("when product values are unset", nil),
+			Entry("when product values are empty", map[string]string{
+				util.ProductVersionKey:   "",
+				util.ProductNameKey:      "",
+				util.ProductComponentKey: "",
+			}),
+			Entry("when product values contain invalid characters", map[string]string{
+				util.ProductVersionKey:   "invalid/version",
+				util.ProductNameKey:      "invalid/name",
+				util.ProductComponentKey: "invalid/component",
+			}),
+			Entry("when product values exceed the label length limit", map[string]string{
+				util.ProductVersionKey:   strings.Repeat("v", 64),
+				util.ProductNameKey:      strings.Repeat("n", 64),
+				util.ProductComponentKey: strings.Repeat("c", 64),
+			}),
+		)
+	})
+
 	Describe("Config json with default value", func() {
 		It("should be parsed", func() {
 			envVarManager := &util.EnvVarManagerMock{}
