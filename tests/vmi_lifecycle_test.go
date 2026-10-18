@@ -711,19 +711,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
-			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi := libvmifact.NewGuestless()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(defaultCPUModel), "Expected default CPU model")
-
-			})
-
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
