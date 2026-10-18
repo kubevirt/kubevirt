@@ -416,6 +416,14 @@ var _ = Describe("Template", func() {
 						"kubevirt.io/domain": "fedora",
 					},
 				),
+				Entry("and contain an annotation without a domain prefix",
+					map[string]string{
+						"testannotation": "annotation from vmi",
+					},
+					map[string]string{
+						"testannotation": "annotation from vmi",
+					},
+				),
 				Entry("and contain kubernetes annotation",
 					map[string]string{
 						"cluster-autoscaler.kubernetes.io/safe-to-evict": "true",
