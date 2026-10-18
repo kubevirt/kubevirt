@@ -143,13 +143,6 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
-// InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
-//
-// Deprecated: use NewInterface(name, WithSRIOVBinding()) instead.
-func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
-	return NewInterface(name, WithSRIOVBinding())
-}
-
 // InterfaceWithBindingPlugin returns an Interface with a plugin binding.
 //
 // Deprecated: use NewInterface(name, WithBindingPlugin(binding)) instead.
