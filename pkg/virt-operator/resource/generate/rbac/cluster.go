@@ -67,18 +67,19 @@ const (
 	apiVMClones           = "virtualmachineclones"
 	apiVMPools            = "virtualmachinepools"
 
-	apiVMExpandSpec       = "virtualmachines/expand-spec"
-	apiVMPortForward      = "virtualmachines/portforward"
-	apiVMStart            = "virtualmachines/start"
-	apiVMStop             = "virtualmachines/stop"
-	apiVMRestart          = "virtualmachines/restart"
-	apiVMAddVolume        = "virtualmachines/addvolume"
-	apiVMRemoveVolume     = "virtualmachines/removevolume"
-	apiVMMigrate          = "virtualmachines/migrate"
-	apiVMMemoryDump       = "virtualmachines/memorydump"
-	apiVMRemoveMemoryDump = "virtualmachines/removememorydump"
-	apiVMObjectGraph      = "virtualmachines/objectgraph"
-	apiVMEvacuateCancel   = "virtualmachines/evacuate/cancel"
+	apiVMExpandSpec          = "virtualmachines/expand-spec"
+	apiVMPortForward         = "virtualmachines/portforward"
+	apiVMStart               = "virtualmachines/start"
+	apiVMStop                = "virtualmachines/stop"
+	apiVMRestart             = "virtualmachines/restart"
+	apiVMAddVolume           = "virtualmachines/addvolume"
+	apiVMRemoveVolume        = "virtualmachines/removevolume"
+	apiVMMigrate             = "virtualmachines/migrate"
+	apiVMMemoryDump          = "virtualmachines/memorydump"
+	apiVMRemoveMemoryDump    = "virtualmachines/removememorydump"
+	apiVMObjectGraph         = "virtualmachines/objectgraph"
+	apiVMTemplateObjectGraph = "virtualmachinetemplates/objectgraph"
+	apiVMEvacuateCancel      = "virtualmachines/evacuate/cancel"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -222,6 +223,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUSBRedir,
 					apiVMObjectGraph,
 					apiVMInstancesObjectGraph,
+					apiVMTemplateObjectGraph,
 				},
 				Verbs: []string{
 					"get",
@@ -442,6 +444,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUSBRedir,
 					apiVMObjectGraph,
 					apiVMInstancesObjectGraph,
+					apiVMTemplateObjectGraph,
 				},
 				Verbs: []string{
 					"get",
@@ -709,6 +712,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSEVQueryLaunchMeasurement,
 					apiVMObjectGraph,
 					apiVMInstancesObjectGraph,
+					apiVMTemplateObjectGraph,
 				},
 				Verbs: []string{
 					"get",

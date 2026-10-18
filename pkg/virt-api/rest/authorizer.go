@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
+	templateapi "kubevirt.io/virt-template-api/core"
 )
 
 const (
@@ -75,6 +76,12 @@ var noAuthEndpoints = map[string]struct{}{
 	"/apis/subresources.kubevirt.io/v1alpha3/start-cluster-profiler": {},
 	"/apis/subresources.kubevirt.io/v1alpha3/stop-cluster-profiler":  {},
 	"/apis/subresources.kubevirt.io/v1alpha3/dump-cluster-profiler":  {},
+}
+
+var authorizedResources = map[string]struct{}{
+	"virtualmachines":              {},
+	"virtualmachineinstances":      {},
+	templateapi.PluralResourceName: {},
 }
 
 type VirtApiAuthorizor interface {
@@ -229,7 +236,7 @@ func addNamespacedResourceAttributes(pathSplit []string, requestMethod string, r
 		subresource = strings.Join(pathSplit[8:], "/")
 	}
 
-	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
+	if _, ok := authorizedResources[resource]; !ok {
 		return fmt.Errorf("unknown resource type %s", resource)
 	}
 
