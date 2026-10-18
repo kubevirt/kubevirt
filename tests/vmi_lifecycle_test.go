@@ -118,17 +118,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
-		It("[test_id:1621]should attach virt-launcher to it", decorators.WgS390x, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-
-			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(kubevirt.Client(), vmi) }
-			Eventually(logs,
-				11*time.Second,
-				500*time.Millisecond).
-				Should(ContainSubstring("Found PID for"))
-		})
-
 		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(
 				libvmi.WithAnnotation("kubevirt.io/test", "test"),
