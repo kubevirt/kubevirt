@@ -418,6 +418,47 @@ var _ = Describe("Install Strategy", func() {
 		)
 	})
 
+	Context("install strategy configmap labels", func() {
+		var deploymentConfig *util.KubeVirtDeploymentConfig
+
+		BeforeEach(func() {
+			deploymentConfig = getConfig("fake-registry", "v9.9.9")
+		})
+
+		DescribeTable("should apply the relationship labels", func(productProperties, expectedConfigMapLabels map[string]string) {
+			deploymentConfig.AdditionalProperties = productProperties
+			configMap, err := NewInstallStrategyConfigMap(deploymentConfig, "monitoring", namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(configMap.Labels).To(Equal(expectedConfigMapLabels))
+		},
+			Entry("with configured product values", map[string]string{
+				util.ProductNameKey:      "test-product",
+				util.ProductVersionKey:   "test-version",
+				util.ProductComponentKey: "test-component",
+			}, map[string]string{
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+				v1.AppPartOfLabel:       "test-product",
+				v1.AppVersionLabel:      "test-version",
+				v1.AppComponentLabel:    "test-component",
+			}),
+			Entry("without configured product values", nil, map[string]string{
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+				v1.AppComponentLabel:    v1.AppComponent,
+			}),
+			Entry("with invalid product values", map[string]string{
+				util.ProductNameKey:      "invalid/name",
+				util.ProductVersionKey:   "invalid/version",
+				util.ProductComponentKey: "invalid/component",
+			}, map[string]string{
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+				v1.AppComponentLabel:    v1.AppComponent,
+			}),
+		)
+	})
+
 	Describe("Config json with default value", func() {
 		It("should be parsed", func() {
 			envVarManager := &util.EnvVarManagerMock{}
