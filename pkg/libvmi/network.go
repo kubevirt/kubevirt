@@ -143,13 +143,6 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
-// InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
-//
-// Deprecated: use NewInterface(name, WithBridgeBinding()) instead.
-func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
-	return NewInterface(name, WithBridgeBinding())
-}
-
 // InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
 //
 // Deprecated: use NewInterface(name, WithSRIOVBinding()) instead.
