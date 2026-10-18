@@ -143,13 +143,6 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 	}
 }
 
-// InterfaceWithBindingPlugin returns an Interface with a plugin binding.
-//
-// Deprecated: use NewInterface(name, WithBindingPlugin(binding)) instead.
-func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
-	return NewInterface(name, WithBindingPlugin(binding), WithPorts(ports...))
-}
-
 // MultusNetwork returns a Network with the given name, associated to the given nad
 func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	return &kvirtv1.Network{

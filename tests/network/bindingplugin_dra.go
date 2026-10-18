@@ -65,7 +65,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 	newDRAVMI := func() *v1.VirtualMachineInstance {
 		return libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName, v1.PluginBinding{Name: bindingName})), //nolint:staticcheck
+			libvmi.WithInterface(libvmi.NewInterface(networkName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}))),
 			libvmi.WithNetwork(libvmi.DRANetwork(networkName, resourceClaimName, requestName)),
 			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
 				Name:                      resourceClaimName,
