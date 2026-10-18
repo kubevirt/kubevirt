@@ -313,7 +313,7 @@ var _ = Describe("VirtualMachineClone Tests", func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
 				options := append(
 					defaultVMIOptions,
-					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				)
 				sourceVM, err = createSourceVM(options...)

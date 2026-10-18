@@ -50,7 +50,7 @@ var _ = Describe(SIG("Eviction", func() {
 	It("should not shutdown VM", func() {
 		vmi := libvmifact.NewAlpine(
 			libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal),
-			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 

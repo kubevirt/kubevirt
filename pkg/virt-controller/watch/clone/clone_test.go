@@ -183,7 +183,7 @@ var _ = Describe("Clone", func() {
 
 	setupResources := func() {
 		sourceVMI := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 		)
 		sourceVMI.Namespace = metav1.NamespaceDefault

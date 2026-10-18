@@ -124,7 +124,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		It("should recreate VMI on guest reboot with runStrategy Always", decorators.RebootPolicy, func() {
 			By("Creating a VM with runStrategy Always and rebootPolicy Terminate")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork())),
 				libvmi.WithRebootPolicy(v1.RebootPolicyTerminate),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
@@ -160,7 +160,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		DescribeTable("should not-recreate VMI on guest reboot", decorators.RebootPolicy, func(runStrategy v1.VirtualMachineRunStrategy, vmiMatcher types.GomegaMatcher) {
 			By("Creating a VM with runStrategy " + string(runStrategy) + " and rebootPolicy Terminate")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork())),
 				libvmi.WithRebootPolicy(v1.RebootPolicyTerminate),
 				libvmi.WithRunStrategy(runStrategy),
@@ -199,7 +199,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 	Context("with paused vmi", func() {
 		It("[test_id:4598][test_id:3060]should signal paused/unpaused state with condition", decorators.Conformance, decorators.WgS390x, func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork())),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -217,7 +217,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 		It("[test_id:3085]should be stopped successfully", decorators.Conformance, func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
@@ -243,7 +243,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 		It("[test_id:3229]should gracefully handle being started again", func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				withStartStrategy(pointer.P(v1.StartStrategyPaused))),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
@@ -259,7 +259,7 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 		It("[test_id:3226]should be restarted successfully into unpaused state", func() {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork())),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
 			)
