@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -290,6 +291,17 @@ func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deploymen
 		deployment.Spec.Template.Spec.Containers[idx].Args = append(
 			deployment.Spec.Template.Spec.Containers[idx].Args,
 			"--tls-min-version", string(tlsConfig.MinTLSVersion),
+		)
+	}
+	curveIDs := CurvePreferenceIds(tlsConfig.Groups)
+	if kv != nil && featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) && len(curveIDs) > 0 {
+		idStrs := make([]string, 0, len(curveIDs))
+		for _, id := range curveIDs {
+			idStrs = append(idStrs, strconv.FormatUint(uint64(id), 10))
+		}
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-curve-preferences", strings.Join(idStrs, ","),
 		)
 	}
 	return nil
