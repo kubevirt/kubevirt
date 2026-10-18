@@ -748,9 +748,7 @@ type HostDevice struct {
 	DeviceName string `json:"deviceName,omitempty"`
 	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
 	// requestName from resourceClaim.spec.devices.requests[].name
-	// this fields requires DRA feature gate enabled
-	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
-	// This feature is in alpha.
+	// This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA or NetworkDevicesWithDRA is enabled.
 	*ClaimRequest `json:",inline"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
