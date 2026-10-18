@@ -484,46 +484,6 @@ func isLibvirtCheckpointInvalidError(err error) bool {
 	return false
 }
 
-// RedefineCheckpoint redefines a checkpoint from a previous backup session.
-// This is used after VM restart to restore checkpoint metadata in libvirt.
-// It iterates over all domain disks and includes those that have the checkpoint bitmap.
-func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
-	logger := log.Log.With("checkpointName", checkpoint.Name)
-	logger.Info("Redefining checkpoint")
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := m.virConn.LookupDomainByName(domName)
-	if err != nil {
-		return false, fmt.Errorf("failed to lookup domain %s: %w", domName, err)
-	}
-	defer dom.Free()
-
-	disks, err := util.GetAllDomainDisks(dom)
-	if err != nil {
-		return false, fmt.Errorf("failed to get domain disks: %w", err)
-	}
-
-	domainCheckpoint := checkpointDefinition(checkpoint.Name, checkpoint.CreationTime)
-	checkpointDisks, disksWithoutBitmap, err := redefineCheckpointOnUsableDisks(dom, disks, domainCheckpoint)
-	if disksWithoutBitmap.Len() > 0 {
-		logger.V(3).Infof("Disks without checkpoint bitmap: %v", sets.List(disksWithoutBitmap))
-	}
-	if errors.Is(err, errNoUsableCheckpointBitmap) {
-		logger.Warning("No disks found with checkpoint bitmap")
-		return true, fmt.Errorf("no disks found with checkpoint bitmap %s", checkpoint.Name)
-	}
-	if err != nil {
-		checkpointInvalid = isLibvirtCheckpointInvalidError(err)
-		if checkpointInvalid {
-			logger.Reason(err).Error("Checkpoint bitmap is invalid/corrupt")
-		}
-		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %w", checkpoint.Name, err)
-	}
-
-	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpointDisks.Disks))
-	return false, nil
-}
-
 func checkpointDefinition(name string, creationTime *metav1.Time) *api.DomainCheckpoint {
 	domainCheckpoint := &api.DomainCheckpoint{Name: name}
 	if creationTime != nil {
