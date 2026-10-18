@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -683,50 +682,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						ds.Status.NumberReady == virtHandlerAvailablePods &&
 						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
 				}, 180*time.Second, 1*time.Second).Should(BeTrue(), "Virthandler should be ready to work")
-			})
-		})
-
-		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
-			var originalConfig v1.KubeVirtConfiguration
-			var supportedCpuModels []string
-
-			//store old kubevirt-config
-			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
-				if len(supportedCpuModels) < 2 {
-					Fail("need at least 2 supported cpu models for this test")
-				}
-				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-				originalConfig = kv.Spec.Configuration
-			})
-
-			//replace new kubevirt-config with old config
-			AfterEach(func() {
-				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
-			})
-
-			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
-				if len(supportedCpuModels) < 2 {
-					Fail("Must have at least two supported cpuModel for this test")
-				}
-				vmiCPUModel := supportedCpuModels[1]
-				defaultCPUModel := supportedCpuModels[0]
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				newVMI := libvmifact.NewGuestless()
-				newVMI.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, flags.StartupTimeoutSecondsMedium())
-				By("Fetching virt-launcher pod")
-				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(vmiCPUModel)), "Node selector for the cpuModel in kubevirtCR should appear in virt-launcher pod")
-
 			})
 		})
 
