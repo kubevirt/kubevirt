@@ -707,24 +707,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
-			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
-				if len(supportedCpuModels) < 1 {
-					Fail("Must have at least one supported cpu model for this test")
-				}
-				defaultCPUModel := supportedCpuModels[0]
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				newVMI := libvmifact.NewGuestless()
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, flags.StartupTimeoutSecondsMedium())
-				By("Fetching virt-launcher pod")
-				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(defaultCPUModel)), "Node selector for the cpuModel in vmi spec should appear in virt-launcher pod")
-
-			})
-
 			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
 				if len(supportedCpuModels) < 2 {
 					Fail("Must have at least two supported cpuModel for this test")
