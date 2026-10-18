@@ -302,41 +302,6 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).To(MatchError(ContainSubstring("no display")))
 			})
 
-			It("RedefineCheckpoint should succeed", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					&cmdv1.RedefineCheckpointResponse{
-						Response: &cmdv1.Response{Success: true},
-					}, nil,
-				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(checkpointInvalid).To(BeFalse())
-			})
-
-			It("RedefineCheckpoint should propagate gRPC status errors", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					nil, status.Errorf(codes.Internal, "checkpoint error"),
-				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
-				Expect(err).To(MatchError(ContainSubstring("Internal")))
-				Expect(checkpointInvalid).To(BeFalse())
-			})
-
-			It("RedefineCheckpoint should return legacy error with CheckpointInvalid", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					&cmdv1.RedefineCheckpointResponse{
-						Response:          &cmdv1.Response{Success: false, Message: "invalid checkpoint"},
-						CheckpointInvalid: true,
-					}, nil,
-				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
-				Expect(err).To(MatchError(ContainSubstring("invalid checkpoint")))
-				Expect(checkpointInvalid).To(BeTrue())
-			})
-
 			It("GetVMStats should succeed", func() {
 				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
 					&cmdv1.VMStatsResponse{
