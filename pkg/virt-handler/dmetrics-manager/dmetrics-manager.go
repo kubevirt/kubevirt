@@ -24,7 +24,9 @@ import (
 	"fmt"
 	"sync"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -33,10 +35,11 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
-func NewDownwardMetricsManager(nodeName string) *DownwardMetricsManager {
+func NewDownwardMetricsManager(nodeName string, recorder record.EventRecorder) *DownwardMetricsManager {
 	return &DownwardMetricsManager{
 		done:       false,
 		nodeName:   nodeName,
+		recorder:   recorder,
 		stopServer: make(map[types.UID]context.CancelFunc),
 	}
 }
@@ -47,6 +50,7 @@ type DownwardMetricsManager struct {
 	lock       sync.Mutex
 	done       bool
 	nodeName   string
+	recorder   record.EventRecorder
 	stopServer map[types.UID]context.CancelFunc
 }
 
@@ -115,8 +119,32 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 
 	channelPath := downwardmetrics.ChannelSocketPathOnHost(pid)
 	ctx, cancelCtx := context.WithCancel(context.Background())
-	virtioserial.RunDownwardMetricsVirtioServer(ctx, m.nodeName, channelPath, launcherSocketPath)
+	serverResult := virtioserial.RunDownwardMetricsVirtioServer(ctx, m.nodeName, channelPath, launcherSocketPath)
 	m.stopServer[vmi.UID] = cancelCtx
+	go m.watchServer(vmi, serverResult)
 
 	return nil
+}
+
+// watchServer waits for the DownwardMetrics server of a VMI to terminate.
+// If the server terminated because the virtio-serial connection could not be
+// established, the VMI is deregistered, so that a later sync retries starting
+// the server, and the lasting failure is surfaced as an event on the VMI.
+func (m *DownwardMetricsManager) watchServer(vmi *v1.VirtualMachineInstance, serverResult <-chan error) {
+	err := <-serverResult
+
+	m.lock.Lock()
+	delete(m.stopServer, vmi.UID)
+	m.lock.Unlock()
+
+	if err != nil {
+		m.recorder.Eventf(
+			vmi,
+			k8sv1.EventTypeWarning,
+			"DownwardMetricsUnavailable",
+			"DownwardMetrics is unavailable for VMI [%s]: the virtio-serial server could not connect: %v",
+			vmi.GetName(),
+			err,
+		)
+	}
 }
