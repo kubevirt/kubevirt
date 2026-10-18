@@ -36,7 +36,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -85,10 +84,6 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 		BeforeAll(func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-			config.EnableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
-		})
-
-		BeforeAll(func() {
 			sidecarImage := libregistry.GetUtilityImageFromRegistry("test-network-vhostuser-dra-binding")
 			err := config.RegisterKubevirtConfigChange(
 				config.WithNetBindingPluginIfNotPresent(bindingName, v1.InterfaceBindingPlugin{
