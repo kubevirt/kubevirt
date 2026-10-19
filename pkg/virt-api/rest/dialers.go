@@ -36,7 +36,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
@@ -134,37 +133,24 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
-// The pod network is the only network virt-api and virt-launcher are
-// guaranteed to share, so the launcher pod IP is preferred over the
-// interface status IP, which reflects the guest's view of its addresses.
+// resolveTargetIP returns the launcher pod IP, the only address virt-api and
+// virt-launcher are guaranteed to share. The guest-reported interface IP is
+// never dialed: it reflects the guest's own view of its addresses and is
+// untrusted input. Callers must ensure the VMI is connected to the pod network;
+// validateVMIForPortForward enforces this before the dialer runs.
 func (n netDial) resolveTargetIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	if podIP := n.launcherPodIP(vmi); podIP != "" {
-		return podIP, nil
-	}
-	return getTargetInterfaceIP(vmi)
-}
-
-func (n netDial) launcherPodIP(vmi *v1.VirtualMachineInstance) string {
-	if n.launcherPodIndexer == nil || netvmispec.LookupPodNetwork(vmi.Spec.Networks) == nil {
-		return ""
+	if n.launcherPodIndexer == nil {
+		return "", fmt.Errorf("launcher pod indexer is not available")
 	}
 	pod, err := controller.CurrentVMIPod(vmi, n.launcherPodIndexer)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Warning("failed to look up the virt-launcher pod; falling back to the VMI interface IP")
-		return ""
+		return "", fmt.Errorf("failed to look up the virt-launcher pod: %w", err)
 	}
 	if pod == nil {
-		return ""
+		return "", fmt.Errorf("virt-launcher pod was not found")
 	}
-	return pod.Status.PodIP
-}
-
-// get the first available interface IP
-// if no interface is present, return error
-func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
+	if pod.Status.PodIP == "" {
+		return "", fmt.Errorf("virt-launcher pod IP is not available yet")
 	}
-	return interfaces[0].IP, nil
+	return pod.Status.PodIP, nil
 }
