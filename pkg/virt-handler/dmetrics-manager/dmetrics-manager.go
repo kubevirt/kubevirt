@@ -38,6 +38,7 @@ func NewDownwardMetricsManager(nodeName string) *DownwardMetricsManager {
 		done:       false,
 		nodeName:   nodeName,
 		stopServer: make(map[types.UID]context.CancelFunc),
+		runServer:  virtioserial.RunDownwardMetricsVirtioServer,
 	}
 }
 
@@ -48,6 +49,7 @@ type DownwardMetricsManager struct {
 	done       bool
 	nodeName   string
 	stopServer map[types.UID]context.CancelFunc
+	runServer  func(context.Context, string, string, string, func())
 }
 
 // Run blocks until stopCh is closed. When done, it stops all remaining
@@ -70,13 +72,8 @@ func (m *DownwardMetricsManager) stop() {
 	}
 }
 
-// StopServer removes the VMI name from the list of served VMs a
-// nd stop the DownwardMetrics server if necessary
+// StopServer removes the VMI UID from the list of served VMs and stops its server.
 func (m *DownwardMetricsManager) StopServer(vmi *v1.VirtualMachineInstance) {
-	if !downwardmetrics.HasDevice(&vmi.Spec) {
-		return
-	}
-
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	if m.done {
@@ -92,8 +89,9 @@ func (m *DownwardMetricsManager) StopServer(vmi *v1.VirtualMachineInstance) {
 	}
 }
 
-// StartServer start a new DownwardMetrics server if the VM request it and is not already started
-func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid int) error {
+// StartServer starts a server if requested by a running VMI and not already started.
+// It calls requestRetry after an unexpected server exit, outside the manager lock.
+func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid int, requestRetry func()) error {
 	if !downwardmetrics.HasDevice(&vmi.Spec) || !vmi.IsRunning() {
 		return nil
 	}
@@ -115,7 +113,21 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 
 	channelPath := downwardmetrics.ChannelSocketPathOnHost(pid)
 	ctx, cancelCtx := context.WithCancel(context.Background())
-	virtioserial.RunDownwardMetricsVirtioServer(ctx, m.nodeName, channelPath, launcherSocketPath)
+
+	onExit := func() {
+		m.lock.Lock()
+		// A cancelled attempt must not remove a replacement's entry.
+		if m.done || ctx.Err() != nil {
+			m.lock.Unlock()
+			return
+		}
+		cancelCtx()
+		delete(m.stopServer, vmi.UID)
+		m.lock.Unlock()
+
+		requestRetry()
+	}
+	m.runServer(ctx, m.nodeName, channelPath, launcherSocketPath, onExit)
 	m.stopServer[vmi.UID] = cancelCtx
 
 	return nil
