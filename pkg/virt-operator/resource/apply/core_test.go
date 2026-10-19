@@ -400,6 +400,70 @@ var _ = Describe("Apply", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
+
+		Context("external CA ConfigMap cleanup", func() {
+			var requiredCM *corev1.ConfigMap
+			var r *Reconciler
+
+			BeforeEach(func() {
+				requiredCM = findRequiredCAConfigMap(components.ExternalKubeVirtCAConfigMapName, components.NewCAConfigMaps(operatorNamespace))
+				Expect(requiredCM).ToNot(BeNil())
+
+				r = &Reconciler{
+					kv:           kv,
+					stores:       stores,
+					virtClient:   clientset,
+					k8sClient:    coreclientset,
+					expectations: expectations,
+				}
+			})
+
+			existingExternalCM := func(bundle string) *corev1.ConfigMap {
+				existing := requiredCM.DeepCopy()
+				version, imageRegistry, id := getTargetVersionRegistryID(kv)
+				injectOperatorMetadata(kv, &existing.ObjectMeta, version, imageRegistry, id, true)
+				existing.Data = map[string]string{components.CABundleKey: bundle}
+				return existing
+			}
+
+			It("should not update the ConfigMap when it is already empty", func() {
+				// the default reactor fails the test on any API call
+				Expect(stores.ConfigMapCache.Add(existingExternalCM(""))).To(Succeed())
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+			})
+
+			It("should clear the ConfigMap when it still holds a CA bundle", func() {
+				crt := createCrt()
+				Expect(stores.ConfigMapCache.Add(existingExternalCM(string(cert.EncodeCertPEM(crt.Leaf))))).To(Succeed())
+
+				updated := false
+				coreclientset.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					cm := action.(testing.UpdateAction).GetObject().(*corev1.ConfigMap)
+					Expect(cm.Data).To(HaveKeyWithValue(components.CABundleKey, ""))
+					updated = true
+					return true, cm, nil
+				})
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				Expect(updated).To(BeTrue())
+			})
+
+			It("should update the ConfigMap when the operator metadata is outdated", func() {
+				existing := existingExternalCM("")
+				existing.Annotations[v1.InstallStrategyVersionAnnotation] = "old-version"
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+
+				updated := false
+				coreclientset.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					updated = true
+					return true, action.(testing.UpdateAction).GetObject(), nil
+				})
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				Expect(updated).To(BeTrue())
+			})
+		})
 	})
 
 	Context("certificate secrets", func() {

@@ -375,14 +375,14 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
 
 	configMap.Data = map[string]string{components.CABundleKey: ""}
-	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
+	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 	if !exists {
 		_, err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
 			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
-	} else {
+	} else if !isExternalCAConfigMapCleared(obj.(*corev1.ConfigMap), version, imageRegistry, id, r.kv.GetGeneration()) {
 		_, err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
 			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap)
@@ -390,6 +390,18 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 		}
 	}
 	return nil
+}
+
+// isExternalCAConfigMapCleared reports whether the external CA config map is
+// already in the state cleanupExternalCACerts would write: an empty CA bundle
+// and the current operator metadata. Skipping the update in that case avoids
+// a PUT on every reconcile when nobody has added an external CA.
+func isExternalCAConfigMapCleared(existing *corev1.ConfigMap, version, imageRegistry, id string, generation int64) bool {
+	bundle, ok := existing.Data[components.CABundleKey]
+	return ok && bundle == "" &&
+		len(existing.Data) == 1 &&
+		len(existing.BinaryData) == 0 &&
+		objectMatchesVersion(&existing.ObjectMeta, version, imageRegistry, id, generation)
 }
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
