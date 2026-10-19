@@ -28,18 +28,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type clusterConfigurer interface {
+type networkConfigProvider interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
 	NetworkDevicesWithDRAGateEnabled() bool
 }
 
-func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, config clusterConfigurer) error {
+func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, configProvider networkConfigProvider) error {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	if len(ifaces) == 0 {
 		return nil
 	}
 
-	if config.NetworkDevicesWithDRAGateEnabled() && usesResourceClaim(vmi) {
+	if configProvider.NetworkDevicesWithDRAGateEnabled() && usesResourceClaim(vmi) {
 		return errors.New("cannot migrate VMI whose DRA network is backed by a ResourceClaim; use a ResourceClaimTemplate instead")
 	}
 
@@ -50,7 +50,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, config clusterConfigure
 
 	primaryIface := vmispec.LookupInterfaceByName(ifaces, podNetwork.Name)
 
-	bindingPlugins := config.GetNetworkBindings()
+	bindingPlugins := configProvider.GetNetworkBindings()
 
 	switch {
 	case primaryIface == nil:

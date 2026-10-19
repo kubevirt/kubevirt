@@ -46,11 +46,11 @@ var _ = Describe("VerifyVMIMigratable", func() {
 	const draGateEnabled = true
 
 	DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance, isDRAEnabled bool) {
-		clusterConfig := stubClusterConfigurer{
+		configProvider := stubConfigProvider{
 			bindingPlugins: bindingPlugins,
 			isDRAEnabled:   isDRAEnabled,
 		}
-		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).To(Succeed())
+		Expect(netmigration.VerifyVMIMigratable(vmi, configProvider)).To(Succeed())
 	},
 		Entry("when the VMI uses masquerade to connect to the pod network",
 			libvmi.New(
@@ -108,11 +108,11 @@ var _ = Describe("VerifyVMIMigratable", func() {
 	)
 
 	DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance, isDRAEnabled bool) {
-		clusterConfig := stubClusterConfigurer{
+		configProvider := stubConfigProvider{
 			bindingPlugins: bindingPlugins,
 			isDRAEnabled:   isDRAEnabled,
 		}
-		Expect(netmigration.VerifyVMIMigratable(vmi, clusterConfig)).ToNot(Succeed())
+		Expect(netmigration.VerifyVMIMigratable(vmi, configProvider)).ToNot(Succeed())
 	},
 		Entry("when the VMI uses bridge binding to connect to the pod network",
 			libvmi.New(
@@ -168,15 +168,15 @@ func newDRAVMI(claim v1.VirtualMachineInstanceResourceClaim, opts ...libvmi.Opti
 	}, opts)...)
 }
 
-type stubClusterConfigurer struct {
+type stubConfigProvider struct {
 	bindingPlugins map[string]v1.InterfaceBindingPlugin
 	isDRAEnabled   bool
 }
 
-func (c stubClusterConfigurer) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+func (c stubConfigProvider) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	return c.bindingPlugins
 }
 
-func (c stubClusterConfigurer) NetworkDevicesWithDRAGateEnabled() bool {
+func (c stubConfigProvider) NetworkDevicesWithDRAGateEnabled() bool {
 	return c.isDRAEnabled
 }
