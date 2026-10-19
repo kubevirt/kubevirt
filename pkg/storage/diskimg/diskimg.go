@@ -150,7 +150,11 @@ func dirBytesAvailable(dir *safepath.Path, reserve uint64) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return stat.Bavail*uint64(stat.Bsize) - reserve, nil
+	free := stat.Bavail * uint64(stat.Bsize)
+	if free <= reserve {
+		return 0, nil
+	}
+	return free - reserve, nil
 }
 
 func createSparseRaw(diskdir *safepath.Path, diskName string, size int64) (err error) {

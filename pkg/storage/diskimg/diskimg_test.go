@@ -21,6 +21,7 @@ package diskimg
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 
@@ -130,6 +131,17 @@ var _ = Describe("Creator", func() {
 
 			err := creatorWithReserve.Create(libvmi.New(), []Image{img})
 			Expect(err).To(MatchError(ContainSubstring("unable to create")))
+			Expect(imagePath(img)).NotTo(BeAnExistingFile())
+		})
+
+		It("should refuse to create an image if reserve exceeds free space", func() {
+			root, err := safepath.JoinAndResolveWithRelativeRoot("/")
+			Expect(err).NotTo(HaveOccurred())
+			img := image("volume1", size64Mi)
+
+			c := NewCreator(recorder, 10, math.MaxUint64, root)
+			err = c.Create(libvmi.New(), []Image{img})
+			Expect(err).To(MatchError(ContainSubstring("not enough space")))
 			Expect(imagePath(img)).NotTo(BeAnExistingFile())
 		})
 
