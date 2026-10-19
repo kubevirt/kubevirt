@@ -228,15 +228,6 @@ func (d *VirtualMachineInstanceConditionManager) AddPodCondition(vmi *v1.Virtual
 	}
 }
 
-func (d *VirtualMachineInstanceConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType) *k8sv1.PodCondition {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == conditionType {
-			return &cond
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineInstanceConditionManager) ConditionsEqual(vmi1, vmi2 *v1.VirtualMachineInstance) bool {
 	if len(vmi1.Status.Conditions) != len(vmi2.Status.Conditions) {
 		return false
@@ -270,11 +261,6 @@ func (d *VirtualMachineInstanceMigrationConditionManager) GetCondition(migration
 
 	}
 	return nil
-}
-
-func (d *VirtualMachineInstanceMigrationConditionManager) HasConditionWithStatus(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType, status k8sv1.ConditionStatus) bool {
-	c := d.GetCondition(migration, cond)
-	return c != nil && c.Status == status
 }
 
 func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) {
@@ -325,10 +311,6 @@ func (d *PodConditionManager) GetCondition(pod *k8sv1.Pod, cond k8sv1.PodConditi
 	return nil
 }
 
-func (d *PodConditionManager) HasCondition(pod *k8sv1.Pod, cond k8sv1.PodConditionType) bool {
-	return d.GetCondition(pod, cond) != nil
-}
-
 func (d *PodConditionManager) HasConditionWithStatus(pod *k8sv1.Pod, cond k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
 	c := d.GetCondition(pod, cond)
 	return c != nil && c.Status == status
@@ -337,17 +319,6 @@ func (d *PodConditionManager) HasConditionWithStatus(pod *k8sv1.Pod, cond k8sv1.
 func (d *PodConditionManager) HasConditionWithStatusAndReason(pod *k8sv1.Pod, cond k8sv1.PodConditionType, status k8sv1.ConditionStatus, reason string) bool {
 	c := d.GetCondition(pod, cond)
 	return c != nil && c.Status == status && c.Reason == reason
-}
-
-func (d *PodConditionManager) RemoveCondition(pod *k8sv1.Pod, cond k8sv1.PodConditionType) {
-	var conds []k8sv1.PodCondition
-	for _, c := range pod.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	pod.Status.Conditions = conds
 }
 
 // UpdateCondition updates the given PodCondition, unless it is already set with the same status and reason.
