@@ -137,10 +137,7 @@ func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMac
 		if d.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceSynchronized, k8sv1.ConditionFalse, reason) {
 			return false
 		}
-		if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
-			d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
-		}
-		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+		d.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
 			Message:            syncErr.Error(),

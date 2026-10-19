@@ -1272,9 +1272,7 @@ func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance)
 
 func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
-	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
-		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
-	}
+	vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 
 	return vm
 }
@@ -3046,9 +3044,7 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 
 	// If no restart is needed, remove any existing RestartRequired condition that is no longer valid.
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
-	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
-		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
-	}
+	vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 
 	return false
 }
