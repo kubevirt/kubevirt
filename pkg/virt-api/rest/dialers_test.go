@@ -210,5 +210,15 @@ var _ = Describe("NetDialer", func() {
 			Entry("with ipv4 ip address", "127.0.0.1", "::1"),
 			Entry("with ipv6 ip address", "[::1]", "127.0.0.1"),
 		)
+
+		It("Should fail with an unsupported protocol", func() {
+			request.PathParameters()["port"] = "22"
+			request.PathParameters()["protocol"] = "unix"
+			dialer := netDial{request: request, launcherPodIndexer: newLauncherPodIndexer(launcherPodForVMI(vmi, nodeName, podIP))}
+
+			_, statusErr := dialer.DialUnderlying(vmi)
+			Expect(statusErr).To(HaveOccurred())
+			Expect(statusErr.Status().Message).To(ContainSubstring("unsupported protocol"))
+		})
 	})
 })

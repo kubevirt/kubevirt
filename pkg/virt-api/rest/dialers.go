@@ -91,6 +91,11 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8se
 	if protocolParam := n.request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
 		protocol = protocolParam
 	}
+	// Port-forward only supports TCP and UDP. Reject any other client-supplied
+	// network type instead of forwarding it to net.Dial.
+	if protocol != "tcp" && protocol != "udp" {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("unsupported protocol %q", protocol))
+	}
 
 	addr := fmt.Sprintf("%s:%s", targetIP, port)
 	if netutils.IsIPv6String(targetIP) {
