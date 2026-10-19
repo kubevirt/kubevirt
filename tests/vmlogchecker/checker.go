@@ -260,12 +260,12 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    49,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"client.go.*"reason":".*context deadline exceeded"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"(client|grpcclient)\.go.*"reason":".*context deadline exceeded"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    50,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to send domain notify event|failed to notify domain event)\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = [^"]+"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to send domain notify event|failed to notify domain event)\. closing connection\.","pos":"(client|grpcclient)\.go.*"reason":"rpc error: code = [^"]+"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
