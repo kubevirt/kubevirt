@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	apimetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) restful.RouteFunction {
@@ -52,6 +53,12 @@ func validateVMIForPortForward(vmi *v1.VirtualMachineInstance) *errors.StatusErr
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 	if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
+	}
+	// virt-api reaches the VM over the launcher pod IP, which only exists for the
+	// pod network. A VMI without a pod network is unreachable this way, so reject
+	// it up front instead of failing later during target resolution.
+	if netvmispec.LookupPodNetwork(vmi.Spec.Networks) == nil {
+		return errors.NewBadRequest(fmt.Sprintf("VMI %s is not connected to the pod network", vmi.Name))
 	}
 	return nil
 }

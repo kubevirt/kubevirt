@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -132,6 +133,18 @@ var _ = Describe("PortForward Subresource api", func() {
 
 		app.PortForwardRequestHandler(app.FetchVirtualMachineInstance)(request, response)
 		ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
+	})
+
+	It("should reject a VMI that is not connected to the pod network", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("secondary", libvmi.WithBridgeBinding())),
+			libvmi.WithNetwork(libvmi.MultusNetwork("secondary", "secondary")),
+		)
+
+		statusErr := validateVMIForPortForward(vmi)
+		Expect(statusErr).To(HaveOccurred())
+		Expect(statusErr.Status().Code).To(Equal(int32(http.StatusBadRequest)))
+		Expect(statusErr.Status().Message).To(ContainSubstring(fmt.Sprintf("VMI %s is not connected to the pod network", vmi.Name)))
 	})
 
 	It("should dial the launcher pod IP resolved from the indexer", func() {
