@@ -27,6 +27,7 @@ import (
 	"maps"
 	"math"
 	"math/rand"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -2775,17 +2776,17 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	}
 
 	// remove vm conditions that don't exist on vmi (excluding the ignore list)
-	for _, cond := range vm.Status.Conditions {
+	vm.Status.Conditions = slices.DeleteFunc(vm.Status.Conditions, func(cond virtv1.VirtualMachineCondition) bool {
 		_, ignore := syncIgnoreMap[string(cond.Type)]
 		if ignore {
-			continue
+			return false
 		}
-
 		_, exists := vmiCondMap[string(cond.Type)]
 		if !exists {
-			cm.RemoveCondition(vm, cond.Type)
+			return true
 		}
-	}
+		return false
+	})
 }
 
 func processFailureCondition(vm *virtv1.VirtualMachine, syncErr common.SyncError) {

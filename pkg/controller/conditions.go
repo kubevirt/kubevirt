@@ -52,14 +52,9 @@ func (d *VirtualMachinePoolConditionManager) HasCondition(pool *poolv1.VirtualMa
 }
 
 func (d *VirtualMachinePoolConditionManager) RemoveCondition(pool *poolv1.VirtualMachinePool, cond poolv1.VirtualMachinePoolConditionType) {
-	var conds []poolv1.VirtualMachinePoolCondition
-	for _, c := range pool.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	pool.Status.Conditions = conds
+	pool.Status.Conditions = slices.DeleteFunc(pool.Status.Conditions, func(c poolv1.VirtualMachinePoolCondition) bool {
+		return c.Type == cond
+	})
 }
 
 // UpdateCondition updates the given VirtualMachinePoolCondition, unless it is already set with the same status and reason.
@@ -108,14 +103,9 @@ func (d *VirtualMachineConditionManager) HasConditionWithStatus(vm *v1.VirtualMa
 }
 
 func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	var conds []v1.VirtualMachineCondition
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
+	vm.Status.Conditions = slices.DeleteFunc(vm.Status.Conditions, func(c v1.VirtualMachineCondition) bool {
+		return c.Type == cond
+	})
 }
 
 type VirtualMachineInstanceConditionManager struct {
@@ -264,14 +254,9 @@ func (d *VirtualMachineInstanceMigrationConditionManager) GetCondition(migration
 }
 
 func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) {
-	var conds []v1.VirtualMachineInstanceMigrationCondition
-	for _, c := range migration.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	migration.Status.Conditions = conds
+	migration.Status.Conditions = slices.DeleteFunc(migration.Status.Conditions, func(c v1.VirtualMachineInstanceMigrationCondition) bool {
+		return c.Type == cond
+	})
 }
 
 // UpdateCondition updates the given VirtualMachineMigrationCondition, unless it is already set with the same status and reason.
