@@ -47,6 +47,52 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
+	Context("product relationship labels", func() {
+		var deploymentConfig *KubeVirtDeploymentConfig
+
+		BeforeEach(func() {
+			deploymentConfig = getConfig("registry", "v9.9.9")
+		})
+
+		DescribeTable("should validate the configured product values", func(productProperties map[string]string, expectedProductName, expectedProductVersion, expectedProductComponent string) {
+			deploymentConfig.AdditionalProperties = productProperties
+			productName, productVersion, productComponent := deploymentConfig.GetProductLabels()
+			Expect(productName).To(Equal(expectedProductName))
+			Expect(productVersion).To(Equal(expectedProductVersion))
+			Expect(productComponent).To(Equal(expectedProductComponent))
+		},
+			Entry("when all product values are set", map[string]string{
+				ProductNameKey:      "test-product",
+				ProductVersionKey:   "test-version",
+				ProductComponentKey: "test-component",
+			}, "test-product", "test-version", "test-component"),
+			Entry("when product values are unset", nil, "", "", v1.AppComponent),
+			Entry("when product values are empty", map[string]string{
+				ProductNameKey:      "",
+				ProductVersionKey:   "",
+				ProductComponentKey: "",
+			}, "", "", v1.AppComponent),
+			Entry("when product values contain invalid characters", map[string]string{
+				ProductNameKey:      "invalid/name",
+				ProductVersionKey:   "invalid/version",
+				ProductComponentKey: "invalid/component",
+			}, "", "", v1.AppComponent),
+			Entry("when product values exceed the label length limit", map[string]string{
+				ProductNameKey:      strings.Repeat("n", 64),
+				ProductVersionKey:   strings.Repeat("v", 64),
+				ProductComponentKey: strings.Repeat("c", 64),
+			}, "", "", v1.AppComponent),
+			Entry("when only the product name is set", map[string]string{
+				ProductNameKey: "test-product",
+			}, "test-product", "", v1.AppComponent),
+			Entry("when only the component is invalid", map[string]string{
+				ProductNameKey:      "test-product",
+				ProductVersionKey:   "test-version",
+				ProductComponentKey: "invalid/component",
+			}, "test-product", "test-version", v1.AppComponent),
+		)
+	})
+
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)

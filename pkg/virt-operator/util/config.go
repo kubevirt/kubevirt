@@ -695,6 +695,31 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 	return productVersion
 }
 
+func (c *KubeVirtDeploymentConfig) GetProductLabels() (productName, productVersion, productComponent string) {
+	productName = c.GetProductName()
+	productVersion = c.AdditionalProperties[ProductVersionKey]
+	productComponent = c.GetProductComponent()
+
+	invalidLabelPatternErrorMessage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
+
+	if !IsValidLabel(productName) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName")
+		productName = ""
+	}
+	if !IsValidLabel(productVersion) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion")
+		productVersion = ""
+	}
+	if !IsValidLabel(productComponent) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent")
+		productComponent = ""
+	}
+	if productComponent == "" {
+		productComponent = v1.AppComponent
+	}
+	return productName, productVersion, productComponent
+}
+
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// We need an id, which identifies a KubeVirt deployment based on version, registry, namespace, and other
 	// changeable properties from the KubeVirt CR. This will be used for identifying the correct install strategy job

@@ -2455,6 +2455,72 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(job.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
+		Context("install strategy job relationship labels", func() {
+			var kvTestData KubeVirtTestData
+			var deploymentConfig *util.KubeVirtDeploymentConfig
+
+			BeforeEach(func() {
+				kvTestData = KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				DeferCleanup(kvTestData.AfterTest)
+				deploymentConfig = kvTestData.getConfig("registry", "v9.9.9")
+			})
+
+			DescribeTable("should label the install strategy job and its pods", func(productProperties, expectedJobLabels, expectedPodLabels map[string]string) {
+				deploymentConfig.AdditionalProperties = productProperties
+				installStrategyJob, err := kvTestData.controller.generateInstallStrategyJob(nil, deploymentConfig)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(installStrategyJob.Labels).To(Equal(expectedJobLabels))
+				Expect(installStrategyJob.Spec.Template.Labels).To(Equal(expectedPodLabels))
+			},
+				Entry("with configured product values", map[string]string{
+					util.ProductNameKey:      "test-product",
+					util.ProductVersionKey:   "test-version",
+					util.ProductComponentKey: "test-component",
+				}, map[string]string{
+					v1.AppLabel:             "",
+					v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+					v1.InstallStrategyLabel: "",
+					v1.AppPartOfLabel:       "test-product",
+					v1.AppVersionLabel:      "test-version",
+					v1.AppComponentLabel:    "test-component",
+				}, map[string]string{
+					v1.AppLabel:                          virtOperatorJobAppLabel,
+					v1.AllowAccessClusterServicesNPLabel: "true",
+					v1.ManagedByLabel:                    v1.ManagedByLabelOperatorValue,
+					v1.AppPartOfLabel:                    "test-product",
+					v1.AppVersionLabel:                   "test-version",
+					v1.AppComponentLabel:                 "test-component",
+				}),
+				Entry("without configured product values", nil, map[string]string{
+					v1.AppLabel:             "",
+					v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+					v1.InstallStrategyLabel: "",
+					v1.AppComponentLabel:    v1.AppComponent,
+				}, map[string]string{
+					v1.AppLabel:                          virtOperatorJobAppLabel,
+					v1.AllowAccessClusterServicesNPLabel: "true",
+					v1.ManagedByLabel:                    v1.ManagedByLabelOperatorValue,
+					v1.AppComponentLabel:                 v1.AppComponent,
+				}),
+				Entry("with invalid product values", map[string]string{
+					util.ProductNameKey:      "invalid/name",
+					util.ProductVersionKey:   "invalid/version",
+					util.ProductComponentKey: "invalid/component",
+				}, map[string]string{
+					v1.AppLabel:             "",
+					v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+					v1.InstallStrategyLabel: "",
+					v1.AppComponentLabel:    v1.AppComponent,
+				}, map[string]string{
+					v1.AppLabel:                          virtOperatorJobAppLabel,
+					v1.AllowAccessClusterServicesNPLabel: "true",
+					v1.ManagedByLabel:                    v1.ManagedByLabelOperatorValue,
+					v1.AppComponentLabel:                 v1.AppComponent,
+				}),
+			)
+		})
+
 		It("should use custom virt-operator image if provided", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()

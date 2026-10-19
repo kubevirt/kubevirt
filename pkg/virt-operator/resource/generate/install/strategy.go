@@ -348,6 +348,15 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 			"manifests": manifests,
 		},
 	}
+	productName, productVersion, productComponent := config.GetProductLabels()
+	configMap.Labels[v1.AppComponentLabel] = productComponent
+	if productVersion != "" {
+		configMap.Labels[v1.AppVersionLabel] = productVersion
+	}
+	if productName != "" {
+		configMap.Labels[v1.AppPartOfLabel] = productName
+	}
+
 	return configMap, nil
 }
 
@@ -559,27 +568,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 	}
 
-	var productName string
-	var productVersion string
-	var productComponent string
-
-	invalidLabelPatternErrorMessage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
-
-	if operatorutil.IsValidLabel(config.GetProductName()) {
-		productName = config.GetProductName()
-	} else {
-		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName")
-	}
-	if operatorutil.IsValidLabel(config.GetProductVersion()) {
-		productVersion = config.GetProductVersion()
-	} else {
-		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion")
-	}
-	if operatorutil.IsValidLabel(config.GetProductComponent()) {
-		productComponent = config.GetProductComponent()
-	} else {
-		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent")
-	}
+	productName, productVersion, productComponent := config.GetProductLabels()
 
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewVirtAPIValidatingWebhookConfiguration(config.GetNamespace()))
