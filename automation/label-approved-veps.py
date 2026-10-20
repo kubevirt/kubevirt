@@ -1,5 +1,7 @@
 import os
 import re
+import sys
+
 import requests
 
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -227,6 +229,15 @@ def get_tracked_enhancement_issues_from_project(project_number):
         variables["cursor"] = current_cursor
         result = execute_graphql_query(_TRACKED_ISSUES_QUERY, variables)
 
+        if result is None or "errors" in result:
+            # A failed query must not be treated as "no tracked issues":
+            # that would wrongly remove the approved-vep label (see #19465).
+            print(
+                "GraphQL query failed; leaving the 'approved-vep' label "
+                "untouched."
+            )
+            return None
+
         nodes, page_info = _extract_page_data_from_gql_result(
                                 result, project_number)
 
@@ -269,6 +280,15 @@ def main():
     tracked_issues_in_project = get_tracked_enhancement_issues_from_project(
         project_number
     )
+
+    if tracked_issues_in_project is None:
+        # The project query failed (e.g. transient GitHub API error). Leave
+        # the label untouched and fail visibly instead of removing it.
+        print(
+            "Could not fetch tracked VEP issues from the project; "
+            "leaving the 'approved-vep' label untouched."
+        )
+        sys.exit(1)
 
     matching_veps = ref_numbers & tracked_issues_in_project
     first_matching_vep = next(iter(matching_veps), None)
