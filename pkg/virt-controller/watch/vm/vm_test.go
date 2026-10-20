@@ -3843,7 +3843,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("VM memory dump", func() {
 			const testPVCName = "testPVC"
 
-			It("should add memory dump volume and update vmi volumes", func() {
+			It("should add memory dump utility volume to vmi", func() {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
@@ -3865,11 +3865,12 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vmi.Spec.UtilityVolumes).To(HaveLen(1))
+				Expect(vmi.Spec.UtilityVolumes[0].Name).To(Equal(testPVCName))
 			})
 
 			It("should remove memory dump volume from vm volumes list", func() {
