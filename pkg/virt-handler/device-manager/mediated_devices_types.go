@@ -303,18 +303,16 @@ func addMdevTypeKey(types map[string]struct{}, mdevType string) {
 	}
 }
 
+func mdevTypeKeyInSet(key string, types map[string]struct{}) bool {
+	if key == "" {
+		return false
+	}
+	_, exist := types[key]
+	return exist
+}
+
 func mdevTypeInSet(typeName, typeID string, types map[string]struct{}) bool {
-	if typeName != "" {
-		if _, exist := types[typeName]; exist {
-			return true
-		}
-	}
-	if typeID != "" {
-		if _, exist := types[typeID]; exist {
-			return true
-		}
-	}
-	return false
+	return mdevTypeKeyInSet(typeName, types) || mdevTypeKeyInSet(typeID, types)
 }
 
 func mdevTypeNameAndID(mdevUUID string) (typeName, typeID string) {
@@ -337,9 +335,6 @@ func mdevTypeNameAndID(mdevUUID string) (typeName, typeID string) {
 // and is left untouched.
 func shouldRemoveMDEV(mdevUUID string, typesToKeep, previouslyManaged map[string]struct{}) bool {
 	typeName, typeID := mdevTypeNameAndID(mdevUUID)
-	if typeName == "" && typeID == "" {
-		return false
-	}
 	if mdevTypeInSet(typeName, typeID, typesToKeep) {
 		return false
 	}
