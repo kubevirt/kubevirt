@@ -173,3 +173,49 @@ func (fs *fakeScraper) Scrape(key string, _ *k6tv1.VirtualMachineInstance) {
 }
 
 func (fs *fakeScraper) Complete() {}
+
+var _ = Describe("VMIStatsSkipReason", func() {
+	It("allows a running VMI", func() {
+		vmi := &k6tv1.VirtualMachineInstance{
+			Status: k6tv1.VirtualMachineInstanceStatus{Phase: k6tv1.Running},
+		}
+		Expect(VMIStatsSkipReason(vmi)).To(BeEmpty())
+	})
+
+	It("skips a VMI that is not running", func() {
+		vmi := &k6tv1.VirtualMachineInstance{
+			Status: k6tv1.VirtualMachineInstanceStatus{Phase: k6tv1.Scheduled},
+		}
+		Expect(VMIStatsSkipReason(vmi)).To(Equal("VMI is not running"))
+	})
+
+	It("skips a VMI with an active migration", func() {
+		now := metav1.Now()
+		vmi := &k6tv1.VirtualMachineInstance{
+			Status: k6tv1.VirtualMachineInstanceStatus{
+				Phase: k6tv1.Running,
+				MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+				},
+			},
+		}
+		Expect(VMIStatsSkipReason(vmi)).To(Equal("VMI has an active migration"))
+	})
+
+	It("allows a VMI whose migration already completed or failed", func() {
+		now := metav1.Now()
+		for _, state := range []*k6tv1.VirtualMachineInstanceMigrationState{
+			{StartTimestamp: &now, Completed: true},
+			{StartTimestamp: &now, Failed: true},
+			{},
+		} {
+			vmi := &k6tv1.VirtualMachineInstance{
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase:          k6tv1.Running,
+					MigrationState: state,
+				},
+			}
+			Expect(VMIStatsSkipReason(vmi)).To(BeEmpty())
+		}
+	})
+})
