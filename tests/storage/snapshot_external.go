@@ -128,13 +128,17 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, decorators.RequiresSnapshotStorageClass, func() {
-		var snapshotStorageClass string
+		var (
+			snapshotStorageClass string
+			blockVolumes         bool
+		)
 
 		BeforeEach(func() {
 			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sc).ToNot(BeEmpty(), "No snapshot storage class available")
 			snapshotStorageClass = sc
+			blockVolumes = false
 		})
 
 		// Exercise a multi-disk snapshot and sequential block commits.
@@ -144,10 +148,11 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 			var dvs []*cdiv1.DataVolume
 			var vmiOpts []libvmi.Option
 			for i := 0; i < disks; i++ {
-				dv := libdv.NewDataVolume(
-					libdv.WithBlankImageSource(),
-					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
-				)
+				storage := libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass))
+				if blockVolumes {
+					storage = libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass), libdv.StorageWithBlockVolumeMode())
+				}
+				dv := libdv.NewDataVolume(libdv.WithBlankImageSource(), storage)
 				dvs = append(dvs, dv)
 				vmiOpts = append(vmiOpts, libvmi.WithDataVolume(fmt.Sprintf("data-disk-%d", i), dv.Name))
 			}
@@ -209,6 +214,83 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 				return nil
 			}, 120*time.Second, 2*time.Second).Should(Succeed())
 			return name
+		}
+
+		// holdCapture keeps the overlays active by failing the VolumeSnapshots
+		holdCapture := func(vmName string) (release func()) {
+			webhook := createDenyVolumeSnapshotCreateWebhook(virtClient, vmName)
+			release = func() {
+				err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(
+					context.Background(), webhook.Name, metav1.DeleteOptions{})
+				if !k8serrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			DeferCleanup(release)
+			return release
+		}
+
+		// killLauncher kills virt-launcher without a graceful shutdown that would commit
+		killLauncher := func(vmi *v1.VirtualMachineInstance) {
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"pkill", "-9", "-x", "virt-launcher"})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// killLauncherMidCommit kills virt-launcher from inside its pod once the first
+		// overlay is committed, since polling from here misses a commit of small disks.
+		// It returns how many overlays were left.
+		killLauncherMidCommit := func(vmi *v1.VirtualMachineInstance, scratch string) (left int) {
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			out, err := exec.ExecuteCommandOnPod(pod, "compute", []string{"/bin/sh", "-c", fmt.Sprintf(
+				"timeout 900 sh -c 'while left=$(ls /var/run/kubevirt/hotplug-disks/%s/ | grep -c qcow2); [ $left -eq %d ]; do sleep 0.05; done; echo $left' && pkill -9 -x virt-launcher",
+				scratch, dataDisks)})
+			Expect(err).ToNot(HaveOccurred(), "the commit never started")
+			_, err = fmt.Sscanf(strings.TrimSpace(out), "%d", &left)
+			Expect(err).ToNot(HaveOccurred())
+			return left
+		}
+
+		overlaysLeft := func(vmi *v1.VirtualMachineInstance, scratch string) int {
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			if err != nil {
+				return -1
+			}
+			out, err := exec.ExecuteCommandOnPod(pod, "compute",
+				[]string{"/bin/sh", "-c", fmt.Sprintf("ls /var/run/kubevirt/hotplug-disks/%s/ 2>/dev/null | grep -c qcow2 || true", scratch)})
+			if err != nil {
+				return -1
+			}
+			var count int
+			if _, err := fmt.Sscanf(strings.TrimSpace(out), "%d", &count); err != nil {
+				return -1
+			}
+			return count
+		}
+
+		diskMarker := func(disk int) string {
+			return fmt.Sprintf("snapshot-disk-%d-after-overlay", disk)
+		}
+
+		writeDiskMarkers := func(vmi *v1.VirtualMachineInstance) {
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			for i := 0; i < dataDisks; i++ {
+				Expect(console.RunCommand(vmi, fmt.Sprintf(
+					"printf '%s' | dd of=/dev/disk/by-id/virtio-snapshot-data-disk-%d bs=512 count=1 conv=notrunc,fsync", diskMarker(i), i),
+					20*time.Second)).To(Succeed())
+			}
+		}
+
+		// Read back by disk serial, so markers that land on the wrong disk fail too
+		expectDiskMarkers := func(vmi *v1.VirtualMachineInstance) {
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			for i := 0; i < dataDisks; i++ {
+				Expect(console.RunCommand(vmi, fmt.Sprintf(
+					"test \"$(head -c %d /dev/disk/by-id/virtio-snapshot-data-disk-%d)\" = '%s'", len(diskMarker(i)), i, diskMarker(i)),
+					20*time.Second)).To(Succeed())
+			}
 		}
 
 		It("should snapshot a running multi-disk VM without stopping it", func() {
@@ -281,22 +363,21 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 			))
 		})
 
-		It("should block startup and keep scratch after a launcher crash until the overlays are committed", func() {
+		// Without a restart nothing recovers the overlays, so they wait for a manual commit
+		It("should keep a crashed VM that is not restarted blocked until the overlays are committed", func() {
 			var vmi *v1.VirtualMachineInstance
 			vm, vmi = createRunningVM(2)
+			payload, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyManual)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(
+				context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("holding the capture so the overlays stay active")
-			webhook := createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
-			DeferCleanup(func() {
-				err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(
-					context.Background(), webhook.Name, metav1.DeleteOptions{})
-				if !k8serrors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-			})
+			holdCapture(vm.Name)
 
 			snapshot = externalSnapshotOf(vm.Name, vm.Namespace)
-			_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(
+			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(
 				context.Background(), snapshot, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			scratch := scratchPVCName()
@@ -308,18 +389,11 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("killing virt-launcher without a graceful shutdown")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"pkill", "-9", "-x", "virt-launcher"})
-			Expect(err).ToNot(HaveOccurred())
+			killLauncher(vmi)
 
 			By("the VM is blocked for manual recovery")
 			Eventually(matcher.ThisVM(vm), 4*time.Minute, 2*time.Second).Should(
 				matcher.HaveConditionTrueWithReason(v1.VirtualMachineManualRecoveryRequired, storagetypes.UncommittedOverlaysReason))
-
-			By("an explicit start is refused")
-			Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).
-				To(MatchError(ContainSubstring(scratch)))
 
 			By("no replacement VMI starts and the scratch volume stays protected")
 			Consistently(func(g Gomega) {
@@ -338,8 +412,8 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 				g.Expect(pvc.Finalizers).To(ContainElement(storagetypes.OverlayProtectionFinalizer))
 			}, 30*time.Second, 2*time.Second).Should(Succeed())
 
-			By("marking the overlays as committed releases scratch and starts the VM")
-			payload, err := patch.New(patch.WithAdd(
+			By("marking the overlays as committed releases scratch and unblocks the VM")
+			payload, err = patch.New(patch.WithAdd(
 				"/metadata/annotations/"+patch.EscapeJSONPointer(storagetypes.OverlaysCommittedAnnotation), string(scratchPVC.UID),
 			)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
@@ -352,8 +426,68 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 				HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 				HaveField("Annotations", Not(HaveKey(storagetypes.OverlaysCommittedAnnotation))),
 			))
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 5*time.Minute, 2*time.Second).Should(BeInPhase(v1.Running))
+
+			By("the VM starts on its base images")
+			Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 5*time.Minute, 2*time.Second).Should(And(
+				BeInPhase(v1.Running),
+				HaveField("Annotations", Not(HaveKey(storagetypes.PendingOverlayRecoveryAnnotation))),
+			))
 		})
+
+		DescribeTable("should recover the guest writes after a launcher crash", func(duringCommit, block bool) {
+			blockVolumes = block
+			var vmi *v1.VirtualMachineInstance
+			vm, vmi = createRunningVM(dataDisks)
+			release := holdCapture(vm.Name)
+
+			snapshot = externalSnapshotOf(vm.Name, vm.Namespace)
+			_, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(
+				context.Background(), snapshot, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			scratch := scratchPVCName()
+
+			By("writing a marker to every disk once it is on its overlay")
+			Eventually(func() int { return overlaysLeft(vmi, scratch) }, 5*time.Minute, 2*time.Second).Should(Equal(dataDisks))
+			writeDiskMarkers(vmi)
+
+			if duringCommit {
+				// Each pivot removes its overlay, so a partial count means the commit is half done
+				By("releasing the capture and killing virt-launcher once some disks are committed")
+				left := make(chan int, 1)
+				go func() {
+					defer GinkgoRecover()
+					left <- killLauncherMidCommit(vmi, scratch)
+				}()
+				release()
+				Eventually(left, 16*time.Minute).Should(Receive(And(BeNumerically(">", 0), BeNumerically("<", dataDisks))))
+			} else {
+				By("killing virt-launcher without a graceful shutdown")
+				killLauncher(vmi)
+			}
+
+			By("a replacement VMI recovers every marker")
+			Eventually(func(g Gomega) {
+				current, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(current.UID).ToNot(Equal(vmi.UID))
+				g.Expect(current.IsRunning()).To(BeTrue())
+			}, 6*time.Minute, 2*time.Second).Should(Succeed())
+			recovered, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			expectDiskMarkers(recovered)
+
+			By("the overlays are committed and the scratch volume released")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Minute, 5*time.Second).Should(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceOverlaySnapshotActive, v1.VirtualMachineInstanceReasonOverlayCommitted))
+			Eventually(ThisPVCWith(vm.Namespace, scratch), 5*time.Minute, 2*time.Second).Should(BeGone())
+			Eventually(matcher.ThisVM(vm), 2*time.Minute, 2*time.Second).Should(
+				HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+		},
+			Entry("before the commit", false, false),
+			Entry("during a partial commit", true, false),
+			Entry("with block volumes", decorators.RequiresBlockStorage, false, true),
+		)
 
 		It("should refuse to migrate a VM while its disks are on overlays", decorators.RequiresTwoSchedulableNodes, func() {
 			vm, _ = createRunningVM(dataDisks)
