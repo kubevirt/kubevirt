@@ -560,42 +560,6 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a HostDisk volume with CBT", func() {
-			vmi := libvmi.New(
-				libvmi.WithHostDisk("myhostdisk", "/data/disk.img", v1.HostDiskExistsOrCreate),
-			)
-			configurator := storage.NewDiskConfigurator(
-				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel(virtioModel),
-				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"myhostdisk": {}}),
-				storage.DiskWithApplyCBT(map[string]string{"myhostdisk": "/cbt/myhostdisk.qcow2"}),
-			)
-			var domain api.Domain
-
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := newDomainWithDisks(newDisk("myhostdisk",
-				diskWithDevice("disk"),
-				diskWithType("file"),
-				diskWithSource(api.DiskSource{
-					File: "/cbt/myhostdisk.qcow2",
-					DataStore: &api.DataStore{
-						Type: "file",
-						Format: &api.DataStoreFormat{
-							Type: "raw",
-						},
-						Source: &api.DiskSource{
-							File: hostdisk.GetMountedHostDiskPath("myhostdisk", "/data/disk.img"),
-						},
-					},
-				}),
-				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
-				diskWithModel(virtioModel),
-			))
-			Expect(domain).To(Equal(expectedDomain))
-		})
-
 		It("should convert a Sysprep volume", func() {
 			vmi := libvmi.New(
 				libvmi.WithSysprepConfigMap("mysysprep", "my-config"),

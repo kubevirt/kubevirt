@@ -259,7 +259,7 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.HostDisk != nil {
-		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, d.applyCBT[source.Name], disk)
+		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
 	}
 
 	if source.PersistentVolumeClaim != nil {
