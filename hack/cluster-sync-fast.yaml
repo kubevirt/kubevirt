@@ -1,0 +1,128 @@
+# Images for the KubeVirt control plane and the runtime images selected by it.
+# virt-launcher and virt-exportserver are created on demand for VMIs/exports;
+# their image setting is supplied by virt-controller, so updating either rolls
+# out virt-controller once (the runner deduplicates shared workloads).
+# virt-template images use VIRT_TEMPLATE_VERSION, as they do in cluster-sync.
+hooks:
+  file: hack/cluster-sync-fast-kubevirt-hooks.sh
+
+default_components:
+  - virt-operator
+  - virt-api
+  - virt-controller
+  - virt-handler
+  - virt-exportproxy
+  - virt-synchronization-controller
+  - virt-launcher
+  - virt-exportserver
+  - virt-template-apiserver
+  - virt-template-controller
+
+components:
+  virt-operator:
+    build_target: //cmd/virt-operator:virt-operator-image
+    push_target: virt-operator
+    digest_file: bazel-bin/cmd/virt-operator/virt-operator-image_digest
+    workload: {kind: deployment, name: virt-operator}
+    deploy_order: 10
+    flow: rollout
+    rollout_timeout: 5m
+  virt-api:
+    build_target: //cmd/virt-api:virt-api-image
+    push_target: virt-api
+    digest_file: bazel-bin/cmd/virt-api/virt-api-image_digest
+    workload: {kind: deployment, name: virt-api}
+    deploy_order: 20
+    flow: rollout
+    rollout_timeout: 5m
+  virt-controller:
+    build_target: //cmd/virt-controller:virt-controller-image
+    push_target: virt-controller
+    digest_file: bazel-bin/cmd/virt-controller/virt-controller-image_digest
+    workload: {kind: deployment, name: virt-controller}
+    deploy_order: 30
+    flow: rollout
+    rollout_timeout: 5m
+  virt-handler:
+    build_target: //cmd/virt-handler:virt-handler-image
+    push_target: virt-handler
+    digest_file: bazel-bin/cmd/virt-handler/virt-handler-image_digest
+    workload: {kind: daemonset, name: virt-handler}
+    deploy_order: 50
+    flow: rollout
+    rollout_timeout: 10m
+  virt-exportproxy:
+    build_target: //cmd/virt-exportproxy:virt-exportproxy-image
+    push_target: virt-exportproxy
+    digest_file: bazel-bin/cmd/virt-exportproxy/virt-exportproxy-image_digest
+    workload: {kind: deployment, name: virt-exportproxy}
+    deploy_order: 40
+    flow: rollout
+    rollout_timeout: 5m
+  virt-synchronization-controller:
+    build_target: //cmd/synchronization-controller:virt-synchronization-controller-image
+    push_target: virt-synchronization-controller
+    digest_file: bazel-bin/cmd/synchronization-controller/virt-synchronization-controller-image_digest
+    workload: {kind: deployment, name: virt-synchronization-controller}
+    deploy_order: 41
+    flow: rollout
+    rollout_timeout: 5m
+  virt-launcher:
+    build_target: //cmd/virt-launcher:virt-launcher-image
+    push_target: virt-launcher
+    digest_file: bazel-bin/cmd/virt-launcher/virt-launcher-image_digest
+    workload: {kind: deployment, name: virt-controller}
+    deploy_order: 30
+    flow: rollout
+    rollout_timeout: 5m
+  virt-exportserver:
+    build_target: //cmd/virt-exportserver:virt-exportserver-image
+    push_target: virt-exportserver
+    digest_file: bazel-bin/cmd/virt-exportserver/virt-exportserver-image_digest
+    workload: {kind: deployment, name: virt-controller}
+    deploy_order: 30
+    flow: rollout
+    rollout_timeout: 5m
+  virt-template-apiserver:
+    build_target: //images/virt-template:virt-template-apiserver-image
+    push_target: virt-template-apiserver
+    digest_file: bazel-bin/images/virt-template/virt-template-apiserver-image_digest
+    push_tag_env: VIRT_TEMPLATE_VERSION
+    workload: {kind: deployment, name: virt-template-apiserver}
+    deploy_order: 60
+    flow: rollout
+    rollout_timeout: 5m
+    optional: true
+  virt-template-controller:
+    build_target: //images/virt-template:virt-template-controller-image
+    push_target: virt-template-controller
+    digest_file: bazel-bin/images/virt-template/virt-template-controller-image_digest
+    push_tag_env: VIRT_TEMPLATE_VERSION
+    workload: {kind: deployment, name: virt-template-controller}
+    deploy_order: 61
+    flow: rollout
+    rollout_timeout: 5m
+    optional: true
+# Optional image used for user-configured VMI sidecars; it is not part of the
+# baseline pod set and is therefore omitted from default_components.
+  sidecar-shim:
+    build_target: //cmd/sidecars:sidecar-shim-image
+    push_target: sidecar-shim
+    digest_file: bazel-bin/cmd/sidecars/sidecar-shim-image_digest
+    workload: {kind: deployment, name: virt-controller}
+    deploy_order: 30
+    flow: rollout
+    rollout_timeout: 5m
+    optional: true
+
+flows:
+  rollout:
+    - restart_workload
+    - wait_for_rollout
+
+# Exact rules take priority over contains rules. Unmatched component sets run
+# in deploy_order. List names of changed images in each rule.
+combination_flows:
+  - contains: [virt-operator]
+    steps: [virt-operator, remaining_changed_components]
+    description: Roll the operator first, then other changed workloads.

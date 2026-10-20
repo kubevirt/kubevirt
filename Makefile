@@ -193,6 +193,12 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 
+cluster-sync-fast:
+	./hack/cluster-sync-fast.sh
+
+cluster-sync-fast-test:
+	bats hack/cluster-sync-fast.bats
+
 builder-build:
 	./hack/builder/build.sh
 
@@ -296,6 +302,8 @@ vmlog-checker:
 	cluster-clean \
 	cluster-deploy \
 	cluster-sync \
+	cluster-sync-fast \
+	cluster-sync-fast-test \
 	olm-verify \
 	olm-push \
 	coverage \
