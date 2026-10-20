@@ -397,6 +397,11 @@ func overlaysRequested(scratch *corev1.PersistentVolumeClaim, vmi *kubevirtv1.Vi
 	return reference != nil && reference.ContentUID == content.UID || overlaysActive(vmi), nil
 }
 
+// recoveryPending reports a VMI created to recover the overlays of this content
+func recoveryPending(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return vmi != nil && vmi.Annotations[storagetypes.PendingOverlayRecoveryAnnotation] == scratchPVCName(content)
+}
+
 // cleanupOverlays commits an abandoned transaction, then completes its durable cleanup.
 func (ctrl *VMSnapshotController) cleanupOverlays(content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
 	if !externalMode(content) {
@@ -463,7 +468,7 @@ func (ctrl *VMSnapshotController) removeScratchVolume(content *snapshotv1.Virtua
 	if err != nil {
 		return false, err
 	}
-	referenced := reference != nil && reference.ContentUID == content.UID
+	referenced := recoveryPending(vmi, content) || (reference != nil && reference.ContentUID == content.UID)
 	if !scratchVolumeDetached(vmi, content) || referenced {
 		return false, ctrl.detachScratchVolume(vmi, content)
 	}
@@ -854,6 +859,9 @@ func (ctrl *VMSnapshotController) detachScratchVolume(vmi *kubevirtv1.VirtualMac
 	}
 	if reference != nil && reference.ContentUID == content.UID {
 		delete(annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
+	}
+	if annotations[storagetypes.PendingOverlayRecoveryAnnotation] == scratchPVCName(content) {
+		delete(annotations, storagetypes.PendingOverlayRecoveryAnnotation)
 	}
 	if len(annotations) != len(vmi.Annotations) {
 		options = append(options, patch.WithTest("/metadata/annotations", vmi.Annotations), patch.WithReplace("/metadata/annotations", annotations))

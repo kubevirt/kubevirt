@@ -2,13 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["snapshotoverlay.go"],
+    srcs = [
+        "recovery.go",
+        "snapshotoverlay.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/snapshotoverlay",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/utilityvolume:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
@@ -20,6 +24,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "recovery_test.go",
         "snapshotoverlay_suite_test.go",
         "snapshotoverlay_test.go",
     ],
@@ -27,6 +32,8 @@ go_test(
     race = "on",
     deps = [
         "//pkg/controller:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
