@@ -213,12 +213,10 @@ func VMIFromVM(vm *v1.VirtualMachine, opts Options) (*v1.VirtualMachineInstance,
 
 	vmi := NewVMI(vmCopy)
 	// Start-paused stays in the VM controller. It comes from a runtime
-	// stateChangeRequest, not from the VM spec. A completed memory dump
-	// is recorded on the VM status; drop that volume here, before
-	// mutations pair disks, so offline render matches the controller.
-	if memorydump.HasCompleted(vmCopy) {
-		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vmCopy.Status.MemoryDumpRequest.ClaimName)
-	}
+	// stateChangeRequest, not from the VM spec. Drop deprecated memory
+	// dump volumes here, before mutations pair disks, so offline render
+	// matches the controller.
+	memorydump.RemoveDeprecatedVolumes(&vmi.Spec)
 	// Pair disks before preferences so PreferredDiskBus can fill an empty
 	// bus. Later VMI defaulting would otherwise set the architecture bus.
 	storagevmispec.SetDefaultVolumeDisk(&vmi.Spec)

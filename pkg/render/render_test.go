@@ -331,7 +331,7 @@ var _ = Describe("render", func() {
 			Expect(err).To(MatchError(ContainSubstring("instancetype matchers")))
 		})
 
-		It("drops a completed memory-dump volume before pairing disks", func() {
+		It("drops a deprecated memory-dump volume before pairing disks", func() {
 			vm := libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithNamespace("default"),
 				libvmi.WithName("dumpvm"),
@@ -342,35 +342,10 @@ var _ = Describe("render", func() {
 					MemoryDump: &v1.MemoryDumpVolumeSource{},
 				},
 			})
-			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-				ClaimName: "dump-pvc",
-				Phase:     v1.MemoryDumpCompleted,
-			}
 
 			vmi, err := render.VMIFromVM(vm, opts())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vmi.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "dump-pvc")))
-		})
-
-		It("keeps an in-progress memory-dump volume", func() {
-			vm := libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithNamespace("default"),
-				libvmi.WithName("dumpvm"),
-			))
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-				Name: "dump-pvc",
-				VolumeSource: v1.VolumeSource{
-					MemoryDump: &v1.MemoryDumpVolumeSource{},
-				},
-			})
-			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-				ClaimName: "dump-pvc",
-				Phase:     v1.MemoryDumpInProgress,
-			}
-
-			vmi, err := render.VMIFromVM(vm, opts())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vmi.Spec.Volumes).To(ContainElement(HaveField("Name", "dump-pvc")))
 		})
 
 		It("rejects an instancetype spec when the VM has no matcher", func() {
