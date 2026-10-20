@@ -125,7 +125,7 @@ func SyncUncommittedOverlays(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstan
 		Type:               v1.VirtualMachineManualRecoveryRequired,
 		Status:             k8sv1.ConditionTrue,
 		Reason:             storagetypes.UncommittedOverlaysReason,
-		Message:            fmt.Sprintf("Uncommitted writes remain on scratch PVC `%s`. Startup is blocked. To keep the writes, commit the overlays manually, then annotate the VM with %s=%s. Otherwise restore a completed snapshot and accept losing writes newer than that snapshot.", storagetypes.ScratchPVCName(reference.ContentUID), storagetypes.OverlaysCommittedAnnotation, reference.ScratchPVCUID),
+		Message:            fmt.Sprintf("Uncommitted writes remain on scratch PVC `%s`. Starting the VM recovers them. If the recovery is refused, commit the overlays manually, then annotate the VM with %s=%s, or restore a completed snapshot and accept losing writes newer than that snapshot.", storagetypes.ScratchPVCName(reference.ContentUID), storagetypes.OverlaysCommittedAnnotation, reference.ScratchPVCUID),
 		LastTransitionTime: metav1.Now(),
 	})
 	return false, nil
