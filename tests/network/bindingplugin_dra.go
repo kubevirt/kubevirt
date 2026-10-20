@@ -132,7 +132,8 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), serverVM.Name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-			g.Expect(serverVMI.Status.Interfaces[0].InfoSource).To(Equal(vmispec.InfoSourceDomainAndGA))
+			g.Expect(vmispec.ContainsInfoSource(serverVMI.Status.Interfaces[0].InfoSource, vmispec.InfoSourcePodStatus)).To(BeTrue(),
+				"expected pod-status in the DRA interface infoSource, got %q", serverVMI.Status.Interfaces[0].InfoSource)
 			g.Expect(serverVMI.Status.Interfaces[0].IPs).ToNot(BeEmpty())
 		}, agentTimeout, pollingInterval).Should(Succeed())
 
