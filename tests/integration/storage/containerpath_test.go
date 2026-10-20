@@ -36,7 +36,7 @@ var _ = Describe("ContainerPath CEL validation", func() {
 	var f *framework.Framework
 
 	BeforeEach(func() {
-		f = framework.New()
+		f = framework.New(framework.WithoutWebhooks())
 		f.Start(context.Background())
 	})
 
