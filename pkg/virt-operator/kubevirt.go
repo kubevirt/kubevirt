@@ -178,6 +178,7 @@ func NewKubeVirtController(
 			informers.Deployment.HasSynced() &&
 			informers.DaemonSet.HasSynced() &&
 			informers.ValidationWebhook.HasSynced() &&
+			informers.MutatingWebhook.HasSynced() &&
 			informers.SCC.HasSynced() &&
 			informers.Route.HasSynced() &&
 			informers.InstallStrategyConfigMap.HasSynced() &&
