@@ -19,6 +19,7 @@ Copyright The KubeVirt Authors.
 package framework
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -33,9 +34,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutatingwebhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validatingwebhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
@@ -43,16 +49,25 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
-const webhookReadHeaderTimeout = 10 * time.Second
+const (
+	webhookReadHeaderTimeout = 10 * time.Second
+	webhookShutdownTimeout   = 10 * time.Second
+	webhookAdmissionTimeout  = time.Minute
+	webhookAdmissionInterval = 100 * time.Millisecond
+)
 
-// WithWebhooks enables mutating and validating admission for VirtualMachines.
-func WithWebhooks() Option {
+// WithoutWebhooks disables VM admission webhooks to isolate API server schema and CEL validation.
+// VM webhooks are enabled by default.
+func WithoutWebhooks() Option {
 	return func(f *Framework) {
-		f.webhooksEnabled = true
-		f.env.WebhookInstallOptions = envtest.WebhookInstallOptions{
-			MutatingWebhooks:   filterMutatingWebhooks(components.NewVirtAPIMutatingWebhookConfiguration(testNamespace)),
-			ValidatingWebhooks: filterValidatingWebhooks(components.NewVirtAPIValidatingWebhookConfiguration(testNamespace)),
-		}
+		f.webhooksEnabled = false
+	}
+}
+
+func (f *Framework) configureWebhooks() {
+	f.env.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		MutatingWebhooks:   filterMutatingWebhooks(components.NewVirtAPIMutatingWebhookConfiguration(testNamespace)),
+		ValidatingWebhooks: filterValidatingWebhooks(components.NewVirtAPIValidatingWebhookConfiguration(testNamespace)),
 	}
 }
 
@@ -74,6 +89,8 @@ func (f *Framework) startWebhookServer(clusterConfig *virtconfig.ClusterConfig, 
 		mutatingwebhook.ServeVMs(w, r, clusterConfig, f.virtClient)
 	})
 	mux.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		// Controllers and tests share the envtest admin identity. Keep it subject to
+		// regular-user validation; trusting it would also exempt test requests.
 		validatingwebhook.ServeVMs(w, r, clusterConfig, f.virtClient, webhookInformers, nil)
 	})
 
@@ -98,6 +115,45 @@ func (f *Framework) startWebhookServer(clusterConfig *virtconfig.ClusterConfig, 
 			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("webhook server failed on %s", listener.Addr()))
 		}
 	}()
+}
+
+// Configuration discovery alone does not guarantee the API server has observed
+// the webhooks. Probe both handlers through admission without persisting a VM.
+func (f *Framework) waitForWebhookAdmission() {
+	GinkgoHelper()
+	ctx, cancel := context.WithTimeout(f.ctx, webhookAdmissionTimeout)
+	defer cancel()
+	vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithMemoryRequest("128Mi")))
+	opts := metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}}
+	Eventually(ctx, func(g Gomega) {
+		mutated, err := f.virtClient.VirtualMachine(testNamespace).Create(ctx, vm, opts)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(mutated.Spec.Template.Spec.Domain.Firmware).NotTo(BeNil())
+		g.Expect(mutated.Spec.Template.Spec.Domain.Firmware.UUID).NotTo(BeEmpty())
+
+		invalid := vm.DeepCopy()
+		invalid.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{{
+			Name:       "missing-volume",
+			DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio}},
+		}}
+		_, err = f.virtClient.VirtualMachine(testNamespace).Create(ctx, invalid, opts)
+		g.Expect(err).To(MatchError(k8serrors.IsInvalid, "IsInvalid"))
+		g.Expect(err).To(MatchError(ContainSubstring("virtualmachine-validator.kubevirt.io")))
+		g.Expect(err).To(MatchError(ContainSubstring("missing-volume")))
+	}, webhookAdmissionInterval).Should(Succeed(), "VM admission webhooks did not become effective")
+}
+
+func (f *Framework) stopWebhookServer() error {
+	// The framework context is already canceled; allow active requests a fresh
+	// deadline to finish while the API server is still available.
+	ctx, cancel := context.WithTimeout(context.Background(), webhookShutdownTimeout)
+	defer cancel()
+	err := f.webhookServer.Shutdown(ctx)
+	if err != nil {
+		err = errors.Join(err, f.webhookServer.Close())
+	}
+	<-f.webhookDone
+	return err
 }
 
 func servesVirtualMachines(rules []admissionregistrationv1.RuleWithOperations) bool {
