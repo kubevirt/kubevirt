@@ -20,8 +20,11 @@
 package utilityvolume
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -47,6 +50,68 @@ var _ = Describe("Utility volumes", func() {
 
 	BeforeEach(func() {
 		vmi = libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("test-vmi"))
+	})
+
+	Context("find", func() {
+		It("should find the volume of the expected claim and type", func() {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{utilityVolume(volumeName, v1.SnapshotOverlay)}
+			Expect(Find(vmi, volumeName, volumeName+"-pvc", v1.SnapshotOverlay)).To(BeTrue())
+		})
+
+		It("should not find a volume that is not in the spec", func() {
+			Expect(Find(vmi, volumeName, volumeName+"-pvc", v1.SnapshotOverlay)).To(BeFalse())
+			Expect(Find(nil, volumeName, volumeName+"-pvc", v1.SnapshotOverlay)).To(BeFalse())
+		})
+
+		DescribeTable("should refuse another source under the name", func(claimName string, volumeType v1.UtilityVolumeType) {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{utilityVolume(volumeName, v1.SnapshotOverlay)}
+			_, err := Find(vmi, volumeName, claimName, volumeType)
+			Expect(err).To(MatchError(ContainSubstring("different source")))
+		},
+			Entry("another claim", "other-pvc", v1.SnapshotOverlay),
+			Entry("another type", volumeName+"-pvc", v1.Backup),
+		)
+	})
+
+	Context("add patch", func() {
+		apply := func(payload []byte, target *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error) {
+			patch, err := jsonpatch.DecodePatch(payload)
+			Expect(err).ToNot(HaveOccurred())
+			original, err := json.Marshal(target)
+			Expect(err).ToNot(HaveOccurred())
+			patched, err := patch.Apply(original)
+			if err != nil {
+				return nil, err
+			}
+			updated := &v1.VirtualMachineInstance{}
+			Expect(json.Unmarshal(patched, updated)).To(Succeed())
+			return updated, nil
+		}
+
+		BeforeEach(func() {
+			vmi.UID, vmi.ResourceVersion = "vmi-uid", "1"
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{utilityVolume("other-volume", v1.Backup)}
+		})
+
+		It("should add the volume next to the existing ones", func() {
+			payload, err := AddPatch(vmi, volumeName, volumeName+"-pvc", v1.SnapshotOverlay)
+			Expect(err).ToNot(HaveOccurred())
+			updated, err := apply(payload, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updated.Spec.UtilityVolumes).To(Equal([]v1.UtilityVolume{
+				utilityVolume("other-volume", v1.Backup),
+				utilityVolume(volumeName, v1.SnapshotOverlay),
+			}))
+		})
+
+		It("should not apply to a VMI that changed in between", func() {
+			payload, err := AddPatch(vmi, volumeName, volumeName+"-pvc", v1.SnapshotOverlay)
+			Expect(err).ToNot(HaveOccurred())
+			changed := vmi.DeepCopy()
+			changed.ResourceVersion = "2"
+			_, err = apply(payload, changed)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Context("attached", func() {

@@ -19,7 +19,54 @@
 
 package utilityvolume
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"fmt"
+	"slices"
+
+	k8sv1 "k8s.io/api/core/v1"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/pointer"
+)
+
+// Find reports whether volumeName is in the VMI spec as a utility volume of
+// claimName and volumeType, and errors on another source under that name.
+func Find(vmi *v1.VirtualMachineInstance, volumeName, claimName string, volumeType v1.UtilityVolumeType) (bool, error) {
+	if vmi == nil {
+		return false, nil
+	}
+	for _, volume := range vmi.Spec.UtilityVolumes {
+		if volume.Name != volumeName {
+			continue
+		}
+		if volume.ClaimName != claimName || volume.Type == nil || *volume.Type != volumeType {
+			return false, fmt.Errorf("utility volume %s has a different source", volumeName)
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+// AddPatch returns the JSON patch adding volumeName as a utility volume of
+// claimName and volumeType, guarded against a concurrent change to the VMI.
+func AddPatch(vmi *v1.VirtualMachineInstance, volumeName, claimName string, volumeType v1.UtilityVolumeType) ([]byte, error) {
+	volumes := append(slices.Clone(vmi.Spec.UtilityVolumes), v1.UtilityVolume{
+		Name:                              volumeName,
+		PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
+		Type:                              pointer.P(volumeType),
+	})
+	patchSet := patch.New(
+		patch.WithTest("/metadata/uid", vmi.UID),
+		patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes),
+		patch.WithAdd("/spec/utilityVolumes", volumes),
+	)
+	if vmi.ResourceVersion != "" {
+		patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+	}
+	return patchSet.GeneratePayload()
+}
 
 // Attached reports whether volumeName is mounted in the VMI's pod and usable.
 func Attached(vmi *v1.VirtualMachineInstance, volumeName string) bool {
