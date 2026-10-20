@@ -255,7 +255,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				defaultPciAddress = "0000:03:00.0"
 			)
 			vmi := libvmifact.NewAlpine(
-				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+				libvmi.WithInterface(libvmi.NewInterface("default",
 					libvmi.WithMasqueradeBinding(), libvmi.WithModel("e1000"),
 					libvmi.WithPciAddress(e1000PciAddress),
 				)),
@@ -335,7 +335,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		const pciAddress = "0000:01:00.0"
 
 		testVMI := libvmifact.NewAlpine(
-			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name,
+			libvmi.WithInterface(libvmi.NewInterface("default",
 				libvmi.WithMasqueradeBinding(),
 				libvmi.WithPciAddress(pciAddress),
 				libvmi.WithACPIIndex(acpiIndex),
@@ -508,7 +508,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 			return libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(libvmi.NewInterface(
-					v1.DefaultPodNetwork().Name,
+					"default",
 					libvmi.WithMasqueradeBinding(),
 					libvmi.WithPorts(ports...),
 				)),
@@ -868,7 +868,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				vmi = libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.NewInterface(
-						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+						"default", libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 				)
@@ -975,7 +975,7 @@ func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.Vi
 	podNetwork.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
 	vmi := libvmifact.NewFedora(
 		libvmi.WithInterface(libvmi.NewInterface(
-			v1.DefaultPodNetwork().Name,
+			"default",
 			libvmi.WithMasqueradeBinding(),
 			libvmi.WithPorts(ports...),
 		)),
@@ -1028,14 +1028,14 @@ func vmiHasCustomMacAddress(vmi *v1.VirtualMachineInstance) bool {
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithInterface(libvmi.NewInterface(
-			v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(), libvmi.WithMac(mac))),
+			"default", libvmi.WithBridgeBinding(), libvmi.WithMac(mac))),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
 func vmiWithMultiQueue() *v1.VirtualMachineInstance {
 	return libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetworkInterfaceMultiQueue(true),
-		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+		libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
