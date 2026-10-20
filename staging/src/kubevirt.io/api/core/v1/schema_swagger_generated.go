@@ -230,6 +230,7 @@ func (Hugepages) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
 		"pageSize": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
+		"mode":     "Mode specifies how hugepages are provided.\nstatic - (Default) use pre-allocated static hugepages on the node.\ntransparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.\nRequires the THPMemoryBacking feature gate when set to transparent.\n+optional",
 	}
 }
 

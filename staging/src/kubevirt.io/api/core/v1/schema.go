@@ -460,10 +460,28 @@ type MemoryStatus struct {
 	MemoryOverhead *resource.Quantity `json:"memoryOverhead,omitempty"`
 }
 
+// HugepagesMode specifies how hugepages are provided for the VirtualMachineInstance.
+// +kubebuilder:validation:Enum=static;transparent
+type HugepagesMode string
+
+const (
+	// HugepagesModeStatic uses pre-allocated static hugepages on the node (default).
+	HugepagesModeStatic HugepagesMode = "static"
+	// HugepagesModeTransparent backs guest memory with regular anonymous memory that is
+	// mlocked and immediately preallocated; the kernel may promote it to Transparent Huge Pages.
+	HugepagesModeTransparent HugepagesMode = "transparent"
+)
+
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
 type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
 	PageSize string `json:"pageSize,omitempty"`
+	// Mode specifies how hugepages are provided.
+	// static - (Default) use pre-allocated static hugepages on the node.
+	// transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+	// Requires the THPMemoryBacking feature gate when set to transparent.
+	// +optional
+	Mode *HugepagesMode `json:"mode,omitempty"`
 }
 
 type ReservedOverhead struct {

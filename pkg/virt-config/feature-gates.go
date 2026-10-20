@@ -247,3 +247,7 @@ func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 func (config *ClusterConfig) MigrationDowntimeTuningEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.MigrationDowntimeTuning)
 }
+
+func (config *ClusterConfig) THPMemoryBackingEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.THPMemoryBacking)
+}
