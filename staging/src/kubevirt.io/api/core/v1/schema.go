@@ -998,6 +998,7 @@ type VolumeSource struct {
 	// metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+	// Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
 	// ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
 	// The path must correspond to an existing volumeMount in the compute container.
@@ -1038,6 +1039,8 @@ type PersistentVolumeClaimVolumeSource struct {
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
 }
 
+// MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI.
+// Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
 type MemoryDumpVolumeSource struct {
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the virt launcher
