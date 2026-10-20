@@ -679,14 +679,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
 
-		DescribeTable("should explain why manual recovery blocks startup", func(reason, message, expected string) {
+		DescribeTable("should refuse a start that manual recovery blocks", func(reason string) {
 			vmi := libvmi.New()
 			vm := libvmi.NewVirtualMachine(vmi)
 			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
-				Type:    v1.VirtualMachineManualRecoveryRequired,
-				Status:  k8sv1.ConditionTrue,
-				Reason:  reason,
-				Message: message,
+				Type:   v1.VirtualMachineManualRecoveryRequired,
+				Status: k8sv1.ConditionTrue,
+				Reason: reason,
 			})
 			request.PathParameters()["name"] = vm.Name
 			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -695,13 +694,27 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.StartVMRequestHandler(request, response)
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-			Expect(statusErr.Error()).To(ContainSubstring(expected))
+			Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
 		},
-			Entry("volume migration", "", "", "VM recovery required"),
-			Entry("snapshot overlays", "UncommittedOverlays", "Uncommitted writes remain on scratch PVC `scratch`. Startup is blocked. Wait for overlay recovery, commit the overlays manually to keep the writes, or restore a completed snapshot and accept losing writes newer than that snapshot.", "Uncommitted writes remain on scratch PVC `scratch`. Startup is blocked."),
-			Entry("another recovery reason", "OtherRecovery", "Recovery is required before starting this VM", "VM recovery required"),
-			Entry("snapshot overlays without a message", "UncommittedOverlays", "", "VM recovery required"),
+			Entry("volume migration", ""),
+			Entry("another recovery reason", "OtherRecovery"),
 		)
+
+		It("should accept a start that recovers uncommitted snapshot overlays", func() {
+			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+				Type:   v1.VirtualMachineManualRecoveryRequired,
+				Status: k8sv1.ConditionTrue,
+				Reason: "UncommittedOverlays",
+			})
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(nil, nil)
+			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
+
+			app.StartVMRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+		})
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {

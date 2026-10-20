@@ -82,17 +82,18 @@ func AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI *v1.VirtualMachineInstance
 	}})
 }
 
-// AdmitSnapshotOverlayReferenceUpdate rejects a change to the overlay reference
-// annotation, which tells the snapshot controller what the launcher was asked for.
-func AdmitSnapshotOverlayReferenceUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
-	if oldVMI.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] == newVMI.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] {
-		return nil
+// AdmitSnapshotOverlayAnnotationsUpdate rejects changes to the snapshot overlay annotations, which the commit and the recovery rely on.
+func AdmitSnapshotOverlayAnnotationsUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	for _, annotation := range []string{storagetypes.OverlaySnapshotReferenceAnnotation, storagetypes.PendingOverlayRecoveryAnnotation} {
+		if oldVMI.Annotations[annotation] != newVMI.Annotations[annotation] {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("modification of the %s annotation on a VMI object is prohibited", annotation),
+				Field:   "metadata.annotations",
+			}})
+		}
 	}
-	return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
-		Type:    metav1.CauseTypeFieldValueNotSupported,
-		Message: fmt.Sprintf("modification of the %s annotation on a VMI object is prohibited", storagetypes.OverlaySnapshotReferenceAnnotation),
-		Field:   "metadata.annotations",
-	}})
+	return nil
 }
 
 func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field string) []metav1.StatusCause {
