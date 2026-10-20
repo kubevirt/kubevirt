@@ -577,7 +577,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			DescribeTable("should settle an interrupted snapshot before allowing restore cleanup", func(captured, restored, committed bool) {
+			DescribeTable("should settle an interrupted snapshot before allowing restore cleanup", func(captured, restored, committed bool, recovered string) {
 				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
 					updated := action.(testing.UpdateAction).GetObject()
 					return true, updated, vmSnapshotClient.Tracker().Update(snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots"), updated, testNamespace)
@@ -605,11 +605,31 @@ var _ = Describe("Snapshot controlleer", func() {
 					OwnerReferences: []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: content.UID, Controller: pointer.P(true)}},
 				}}
 				Expect(pvcInformer.GetStore().Add(pvc)).To(Succeed())
-				if restored || committed {
+				if restored || committed || recovered != "" {
 					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-					vmiInterface.EXPECT().Get(gomock.Any(), vm.Name, gomock.Any()).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstances"), vm.Name))
 					k8sClient.PrependReactor("list", "pods", func(testing.Action) (bool, runtime.Object, error) { return true, &corev1.PodList{}, nil })
 					k8sClient.PrependReactor("patch", "persistentvolumeclaims", func(testing.Action) (bool, runtime.Object, error) { return true, pvc, nil })
+				}
+				if restored || committed {
+					vmiInterface.EXPECT().Get(gomock.Any(), vm.Name, gomock.Any()).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstances"), vm.Name))
+				}
+				if recovered != "" {
+					// The replacement VMI's launcher reports on the overlays it was started on
+					vmi := createVMI(vm)
+					vmi.UID = "recovering-vmi-uid"
+					vmi.Status.Phase = v1.Running
+					vmi.Status.SnapshotOverlayPVCUID = pvc.UID
+					status := corev1.ConditionFalse
+					if recovered == v1.VirtualMachineInstanceReasonOverlayCommitFailed {
+						status = corev1.ConditionTrue
+						vmiInterface.EXPECT().CommitSnapshot(gomock.Any(), vm.Name, gomock.Any()).Return(nil)
+					}
+					vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+						Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: status, Reason: recovered,
+					})
+					Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
+					metav1.SetMetaDataAnnotation(&pvc.ObjectMeta, storagetypes.OverlayOwnerVMIUIDAnnotation, string(vmi.UID))
+					Expect(pvcInformer.GetStore().Update(pvc)).To(Succeed())
 				}
 				if committed {
 					metav1.SetMetaDataAnnotation(&vm.ObjectMeta, storagetypes.OverlaysCommittedAnnotation, "scratch-uid")
@@ -642,7 +662,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					_, err = controller.updateVMSnapshot(vmSnapshot)
 					Expect(err).ToNot(HaveOccurred())
 				}
-				if restored || committed {
+				if restored || committed || recovered == v1.VirtualMachineInstanceReasonOverlayCommitted {
 					Expect(pvc.Finalizers).To(ContainElement(overlayScratchFinalizer))
 					vm.Status.SnapshotInProgress = nil
 					vm.Finalizers = nil
@@ -686,8 +706,50 @@ var _ = Describe("Snapshot controlleer", func() {
 					Expect(pvc.Finalizers).To(ContainElement(overlayScratchFinalizer))
 					Expect(k8sClient.Actions()).To(BeEmpty())
 				}
-			}, Entry("completed capture", true, false, false), Entry("unfinished capture with no deadline", false, false, false), Entry("successful restore waits for scratch cleanup", true, true, false),
-				Entry("manual commit waits for scratch cleanup", true, false, true))
+			}, Entry("completed capture", true, false, false, ""), Entry("unfinished capture with no deadline", false, false, false, ""), Entry("successful restore waits for scratch cleanup", true, true, false, ""),
+				Entry("manual commit waits for scratch cleanup", true, false, true, ""),
+				Entry("recovery commit waits for scratch cleanup", true, false, false, v1.VirtualMachineInstanceReasonOverlayCommitted),
+				Entry("failed recovery commit is retried", true, false, false, v1.VirtualMachineInstanceReasonOverlayCommitFailed))
+
+			It("should keep the startup block when the scratch volume vanishes during a recovery", func() {
+				vmSnapshotClient.PrependReactor("update", "virtualmachinesnapshots", func(action testing.Action) (bool, runtime.Object, error) {
+					updated := action.(testing.UpdateAction).GetObject()
+					return true, updated, vmSnapshotClient.Tracker().Update(snapshotv1.SchemeGroupVersion.WithResource("virtualmachinesnapshots"), updated, testNamespace)
+				})
+				vm := createLockedVM()
+				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
+					Type: v1.VirtualMachineManualRecoveryRequired, Status: corev1.ConditionTrue, Reason: "UncommittedOverlays",
+				})
+				Expect(vmInformer.GetStore().Add(vm)).To(Succeed())
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				content := createReadyVMSnapshotContent()
+				content.UID = "external-content-uid"
+				content.Status.SnapshotMode = pointer.P(snapshotv1.SnapshotModeExternal)
+				Expect(vmSnapshotContentInformer.GetStore().Add(content)).To(Succeed())
+				Expect(vmSnapshotClient.Tracker().Add(vmSnapshot)).To(Succeed())
+				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+				k8sClient.PrependReactor("get", "persistentvolumeclaims", func(testing.Action) (bool, runtime.Object, error) {
+					return true, nil, errors.NewNotFound(corev1.Resource("persistentvolumeclaims"), scratchPVCName(content))
+				})
+
+				vmi := createVMI(vm)
+				vmi.Status.Phase = v1.Running
+				vmi.Annotations = map[string]string{storagetypes.PendingOverlayRecoveryAnnotation: scratchPVCName(content)}
+				Expect(vmiInformer.GetStore().Add(vmi)).To(Succeed())
+
+				vmInterface.EXPECT().Patch(gomock.Any(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(vm.DeepCopy(), nil)
+				vmInterface.EXPECT().UpdateStatus(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+					func(_ context.Context, updated *v1.VirtualMachine, _ metav1.UpdateOptions) (*v1.VirtualMachine, error) {
+						Expect(virtcontroller.NewVirtualMachineConditionManager().HasConditionWithStatus(updated, v1.VirtualMachineManualRecoveryRequired, corev1.ConditionTrue)).To(BeTrue())
+						return updated, nil
+					})
+				vmiInterface.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				_, err := controller.updateVMSnapshot(vmSnapshot)
+				Expect(err).ToNot(HaveOccurred())
+				testutils.ExpectEvent(recorder, "SnapshotOverlaysMissing")
+			})
 
 			DescribeTable("should keep the external source locked while scratch remains", func(phase snapshotv1.VirtualMachineSnapshotPhase) {
 				vmSnapshot := createVMSnapshotSuccess()

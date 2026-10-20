@@ -557,15 +557,31 @@ func (ctrl *VMSnapshotController) settleInterruptedSource(vmSnapshot *snapshotv1
 		return 0, err
 	}
 	vm := source.VirtualMachine()
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return 0, err
+	}
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return 0, err
+	}
+	// A recovery context left without its scratch volume would start on the base images
+	vanished := scratch == nil && recoveryPending(vmi, content)
+	recovering := vmi != nil && !vmi.IsFinal() && !vanished
+	// Without a manual commit only a running recovery settles the overlays, and
 	// canDiscardOverlays only releases the scratch PVC with the committed UID
 	committed := vm.Annotations[storagetypes.OverlaysCommittedAnnotation]
-	if committed == "" {
+	if committed == "" && !recovering {
 		restored, err := ctrl.overlaysRestored(content, vm)
 		if err != nil || !restored {
+			if vanished {
+				ctrl.Recorder.Eventf(vm, corev1.EventTypeWarning, overlaysMissingEvent,
+					"Scratch PVC %s was deleted before its overlays were committed", scratchPVCName(content))
+			}
 			return snapshotRetryInterval, err
 		}
 	}
-	done, err := ctrl.removeScratchVolume(content)
+	done, err := ctrl.cleanupOverlays(content)
 	if err != nil || !done {
 		return snapshotRetryInterval, err
 	}

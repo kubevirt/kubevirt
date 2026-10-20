@@ -78,6 +78,8 @@ const (
 
 	overlayCommitFailedEvent = "OverlayCommitFailed"
 
+	overlaysMissingEvent = "SnapshotOverlaysMissing"
+
 	snapshotRetryInterval = 5 * time.Second
 
 	contentDeletionInterval = 5 * time.Second
