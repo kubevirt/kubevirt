@@ -4092,6 +4092,110 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectPodExists(servingPod.Namespace, servingPod.Name)
 		})
 
+		DescribeTable("Should track the memory dump of a memory dump utility volume", func(existing *virtv1.DomainMemoryDumpInfo, expected virtv1.DomainMemoryDumpInfo) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{{
+				Name:                              "dump-vol",
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "dump-pvc"},
+				Type:                              new(virtv1.MemoryDump),
+			}}
+			if existing != nil {
+				addVolumeStatuses(vmi, virtv1.VolumeStatus{Name: "dump-vol", MemoryDumpVolume: existing})
+			}
+			Expect(controller.pvcIndexer.Add(&k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "dump-pvc", Namespace: k8sv1.NamespaceDefault},
+				Status:     k8sv1.PersistentVolumeClaimStatus{Phase: k8sv1.ClaimBound},
+			})).To(Succeed())
+
+			Expect(controller.updateVolumeStatus(vmi, newPodForVirtualMachine(vmi, k8sv1.PodRunning), nil)).To(Succeed())
+
+			Expect(vmi.Status.VolumeStatus).To(ConsistOf(And(
+				HaveField("Name", "dump-vol"),
+				HaveField("MemoryDumpVolume", HaveValue(Equal(expected))),
+			)))
+		},
+			Entry("once the volume is added", nil, virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc"}),
+			Entry("without resetting a dump in progress",
+				&virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc", TargetFileName: "dump.memory.dump"},
+				virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc", TargetFileName: "dump.memory.dump"},
+			),
+		)
+
+		DescribeTable("Should keep a mounted directory volume until the attachment pod serves a newly added hotplug volume",
+			func(addDirectoryVolume func(vmi *virtv1.VirtualMachineInstance), directoryStatus virtv1.VolumeStatus) {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.Volumes = []virtv1.Volume{{
+					Name: "new-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "new-pvc"},
+							Hotpluggable:                      true,
+						},
+					},
+				}}
+				addDirectoryVolume(vmi)
+				for _, claimName := range []string{"directory-pvc", "new-pvc"} {
+					Expect(controller.pvcIndexer.Add(&k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{Name: claimName, Namespace: k8sv1.NamespaceDefault},
+						Status:     k8sv1.PersistentVolumeClaimStatus{Phase: k8sv1.ClaimBound},
+					})).To(Succeed())
+				}
+
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				attachmentPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-directory", "abcd", k8sv1.PodRunning)
+				attachmentPod.Spec.Volumes = append(attachmentPod.Spec.Volumes, k8sv1.Volume{
+					Name: directoryStatus.Name,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "directory-pvc"},
+					},
+				})
+				attachmentPod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Ready: true}}
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
+				directoryStatus.HotplugVolume = &virtv1.HotplugVolumeStatus{
+					AttachPodName: attachmentPod.Name,
+					AttachPodUID:  attachmentPod.UID,
+				}
+				addVolumeStatuses(vmi, directoryStatus)
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", directoryStatus.Name),
+					HaveField("Phase", directoryStatus.Phase),
+					HaveField("HotplugVolume.AttachPodUID", attachmentPod.UID),
+				)))
+			},
+			Entry("utility volume",
+				func(vmi *virtv1.VirtualMachineInstance) {
+					vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{{
+						Name:                              "directory-vol",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "directory-pvc"},
+					}}
+				},
+				virtv1.VolumeStatus{Name: "directory-vol", Phase: virtv1.HotplugVolumeMounted},
+			),
+			Entry("memory dump volume that completed its dump",
+				func(vmi *virtv1.VirtualMachineInstance) {
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+						Name: "directory-vol",
+						VolumeSource: virtv1.VolumeSource{
+							MemoryDump: &virtv1.MemoryDumpVolumeSource{
+								PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "directory-pvc"},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					})
+				},
+				virtv1.VolumeStatus{
+					Name:             "directory-vol",
+					Phase:            virtv1.MemoryDumpVolumeCompleted,
+					MemoryDumpVolume: &virtv1.DomainMemoryDumpInfo{ClaimName: "directory-pvc"},
+				},
+			),
+		)
+
 		It("Should set error for utility volume with block mode PVC", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
@@ -5675,6 +5779,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should not enqueue when nothing changed", "50Gi", "50Gi", "2", false),
 			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
 		)
+
+		It("should enqueue the VMI of a utility volume when its PVC is added", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+			)
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{{
+				Name:                              "utility-vol",
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "utility-pvc"},
+			}}
+			indexVMI(vmi)
+
+			controller.addPVC(newPvc("default", "utility-pvc"))
+
+			Expect(mockQueue.Len()).To(Equal(1))
+			item, _ := mockQueue.Get()
+			Expect(item).To(Equal("default/testvmi"))
+		})
 	})
 
 	Context("Automatic Migration Requirement", func() {

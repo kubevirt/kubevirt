@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -54,12 +55,10 @@ const (
 	noPreviousOutput                 = ""
 	noClaimName                      = ""
 	waitMemoryDumpRequest            = "waiting on memory dump request in vm status"
-	waitMemoryDumpPvcVolume          = "waiting on memory dump pvc in vm"
 	waitMemoryDumpRequestRemove      = "waiting on memory dump request to be remove from vm status"
-	waitMemoryDumpPvcVolumeRemove    = "waiting on memory dump pvc to be remove from vm volumes"
 	waitMemoryDumpCompletion         = "waiting on memory dump completion in vm, phase: %s"
 	waitMemoryDumpInProgress         = "waiting on memory dump in progress in vm, phase: %s"
-	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi volumes list"
+	waitVMIMemoryDumpPvcVolume       = "waiting memory dump not to be in vmi utility volumes list"
 	waitVMIMemoryDumpPvcVolumeStatus = "waiting memory dump not to be in vmi volumeStatus list"
 	memoryDumpPVCSize                = "500Mi"
 )
@@ -112,14 +111,9 @@ var _ = Describe(SIG("Memory dump", func() {
 				return err
 			}
 
-			foundVolume := false
-			for _, volume := range updatedVMI.Spec.Volumes {
-				if volume.Name == memoryDumpPVC {
-					foundVolume = true
-					break
-				}
-			}
-			if foundVolume {
+			if slices.ContainsFunc(updatedVMI.Spec.UtilityVolumes, func(volume v1.UtilityVolume) bool {
+				return volume.Name == memoryDumpPVC
+			}) {
 				return fmt.Errorf(waitVMIMemoryDumpPvcVolume)
 			}
 
@@ -152,18 +146,6 @@ var _ = Describe(SIG("Memory dump", func() {
 				return fmt.Errorf(fmt.Sprintf(waitMemoryDumpCompletion, updatedVM.Status.MemoryDumpRequest.Phase))
 			}
 
-			foundPvc := false
-			for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
-				if volume.Name == memoryDumpPVC {
-					foundPvc = true
-					break
-				}
-			}
-
-			if !foundPvc {
-				return fmt.Errorf(waitMemoryDumpPvcVolume)
-			}
-
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -184,18 +166,6 @@ var _ = Describe(SIG("Memory dump", func() {
 			}
 			if updatedVM.Status.MemoryDumpRequest != nil {
 				return fmt.Errorf(waitMemoryDumpRequestRemove)
-			}
-
-			foundPvc := false
-			for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
-				if volume.Name == memoryDumpPVC {
-					foundPvc = true
-					break
-				}
-			}
-
-			if foundPvc {
-				return fmt.Errorf(waitMemoryDumpPvcVolumeRemove)
 			}
 
 			return nil
@@ -398,6 +368,30 @@ var _ = Describe(SIG("Memory dump", func() {
 			if memoryDumpPVC2.Annotations != nil {
 				Expect(memoryDumpPVC2.Annotations[v1.PVCMemoryDumpAnnotation]).To(BeNil())
 			}
+		})
+
+		It("should fail the memory dump when the vm restarts during it", func() {
+			By("Running memory dump to a pvc with a non-existing storage-class")
+			stuckPVC := libstorage.NewPVC(memoryDumpPVCName2, memoryDumpPVCSize, "no-exist")
+			stuckPVC.Namespace = vm.Namespace
+			_, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), stuckPVC, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			memoryDumpVMSubresource(vm.Name, vm.Namespace, memoryDumpPVCName2)
+			memoryDumpRequest := func() (*v1.VirtualMachineMemoryDumpRequest, error) {
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+				return updatedVM.Status.MemoryDumpRequest, nil
+			}
+			Eventually(memoryDumpRequest, 90*time.Second, 2*time.Second).Should(HaveValue(HaveField("Phase", v1.MemoryDumpInProgress)))
+
+			By("Restarting VM")
+			vm = libvmops.StopVirtualMachine(vm)
+			vm = libvmops.StartVirtualMachine(vm)
+
+			Eventually(memoryDumpRequest, 90*time.Second, 2*time.Second).Should(HaveValue(HaveField("Phase", v1.MemoryDumpFailed)))
+			verifyMemoryDumpNotOnVMI(vm, memoryDumpPVCName2)
 		})
 	})
 }))

@@ -151,7 +151,7 @@ func (c *Controller) processHotplugVolumeStatus(
 	usePVCStatus := false
 
 	if attachmentPod == nil {
-		if !c.volumeReady(statusCopy.Phase) {
+		if statusCopy.Phase != virtv1.VolumeReady && !storagetypes.IsMountedDirectoryVolume(vmi, statusCopy) {
 			statusCopy.HotplugVolume.AttachPodUID = ""
 			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 			usePVCStatus = true
@@ -319,6 +319,11 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 		// Remove from map so we can detect volumes removed from spec
 		delete(oldStatusMap, utilityVolume.Name)
+		if utilityVolume.Type != nil && *utilityVolume.Type == virtv1.MemoryDump && status.MemoryDumpVolume == nil {
+			status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+				ClaimName: utilityVolume.ClaimName,
+			}
+		}
 		c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPodFor(utilityVolume.Name))
 		err = c.processPVCInfo(&status, utilityVolume.ClaimName, vmi.Namespace, true)
 		if err != nil {
@@ -363,11 +368,6 @@ func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
 		return virtv1.HotplugVolumeMounted
 	}
 	return virtv1.HotplugVolumeDetaching
-}
-
-// volumeReady checks if a volume is in a ready state.
-func (c *Controller) volumeReady(phase virtv1.VolumePhase) bool {
-	return phase == virtv1.VolumeReady
 }
 
 // getVolumePhaseMessageReason determines the phase, reason, and message for a volume.

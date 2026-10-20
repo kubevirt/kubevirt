@@ -9,6 +9,7 @@ go_test(
         "storagehotplug_test.go",
         "vm-storage-admitter_test.go",
         "vmexport_test.go",
+        "vmi-storage-admitter_test.go",
         "vmrestore_test.go",
         "vmsnapshot_test.go",
     ],
