@@ -954,6 +954,9 @@ func overlayScratchDir(vmi *v1.VirtualMachineInstance) string {
 		return ""
 	}
 	name := storagetypes.ScratchPVCName(reference.ContentUID)
+	if pending := vmi.Annotations[storagetypes.PendingOverlayRecoveryAnnotation]; pending != "" && pending != name {
+		return ""
+	}
 	if found, err := utilityvolume.Find(vmi, name, name, v1.SnapshotOverlay); err != nil || !found {
 		return ""
 	}

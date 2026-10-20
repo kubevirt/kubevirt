@@ -2018,7 +2018,9 @@ func (c *VirtualMachineController) handleStartingVMI(
 		}
 	}
 
-	if !c.hotplugVolumesReady(vmi) {
+	// The scratch volume is hotplugged after the VMI is created. The domain must
+	// not start on the base images its overlays still shadow
+	if snapshotoverlay.AwaitingRecoveryScratch(vmi) || !c.hotplugVolumesReady(vmi) {
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return false, nil
 	}
