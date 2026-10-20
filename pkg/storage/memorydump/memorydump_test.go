@@ -245,7 +245,80 @@ var _ = Describe("MemoryDump", func() {
 
 		Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpDissociating))
 	})
+
+	Context("with a dump that started on a deprecated MemoryDump volume", func() {
+		createVMIWithDeprecatedVolume := func(phase v1.MemoryDumpPhase) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+			vm, vmi := createVirtualMachineWithMemoryDump(phase)
+			vmi.Spec.UtilityVolumes = nil
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, deprecatedMemoryDumpVolume())
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.TODO(), &k8score.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: vm.Namespace},
+			}, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+			return vm, vmi
+		}
+
+		getVMI := func(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+			vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			return vmi
+		}
+
+		DescribeTable("should keep the dump on it", func(phase v1.MemoryDumpPhase) {
+			vm, vmi := createVMIWithDeprecatedVolume(phase)
+
+			Expect(HandleRequest(virtClient, vm, vmi, pvcStore)).To(Succeed())
+
+			vmi = getVMI(vm)
+			Expect(vmi.Spec.UtilityVolumes).To(BeEmpty())
+			Expect(vmi.Spec.Volumes).To(ConsistOf(deprecatedMemoryDumpVolume()))
+		},
+			Entry("while associating", v1.MemoryDumpAssociating),
+			Entry("while in progress", v1.MemoryDumpInProgress),
+		)
+
+		DescribeTable("should detach it", func(phase v1.MemoryDumpPhase) {
+			vm, vmi := createVMIWithDeprecatedVolume(phase)
+
+			Expect(HandleRequest(virtClient, vm, vmi, pvcStore)).To(Succeed())
+
+			Expect(getVMI(vm).Spec.Volumes).To(BeEmpty())
+		},
+			Entry("once the dump completed", v1.MemoryDumpUnmounting),
+			Entry("once the dump failed", v1.MemoryDumpFailed),
+			Entry("once the request is removed", v1.MemoryDumpDissociating),
+		)
+
+		DescribeTable("should keep the request in progress", func(phase v1.MemoryDumpPhase) {
+			vm, vmi := createVMIWithDeprecatedVolume(phase)
+
+			UpdateRequest(vm, vmi)
+
+			Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpInProgress))
+		},
+			Entry("once associated", v1.MemoryDumpAssociating),
+			Entry("while the dump runs", v1.MemoryDumpInProgress),
+		)
+	})
 })
+
+func deprecatedMemoryDumpVolume() v1.Volume {
+	return v1.Volume{
+		Name: testPVCName,
+		VolumeSource: v1.VolumeSource{
+			MemoryDump: &v1.MemoryDumpVolumeSource{
+				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{ClaimName: testPVCName},
+					Hotpluggable:                      true,
+				},
+			},
+		},
+	}
+}
 
 func ApplyVMIMemoryDumpUtilityVol(spec *v1.VirtualMachineInstanceSpec) {
 	utilityVol := v1.UtilityVolume{

@@ -93,13 +93,8 @@ func UpdateRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 	case v1.MemoryDumpCompleted:
 		return
 	case v1.MemoryDumpAssociating:
-		if vmi != nil {
-			for _, vol := range vmi.Spec.UtilityVolumes {
-				if vm.Status.MemoryDumpRequest.ClaimName == vol.Name {
-					updatedMemoryDumpReq.Phase = v1.MemoryDumpInProgress
-					break
-				}
-			}
+		if vmi != nil && hasMemoryDumpVolume(vmi, vm.Status.MemoryDumpRequest.ClaimName) {
+			updatedMemoryDumpReq.Phase = v1.MemoryDumpInProgress
 		}
 	case v1.MemoryDumpInProgress:
 		if !hasRunningMemoryDumpVolume(vmi, vm.Status.MemoryDumpRequest.ClaimName) {
@@ -150,7 +145,11 @@ func UpdateRequest(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
 }
 
 func hasRunningMemoryDumpVolume(vmi *v1.VirtualMachineInstance, claimName string) bool {
-	return vmi != nil && vmi.IsRunning() && hasUtilityVolume(vmi, claimName)
+	return vmi != nil && vmi.IsRunning() && hasMemoryDumpVolume(vmi, claimName)
+}
+
+func hasMemoryDumpVolume(vmi *v1.VirtualMachineInstance, claimName string) bool {
+	return hasUtilityVolume(vmi, claimName) || hasDeprecatedVolume(vmi, claimName)
 }
 
 func hasUtilityVolume(vmi *v1.VirtualMachineInstance, claimName string) bool {
@@ -159,8 +158,15 @@ func hasUtilityVolume(vmi *v1.VirtualMachineInstance, claimName string) bool {
 	})
 }
 
+// TODO: remove together with RemoveDeprecatedVolumes.
+func hasDeprecatedVolume(vmi *v1.VirtualMachineInstance, claimName string) bool {
+	return slices.ContainsFunc(vmi.Spec.Volumes, func(volume v1.Volume) bool {
+		return volume.Name == claimName && volume.MemoryDump != nil
+	})
+}
+
 func attachMemoryDumpVolume(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, claimName string) error {
-	if hasUtilityVolume(vmi, claimName) {
+	if hasMemoryDumpVolume(vmi, claimName) {
 		return nil
 	}
 	memoryDumpVolume := v1.UtilityVolume{
@@ -177,13 +183,37 @@ func attachMemoryDumpVolume(client kubecli.KubevirtClient, vmi *v1.VirtualMachin
 }
 
 func detachMemoryDumpVolume(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, claimName string) error {
-	if vmi == nil || !hasUtilityVolume(vmi, claimName) {
+	if vmi == nil {
+		return nil
+	}
+	if hasDeprecatedVolume(vmi, claimName) {
+		return detachDeprecatedVolume(client, vmi, claimName)
+	}
+	if !hasUtilityVolume(vmi, claimName) {
 		return nil
 	}
 	err := patchUtilityVolumes(client, vmi, slices.DeleteFunc(slices.Clone(vmi.Spec.UtilityVolumes), func(volume v1.UtilityVolume) bool {
 		return volume.Name == claimName
 	}))
 	if err != nil {
+		return fmt.Errorf("unable to detach memory dump volume: %w", err)
+	}
+	return nil
+}
+
+// TODO: remove together with RemoveDeprecatedVolumes.
+func detachDeprecatedVolume(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, claimName string) error {
+	volumes := slices.DeleteFunc(slices.Clone(vmi.Spec.Volumes), func(volume v1.Volume) bool {
+		return volume.Name == claimName
+	})
+	patchBytes, err := patch.New(
+		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
+		patch.WithReplace("/spec/volumes", volumes),
+	).GeneratePayload()
+	if err != nil {
+		return err
+	}
+	if _, err = client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		return fmt.Errorf("unable to detach memory dump volume: %w", err)
 	}
 	return nil
