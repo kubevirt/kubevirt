@@ -26,4 +26,14 @@ var _ = Describe("Ports", func() {
 		Entry("only protocol with slash", "udp/", forwardedPort{local: 0, remote: 0, protocol: protocolUDP}, false),
 		Entry("invalid symbol in port", "80C0:8X90", forwardedPort{local: 0, remote: 0, protocol: protocolTCP}, false),
 	)
+
+	DescribeTable("parsePort rejects extra colon-separated ports",
+		func(arg string) {
+			_, err := parsePort(arg)
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("three ports", "8080:9090:9999"),
+		Entry("protocol and three ports", "udp/8080:9090:9999"),
+		Entry("trailing colon after two ports", "8080:9090:"),
+	)
 })
