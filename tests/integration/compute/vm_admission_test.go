@@ -36,7 +36,7 @@ var _ = Describe("VM Admission", Ordered, ContinueOnFailure, func() {
 	var f *framework.Framework
 
 	BeforeAll(func() {
-		f = framework.New(framework.WithWebhooks())
+		f = framework.New()
 		f.Start(context.Background())
 	})
 
@@ -74,6 +74,7 @@ var _ = Describe("VM Admission", Ordered, ContinueOnFailure, func() {
 
 		_, err := f.VirtClient().VirtualMachine(ns).Create(ctx, vm, metav1.CreateOptions{})
 		Expect(err).To(MatchError(errors.IsInvalid, "IsInvalid"))
+		Expect(err).To(MatchError(ContainSubstring("virtualmachine-validator.kubevirt.io")))
 		Expect(err).To(MatchError(ContainSubstring("missing-volume")))
 		_, err = f.VirtClient().VirtualMachine(ns).Get(ctx, vm.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))

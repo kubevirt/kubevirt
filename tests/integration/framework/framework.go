@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -110,10 +111,14 @@ func New(opts ...Option) *Framework {
 			CRDs:               crds,
 			UseExistingCluster: new(bool),
 		},
-		kvConfig: &v1.KubeVirtConfiguration{},
+		kvConfig:        &v1.KubeVirtConfiguration{},
+		webhooksEnabled: true,
 	}
 	for _, opt := range opts {
 		opt(f)
+	}
+	if f.webhooksEnabled {
+		f.configureWebhooks()
 	}
 	return f
 }
@@ -150,6 +155,7 @@ func (f *Framework) Start(ctx context.Context) {
 
 	if f.webhooksEnabled {
 		f.startWebhookServer(clusterConfig, factory)
+		f.waitForWebhookAdmission()
 	}
 
 	f.wg.Go(func() { f.vmiController.Run(controllerWorkers, f.ctx.Done()) })
@@ -166,13 +172,14 @@ func (f *Framework) Stop() {
 		f.podSimulator.Stop()
 	}
 	f.wg.Wait()
+	var webhookErr, envErr error
 	if f.webhookServer != nil {
-		Expect(f.webhookServer.Close()).To(Succeed())
-		<-f.webhookDone
+		webhookErr = f.stopWebhookServer()
 	}
 	if f.env != nil {
-		Expect(f.env.Stop()).To(Succeed())
+		envErr = f.env.Stop()
 	}
+	Expect(stderrors.Join(webhookErr, envErr)).NotTo(HaveOccurred(), "failed to stop integration framework")
 }
 
 func (f *Framework) VirtClient() kubecli.KubevirtClient {
