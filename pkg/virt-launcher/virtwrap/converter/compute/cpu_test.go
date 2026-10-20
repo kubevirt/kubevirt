@@ -343,6 +343,15 @@ var _ = Describe("CPU Domain Configurator", func() {
 				&api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
 				nil,
 			),
+			Entry("transparent hugepages without explicit NUMA",
+				libvmi.New(
+					libvmi.WithHugepages("2Mi"),
+					libvmi.WithHugepagesMode(v1.HugepagesModeTransparent),
+					libvmi.WithMemoryRequest("128Mi"),
+				),
+				&api.CPUTopology{Sockets: 1, Cores: 1, Threads: 1},
+				nil,
+			),
 		)
 
 		It("should span all hotpluggable CPUs in the synthetic NUMA cell", func() {
