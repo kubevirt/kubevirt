@@ -35,3 +35,7 @@ done
 go mod tidy
 go work vendor
 go work sync
+# Keep go.work.sum complete (hashes for the whole module graph) so IDEs and
+# other module-mode tooling don't append missing hashes locally and leak them
+# into unrelated PRs. Vendored builds never read this file.
+GOFLAGS= go mod download all
