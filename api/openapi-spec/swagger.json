@@ -16538,6 +16538,7 @@
     }
    },
    "v1.MemoryDumpVolumeSource": {
+    "description": "MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI. Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
     "type": "object",
     "required": [
      "claimName"
@@ -20427,7 +20428,7 @@
       "$ref": "#/definitions/v1.HostDisk"
      },
      "memoryDump": {
-      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
       "$ref": "#/definitions/v1.MemoryDumpVolumeSource"
      },
      "name": {

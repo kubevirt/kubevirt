@@ -10273,8 +10273,9 @@ var CRDsValidation map[string]string = map[string]string{
                         - type
                         type: object
                       memoryDump:
-                        description: MemoryDump is attached to the virt launcher and
-                          is populated with a memory dump of the vmi
+                        description: |-
+                          MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                          Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
                         properties:
                           claimName:
                             description: |-
@@ -16908,8 +16909,9 @@ var CRDsValidation map[string]string = map[string]string{
                 - type
                 type: object
               memoryDump:
-                description: MemoryDump is attached to the virt launcher and is populated
-                  with a memory dump of the vmi
+                description: |-
+                  MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                  Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
                 properties:
                   claimName:
                     description: |-
@@ -24138,8 +24140,9 @@ var CRDsValidation map[string]string = map[string]string{
                         - type
                         type: object
                       memoryDump:
-                        description: MemoryDump is attached to the virt launcher and
-                          is populated with a memory dump of the vmi
+                        description: |-
+                          MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                          Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
                         properties:
                           claimName:
                             description: |-
@@ -29612,8 +29615,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 - type
                                 type: object
                               memoryDump:
-                                description: MemoryDump is attached to the virt launcher
-                                  and is populated with a memory dump of the vmi
+                                description: |-
+                                  MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                                  Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
                                 properties:
                                   claimName:
                                     description: |-
@@ -35576,9 +35580,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     - type
                                     type: object
                                   memoryDump:
-                                    description: MemoryDump is attached to the virt
-                                      launcher and is populated with a memory dump
-                                      of the vmi
+                                    description: |-
+                                      MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
+                                      Deprecated: memory dumps are attached as utility volumes of type MemoryDump.
                                     properties:
                                       claimName:
                                         description: |-
