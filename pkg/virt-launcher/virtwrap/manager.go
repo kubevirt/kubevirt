@@ -260,6 +260,7 @@ type LibvirtDomainManager struct {
 	cpuSetGetter                  func() ([]int, error)
 	imageVolumeFeatureGateEnabled bool
 	firmwareAutoSelectionEnabled  bool
+	arm64SecureBootEnabled        bool
 
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
@@ -323,6 +324,7 @@ func NewLibvirtDomainManager(
 	domainName string,
 	vmStatsCollectorEnabled bool,
 	firmwareAutoSelectionEnabled bool,
+	arm64SecureBootEnabled bool,
 	allowCrossArchEmulation bool,
 	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
@@ -343,6 +345,7 @@ func NewLibvirtDomainManager(
 		domainName,
 		vmStatsCollectorEnabled,
 		firmwareAutoSelectionEnabled,
+		arm64SecureBootEnabled,
 		allowCrossArchEmulation,
 		eventSender)
 }
@@ -364,6 +367,7 @@ func newLibvirtDomainManager(
 	domainName string,
 	vmStatsCollectorEnabled bool,
 	firmwareAutoSelectionEnabled bool,
+	arm64SecureBootEnabled bool,
 	allowCrossArchEmulation bool,
 	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
@@ -400,6 +404,7 @@ func newLibvirtDomainManager(
 		cpuSetGetter:                  cpuSetGetter,
 		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
 		firmwareAutoSelectionEnabled:  firmwareAutoSelectionEnabled,
+		arm64SecureBootEnabled:        arm64SecureBootEnabled,
 		hookServer:                    hookServer,
 		hypervisorName:                hypervisorName,
 		hypervisorDeviceAvailable:     hypervisorDeviceAvailable,
@@ -1641,7 +1646,8 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			vmType = efi.TDX
 		}
 
-		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled {
+		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled &&
+			(vmi.Spec.Architecture != "arm64" || l.arm64SecureBootEnabled) {
 			log.Log.V(4).Infof("Using firmware auto-selection for EFI Secure Boot")
 			efiConf = &convertertypes.EFIConfiguration{
 				SecureLoader:              true,
