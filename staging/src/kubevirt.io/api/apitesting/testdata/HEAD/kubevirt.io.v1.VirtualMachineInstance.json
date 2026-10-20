@@ -1036,7 +1036,8 @@
             "startAfterIteration": -19,
             "cooldownSeconds": -15
           },
-          "compression": "compressionValue"
+          "compression": "compressionValue",
+          "convergenceTimeoutSec": -21
         }
       },
       "targetCPUSet": [

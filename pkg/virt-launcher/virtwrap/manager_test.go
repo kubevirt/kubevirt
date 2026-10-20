@@ -2177,18 +2177,13 @@ var _ = Describe("Manager", func() {
 			migrationDone := make(chan struct{})
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and close the channel otherwise this
-				// job will run indefinitely until timeout
-				if migrationData <= 32479826519 {
-					close(migrationDone)
-					return &libvirt.DomainJobInfo{}
-				}
-
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2216,9 +2211,13 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
+			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).DoAndReturn(func(flag uint32) error {
+				close(migrationDone)
+				return nil
+			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor.convergenceTimeoutSec = 1
 			monitor.startMonitor(make(chan error, 1))
 		})
 
@@ -2226,18 +2225,13 @@ var _ = Describe("Manager", func() {
 			migrationDone := make(chan struct{})
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and close the channel otherwise this
-				// job will run indefinitely until timeout
-				if migrationData <= 32479826519 {
-					close(migrationDone)
-					return &libvirt.DomainJobInfo{}
-				}
-
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2278,28 +2272,25 @@ var _ = Describe("Manager", func() {
 						Level:   libvirt.ERR_ERROR,
 					}
 				}
+				close(migrationDone)
 				return nil
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor.convergenceTimeoutSec = 1
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
 			migrationDone := make(chan struct{})
 			var migrationData = 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				// stop decreasing data and close the channel otherwise this
-				// job will run indefinitely until timeout
-				if migrationData <= 32479826519 {
-					close(migrationDone)
-					return &libvirt.DomainJobInfo{}
-				}
-
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2330,9 +2321,13 @@ var _ = Describe("Manager", func() {
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
 				return fake_jobinfo(), nil
 			})
-			mockLibvirt.DomainEXPECT().Suspend().Times(1).Return(nil)
+			mockLibvirt.DomainEXPECT().Suspend().Times(1).DoAndReturn(func() error {
+				close(migrationDone)
+				return nil
+			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor.convergenceTimeoutSec = 1
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should be canceled if Paused workload didn't migrate until timeout was reached", func() {
@@ -2344,6 +2339,8 @@ var _ = Describe("Manager", func() {
 					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
 					DataRemaining:    uint64(migrationData),
 					DataRemainingSet: true,
+					MemIterationSet:  true,
+					MemIteration:     2,
 				}
 			}
 
@@ -2390,6 +2387,7 @@ var _ = Describe("Manager", func() {
 			})
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor.convergenceTimeoutSec = 1
 			monitor.startMonitor(make(chan error, 1))
 		})
 		// This is incomplete as it is not verifying that we abort. Previously it wasn't even testing anything at all

@@ -76,6 +76,9 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(false)
 				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
 				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+				migrationPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					ConvergenceTimeoutSec: kvpointer.P(int64(1)),
+				}
 			})
 
 			Context("should migrate paused", func() {
@@ -117,6 +120,8 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 							applyMigrationPolicy(vmi)
 						case applyWithKubevirtCR:
 							applyKubevirtCR()
+							// experimental.convergenceTimeoutSec is MigrationPolicy-only (not on KubeVirt CR)
+							applyMigrationPolicy(vmi)
 						}
 
 						By("Starting the VirtualMachineInstance")

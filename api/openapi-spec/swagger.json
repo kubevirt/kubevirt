@@ -15002,6 +15002,11 @@
       "description": "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
       "type": "string"
      },
+     "convergenceTimeoutSec": {
+      "description": "ConvergenceTimeoutSec is the maximum number of seconds allowed for the converge phase after the initial bulk copy (MemIteration \u003e 1). Defaults to 600 when unset.",
+      "type": "integer",
+      "format": "int64"
+     },
      "downtimeTuning": {
       "description": "DowntimeTuning configures iteration-aware downtime ramping for live migration convergence.",
       "$ref": "#/definitions/v1.DowntimeTuningOptions"

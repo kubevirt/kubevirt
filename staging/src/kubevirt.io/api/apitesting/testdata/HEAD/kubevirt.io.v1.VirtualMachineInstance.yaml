@@ -727,6 +727,7 @@ status:
       disableTLS: true
       experimental:
         compression: compressionValue
+        convergenceTimeoutSec: -21
         downtimeTuning:
           cooldownSeconds: -15
           initialMs: -9
