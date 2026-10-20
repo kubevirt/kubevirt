@@ -34,6 +34,7 @@ type stubClusterConfigChecker struct {
 	passtBindingFeatureGateEnabled bool
 	networkDRAEnabled              bool
 	portRangesSpecGateEnabled      bool
+	interfaceMTUOverrideEnabled    bool
 }
 
 func (s stubClusterConfigChecker) PasstBindingEnabled() bool {
@@ -50,4 +51,8 @@ func (s stubClusterConfigChecker) NetworkDevicesWithDRAGateEnabled() bool {
 
 func (s stubClusterConfigChecker) PortRangesSpecGateEnabled() bool {
 	return s.portRangesSpecGateEnabled
+}
+
+func (s stubClusterConfigChecker) InterfaceMTUOverrideGateEnabled() bool {
+	return s.interfaceMTUOverrideEnabled
 }

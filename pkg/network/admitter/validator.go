@@ -30,6 +30,7 @@ type clusterConfigChecker interface {
 	PasstBindingEnabled() bool
 	NetworkDevicesWithDRAGateEnabled() bool
 	PortRangesSpecGateEnabled() bool
+	InterfaceMTUOverrideGateEnabled() bool
 }
 
 type Validator struct {
