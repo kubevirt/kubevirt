@@ -37,6 +37,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
@@ -56,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -5004,7 +5004,7 @@ func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 }
 
 func getFsImagePath(name string) string {
-	return filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+	return volumepath.Filesystem(name)
 }
 
 func getBlockPath(name string) string {

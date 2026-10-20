@@ -315,10 +315,11 @@ var _ = Describe("Live migration source", func() {
 	})
 
 	Context("classifyVolumesForMigration", func() {
-		It("should classify shared volumes to migrated when they are part of the migrated volumes set", func() {
-			const vol = "vol"
+		const vol = "vol"
+
+		DescribeTable("should classify volumes in the migrated volumes set as local to migrate", func(volume libvmi.Option) {
 			vmi := libvmi.New(
-				libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true)), libvmistatus.WithStatus(
+				volume, libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
 							VolumeName: vol,
@@ -331,7 +332,24 @@ var _ = Describe("Live migration source", func() {
 					generated:      map[string]bool{},
 					localToMigrate: map[string]bool{vol: true},
 				})))
-		})
+		},
+			Entry("PVC", libvmi.WithPersistentVolumeClaim(vol, "claim")),
+			Entry("DV", libvmi.WithDataVolume(vol, "dv")),
+			Entry("HostDisk", libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true))),
+		)
+
+		DescribeTable("should classify volumes outside the migrated volumes set as shared", func(volume libvmi.Option) {
+			Expect(classifyVolumesForMigration(libvmi.New(volume))).To(PointTo(Equal(
+				migrationDisks{
+					shared:         map[string]bool{vol: true},
+					generated:      map[string]bool{},
+					localToMigrate: map[string]bool{},
+				})))
+		},
+			Entry("PVC", libvmi.WithPersistentVolumeClaim(vol, "claim")),
+			Entry("DV", libvmi.WithDataVolume(vol, "dv")),
+			Entry("shared HostDisk", libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true))),
+		)
 	})
 
 	Context("getDiskPathFromSource", func() {
@@ -458,14 +476,6 @@ var _ = Describe("Live migration source", func() {
 				},
 			},
 		}
-		volHostDisk := v1.Volume{
-			Name: testvol,
-			VolumeSource: v1.VolumeSource{
-				HostDisk: &v1.HostDisk{
-					Path: getFsImagePath(testvol),
-				},
-			},
-		}
 
 		DescribeTable("replace filesystem and block migrated volumes", func(isSrcBlock, isDstBlock bool, vol v1.Volume) {
 			retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
@@ -526,8 +536,6 @@ var _ = Describe("Live migration source", func() {
 			Entry("block source and destination", true, true, volPVC),
 			Entry("filesystem source and block destination with DV", false, true, volDV),
 			Entry("block source and filesystem destination with DV", true, false, volDV),
-			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
-			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
 		)
 
 		DescribeTable("replace filesystem and block migrated volumes with CBT overlay", func(isSrcBlock, isDstBlock bool) {

@@ -296,12 +296,6 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 }
 
 func (d DiskConfigurator) convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk) error {
-	// This is here because virt-handler before passing the VMI here replaces all PVCs with host disks in
-	// hostdisk.ReplacePVCByHostDisk not quite sure why, but it broken hot plugging PVCs
-	if source.HostDisk != nil {
-		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
-	}
-
 	if source.PersistentVolumeClaim != nil {
 		return convertHotplugVolumeSourceToDisk(source.Name, d.applyCBT[source.Name], d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}

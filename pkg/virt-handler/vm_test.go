@@ -2528,6 +2528,44 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
+		DescribeTable("with a filesystem", func(volume libvmi.Option, accessMode k8sv1.PersistentVolumeAccessMode, migrated, expectBlockMigrate bool, expectedErr string) {
+			statusOpts := []libvmistatus.Option{
+				libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+					Name: "disk0",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+						VolumeMode:  new(k8sv1.PersistentVolumeFilesystem),
+					},
+				}),
+			}
+			if migrated {
+				statusOpts = append(statusOpts, libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: "disk0"}))
+			}
+			vmi := libvmi.New(volume, libvmistatus.WithStatus(libvmistatus.New(statusOpts...)))
+
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(Equal(expectBlockMigrate))
+			if expectedErr != "" {
+				Expect(err).To(MatchError(expectedErr))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("shared PVC should migrate without block migration",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteMany, false, false, ""),
+			Entry("non-shared PVC should not migrate",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteOnce, false, true,
+				"cannot migrate VMI: PVC claim is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"),
+			Entry("non-shared migrated PVC should block migrate",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteOnce, true, true, ""),
+			Entry("shared DV should migrate without block migration",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteMany, false, false, ""),
+			Entry("non-shared DV should not migrate",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteOnce, false, true,
+				"cannot migrate VMI: PVC dv is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"),
+			Entry("non-shared migrated DV should block migrate",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteOnce, true, true, ""),
+		)
 		DescribeTable("with host model", func(hostCpuModel string) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
