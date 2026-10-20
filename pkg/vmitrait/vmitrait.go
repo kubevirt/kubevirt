@@ -21,6 +21,8 @@ package vmitrait
 
 import (
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/hugepages"
 )
 
 func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
@@ -40,11 +42,13 @@ func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
 		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
 }
 
+// Check if a VMI requires locking guest memory (e.g. for DMA or transparent hugepages)
 func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
 	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
-		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
+		((v.Spec.Domain.Memory.ReservedOverhead != nil &&
+			v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
+			*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired) ||
+			hugepages.IsTransparent(v.Spec.Domain.Memory.Hugepages))
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {

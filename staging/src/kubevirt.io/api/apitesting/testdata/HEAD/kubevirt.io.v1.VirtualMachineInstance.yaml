@@ -437,6 +437,7 @@ spec:
     memory:
       guest: "0"
       hugepages:
+        mode: modeValue
         pageSize: pageSizeValue
       maxGuest: "0"
       reservedOverhead:

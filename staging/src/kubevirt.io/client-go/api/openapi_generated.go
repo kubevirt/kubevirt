@@ -22242,6 +22242,13 @@ func schema_kubevirtio_api_core_v1_Hugepages(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode specifies how hugepages are provided. static - (Default) use pre-allocated static hugepages on the node. transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel. Requires the THPMemoryBacking feature gate when set to transparent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
