@@ -9,7 +9,7 @@ filters:
     labels:
       - area/controller
       - sig/compute
-  "storage.go|datavolumes.go":
+  "storage.*|datavolumes.go":
     approvers:
       - sig-storage-approvers
     reviewers:
