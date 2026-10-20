@@ -122,10 +122,17 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 			},
 		}
 		domain.Spec.OS.BootLoader = nil
-		if vmi.Spec.Architecture == "amd64" {
+		switch vmi.Spec.Architecture {
+		case "amd64":
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
 				NVRam:  nvramPath(vmi),
+			}
+		case "arm64":
+			// Use the existing EFI backend-storage mount instead of libvirt's
+			// default varstore directory so ARM64 firmware state persists.
+			domain.Spec.OS.VarStore = &api.VarStore{
+				Path: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.json"),
 			}
 		}
 		return

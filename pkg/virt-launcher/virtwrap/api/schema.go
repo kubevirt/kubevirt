@@ -1182,6 +1182,7 @@ type OS struct {
 	BIOS         *BIOS         `xml:"bios,omitempty"`
 	BootLoader   *Loader       `xml:"loader,omitempty"`
 	NVRam        *NVRam        `xml:"nvram,omitempty"`
+	VarStore     *VarStore     `xml:"varstore,omitempty"`
 	Kernel       string        `xml:"kernel,omitempty"`
 	Initrd       string        `xml:"initrd,omitempty"`
 	KernelArgs   string        `xml:"cmdline,omitempty"`
@@ -1219,6 +1220,11 @@ type NVRam struct {
 	Template string `xml:"template,attr,omitempty"`
 	Format   string `xml:"format,attr,omitempty"`
 	NVRam    string `xml:",chardata"`
+}
+
+type VarStore struct {
+	Path     string `xml:"path,attr,omitempty"`
+	Template string `xml:"template,attr,omitempty"`
 }
 
 type Boot struct {
