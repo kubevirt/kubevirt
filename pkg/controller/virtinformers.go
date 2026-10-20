@@ -486,6 +486,9 @@ func GetVMIInformerIndexers() cache.Indexers {
 					pvcs = append(pvcs, fmt.Sprintf("%s/%s", vmi.Namespace, vol.PersistentVolumeClaim.ClaimName))
 				}
 			}
+			for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+				pvcs = append(pvcs, fmt.Sprintf("%s/%s", vmi.Namespace, utilityVolume.ClaimName))
+			}
 			return pvcs, nil
 		},
 	}

@@ -5675,6 +5675,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should not enqueue when nothing changed", "50Gi", "50Gi", "2", false),
 			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
 		)
+
+		It("should enqueue the VMI of a utility volume when its PVC is added", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+			)
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{{
+				Name:                              "utility-vol",
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "utility-pvc"},
+			}}
+			indexVMI(vmi)
+
+			controller.addPVC(newPvc("default", "utility-pvc"))
+
+			Expect(mockQueue.Len()).To(Equal(1))
+			item, _ := mockQueue.Get()
+			Expect(item).To(Equal("default/testvmi"))
+		})
 	})
 
 	Context("Automatic Migration Requirement", func() {
