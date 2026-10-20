@@ -386,6 +386,11 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 		// Remove from map so we can detect volumes removed from spec
 		delete(oldStatusMap, utilityVolume.Name)
+		if utilityVolume.Type != nil && *utilityVolume.Type == virtv1.MemoryDump && status.MemoryDumpVolume == nil {
+			status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+				ClaimName: utilityVolume.ClaimName,
+			}
+		}
 		c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPodFor(utilityVolume.Name))
 		err = c.processPVCInfo(&status, utilityVolume.ClaimName, vmi.Namespace, true)
 		if err != nil {
