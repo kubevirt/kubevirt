@@ -8861,6 +8861,16 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Hugepages allow to use hugepages for the VirtualMachineInstance
                             instead of regular memory.
                           properties:
+                            mode:
+                              description: |-
+                                Mode specifies how hugepages are provided.
+                                static - (Default) use pre-allocated static hugepages on the node.
+                                transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                                Requires the THPMemoryBacking feature gate when set to transparent.
+                              enum:
+                              - static
+                              - transparent
+                              type: string
                             pageSize:
                               description: PageSize specifies the hugepage size, for
                                 x86_64 architecture valid values are 1Gi and 2Mi.
@@ -12017,6 +12027,16 @@ var CRDsValidation map[string]string = map[string]string{
               description: Optionally enables the use of hugepages for the VirtualMachineInstance
                 instead of regular memory.
               properties:
+                mode:
+                  description: |-
+                    Mode specifies how hugepages are provided.
+                    static - (Default) use pre-allocated static hugepages on the node.
+                    transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                    Requires the THPMemoryBacking feature gate when set to transparent.
+                  enum:
+                  - static
+                  - transparent
+                  type: string
                 pageSize:
                   description: PageSize specifies the hugepage size, for x86_64 architecture
                     valid values are 1Gi and 2Mi.
@@ -15518,6 +15538,16 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Hugepages allow to use hugepages for the VirtualMachineInstance
                     instead of regular memory.
                   properties:
+                    mode:
+                      description: |-
+                        Mode specifies how hugepages are provided.
+                        static - (Default) use pre-allocated static hugepages on the node.
+                        transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                        Requires the THPMemoryBacking feature gate when set to transparent.
+                      enum:
+                      - static
+                      - transparent
+                      type: string
                     pageSize:
                       description: PageSize specifies the hugepage size, for x86_64
                         architecture valid values are 1Gi and 2Mi.
@@ -20134,6 +20164,16 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Hugepages allow to use hugepages for the VirtualMachineInstance
                     instead of regular memory.
                   properties:
+                    mode:
+                      description: |-
+                        Mode specifies how hugepages are provided.
+                        static - (Default) use pre-allocated static hugepages on the node.
+                        transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                        Requires the THPMemoryBacking feature gate when set to transparent.
+                      enum:
+                      - static
+                      - transparent
+                      type: string
                     pageSize:
                       description: PageSize specifies the hugepage size, for x86_64
                         architecture valid values are 1Gi and 2Mi.
@@ -22746,6 +22786,16 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Hugepages allow to use hugepages for the VirtualMachineInstance
                             instead of regular memory.
                           properties:
+                            mode:
+                              description: |-
+                                Mode specifies how hugepages are provided.
+                                static - (Default) use pre-allocated static hugepages on the node.
+                                transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                                Requires the THPMemoryBacking feature gate when set to transparent.
+                              enum:
+                              - static
+                              - transparent
+                              type: string
                             pageSize:
                               description: PageSize specifies the hugepage size, for
                                 x86_64 architecture valid values are 1Gi and 2Mi.
@@ -24588,6 +24638,16 @@ var CRDsValidation map[string]string = map[string]string{
               description: Optionally enables the use of hugepages for the VirtualMachineInstance
                 instead of regular memory.
               properties:
+                mode:
+                  description: |-
+                    Mode specifies how hugepages are provided.
+                    static - (Default) use pre-allocated static hugepages on the node.
+                    transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                    Requires the THPMemoryBacking feature gate when set to transparent.
+                  enum:
+                  - static
+                  - transparent
+                  type: string
                 pageSize:
                   description: PageSize specifies the hugepage size, for x86_64 architecture
                     valid values are 1Gi and 2Mi.
@@ -28207,6 +28267,16 @@ var CRDsValidation map[string]string = map[string]string{
                                     the VirtualMachineInstance instead of regular
                                     memory.
                                   properties:
+                                    mode:
+                                      description: |-
+                                        Mode specifies how hugepages are provided.
+                                        static - (Default) use pre-allocated static hugepages on the node.
+                                        transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                                        Requires the THPMemoryBacking feature gate when set to transparent.
+                                      enum:
+                                      - static
+                                      - transparent
+                                      type: string
                                     pageSize:
                                       description: PageSize specifies the hugepage
                                         size, for x86_64 architecture valid values
@@ -34185,6 +34255,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         for the VirtualMachineInstance instead of
                                         regular memory.
                                       properties:
+                                        mode:
+                                          description: |-
+                                            Mode specifies how hugepages are provided.
+                                            static - (Default) use pre-allocated static hugepages on the node.
+                                            transparent - regular anonymous memory with locked immediate preallocation; THP promotion is left to the kernel.
+                                            Requires the THPMemoryBacking feature gate when set to transparent.
+                                          enum:
+                                          - static
+                                          - transparent
+                                          type: string
                                         pageSize:
                                           description: PageSize specifies the hugepage
                                             size, for x86_64 architecture valid values

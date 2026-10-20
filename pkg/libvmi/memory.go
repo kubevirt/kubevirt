@@ -31,7 +31,22 @@ func WithHugepages(pageSize string) Option {
 		if vmi.Spec.Domain.Memory == nil {
 			vmi.Spec.Domain.Memory = &v1.Memory{}
 		}
-		vmi.Spec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: pageSize}
+		if vmi.Spec.Domain.Memory.Hugepages == nil {
+			vmi.Spec.Domain.Memory.Hugepages = &v1.Hugepages{}
+		}
+		vmi.Spec.Domain.Memory.Hugepages.PageSize = pageSize
+	}
+}
+
+func WithHugepagesMode(mode v1.HugepagesMode) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Memory == nil {
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+		}
+		if vmi.Spec.Domain.Memory.Hugepages == nil {
+			vmi.Spec.Domain.Memory.Hugepages = &v1.Hugepages{}
+		}
+		vmi.Spec.Domain.Memory.Hugepages.Mode = &mode
 	}
 }
 

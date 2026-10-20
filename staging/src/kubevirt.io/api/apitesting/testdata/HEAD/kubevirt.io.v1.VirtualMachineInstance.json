@@ -78,7 +78,8 @@
       },
       "memory": {
         "hugepages": {
-          "pageSize": "pageSizeValue"
+          "pageSize": "pageSizeValue",
+          "mode": "modeValue"
         },
         "guest": "0",
         "maxGuest": "0",

@@ -358,7 +358,7 @@ func (in *MemoryInstancetype) DeepCopyInto(out *MemoryInstancetype) {
 	if in.Hugepages != nil {
 		in, out := &in.Hugepages, &out.Hugepages
 		*out = new(v1.Hugepages)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.MaxGuest != nil {
 		in, out := &in.MaxGuest, &out.MaxGuest
