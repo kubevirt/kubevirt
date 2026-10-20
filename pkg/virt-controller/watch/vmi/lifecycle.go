@@ -411,7 +411,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				}
 
 				// Network
-				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+				if err := c.updateNetworkStatus.Update(vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -491,7 +491,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		// Network
-		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+		if err := c.updateNetworkStatus.Update(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 

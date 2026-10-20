@@ -33,7 +33,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+type VMIStatusUpdater struct{}
+
+func (v VMIStatusUpdater) Update(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)

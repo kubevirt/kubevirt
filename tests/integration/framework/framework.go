@@ -324,7 +324,7 @@ func buildVMIController(
 		&noopTopologyHinter{},
 		&noopAnnotationsGenerator{},
 		&noopStorageAnnotationsGenerator{},
-		noopStatusUpdater,
+		stubStatusUpdater{},
 		noopSpecValidator,
 		&noopMigrationEvaluator{},
 		&noopVsockAllocator{},
