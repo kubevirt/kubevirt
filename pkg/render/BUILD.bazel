@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config.go",
         "instancetype.go",
+        "prepare.go",
         "render.go",
         "vmi.go",
     ],

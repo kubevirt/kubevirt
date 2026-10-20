@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/render"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	netvmliveupdate "kubevirt.io/kubevirt/pkg/network/vmliveupdate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -74,7 +74,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
-	storagevmispec "kubevirt.io/kubevirt/pkg/storage/vmispec"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
@@ -1335,10 +1335,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	cbt.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
 
-	render.AutoAttachInputDevice(vmi)
-
-	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
-	if err != nil {
+	if err = render.AttachDefaultDevices(vmi, c.clusterConfig); err != nil {
 		return vm, err
 	}
 
@@ -1900,11 +1897,7 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 		vmi.Spec.StartStrategy = &strategy
 	}
 
-	// prevent from retriggering memory dump after shutdown if memory dump is complete
-	if memorydump.HasCompleted(vm) {
-		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
-	}
-	storagevmispec.SetDefaultVolumeDisk(&vmi.Spec)
+	render.PrepareControllerVMI(vm, vmi)
 
 	return vmi
 }

@@ -37,11 +37,8 @@ import (
 	netbinding "kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	netresources "kubevirt.io/kubevirt/pkg/network/resources"
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
-	storagevmispec "kubevirt.io/kubevirt/pkg/storage/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -180,8 +177,11 @@ func prepareVMI(vmi *v1.VirtualMachineInstance, cfg *offlineConfig) error {
 
 // VMIFromVM extracts a VirtualMachineInstance from a VirtualMachine,
 // applying VM defaults and VMI mutations. It is an offline
-// transformation: no cluster client or informers are required. The
-// returned VMI is the same object PodFromVM would render a Pod from.
+// transformation: no cluster client or informers are required.
+// virt-controller does not call it. The controller calls NewVMI,
+// PrepareControllerVMI, and AttachDefaultDevices, and keeps
+// instancetype lookup, start-paused, and changed-block tracking.
+// The returned VMI is the same object PodFromVM would render a Pod from.
 // Instancetype and preference matchers are applied when the matching
 // spec is supplied in Options; otherwise VMs that reference them are
 // rejected.
@@ -213,24 +213,13 @@ func VMIFromVM(vm *v1.VirtualMachine, opts Options) (*v1.VirtualMachineInstance,
 
 	vmi := NewVMI(vmCopy)
 	// Start-paused stays in the VM controller. It comes from a runtime
-	// stateChangeRequest, not from the VM spec. A completed memory dump
-	// is recorded on the VM status; drop that volume here, before
-	// mutations pair disks, so offline render matches the controller.
-	if memorydump.HasCompleted(vmCopy) {
-		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vmCopy.Status.MemoryDumpRequest.ClaimName)
-	}
-	// Pair disks before preferences so PreferredDiskBus can fill an empty
-	// bus. Later VMI defaulting would otherwise set the architecture bus.
-	storagevmispec.SetDefaultVolumeDisk(&vmi.Spec)
+	// stateChangeRequest, not from the VM spec.
+	PrepareControllerVMI(vmCopy, vmi)
 	applyPreferenceAutoAttach(vmi, opts.Preference)
 	// Only the VM path attaches a default input. A standalone VMI does
 	// not, matching the VMI admission webhook.
-	AutoAttachInputDevice(vmi)
-	// Add the default pod interface before instancetype and preference
-	// expansion, matching virt-controller. Interface preferences then
-	// apply to that interface instead of missing it.
-	if err := netvmispec.SetDefaultNetworkInterface(cfg, &vmi.Spec); err != nil {
-		return nil, fmt.Errorf("failed to set default network interface: %w", err)
+	if err := AttachDefaultDevices(vmi, cfg); err != nil {
+		return nil, err
 	}
 	if err := applyInstancetypeToVMI(vmCopy, vmi, opts); err != nil {
 		return nil, err

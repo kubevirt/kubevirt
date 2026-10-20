@@ -305,6 +305,39 @@ var _ = Describe("render", func() {
 			Expect(err).To(MatchError(ContainSubstring("instancetype matchers")))
 		})
 
+		It("matches controller preparation for a completed memory dump and disk pairing", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("dumpvm"),
+			))
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "disk0",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "some/image"},
+				},
+			}, {
+				Name: "dump-pvc",
+				VolumeSource: v1.VolumeSource{
+					MemoryDump: &v1.MemoryDumpVolumeSource{},
+				},
+			}}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = nil
+			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "dump-pvc",
+				Phase:     v1.MemoryDumpCompleted,
+			}
+
+			controllerVMI := render.NewVMI(vm)
+			render.PrepareControllerVMI(vm, controllerVMI)
+
+			offline, err := render.VMIFromVM(vm, opts())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controllerVMI.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "dump-pvc")))
+			Expect(offline.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "dump-pvc")))
+			Expect(controllerVMI.Spec.Domain.Devices.Disks).To(ContainElement(HaveField("Name", "disk0")))
+			Expect(offline.Spec.Domain.Devices.Disks).To(ContainElement(HaveField("Name", "disk0")))
+		})
+
 		It("drops a completed memory-dump volume before pairing disks", func() {
 			vm := libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithNamespace("default"),
