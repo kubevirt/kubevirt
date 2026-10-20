@@ -72,7 +72,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		}
 	}
 
-	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount uint) func() (*k8sv1.Pod, error) {
+	checkAllMDEVCreated := func(mdevTypeName string, expectedInstancesCount uint, nodeName ...string) func() (*k8sv1.Pod, error) {
 		return func() (*k8sv1.Pod, error) {
 			By(fmt.Sprintf("Checking the number of created mdev types, should be %d of %s type ", expectedInstancesCount, mdevTypeName))
 			check := fmt.Sprintf(`set -x
@@ -90,6 +90,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
 			testPod := libpod.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
+			if len(nodeName) > 0 && nodeName[0] != "" {
+				testPod.Spec.NodeName = nodeName[0]
+			}
 			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -348,7 +351,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
 					NodeSelector: map[string]string{
-						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)): mdevTestLabel,
+						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): mdevTestLabel,
 					},
 					MediatedDeviceTypes: []string{
 						"nvidia-223",
@@ -360,7 +363,22 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
-			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
+			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)), mdevTestLabel)
+
+			By("Waiting for updated mediated-device resource to appear on the labeled node")
+			Eventually(func() int64 {
+				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), testNodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				qty, ok := node.Status.Allocatable[k8sv1.ResourceName(updatedDeviceName)]
+				if !ok {
+					return 0
+				}
+				val, ok := qty.AsInt64()
+				if !ok {
+					return 0
+				}
+				return val
+			}, 3*time.Minute, 5*time.Second).Should(BeNumerically(">", 0), "wait for kubelet to advertise updated mdev resource")
 
 			// Check if running with fake vGPU (no OpenGL support)
 			usingFakeVGPU := isFakeVGPU()
@@ -390,7 +408,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Verifying that an expected amount of devices has been created")
-			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
+			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum, testNodeName), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 		})
 	})
