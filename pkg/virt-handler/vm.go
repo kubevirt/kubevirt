@@ -521,7 +521,8 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 		volumeStatus.Reason = VolumeUnMountedFromPodReason
 	}
 
-	return volumeStatus, true
+	needsRefresh := !inSpec || !storagetypes.IsMountedDirectoryVolume(vmi, &volumeStatus)
+	return volumeStatus, needsRefresh
 }
 
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
