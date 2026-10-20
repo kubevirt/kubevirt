@@ -38,6 +38,7 @@ import (
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/utilityvolume"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -942,12 +943,10 @@ func overlayScratchDir(vmi *v1.VirtualMachineInstance) string {
 		return ""
 	}
 	name := storagetypes.ScratchPVCName(reference.ContentUID)
-	for _, volume := range vmi.Spec.UtilityVolumes {
-		if volume.Name == name && volume.ClaimName == name && volume.Type != nil && *volume.Type == v1.SnapshotOverlay {
-			return filepath.Clean(overlayVolumeMountDir(volume.Name))
-		}
+	if found, err := utilityvolume.Find(vmi, name, name, v1.SnapshotOverlay); err != nil || !found {
+		return ""
 	}
-	return ""
+	return filepath.Clean(overlayVolumeMountDir(name))
 }
 
 func emptyOverlayScratch(overlayDir string) error {
