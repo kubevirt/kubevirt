@@ -31,6 +31,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",

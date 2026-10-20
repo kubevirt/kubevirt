@@ -23422,6 +23422,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EmulationPolicy is the default emulation policy for VMs that do not set spec.emulationPolicy. A VM may set a more permissive policy.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -29876,6 +29883,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 									},
 								},
 							},
+						},
+					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The most permissive emulation backend this VM may use. Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

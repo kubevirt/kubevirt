@@ -17,6 +17,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -1059,4 +1060,24 @@ var _ = Describe("test configuration", func() {
 			Entry("should return hyperv-direct when feature gate is enabled with hyperv config", true, &HyperVDirectHypervisorConfig, v1.HyperVDirectHypervisorName),
 		)
 	})
+
+	DescribeTable("GetEmulationPolicy should return correct policy", func(configPolicy, vmiPolicy v1.EmulationPolicy, expected v1.EmulationPolicy) {
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		if configPolicy != "" {
+			config.GetConfig().EmulationPolicy = &configPolicy
+		}
+
+		vmi := libvmi.New()
+		if vmiPolicy != "" {
+			vmi.Spec.EmulationPolicy = &vmiPolicy
+		}
+
+		result := config.GetEmulationPolicy(vmi)
+		Expect(result).To(Equal(expected))
+	},
+		Entry("nil", nil, nil, v1.EmulationPolicyNone),
+		Entry("global", v1.EmulationPolicySoftware, nil, v1.EmulationPolicySoftware),
+		Entry("vmi", nil, v1.EmulationPolicySoftware, v1.EmulationPolicySoftware),
+		Entry("both", v1.EmulationPolicySoftware, v1.EmulationPolicyNone, v1.EmulationPolicyNone),
+	)
 })

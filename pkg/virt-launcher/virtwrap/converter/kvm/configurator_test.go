@@ -111,7 +111,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("CrossArchitectureVirtualization"))
+			Expect(err.Error()).To(ContainSubstring("emulationPolicy=Software"))
 		})
 
 		It("Should succeed for cross-arch even when useEmulation is disabled", func() {

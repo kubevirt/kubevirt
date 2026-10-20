@@ -1177,6 +1177,25 @@ var CRDsValidation map[string]string = map[string]string{
               items:
                 type: string
               type: array
+            emulationPolicy:
+              description: |-
+                EmulationPolicy is the default emulation policy for VMs that do not set
+                spec.emulationPolicy. A VM may set a more permissive policy.
+
+                Valid Options from least to most permissive are:
+                - None: Only native-kvm
+                - Hardware: Not yet implemented
+                - Software: Qemu TCG cross-architecture emulation
+                Default policy is 'None'
+
+                This is an alpha field and should only be configured if the
+                feature-gate CrossArchitectureVirtualization is enabled.
+                This feature is in alpha.
+              enum:
+              - None
+              - Hardware
+              - Software
+              type: string
             evictionStrategy:
               description: |-
                 EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
@@ -8869,6 +8888,25 @@ var CRDsValidation map[string]string = map[string]string{
                   required:
                   - devices
                   type: object
+                emulationPolicy:
+                  description: |-
+                    The most permissive emulation backend this VM may use.
+                    Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+
+                    Valid Options from least to most permissive are:
+                    - None: Only native-kvm
+                    - Hardware: Not yet implemented
+                    - Software: Qemu TCG cross-architecture emulation
+                    Default policy is 'None'
+
+                    This is an alpha field and should only be configured if the
+                    feature-gate CrossArchitectureVirtualization is enabled.
+                    This feature is in alpha.
+                  enum:
+                  - None
+                  - Hardware
+                  - Software
+                  type: string
                 evictionStrategy:
                   description: |-
                     EvictionStrategy describes the strategy to follow when a node drain occurs.
@@ -15126,6 +15164,25 @@ var CRDsValidation map[string]string = map[string]string{
           required:
           - devices
           type: object
+        emulationPolicy:
+          description: |-
+            The most permissive emulation backend this VM may use.
+            Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+
+            Valid Options from least to most permissive are:
+            - None: Only native-kvm
+            - Hardware: Not yet implemented
+            - Software: Qemu TCG cross-architecture emulation
+            Default policy is 'None'
+
+            This is an alpha field and should only be configured if the
+            feature-gate CrossArchitectureVirtualization is enabled.
+            This feature is in alpha.
+          enum:
+          - None
+          - Hardware
+          - Software
+          type: string
         evictionStrategy:
           description: |-
             EvictionStrategy describes the strategy to follow when a node drain occurs.
@@ -21950,6 +22007,25 @@ var CRDsValidation map[string]string = map[string]string{
                   required:
                   - devices
                   type: object
+                emulationPolicy:
+                  description: |-
+                    The most permissive emulation backend this VM may use.
+                    Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+
+                    Valid Options from least to most permissive are:
+                    - None: Only native-kvm
+                    - Hardware: Not yet implemented
+                    - Software: Qemu TCG cross-architecture emulation
+                    Default policy is 'None'
+
+                    This is an alpha field and should only be configured if the
+                    feature-gate CrossArchitectureVirtualization is enabled.
+                    This feature is in alpha.
+                  enum:
+                  - None
+                  - Hardware
+                  - Software
+                  type: string
                 evictionStrategy:
                   description: |-
                     EvictionStrategy describes the strategy to follow when a node drain occurs.
@@ -27148,6 +27224,25 @@ var CRDsValidation map[string]string = map[string]string{
                           required:
                           - devices
                           type: object
+                        emulationPolicy:
+                          description: |-
+                            The most permissive emulation backend this VM may use.
+                            Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+
+                            Valid Options from least to most permissive are:
+                            - None: Only native-kvm
+                            - Hardware: Not yet implemented
+                            - Software: Qemu TCG cross-architecture emulation
+                            Default policy is 'None'
+
+                            This is an alpha field and should only be configured if the
+                            feature-gate CrossArchitectureVirtualization is enabled.
+                            This feature is in alpha.
+                          enum:
+                          - None
+                          - Hardware
+                          - Software
+                          type: string
                         evictionStrategy:
                           description: |-
                             EvictionStrategy describes the strategy to follow when a node drain occurs.
@@ -32836,6 +32931,25 @@ var CRDsValidation map[string]string = map[string]string{
                               required:
                               - devices
                               type: object
+                            emulationPolicy:
+                              description: |-
+                                The most permissive emulation backend this VM may use.
+                                Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+
+                                Valid Options from least to most permissive are:
+                                - None: Only native-kvm
+                                - Hardware: Not yet implemented
+                                - Software: Qemu TCG cross-architecture emulation
+                                Default policy is 'None'
+
+                                This is an alpha field and should only be configured if the
+                                feature-gate CrossArchitectureVirtualization is enabled.
+                                This feature is in alpha.
+                              enum:
+                              - None
+                              - Hardware
+                              - Software
+                              type: string
                             evictionStrategy:
                               description: |-
                                 EvictionStrategy describes the strategy to follow when a node drain occurs.
