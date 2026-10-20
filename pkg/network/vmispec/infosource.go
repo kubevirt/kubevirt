@@ -60,5 +60,6 @@ func ContainsInfoSource(infoSourceData, name string) bool {
 }
 
 func NewInfoSource(names ...string) string {
+	slices.Sort(names)
 	return strings.Join(names, separator)
 }
