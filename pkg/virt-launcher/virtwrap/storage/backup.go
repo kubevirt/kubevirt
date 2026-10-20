@@ -316,18 +316,40 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 	backupName := backupMetadata.Name
 	logger := log.Log.With("backupName", backupName)
 
+	// Fast path for duplicate delivery once a terminal result is recorded. The locked
+	// update below still re-checks Completed so a concurrent first write is handled safely.
+	if backupMetadata.Completed && !backupMetadata.Failed {
+		logger.V(2).Info("Ignoring duplicate backup job completed event; backup already succeeded")
+		return
+	}
+
+	jobType := event.Info.Type
 	if domain != nil {
-		finalStats, err := domain.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED)
+		// KEEP_COMPLETED preserves stats so a duplicate post-reconnect callback can still
+		// observe DOMAIN_JOB_COMPLETED instead of DOMAIN_JOB_NONE.
+		finalStats, err := domain.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
 		if err != nil {
 			logger.Reason(err).Error("Failed to get final job stats for completed backup.")
-		} else if finalStats != nil {
-			event.Info.Type = finalStats.Type
+		} else if finalStats != nil && finalStats.Type != libvirt.DOMAIN_JOB_NONE {
+			// Do not overwrite a usable event type with DOMAIN_JOB_NONE (stats may already
+			// be gone even with KEEP_COMPLETED if the domain is torn down).
+			jobType = finalStats.Type
+		}
+	}
+
+	// After a libvirt reconnect, completed job events may arrive with DOMAIN_JOB_NONE.
+	// Prefer the event's JobSuccess flag when stats no longer report a terminal type.
+	if jobType == libvirt.DOMAIN_JOB_NONE && event.Info.JobSuccessSet {
+		if event.Info.JobSuccess {
+			jobType = libvirt.DOMAIN_JOB_COMPLETED
+		} else {
+			jobType = libvirt.DOMAIN_JOB_FAILED
 		}
 	}
 
 	var failed bool
 	var message string
-	switch event.Info.Type {
+	switch jobType {
 	case libvirt.DOMAIN_JOB_COMPLETED:
 		logger.Info("Backup has been completed successfully")
 	case libvirt.DOMAIN_JOB_CANCELLED:
@@ -340,7 +362,7 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		logger.Info("Backup has failed")
 		failed = true
 	default:
-		message = fmt.Sprintf("unexpected job completion type: %d", event.Info.Type)
+		message = fmt.Sprintf("unexpected job completion type: %d", jobType)
 		failed = true
 	}
 
@@ -358,10 +380,20 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		message = "unknown failure reason"
 	}
 
+	updated := false
 	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
 		if !exists || backupMetadata.Name != backupName {
 			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
 			return
+		}
+		if backupMetadata.Completed {
+			// Never degrade a successful completion. Allow upgrading a spurious failure
+			// (e.g. DOMAIN_JOB_NONE racing ahead) to a later definitive success.
+			if !backupMetadata.Failed || failed {
+				logger.V(2).Info("Ignoring duplicate backup job completed event; backup already finalized")
+				return
+			}
+			logger.Info("Upgrading previously failed backup result to successful completion")
 		}
 
 		backupMetadata.Failed = failed
@@ -369,9 +401,12 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		backupMetadata.BackupMsg = message
 		now := metav1.Now()
 		backupMetadata.EndTimestamp = &now
+		updated = true
 	})
 
-	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+	if updated {
+		log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+	}
 }
 
 func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
