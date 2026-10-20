@@ -42,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -492,39 +493,34 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	}
 }
 
-func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}) (v1.VolumeStatus, bool) {
-	needsRefresh := false
-	if volumeStatus.Target == "" {
-		needsRefresh = true
-		mounted, err := c.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID)
-		if err != nil {
-			c.logger.Object(vmi).Errorf("error occurred while checking if volume is mounted: %v", err)
-		}
-		if mounted {
-			if _, ok := specVolumeMap[volumeStatus.Name]; ok && canUpdateToMounted(volumeStatus.Phase) {
-				log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
-				// mounted, and still in spec, and in phase we can change, update status to mounted.
-				volumeStatus.Phase = v1.HotplugVolumeMounted
-				volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
-				volumeStatus.Reason = VolumeMountedToPodReason
-			}
-		} else {
-			// Not mounted, check if the volume is in the spec, if not update status
-			if _, ok := specVolumeMap[volumeStatus.Name]; !ok && canUpdateToUnmounted(volumeStatus.Phase) {
-				log.DefaultLogger().Infof("Marking volume %s as unmounted from pod, it can now be detached", volumeStatus.Name)
-				// Not mounted.
-				volumeStatus.Phase = v1.HotplugVolumeUnMounted
-				volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
-				volumeStatus.Reason = VolumeUnMountedFromPodReason
-			}
-		}
-	} else {
-		// Successfully attached to VM.
+func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumes sets.Set[string]) (v1.VolumeStatus, bool) {
+	if volumeStatus.Target != "" {
 		volumeStatus.Phase = v1.VolumeReady
 		volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
 		volumeStatus.Reason = VolumeReadyReason
+		return volumeStatus, false
 	}
-	return volumeStatus, needsRefresh
+
+	mounted, err := c.hotplugVolumeMounter.IsMounted(vmi, volumeStatus.Name, volumeStatus.HotplugVolume.AttachPodUID)
+	if err != nil {
+		c.logger.Object(vmi).Errorf("error occurred while checking if volume is mounted: %v", err)
+	}
+
+	inSpec := specVolumes.Has(volumeStatus.Name)
+	switch {
+	case mounted && inSpec && canUpdateToMounted(volumeStatus.Phase):
+		log.DefaultLogger().Infof("Marking volume %s as mounted in pod, it can now be attached", volumeStatus.Name)
+		volumeStatus.Phase = v1.HotplugVolumeMounted
+		volumeStatus.Message = fmt.Sprintf("Volume %s has been mounted in virt-launcher pod", volumeStatus.Name)
+		volumeStatus.Reason = VolumeMountedToPodReason
+	case !mounted && !inSpec && canUpdateToUnmounted(volumeStatus.Phase):
+		log.DefaultLogger().Infof("Marking volume %s as unmounted from pod, it can now be detached", volumeStatus.Name)
+		volumeStatus.Phase = v1.HotplugVolumeUnMounted
+		volumeStatus.Message = fmt.Sprintf("Volume %s has been unmounted from virt-launcher pod", volumeStatus.Name)
+		volumeStatus.Reason = VolumeUnMountedFromPodReason
+	}
+
+	return volumeStatus, true
 }
 
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
@@ -544,12 +540,12 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 			}
 		}
 	}
-	specVolumeMap := make(map[string]struct{})
+	specVolumes := sets.New[string]()
 	for _, volume := range vmi.Spec.Volumes {
-		specVolumeMap[volume.Name] = struct{}{}
+		specVolumes.Insert(volume.Name)
 	}
 	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
-		specVolumeMap[utilityVolume.Name] = struct{}{}
+		specVolumes.Insert(utilityVolume.Name)
 	}
 	newStatusMap := make(map[string]v1.VolumeStatus)
 	var newStatuses []v1.VolumeStatus
@@ -561,7 +557,7 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 		volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
 		if volumeStatus.HotplugVolume != nil {
 			hasHotplug = true
-			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+			volumeStatus, tmpNeedsRefresh = c.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumes)
 			needsRefresh = needsRefresh || tmpNeedsRefresh
 		}
 		if volumeStatus.MemoryDumpVolume != nil {
