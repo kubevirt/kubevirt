@@ -45,19 +45,13 @@ const (
 	stoppedBeforeCompletion = "The VMI stopped before the memory dump completed"
 )
 
-func HasCompleted(vm *v1.VirtualMachine) bool {
-	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpInProgress
-}
-
-func RemoveMemoryDumpVolumeFromVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, claimName string) *v1.VirtualMachineInstanceSpec {
-	newVolumesList := []v1.Volume{}
-	for _, volume := range vmiSpec.Volumes {
-		if volume.Name != claimName {
-			newVolumesList = append(newVolumesList, volume)
-		}
-	}
-	vmiSpec.Volumes = newVolumesList
-	return vmiSpec
+// RemoveDeprecatedVolumes removes the MemoryDump volumes that memory dumps were attached as before
+// they moved to utility volumes.
+// TODO: remove once upgrades from releases that attached MemoryDump volumes are no longer supported.
+func RemoveDeprecatedVolumes(spec *v1.VirtualMachineInstanceSpec) {
+	spec.Volumes = slices.DeleteFunc(spec.Volumes, func(volume v1.Volume) bool {
+		return volume.MemoryDump != nil
+	})
 }
 
 func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, pvcStore cache.Store) error {
@@ -78,7 +72,6 @@ func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1
 		}
 		return detachMemoryDumpVolume(client, vmi, request.ClaimName)
 	case v1.MemoryDumpDissociating:
-		vm.Spec.Template.Spec = *RemoveMemoryDumpVolumeFromVMISpec(&vm.Spec.Template.Spec, request.ClaimName)
 		return detachMemoryDumpVolume(client, vmi, request.ClaimName)
 	}
 

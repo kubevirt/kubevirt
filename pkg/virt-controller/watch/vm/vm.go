@@ -1899,15 +1899,11 @@ func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi.ObjectMeta.GenerateName = ""
 	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = *vm.Spec.Template.Spec.DeepCopy()
+	memorydump.RemoveDeprecatedVolumes(&vmi.Spec)
 
 	if hasStartPausedRequest(vm) {
 		strategy := virtv1.StartStrategyPaused
 		vmi.Spec.StartStrategy = &strategy
-	}
-
-	// prevent from retriggering memory dump after shutdown if memory dump is complete
-	if memorydump.HasCompleted(vm) {
-		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
@@ -3328,6 +3324,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if err := c.handleDeclarativeVolumeHotplug(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling declarative hotplug volumes: %v", err), hotplugVolumeErrorReason), nil
 	}
+
+	memorydump.RemoveDeprecatedVolumes(&vmCopy.Spec.Template.Spec)
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
