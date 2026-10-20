@@ -734,7 +734,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					})))
 				}
 
-				It("[test_id:8922]should include memory dump in vm snapshot", func() {
+				It("should not include memory dump in vm snapshot", func() {
 					var vmi *v1.VirtualMachineInstance
 					vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 					vm, vmi = createAndStartVM(vm)
@@ -754,51 +754,11 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 					snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(updatedVM.Status.MemoryDumpRequest).ToNot(BeNil())
 					contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 					content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					contentVMTemplate := content.Spec.Source.VirtualMachine.Spec.Template
-					Expect(contentVMTemplate.Spec.Volumes).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
-					foundMemoryDump := false
-					for _, volume := range contentVMTemplate.Spec.Volumes {
-						if volume.Name == memoryDumpPVCName {
-							foundMemoryDump = true
-						}
-					}
-					Expect(foundMemoryDump).To(BeTrue())
-
-					Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
-					for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
-						if vol.MemoryDump == nil {
-							continue
-						}
-						found := false
-						for _, vb := range content.Spec.VolumeBackups {
-							if vol.MemoryDump.ClaimName == vb.PersistentVolumeClaim.Name {
-								found = true
-								Expect(vol.Name).To(Equal(vb.VolumeName))
-
-								pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.MemoryDump.ClaimName, metav1.GetOptions{})
-								Expect(err).ToNot(HaveOccurred())
-								Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
-
-								Expect(vb.VolumeSnapshotName).ToNot(BeNil())
-								vs, err := virtClient.
-									KubernetesSnapshotClient().
-									SnapshotV1().
-									VolumeSnapshots(vm.Namespace).
-									Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
-								Expect(err).ToNot(HaveOccurred())
-								Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.MemoryDump.ClaimName))
-								Expect(vs.Status.Error).To(BeNil())
-								Expect(*vs.Status.ReadyToUse).To(BeTrue())
-							}
-						}
-						Expect(found).To(BeTrue())
-					}
+					Expect(content.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes).ToNot(ContainElement(HaveField("Name", memoryDumpPVCName)))
+					Expect(content.Spec.VolumeBackups).ToNot(ContainElement(HaveField("PersistentVolumeClaim.Name", memoryDumpPVCName)))
 				})
 			})
 		})
