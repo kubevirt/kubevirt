@@ -21,12 +21,12 @@ package compute_test
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -38,11 +38,11 @@ var _ = Describe("VM schema validation", func() {
 	var f *framework.Framework
 
 	BeforeEach(func() {
-		f = framework.New()
+		f = framework.New(framework.WithoutWebhooks())
 		f.Start(context.Background())
 	})
 
-	It("should reject a VM with an invalid structural schema", func(ctx SpecContext) {
+	It("should reject a VM missing the required domain field", func(ctx SpecContext) {
 		ns := f.CreateNamespace(ctx)
 		vm := libvmi.NewVirtualMachine(
 			libvmi.New(libvmi.WithMemoryRequest("128Mi")),
@@ -55,13 +55,17 @@ var _ = Describe("VM schema validation", func() {
 		jsonBytes, err := json.Marshal(vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		By("renaming a required field to break the structural schema")
-		jsonString := strings.Replace(string(jsonBytes), "\"domain\":", "\"not-a-domain\":", 1)
+		By("removing the required domain field")
+		var object map[string]interface{}
+		Expect(json.Unmarshal(jsonBytes, &object)).To(Succeed())
+		unstructured.RemoveNestedField(object, "spec", "template", "spec", "domain")
+		jsonBytes, err = json.Marshal(object)
+		Expect(err).NotTo(HaveOccurred())
 
 		err = f.VirtClient().RestClient().Post().
 			Resource("virtualmachines").
 			Namespace(ns).
-			Body([]byte(jsonString)).
+			Body(jsonBytes).
 			SetHeader("Content-Type", "application/json").
 			Do(ctx).Error()
 

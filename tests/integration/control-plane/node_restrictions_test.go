@@ -42,6 +42,7 @@ const (
 	nodeRestrictionUser = "system:serviceaccount:kubevirt:kubevirt-virt-handler"
 	ownedNodeName       = "node-restriction-owned"
 	otherNodeName       = "node-restriction-other"
+	otherUser           = "node-restriction-other-user"
 
 	notAllowedLabelPath      = "/metadata/labels/other.io~1notAllowedLabel"
 	notAllowedAnnotationPath = "/metadata/annotations/other.io~1notAllowedAnnotation"
@@ -90,14 +91,24 @@ var _ = Describe("CEL node restrictions", Ordered, ContinueOnFailure, func() {
 		}, time.Minute, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should reject forbidden changes to the handler's own node", func(ctx SpecContext) {
-		for _, change := range forbiddenNodePatches() {
-			By(change.description)
-			_, err := patchNode(ctx, handlerClient, ownedNodeName, change.option, metav1.PatchOptions{})
+	DescribeTable("should reject forbidden changes to the handler's own node",
+		func(ctx SpecContext, change patch.PatchOption, expectedError string) {
+			_, err := patchNode(ctx, handlerClient, ownedNodeName, change, metav1.PatchOptions{})
 			Expect(err).To(MatchError(errors.IsForbidden, "IsForbidden"))
-			Expect(err).To(MatchError(ContainSubstring(change.expectedError)))
-		}
-	})
+			Expect(err).To(MatchError(ContainSubstring(expectedError)))
+		},
+		Entry("spec change", patch.WithAdd("/spec/unschedulable", true), vap.NodeRestrictionErrModifySpec),
+		Entry("metadata change", patch.WithAdd("/metadata/finalizers", []string{"kubernetes.io/evil-finalizer"}),
+			vap.NodeRestrictionErrChangeMetadataFields),
+		Entry("label addition", patch.WithAdd("/metadata/labels/other.io~1newNotAllowedLabel", "value"),
+			vap.NodeRestrictionErrAddDeleteLabels),
+		Entry("label update", patch.WithReplace(notAllowedLabelPath, "other-value"), vap.NodeRestrictionErrUpdateLabels),
+		Entry("label removal", patch.WithRemove(notAllowedLabelPath), vap.NodeRestrictionErrAddDeleteLabels),
+		Entry("annotation addition", patch.WithAdd("/metadata/annotations/other.io~1newNotAllowedAnnotation", "value"),
+			vap.NodeRestrictionErrAddDeleteAnnotations),
+		Entry("annotation update", patch.WithReplace(notAllowedAnnotationPath, "other-value"), vap.NodeRestrictionErrUpdateAnnotations),
+		Entry("annotation removal", patch.WithRemove(notAllowedAnnotationPath), vap.NodeRestrictionErrAddDeleteAnnotations),
+	)
 
 	It("should allow KubeVirt metadata changes to the handler's own node", func(ctx SpecContext) {
 		for _, change := range kubeVirtNodePatches() {
@@ -107,12 +118,47 @@ var _ = Describe("CEL node restrictions", Ordered, ContinueOnFailure, func() {
 		}
 	})
 
-	It("should reject KubeVirt metadata changes to another node", func(ctx SpecContext) {
-		for _, change := range kubeVirtNodePatches() {
-			By(change.description)
-			_, err := patchNode(ctx, handlerClient, otherNodeName, change.option, metav1.PatchOptions{})
+	DescribeTable("should reject KubeVirt metadata changes to another node",
+		func(ctx SpecContext, change patch.PatchOption) {
+			_, err := patchNode(ctx, handlerClient, otherNodeName, change, metav1.PatchOptions{})
 			Expect(err).To(MatchError(errors.IsForbidden, "IsForbidden"))
 			Expect(err).To(MatchError(ContainSubstring(vap.NodeRestrictionErrModifyAnother)))
+		},
+		Entry("label addition", patch.WithAdd(allowedLabelPath+"new", "value")),
+		Entry("label update", patch.WithReplace(allowedLabelPath, "other-value")),
+		Entry("label removal", patch.WithRemove(allowedLabelPath)),
+		Entry("annotation addition", patch.WithAdd(allowedAnnotationPath+"new", "value")),
+		Entry("annotation update", patch.WithReplace(allowedAnnotationPath, "other-value")),
+		Entry("annotation removal", patch.WithRemove(allowedAnnotationPath)),
+		Entry("cpumanager label addition", patch.WithAdd("/metadata/labels/cpumanager", "true")),
+	)
+
+	DescribeTable("should reject a handler request without the node-name extra",
+		func(ctx SpecContext, extra map[string][]string) {
+			client := impersonateNodeRestrictionUser(f, nodeRestrictionUser, extra)
+			_, err := patchNode(ctx, client, ownedNodeName, patch.WithAdd(allowedLabelPath+"new", "value"), metav1.PatchOptions{})
+			Expect(err).To(MatchError(errors.IsForbidden, "IsForbidden"))
+			Expect(err).To(MatchError(ContainSubstring(vap.NodeRestrictionErrModifyAnother)))
+		},
+		Entry("without any extras", nil),
+		Entry("with other pod-bound token information",
+			map[string][]string{"authentication.kubernetes.io/pod-name": {"virt-handler"}}),
+	)
+
+	It("should allow a non-handler user to change a node's spec", func(ctx SpecContext) {
+		client := impersonateNodeRestrictionUser(f, otherUser, nil)
+		_, err := patchNode(ctx, client, ownedNodeName, patch.WithAdd("/spec/unschedulable", true), metav1.PatchOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should allow adding, updating and removing the cpumanager label on the handler's node", func(ctx SpecContext) {
+		for _, change := range []patch.PatchOption{
+			patch.WithAdd("/metadata/labels/cpumanager", "true"),
+			patch.WithReplace("/metadata/labels/cpumanager", "false"),
+			patch.WithRemove("/metadata/labels/cpumanager"),
+		} {
+			_, err := patchNode(ctx, handlerClient, ownedNodeName, change, metav1.PatchOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		}
 	})
 })
@@ -136,16 +182,22 @@ func newNodeRestrictionClient(ctx context.Context, f *framework.Framework) kuber
 			Kind:     "ClusterRole",
 			Name:     role.Name,
 		},
-		Subjects: []rbacv1.Subject{{APIGroup: rbacv1.GroupName, Kind: "User", Name: nodeRestrictionUser}},
+		Subjects: []rbacv1.Subject{
+			{APIGroup: rbacv1.GroupName, Kind: "User", Name: nodeRestrictionUser},
+			{APIGroup: rbacv1.GroupName, Kind: "User", Name: otherUser},
+		},
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	// Supply the user information normally carried by a pod-bound handler token.
+	return impersonateNodeRestrictionUser(f, nodeRestrictionUser,
+		map[string][]string{"authentication.kubernetes.io/node-name": {ownedNodeName}})
+}
+
+func impersonateNodeRestrictionUser(f *framework.Framework, user string, extra map[string][]string) kubernetes.Interface {
+	GinkgoHelper()
 	cfg := rest.CopyConfig(f.VirtClient().Config())
-	cfg.Impersonate = rest.ImpersonationConfig{
-		UserName: nodeRestrictionUser,
-		Extra:    map[string][]string{"authentication.kubernetes.io/node-name": {ownedNodeName}},
-	}
+	cfg.Impersonate = rest.ImpersonationConfig{UserName: user, Extra: extra}
 	client, err := kubernetes.NewForConfig(cfg)
 	Expect(err).NotTo(HaveOccurred())
 	return client
@@ -163,42 +215,19 @@ func installNodeRestrictionPolicy(ctx context.Context, f *framework.Framework) {
 }
 
 type nodeRestrictionPatch struct {
-	description   string
-	option        patch.PatchOption
-	expectedError string
-}
-
-func forbiddenNodePatches() []nodeRestrictionPatch {
-	return []nodeRestrictionPatch{
-		{"spec change", patch.WithAdd("/spec/unschedulable", true), vap.NodeRestrictionErrModifySpec},
-		{
-			"metadata change", patch.WithAdd("/metadata/finalizers", []string{"kubernetes.io/evil-finalizer"}),
-			vap.NodeRestrictionErrChangeMetadataFields,
-		},
-		{
-			"label addition", patch.WithAdd("/metadata/labels/other.io~1newNotAllowedLabel", "value"),
-			vap.NodeRestrictionErrAddDeleteLabels,
-		},
-		{"label update", patch.WithReplace(notAllowedLabelPath, "other-value"), vap.NodeRestrictionErrUpdateLabels},
-		{"label removal", patch.WithRemove(notAllowedLabelPath), vap.NodeRestrictionErrAddDeleteLabels},
-		{
-			"annotation addition", patch.WithAdd("/metadata/annotations/other.io~1newNotAllowedAnnotation", "value"),
-			vap.NodeRestrictionErrAddDeleteAnnotations,
-		},
-		{"annotation update", patch.WithReplace(notAllowedAnnotationPath, "other-value"), vap.NodeRestrictionErrUpdateAnnotations},
-		{"annotation removal", patch.WithRemove(notAllowedAnnotationPath), vap.NodeRestrictionErrAddDeleteAnnotations},
-	}
+	description string
+	option      patch.PatchOption
 }
 
 // Keep updates before removals so every JSON Patch target exists when used.
 func kubeVirtNodePatches() []nodeRestrictionPatch {
 	return []nodeRestrictionPatch{
-		{"KubeVirt label addition", patch.WithAdd(allowedLabelPath+"new", "value"), ""},
-		{"KubeVirt label update", patch.WithReplace(allowedLabelPath, "other-value"), ""},
-		{"KubeVirt label removal", patch.WithRemove(allowedLabelPath), ""},
-		{"KubeVirt annotation addition", patch.WithAdd(allowedAnnotationPath+"new", "value"), ""},
-		{"KubeVirt annotation update", patch.WithReplace(allowedAnnotationPath, "other-value"), ""},
-		{"KubeVirt annotation removal", patch.WithRemove(allowedAnnotationPath), ""},
+		{"KubeVirt label addition", patch.WithAdd(allowedLabelPath+"new", "value")},
+		{"KubeVirt label update", patch.WithReplace(allowedLabelPath, "other-value")},
+		{"KubeVirt label removal", patch.WithRemove(allowedLabelPath)},
+		{"KubeVirt annotation addition", patch.WithAdd(allowedAnnotationPath+"new", "value")},
+		{"KubeVirt annotation update", patch.WithReplace(allowedAnnotationPath, "other-value")},
+		{"KubeVirt annotation removal", patch.WithRemove(allowedAnnotationPath)},
 	}
 }
 
