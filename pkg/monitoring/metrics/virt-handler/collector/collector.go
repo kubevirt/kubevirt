@@ -133,6 +133,23 @@ func (cc *ConcurrentCollector) releaseKey(key string) {
 	cc.clientsPerKey[key] -= 1
 }
 
+func VMIStatsSkipReason(vmi *k6tv1.VirtualMachineInstance) string {
+	if vmi == nil || vmi.Status.Phase != k6tv1.Running {
+		return "VMI is not running"
+	}
+	return ""
+}
+
+func DirtyRateSkipReason(vmi *k6tv1.VirtualMachineInstance) string {
+	if vmi == nil {
+		return ""
+	}
+	if ms := vmi.Status.MigrationState; ms != nil && ms.StartTimestamp != nil && !ms.Completed && !ms.Failed {
+		return "dirty rate calculation conflicts with an active migration"
+	}
+	return ""
+}
+
 func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
 		return nil
