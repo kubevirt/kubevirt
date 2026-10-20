@@ -3871,7 +3871,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("VM memory dump", func() {
 			const testPVCName = "testPVC"
 
-			It("should add memory dump volume and update vmi volumes", func() {
+			It("should add memory dump utility volume to vmi", func() {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
@@ -3893,11 +3893,41 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vmi.Spec.UtilityVolumes).To(HaveLen(1))
+				Expect(vmi.Spec.UtilityVolumes[0].Name).To(Equal(testPVCName))
+			})
+
+			It("should fail a memory dump in progress when the vm restarted", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     v1.MemoryDumpInProgress,
+				}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				watchtesting.MarkAsReady(vmi)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				controller.vmiIndexer.Add(vmi)
+
+				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpFailed))
+
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vmi.Spec.UtilityVolumes).To(BeEmpty())
 			})
 
 			It("should remove memory dump volume from vm volumes list", func() {

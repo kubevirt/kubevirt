@@ -165,7 +165,7 @@ var _ = Describe("MemoryDump", func() {
 		})
 	})
 
-	DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
+	DescribeTable("should remove memory dump utility volume from vmi and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
 		vm, vmi := createVirtualMachineWithMemoryDump(phase)
 
 		vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -190,11 +190,12 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pvcStore.Add(pvc)).To(Succeed())
 
-		HandleRequest(virtClient, vm, vmi, pvcStore)
+		err = HandleRequest(virtClient, vm, vmi, pvcStore)
+		Expect(err).NotTo(HaveOccurred())
 
 		vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(vmi.Spec.Volumes).To(BeEmpty())
+		Expect(vmi.Spec.UtilityVolumes).To(BeEmpty())
 
 		pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.TODO(), pvc.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -203,24 +204,59 @@ var _ = Describe("MemoryDump", func() {
 		Entry("when phase is Unmounting", v1.MemoryDumpUnmounting, targetFileName),
 		Entry("when phase is Failed", v1.MemoryDumpFailed, "Memory dump failed"),
 	)
+
+	It("should attach the memory dump utility volume once the dump is requested", func() {
+		vm, vmi := createVirtualMachineWithMemoryDump(v1.MemoryDumpAssociating)
+		vmi.Spec.UtilityVolumes = nil
+		vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(HandleRequest(virtClient, vm, vmi, pvcStore)).To(Succeed())
+
+		vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vmi.Spec.UtilityVolumes).To(ConsistOf(v1.UtilityVolume{
+			Name:                              testPVCName,
+			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{ClaimName: testPVCName},
+			Type:                              new(v1.MemoryDump),
+		}))
+	})
+
+	DescribeTable("should fail a dump in progress once its vmi is gone", func(vmiAfter func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance) {
+		vm, vmi := createVirtualMachineWithMemoryDump(v1.MemoryDumpInProgress)
+
+		UpdateRequest(vm, vmiAfter(vmi))
+
+		Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpFailed))
+		Expect(vm.Status.MemoryDumpRequest.Message).To(Equal(stoppedBeforeCompletion))
+	},
+		Entry("when the vm stopped", func(*v1.VirtualMachineInstance) *v1.VirtualMachineInstance { return nil }),
+		Entry("when the vm restarted", func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+			vmi.Spec.UtilityVolumes = nil
+			return vmi
+		}),
+	)
+
+	It("should dissociate a dump in progress whose vmi is gone when its removal was requested", func() {
+		vm, _ := createVirtualMachineWithMemoryDump(v1.MemoryDumpInProgress)
+		vm.Status.MemoryDumpRequest.Remove = true
+
+		UpdateRequest(vm, nil)
+
+		Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpDissociating))
+	})
 })
 
-func ApplyVMIMemoryDumpVol(spec *v1.VirtualMachineInstanceSpec) {
-	newVolume := v1.Volume{
+func ApplyVMIMemoryDumpUtilityVol(spec *v1.VirtualMachineInstanceSpec) {
+	utilityVol := v1.UtilityVolume{
 		Name: testPVCName,
-		VolumeSource: v1.VolumeSource{
-			MemoryDump: &v1.MemoryDumpVolumeSource{
-				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-					PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
-						ClaimName: testPVCName,
-					},
-					Hotpluggable: true,
-				},
-			},
+		PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
+			ClaimName: testPVCName,
 		},
+		Type: new(v1.MemoryDump),
 	}
 
-	spec.Volumes = append(spec.Volumes, newVolume)
+	spec.UtilityVolumes = append(spec.UtilityVolumes, utilityVol)
 }
 
 func createVirtualMachineWithMemoryDump(memoryDumpPhase v1.MemoryDumpPhase) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
@@ -245,13 +281,11 @@ func createVirtualMachineWithMemoryDump(memoryDumpPhase v1.MemoryDumpPhase) (*v1
 	}
 	switch memoryDumpPhase {
 	case v1.MemoryDumpAssociating:
-		ApplyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+		ApplyVMIMemoryDumpUtilityVol(&vmi.Spec)
 	case v1.MemoryDumpInProgress, v1.MemoryDumpFailed:
-		ApplyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-		vmi.Spec = vm.Spec.Template.Spec
+		ApplyVMIMemoryDumpUtilityVol(&vmi.Spec)
 	case v1.MemoryDumpUnmounting:
-		ApplyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-		vmi.Spec = vm.Spec.Template.Spec
+		ApplyVMIMemoryDumpUtilityVol(&vmi.Spec)
 		vm.Status.MemoryDumpRequest.EndTimestamp = pointer.P(now)
 		vm.Status.MemoryDumpRequest.FileName = pointer.P(targetFileName)
 	}
