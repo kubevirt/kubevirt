@@ -1303,47 +1303,41 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	vm = c.cleanupRestartRequired(vm)
 
-	// start it
-	vmi := SetupVMIFromVM(vm)
 	vmRevisionName, err := c.createVMRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
 		return vm, err
 	}
-	vmi.Status.VirtualMachineRevisionName = vmRevisionName
-
-	setGenerationAnnotationOnVmi(vm.Generation, vmi)
+	// Seed controller-owned metadata before rendering so instancetype
+	// annotation conflicts and preference precedence remain unchanged.
+	vmToRender := vm.DeepCopy()
+	if vmToRender.Spec.Template.ObjectMeta.Annotations == nil {
+		vmToRender.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+	setGenerationAnnotation(vm.Generation, vmToRender.Spec.Template.ObjectMeta.Annotations)
 
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
-		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
-		if vmi.Annotations == nil {
-			vmi.Annotations = make(map[string]string)
-		}
-		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+		log.Log.Infof("Setting up receiver VMI %s/%s", vm.Namespace, vm.Name)
+		vmToRender.Spec.Template.ObjectMeta.Annotations[virtv1.CreateMigrationTarget] = "true"
 	}
 
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
-	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+	vmToRender.Spec.Template.ObjectMeta.Finalizers = append(
+		vmToRender.Spec.Template.ObjectMeta.Finalizers, virtv1.VirtualMachineControllerFinalizer)
 
-	// We need to apply auto attach preferences before any new network or input devices are added.
-	if err := c.instancetypeController.ApplyAutoAttachPreferences(vm, vmi); err != nil {
-		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
+	vmi, err := render.NewOnlineRenderer(c.clusterConfig, c.instancetypeController).VMIFromVM(vmToRender)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("Failed to render VirtualMachineInstance")
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason,
+			"Error creating virtual machine instance: %v", err)
 		return vm, err
 	}
-
+	vmi.Status.VirtualMachineRevisionName = vmRevisionName
+	if hasStartPausedRequest(vm) {
+		vmi.Spec.StartStrategy = pointer.P(virtv1.StartStrategyPaused)
+	}
 	cbt.SetChangedBlockTrackingOnVMI(vm, vmi, c.clusterConfig, c.namespaceStore)
-
-	if err = render.AttachDefaultDevices(vmi, c.clusterConfig); err != nil {
-		return vm, err
-	}
-
-	if err = c.instancetypeController.ApplyToVMI(vm, vmi); err != nil {
-		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
-		return vm, err
-	}
 
 	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
 	var validateErrors []error
@@ -1886,20 +1880,6 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 	}
 
 	return cr.Name, nil
-}
-
-// SetupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
-func SetupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-	vmi := render.NewVMI(vm)
-
-	if hasStartPausedRequest(vm) {
-		strategy := virtv1.StartStrategyPaused
-		vmi.Spec.StartStrategy = &strategy
-	}
-
-	render.PrepareControllerVMI(vm, vmi)
-
-	return vmi
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

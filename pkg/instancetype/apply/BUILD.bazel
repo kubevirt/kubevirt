@@ -13,7 +13,6 @@ go_library(
         "memory.go",
         "nodeselector.go",
         "scheduler.go",
-        "vm.go",
         "vmi.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/apply",
