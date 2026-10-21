@@ -18,7 +18,10 @@
 
 package vmispec
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 const (
 	InfoSourceDomain       string = "domain"
@@ -34,10 +37,8 @@ func AddInfoSource(infoSourceData, name string) string {
 	if infoSourceData != "" {
 		infoSources = strings.Split(infoSourceData, separator)
 	}
-	for _, infoSourceName := range infoSources {
-		if infoSourceName == name {
-			return infoSourceData
-		}
+	if slices.Contains(infoSources, name) {
+		return infoSourceData
 	}
 	infoSources = append(infoSources, name)
 	return NewInfoSource(infoSources...)
@@ -45,8 +46,7 @@ func AddInfoSource(infoSourceData, name string) string {
 
 func RemoveInfoSource(infoSourceData, name string) string {
 	var newInfoSources []string
-	infoSources := strings.Split(infoSourceData, separator)
-	for _, infoSourceName := range infoSources {
+	for infoSourceName := range strings.SplitSeq(infoSourceData, separator) {
 		if infoSourceName != name {
 			newInfoSources = append(newInfoSources, infoSourceName)
 		}
@@ -55,13 +55,7 @@ func RemoveInfoSource(infoSourceData, name string) string {
 }
 
 func ContainsInfoSource(infoSourceData, name string) bool {
-	infoSources := strings.Split(infoSourceData, separator)
-	for _, infoSourceName := range infoSources {
-		if infoSourceName == name {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.Split(infoSourceData, separator), name)
 }
 
 func NewInfoSource(names ...string) string {
