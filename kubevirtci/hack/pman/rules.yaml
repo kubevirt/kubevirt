@@ -29,6 +29,10 @@ specific:
   - pattern: cluster-up/cluster/vfio-gpu/*
     targets:
       - "1.36"
+  - pattern: cluster-up/cluster/dra-cpu/*
+    targets:
+      - "1.36"
+      - "1.37"
 regex_none:
   - cluster-up/cluster/kind*
   - cluster-up/cluster/minikube*

@@ -107,6 +107,10 @@ function up() {
     if [[ "${KUBEVIRT_USE_FAKE_VFIO}" == "true" ]]; then
         "${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/config_vfio_cluster.sh"
     fi
+
+    if [[ "${KUBEVIRT_USE_DRA_CPU}" == "true" ]]; then
+        "${KUBEVIRTCI_PATH}/cluster/dra-cpu/install_dra_driver_cpu.sh"
+    fi
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
