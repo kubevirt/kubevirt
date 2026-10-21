@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -614,4 +615,54 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes).To(Equal(map[string]uint32{testPCIAddressNUMA1: 1}))
 		})
 	})
+})
+
+var _ = Describe("Dedicated host CPU accounting", func() {
+	evenParity := map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}
+
+	DescribeTable("reserves host CPUs for the IO threads and the emulator thread",
+		func(cores, threads, sockets, ioThreads uint32, ioThreadsPolicy v1.IOThreadsPolicy, isolateEmulatorThread bool,
+			annotations map[string]string, expectedSupplementalCPUs int64) {
+			opts := []libvmi.Option{
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithCPUCount(cores, threads, sockets),
+				libvmi.WithIOThreadsPolicy(ioThreadsPolicy),
+				libvmi.WithSupplementalPoolThreadCount(ioThreads),
+			}
+			if isolateEmulatorThread {
+				opts = append(opts, libvmi.WithIsolateEmulatorThread())
+			}
+			vmi := libvmi.New(opts...)
+			if annotations != nil {
+				vmi.Annotations = annotations
+			}
+
+			guestVCPUs := GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+
+			Expect(getSupplementalDedicatedHostCPUs(vmi, guestVCPUs)).
+				To(Equal(expectedSupplementalCPUs))
+			Expect(GetDedicatedHostCPUs(vmi)).
+				To(Equal(guestVCPUs + expectedSupplementalCPUs))
+		},
+		Entry("auto policy", uint32(4), uint32(1), uint32(1), uint32(0), v1.IOThreadsPolicyAuto, false, nil, int64(0)),
+		Entry("auto policy, emulator thread isolated", uint32(4), uint32(1), uint32(1), uint32(0), v1.IOThreadsPolicyAuto, true, nil, int64(1)),
+		Entry("no IO threads, emulator thread not isolated",
+			uint32(4), uint32(1), uint32(1), uint32(0), v1.IOThreadsPolicySupplementalPool, false, nil, int64(0)),
+		Entry("no IO threads, emulator thread isolated",
+			uint32(4), uint32(1), uint32(1), uint32(0), v1.IOThreadsPolicySupplementalPool, true, nil, int64(1)),
+		Entry("IO threads present, emulator thread not isolated",
+			uint32(4), uint32(1), uint32(1), uint32(2), v1.IOThreadsPolicySupplementalPool, false, nil, int64(2)),
+		Entry("IO threads present, emulator thread isolated",
+			uint32(4), uint32(1), uint32(1), uint32(2), v1.IOThreadsPolicySupplementalPool, true, nil, int64(3)),
+		Entry("no IO threads, EmulatorThreadCompleteToEvenParity enabled, even guest",
+			uint32(2), uint32(2), uint32(1), uint32(0), v1.IOThreadsPolicySupplementalPool, true, evenParity, int64(2)),
+		Entry("IO threads present, EmulatorThreadCompleteToEvenParity enabled, even guest",
+			uint32(2), uint32(1), uint32(2), uint32(2), v1.IOThreadsPolicySupplementalPool, true, evenParity, int64(4)),
+		Entry("IO threads present, EmulatorThreadCompleteToEvenParity enabled, odd guest",
+			uint32(5), uint32(1), uint32(1), uint32(2), v1.IOThreadsPolicySupplementalPool, true, evenParity, int64(3)),
+		Entry("odd IO thread count, EmulatorThreadCompleteToEvenParity enabled, even guest",
+			uint32(3), uint32(1), uint32(2), uint32(3), v1.IOThreadsPolicySupplementalPool, true, evenParity, int64(4)),
+		Entry("odd IO thread count, EmulatorThreadCompleteToEvenParity enabled, odd guest",
+			uint32(5), uint32(1), uint32(1), uint32(3), v1.IOThreadsPolicySupplementalPool, true, evenParity, int64(5)),
+	)
 })

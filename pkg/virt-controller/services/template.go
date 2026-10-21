@@ -1641,19 +1641,12 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 
 func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity) VMIResourcePredicates {
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
-	additionalCPUs := uint32(0)
-	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
-		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
-		vmi.Spec.Domain.IOThreads != nil &&
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
-		additionalCPUs = *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount
-	}
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			// Run overcommit first to avoid overcommitting overhead memory
 			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi, t.clusterConfig.GetMemoryOvercommit())),
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),

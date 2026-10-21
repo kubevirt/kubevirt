@@ -116,21 +116,12 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
-// Helper function to extract IO thread CPU count from VMI
-func getIOThreadsCount(vmi *v1.VirtualMachineInstance) int64 {
-	if vmi == nil || vmi.Spec.Domain.IOThreads == nil ||
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
-		return 0
-	}
-	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
-}
-
 func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		cpu := vmi.Spec.Domain.CPU
 		vcpus := calcVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi) // Get IO thread count
-		totalCPUs := vcpus + ioThreadCPUs      // Include IO threads
+		ioThreadCPUs := hardware.GetIOThreadsCount(vmi)
+		totalCPUs := vcpus + ioThreadCPUs // Include IO threads
 		if totalCPUs != 0 && cpuAllocationRatio > 0 {
 			val := float64(totalCPUs) / float64(cpuAllocationRatio)
 			vcpusStr := fmt.Sprintf("%g", val)
@@ -319,42 +310,11 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
-func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
+func WithCPUPinning(vmi *v1.VirtualMachineInstance) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
-		cpu := vmi.Spec.Domain.CPU
-		vcpus := hardware.GetNumberOfVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi)
-		if vcpus != 0 {
-			totalCPUs := vcpus + ioThreadCPUs
-			renderer.vmLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI)
-			renderer.vmRequests[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI) // Ensure requests match limits for dedicated CPUs
-		} else {
-			ioThreadsCount := resource.NewQuantity(ioThreadCPUs, resource.BinarySI)
-			if cpuLimit, ok := renderer.vmLimits[k8sv1.ResourceCPU]; ok {
-				cpuLimit.Add(*ioThreadsCount)
-				renderer.vmLimits[k8sv1.ResourceCPU] = cpuLimit
-			}
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*ioThreadsCount)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-
-		if cpu.IsolateEmulatorThread {
-			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
-			limits := renderer.vmLimits[k8sv1.ResourceCPU]
-			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
-			if emulatorThreadCompleteToEvenParityAnnotationExists &&
-				(limits.Value()+int64(additionalCPUs))%2 == 0 {
-				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
-			}
-			limits.Add(*emulatorThreadCPUs)
-			renderer.vmLimits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPUs)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
+		quantity := *resource.NewQuantity(hardware.GetDedicatedHostCPUs(vmi), resource.BinarySI)
+		renderer.vmLimits[k8sv1.ResourceCPU] = quantity
+		renderer.vmRequests[k8sv1.ResourceCPU] = quantity
 
 		// Align memory limits with requests for consistency
 		if memRequest, ok := renderer.vmRequests[k8sv1.ResourceMemory]; ok {
