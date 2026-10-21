@@ -229,7 +229,7 @@ def get_tracked_enhancement_issues_from_project(project_number):
         variables["cursor"] = current_cursor
         result = execute_graphql_query(_TRACKED_ISSUES_QUERY, variables)
 
-        if result is None or "errors" in result:
+        if not result or "errors" in result:
             # A failed query must not be treated as "no tracked issues":
             # that would wrongly remove the approved-vep label (see #19465).
             print(
