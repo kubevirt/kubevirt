@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "analyzer.go",
         "embedded_walker.go",
+        "embedded_walker_121.go",
+        "embedded_walker_122.go",
         "errcheck.go",
         "excludes.go",
         "tags.go",
