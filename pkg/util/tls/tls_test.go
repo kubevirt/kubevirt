@@ -394,11 +394,12 @@ var _ = Describe("TLS", func() {
 
 	Describe("InjectTLSConfigIntoDeployment", func() {
 		const (
-			containerName      = "test-container"
-			existingArg        = "--existing-arg"
-			existingArgValue   = "value"
-			tlsCipherSuitesArg = "--tls-cipher-suites"
-			tlsMinVersionArg   = "--tls-min-version"
+			containerName          = "test-container"
+			existingArg            = "--existing-arg"
+			existingArgValue       = "value"
+			tlsCipherSuitesArg     = "--tls-cipher-suites"
+			tlsMinVersionArg       = "--tls-min-version"
+			tlsCurvePreferencesArg = "--tls-curve-preferences"
 		)
 
 		var deployment *appsv1.Deployment
@@ -475,6 +476,79 @@ var _ = Describe("TLS", func() {
 			Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
 		})
 
+		It("should inject curve preferences when feature gate is enabled and groups are configured", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"TLSGroupPreferences"},
+						},
+						TLSConfiguration: &v1.TLSConfiguration{
+							MinTLSVersion: v1.VersionTLS13,
+							Groups:        []string{"secp384r1", "X25519"},
+						},
+					},
+				},
+			}
+			expectedDeployment := deployment.DeepCopy()
+			expectedDeployment.Spec.Template.Spec.Containers[0].Args = []string{
+				existingArg, existingArgValue,
+				tlsMinVersionArg, string(v1.VersionTLS13),
+				tlsCurvePreferencesArg, fmt.Sprintf("%d,%d", tls.CurveP384, tls.X25519),
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+			Expect(deployment).To(Equal(expectedDeployment))
+		})
+
+		It("should not inject curve preferences when feature gate is disabled", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						TLSConfiguration: &v1.TLSConfiguration{
+							Groups: []string{"secp384r1", "X25519"},
+						},
+					},
+				},
+			}
+			expectedDeployment := deployment.DeepCopy()
+			expectedDeployment.Spec.Template.Spec.Containers[0].Args = []string{
+				existingArg, existingArgValue,
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+			Expect(deployment).To(Equal(expectedDeployment))
+		})
+
+		It("should not inject curve preferences when groups are empty", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"TLSGroupPreferences"},
+						},
+						TLSConfiguration: &v1.TLSConfiguration{
+							Groups: []string{},
+						},
+					},
+				},
+			}
+			expectedDeployment := deployment.DeepCopy()
+			expectedDeployment.Spec.Template.Spec.Containers[0].Args = []string{
+				existingArg, existingArgValue,
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+			Expect(deployment).To(Equal(expectedDeployment))
+		})
+
+		It("should not inject curve preferences when KubeVirt is nil", func() {
+			expectedDeployment := deployment.DeepCopy()
+			expectedDeployment.Spec.Template.Spec.Containers[0].Args = []string{
+				existingArg, existingArgValue,
+				tlsMinVersionArg, string(v1.VersionTLS12),
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(nil, deployment, containerName)).To(Succeed())
+			Expect(deployment).To(Equal(expectedDeployment))
+		})
+
 		It("should return error when container is not found", func() {
 			Expect(kvtls.InjectTLSConfigIntoDeployment(&v1.KubeVirt{}, deployment, "nonexistent")).
 				To(MatchError(ContainSubstring("not found in deployment")))
@@ -488,6 +562,7 @@ var _ = Describe("TLS", func() {
 
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS12)))
 			Expect(config.CipherSuites).To(BeNil())
+			Expect(config.CurvePreferences).To(BeNil())
 		})
 
 		It("should apply custom TLS configuration from KubeVirt", func() {
@@ -505,5 +580,48 @@ var _ = Describe("TLS", func() {
 			Expect(config.MinVersion).To(Equal(uint16(tls.VersionTLS13)))
 			Expect(config.CipherSuites).To(Equal(kvtls.CipherSuiteIds([]string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"})))
 		})
+
+		It("should never set CurvePreferences even when groups are configured and feature gate is enabled", func() {
+			kv := testutils.GetFakeKubeVirtClusterConfig(kubeVirtStore)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"TLSGroupPreferences"},
+			}
+			kvConfig.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Groups:        []string{"X25519", "secp256r1"},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtStore, kvConfig)
+
+			config := &tls.Config{}
+			kvtls.ApplyTLSConfigurationFromKubeVirtStore(config, kubeVirtStore)
+
+			Expect(config.CurvePreferences).To(BeNil(),
+				"CurvePreferences must stay unset on client paths so that export-proxy "+
+					"clients can still connect to export-server pods created with different groups")
+		})
 	})
+
+	DescribeTable("CurvePreferenceIds", func(input []string, expected []tls.CurveID) {
+		Expect(kvtls.CurvePreferenceIds(input)).To(Equal(expected))
+	},
+		Entry("should return nil for nil input", nil, nil),
+		Entry("should return nil for empty input", []string{}, nil),
+		Entry("should map all recognised group names in sorted order",
+			[]string{"X25519", "secp256r1", "secp384r1", "secp521r1", "X25519MLKEM768", "SecP256r1MLKEM768", "SecP384r1MLKEM1024"},
+			[]tls.CurveID{tls.CurveP256, tls.CurveP384, tls.CurveP521, tls.X25519, tls.SecP256r1MLKEM768, tls.X25519MLKEM768, tls.SecP384r1MLKEM1024},
+		),
+		Entry("should skip unrecognised group names",
+			[]string{"X25519", "unknownGroup", "secp256r1"},
+			[]tls.CurveID{tls.CurveP256, tls.X25519},
+		),
+		Entry("should return nil when all names are unrecognised",
+			[]string{"foo", "bar"}, nil,
+		),
+		Entry("should deduplicate and return sorted order",
+			[]string{"X25519", "secp256r1", "X25519", "secp384r1", "secp256r1"},
+			[]tls.CurveID{tls.CurveP256, tls.CurveP384, tls.X25519},
+		),
+	)
+
 })
