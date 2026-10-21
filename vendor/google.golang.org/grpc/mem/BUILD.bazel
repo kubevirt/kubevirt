@@ -10,5 +10,8 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/mem",
     importpath = "google.golang.org/grpc/mem",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/google.golang.org/grpc/internal:go_default_library"],
+    deps = [
+        "//vendor/google.golang.org/grpc/internal:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/mem:go_default_library",
+    ],
 )
