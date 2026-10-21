@@ -93,7 +93,7 @@ var _ = Describe("Status Update", func() {
 	var statusUpdater controllers.VMIStatusUpdater
 
 	BeforeEach(func() {
-		statusUpdater = controllers.VMIStatusUpdater{}
+		statusUpdater = controllers.NewVMIStatusUpdater(stubClusterConfigProvider{})
 	})
 
 	DescribeTable("Shouldn't generate interface status for a VMI without interfaces", func(podAnnotations map[string]string) {
@@ -542,6 +542,128 @@ var _ = Describe("Status Update", func() {
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
+
+	It("Should remove a stale pod-status from a Multus interface when the gate is disabled", func() {
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:             secondaryNetworkName,
+				PodInterfaceName: "pod7e0055a6880",
+				InfoSource:       vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus),
+			},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	Context("when the network DRA feature gate is enabled", func() {
+		BeforeEach(func() {
+			statusUpdater = controllers.NewVMIStatusUpdater(stubClusterConfigProvider{draEnabled: true})
+		})
+
+		It("Should report pod-status alongside Multus when the interface is newly reported", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:             secondaryNetworkName,
+					PodInterfaceName: "pod7e0055a6880",
+					InfoSource:       vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus),
+				},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+
+		It("Should add pod-status alongside Multus when the interface already exists", func() {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceGuestAgent},
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:             secondaryNetworkName,
+					PodInterfaceName: "pod7e0055a6880",
+					InfoSource: vmispec.NewInfoSource(
+						vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus,
+					),
+				},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+
+		It("Should remove pod-status alongside Multus when the interface is no longer reported", func() {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:             secondaryNetworkName,
+					PodInterfaceName: "pod7e0055a6880",
+					InfoSource:       vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourcePodStatus),
+				},
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			}
+
+			Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+	})
 })
 
 func newPodFromVMI(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8scorev1.Pod {
@@ -558,4 +680,12 @@ func WithInterfacesStatus(interfaces []v1.VirtualMachineInstanceNetworkInterface
 	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
 		vmiStatus.Interfaces = interfaces
 	}
+}
+
+type stubClusterConfigProvider struct {
+	draEnabled bool
+}
+
+func (s stubClusterConfigProvider) NetworkDevicesWithDRAGateEnabled() bool {
+	return s.draEnabled
 }

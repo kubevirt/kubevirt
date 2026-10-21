@@ -750,7 +750,7 @@ func (vca *VirtControllerApp) initCommon() {
 		topologyHinter,
 		netAnnotationsGenerator,
 		storageAnnotationsGenerator,
-		netcontrollers.VMIStatusUpdater{},
+		netcontrollers.NewVMIStatusUpdater(vca.clusterConfig),
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
