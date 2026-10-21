@@ -506,43 +506,6 @@ var _ = Describe("Status Update", func() {
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
 	})
 
-	It("Should keep existing DRA interface statuses when Multus network-status is missing", func() {
-		const (
-			draClaimName  = "dra-claim"
-			redIfaceName  = "red"
-			redRequest    = "req1"
-			blueIfaceName = "blue"
-			blueRequest   = "req2"
-		)
-
-		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: defaultNetworkName, InfoSource: vmispec.InfoSourceDomainAndGA},
-			{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
-			{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
-
-		vmi := libvmi.New(
-			libvmi.WithNamespace(testNamespace),
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-			libvmi.WithInterface(libvmi.NewInterface(blueIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, redRequest)),
-			libvmi.WithNetwork(libvmi.DRANetwork(blueIfaceName, draClaimName, blueRequest)),
-			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
-		)
-
-		Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
-
-		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
-			{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
-			{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
-		}
-
-		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
-	})
-
 	It("Should remove a stale pod-status from a Multus interface when the gate is disabled", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{
@@ -571,6 +534,34 @@ var _ = Describe("Status Update", func() {
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	It("Should keep an existing DRA interface status when the gate is disabled", func() {
+		const (
+			draClaimName = "dra-claim"
+			draNetName   = "dra-net"
+			draRequest   = "req"
+		)
+
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: draNetName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(libvmi.DRANetwork(draNetName, draClaimName, draRequest)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		pod := newPodFromVMI(vmi, nil)
+		pod.Status.ResourceClaimStatuses = []k8scorev1.PodResourceClaimStatus{
+			{Name: draClaimName, ResourceClaimName: new("generated-dra-claim")},
+		}
+
+		Expect(statusUpdater.Update(vmi, pod)).To(Succeed())
+
+		Expect(vmi.Status.Interfaces).To(Equal(existingInterfacesStatus))
 	})
 
 	Context("when the network DRA feature gate is enabled", func() {
@@ -659,6 +650,119 @@ var _ = Describe("Status Update", func() {
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+
+		const (
+			draClaimName = "dra-claim"
+			draNetName   = "dra-net"
+			draRequest   = "req"
+		)
+
+		It("Should report pod-status for a DRA interface when its claim is present on the pod", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork(draNetName, draClaimName, draRequest)),
+			)
+
+			pod := newPodFromVMI(vmi, nil)
+			pod.Status.ResourceClaimStatuses = []k8scorev1.PodResourceClaimStatus{
+				{Name: draClaimName, ResourceClaimName: new("generated-dra-claim")},
+			}
+
+			Expect(statusUpdater.Update(vmi, pod)).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: draNetName, InfoSource: vmispec.InfoSourcePodStatus},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+
+		It("Should add pod-status to an existing DRA interface status when its claim is present on the pod", func() {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: draNetName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork(draNetName, draClaimName, draRequest)),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
+
+			pod := newPodFromVMI(vmi, nil)
+			pod.Status.ResourceClaimStatuses = []k8scorev1.PodResourceClaimStatus{
+				{Name: draClaimName, ResourceClaimName: new("generated-dra-claim")},
+			}
+
+			Expect(statusUpdater.Update(vmi, pod)).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:          draNetName,
+					MAC:           "de:ad:00:00:be:ef",
+					InterfaceName: "eth1",
+					InfoSource: vmispec.NewInfoSource(
+						vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourcePodStatus,
+					),
+				},
+			}
+
+			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		})
+
+		It("Should not report pod-status for a DRA interface when its claim is absent from the pod", func() {
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: draNetName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork(draNetName, draClaimName, draRequest)),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
+
+			Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, nil))).To(Succeed())
+
+			Expect(vmi.Status.Interfaces).To(Equal(existingInterfacesStatus))
+		})
+
+		It("Should keep existing DRA interface statuses when their claims are absent from the pod", func() {
+			const (
+				redIfaceName  = "red"
+				redRequest    = "req1"
+				blueIfaceName = "blue"
+				blueRequest   = "req2"
+			)
+
+			existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultNetworkName, InfoSource: vmispec.InfoSourceDomainAndGA},
+				{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+				{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
+			}
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.NewInterface(redIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithInterface(libvmi.NewInterface(blueIfaceName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.DRANetwork(redIfaceName, draClaimName, redRequest)),
+				libvmi.WithNetwork(libvmi.DRANetwork(blueIfaceName, draClaimName, blueRequest)),
+				libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+			)
+
+			Expect(statusUpdater.Update(vmi, newPodFromVMI(vmi, map[string]string{}))).To(Succeed())
+
+			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{Name: defaultNetworkName, PodInterfaceName: "eth0", InfoSource: vmispec.InfoSourceDomainAndGA},
+				{Name: redIfaceName, MAC: "de:ad:00:00:be:ef", InterfaceName: "eth1", InfoSource: vmispec.InfoSourceDomainAndGA},
+				{Name: blueIfaceName, MAC: "aa:ad:ba:be:00:02", InterfaceName: "eth2", InfoSource: vmispec.InfoSourceDomainAndGA},
 			}
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
