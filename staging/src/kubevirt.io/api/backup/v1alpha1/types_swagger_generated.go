@@ -6,6 +6,7 @@ func (BackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "BackupVolumeInfo contains information about a volume included in a backup",
 		"volumeName": "VolumeName is the volume name from VMI spec",
+		"type":       "Type is how the volume was backed up, either Full or Incremental\n+optional\n+kubebuilder:validation:Enum=Full;Incremental",
 	}
 }
 
@@ -35,9 +36,7 @@ func (BackupVolumeLink) SwaggerDoc() map[string]string {
 }
 
 func (BackupCheckpoint) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"volumes": "Volumes lists volumes included in the backup\n+optional\n+listType=atomic",
-	}
+	return map[string]string{}
 }
 
 func (BackupOptions) SwaggerDoc() map[string]string {
@@ -62,8 +61,7 @@ func (VirtualMachineBackupTrackerSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupTrackerStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"latestCheckpoint":               "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
-		"checkpointRedefinitionRequired": "+optional\nCheckpointRedefinitionRequired is set to true by virt-handler when the VM\nrestarts and has a checkpoint that needs to be redefined in libvirt.\nvirt-controller will process this flag, attempt redefinition, and clear it.",
+		"latestCheckpoint": "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
 	}
 }
 
@@ -104,7 +102,7 @@ func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
 func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
-		"type":            "+optional\nType indicates if the backup was full or incremental",
+		"startTimestamp":  "+optional\nStartTimestamp is the timestamp when the backup started",
 		"conditions":      "+listType=map\n+listMapKey=type\n+optional",
 		"checkpointName":  "+optional\nCheckpointName the name of the checkpoint created for the current backup",
 		"includedVolumes": "+optional\n+listType=atomic\nIncludedVolumes lists the volumes that were included in the backup",

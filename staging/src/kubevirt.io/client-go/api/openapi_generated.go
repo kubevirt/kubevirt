@@ -17558,30 +17558,11 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref common.Reference
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
-					"volumes": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "Volumes lists volumes included in the backup",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -17694,6 +17675,11 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"incrementalCreationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
 					"targetPath": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17725,6 +17711,13 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeName is the volume name from VMI spec",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17946,11 +17939,10 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 				Description: "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
+					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type indicates if the backup was full or incremental",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "StartTimestamp is the timestamp when the backup started",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
 					"conditions": {
@@ -18010,7 +18002,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			metav1.Condition{}.OpenAPIModelName(), v1alpha1.BackupLinks{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
+			metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName(), v1alpha1.BackupLinks{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
 	}
 }
 
@@ -18148,13 +18140,6 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 						SchemaProps: spec.SchemaProps{
 							Description: "LatestCheckpoint is the metadata of the checkpoint of the latest performed backup",
 							Ref:         ref(v1alpha1.BackupCheckpoint{}.OpenAPIModelName()),
-						},
-					},
-					"checkpointRedefinitionRequired": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CheckpointRedefinitionRequired is set to true by virt-handler when the VM restarts and has a checkpoint that needs to be redefined in libvirt. virt-controller will process this flag, attempt redefinition, and clear it.",
-							Type:        []string{"boolean"},
-							Format:      "",
 						},
 					},
 				},
@@ -27693,6 +27678,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupVolumeInfo(ref co
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeName is the volume name from VMI spec",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

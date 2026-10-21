@@ -130,7 +130,6 @@ type LauncherClient interface {
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
-	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 	GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error)
 }
 
@@ -907,34 +906,4 @@ func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance
 
 	err = handleError(err, "Backup", response)
 	return err
-}
-
-func (c *VirtLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
-	vmiJson, err := json.Marshal(vmi)
-	if err != nil {
-		return false, err
-	}
-
-	checkpointJson, err := json.Marshal(checkpoint)
-	if err != nil {
-		return false, err
-	}
-
-	request := &cmdv1.RedefineCheckpointRequest{
-		Vmi: &cmdv1.VMI{
-			VmiJson: vmiJson,
-		},
-		Checkpoint: checkpointJson,
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
-	defer cancel()
-	response, err := c.v1client.RedefineCheckpoint(ctx, request)
-	if err = handleError(err, "RedefineCheckpoint", response.GetResponse()); err != nil {
-		if response != nil {
-			return response.CheckpointInvalid, err
-		}
-		return false, err
-	}
-	return false, nil
 }

@@ -756,8 +756,8 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if vmBackup == nil {
 			return 0, fmt.Errorf("unexpected nil VirtualMachineBackup")
 		}
-		if vmBackup.Status == nil || vmBackup.Status.Type == "" {
-			return 0, fmt.Errorf("backup status empty")
+		if vmBackup.Status == nil || vmBackup.Status.StartTimestamp == nil {
+			return 0, fmt.Errorf("backup has not started")
 		}
 		vmi, err := ctrl.getBackupSourceVMI(vmBackup)
 		if err != nil {

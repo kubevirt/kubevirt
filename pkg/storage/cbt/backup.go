@@ -55,22 +55,21 @@ const (
 	backupCompletedWithWarningEvent = "VirtualMachineBackupCompletedWithWarning"
 	backupFailedEvent               = "VirtualMachineBackupFailed"
 
-	backupInProgress                     = "Backup is in progress"
-	backupPreparingVMExport              = "Backup export is being initialized"
-	backupExportReady                    = "Backup export is ready to pull"
-	backupAborting                       = "Backup is aborting"
-	backupCompleted                      = "Successfully completed VirtualMachineBackup"
-	backupFailed                         = "Backup has failed: %s"
-	backupCompletedWithWarningMsg        = "Completed VirtualMachineBackup, warning: %s"
-	vmNotFoundMsg                        = "VM %s/%s doesnt exist"
-	vmNotRunningMsg                      = "vm %s is not running, cannot do backup"
-	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
-	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
-	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
-	trackerDeletingMsg                   = "tracker %s is being deleted"
-	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
-	invalidBackupModeMsg                 = "invalid backup mode: %s"
-	vmMigrationInProgressMsg             = "vm %s is currently migrating, waiting for migration to complete before starting backup"
+	backupInProgress              = "Backup is in progress"
+	backupPreparingVMExport       = "Backup export is being initialized"
+	backupExportReady             = "Backup export is ready to pull"
+	backupAborting                = "Backup is aborting"
+	backupCompleted               = "Successfully completed VirtualMachineBackup"
+	backupFailed                  = "Backup has failed: %s"
+	backupCompletedWithWarningMsg = "Completed VirtualMachineBackup, warning: %s"
+	vmNotFoundMsg                 = "VM %s/%s doesnt exist"
+	vmNotRunningMsg               = "vm %s is not running, cannot do backup"
+	vmNoVolumesToBackupMsg        = "vm %s has no volumes to backup"
+	vmNoChangedBlockTrackingMsg   = "vm %s has no ChangedBlockTracking, cannot start backup"
+	backupTrackerNotFoundMsg      = "BackupTracker %s does not exist"
+	trackerDeletingMsg            = "tracker %s is being deleted"
+	invalidBackupModeMsg          = "invalid backup mode: %s"
+	vmMigrationInProgressMsg      = "vm %s is currently migrating, waiting for migration to complete before starting backup"
 )
 
 var (
@@ -270,9 +269,6 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 
 	if isTrackerDeleting(tracker) && controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
 		log.Log.V(3).Infof("enqueued tracker %q for deletion cleanup", key)
-		ctrl.trackerQueue.Add(key)
-	} else if trackerNeedsCheckpointRedefinition(tracker) {
-		log.Log.V(3).Infof("enqueued tracker %q for checkpoint redefinition", key)
 		ctrl.trackerQueue.Add(key)
 	}
 
@@ -505,7 +501,7 @@ func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBa
 		return nil
 	}
 
-	if backup.Status.Type != "" {
+	if backup.Status.StartTimestamp != nil {
 		if !vmiExists {
 			if isPullMode(backup) {
 				if err := ctrl.cleanupBackupExport(backup); err != nil {
@@ -553,9 +549,6 @@ func (ctrl *VMBackupController) checkPrerequisites(backup *backupv1.VirtualMachi
 	}
 	if isTrackerDeleting(backupTracker) {
 		return fmt.Sprintf(trackerDeletingMsg, backupTracker.Name), nil
-	}
-	if trackerNeedsCheckpointRedefinition(backupTracker) {
-		return fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name), nil
 	}
 	if migrations.IsMigrating(vmi) {
 		return fmt.Sprintf(vmMigrationInProgressMsg, vmi.Name), nil
@@ -674,10 +667,9 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	log.Log.Object(backup).Infof("Starting backup for VMI %s with mode %s", vmi.Name, backupOptions.Mode)
-	backupType := backupv1.Full
 	if isIncrementalBackup(backup, backupTracker) {
 		backupOptions.Incremental = pointer.P(backupTracker.Status.LatestCheckpoint.Name)
-		backupType = backupv1.Incremental
+		backupOptions.IncrementalCreationTime = backupTracker.Status.LatestCheckpoint.CreationTime
 		log.Log.Object(backup).Infof("Setting incremental backup from checkpoint: %s", backupTracker.Status.LatestCheckpoint.Name)
 	}
 
@@ -691,7 +683,7 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	}
 
 	setProgressing(backup)
-	backup.Status.Type = backupType
+	backup.Status.StartTimestamp = new(metav1.Now())
 	return nil
 }
 
@@ -976,7 +968,6 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
 		CreationTime: backupStatus.StartTimestamp,
-		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -1007,10 +998,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		return fmt.Errorf("failed to patch BackupTracker status: %w", err)
 	}
 
-	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
-		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
-		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
+	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s created at %s",
+		namespace, tracker.Name, newCheckpoint.Name, newCheckpoint.CreationTime)
 
 	return nil
 }
@@ -1163,7 +1152,10 @@ func (ctrl *VMBackupController) setQuiescedCondition(backup *backupv1.VirtualMac
 func toBackupVolumeInfo(vols []v1.VirtualMachineInstanceBackupVolumeInfo) []backupv1.BackupVolumeInfo {
 	out := make([]backupv1.BackupVolumeInfo, len(vols))
 	for i, v := range vols {
-		out[i] = backupv1.BackupVolumeInfo{VolumeName: v.VolumeName}
+		out[i] = backupv1.BackupVolumeInfo{
+			VolumeName: v.VolumeName,
+			Type:       backupv1.BackupType(v.Type),
+		}
 	}
 	return out
 }

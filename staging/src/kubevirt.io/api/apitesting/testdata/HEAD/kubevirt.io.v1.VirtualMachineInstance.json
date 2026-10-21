@@ -1207,7 +1207,8 @@
         "checkpointName": "checkpointNameValue",
         "volumes": [
           {
-            "volumeName": "volumeNameValue"
+            "volumeName": "volumeNameValue",
+            "type": "typeValue"
           }
         ],
         "quiesceStatus": "quiesceStatusValue"

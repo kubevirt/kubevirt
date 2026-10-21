@@ -272,7 +272,6 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
-	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
@@ -407,7 +406,6 @@ func (app *virtHandlerApp) Run() {
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
-		backupTrackerInformer.HasSynced,
 		pluginInformer.HasSynced,
 	)
 
@@ -491,7 +489,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
+	cbtHandler := virthandler.NewCBTHandler()
 
 	vmController, err := virthandler.NewVirtualMachineController(
 		workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -728,7 +726,6 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot").To(lifecycleHandler.ScreenshotRequestHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir").To(consoleHandler.USBRedirHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/backup").To(lifecycleHandler.BackupHandler))
-	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint").To(lifecycleHandler.RedefineCheckpointHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))

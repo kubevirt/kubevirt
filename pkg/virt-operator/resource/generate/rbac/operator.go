@@ -438,6 +438,11 @@ func getKubeVirtComponentsClusterRules() []rbacv1.PolicyRule {
 			Resources: []string{"network-attachment-definitions"},
 			Verbs:     []string{"get"},
 		},
+		{
+			APIGroups: []string{"subresources.kubevirt.io"},
+			Resources: []string{"virtualmachineinstances/redefine-checkpoint"},
+			Verbs:     []string{"update"},
+		},
 	}
 	rules = append(rules, backwardsCompatRules...)
 

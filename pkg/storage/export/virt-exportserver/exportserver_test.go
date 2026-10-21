@@ -861,7 +861,7 @@ var _ = Describe("exportserver", func() {
 		DescribeTable("should return error on non GET", func(verb string) {
 			req := httptest.NewRequest(verb, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 			Expect(rec.Code).To(BeEquivalentTo(http.StatusMethodNotAllowed))
 		},
 			Entry("POST", http.MethodPost),
@@ -875,7 +875,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
@@ -888,7 +888,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var resp export.ExportMapResponse
@@ -909,7 +909,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map?page_size=2", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusOK))
 			var resp export.ExportMapResponse
@@ -922,7 +922,7 @@ var _ = Describe("exportserver", func() {
 			func(query string) {
 				req := httptest.NewRequest(http.MethodGet, "/backup/map?"+query, nil)
 				rec := httptest.NewRecorder()
-				server.backupMapHandler("disk0").ServeHTTP(rec, req)
+				server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 				Expect(rec.Code).To(Equal(http.StatusBadRequest))
 			},
 			Entry("non-numeric offset", "offset=notanumber"),
@@ -936,7 +936,7 @@ var _ = Describe("exportserver", func() {
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
 			rec := httptest.NewRecorder()
-			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0"}).ServeHTTP(rec, req)
 
 			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
 		})
@@ -944,11 +944,10 @@ var _ = Describe("exportserver", func() {
 		DescribeTable("should select the bitmap from the backup type", func(backupType, expectedBitmap string) {
 			source := &fakeNBDSource{}
 			server.nbdSource = source
-			server.BackupType = backupType
 			server.BackupCheckpoint = "checkpoint-name"
 
 			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
-			server.backupMapHandler("disk0").ServeHTTP(httptest.NewRecorder(), req)
+			server.backupMapHandler(export.BackupInfo{Path: "disk0", Type: backupType}).ServeHTTP(httptest.NewRecorder(), req)
 
 			Expect(source.exportName).To(Equal("disk0"))
 			Expect(source.bitmapName).To(Equal(expectedBitmap))
