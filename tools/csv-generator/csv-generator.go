@@ -20,13 +20,11 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"os"
 	"slices"
 
-	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	appsv1 "k8s.io/api/apps/v1"
+	csvv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/csv"
@@ -107,9 +105,7 @@ func main() {
 	}
 
 	if *withKubeVirtControlPlaneLabel {
-		if err := injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv); err != nil {
-			panic(err)
-		}
+		injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv)
 	}
 
 	util.MarshallObject(operatorCsv, os.Stdout)
@@ -138,36 +134,12 @@ func main() {
 	}
 }
 
-// These types mirror the unexported csvDeployments and csvStrategySpec in
-// pkg/virt-operator/resource/generate/csv/csv.go. Keep them in sync.
-type strategyDeployment struct {
-	Name string                `json:"name"`
-	Spec appsv1.DeploymentSpec `json:"spec,omitempty"`
-}
-
-type strategySpec struct {
-	ClusterPermissions json.RawMessage      `json:"clusterPermissions"`
-	Permissions        json.RawMessage      `json:"permissions"`
-	Deployments        []strategyDeployment `json:"deployments"`
-}
-
-func injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv *csvv1.ClusterServiceVersion) error {
-	var strategy strategySpec
-	if err := json.Unmarshal(operatorCsv.Spec.InstallStrategy.StrategySpecRaw, &strategy); err != nil {
-		return err
-	}
-
-	idx := slices.IndexFunc(strategy.Deployments, func(dep strategyDeployment) bool {
+func injectKubeVirtControlPlaneLabelIntoCSV(operatorCsv *csvv1.ClusterServiceVersion) {
+	deployments := operatorCsv.Spec.InstallStrategy.StrategySpec.DeploymentSpecs
+	idx := slices.IndexFunc(deployments, func(dep csvv1.StrategyDeploymentSpec) bool {
 		return dep.Name == "virt-operator"
 	})
 	if idx > -1 {
-		placement.InjectKubeVirtControlPlanePlacement(&strategy.Deployments[idx].Spec.Template.Spec)
+		placement.InjectKubeVirtControlPlanePlacement(&deployments[idx].Spec.Template.Spec)
 	}
-
-	raw, err := json.Marshal(strategy)
-	if err != nil {
-		return err
-	}
-	operatorCsv.Spec.InstallStrategy.StrategySpecRaw = raw
-	return nil
 }
