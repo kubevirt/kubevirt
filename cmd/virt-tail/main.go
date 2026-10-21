@@ -41,6 +41,10 @@ import (
 
 var errFileGone = errors.New("file removed or renamed")
 
+// directoryPollInterval is how often to look for the per-VMI log directory.
+// guest-console-log is a native sidecar and starts before compute creates it.
+const directoryPollInterval = 100 * time.Millisecond
+
 var printLine = func(s string) { fmt.Println(s) }
 
 type VirtTail struct {
@@ -55,12 +59,19 @@ func (v *VirtTail) run() error {
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
-			if errors.Is(err, errFileGone) {
-				log.Log.V(4).Infof("file gone, waiting for re-creation")
+			// A missing path is normal at startup and whenever the file is
+			// recreated. Exiting makes kubelet back this sidecar off, which
+			// blocks every later container in the launcher pod.
+			if errors.Is(err, errFileGone) || errors.Is(err, os.ErrNotExist) {
+				if errors.Is(err, errFileGone) {
+					log.Log.V(4).Infof("file gone, waiting for re-creation")
+				} else {
+					log.Log.V(4).Infof("log path %s does not exist yet, waiting", v.logFile)
+				}
 				select {
 				case <-v.ctx.Done():
 					return nil
-				case <-time.After(100 * time.Millisecond):
+				case <-time.After(directoryPollInterval):
 				}
 				continue
 			}
@@ -79,14 +90,20 @@ func (v *VirtTail) waitForFile() (*os.File, error) {
 	}
 
 	dir := filepath.Dir(v.logFile)
+	// compute creates this directory after the sidecar has started. Wait for
+	// it instead of failing watcher.Add with ENOENT.
+	if err := v.waitForDirectory(dir); err != nil {
+		return nil, err
+	}
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("creating watcher: %w", err)
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(dir); err != nil {
-		return nil, fmt.Errorf("watching directory %s: %w", dir, err)
+	if err := watchDirectory(watcher, dir); err != nil {
+		return nil, err
 	}
 
 	// Re-check after watch is established to avoid race
@@ -139,8 +156,8 @@ func (v *VirtTail) tailFile() error {
 	}
 	defer watcher.Close()
 
-	if err := watcher.Add(dir); err != nil {
-		return fmt.Errorf("watching directory %s: %w", dir, err)
+	if err := watchDirectory(watcher, dir); err != nil {
+		return err
 	}
 
 	var lineBuf strings.Builder
@@ -168,6 +185,49 @@ func (v *VirtTail) tailFile() error {
 			}
 		}
 	}
+}
+
+// waitForDirectory blocks until dir exists. The launcher pod runs this
+// sidecar before compute creates /var/run/kubevirt-private/<vmi-uid>.
+func (v *VirtTail) waitForDirectory(dir string) error {
+	logged := false
+	ticker := time.NewTicker(directoryPollInterval)
+	defer ticker.Stop()
+
+	for {
+		info, err := os.Stat(dir)
+		if err == nil {
+			if !info.IsDir() {
+				return fmt.Errorf("log directory %s is not a directory", dir)
+			}
+			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if !logged {
+			log.Log.V(3).Infof("waiting for directory %s to be created", dir)
+			logged = true
+		}
+
+		select {
+		case <-v.ctx.Done():
+			return v.ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// watchDirectory adds dir to watcher. A missing directory is reported as
+// errFileGone so run retries instead of exiting.
+func watchDirectory(watcher *fsnotify.Watcher, dir string) error {
+	if err := watcher.Add(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errFileGone
+		}
+		return fmt.Errorf("watching directory %s: %w", dir, err)
+	}
+	return nil
 }
 
 func (v *VirtTail) waitForChange(watcher *fsnotify.Watcher) error {
