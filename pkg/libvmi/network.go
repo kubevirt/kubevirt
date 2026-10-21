@@ -196,6 +196,16 @@ func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 	}
 }
 
+// DefaultPodNetwork returns the default pod Network, named "default".
+// It mirrors v1.DefaultPodNetwork so specs can be built entirely with
+// libvmi builders without depending on the api-level helper.
+func DefaultPodNetwork() *kvirtv1.Network {
+	return &kvirtv1.Network{
+		Name:          "default",
+		NetworkSource: kvirtv1.NetworkSource{Pod: &kvirtv1.PodNetwork{}},
+	}
+}
+
 // WithHostname sets the hostname parameter.
 func WithHostname(hostname string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
