@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -147,6 +148,14 @@ func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
 		}
 		copyResources(res.Limits, r.calculatedLimits)
 		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithCPUsDRA() ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		r.resourceClaims = append(r.resourceClaims, k8sv1.ResourceClaim{
+			Name: dra.CPUClaimRefName,
+		})
 	}
 }
 

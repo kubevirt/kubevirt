@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -445,6 +446,13 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims[0].Request).To(Equal("net-request"))
 		})
 
+		It("should add CPU DRA claim to container resources", func() {
+			rr = NewResourceRenderer(nil, nil, WithCPUsDRA())
+
+			Expect(rr.Claims()).To(Equal([]kubev1.ResourceClaim{
+				{Name: dra.CPUClaimRefName},
+			}))
+		})
 
 		It("Unified functions should not interfere with other renderer options", func() {
 			cpuRequest := resource.MustParse("100m")
