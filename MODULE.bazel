@@ -30,7 +30,7 @@ archive_override(
 
 # Keep in sync with GIMME_GO_VERSION in hack/builder/Dockerfile* (see docs/update-go-version.md).
 go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.27.2")
+go_sdk.download(version = "1.27.4")
 go_sdk.nogo(nogo = "//:nogo_vet")
 
 # Exposes repos already declared by @bazel_gazelle for nogo/goimports (x/tools)
