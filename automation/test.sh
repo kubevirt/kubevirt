@@ -149,6 +149,11 @@ case "$TARGET" in
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+    if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+      # Local mediated-device E2E run needs the fake vGPU workers.
+      export KUBEVIRT_NUM_NODES=3
+      export KUBEVIRT_E2E_PARALLEL=false
+    fi
     ;;
   *sig-compute-conformance*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
@@ -310,6 +315,7 @@ elif [[ $TARGET =~ windows.* ]]; then
 fi
 
 kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+export -f kubectl
 cli() { kubevirtci/cluster-up/cli.sh "$@"; }
 
 determine_cri_bin() {
@@ -439,6 +445,19 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+  # Work around the observed fwupd guest crash on every cluster VM.
+  nodes=$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+  [[ -n "$nodes" ]]
+  for node in $nodes; do
+    kubevirtci/cluster-up/ssh.sh "$node" \
+      'sudo systemctl mask --now fwupd-refresh.timer fwupd-refresh.service fwupd.service'
+  done
+
+  KUBEVIRTCI_PATH="$PWD/kubevirtci/cluster-up" \
+    kubevirtci/cluster-up/cluster/vgpu-mdev/setup_vgpu_mdev.sh full-setup
+fi
+
 ionice --class idle make cluster-sync
 
 # OpenShift is running important containers under default namespace
@@ -482,6 +501,10 @@ for i in ${namespaces[@]}; do
   done
   kubectl get pods -n $i
 done
+
+if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+  kubevirtci/cluster-up/cluster/vgpu-mdev/configure_kubevirt_mdev.sh
+fi
 
 kubectl version
 
@@ -598,6 +621,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,DRA-CEX,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+  elif [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+    label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
@@ -755,6 +780,9 @@ fi
 
 
 # Run functional tests
+if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+  export KUBEVIRT_E2E_FOCUS=MediatedDevices
+fi
 FUNC_TEST_ARGS=$ginkgo_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
