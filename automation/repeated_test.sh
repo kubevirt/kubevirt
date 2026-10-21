@@ -255,7 +255,7 @@ add_feature_gate "OCIExport"
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
 # skip certain tests on flake lane
-add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU))" "&&"
+add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU,DRA-Network))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
