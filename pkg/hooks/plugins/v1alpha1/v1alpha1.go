@@ -20,3 +20,10 @@
 package v1alpha1
 
 const Version = "v1alpha1"
+
+// PreBoot artifact path keys, shared between virt-launcher (which populates them) and sidecar
+// plugins (which consume them from PreBootContext.ArtifactPaths).
+const (
+	PreBootArtifactCloudInitISO     = "cloudInitISO"
+	PreBootArtifactEphemeralDiskDir = "ephemeralDiskDir"
+)

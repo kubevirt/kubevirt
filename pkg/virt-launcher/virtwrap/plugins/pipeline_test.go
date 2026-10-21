@@ -17,497 +17,53 @@
  *
  */
 
-package plugins_test
+package plugins
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-
-	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 )
 
-var _ = Describe("Guest Definition Hook Pipeline", func() {
-	var (
-		vmi  *v1.VirtualMachineInstance
-		spec *virtwrapApi.DomainSpec
-	)
+var _ = Describe("handleHookError", func() {
+	hook := func(strategy pluginv1alpha1.FailureStrategy) resolvedHook {
+		return resolvedHook{pluginName: "a", index: 3, failureStrategy: strategy}
+	}
 
-	BeforeEach(func() {
-		vmi = &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vmi",
-				Namespace: "default",
-				Labels:    map[string]string{"app": "test"},
-			},
-		}
-		spec = &virtwrapApi.DomainSpec{}
-		spec.Type = "kvm"
-		spec.Name = "test-vm"
-	})
+	canceledContext := func() context.Context {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx
+	}
 
-	Context("with no plugins", func() {
-		It("should return the original spec unchanged", func() {
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks(nil, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(BeEmpty())
-			Expect(result).To(Equal(spec))
-		})
-
-		It("should return original spec for empty plugin list", func() {
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(BeEmpty())
-			Expect(result).To(Equal(spec))
-		})
-	})
-
-	Context("with a plugin that contributes no guest definition hooks", func() {
-		It("should return the original spec and an empty xml when a sidecar hook does not permit GuestDefinition", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-other-hookpoint"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Sidecar: &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/tmp/test.sock", PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPoint("Unsupported")}},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(BeEmpty())
-			Expect(result).To(BeIdenticalTo(spec), "the spec must be returned as-is, not round-tripped through libvirtxml")
-		})
-
-		It("should return the original spec and an empty xml when the plugin only declares NodeHooks", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "node-hooks-only"},
-				Spec: pluginv1alpha1.PluginSpec{
-					NodeHooks: []pluginv1alpha1.NodeHook{
-						{
-							Socket:         "/tmp/node.sock",
-							PermittedHooks: []pluginv1alpha1.NodeHookPoint{pluginv1alpha1.NodeHookPreVMStart},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(BeEmpty())
-			Expect(result).To(BeIdenticalTo(spec), "the spec must be returned as-is, not round-tripped through libvirtxml")
-		})
-	})
-
-	Context("with a single CEL hook", func() {
-		It("should apply a simple mutation", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "modified"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(BeEmpty())
-			Expect(xmlStr).To(ContainSubstring("modified"))
-			Expect(result).NotTo(BeNil())
-		})
-	})
-
-	Context("with hook conditions", func() {
-		It("should skip hooks when condition is false", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "conditional"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Condition: `vmi.Labels["app"] == "nonexistent"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "should-not-appear"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
-			Expect(result).NotTo(BeNil())
-		})
-
-		It("should apply hooks when condition is true", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "conditional"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Condition: `vmi.Labels["app"] == "test"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "applied"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("applied"))
-			Expect(result).NotTo(BeNil())
-		})
-	})
-
-	Context("condition evaluation timing", func() {
-		It("should not let a hook's condition observe mutations made by an earlier hook in the same invocation", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "sequential"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "hook1-ran"}`},
-						},
-						{
-							// If conditions were evaluated progressively against a domain mutated by
-							// earlier hooks in the same invocation, this would evaluate to true (since
-							// the first hook above sets Title to "hook1-ran"). Conditions are instead
-							// evaluated once upfront, against the pristine pre-mutation domain, so this
-							// hook must be skipped.
-							Condition: `domainSpec.Title == "hook1-ran"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Description: "hook2-ran"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("hook1-ran"))
-			Expect(xmlStr).NotTo(ContainSubstring("hook2-ran"))
-		})
-	})
-
-	Context("no-op hooks", func() {
-		It("should preserve all domain fields through a no-op pipeline round-trip", func() {
-			spec.Devices.Inputs = []virtwrapApi.Input{{Type: v1.InputTypeTablet, Bus: "usb"}}
-			spec.Devices.Watchdogs = []virtwrapApi.Watchdog{{Model: "i6300esb", Action: "none"}}
-
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "noop"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(BeEmpty())
-			Expect(result.Type).To(Equal("kvm"))
-			Expect(result.Name).To(Equal("test-vm"))
-			Expect(result.Devices.Inputs).To(HaveLen(1))
-			Expect(result.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
-			Expect(result.Devices.Watchdogs).To(HaveLen(1))
-			Expect(result.Devices.Watchdogs[0].Model).To(Equal("i6300esb"))
-		})
-
-		It("should preserve QEMU commandline args through the plugin pipeline", func() {
-			spec.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
-			spec.QEMUCmd = &virtwrapApi.Commandline{
-				QEMUArg: []virtwrapApi.Arg{
-					{Value: "-fw_cfg"},
-					{Value: "name=opt/test,string=value"},
-				},
-				QEMUEnv: []virtwrapApi.Env{
-					{Name: "QEMU_TEST", Value: "1"},
-				},
-			}
-
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "noop"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(BeEmpty())
-			Expect(result.QEMUCmd).NotTo(BeNil())
-			Expect(result.QEMUCmd.QEMUArg).To(HaveLen(2))
-			Expect(result.QEMUCmd.QEMUArg[0].Value).To(Equal("-fw_cfg"))
-			Expect(result.QEMUCmd.QEMUArg[1].Value).To(Equal("name=opt/test,string=value"))
-			Expect(result.QEMUCmd.QEMUEnv).To(HaveLen(1))
-			Expect(result.QEMUCmd.QEMUEnv[0].Name).To(Equal("QEMU_TEST"))
-			Expect(result.QEMUCmd.QEMUEnv[0].Value).To(Equal("1"))
-		})
-	})
-
-	Context("compound conditions", func() {
-		It("should apply hook when compound label and namespace condition matches", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "compound"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Condition: `vmi.Labels["app"] == "test" && vmi.Namespace == "default"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "compound-match"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("compound-match"))
-		})
-
-		It("should skip hook when one part of compound condition is false", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "compound"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Condition: `vmi.Labels["app"] == "test" && vmi.Namespace == "wrong-ns"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "should-not-appear"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
-		})
-	})
-
-	Context("plugin ordering", func() {
-		It("should produce deterministic results when multiple plugins compete on the same field", func() {
-			pluginBeta := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "beta-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "from-beta"}`},
-						},
-					},
-				},
-			}
-			pluginAlpha := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "alpha-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "from-alpha"}`},
-						},
-					},
-				},
-			}
-
-			for i := 0; i < 10; i++ {
-				_, xmlStr, err := plugins.ApplyGuestDefinitionHooks(
-					[]pluginv1alpha1.Plugin{pluginBeta, pluginAlpha}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(xmlStr).To(ContainSubstring("from-beta"))
-				Expect(xmlStr).NotTo(ContainSubstring("from-alpha"))
-			}
-		})
-
-		It("should apply hooks in spec order within a single plugin", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "multi-hook"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "first"}`},
-						},
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "second"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("second"))
-			Expect(xmlStr).NotTo(ContainSubstring("first"))
-			Expect(result).NotTo(BeNil())
-		})
-
-		It("should apply plugins in alphabetical order by name", func() {
-			pluginB := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "b-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Description: "from-b"}`},
-						},
-					},
-				},
-			}
-			pluginA := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "a-plugin"},
-				Spec: pluginv1alpha1.PluginSpec{
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "from-a"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{pluginB, pluginA}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("from-a"))
-			Expect(xmlStr).To(ContainSubstring("from-b"))
-			Expect(result).NotTo(BeNil())
-		})
-	})
-
-	Context("plugin-level condition", func() {
-		It("should skip all hooks when plugin condition is false", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "filtered"},
-				Spec: pluginv1alpha1.PluginSpec{
-					Condition: `vmi.Labels["app"] == "nonexistent"`,
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "should-not-appear"}`},
-						},
-					},
-				},
-			}
-
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
-			Expect(result).NotTo(BeNil())
-		})
-
-		It("should apply hooks when plugin condition is true", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "matching"},
-				Spec: pluginv1alpha1.PluginSpec{
-					Condition: `vmi.Labels["app"] == "test"`,
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "plugin-matched"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("plugin-matched"))
-		})
-
-		It("should hard-fail on invalid plugin condition regardless of failure strategy", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "bad-condition"},
-				Spec: pluginv1alpha1.PluginSpec{
-					Condition:       `invalid!!! expression`,
-					FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							CEL: &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "irrelevant"}`},
-						},
-					},
-				},
-			}
-
-			_, _, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("condition"))
-		})
-
-		It("should evaluate hook condition only when plugin condition passes", func() {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "both-conditions"},
-				Spec: pluginv1alpha1.PluginSpec{
-					Condition: `vmi.Labels["app"] == "test"`,
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							Condition: `vmi.Namespace == "wrong"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "should-not-appear"}`},
-						},
-						{
-							Condition: `vmi.Namespace == "default"`,
-							CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `Domain{Title: "both-passed"}`},
-						},
-					},
-				},
-			}
-
-			_, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(xmlStr).To(ContainSubstring("both-passed"))
-			Expect(xmlStr).NotTo(ContainSubstring("should-not-appear"))
-		})
-	})
-
-	Context("failure strategy", func() {
-		DescribeTable("should resolve failure strategy correctly", func(pluginStrategy, hookStrategy pluginv1alpha1.FailureStrategy, expectErr bool) {
-			plugin := pluginv1alpha1.Plugin{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-strategy"},
-				Spec: pluginv1alpha1.PluginSpec{
-					FailureStrategy: pluginStrategy,
-					LauncherHooks: []pluginv1alpha1.LauncherHook{
-						{
-							FailureStrategy: hookStrategy,
-							CEL:             &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: `invalid!!! expression`},
-						},
-					},
-				},
-			}
-
-			_, _, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
-			if expectErr {
-				Expect(err).To(HaveOccurred())
-			} else {
-				Expect(err).NotTo(HaveOccurred())
-			}
+	DescribeTable("applies the failure semantics shared by every launcher hook point",
+		func(parentCtx context.Context, strategy pluginv1alpha1.FailureStrategy, err error, verify func(error)) {
+			verify(handleHookError(parentCtx, pluginv1alpha1.LauncherHookGuestDefinition, hook(strategy), err))
 		},
-			Entry("should abort on Fail strategy", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyFail, true),
-			Entry("should continue on Ignore strategy", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyIgnore, false),
-			Entry("should default to Fail when no strategy is set", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategy(""), true),
-			Entry("should fall back to plugin-level Ignore when hook has none", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategy(""), false),
-			Entry("should let hook-level Fail override plugin-level Ignore", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategyFail, true),
-		)
-	})
-
-	Context("plugin store", func() {
-		It("should return nil when no plugins are set", func() {
-			Expect(plugins.GetPlugins()).To(BeNil())
-		})
-
-		It("should store and retrieve plugins", func() {
-			pluginList := []pluginv1alpha1.Plugin{
-				{ObjectMeta: metav1.ObjectMeta{Name: "stored-plugin"}},
-			}
-			plugins.SetPlugins(pluginList)
-			defer plugins.SetPlugins(nil)
-
-			retrieved := plugins.GetPlugins()
-			Expect(retrieved).To(HaveLen(1))
-			Expect(retrieved[0].Name).To(Equal("stored-plugin"))
-		})
-	})
+		Entry("succeeds when the hook succeeded", context.Background(), pluginv1alpha1.FailureStrategyFail, nil, func(err error) {
+			Expect(err).To(Succeed())
+		}),
+		Entry("aborts when a Fail-strategy hook failed", context.Background(), pluginv1alpha1.FailureStrategyFail, fmt.Errorf("boom"), func(err error) {
+			Expect(err).To(MatchError(ContainSubstring("plugin a hook 3")))
+			Expect(err).To(MatchError(ContainSubstring(string(pluginv1alpha1.LauncherHookGuestDefinition))))
+			Expect(err).To(MatchError(ContainSubstring("boom")))
+		}),
+		Entry("continues when an Ignore-strategy hook failed", context.Background(), pluginv1alpha1.FailureStrategyIgnore, fmt.Errorf("boom"), func(err error) {
+			Expect(err).To(Succeed())
+		}),
+		Entry("aborts on cancellation even when the failure strategy is Ignore", canceledContext(), pluginv1alpha1.FailureStrategyIgnore, fmt.Errorf("boom"), func(err error) {
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("boom"), "the hook's own error must be reported alongside the cancellation cause")
+		}),
+		Entry("aborts on cancellation with a Fail-strategy hook", canceledContext(), pluginv1alpha1.FailureStrategyFail, fmt.Errorf("checking socket: %w", context.Canceled), func(err error) {
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+		}),
+	)
 })

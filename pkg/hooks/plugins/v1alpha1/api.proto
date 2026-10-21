@@ -23,6 +23,34 @@ message ExecuteNodeHookResponse {}
 
 service LauncherHookService {
     rpc GuestDefinition(GuestDefinitionRequest) returns (GuestDefinitionResponse);
+    // PreBoot runs after the boot artifacts were generated and before the guest
+    // starts. It may be retried after a failed start, so implementations must be
+    // idempotent; filesystem changes are never rolled back. Volumes hotplugged
+    // while the VM runs never pass through PreBoot. A hook whose failure
+    // strategy is Ignore is not stopped when it exceeds its execution timeout:
+    // the launcher proceeds while the hook may still be working, so hooks with
+    // filesystem side effects should use the Fail strategy, write transactionally
+    // (temp file plus atomic rename), honor the context, and remain idempotent.
+    rpc PreBoot(PreBootRequest) returns (PreBootResponse);
+    // PreMigrationSource runs on the migration source just before libvirt is
+    // asked to migrate. The response carries only the changes: an unset field
+    // keeps its current value, a set field overrides it, and an empty wrapper
+    // or list removes the parameter. An empty response changes nothing; the
+    // hook has full control over the exposed parameters, including the
+    // migration URIs.
+    //
+    // Flags are merged bitwise: set_flags adds bits, clear_flags removes
+    // bits, every other bit keeps its value, and a bit present in both is an
+    // error.
+    //
+    // The migration monitor starts once these hooks return, so hook time does
+    // not count towards the migration timeouts; each hook is bounded by its
+    // own timeout plus the shared readiness budget. The monitor follows the
+    // resulting VIR_MIGRATE_POSTCOPY flag: removing it disables post-copy,
+    // and adding it allows post-copy under the same conditions as when
+    // KubeVirt sets it (for example, the stall detector only switches when
+    // workload disruption is allowed).
+    rpc PreMigrationSource(PreMigrationSourceRequest) returns (PreMigrationSourceResponse);
 }
 
 message SidecarContext {
@@ -39,4 +67,90 @@ message GuestDefinitionRequest {
 
 message GuestDefinitionResponse {
     bytes domain = 1;
+}
+
+message PreBootContext {
+    // Generated artifacts, at their absolute paths inside the launcher. Sidecars
+    // must mount the corresponding volumes at the same paths. Keys: cloudInitISO,
+    // ephemeralDiskDir. Missing artifacts are omitted.
+    map<string, string> artifact_paths = 1;
+}
+
+message PreBootRequest {
+    bytes vmi = 1; // JSON-encoded VirtualMachineInstance
+    PreBootContext pre_boot_context = 2;
+}
+
+message PreBootResponse {}
+
+message PreMigrationSourceRequest {
+    bytes vmi = 1; // JSON-encoded VirtualMachineInstance
+    oneof migration_config {
+        LibvirtMigrationConfig libvirt = 2;
+        // future non-libvirt backends: add a field here (additive, non-breaking)
+    }
+}
+
+message PreMigrationSourceResponse {
+    oneof migration_config {
+        LibvirtMigrationConfigChanges libvirt = 1;
+        // future non-libvirt backends: add a field here (additive, non-breaking)
+    }
+}
+
+// The Optional* wrappers give scalar fields explicit presence. The oneof tells
+// a wrapper holding the zero value apart from an empty one, which a
+// PreMigrationSource response uses to remove a parameter. The legacy
+// protoc-gen-go pinned by this repo cannot express presence with the proto3
+// `optional` keyword.
+message OptionalString { oneof kind { string value = 1; } }
+message OptionalUint64 { oneof kind { uint64 value = 1; } }
+message OptionalInt32  { oneof kind { int32  value = 1; } }
+message StringList     { repeated string values = 1; }
+
+// The configuration KubeVirt is about to hand to libvirt, sent to PreMigrationSource
+// hooks in the request.
+message LibvirtMigrationConfig {
+    uint64 flags = 1; // full VIR_MIGRATE_* flag bitmask, as passed to MigrateToURI3
+    LibvirtDomainMigrateParameters params = 2;
+}
+
+// The changes a PreMigrationSource hook asks KubeVirt to apply to the libvirt migration
+// configuration: set_flags adds bits to the flags and clear_flags removes them (a bit
+// present in both is an error). The parameters keep the tri-state encoding described on
+// LibvirtDomainMigrateParameters.
+message LibvirtMigrationConfigChanges {
+    uint64 set_flags = 1;   // bits to add to the VIR_MIGRATE_* flag bitmask
+    uint64 clear_flags = 2; // bits to remove from the VIR_MIGRATE_* flag bitmask
+    LibvirtDomainMigrateParameters params = 3;
+}
+
+message LibvirtDomainMigrateParameters {
+    // Field names mirror libvirt's documented VIR_MIGRATE_PARAM_* names. In a
+    // request, a set field means the parameter is present and an unset one
+    // that it is omitted.
+    OptionalString uri = 1;                               // VIR_MIGRATE_PARAM_URI
+    OptionalString dest_name = 2;                         // VIR_MIGRATE_PARAM_DEST_NAME
+    OptionalString dest_xml = 3;                          // VIR_MIGRATE_PARAM_DEST_XML
+    OptionalString persist_xml = 4;                       // VIR_MIGRATE_PARAM_PERSIST_XML
+    OptionalUint64 bandwidth = 5;                         // VIR_MIGRATE_PARAM_BANDWIDTH
+    OptionalInt32 parallel_connections = 6;               // VIR_MIGRATE_PARAM_PARALLEL_CONNECTIONS
+    StringList migrate_disks = 7;                         // VIR_MIGRATE_PARAM_MIGRATE_DISKS
+    StringList migrate_disks_detect_zeroes_list = 8;      // VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES
+    OptionalString disks_uri = 9;                         // VIR_MIGRATE_PARAM_DISKS_URI
+    OptionalString compression = 10;                      // VIR_MIGRATE_PARAM_COMPRESSION
+    OptionalString graphics_uri = 11;                     // VIR_MIGRATE_PARAM_GRAPHICS_URI
+    OptionalString listen_address = 12;                   // VIR_MIGRATE_PARAM_LISTEN_ADDRESS
+    OptionalInt32 disks_port = 13;                        // VIR_MIGRATE_PARAM_DISKS_PORT
+    OptionalInt32 compression_mt_level = 14;              // VIR_MIGRATE_PARAM_COMPRESSION_MT_LEVEL
+    OptionalInt32 compression_mt_threads = 15;            // VIR_MIGRATE_PARAM_COMPRESSION_MT_THREADS
+    OptionalInt32 compression_mt_dthreads = 16;           // VIR_MIGRATE_PARAM_COMPRESSION_MT_DTHREADS
+    OptionalUint64 compression_xbzrle_cache = 17;         // VIR_MIGRATE_PARAM_COMPRESSION_XBZRLE_CACHE
+    OptionalInt32 auto_converge_initial = 18;             // VIR_MIGRATE_PARAM_AUTO_CONVERGE_INITIAL
+    OptionalInt32 auto_converge_increment = 19;           // VIR_MIGRATE_PARAM_AUTO_CONVERGE_INCREMENT
+    OptionalString tls_destination = 20;                  // VIR_MIGRATE_PARAM_TLS_DESTINATION
+    OptionalInt32 compression_zlib_level = 21;            // VIR_MIGRATE_PARAM_COMPRESSION_ZLIB_LEVEL
+    OptionalInt32 compression_zstd_level = 22;            // VIR_MIGRATE_PARAM_COMPRESSION_ZSTD_LEVEL
+    OptionalUint64 bandwidth_avail_switchover = 23;       // VIR_MIGRATE_PARAM_BANDWIDTH_AVAIL_SWITCHOVER
+    StringList migrate_disks_target_zero = 24;            // VIR_MIGRATE_PARAM_MIGRATE_DISKS_TARGET_ZERO
 }

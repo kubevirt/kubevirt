@@ -33726,11 +33726,11 @@ func schema_kubevirtio_api_plugin_v1alpha1_CELLauncherHook(ref common.ReferenceC
 				Properties: map[string]spec.Schema{
 					"hookPoint": {
 						SchemaProps: spec.SchemaProps{
-							Description: "HookPoint specifies which launcher hook point this CEL expression applies to. GuestDefinition is the only currently supported launcher hook point for CEL.\n\nPossible enum values:\n - `\"GuestDefinition\"`",
+							Description: "HookPoint specifies which launcher hook point this CEL expression applies to. GuestDefinition is the only currently supported launcher hook point for CEL.\n\nPossible enum values:\n - `\"GuestDefinition\"`\n - `\"PreBoot\"`\n - `\"PreMigrationSource\"`",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"GuestDefinition"},
+							Enum:        []interface{}{"GuestDefinition", "PreBoot", "PreMigrationSource"},
 						},
 					},
 					"expression": {
@@ -33769,7 +33769,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref common.ReferenceCall
 					},
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33834,7 +33834,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 					},
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33973,7 +33973,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields. Condition expressions are evaluated once per pipeline invocation, against the VMI/domain state as it existed before any hook in that invocation ran. They are not re-evaluated to reflect mutations made by other hooks applied earlier in the same invocation.",
+							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields. An empty condition always matches.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -34147,7 +34147,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_SidecarLauncherHook(ref common.Refere
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
-										Enum:    []interface{}{"GuestDefinition"},
+										Enum:    []interface{}{"GuestDefinition", "PreBoot", "PreMigrationSource"},
 									},
 								},
 							},

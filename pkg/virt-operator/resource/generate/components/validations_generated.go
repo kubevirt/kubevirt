@@ -5420,11 +5420,10 @@ var CRDsValidation map[string]string = map[string]string{
         condition:
           description: |-
             Condition is a CEL expression that determines whether this plugin applies to a given VM.
+            The expression may reference only 'vmi' and must evaluate to a bool.
             When set, this acts as a baseline filter for all hooks in the plugin.
             Individual hooks may further narrow the scope with their own Condition fields.
-            Condition expressions are evaluated once per pipeline invocation, against the VMI/domain
-            state as it existed before any hook in that invocation ran. They are not re-evaluated to
-            reflect mutations made by other hooks applied earlier in the same invocation.
+            An empty condition always matches.
           type: string
         failureStrategy:
           description: |-
@@ -5461,15 +5460,20 @@ var CRDsValidation map[string]string = map[string]string{
                       GuestDefinition is the only currently supported launcher hook point for CEL.
                     type: string
                     x-kubernetes-validations:
-                    - message: hook point must be GuestDefinition
+                    - message: CEL is only supported for the GuestDefinition hook
+                        point
                       rule: self == 'GuestDefinition'
+                    - message: 'hook point must be one of: GuestDefinition, PreBoot,
+                        PreMigrationSource'
+                      rule: self in ['GuestDefinition','PreBoot','PreMigrationSource']
                 required:
                 - expression
                 - hookPoint
                 type: object
               condition:
-                description: Condition is a CEL expression that determines whether
-                  this hook applies to a given VM.
+                description: |-
+                  Condition is a CEL expression that determines whether this hook applies to a given VM.
+                  The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
                 description: FailureStrategy specifies how to handle hook failures
@@ -5489,11 +5493,12 @@ var CRDsValidation map[string]string = map[string]string{
                     items:
                       description: |-
                         LauncherHookPoint identifies a point in the VM lifecycle where a launcher hook can run.
-                        Only hook points implemented by virt-launcher are accepted.
+                        GuestDefinition accepts CEL and sidecar hooks; PreBoot and PreMigrationSource are sidecar-only.
                       type: string
                       x-kubernetes-validations:
-                      - message: hook point must be GuestDefinition
-                        rule: self == 'GuestDefinition'
+                      - message: 'hook point must be one of: GuestDefinition, PreBoot,
+                          PreMigrationSource'
+                        rule: self in ['GuestDefinition','PreBoot','PreMigrationSource']
                     maxItems: 64
                     minItems: 1
                     type: array
@@ -5578,8 +5583,9 @@ var CRDsValidation map[string]string = map[string]string{
               Implementations must be idempotent.
             properties:
               condition:
-                description: Condition is a CEL expression that determines whether
-                  this hook applies to a given VM.
+                description: |-
+                  Condition is a CEL expression that determines whether this hook applies to a given VM.
+                  The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
                 description: FailureStrategy specifies how to handle hook failures

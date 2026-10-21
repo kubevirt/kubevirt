@@ -28,12 +28,12 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc"
 	grpcstatus "google.golang.org/grpc/status"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	"k8s.io/apimachinery/pkg/util/wait"
 
-	pluginsv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/plugins/v1alpha1"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 )
 
 const (
@@ -44,9 +44,41 @@ const (
 	defaultSidecarReadinessTimeout = 30 * time.Second
 )
 
-func callSidecarHook(socketPath, pluginName, socketBaseDir string, domainXML, vmiJSON []byte, invocationContext string, timeout time.Duration) ([]byte, error) {
+type readinessBudget struct {
+	deadline time.Time
+	total    time.Duration
+}
 
-	if err := validateSocketPath(socketPath, pluginName, socketBaseDir); err != nil {
+// sidecarCallOptions configures how dialSidecar reaches a hook's socket: where plugin sockets
+// are rooted, the readiness budget shared across the hooks in one invocation, and the
+// socket-readiness probe (overridden in tests).
+type sidecarCallOptions struct {
+	socketBaseDir string
+	readiness     readinessBudget
+	socketReady   func(path string) (bool, error)
+}
+
+// defaultSidecarCallOptions returns the production sidecarCallOptions: the real plugin socket
+// directory, os.Stat-based readiness, and a readiness budget starting now. All sidecars are
+// containers of the same virt-launcher pod and start at roughly the same time, so the budget is
+// shared across every hook in one invocation rather than recomputed per hook; otherwise N
+// sidecars could delay the run by N readiness timeouts.
+func defaultSidecarCallOptions() sidecarCallOptions {
+	return sidecarCallOptions{
+		socketBaseDir: pluginSocketBaseDir,
+		readiness:     readinessBudget{deadline: time.Now().Add(defaultSidecarReadinessTimeout), total: defaultSidecarReadinessTimeout},
+		socketReady:   osStatSocketReady,
+	}
+}
+
+// dialSidecar waits for hook's socket to become ready and connects to it. The caller closes
+// the returned connection.
+func dialSidecar(parentCtx context.Context, hook resolvedHook, opts sidecarCallOptions) (*grpc.ClientConn, error) {
+	socketPath := hook.hook.Sidecar.SocketPath
+	if err := waitForSidecarSocket(parentCtx, socketPath, opts.readiness, opts.socketReady); err != nil {
+		return nil, err
+	}
+	if err := validateSocketPath(socketPath, hook.pluginName, opts.socketBaseDir); err != nil {
 		return nil, fmt.Errorf("invalid socket path: %w", err)
 	}
 
@@ -54,27 +86,15 @@ func callSidecarHook(socketPath, pluginName, socketBaseDir string, domainXML, vm
 	if err != nil {
 		return nil, fmt.Errorf("dialing sidecar socket %s: %w", socketPath, err)
 	}
-	defer conn.Close()
+	return conn, nil
+}
 
-	client := pluginsv1alpha1.NewLauncherHookServiceClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	resp, err := client.GuestDefinition(ctx, &pluginsv1alpha1.GuestDefinitionRequest{
-		DomainType: domainTypeLibvirt,
-		Domain:     domainXML,
-		Vmi:        vmiJSON,
-		SidecarContext: &pluginsv1alpha1.SidecarContext{
-			InvocationContext: invocationContext,
-		},
-	})
-	if err != nil {
-		if st, ok := grpcstatus.FromError(err); ok {
-			return nil, fmt.Errorf("GuestDefinition RPC to %s failed with %s: %s", pluginName, st.Code(), st.Message())
-		}
-		return nil, fmt.Errorf("GuestDefinition RPC to %s failed: %w", pluginName, err)
+// sidecarRPCError reports a failed launcher hook RPC by its gRPC status when it has one.
+func sidecarRPCError(err error) error {
+	if st, ok := grpcstatus.FromError(err); ok {
+		return fmt.Errorf("launcher hook RPC failed with %s: %s", st.Code(), st.Message())
 	}
-	return resp.Domain, nil
+	return err
 }
 
 func validateSocketPath(socketPath, pluginName, socketBaseDir string) error {
@@ -104,7 +124,10 @@ func osStatSocketReady(socketPath string) (bool, error) {
 	return false, err
 }
 
-func waitForSidecarSocket(socketPath string, budget readinessBudget, socketReady func(path string) (bool, error)) error {
+func waitForSidecarSocket(parentCtx context.Context, socketPath string, budget readinessBudget, socketReady func(path string) (bool, error)) error {
+	if err := parentCtx.Err(); err != nil {
+		return fmt.Errorf("checking socket %s: %w", socketPath, err)
+	}
 	ready, err := socketReady(socketPath)
 	if err != nil {
 		return fmt.Errorf("checking socket %s: %w", socketPath, err)
@@ -117,7 +140,7 @@ func waitForSidecarSocket(socketPath string, budget readinessBudget, socketReady
 	if remaining <= 0 {
 		return fmt.Errorf("sidecar socket %s not ready after %v", socketPath, budget.total)
 	}
-	if err := virtwait.PollImmediately(500*time.Millisecond, remaining, func(_ context.Context) (bool, error) {
+	if err := wait.PollUntilContextTimeout(parentCtx, 500*time.Millisecond, remaining, true, func(_ context.Context) (bool, error) {
 		ready, err := socketReady(socketPath)
 		if err != nil {
 			return false, fmt.Errorf("checking socket %s: %w", socketPath, err)

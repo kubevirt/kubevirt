@@ -51,11 +51,10 @@ type PluginList struct {
 
 type PluginSpec struct {
 	// Condition is a CEL expression that determines whether this plugin applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// When set, this acts as a baseline filter for all hooks in the plugin.
 	// Individual hooks may further narrow the scope with their own Condition fields.
-	// Condition expressions are evaluated once per pipeline invocation, against the VMI/domain
-	// state as it existed before any hook in that invocation ran. They are not re-evaluated to
-	// reflect mutations made by other hooks applied earlier in the same invocation.
+	// An empty condition always matches.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 
@@ -134,6 +133,7 @@ type LauncherHook struct {
 	// +optional
 	Sidecar *SidecarLauncherHook `json:"sidecar,omitempty"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 	// FailureStrategy specifies how to handle hook failures (Fail or Ignore).
@@ -145,18 +145,21 @@ type LauncherHook struct {
 }
 
 // LauncherHookPoint identifies a point in the VM lifecycle where a launcher hook can run.
-// Only hook points implemented by virt-launcher are accepted.
+// GuestDefinition accepts CEL and sidecar hooks; PreBoot and PreMigrationSource are sidecar-only.
 // +enum
-// +kubebuilder:validation:XValidation:rule="self == 'GuestDefinition'",message="hook point must be GuestDefinition"
+// +kubebuilder:validation:XValidation:rule="self in ['GuestDefinition','PreBoot','PreMigrationSource']",message="hook point must be one of: GuestDefinition, PreBoot, PreMigrationSource"
 type LauncherHookPoint string
 
 const (
-	LauncherHookGuestDefinition LauncherHookPoint = "GuestDefinition"
+	LauncherHookGuestDefinition    LauncherHookPoint = "GuestDefinition"
+	LauncherHookPreBoot            LauncherHookPoint = "PreBoot"
+	LauncherHookPreMigrationSource LauncherHookPoint = "PreMigrationSource"
 )
 
 type CELLauncherHook struct {
 	// HookPoint specifies which launcher hook point this CEL expression applies to.
 	// GuestDefinition is the only currently supported launcher hook point for CEL.
+	// +kubebuilder:validation:XValidation:rule="self == 'GuestDefinition'",message="CEL is only supported for the GuestDefinition hook point"
 	HookPoint LauncherHookPoint `json:"hookPoint"`
 	// Expression is the CEL expression applied at the specified hook point.
 	// +kubebuilder:validation:MinLength=1
@@ -201,6 +204,7 @@ type NodeHook struct {
 	// +listType=atomic
 	PermittedHooks []NodeHookPoint `json:"permittedHooks"`
 	// Condition is a CEL expression that determines whether this hook applies to a given VM.
+	// The expression may reference only `vmi` and must evaluate to a bool.
 	// +optional
 	Condition string `json:"condition,omitempty"`
 	// FailureStrategy specifies how to handle hook failures (Fail or Ignore).

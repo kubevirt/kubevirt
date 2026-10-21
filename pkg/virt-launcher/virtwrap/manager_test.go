@@ -1996,7 +1996,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration abort should be retried after transient failure", func() {
@@ -2063,7 +2063,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
@@ -2111,7 +2111,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 			Eventually(abortStatus, 500*time.Millisecond, 50*time.Millisecond).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		},
@@ -2170,7 +2170,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should switch to PostCopy", func() {
@@ -2218,7 +2218,7 @@ var _ = Describe("Manager", func() {
 			})
 			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Eq(uint32(0))).Times(1).Return(nil)
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 		})
 
@@ -2281,7 +2281,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
@@ -2332,7 +2332,113 @@ var _ = Describe("Manager", func() {
 			})
 			mockLibvirt.DomainEXPECT().Suspend().Times(1).Return(nil)
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
+			monitor.startMonitor(make(chan error, 1))
+		})
+		It("migration should pause rather than switch to PostCopy when a hook disabled post-copy", func() {
+			migrationDone := make(chan struct{})
+			var migrationData = 32479827394
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data and close the channel otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					close(migrationDone)
+					return &libvirt.DomainJobInfo{}
+				}
+
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				AllowPostCopy:           true,
+				AllowWorkloadDisruption: true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			manager := &LibvirtDomainManager{
+				paused: pausedVMIs{
+					paused: make(map[types.UID]bool),
+				},
+				virConn:       mockLibvirt.VirtConnection,
+				virtShareDir:  testVirtShareDir,
+				metadataCache: metadataCache,
+				cpuSetGetter:  fakeCpuSetGetter,
+			}
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+			mockLibvirt.DomainEXPECT().Suspend().Times(1).Return(nil)
+
+			// A PreMigrationSource hook removed the post-copy flag after the options were computed.
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, false)
+			monitor.startMonitor(make(chan error, 1))
+		})
+		It("migration should switch to PostCopy when a hook enabled post-copy", func() {
+			migrationDone := make(chan struct{})
+			var migrationData = 32479827394
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data and close the channel otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					close(migrationDone)
+					return &libvirt.DomainJobInfo{}
+				}
+
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				AllowPostCopy:           false,
+				AllowWorkloadDisruption: true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			manager := &LibvirtDomainManager{
+				paused: pausedVMIs{
+					paused: make(map[types.UID]bool),
+				},
+				virConn:       mockLibvirt.VirtConnection,
+				virtShareDir:  testVirtShareDir,
+				metadataCache: metadataCache,
+				cpuSetGetter:  fakeCpuSetGetter,
+			}
+
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockLibvirt.DomainEXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(nil)
+			mockLibvirt.DomainEXPECT().Suspend().Times(0)
+
+			// A PreMigrationSource hook added the post-copy flag after the options were computed.
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, true)
 			monitor.startMonitor(make(chan error, 1))
 		})
 		It("migration should be canceled if Paused workload didn't migrate until timeout was reached", func() {
@@ -2389,7 +2495,7 @@ var _ = Describe("Manager", func() {
 				return nil
 			})
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			monitor.startMonitor(make(chan error, 1))
 		})
 		// This is incomplete as it is not verifying that we abort. Previously it wasn't even testing anything at all
@@ -2491,7 +2597,7 @@ var _ = Describe("Manager", func() {
 				},
 			)
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			done := make(chan struct{})
 			go func() {
 				monitor.startMonitor(make(chan error, 1))
@@ -2518,7 +2624,7 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, fmt.Errorf("domain not found"))
 
-			monitor := newMigrationMonitor(vmi, manager, options, migrationDone)
+			monitor := newMigrationMonitor(vmi, manager, options, migrationDone, options.AllowPostCopy)
 			ready := make(chan error, 1)
 			monitor.startMonitor(ready)
 			Expect(ready).To(Receive(MatchError(ContainSubstring("domain not found"))))
@@ -5108,5 +5214,33 @@ var _ = Describe("findDiskFileInImageVolume", func() {
 		_, err := findDiskFileInImageVolume(filepath.Join(baseDir, "nonexistent"))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("failed to read image volume directory"))
+	})
+})
+
+var _ = Describe("PreBoot artifact paths", func() {
+	var manager *LibvirtDomainManager
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		ephemeralDir := GinkgoT().TempDir()
+		manager = &LibvirtDomainManager{ephemeralDiskDir: ephemeralDir, virtShareDir: ephemeralDir}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "test-uid"}}
+	})
+
+	It("omits a cloud-init artifact when none was generated", func() {
+		paths := manager.preBootArtifactPaths(vmi)
+		Expect(paths).NotTo(HaveKey("cloudInitISO"))
+		Expect(paths).To(HaveKeyWithValue("ephemeralDiskDir", manager.ephemeralDiskDir))
+	})
+
+	It("includes the cloud-init artifact once its ISO exists on disk", func() {
+		manager.cloudInitDataStore = &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceNoCloud}
+		isoPath := cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, vmi.Name, vmi.Namespace)
+		Expect(os.MkdirAll(filepath.Dir(isoPath), 0755)).To(Succeed())
+		Expect(os.WriteFile(isoPath, []byte("iso"), 0600)).To(Succeed())
+		DeferCleanup(os.RemoveAll, filepath.Dir(isoPath))
+
+		paths := manager.preBootArtifactPaths(vmi)
+		Expect(paths).To(HaveKeyWithValue("cloudInitISO", isoPath))
 	})
 })

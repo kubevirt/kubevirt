@@ -21,6 +21,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -39,11 +40,31 @@ import (
 	pluginsv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/plugins/v1alpha1"
 )
 
+const (
+	usage = "usage: test-launcher-hook-sidecar <socket-path> | --sleep | --error [hook-point] <socket-path>"
+
+	guestDefinitionHook    = "GuestDefinition"
+	preBootHook            = "PreBoot"
+	preMigrationSourceHook = "PreMigrationSource"
+
+	// These strings are deliberately the same length. The test sidecar uses a
+	// byte-for-byte replacement in the generated ISO so the resulting image
+	// remains a valid ISO9660 filesystem without needing an ISO utility in the
+	// small sidecar image.
+	preBootOriginal = "VEP190_PREBOOT_BEFORE"
+	preBootMutated  = "VEP190_PREBOOT_AFTER!"
+)
+
 type server struct {
-	cpuVendor string
+	cpuVendor  string
+	errorHooks map[string]bool
 }
 
 func (s *server) GuestDefinition(_ context.Context, req *pluginsv1alpha1.GuestDefinitionRequest) (*pluginsv1alpha1.GuestDefinitionResponse, error) {
+	if err := s.errorFor(guestDefinitionHook); err != nil {
+		return nil, err
+	}
+
 	domain := &libvirtxml.Domain{}
 	if err := domain.Unmarshal(string(req.Domain)); err != nil {
 		return nil, fmt.Errorf("unmarshal domain: %w", err)
@@ -82,10 +103,72 @@ func (s *server) GuestDefinition(_ context.Context, req *pluginsv1alpha1.GuestDe
 	return &pluginsv1alpha1.GuestDefinitionResponse{Domain: []byte(xml)}, nil
 }
 
-type errorServer struct{}
+func (s *server) PreBoot(_ context.Context, req *pluginsv1alpha1.PreBootRequest) (*pluginsv1alpha1.PreBootResponse, error) {
+	if err := s.errorFor(preBootHook); err != nil {
+		return nil, err
+	}
 
-func (s *errorServer) GuestDefinition(_ context.Context, _ *pluginsv1alpha1.GuestDefinitionRequest) (*pluginsv1alpha1.GuestDefinitionResponse, error) {
-	return nil, status.Errorf(codes.Internal, "intentional test error")
+	isoPath := req.PreBootContext.ArtifactPaths[pluginsv1alpha1.PreBootArtifactCloudInitISO]
+	if isoPath == "" {
+		return nil, fmt.Errorf("PreBoot request has no cloudInitISO artifact")
+	}
+
+	iso, err := os.ReadFile(isoPath)
+	if err != nil {
+		return nil, fmt.Errorf("read cloud-init ISO %q: %w", isoPath, err)
+	}
+	if !bytes.Contains(iso, []byte(preBootOriginal)) {
+		if bytes.Contains(iso, []byte(preBootMutated)) {
+			// PreBoot may be retried after a later start step fails. Treat an
+			// already-mutated artifact as success so this test sidecar is
+			// idempotent, as a real artifact-mutating hook must be.
+			log.Printf("PreBoot found cloud-init ISO %s already mutated", isoPath)
+			return &pluginsv1alpha1.PreBootResponse{}, nil
+		}
+		return nil, fmt.Errorf("cloud-init ISO %q does not contain %q", isoPath, preBootOriginal)
+	}
+	mutated := bytes.Replace(iso, []byte(preBootOriginal), []byte(preBootMutated), 1)
+	if err := os.WriteFile(isoPath, mutated, 0600); err != nil {
+		return nil, fmt.Errorf("write cloud-init ISO %q: %w", isoPath, err)
+	}
+
+	log.Printf("PreBoot mutated cloud-init ISO %s: %s -> %s", isoPath, preBootOriginal, preBootMutated)
+	return &pluginsv1alpha1.PreBootResponse{}, nil
+}
+
+func (s *server) PreMigrationSource(_ context.Context, req *pluginsv1alpha1.PreMigrationSourceRequest) (*pluginsv1alpha1.PreMigrationSourceResponse, error) {
+	if err := s.errorFor(preMigrationSourceHook); err != nil {
+		return nil, err
+	}
+	requestConfig, ok := req.MigrationConfig.(*pluginsv1alpha1.PreMigrationSourceRequest_Libvirt)
+	if !ok || requestConfig.Libvirt == nil {
+		return nil, fmt.Errorf("unsupported migration configuration variant %T", req.MigrationConfig)
+	}
+
+	// VIR_MIGRATE_PARALLEL = 1<<17 (libvirt-domain.h); hardcoded to avoid linking cgo libvirt bindings into this sidecar image.
+	const virMigrateParallel = 1 << 17
+
+	// The response carries only the change: set_flags adds a bit to the flags KubeVirt
+	// computed, so the flags KubeVirt always sets survive untouched.
+	change := &pluginsv1alpha1.LibvirtMigrationConfigChanges{
+		SetFlags: virMigrateParallel,
+		Params:   &pluginsv1alpha1.LibvirtDomainMigrateParameters{ParallelConnections: &pluginsv1alpha1.OptionalInt32{Kind: &pluginsv1alpha1.OptionalInt32_Value{Value: 2}}},
+	}
+
+	log.Printf("PreMigrationSource mutated migration config: parallel connections=%d set_flags=%d", change.GetParams().GetParallelConnections().GetValue(), change.GetSetFlags())
+
+	return &pluginsv1alpha1.PreMigrationSourceResponse{
+		MigrationConfig: &pluginsv1alpha1.PreMigrationSourceResponse_Libvirt{Libvirt: change},
+	}, nil
+}
+
+func (s *server) errorFor(hookPoint string) error {
+	if s.errorHooks[hookPoint] {
+		err := status.Errorf(codes.Internal, "intentional test error for %s", hookPoint)
+		log.Print(err)
+		return err
+	}
+	return nil
 }
 
 func detectCPUVendor() string {
@@ -108,22 +191,24 @@ func detectCPUVendor() string {
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("usage: test-launcher-hook-sidecar <socket-path> | --sleep | --error <socket-path>")
+		log.Fatal(usage)
 	}
 	if os.Args[1] == "--sleep" {
 		log.Println("Sleep mode: blocking forever without creating socket")
 		select {}
 	}
 
-	errorMode := os.Args[1] == "--error"
-	var socketPath string
-	if errorMode {
-		if len(os.Args) < 3 {
-			log.Fatal("usage: test-launcher-hook-sidecar --error <socket-path>")
+	socketPath := os.Args[1]
+	errorHooks := map[string]bool{}
+	if socketPath == "--error" {
+		switch len(os.Args) {
+		case 3:
+			errorHooks[guestDefinitionHook], socketPath = true, os.Args[2]
+		case 4:
+			errorHooks[os.Args[2]], socketPath = true, os.Args[3]
+		default:
+			log.Fatal(usage)
 		}
-		socketPath = os.Args[2]
-	} else {
-		socketPath = os.Args[1]
 	}
 
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0755); err != nil {
@@ -137,11 +222,10 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	if errorMode {
-		pluginsv1alpha1.RegisterLauncherHookServiceServer(s, &errorServer{})
-	} else {
-		pluginsv1alpha1.RegisterLauncherHookServiceServer(s, &server{cpuVendor: detectCPUVendor()})
-	}
+	pluginsv1alpha1.RegisterLauncherHookServiceServer(s, &server{
+		cpuVendor:  detectCPUVendor(),
+		errorHooks: errorHooks,
+	})
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM)
@@ -150,7 +234,7 @@ func main() {
 		s.GracefulStop()
 	}()
 
-	log.Printf("Listening on %s (error mode: %v)", socketPath, errorMode)
+	log.Printf("Listening on %s (error hooks: %v)", socketPath, errorHooks)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("serve: %v", err)
 	}

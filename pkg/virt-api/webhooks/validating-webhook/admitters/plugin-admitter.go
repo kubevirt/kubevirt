@@ -32,11 +32,11 @@ import (
 	"kubevirt.io/api/plugin"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
-	nodecelutil "kubevirt.io/kubevirt/pkg/plugins/cel"
+	plugincel "kubevirt.io/kubevirt/pkg/plugins/cel"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	celutil "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel"
+	launchercel "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel"
 )
 
 type PluginAdmitter struct {
@@ -81,38 +81,41 @@ func (admitter *PluginAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 }
 
 func validatePlugin(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
-	var causes []metav1.StatusCause
+	return validatePluginCEL(p)
+}
+
+func validatePluginCEL(p *pluginv1alpha1.Plugin) []metav1.StatusCause {
+	if !hasCELExpressions(p) {
+		return nil
+	}
+
 	specPath := field.NewPath("spec")
+	conditionEval, err := plugincel.GetEvaluator()
+	if err != nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("failed to create VMI condition evaluator: %s", err),
+			Field:   specPath.String(),
+		}}
+	}
 
-	if hasCELExpressions(p) {
-		eval := celutil.GetEvaluator()
-
-		if p.Spec.Condition != "" {
-			if err := eval.CompileCondition(p.Spec.Condition); err != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
-					Field:   specPath.Child("condition").String(),
-				})
-			}
-		}
-
-		for i, dh := range p.Spec.LauncherHooks {
-			causes = append(causes, validateLauncherHookCEL(eval, dh, specPath.Child("launcherHooks").Index(i))...)
-		}
-
-		nodeEval, err := nodecelutil.NewEvaluator()
-		if err != nil {
+	var causes []metav1.StatusCause
+	if p.Spec.Condition != "" {
+		if err := conditionEval.CompileCondition(p.Spec.Condition); err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("failed to create node hook CEL evaluator: %s", err),
-				Field:   specPath.Child("nodeHooks").String(),
+				Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
+				Field:   specPath.Child("condition").String(),
 			})
-		} else {
-			for i, nh := range p.Spec.NodeHooks {
-				causes = append(causes, validateNodeHookCEL(nodeEval, nh, specPath.Child("nodeHooks").Index(i))...)
-			}
 		}
+	}
+
+	for i, launcherHook := range p.Spec.LauncherHooks {
+		causes = append(causes, validateLauncherHookCEL(launchercel.GetEvaluator(), conditionEval, launcherHook, specPath.Child("launcherHooks").Index(i))...)
+	}
+
+	for i, nodeHook := range p.Spec.NodeHooks {
+		causes = append(causes, validateNodeHookCEL(conditionEval, nodeHook, specPath.Child("nodeHooks").Index(i))...)
 	}
 
 	return causes
@@ -122,33 +125,33 @@ func hasCELExpressions(p *pluginv1alpha1.Plugin) bool {
 	if p.Spec.Condition != "" {
 		return true
 	}
-	if slices.ContainsFunc(p.Spec.NodeHooks, func(nh pluginv1alpha1.NodeHook) bool { return nh.Condition != "" }) {
+	if slices.ContainsFunc(p.Spec.NodeHooks, func(nodeHook pluginv1alpha1.NodeHook) bool { return nodeHook.Condition != "" }) {
 		return true
 	}
-	return slices.ContainsFunc(p.Spec.LauncherHooks, func(dh pluginv1alpha1.LauncherHook) bool {
-		return (dh.CEL != nil && dh.CEL.Expression != "") || dh.Condition != ""
+	return slices.ContainsFunc(p.Spec.LauncherHooks, func(launcherHook pluginv1alpha1.LauncherHook) bool {
+		return (launcherHook.CEL != nil && launcherHook.CEL.Expression != "") || launcherHook.Condition != ""
 	})
 }
 
-func validateLauncherHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.LauncherHook, dhPath *field.Path) []metav1.StatusCause {
+func validateLauncherHookCEL(launcherEval *launchercel.Evaluator, conditionEval *plugincel.Evaluator, launcherHook pluginv1alpha1.LauncherHook, hookPath *field.Path) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	if dh.CEL != nil && dh.CEL.Expression != "" {
-		if err := eval.CompileMutation(dh.CEL.Expression); err != nil {
+	if launcherHook.CEL != nil && launcherHook.CEL.Expression != "" {
+		if err := launcherEval.CompileMutation(launcherHook.CEL.Expression); err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("invalid CEL mutation expression: %s", err),
-				Field:   dhPath.Child("cel", "expression").String(),
+				Field:   hookPath.Child("cel", "expression").String(),
 			})
 		}
 	}
 
-	if dh.Condition != "" {
-		if err := eval.CompileCondition(dh.Condition); err != nil {
+	if launcherHook.Condition != "" {
+		if err := conditionEval.CompileCondition(launcherHook.Condition); err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
-				Field:   dhPath.Child("condition").String(),
+				Field:   hookPath.Child("condition").String(),
 			})
 		}
 	}
@@ -156,15 +159,15 @@ func validateLauncherHookCEL(eval *celutil.Evaluator, dh pluginv1alpha1.Launcher
 	return causes
 }
 
-func validateNodeHookCEL(eval *nodecelutil.Evaluator, nh pluginv1alpha1.NodeHook, nhPath *field.Path) []metav1.StatusCause {
+func validateNodeHookCEL(eval *plugincel.Evaluator, nodeHook pluginv1alpha1.NodeHook, hookPath *field.Path) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	if nh.Condition != "" {
-		if err := eval.CompileCondition(nh.Condition); err != nil {
+	if nodeHook.Condition != "" {
+		if err := eval.CompileCondition(nodeHook.Condition); err != nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("invalid CEL condition expression: %s", err),
-				Field:   nhPath.Child("condition").String(),
+				Field:   hookPath.Child("condition").String(),
 			})
 		}
 	}
