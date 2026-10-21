@@ -81,7 +81,7 @@ var _ = Describe("Bridge DHCP configurator", func() {
 			}
 
 			mtu := 1410
-			link := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu}}
+			link := &netlink.GenericLink{Name: ifaceName, MTU: mtu}
 			mockHandler.EXPECT().LinkByName(virtnetlink.GenerateNewBridgedVmiInterfaceName(ifaceName)).Return(link, nil)
 
 			config, err := generator.Generate()

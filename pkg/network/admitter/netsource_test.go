@@ -39,12 +39,12 @@ var _ = Describe("Validate network source", func() {
 			libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          net1Name,
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: net1Name,
+				Pod:  &v1.PodNetwork{},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          net2Name,
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: net2Name,
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 
@@ -59,11 +59,9 @@ var _ = Describe("Validate network source", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "default1"},
-					Pod:    &v1.PodNetwork{},
-				},
+				Name:   "default",
+				Multus: &v1.MultusNetwork{NetworkName: "default1"},
+				Pod:    &v1.PodNetwork{},
 			}),
 		)
 
@@ -111,12 +109,10 @@ var _ = Describe("Validate network source", func() {
 				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
 				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
 				libvmi.WithNetwork(&v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						ResourceClaim: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "request1"},
-						Pod:           networkSource.Pod,
-						Multus:        networkSource.Multus,
-					},
+					Name:          "default",
+					ResourceClaim: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "request1"},
+					Pod:           networkSource.Pod,
+					Multus:        networkSource.Multus,
 				}),
 			)
 
@@ -147,16 +143,12 @@ var _ = Describe("Validate network source", func() {
 			libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
-				Name: net1Name,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
+				Name:   net1Name,
+				Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name: net2Name,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
-				},
+				Name:   net2Name,
+				Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
 			}),
 		)
 
@@ -174,14 +166,12 @@ var _ = Describe("Validate network source", func() {
 			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface(defaultMultusNetName, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "default",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "default",
+				Pod:  &v1.PodNetwork{},
 			}),
 			libvmi.WithNetwork(&v1.Network{
-				Name: defaultMultusNetName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
+				Name:   defaultMultusNetName,
+				Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
 			}),
 		)
 
@@ -198,10 +188,8 @@ var _ = Describe("Validate network source", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface("multus1", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
-				Name: "multus1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
+				Name:   "multus1",
+				Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
 			}),
 		)
 
@@ -226,7 +214,7 @@ var _ = Describe("Validate network source", func() {
 			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface("multus1", libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface("multus2", libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}),
+			libvmi.WithNetwork(&v1.Network{Name: "default", Pod: &v1.PodNetwork{}}),
 			libvmi.WithNetwork(libvmi.MultusNetwork("multus1", "multus-net1")),
 			libvmi.WithNetwork(libvmi.MultusNetwork("multus2", "multus-net2")),
 		)

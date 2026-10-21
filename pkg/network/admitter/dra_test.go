@@ -105,20 +105,16 @@ var _ = Describe("Validate network DRA", func() {
 		spec.Networks = []v1.Network{
 			{
 				Name: "dra-net-1",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
+				ResourceClaim: &v1.ClaimRequest{
+					ClaimName:   "claim1",
+					RequestName: "vf",
 				},
 			},
 			{
 				Name: "dra-net-2",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
+				ResourceClaim: &v1.ClaimRequest{
+					ClaimName:   "claim1",
+					RequestName: "vf",
 				},
 			},
 		}
@@ -146,8 +142,8 @@ var _ = Describe("Validate network DRA", func() {
 		}
 		spec.Networks = []v1.Network{
 			{
-				Name:          "multus-net",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "nad1"}},
+				Name:   "multus-net",
+				Multus: &v1.MultusNetwork{NetworkName: "nad1"},
 			},
 			spec.Networks[0],
 		}
@@ -170,20 +166,18 @@ var _ = Describe("Validate network DRA", func() {
 			causes := validator.Validate()
 			Expect(causes).To(ContainElement(HaveField("Message", `DRA network "dra-net" requires a binding plugin interface`)))
 		},
-		Entry("bridge", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}),
-		Entry("masquerade", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}),
-		Entry("SR-IOV", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
-		Entry("passtBinding", v1.Interface{InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}}}),
+		Entry("bridge", v1.Interface{Bridge: &v1.InterfaceBridge{}}),
+		Entry("masquerade", v1.Interface{Masquerade: &v1.InterfaceMasquerade{}}),
+		Entry("SR-IOV", v1.Interface{SRIOV: &v1.InterfaceSRIOV{}}),
+		Entry("passtBinding", v1.Interface{PasstBinding: &v1.InterfacePasstBinding{}}),
 	)
 
 	It("should accept DRA network with plugin interface binding", func() {
 		spec := newDRASpec()
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
-				Name: "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 			},
 			{
 				Name: "dra-net",
@@ -193,8 +187,8 @@ var _ = Describe("Validate network DRA", func() {
 			},
 		}
 		spec.Networks = append(spec.Networks, v1.Network{
-			Name:          "default",
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			Name: "default",
+			Pod:  &v1.PodNetwork{},
 		})
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{networkDRAEnabled: true})
@@ -231,11 +225,9 @@ func newDRASpec() *v1.VirtualMachineInstanceSpec {
 		Networks: []v1.Network{
 			{
 				Name: "dra-net",
-				NetworkSource: v1.NetworkSource{
-					ResourceClaim: &v1.ClaimRequest{
-						ClaimName:   "claim1",
-						RequestName: "vf",
-					},
+				ResourceClaim: &v1.ClaimRequest{
+					ClaimName:   "claim1",
+					RequestName: "vf",
 				},
 			},
 		},

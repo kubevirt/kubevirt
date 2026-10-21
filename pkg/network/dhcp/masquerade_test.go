@@ -111,7 +111,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 
 		BeforeEach(func() {
 			vmiSpecNetwork = v1.DefaultPodNetwork()
-			vmiSpecIface = &v1.Interface{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			vmiSpecIface = &v1.Interface{Name: "default", Masquerade: &v1.InterfaceMasquerade{}}
 			ifaceName = "eth0"
 			subdomain = "subdomain"
 
@@ -124,7 +124,7 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 			}
 
 			mtu = 1410
-			iface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: ifaceName, MTU: mtu}}
+			iface = &netlink.GenericLink{Name: ifaceName, MTU: mtu}
 		})
 		BeforeEach(func() {
 			mockHandler.EXPECT().LinkByName(ifaceName).Return(iface, nil)

@@ -9,6 +9,7 @@ go_library(
     srcs = [
         "bindings.go",
         "comprehensions.go",
+        "costs.go",
         "encoders.go",
         "extension_option_factory.go",
         "formatting.go",
@@ -17,6 +18,7 @@ go_library(
         "lists.go",
         "math.go",
         "native.go",
+        "network.go",
         "protos.go",
         "regex.go",
         "sets.go",
@@ -42,6 +44,7 @@ go_library(
         "//vendor/github.com/google/cel-go/parser:go_default_library",
         "//vendor/golang.org/x/text/language:go_default_library",
         "//vendor/golang.org/x/text/message:go_default_library",
+        "//vendor/google.golang.org/protobuf/encoding/protojson:go_default_library",
         "//vendor/google.golang.org/protobuf/proto:go_default_library",
         "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
         "//vendor/google.golang.org/protobuf/types/known/structpb:go_default_library",

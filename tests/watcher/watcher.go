@@ -156,7 +156,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 			if event.Type == string(WarningEvent) {
 				log.Log.With(objectRefOption(&event.InvolvedObject)).Reason(fmt.Errorf("warning event received")).Error(event.Message)
 			} else {
-				log.Log.With(objectRefOption(&event.InvolvedObject)).Infof(event.Message)
+				log.Log.With(objectRefOption(&event.InvolvedObject)).Info(event.Message)
 			}
 			return processFunc(event)
 		}

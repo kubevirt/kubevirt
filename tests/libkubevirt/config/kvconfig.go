@@ -151,7 +151,8 @@ func WaitForConfigToBePropagatedToComponent(podLabel, resourceVersion string, co
 
 	EventuallyWithOffset(3, func() error {
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
-			context.Background(), metav1.ListOptions{LabelSelector: podLabel})
+			context.Background(), metav1.ListOptions{LabelSelector: podLabel},
+		)
 		if err != nil {
 			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
 		}
@@ -198,7 +199,8 @@ func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
 	client := &http.Client{Transport: tr}
 	req, err := http.NewRequestWithContext(
 		context.Background(), "GET",
-		fmt.Sprintf("https://localhost:%d/%s", localPort, strings.TrimSuffix(url, "/")), http.NoBody)
+		fmt.Sprintf("https://localhost:%d/%s", localPort, strings.TrimSuffix(url, "/")), http.NoBody,
+	)
 	if err != nil {
 		return nil, err
 	}

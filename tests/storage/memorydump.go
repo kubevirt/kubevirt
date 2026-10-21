@@ -149,7 +149,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			}
 
 			if updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
-				return fmt.Errorf(fmt.Sprintf(waitMemoryDumpCompletion, updatedVM.Status.MemoryDumpRequest.Phase))
+				return fmt.Errorf(waitMemoryDumpCompletion, updatedVM.Status.MemoryDumpRequest.Phase)
 			}
 
 			foundPvc := false
@@ -384,7 +384,7 @@ var _ = Describe(SIG("Memory dump", func() {
 					return err
 				}
 				if updatedVM.Status.MemoryDumpRequest == nil || updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpInProgress {
-					return fmt.Errorf(fmt.Sprintf(waitMemoryDumpInProgress, updatedVM.Status.MemoryDumpRequest.Phase))
+					return fmt.Errorf(waitMemoryDumpInProgress, updatedVM.Status.MemoryDumpRequest.Phase)
 				}
 
 				return nil

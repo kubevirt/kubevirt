@@ -305,11 +305,13 @@ func waitForVirtTemplateCurvePreferencesRollout() {
 	for _, name := range []string{"virt-template-apiserver", "virt-template-controller"} {
 		Eventually(func(g Gomega) {
 			dep, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
-				context.Background(), name, metav1.GetOptions{})
+				context.Background(), name, metav1.GetOptions{},
+			)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(
 				ContainElement("--tls-curve-preferences"),
-				"operator has not injected --tls-curve-preferences into %s yet", name)
+				"operator has not injected --tls-curve-preferences into %s yet", name,
+			)
 			g.Expect(dep.Status.UpdatedReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.AvailableReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.Replicas).To(Equal(*dep.Spec.Replicas))

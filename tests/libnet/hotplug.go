@@ -62,7 +62,8 @@ func VerifyDynamicInterfaceChange(
 		Should(
 			ConsistOf(
 				interfaceStatusFromInterfaces(queueCount, nonAbsentSecondaryIfaces),
-			))
+			),
+		)
 
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -80,11 +81,12 @@ func WaitForSingleHotPlugIfaceOnVMISpec(vmi *v1.VirtualMachineInstance, ifaceNam
 			*v1.DefaultPodNetwork(),
 			v1.Network{
 				Name: ifaceName,
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
+				Multus: &v1.MultusNetwork{
 					NetworkName: nadName,
-				}},
+				},
 			},
-		))
+		),
+	)
 	return vmi
 }
 
@@ -133,7 +135,8 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 			Name: iface.Name,
 			InfoSource: vmispec.NewInfoSource(
-				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus,
+			),
 			QueueCount:       queueCount,
 			PodInterfaceName: namescheme.GenerateHashedInterfaceName(iface.Name),
 		}

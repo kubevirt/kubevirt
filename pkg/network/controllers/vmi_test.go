@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8scorev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -182,11 +181,9 @@ var _ = Describe("Status Update", func() {
 				libvmi.WithInterface(libvmi.NewInterface(alternativeNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(&v1.Network{
 					Name: alternativeNetworkName,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{
-							NetworkName: alternativeNetworkAttachmentDefinitionName,
-							Default:     true,
-						},
+					Multus: &v1.MultusNetwork{
+						NetworkName: alternativeNetworkAttachmentDefinitionName,
+						Default:     true,
 					},
 				}),
 			)
@@ -226,11 +223,9 @@ var _ = Describe("Status Update", func() {
 			libvmi.WithInterface(libvmi.NewInterface(alternativeNetworkName, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(&v1.Network{
 				Name: alternativeNetworkName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: alternativeNetworkAttachmentDefinitionName,
-						Default:     true,
-					},
+				Multus: &v1.MultusNetwork{
+					NetworkName: alternativeNetworkAttachmentDefinitionName,
+					Default:     true,
 				},
 			}),
 			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
@@ -540,11 +535,9 @@ var _ = Describe("Status Update", func() {
 
 func newPodFromVMI(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8scorev1.Pod {
 	return &k8scorev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "virt-launcher-" + vmi.Name,
-			Namespace:   vmi.Namespace,
-			Annotations: annotations,
-		},
+		Name:        "virt-launcher-" + vmi.Name,
+		Namespace:   vmi.Namespace,
+		Annotations: annotations,
 	}
 }
 

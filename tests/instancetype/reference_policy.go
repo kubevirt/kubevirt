@@ -47,7 +47,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(vmi)).Create(
-				context.Background(), instancetype, metav1.CreateOptions{})
+				context.Background(), instancetype, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			preference := builder.NewPreference(
@@ -55,7 +56,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				builder.WithPreferredCPUTopology(v1beta1.Cores),
 			)
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(vmi)).Create(
-				context.Background(), preference, metav1.CreateOptions{})
+				context.Background(), preference, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := libvmi.NewVirtualMachine(
@@ -65,7 +67,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(
-				context.Background(), vm, metav1.CreateOptions{})
+				context.Background(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VM to be ready")

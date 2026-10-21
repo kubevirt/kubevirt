@@ -50,9 +50,7 @@ var _ = Describe("Heartbeat", func() {
 
 	BeforeEach(func() {
 		node = &v1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "mynode",
-			},
+			Name: "mynode",
 		}
 		fakeClient = fake.NewSimpleClientset(node)
 	})

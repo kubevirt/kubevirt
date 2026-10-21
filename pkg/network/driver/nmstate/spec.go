@@ -86,8 +86,7 @@ func (n NMState) readLink(iface Interface) (vishnetlink.Link, error) {
 		link, err = n.adapter.LinkByName(iface.Name)
 	}
 	if err != nil {
-		var errNotFound vishnetlink.LinkNotFoundError
-		if !errors.As(err, &errNotFound) {
+		if _, ok := errors.AsType[vishnetlink.LinkNotFoundError](err); !ok {
 			return nil, fmt.Errorf("failed reading link [%s]: %w", iface.Name, err)
 		}
 		return nil, nil
@@ -195,8 +194,8 @@ func (n NMState) setupInterface(iface Interface, link vishnetlink.Link) error {
 	}
 
 	if iface.Controller != "" {
-		bridgeLink := vishnetlink.Bridge{}
-		bridgeLink.Name = iface.Controller
+		bridgeLink := vishnetlink.Bridge{
+			Name: iface.Controller}
 		if err := n.adapter.LinkSetMaster(link, &bridgeLink); err != nil {
 			return err
 		}

@@ -254,8 +254,8 @@ var _ = Describe("Migration watcher", func() {
 		)
 
 		namespace = k8sv1.Namespace{
-			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
-			ObjectMeta: metav1.ObjectMeta{Name: metav1.NamespaceDefault},
+			Kind: "Namespace",
+			Name: metav1.NamespaceDefault,
 		}
 
 		// Set up mock client
@@ -1098,10 +1098,8 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
-					Name: "test-utility-volume",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-pvc",
-					},
+					Name:      "test-utility-volume",
+					ClaimName: "test-pvc",
 				},
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -1144,10 +1142,8 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
-					Name: "test-utility-volume",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-pvc",
-					},
+					Name:      "test-utility-volume",
+					ClaimName: "test-pvc",
 				},
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -1169,10 +1165,8 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
-					Name: "test-utility-volume",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-pvc",
-					},
+					Name:      "test-utility-volume",
+					ClaimName: "test-pvc",
 				},
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
@@ -1373,12 +1367,10 @@ var _ = Describe("Migration watcher", func() {
 	Context("Migration garbage collection", func() {
 		createPod := func(name, ns string) {
 			pod := k8sv1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: ns,
-				},
-				Spec:   k8sv1.PodSpec{},
-				Status: k8sv1.PodStatus{},
+				Name:      name,
+				Namespace: ns,
+				Spec:      k8sv1.PodSpec{},
+				Status:    k8sv1.PodStatus{},
 			}
 			_, err := kubeClient.CoreV1().Pods(ns).Create(context.Background(), &pod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -2644,10 +2636,8 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				SourceNode: nodeName,
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:           nodeName,
-						SelinuxContext: "none",
-					},
+					Node:           nodeName,
+					SelinuxContext: "none",
 					NodeSelectors: map[string]string{
 						intelVendorLabel: "true",
 					},
@@ -3075,10 +3065,10 @@ var _ = Describe("Migration watcher", func() {
 	Context("handleBackendStorage decentralized migrations", func() {
 		setupVMStateStorageClass := func() {
 			sc := &storagev1.StorageClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "testsc123"},
+				Name: "testsc123",
 			}
 			sp := &cdiv1.StorageProfile{
-				ObjectMeta: metav1.ObjectMeta{Name: sc.Name},
+				Name: sc.Name,
 				Spec: cdiv1.StorageProfileSpec{
 					ClaimPropertySets: []cdiv1.ClaimPropertySet{
 						{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
@@ -3244,15 +3234,13 @@ var _ = Describe("Migration watcher", func() {
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
 
 	migration := &v1.VirtualMachineInstanceMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: k8sv1.NamespaceDefault,
-			Annotations: map[string]string{
-				v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
-				v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
-			},
-			CreationTimestamp: metav1.Now(),
+		Name:      name,
+		Namespace: k8sv1.NamespaceDefault,
+		Annotations: map[string]string{
+			v1.ControllerAPILatestVersionObservedAnnotation:  v1.ApiLatestVersion,
+			v1.ControllerAPIStorageVersionObservedAnnotation: v1.ApiStorageVersion,
 		},
+		CreationTimestamp: metav1.Now(),
 		Spec: v1.VirtualMachineInstanceMigrationSpec{
 			VMIName: vmiName,
 		},
@@ -3317,15 +3305,11 @@ func newReceiverVirtualMachine(name string, phase v1.VirtualMachineInstancePhase
 	vmi := newVirtualMachine(name, phase)
 	vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 		TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-				MigrationUID: types.UID(migrationUID),
-			},
+			MigrationUID: types.UID(migrationUID),
 		},
 		SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-				Node:           "testnode",
-				SelinuxContext: "none",
-			},
+			Node:           "testnode",
+			SelinuxContext: "none",
 		},
 	}
 	return vmi
@@ -3348,18 +3332,16 @@ func newVirtualMachineWithHotplugVolume(name string, phase v1.VirtualMachineInst
 
 func newSourcePodForVirtualMachine(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rand.String(10),
-			Namespace: vmi.Namespace,
-			Labels: map[string]string{
-				v1.AppLabel:       "virt-launcher",
-				v1.CreatedByLabel: string(vmi.UID),
-			},
-			Annotations: map[string]string{
-				v1.DomainAnnotation: vmi.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
+		Name:      rand.String(10),
+		Namespace: vmi.Namespace,
+		Labels: map[string]string{
+			v1.AppLabel:       "virt-launcher",
+			v1.CreatedByLabel: string(vmi.UID),
 		},
+		Annotations: map[string]string{
+			v1.DomainAnnotation: vmi.Name,
+		},
+		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
 		Status: k8sv1.PodStatus{
 			Phase: k8sv1.PodRunning,
 			ContainerStatuses: []k8sv1.ContainerStatus{
@@ -3375,20 +3357,18 @@ func newSourcePodForVirtualMachine(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
 
 func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rand.String(10),
-			Namespace: vmi.Namespace,
-			Labels: map[string]string{
-				v1.AppLabel:          "virt-launcher",
-				v1.CreatedByLabel:    string(vmi.UID),
-				v1.MigrationJobLabel: string(migration.UID),
-			},
-			Annotations: map[string]string{
-				v1.DomainAnnotation:           vmi.Name,
-				v1.MigrationJobNameAnnotation: migration.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
+		Name:      rand.String(10),
+		Namespace: vmi.Namespace,
+		Labels: map[string]string{
+			v1.AppLabel:          "virt-launcher",
+			v1.CreatedByLabel:    string(vmi.UID),
+			v1.MigrationJobLabel: string(migration.UID),
 		},
+		Annotations: map[string]string{
+			v1.DomainAnnotation:           vmi.Name,
+			v1.MigrationJobNameAnnotation: migration.Name,
+		},
+		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
@@ -3400,24 +3380,22 @@ func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1
 
 func newAttachmentPodForVirtualMachine(ownerPod *k8sv1.Pod, migration *v1.VirtualMachineInstanceMigration, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rand.String(10),
-			Namespace: ownerPod.Namespace,
-			UID:       "test-uid",
-			Labels: map[string]string{
-				v1.AppLabel:          "hotplug-disk",
-				v1.MigrationJobLabel: string(migration.UID),
-			},
-			Annotations: map[string]string{
-				v1.MigrationJobNameAnnotation: migration.Name,
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
-					Group:   k8sv1.SchemeGroupVersion.Group,
-					Version: k8sv1.SchemeGroupVersion.Version,
-					Kind:    "Pod",
-				}),
-			},
+		Name:      rand.String(10),
+		Namespace: ownerPod.Namespace,
+		UID:       "test-uid",
+		Labels: map[string]string{
+			v1.AppLabel:          "hotplug-disk",
+			v1.MigrationJobLabel: string(migration.UID),
+		},
+		Annotations: map[string]string{
+			v1.MigrationJobNameAnnotation: migration.Name,
+		},
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
+				Group:   k8sv1.SchemeGroupVersion.Group,
+				Version: k8sv1.SchemeGroupVersion.Version,
+				Kind:    "Pod",
+			}),
 		},
 		Status: k8sv1.PodStatus{
 			Phase: phase,
@@ -3430,13 +3408,9 @@ func newAttachmentPodForVirtualMachine(ownerPod *k8sv1.Pod, migration *v1.Virtua
 
 func newNode(name string) *k8sv1.Node {
 	node := &k8sv1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Node",
-			APIVersion: v1.GroupVersion.String(),
-		},
+		Name:       name,
+		Kind:       "Node",
+		APIVersion: v1.GroupVersion.String(),
 	}
 
 	node.Status.Phase = k8sv1.NodeRunning
