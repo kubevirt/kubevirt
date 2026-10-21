@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,19 @@ import (
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
+
+// stubMigrationTunnelServer is a minimal Synchronize_MigrationTunnelServer for
+// unit tests that only need Recv() to return a fixed OPEN frame.
+type stubMigrationTunnelServer struct {
+	grpc.ServerStream
+	openFrame *syncv1.MigrationFrame
+}
+
+func (s *stubMigrationTunnelServer) Send(*syncv1.MigrationFrame) error { return nil }
+
+func (s *stubMigrationTunnelServer) Recv() (*syncv1.MigrationFrame, error) {
+	return s.openFrame, nil
+}
 
 const (
 	testMigrationID         = "testMigrationID"
@@ -215,6 +229,22 @@ var _ = Describe("VMI status synchronization controller", func() {
 		It("should leave the tunnel uninitialized when Proxy is disabled", func() {
 			// Uses the suite BeforeEach controller, created with a nil ProxyInitConfig.
 			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
+
+		It("should reject MigrationTunnel when the tunnel manager is nil (Direct mode)", func() {
+			// Suite BeforeEach builds the controller with a nil ProxyInitConfig, so
+			// tunnelManager stays nil. An inbound MigrationTunnel RPC must fail fast.
+			Expect(controller.tunnelManager).To(BeNil())
+
+			stream := &stubMigrationTunnelServer{
+				openFrame: &syncv1.MigrationFrame{
+					MigrationId: testMigrationID,
+					ChannelId:   1,
+					FrameType:   syncv1.FrameType_FRAME_TYPE_OPEN,
+				},
+			}
+			err := controller.MigrationTunnel(stream)
+			Expect(err).To(MatchError(ContainSubstring("tunnel manager not initialized")))
 		})
 
 		It("should initialize the tunnel on the pod IP when Proxy is enabled without required NADs", func() {
