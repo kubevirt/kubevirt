@@ -139,6 +139,64 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 	})
 
+	DescribeTable("ContainerPath feature gate on VM admission", func(operation admissionv1.Operation, enabled, previouslyUsed, useContainerPath, addAnother, allowed bool) {
+		disableFeatureGates()
+		DeferCleanup(disableFeatureGates)
+		if enabled {
+			enableFeatureGate(featuregate.ContainerPathVolumesGate)
+		}
+		vm := &v1.VirtualMachine{Spec: v1.VirtualMachineSpec{
+			RunStrategy: pointer.P(v1.RunStrategyHalted),
+			Template:    &v1.VirtualMachineInstanceTemplateSpec{Spec: newBaseVmi().Spec},
+		}}
+		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
+			ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"},
+		}}
+		filesystem := v1.Filesystem{Name: "containerpath", Virtiofs: &v1.FilesystemVirtiofs{}}
+		oldVM := vm.DeepCopy()
+		if previouslyUsed {
+			oldVM.Spec.Template.Spec.Volumes = append(oldVM.Spec.Template.Spec.Volumes, volume)
+			oldVM.Spec.Template.Spec.Domain.Devices.Filesystems = append(oldVM.Spec.Template.Spec.Domain.Devices.Filesystems, filesystem)
+		}
+		if useContainerPath {
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+			vm.Spec.Template.Spec.Domain.Devices.Filesystems = append(vm.Spec.Template.Spec.Domain.Devices.Filesystems, filesystem)
+		}
+		if addAnother {
+			additionalVolume := volume
+			additionalVolume.Name = "another-containerpath"
+			additionalFilesystem := filesystem
+			additionalFilesystem.Name = additionalVolume.Name
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, additionalVolume)
+			vm.Spec.Template.Spec.Domain.Devices.Filesystems = append(vm.Spec.Template.Spec.Domain.Devices.Filesystems, additionalFilesystem)
+		}
+		newBytes, err := json.Marshal(vm)
+		Expect(err).ToNot(HaveOccurred())
+		oldBytes, err := json.Marshal(oldVM)
+		Expect(err).ToNot(HaveOccurred())
+		resp := vmsAdmitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+			Resource:  webhooks.VirtualMachineGroupVersionResource,
+			Operation: operation,
+			Object:    runtime.RawExtension{Raw: newBytes},
+			OldObject: runtime.RawExtension{Raw: oldBytes},
+		}})
+		Expect(resp.Allowed).To(Equal(allowed), "%+v", resp.Result)
+		if !allowed {
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.volumes[0].containerPath"))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("ContainerPathVolumes feature gate"))
+		}
+	},
+		Entry("rejects creation when disabled", admissionv1.Create, false, false, true, false, false),
+		Entry("allows creation when enabled", admissionv1.Create, true, false, true, false, true),
+		Entry("rejects introducing usage when disabled", admissionv1.Update, false, false, true, false, false),
+		Entry("allows introducing usage when enabled", admissionv1.Update, true, false, true, false, true),
+		Entry("allows existing usage after disabling", admissionv1.Update, false, true, true, false, true),
+		Entry("allows removing usage after disabling", admissionv1.Update, false, true, false, false, true),
+		Entry("allows unrelated updates when disabled", admissionv1.Update, false, false, false, false, true),
+		Entry("allows adding another volume to an existing user after disabling", admissionv1.Update, false, true, true, true, true),
+	)
+
 	Context("with an invalid VM", func() {
 		It("should reject the request with unrecognized field", func() {
 			vmi := api.NewMinimalVMI("testvmi")

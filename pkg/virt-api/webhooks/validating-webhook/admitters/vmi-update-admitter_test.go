@@ -77,6 +77,38 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	DescribeTable("ContainerPath feature gate on VMI update", func(previouslyUsed, allowed bool) {
+		oldVMI := newBaseVmi()
+		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
+			ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"},
+		}}
+		if previouslyUsed {
+			oldVMI.Spec.Volumes = append(oldVMI.Spec.Volumes, volume)
+		}
+		newVMI := oldVMI.DeepCopy()
+		if !previouslyUsed {
+			newVMI.Spec.Volumes = append(newVMI.Spec.Volumes, volume)
+		}
+		newBytes, err := json.Marshal(newVMI)
+		Expect(err).ToNot(HaveOccurred())
+		oldBytes, err := json.Marshal(oldVMI)
+		Expect(err).ToNot(HaveOccurred())
+		resp := vmiUpdateAdmitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+			Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
+			Operation: admissionv1.Update,
+			Object:    runtime.RawExtension{Raw: newBytes},
+			OldObject: runtime.RawExtension{Raw: oldBytes},
+		}})
+		Expect(resp.Allowed).To(Equal(allowed))
+		if !allowed {
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("ContainerPathVolumes feature gate"))
+		}
+	},
+		Entry("allows metadata updates after disabling", true, true),
+		Entry("rejects introducing usage when disabled", false, false),
+	)
+
 	Context("Node restriction", func() {
 		mustMarshal := func(vmi *v1.VirtualMachineInstance) []byte {
 			b, err := json.Marshal(vmi)
