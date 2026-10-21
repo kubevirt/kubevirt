@@ -1131,6 +1131,172 @@ var _ = Describe("netstat", func() {
 		}), "primary and secondary ifaces should exist in status, where secondary iface have multus-status only")
 	})
 
+	It("run status and preserve the pod-status info source set by the virt-controller", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+		)
+
+		setup.NetStat = netsetup.NewNetStateWithCustomFactory(stubClusterConfigProvider{draEnabled: true}, setup.cacheCreator)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			),
+		).To(Succeed())
+
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecMultusNetwork(secondaryNetworkName))
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, primaryIfaceName),
+		)
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkName, InfoSource: netvmispec.InfoSourcePodStatus},
+			{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourcePodStatus},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		infoSourceDomainGAPod := netvmispec.NewInfoSource(
+			netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourcePodStatus)
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          primaryNetworkName,
+				InterfaceName: primaryIfaceName,
+				IP:            primaryPodIPv4,
+				IPs:           []string{primaryPodIPv4, primaryPodIPv6},
+				MAC:           primaryMAC,
+				InfoSource:    infoSourceDomainGAPod,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+			{
+				Name:       secondaryNetworkName,
+				InfoSource: netvmispec.InfoSourcePodStatus,
+				QueueCount: 0,
+			},
+		}), "pod-status should be preserved on the attached primary iface and carried to the spec-only secondary iface")
+	})
+
+	It("run status and preserve both the multus-status and pod-status info sources on the same interface", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+		)
+
+		setup.NetStat = netsetup.NewNetStateWithCustomFactory(stubClusterConfigProvider{draEnabled: true}, setup.cacheCreator)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			),
+		).To(Succeed())
+
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecMultusNetwork(secondaryNetworkName))
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, primaryIfaceName),
+		)
+		multusAndPodStatus := netvmispec.NewInfoSource(netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkName, InfoSource: multusAndPodStatus},
+			{Name: secondaryNetworkName, InfoSource: multusAndPodStatus},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		infoSourceAll := netvmispec.NewInfoSource(
+			netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent,
+			netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          primaryNetworkName,
+				InterfaceName: primaryIfaceName,
+				IP:            primaryPodIPv4,
+				IPs:           []string{primaryPodIPv4, primaryPodIPv6},
+				MAC:           primaryMAC,
+				InfoSource:    infoSourceAll,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+			{
+				Name:       secondaryNetworkName,
+				InfoSource: multusAndPodStatus,
+				QueueCount: 0,
+			},
+		}), "both multus-status and pod-status should be preserved on the same interface")
+	})
+
+	It("run status and drop the pod-status info source when the feature gate is disabled", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryPodIPv4     = "1.1.1.1"
+			primaryPodIPv6     = "fd10:244::8c4c"
+			primaryMAC         = "1C:CE:C0:01:BE:E7"
+			primaryIfaceName   = "eth0"
+
+			secondaryNetworkName = "secondary"
+		)
+
+		setup.NetStat = netsetup.NewNetStateWithCustomFactory(stubClusterConfigProvider{draEnabled: false}, setup.cacheCreator)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4, primaryPodIPv6,
+			),
+		).To(Succeed())
+
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces,
+			newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecMultusNetwork(secondaryNetworkName))
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryPodIPv4, primaryPodIPv6}, primaryMAC, primaryIfaceName),
+		)
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryNetworkName, InfoSource: netvmispec.InfoSourcePodStatus},
+			{Name: secondaryNetworkName, InfoSource: netvmispec.InfoSourcePodStatus},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          primaryNetworkName,
+				InterfaceName: primaryIfaceName,
+				IP:            primaryPodIPv4,
+				IPs:           []string{primaryPodIPv4, primaryPodIPv6},
+				MAC:           primaryMAC,
+				InfoSource:    netvmispec.InfoSourceDomainAndGA,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+		}), "pod-status should not be preserved and the spec-only secondary iface should not be reported when the gate is disabled")
+	})
+
 	It("run status and expect iface that doesn't exist in VMI spec to NOT be reported", func() {
 		const (
 			primaryNetworkName = "primary"
@@ -1383,7 +1549,7 @@ func newTestSetup() testSetup {
 	return testSetup{
 		Vmi:           vmi,
 		Domain:        &api.Domain{},
-		NetStat:       netsetup.NewNetStateWithCustomFactory(&cacheCreator),
+		NetStat:       netsetup.NewNetStateWithCustomFactory(stubClusterConfigProvider{draEnabled: false}, &cacheCreator),
 		cacheCreator:  &cacheCreator,
 		podIfaceCache: cache.NewPodInterfaceCache(&cacheCreator, uid),
 	}
@@ -1528,4 +1694,12 @@ func newVMISpecMultusNetwork(name string) v1.Network {
 				NetworkName: "test.network",
 			}},
 	}
+}
+
+type stubClusterConfigProvider struct {
+	draEnabled bool
+}
+
+func (s stubClusterConfigProvider) NetworkDevicesWithDRAGateEnabled() bool {
+	return s.draEnabled
 }
