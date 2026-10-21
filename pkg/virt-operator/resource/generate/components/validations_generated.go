@@ -9325,12 +9325,8 @@ var CRDsValidation map[string]string = map[string]string{
                     will be made available to the domain which consumes them
                     by name.
 
-                    This is an alpha field and requires enabling the
-                    DynamicResourceAllocation feature gate in kubernetes
-                     https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
                     This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
                     or NetworkDevicesWithDRA is enabled.
-                    This feature is in alpha.
                   items:
                     properties:
                       name:
@@ -15600,12 +15596,8 @@ var CRDsValidation map[string]string = map[string]string{
             will be made available to the domain which consumes them
             by name.
 
-            This is an alpha field and requires enabling the
-            DynamicResourceAllocation feature gate in kubernetes
-             https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
             This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
             or NetworkDevicesWithDRA is enabled.
-            This feature is in alpha.
           items:
             properties:
               name:
@@ -22444,12 +22436,8 @@ var CRDsValidation map[string]string = map[string]string{
                     will be made available to the domain which consumes them
                     by name.
 
-                    This is an alpha field and requires enabling the
-                    DynamicResourceAllocation feature gate in kubernetes
-                     https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
                     This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
                     or NetworkDevicesWithDRA is enabled.
-                    This feature is in alpha.
                   items:
                     properties:
                       name:
@@ -27661,12 +27649,8 @@ var CRDsValidation map[string]string = map[string]string{
                             will be made available to the domain which consumes them
                             by name.
 
-                            This is an alpha field and requires enabling the
-                            DynamicResourceAllocation feature gate in kubernetes
-                             https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
                             This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
                             or NetworkDevicesWithDRA is enabled.
-                            This feature is in alpha.
                           items:
                             properties:
                               name:
@@ -33371,12 +33355,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 will be made available to the domain which consumes them
                                 by name.
 
-                                This is an alpha field and requires enabling the
-                                DynamicResourceAllocation feature gate in kubernetes
-                                 https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
                                 This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
                                 or NetworkDevicesWithDRA is enabled.
-                                This feature is in alpha.
                               items:
                                 properties:
                                   name:

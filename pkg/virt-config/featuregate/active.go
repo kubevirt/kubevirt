@@ -109,6 +109,7 @@ const (
 
 	// Owner: SIG network
 	// Alpha: v1.9.0
+	// Beta: v1.10.0
 	//
 	// NetworkDevicesWithDRAGate allows users to create VMIs with DRA provisioned Network devices
 	// specified in spec.networks with resourceClaim type. This enables DRA-managed network
@@ -317,7 +318,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PCINUMAAwareTopologyEnabled, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: CrossClusterMigrationProxy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})

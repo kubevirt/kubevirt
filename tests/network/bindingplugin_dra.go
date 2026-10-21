@@ -26,9 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/tests/libnet"
-
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -36,13 +33,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -76,10 +72,6 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 	BeforeEach(func() {
 		libnet.SkipWhenClusterNotSupportIpv4()
-		config.EnableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
-	})
-
-	BeforeEach(func() {
 		sidecarImage := libregistry.GetUtilityImageFromRegistry("test-network-vhostuser-dra-binding")
 		err := config.RegisterKubevirtConfigChange(
 			config.WithNetBindingPluginIfNotPresent(bindingName, v1.InterfaceBindingPlugin{
