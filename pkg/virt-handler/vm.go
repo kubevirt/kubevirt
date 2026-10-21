@@ -756,10 +756,12 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
-func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
-	if !c.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+func updateSoftwareEmulationCondition(config *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if !config.CrossArchitectureVirtualizationEnabled() {
 		return
 	}
+
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	isCrossArchEmulation := domain != nil && domain.Spec.Type == "qemu" &&
 		vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH
@@ -767,7 +769,7 @@ func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.Virt
 	if isCrossArchEmulation {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
 			now := metav1.Now()
-			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 				Type:               v1.VirtualMachineInstanceSoftwareEmulation,
 				Status:             k8sv1.ConditionTrue,
 				LastProbeTime:      now,
@@ -776,9 +778,9 @@ func (c *VirtualMachineController) updateSoftwareEmulationCondition(vmi *v1.Virt
 				Message:            fmt.Sprintf("VM running with software emulation (host=%s, guest=%s)", runtime.GOARCH, vmi.Spec.Architecture),
 			})
 		}
-	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation) {
-		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
+		return
 	}
+	condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)
 }
 
 func dumpTargetFile(vmiName, volName string) string {
@@ -967,7 +969,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
-	c.updateBackupStatus(vmi, domain)
+	updateBackupStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
@@ -987,7 +989,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
-	c.updateSoftwareEmulationCondition(vmi, domain, condManager)
+	updateSoftwareEmulationCondition(c.clusterConfig, vmi, domain)
 
 	return nil
 }
@@ -2042,7 +2044,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}
-		if msg, ok := c.detectDiskWriteLockError(err, vmi); ok {
+		if msg, ok := detectDiskWriteLockError(err, vmi); ok {
 			return fmt.Errorf("%s", msg)
 		}
 	}
@@ -2050,7 +2052,7 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	return err
 }
 
-func (c *VirtualMachineController) detectDiskWriteLockError(err error, vmi *v1.VirtualMachineInstance) (string, bool) {
+func detectDiskWriteLockError(err error, vmi *v1.VirtualMachineInstance) (string, bool) {
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, `Failed to get "write" lock`) &&
 		!strings.Contains(errMsg, "Is another process using the image") {
@@ -2399,7 +2401,7 @@ func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
 	return nil
 }
 
-func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+func updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Backup == nil ||
 		vmi.Status.ChangedBlockTracking == nil ||

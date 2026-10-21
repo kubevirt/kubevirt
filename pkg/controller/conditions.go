@@ -19,6 +19,8 @@
 package controller
 
 import (
+	"slices"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -190,14 +192,9 @@ func (d *VirtualMachineInstanceConditionManager) HasConditionWithStatusAndReason
 }
 
 func (d *VirtualMachineInstanceConditionManager) RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
-	var conds []v1.VirtualMachineInstanceCondition
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vmi.Status.Conditions = conds
+	vmi.Status.Conditions = slices.DeleteFunc(vmi.Status.Conditions, func(condition v1.VirtualMachineInstanceCondition) bool {
+		return condition.Type == cond
+	})
 }
 
 // UpdateCondition updates the given VirtualMachineInstanceCondition, unless it is already set with the same status and reason.
