@@ -382,7 +382,14 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 			log.Log.V(2).Infof("failed to create configMap %s: %+v", configMap.Name, configMap)
 			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
-	} else if !isExternalCAConfigMapCleared(obj.(*corev1.ConfigMap), version, imageRegistry, id, r.kv.GetGeneration()) {
+	} else {
+		existing := obj.(*corev1.ConfigMap)
+		modified := resourcemerge.BoolPtr(false)
+		resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+		if !*modified && isExternalCABundleCleared(existing) {
+			log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+			return nil
+		}
 		_, err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
 			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap)
@@ -392,16 +399,15 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	return nil
 }
 
-// isExternalCAConfigMapCleared reports whether the external CA config map is
-// already in the state cleanupExternalCACerts would write: an empty CA bundle
-// and the current operator metadata. Skipping the update in that case avoids
+// isExternalCABundleCleared reports whether the external CA config map already
+// holds exactly what cleanupExternalCACerts writes: an empty CA bundle and no
+// other data. Together with an unchanged ObjectMeta this lets the cleanup skip
 // a PUT on every reconcile when nobody has added an external CA.
-func isExternalCAConfigMapCleared(existing *corev1.ConfigMap, version, imageRegistry, id string, generation int64) bool {
+func isExternalCABundleCleared(existing *corev1.ConfigMap) bool {
 	bundle, ok := existing.Data[components.CABundleKey]
 	return ok && bundle == "" &&
 		len(existing.Data) == 1 &&
-		len(existing.BinaryData) == 0 &&
-		objectMatchesVersion(&existing.ObjectMeta, version, imageRegistry, id, generation)
+		len(existing.BinaryData) == 0
 }
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {

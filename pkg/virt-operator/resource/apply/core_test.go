@@ -433,35 +433,93 @@ var _ = Describe("Apply", func() {
 				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
 			})
 
+			// expectClearingUpdate registers a reactor that captures the submitted
+			// update and returns a function asserting it was sent with exactly the
+			// cleared content.
+			expectClearingUpdate := func() func() {
+				var submitted *corev1.ConfigMap
+				coreclientset.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					submitted = action.(testing.UpdateAction).GetObject().(*corev1.ConfigMap)
+					return true, submitted, nil
+				})
+				return func() {
+					Expect(submitted).ToNot(BeNil(), "expected the ConfigMap to be updated")
+					Expect(submitted.Data).To(Equal(map[string]string{components.CABundleKey: ""}))
+					Expect(submitted.BinaryData).To(BeEmpty())
+				}
+			}
+
 			It("should clear the ConfigMap when it still holds a CA bundle", func() {
 				crt := createCrt()
 				Expect(stores.ConfigMapCache.Add(existingExternalCM(string(cert.EncodeCertPEM(crt.Leaf))))).To(Succeed())
-
-				updated := false
-				coreclientset.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					cm := action.(testing.UpdateAction).GetObject().(*corev1.ConfigMap)
-					Expect(cm.Data).To(HaveKeyWithValue(components.CABundleKey, ""))
-					updated = true
-					return true, cm, nil
-				})
+				verify := expectClearingUpdate()
 
 				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
-				Expect(updated).To(BeTrue())
+				verify()
+			})
+
+			It("should clear the ConfigMap when it holds an extra Data key", func() {
+				existing := existingExternalCM("")
+				existing.Data["extra"] = "value"
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+				verify := expectClearingUpdate()
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				verify()
+			})
+
+			It("should clear the ConfigMap when it holds BinaryData", func() {
+				existing := existingExternalCM("")
+				existing.BinaryData = map[string][]byte{"extra": []byte("value")}
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+				verify := expectClearingUpdate()
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				verify()
 			})
 
 			It("should update the ConfigMap when the operator metadata is outdated", func() {
 				existing := existingExternalCM("")
 				existing.Annotations[v1.InstallStrategyVersionAnnotation] = "old-version"
 				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
-
-				updated := false
-				coreclientset.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
-					updated = true
-					return true, action.(testing.UpdateAction).GetObject(), nil
-				})
+				verify := expectClearingUpdate()
 
 				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
-				Expect(updated).To(BeTrue())
+				verify()
+			})
+
+			It("should update the ConfigMap when the generation annotation is missing", func() {
+				existing := existingExternalCM("")
+				delete(existing.Annotations, v1.KubeVirtGenerationAnnotation)
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+				verify := expectClearingUpdate()
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				verify()
+			})
+
+			It("should update the ConfigMap when the component label drifted", func() {
+				existing := existingExternalCM("")
+				existing.Labels[v1.AppComponentLabel] = "something-else"
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+				verify := expectClearingUpdate()
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				verify()
+			})
+
+			It("should update the ConfigMap when the product label is missing", func() {
+				r.kv = kv.DeepCopy()
+				r.kv.Spec.ProductName = "kubevirt-test"
+				r.kv.Spec.ProductVersion = "v1.0.0"
+				// metadata as written before the product labels were set
+				existing := existingExternalCM("")
+				Expect(existing.Labels).ToNot(HaveKey(v1.AppPartOfLabel))
+				Expect(stores.ConfigMapCache.Add(existing)).To(Succeed())
+				verify := expectClearingUpdate()
+
+				Expect(r.cleanupExternalCACerts(requiredCM.DeepCopy())).To(Succeed())
+				verify()
 			})
 		})
 	})
