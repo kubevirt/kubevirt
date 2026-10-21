@@ -40,6 +40,7 @@ import (
 	metricsScraper "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
 )
 
 const (
@@ -218,11 +219,15 @@ func (s *downwardMetricsServer) getXmlMetrics() ([]byte, error) {
 
 func connect(ctx context.Context, socketPath string, attempts uint) (net.Conn, error) {
 	var conn net.Conn
-	var err error
+
+	safeSocketPath, err := safepath.NewFileNoFollow(socketPath)
+	if err != nil {
+		return nil, err
+	}
 
 	multiplier := 1
-	for i := uint(0); i < attempts; i++ {
-		conn, err = net.Dial("unix", socketPath)
+	for i := range attempts {
+		conn, err = net.Dial("unix", safeSocketPath.SafePath())
 		if err == nil {
 			break
 		}
