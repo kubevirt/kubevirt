@@ -90,6 +90,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const downwardMetricsRetryDelay = 5 * time.Second
+
 type netstat interface {
 	UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	Teardown(vmi *v1.VirtualMachineInstance)
@@ -97,7 +99,7 @@ type netstat interface {
 
 type downwardMetricsManager interface {
 	Run(stopCh chan struct{})
-	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
+	StartServer(vmi *v1.VirtualMachineInstance, pid int, requestRetry func()) error
 	StopServer(vmi *v1.VirtualMachineInstance)
 }
 
@@ -1934,7 +1936,10 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
+	requestRetry := func() {
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), downwardMetricsRetryDelay)
+	}
+	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid(), requestRetry); err != nil {
 		return err
 	}
 

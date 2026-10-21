@@ -44,6 +44,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	testingclock "k8s.io/utils/clock/testing"
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
@@ -1672,6 +1674,43 @@ var _ = Describe("VirtualMachineInstance", func() {
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 
 				sanityExecute()
+			})
+
+			It("should retry downward metrics after an exit without another VMI event", func() {
+				fakeClock := testingclock.NewFakeClock(time.Now())
+				mockQueue.ShutDown()
+				mockQueue.TypedRateLimitingInterface = workqueue.NewTypedRateLimitingQueueWithConfig(
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+					workqueue.TypedRateLimitingQueueConfig[string]{Clock: fakeClock},
+				)
+				DeferCleanup(mockQueue.ShutDown)
+
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				vmi.Spec.Domain.Devices.DownwardMetrics = &v1.DownwardMetrics{}
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Status.Status = api.Running
+				addVMI(vmi, domain)
+
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil).Times(2)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil).Times(2)
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Times(2)
+				sanityExecute()
+
+				manager := controller.downwardMetricsManager.(*fakeManager)
+				Expect(manager.startCount).To(Equal(1))
+				Expect(manager.requestRetry).NotTo(BeNil())
+				// Observe the initial status update before simulating a later server exit.
+				controller.vmiExpectations.SetExpectations(virtcontroller.VirtualMachineInstanceKey(vmi), 0, 0)
+				manager.requestRetry()
+				fakeClock.Step(downwardMetricsRetryDelay - time.Nanosecond)
+				Consistently(mockQueue.Len, 100*time.Millisecond).Should(BeZero())
+				fakeClock.Step(time.Nanosecond)
+				Eventually(mockQueue.Len).Should(Equal(1))
+
+				sanityExecute()
+				Expect(manager.startCount).To(Equal(2))
 			})
 
 			It("should call mount, fail if mount fails", func() {
@@ -4009,10 +4048,15 @@ func newFakeManager() *fakeManager {
 	return &fakeManager{}
 }
 
-type fakeManager struct{}
+type fakeManager struct {
+	requestRetry func()
+	startCount   int
+}
 
 func (*fakeManager) Run(_ chan struct{}) {}
-func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
+func (m *fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int, requestRetry func()) error {
+	m.requestRetry = requestRetry
+	m.startCount++
 	return nil
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
