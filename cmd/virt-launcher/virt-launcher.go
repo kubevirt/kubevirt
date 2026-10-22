@@ -450,6 +450,7 @@ func main() {
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
 		disk.Hook,
+		disk.LatencyHistogramHook,
 		network.UpgradeOrdinalNamingScheme,
 	}
 	if *vGPUDedicatedHookEnabled {
