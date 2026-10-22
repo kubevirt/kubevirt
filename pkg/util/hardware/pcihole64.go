@@ -118,3 +118,53 @@ func PCIHole64KiB(sizeBytes, marginKiB uint64) (uint64, error) {
 	}
 	return rounded, nil
 }
+
+// CPUInfoPath is overridable in tests.
+var CPUInfoPath = "/proc/cpuinfo"
+
+// HostCPUAddressInfo returns the host's physical address width, in bits, and
+// its CPU vendor ID, parsed from the first processor entry in /proc/cpuinfo.
+// A guest using CPU mode host-passthrough is given this same address width
+// and vendor by QEMU.
+func HostCPUAddressInfo() (physBits uint64, vendorID string, err error) {
+	file, err := os.Open(CPUInfoPath)
+	if err != nil {
+		return 0, "", fmt.Errorf("failed to open %s: %w", CPUInfoPath, err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		key, value, found := strings.Cut(scanner.Text(), ":")
+		if !found {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+
+		switch key {
+		case "vendor_id":
+			vendorID = value
+		case "address sizes":
+			// e.g. "46 bits physical, 48 bits virtual"
+			fields := strings.Fields(value)
+			if len(fields) < 2 {
+				continue
+			}
+			physBits, err = strconv.ParseUint(fields[0], 10, 64)
+			if err != nil {
+				return 0, "", fmt.Errorf("failed to parse physical address bits from %s (%q): %w", CPUInfoPath, value, err)
+			}
+		}
+		if physBits != 0 && vendorID != "" {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return 0, "", fmt.Errorf("failed to read %s: %w", CPUInfoPath, err)
+	}
+	if physBits == 0 {
+		return 0, "", fmt.Errorf("no \"address sizes\" line found in %s", CPUInfoPath)
+	}
+	return physBits, vendorID, nil
+}

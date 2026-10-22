@@ -128,4 +128,49 @@ var _ = Describe("PCI 64-bit hole sizing", func() {
 			Expect(err).To(MatchError(ContainSubstring("rounded to a power of two overflows")))
 		})
 	})
+
+	Describe("HostCPUAddressInfo", func() {
+		var previousPath string
+
+		BeforeEach(func() {
+			previousPath = CPUInfoPath
+		})
+
+		AfterEach(func() {
+			CPUInfoPath = previousPath
+		})
+
+		It("parses the physical address width and vendor ID", func() {
+			cpuinfo := "processor\t: 0\n" +
+				"vendor_id\t: AuthenticAMD\n" +
+				"address sizes\t: 48 bits physical, 48 bits virtual\n"
+			path := filepath.Join(GinkgoT().TempDir(), "cpuinfo")
+			Expect(os.WriteFile(path, []byte(cpuinfo), 0644)).To(Succeed())
+			CPUInfoPath = path
+
+			physBits, vendorID, err := HostCPUAddressInfo()
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(physBits).To(Equal(uint64(48)))
+			Expect(vendorID).To(Equal("AuthenticAMD"))
+		})
+
+		It("returns an error when address sizes is missing", func() {
+			path := filepath.Join(GinkgoT().TempDir(), "cpuinfo")
+			Expect(os.WriteFile(path, []byte("vendor_id\t: GenuineIntel\n"), 0644)).To(Succeed())
+			CPUInfoPath = path
+
+			_, _, err := HostCPUAddressInfo()
+
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("returns an error when the file is missing", func() {
+			CPUInfoPath = filepath.Join(GinkgoT().TempDir(), "does-not-exist")
+
+			_, _, err := HostCPUAddressInfo()
+
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
