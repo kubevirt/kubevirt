@@ -32,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Validator struct {
@@ -421,12 +420,4 @@ func validateNonDRADevices(
 		}
 	}
 	return causes
-}
-
-func ValidateCreation(
-	field *k8sfield.Path,
-	vmiSpec *v1.VirtualMachineInstanceSpec,
-	clusterCfg *virtconfig.ClusterConfig,
-) []metav1.StatusCause {
-	return NewValidator(field, vmiSpec, clusterCfg).ValidateCreation()
 }
