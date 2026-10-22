@@ -825,7 +825,7 @@ func (c *Controller) processMigrationPhase(
 			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 				if backendstorage.IsBackendStorageNeeded(vmi) {
-					err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
+					err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration, vmi)
 					if err != nil {
 						return err
 					}

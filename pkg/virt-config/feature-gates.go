@@ -255,3 +255,7 @@ func (config *ClusterConfig) TLSGroupPreferencesEnabled() bool {
 func (config *ClusterConfig) SCSIMultiIOThreadEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.SCSIMultiIOThread)
 }
+
+func (config *ClusterConfig) DeclarativeVMStateEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.DeclarativeVMState)
+}
