@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 
@@ -108,8 +109,10 @@ var _ = Describe(SIG("CBT", func() {
 		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingPendingRestart))
 
 		By("Restarting the VM")
+		oldUID := vmi.UID
 		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(ThisVMI(vmi), 300*time.Second, time.Second).Should(BeRestarted(oldUID))
 		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 		By("Verify CBT state disabled")
@@ -141,6 +144,84 @@ var _ = Describe(SIG("CBT", func() {
 		cmdOutput, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"ls", "-d", cbt.PathForCBT(vmi)})
 		Expect(err.Error()).To(ContainSubstring("No such file or directory"))
 		Expect(cmdOutput).To(BeEmpty())
+	})
+
+	It("should remove CBT overlays on disable when backend PVC is retained for TPM", func() {
+		vm = libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(),
+		),
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
+
+		By(fmt.Sprintf("Creating VM %s with CBT label and persistent TPM", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		backendPVCName := backendstorage.CurrentPVCName(vmi)
+		Expect(backendPVCName).ToNot(BeEmpty())
+
+		By("Verify CBT overlay exists")
+		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
+		Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
+
+		By("Remove CBT Label")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		delete(vm.Labels, cbt.CBTKey)
+		labelPatch, err := patch.New(patch.WithAdd("/metadata/labels", vm.Labels)).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, labelPatch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Restarting the VM")
+		oldUID := vmi.UID
+		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		// BeReady alone can match the pre-restart VM; wait for a new Running VMI first.
+		Eventually(ThisVMI(vmi), 300*time.Second, time.Second).Should(BeRestarted(oldUID))
+		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+
+		By("Verify CBT state disabled on VM and VMI")
+		Eventually(func() v1.ChangedBlockTrackingState {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return v1.ChangedBlockTrackingUndefined
+			}
+			return cbt.CBTState(vm.Status.ChangedBlockTracking)
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingDisabled))
+		Eventually(func() v1.ChangedBlockTrackingState {
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return v1.ChangedBlockTrackingUndefined
+			}
+			return cbt.CBTState(vmi.Status.ChangedBlockTracking)
+		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingDisabled))
+
+		By("Verify backend PVC is retained for TPM")
+		Eventually(func() string {
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return ""
+			}
+			return backendstorage.CurrentPVCName(vmi)
+		}, 1*time.Minute, time.Second).Should(Equal(backendPVCName))
+		_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), backendPVCName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verify CBT overlays were deleted while CBT path remains mounted")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		Eventually(func() string {
+			return libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", "*.qcow2"})
+		}, 60*time.Second, 2*time.Second).Should(BeEmpty(), "CBT overlays should be deleted when CBT is disabled")
 	})
 
 	DescribeTable("Patch to match cbt label selector", func(patchFunc func(vm *v1.VirtualMachine)) {
@@ -260,6 +341,30 @@ var _ = Describe(SIG("CBT", func() {
 			Eventually(func() string {
 				return libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
 			}, 60*time.Second, 2*time.Second).Should(BeEmpty(), "CBT overlay should be deleted for unplugged volume")
+
+			By("Verifying CBT remains enabled after unplug")
+			Eventually(func() v1.ChangedBlockTrackingState {
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return v1.ChangedBlockTrackingUndefined
+				}
+				return cbt.CBTState(vmi.Status.ChangedBlockTracking)
+			}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+
+			By("Verifying overlays for remaining CBT-eligible volumes are kept")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			kept := 0
+			for _, volume := range vmi.Spec.Volumes {
+				if !cbt.IsCBTEligibleVolume(&volume) {
+					continue
+				}
+				kept++
+				stdout = libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volume.Name)})
+				Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volume.Name)),
+					"Expected CBT overlay to remain for volume %s while CBT is enabled", volume.Name)
+			}
+			Expect(kept).To(BeNumerically(">", 0), "expected at least one remaining CBT-eligible volume")
 		},
 		Entry("Filesystem", k8sv1.PersistentVolumeFilesystem),
 		Entry("Block", decorators.RequiresBlockStorage, k8sv1.PersistentVolumeBlock),

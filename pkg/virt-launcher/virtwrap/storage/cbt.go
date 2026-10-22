@@ -23,8 +23,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -141,6 +144,150 @@ func DeleteQCOW2Overlay(disk api.Disk) error {
 	}
 	log.Log.Infof("QCOW2 overlay %s deleted", target)
 	return nil
+}
+
+// CleanupChangedBlockTrackingOverlays removes all QCOW2 overlays under the CBT
+// directory when CBT is not active on the VMI. Used after CBT disable when the
+// backend PVC is retained (e.g. TPM/EFI). Disabled is the common case and may
+// run on every SyncVMI until the directory is empty; nil/Undefined are effectively
+// no-ops when no overlays exist.
+//
+// domainSpec is the live domain after syncDisks. If any disk source under the
+// CBT dir is still referenced, wipe is skipped (not an error) so SyncVMI cannot
+// wedge on a state-machine bug that cleared VMI CBT status while QEMU still has
+// overlays open. Orphans are retried on a later SyncVMI once the domain no
+// longer references them.
+func CleanupChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) error {
+	// Defensive: callers already gate on !HasCBTStateEnabled; keep the guard so
+	// this helper stays safe if invoked alone.
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		return nil
+	}
+	cbtDir := cbt.PathForCBT(vmi)
+	if liveDomainReferencesCBTOverlays(domainSpec, cbtDir) {
+		log.Log.Object(vmi).Warningf("skipping CBT overlay cleanup: live domain still references paths under %s", cbtDir)
+		return nil
+	}
+	return reconcileQCOW2OverlaysInDir(cbtDir, nil)
+}
+
+// ReconcileChangedBlockTrackingOverlays is a GC pass for overlays whose volumes
+// are no longer on the VMI. Hot-unplug deletes the matching overlay via
+// DeleteQCOW2Overlay during syncDisks; this reconciler catches orphans that miss
+// that path (and removes leftover *.qcow2.tmp files). Must run after disk detach
+// so QEMU is not still referencing a path that is about to be unlinked.
+//
+// The keep-set combines:
+//  1. Paths from GetQCOW2OverlayPath for each eligible volume (whatever layout
+//     that helper currently uses), and
+//  2. Disk source paths under the CBT dir still referenced by the live domain.
+//
+// The live-domain set matters across launcher upgrades / migrations: the running
+// domain may still use an older overlay layout than this launcher would compute
+// (see #19404 / #19409). Never unlink a file QEMU still has open.
+//
+// domainSpec must reflect the domain after syncDisks (re-read), not the pre-detach
+// snapshot — otherwise GC would keep overlays for disks that were just detached.
+func ReconcileChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) error {
+	cbtDir, desiredPaths := buildCBTOverlayKeepPaths(vmi, domainSpec)
+	return reconcileQCOW2OverlaysInDir(cbtDir, desiredPaths)
+}
+
+// buildCBTOverlayKeepPaths returns the CBT directory and the set of overlay
+// paths that must not be deleted: eligible VMI volumes plus any live-domain
+// disk sources still under that directory.
+func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (string, map[string]struct{}) {
+	cbtDir := cbt.PathForCBT(vmi)
+	desiredPaths := make(map[string]struct{})
+	for _, volume := range vmi.Spec.Volumes {
+		if !cbt.IsCBTEligibleVolume(&volume) {
+			continue
+		}
+		desiredPaths[cbt.GetQCOW2OverlayPath(vmi, volume.Name)] = struct{}{}
+	}
+	addLiveDomainCBTOverlayPaths(desiredPaths, cbtDir, domainSpec)
+	return cbtDir, desiredPaths
+}
+
+// addLiveDomainCBTOverlayPaths keeps any disk Source.File under cbtDir that the
+// live domain still references, so GC cannot unlink an overlay QEMU has open.
+func addLiveDomainCBTOverlayPaths(desiredPaths map[string]struct{}, cbtDir string, domainSpec *api.DomainSpec) {
+	// Writing to a nil map panics; callers always pass a non-nil map.
+	if domainSpec == nil || desiredPaths == nil {
+		return
+	}
+	for _, disk := range domainSpec.Devices.Disks {
+		path := disk.Source.File
+		if path == "" || !isPathUnderDir(path, cbtDir) {
+			continue
+		}
+		desiredPaths[path] = struct{}{}
+	}
+}
+
+func liveDomainReferencesCBTOverlays(domainSpec *api.DomainSpec, cbtDir string) bool {
+	if domainSpec == nil {
+		return false
+	}
+	for _, disk := range domainSpec.Devices.Disks {
+		if path := disk.Source.File; path != "" && isPathUnderDir(path, cbtDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPathUnderDir(path, dir string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanDir := filepath.Clean(dir)
+	rel, err := filepath.Rel(cleanDir, cleanPath)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func reconcileQCOW2OverlaysInDir(cbtDir string, desiredPaths map[string]struct{}) error {
+	err := filepath.WalkDir(cbtDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		if !strings.HasSuffix(name, ".qcow2") && !strings.HasSuffix(name, ".qcow2.tmp") {
+			return nil
+		}
+		// Only delete regular files — never follow or remove symlinks/devices.
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			if errors.Is(infoErr, os.ErrNotExist) {
+				return nil
+			}
+			return infoErr
+		}
+		if !info.Mode().IsRegular() {
+			log.Log.Warningf("skipping non-regular CBT path %s (mode %s)", path, info.Mode())
+			return nil
+		}
+		if _, keep := desiredPaths[path]; keep {
+			return nil
+		}
+		// Safe after domain detach: guest data lives in the raw data_file, not this metadata overlay.
+		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			return fmt.Errorf("failed to delete orphaned QCOW2 overlay %s: %w", path, removeErr)
+		}
+		log.Log.Infof("QCOW2 overlay %s deleted (volume no longer in CBT set)", path)
+		return nil
+	})
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {

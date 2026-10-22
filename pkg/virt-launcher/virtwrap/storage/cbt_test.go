@@ -109,6 +109,227 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 	})
 
+	Context("reconcileQCOW2OverlaysInDir", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		It("should remove orphaned overlays and keep desired ones", func() {
+			diskA := filepath.Join(dir, "disk-a.qcow2")
+			diskB := filepath.Join(dir, "disk-b.qcow2")
+			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(diskB, []byte("b"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("keep"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{diskA: {}})).To(Succeed())
+
+			Expect(diskA).To(BeAnExistingFile())
+			Expect(diskB).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "readme.txt")).To(BeAnExistingFile())
+		})
+
+		It("should remove all overlays when the desired set is empty", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2"), []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "disk-b.qcow2"), []byte("b"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, nil)).To(Succeed())
+
+			Expect(filepath.Join(dir, "disk-a.qcow2")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "disk-b.qcow2")).NotTo(BeAnExistingFile())
+		})
+
+		It("should remove leftover overlay temp files", func() {
+			diskA := filepath.Join(dir, "disk-a.qcow2")
+			Expect(os.WriteFile(diskA+".tmp", []byte("tmp"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{diskA: {}})).To(Succeed())
+
+			Expect(diskA).To(BeAnExistingFile())
+			Expect(diskA + ".tmp").NotTo(BeAnExistingFile())
+		})
+
+		It("should skip symlink overlays", func() {
+			target := filepath.Join(dir, "target.img")
+			link := filepath.Join(dir, "disk-a.qcow2")
+			Expect(os.WriteFile(target, []byte("target"), 0o600)).To(Succeed())
+			Expect(os.Symlink(target, link)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, nil)).To(Succeed())
+
+			Expect(link).To(BeAnExistingFile())
+			Expect(os.ReadFile(target)).To(Equal([]byte("target")))
+		})
+
+		It("should remove orphaned overlays under nested directories", func() {
+			nested := filepath.Join(dir, "claim", "uid")
+			Expect(os.MkdirAll(nested, 0o750)).To(Succeed())
+			keep := filepath.Join(dir, "disk-a.qcow2")
+			orphan := filepath.Join(nested, "disk-b.qcow2")
+			Expect(os.WriteFile(keep, []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(orphan, []byte("b"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{keep: {}})).To(Succeed())
+
+			Expect(keep).To(BeAnExistingFile())
+			Expect(orphan).NotTo(BeAnExistingFile())
+		})
+
+		It("should no-op when the CBT directory does not exist", func() {
+			Expect(reconcileQCOW2OverlaysInDir(filepath.Join(dir, "missing"), map[string]struct{}{
+				filepath.Join(dir, "missing", "disk-a.qcow2"): {},
+			})).To(Succeed())
+		})
+	})
+
+	Context("addLiveDomainCBTOverlayPaths", func() {
+		It("should only keep disk sources under the CBT directory", func() {
+			dir := GinkgoT().TempDir()
+			under := filepath.Join(dir, "disk-a.qcow2")
+			nested := filepath.Join(dir, "claim", "uid", "disk-a.qcow2")
+			outside := filepath.Join(filepath.Dir(dir), "outside.qcow2")
+
+			desired := map[string]struct{}{}
+			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: under}},
+						{Source: api.DiskSource{File: nested}},
+						{Source: api.DiskSource{File: outside}},
+						{Source: api.DiskSource{File: ""}},
+					},
+				},
+			})
+
+			Expect(desired).To(HaveKey(under))
+			Expect(desired).To(HaveKey(nested))
+			Expect(desired).NotTo(HaveKey(outside))
+		})
+
+		It("should no-op for a nil domain spec", func() {
+			desired := map[string]struct{}{}
+			addLiveDomainCBTOverlayPaths(desired, "/cbt", nil)
+			Expect(desired).To(BeEmpty())
+		})
+
+		It("should keep a live-domain overlay path that GetQCOW2OverlayPath would not produce", func() {
+			// Simulates a migration/upgrade target whose domain still references
+			// an older nested layout while this launcher would create flat paths.
+			dir := GinkgoT().TempDir()
+			currentLayout := filepath.Join(dir, "disk-a.qcow2")
+			legacyLayout := filepath.Join(dir, "claim", "uid", "disk-a.qcow2")
+			orphan := filepath.Join(dir, "disk-b.qcow2")
+			Expect(os.MkdirAll(filepath.Dir(legacyLayout), 0o750)).To(Succeed())
+			Expect(os.WriteFile(currentLayout, []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(legacyLayout, []byte("legacy"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(orphan, []byte("b"), 0o600)).To(Succeed())
+
+			desired := map[string]struct{}{currentLayout: {}}
+			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacyLayout}},
+					},
+				},
+			})
+			Expect(reconcileQCOW2OverlaysInDir(dir, desired)).To(Succeed())
+
+			Expect(currentLayout).To(BeAnExistingFile())
+			Expect(legacyLayout).To(BeAnExistingFile())
+			Expect(orphan).NotTo(BeAnExistingFile())
+		})
+	})
+
+	Context("isPathUnderDir", func() {
+		DescribeTable("path containment",
+			func(path, dir string, expected bool) {
+				Expect(isPathUnderDir(path, dir)).To(Equal(expected))
+			},
+			Entry("nested file", "/cbt/sub/f.qcow2", "/cbt", true),
+			Entry("path equals dir", "/cbt", "/cbt", true),
+			Entry("empty path", "", "/cbt", false),
+			Entry("sibling escape", "/cbt-other/f.qcow2", "/cbt", false),
+			Entry("parent traversal", "/cbt/../../etc/passwd", "/cbt", false),
+		)
+	})
+
+	Context("CleanupChangedBlockTrackingOverlays", func() {
+		It("should no-op when ChangedBlockTracking status is nil", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, nil)).To(Succeed())
+		})
+
+		It("should no-op when CBT is still enabled", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, nil)).To(Succeed())
+		})
+
+		It("should skip wipe when the live domain still references a CBT overlay", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingDisabled)
+			cbtDir := cbt.PathForCBT(vmi)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: filepath.Join(cbtDir, "disk-a.qcow2")}},
+					},
+				},
+			})).To(Succeed())
+		})
+	})
+
+	Context("buildCBTOverlayKeepPaths", func() {
+		It("should include eligible volumes and skip ineligible ones", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Volumes = []v1.Volume{
+				newPVCVolume("pvc-volume", "test-pvc", false),
+				newConfigMapVolume("config-map-volume"),
+			}
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, nil)
+			Expect(keep).To(HaveKey(cbt.GetQCOW2OverlayPath(vmi, "pvc-volume")))
+			Expect(keep).NotTo(HaveKey(cbt.GetQCOW2OverlayPath(vmi, "config-map-volume")))
+		})
+
+		It("should keep live-domain overlay paths not produced by GetQCOW2OverlayPath", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Volumes = []v1.Volume{
+				newPVCVolume("disk-a", "test-pvc", false),
+			}
+			cbtDir := cbt.PathForCBT(vmi)
+			legacy := filepath.Join(cbtDir, "claim", "uid", "disk-a.qcow2")
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacy}},
+					},
+				},
+			})
+			Expect(keep).To(HaveKey(cbt.GetQCOW2OverlayPath(vmi, "disk-a")))
+			Expect(keep).To(HaveKey(legacy))
+		})
+
+		It("should only contain live-domain paths when no eligible volumes remain", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Volumes = nil
+			cbtDir := cbt.PathForCBT(vmi)
+			legacy := filepath.Join(cbtDir, "orphan-still-open.qcow2")
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacy}},
+					},
+				},
+			})
+			Expect(keep).To(Equal(map[string]struct{}{legacy: {}}))
+		})
+	})
+
 	Context("ApplyChangedBlockTracking", func() {
 		BeforeEach(func() {
 			setupCBTTest()

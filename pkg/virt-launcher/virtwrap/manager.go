@@ -1575,7 +1575,25 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	l.refreshDeviceAliasMap(dom)
+	// Re-read after syncDisks and network.Sync so the CBT keep-set / cleanup
+	// safety check and device alias map see the live domain (which may use an
+	// older CBT layout than GetQCOW2OverlayPath) and exclude just-detached disks.
+	// A failed live read must not fail SyncVMI; CBT GC simply waits for a later sync.
+	liveSpec, liveSpecErr := util.GetDomainSpecWithFlags(dom, 0)
+	if liveSpecErr != nil {
+		logger.Reason(liveSpecErr).Warning("Parsing post-sync domain XML failed.")
+	} else {
+		if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+			if err := storage.ReconcileChangedBlockTrackingOverlays(vmi, liveSpec); err != nil {
+				logger.Reason(err).Error("failed to reconcile CBT overlays")
+				return nil, err
+			}
+		} else if err := storage.CleanupChangedBlockTrackingOverlays(vmi, liveSpec); err != nil {
+			logger.Reason(err).Error("failed to cleanup CBT overlays")
+			return nil, err
+		}
+		l.refreshDeviceAliasMapFromSpec(liveSpec)
+	}
 	l.syncGracePeriod(vmi)
 	l.syncGuestAgentProbePaused(vmi)
 
@@ -2441,6 +2459,13 @@ func (l *LibvirtDomainManager) refreshDeviceAliasMap(dom cli.VirDomain) {
 	domSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		log.Log.Reason(err).Warning("failed to refresh device alias map")
+		return
+	}
+	l.refreshDeviceAliasMapFromSpec(domSpec)
+}
+
+func (l *LibvirtDomainManager) refreshDeviceAliasMapFromSpec(domSpec *api.DomainSpec) {
+	if domSpec == nil {
 		return
 	}
 	newMap := make(map[string]string)

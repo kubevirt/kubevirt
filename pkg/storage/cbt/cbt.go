@@ -58,7 +58,10 @@ var (
 )
 
 const (
-	NBDSocketName    = "backup-nbd-sock"
+	NBDSocketName = "backup-nbd-sock"
+	// CBTDirName is the backend-storage subpath (and volume mount SubPath)
+	// that holds QCOW2 CBT metadata overlays.
+	CBTDirName       = "cbt"
 	BackupNBDSubPath = "cbt-nbd"
 	NBDSocketDir     = "sock"
 )
@@ -326,7 +329,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
-	return filepath.Join(qemuStatePath(vmi), "cbt")
+	return filepath.Join(qemuStatePath(vmi), CBTDirName)
 }
 
 func PathForBackupNBD(vmi *v1.VirtualMachineInstance) string {
