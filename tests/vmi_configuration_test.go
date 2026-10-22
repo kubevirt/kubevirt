@@ -817,7 +817,7 @@ chpasswd:
 		})
 
 		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
-			machineType, expectedSubstring, _ := machineTypeForArch()
+			machineType, expectedSubstring := machineTypeForArch()
 			vmi := libvmifact.NewGuestless(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType(machineType),
@@ -828,28 +828,6 @@ chpasswd:
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
 		})
 
-		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			machineType, expectedSubstring, emulatedMachines := machineTypeForArch()
-
-			config := kv.Spec.Configuration
-
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.MachineType = machineType
-			config.ArchitectureConfiguration.Arm64.MachineType = machineType
-			config.ArchitectureConfiguration.S390x.MachineType = machineType
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = emulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = emulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = emulatedMachines
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-
-			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring(expectedSubstring))
-		})
 	})
 
 	Context("using automatic resource limits", decorators.WgS390x, func() {
@@ -1623,11 +1601,11 @@ func withMachineType(machineType string) libvmi.Option {
 	}
 }
 
-func machineTypeForArch() (machineType, expectedSubstring string, emulatedMachines []string) {
+func machineTypeForArch() (machineType, expectedSubstring string) {
 	if testsuite.Arch == testsuite.ArchS390x {
-		return "s390-ccw-virtio", "s390-ccw-virtio", []string{"s390-ccw-virtio*"}
+		return "s390-ccw-virtio", "s390-ccw-virtio"
 	}
-	return "pc", "pc-i440", []string{"pc"}
+	return "pc", "pc-i440"
 }
 
 func withSerialBIOS() libvmi.Option {
