@@ -5,11 +5,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -293,6 +295,32 @@ var _ = Describe("render", func() {
 			Expect(result.Pod.Spec.Containers[0].Name).To(Equal("compute"))
 		})
 
+		It("rejects an instancetype inferred from a volume", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("itvm")),
+				libvmi.WithInstancetypeInferredFromVolume("disk0"),
+			)
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype:  &instancetypev1beta1.VirtualMachineInstancetypeSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("infer instancetype from a volume")))
+		})
+
+		It("rejects a preference inferred from a volume", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreferenceInferredFromVolume("disk0"),
+			)
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference:    &instancetypev1beta1.VirtualMachinePreferenceSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("infer preference from a volume")))
+		})
+
 		It("rejects a VM with an instancetype matcher", func() {
 			vm := libvmi.NewVirtualMachine(
 				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("itvm")),
@@ -345,6 +373,32 @@ var _ = Describe("render", func() {
 			Expect(vmi.Spec.Volumes).To(ContainElement(HaveField("Name", "dump-pvc")))
 		})
 
+		It("rejects an instancetype spec when the VM has no matcher", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("itvm"),
+			))
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype:  &instancetypev1beta1.VirtualMachineInstancetypeSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("no instancetype matcher")))
+		})
+
+		It("rejects a preference spec when the VM has no matcher", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("prefvm"),
+			))
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference:    &instancetypev1beta1.VirtualMachinePreferenceSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("no preference matcher")))
+		})
+
 		It("rejects a VM with a preference matcher", func() {
 			vm := libvmi.NewVirtualMachine(
 				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
@@ -353,6 +407,115 @@ var _ = Describe("render", func() {
 
 			_, err := render.PodFromVM(vm, opts())
 			Expect(err).To(MatchError(ContainSubstring("preference matchers")))
+		})
+
+		It("applies a supplied instancetype spec", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("itvm")),
+				libvmi.WithInstancetype("u1.small"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype: &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU:    instancetypev1beta1.CPUInstancetype{Guest: 2},
+					Memory: instancetypev1beta1.MemoryInstancetype{Guest: resource.MustParse("2Gi")},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.CPU).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+			Expect(result.VMI.Spec.Domain.Memory).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.Memory.Guest.String()).To(Equal("2Gi"))
+			Expect(result.VMI.Annotations).To(HaveKey(v1.InstancetypeAnnotation))
+		})
+
+		It("applies a supplied preference auto-attach input", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreference("fedora"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredAutoattachInputDevice: pointer.P(true),
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+			Expect(result.VMI.Spec.Domain.Devices.Inputs[0].Type).NotTo(BeEmpty())
+		})
+
+		It("applies a preferred interface model to the default pod interface", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreference("fedora"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredInterfaceModel: "virtio",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			Expect(result.VMI.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("virtio"))
+		})
+
+		It("applies architecture and machine preferences before cluster defaults", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("archvm")),
+				libvmi.WithPreference("arm"),
+			)
+
+			vmi, err := render.VMIFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Architecture:  "amd64",
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredArchitecture: pointer.P("arm64"),
+					Machine: &instancetypev1beta1.MachinePreferences{
+						PreferredMachineType: "virt",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Spec.Architecture).To(Equal("arm64"))
+			Expect(vmi.Spec.Domain.Machine.Type).To(Equal("virt"))
+		})
+
+		It("keeps a preferred disk bus when the volume has no disk entry", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("diskvm")),
+				libvmi.WithPreference("linux"),
+			)
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "disk0",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "some/image"},
+				},
+			}}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = nil
+
+			vmi, err := render.VMIFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Architecture:  "amd64",
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredDiskBus: v1.DiskBusVirtio,
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Spec.Domain.Devices.Disks).To(ContainElement(And(
+				HaveField("Name", "disk0"),
+				HaveField("Disk.Bus", v1.DiskBusVirtio),
+			)))
 		})
 	})
 
