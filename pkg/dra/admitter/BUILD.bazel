@@ -23,9 +23,9 @@ go_test(
         "admitter_suite_test.go",
         "dra_admitter_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//pkg/dra:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",

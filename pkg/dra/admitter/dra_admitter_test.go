@@ -16,7 +16,7 @@ limitations under the License.
 Copyright The KubeVirt Authors.
 */
 
-package admitter
+package admitter_test
 
 import (
 	"fmt"
@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -951,7 +952,7 @@ var _ = Describe("DRA Admitter", func() {
 					},
 				},
 			}
-			v := NewValidator(field, spec, checker)
+			v := admitter.NewValidator(field, spec, checker)
 			causes := v.ValidateCreation()
 			Expect(causes).To(BeEmpty())
 		})
@@ -971,7 +972,7 @@ var _ = Describe("DRA Admitter", func() {
 					},
 				},
 			}
-			v := NewValidator(field, spec, checker)
+			v := admitter.NewValidator(field, spec, checker)
 			causes := v.Validate()
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
@@ -979,3 +980,7 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 })
+
+func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker *fakeConfigChecker) []metav1.StatusCause {
+	return admitter.NewValidator(field, spec, checker).ValidateCreation()
+}
