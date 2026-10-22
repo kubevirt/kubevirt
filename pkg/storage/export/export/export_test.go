@@ -973,7 +973,7 @@ var _ = Describe("Export controller", func() {
 			}
 		}
 		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-			Name: testPVCName,
+			Name: "vol0",
 			VolumeSource: k8sv1.VolumeSource{
 				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 					ClaimName: testPVCName,
@@ -1009,8 +1009,8 @@ var _ = Describe("Export controller", func() {
 		}))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
-			Name:       testPVC.Name,
-			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, testPVC.Name),
+			Name:       "vol0",
+			DevicePath: blockVolumeMountPath + "/vol0",
 		}))
 		Expect(pod.Labels).To(And(
 			HaveKeyWithValue(exportServiceLabel, controller.getExportLabelValue(testVMExport)),
@@ -1262,7 +1262,7 @@ var _ = Describe("Export controller", func() {
 		Entry("VMTemplate source, gate disabled", createVMTemplateVMExport(), NewVMTemplateSource(nil, &sourceVolumes{}), false),
 	)
 
-	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
+	DescribeTable("Volumemount names should not depend on the PVC name", func(pvcName string) {
 		testVMExport := createPVCVMExportWithName(pvcName)
 		testPVC := &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1312,19 +1312,43 @@ var _ = Describe("Export controller", func() {
 		Expect(pod.Spec.Containers).To(HaveLen(1))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
-			Name:       getExportPodVolumeName(testPVC),
-			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, getExportPodVolumeName(testPVC)),
+			Name:       "vol0",
+			DevicePath: blockVolumeMountPath + "/vol0",
 		}))
-		if len(pvcName) > validation.DNS1035LabelMaxLength {
-			Expect(len(pod.Spec.Containers[0].VolumeDevices[0].Name)).To(BeNumerically("<", 63))
-		} else {
-			Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(pvcName))
+		volumeNames := map[string]bool{}
+		for _, volume := range pod.Spec.Volumes {
+			Expect(volumeNames).ToNot(HaveKey(volume.Name))
+			volumeNames[volume.Name] = true
 		}
 	},
 		Entry("PVC name within limit", "pvc-name-within-limit"),
 		Entry("PVC name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
 		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
+		Entry("PVC name of a fixed exporter pod volume", tokenVolName),
 	)
+
+	It("Volumemount names should not collide for claims differing only in dots", func() {
+		sv := &sourceVolumes{}
+		for _, name := range []string{"my.disk", "my-disk"} {
+			sv.volumes = append(sv.volumes, sourceVolume{
+				pvc: &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+				},
+			})
+		}
+
+		pod := &k8sv1.Pod{Spec: k8sv1.PodSpec{Containers: []k8sv1.Container{{}}}}
+		sv.configurePodVolumes(pod)
+
+		Expect(pod.Spec.Volumes).To(HaveLen(2))
+		Expect(pod.Spec.Volumes[0].Name).ToNot(Equal(pod.Spec.Volumes[1].Name))
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
+		Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).ToNot(Equal(pod.Spec.Containers[0].VolumeMounts[1].MountPath))
+
+		paths := serverPathsForPod(pod)
+		Expect(paths.GetVolumeInfo("my.disk").Path).To(Equal(pod.Spec.Containers[0].VolumeMounts[0].MountPath))
+		Expect(paths.GetVolumeInfo("my-disk").Path).To(Equal(pod.Spec.Containers[0].VolumeMounts[1].MountPath))
+	})
 
 	DescribeTable("sourceVolumes should report PVCs referenced by more than one volume", func(pvcNames []string, expectedDuplicates []string) {
 		sv := &sourceVolumes{
