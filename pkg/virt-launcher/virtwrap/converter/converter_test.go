@@ -1043,16 +1043,6 @@ var _ = Describe("Converter", func() {
 						}
 					},
 				),
-				Entry("HostDisk", "test-hostdisk",
-					func(name string) v1.VolumeSource {
-						return v1.VolumeSource{
-							HostDisk: &v1.HostDisk{
-								Path: "/var/run/kubevirt-private/vmi-disks/" + name + "/disk.img",
-								Type: v1.HostDiskExistsOrCreate,
-							},
-						}
-					},
-				),
 			)
 
 			DescribeTable("should create domain disk with datastore for block volumes with CBT enabled",

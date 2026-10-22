@@ -565,12 +565,13 @@ var _ = Describe("CBT", func() {
 			},
 			Entry("PVC", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"}}}, true),
 			Entry("DataVolume", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-dv"}}, true),
-			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, true),
+			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, false),
 			Entry("ContainerDisk", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}, false),
 			Entry("ConfigMap", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-config"}}}, false),
 			Entry("Secret", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "test-secret"}}, false),
 			Entry("EmptyDisk", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{Capacity: resource.MustParse("1Gi")}}, false),
 			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
 		)
+
 	})
 })

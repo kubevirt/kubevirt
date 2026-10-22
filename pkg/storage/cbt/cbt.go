@@ -324,8 +324,7 @@ func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineI
 
 func IsCBTEligibleVolume(volume *v1.Volume) bool {
 	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil ||
-		volume.VolumeSource.HostDisk != nil
+		volume.VolumeSource.DataVolume != nil
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
