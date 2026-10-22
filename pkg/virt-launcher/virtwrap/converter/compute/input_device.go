@@ -25,15 +25,16 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/input"
 )
 
 type InputDeviceDomainConfigurator struct {
-	architecture string
+	additionalInputDevices input.DeviceConfigurator
 }
 
 func NewInputDeviceDomainConfigurator(architecture string) InputDeviceDomainConfigurator {
 	return InputDeviceDomainConfigurator{
-		architecture: architecture,
+		additionalInputDevices: input.NewDeviceConfigurator(architecture),
 	}
 }
 
@@ -51,80 +52,39 @@ func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		if err := i.addArchitectureSpecificInputDevices(vmi, domain); err != nil {
-			return err
+		if i.additionalInputDevices != nil {
+			i.additionalInputDevices.ConfigureInputDevices(vmi, domain)
 		}
 	}
 
 	return nil
 }
 
-func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
+func apiInputDeviceFromV1InputDevice(inputDevice v1.Input) (api.Input, error) {
 	var bus v1.InputBus
 
-	switch input.Bus {
+	switch inputDevice.Bus {
 	case v1.InputBusVirtio, v1.InputBusUSB:
-		bus = input.Bus
+		bus = inputDevice.Bus
 	case "":
 		bus = v1.InputBusUSB
 	default:
-		return api.Input{}, fmt.Errorf("input contains unsupported bus %s", input.Bus)
+		return api.Input{}, fmt.Errorf("input contains unsupported bus %s", inputDevice.Bus)
 	}
 
-	if input.Type != v1.InputTypeTablet {
-		return api.Input{}, fmt.Errorf("input contains unsupported type %s", input.Type)
+	if inputDevice.Type != v1.InputTypeTablet {
+		return api.Input{}, fmt.Errorf("input contains unsupported type %s", inputDevice.Type)
 	}
 
-	inputDevice := api.Input{
+	domainInputDevice := api.Input{
 		Bus:   bus,
-		Type:  input.Type,
-		Alias: api.NewUserDefinedAlias(input.Name),
+		Type:  inputDevice.Type,
+		Alias: api.NewUserDefinedAlias(inputDevice.Name),
 	}
 
 	if bus == v1.InputBusVirtio {
-		inputDevice.Model = v1.VirtIO
+		domainInputDevice.Model = v1.VirtIO
 	}
 
-	return inputDevice, nil
-}
-
-func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	switch i.architecture {
-	case "amd64":
-		// No architecture-specific input devices required
-	case "arm64":
-		if !hasTabletDevice(vmi) {
-			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-				api.Input{
-					Bus:  "usb",
-					Type: "tablet",
-				},
-			)
-		}
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "usb",
-				Type: "keyboard",
-			},
-		)
-	case "s390x":
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "virtio",
-				Type: "keyboard",
-			},
-		)
-	}
-	return nil
-}
-
-func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		for _, device := range vmi.Spec.Domain.Devices.Inputs {
-			if device.Type == "tablet" {
-				return true
-			}
-		}
-	}
-	return false
+	return domainInputDevice, nil
 }
