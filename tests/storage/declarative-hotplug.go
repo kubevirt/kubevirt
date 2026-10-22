@@ -194,6 +194,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	validateVMHasCDRom := func(vm *v1.VirtualMachine, numItems string) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+		expectBlockLatencyHistograms(vmi, cdRomName, true)
 
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -227,6 +228,8 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 	validateVMHasNoCDRom := func(vm *v1.VirtualMachine) {
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+		expectBlockLatencyHistograms(vmi, cdRomName, true)
+
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
@@ -241,6 +244,14 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 		It("Should inject, swap, and eject a CD-ROM", func() {
 			By("Creating a VM with an empty CD-ROM")
 			vm := createAndStartVMWithEmptyCDRom()
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(
+				context.Background(),
+				vm.Name,
+				metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			expectBlockLatencyHistograms(vmi, cdRomName, true)
 
 			By("creating cd-rom volumes")
 			dv1 := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
