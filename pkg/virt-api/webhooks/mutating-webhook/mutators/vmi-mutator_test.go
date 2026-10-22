@@ -237,16 +237,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel, "s390-ccw-virtio"),
 	)
 
-	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
+	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string, machineType string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					CPUModel:   cpuModelFromConfig,
 					CPURequest: &cpuReq,
 					ArchitectureConfiguration: &v1.ArchConfiguration{
-						Amd64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						Arm64: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
-						S390x: &v1.ArchSpecificConfiguration{MachineType: machineTypeFromConfig},
+						Amd64: &v1.ArchSpecificConfiguration{MachineType: "pc-q35-9.0"},
+						Arm64: &v1.ArchSpecificConfiguration{MachineType: "virt-9.0"},
+						S390x: &v1.ArchSpecificConfiguration{MachineType: "s390-ccw-virtio-9.0"},
 					},
 				},
 			},
@@ -254,14 +254,44 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmitWithArch(arch)
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
-		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineType))
 		Expect(*vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(cpuReq))
 	},
-		Entry("on amd64", "amd64", cpuModelFromConfig),
-		Entry("on s390x", "s390x", cpuModelFromConfig),
+		Entry("on amd64", "amd64", cpuModelFromConfig, "pc-q35-9.0"),
+		Entry("on s390x", "s390x", cpuModelFromConfig, "s390-ccw-virtio-9.0"),
 		// Currently only Host-Passthrough is supported on Arm64, so you can only
 		// modify the CPU Model in a VMI yaml file, rather than in cluster config
-		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
+		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough, "virt-9.0"),
+	)
+
+	DescribeTable("should default only unspecified machine types from architecture configuration", func(arch, configuredType string, machine *v1.Machine) {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{
+				ArchitectureConfiguration: &v1.ArchConfiguration{
+					Amd64: &v1.ArchSpecificConfiguration{MachineType: "pc-q35-9.0"},
+					Arm64: &v1.ArchSpecificConfiguration{MachineType: "virt-9.0"},
+					S390x: &v1.ArchSpecificConfiguration{MachineType: "s390-ccw-virtio-9.0"},
+				},
+			}},
+		})
+		vmi.Spec.Domain.Machine = machine
+
+		_, spec, _ := getMetaSpecStatusFromAdmitWithArch(arch)
+		expectedType := configuredType
+		if machine != nil && machine.Type != "" {
+			expectedType = machine.Type
+		}
+		Expect(spec.Domain.Machine).To(Equal(&v1.Machine{Type: expectedType}))
+	},
+		Entry("amd64 with missing machine", "amd64", "pc-q35-9.0", nil),
+		Entry("amd64 with empty machine", "amd64", "pc-q35-9.0", &v1.Machine{}),
+		Entry("amd64 with explicit machine", "amd64", "pc-q35-9.0", &v1.Machine{Type: "pc-q35-8.2"}),
+		Entry("arm64 with missing machine", "arm64", "virt-9.0", nil),
+		Entry("arm64 with empty machine", "arm64", "virt-9.0", &v1.Machine{}),
+		Entry("arm64 with explicit machine", "arm64", "virt-9.0", &v1.Machine{Type: "virt-8.2"}),
+		Entry("s390x with missing machine", "s390x", "s390-ccw-virtio-9.0", nil),
+		Entry("s390x with empty machine", "s390x", "s390-ccw-virtio-9.0", &v1.Machine{}),
+		Entry("s390x with explicit machine", "s390x", "s390-ccw-virtio-9.0", &v1.Machine{Type: "s390-ccw-virtio-8.2"}),
 	)
 
 	DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
