@@ -31,9 +31,9 @@ type LaunchSecurityDomainConfigurator struct {
 	launchSecurity launchsecurity.Configurator
 }
 
-func NewLaunchSecurityDomainConfigurator(architecture string) LaunchSecurityDomainConfigurator {
+func NewLaunchSecurityDomainConfigurator(launchSecurity launchsecurity.Configurator) LaunchSecurityDomainConfigurator {
 	return LaunchSecurityDomainConfigurator{
-		launchSecurity: launchsecurity.NewConfigurator(architecture),
+		launchSecurity: launchSecurity,
 	}
 }
 
