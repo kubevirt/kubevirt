@@ -79,9 +79,8 @@ And a simplified version:
   * KubeVirt Components
     * virt-controller
     * virt-handler
-    * libvirtd
     * …
-  * KubeVirt Managed Pods
+  * KubeVirt Managed Pods (one virt-launcher pod per VMI, running virtqemud)
     * VMI Foo
     * VMI Bar
     * …
