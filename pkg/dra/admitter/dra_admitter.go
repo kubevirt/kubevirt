@@ -62,10 +62,6 @@ func (v Validator) ValidateCreation() []metav1.StatusCause {
 	return causes
 }
 
-func (v Validator) Validate() []metav1.StatusCause {
-	return validateCreationDRA(v.field, v.vmiSpec, v.clusterConfig)
-}
-
 func validateCreationDRA(
 	field *k8sfield.Path,
 	spec *v1.VirtualMachineInstanceSpec,

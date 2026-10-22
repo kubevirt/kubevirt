@@ -934,51 +934,6 @@ var _ = Describe("DRA Admitter", func() {
 			}}))
 		})
 	})
-
-	Context("Validator methods", func() {
-		It("ValidateCreation should delegate to validateCreationDRA", func() {
-			checker.gpuDRAEnabled = true
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   claim1,
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			v := admitter.NewValidator(field, spec, checker)
-			causes := v.ValidateCreation()
-			Expect(causes).To(BeEmpty())
-		})
-
-		It("Validate should delegate to validateCreationDRA", func() {
-			checker.gpuDRAEnabled = false
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   claim1,
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			v := admitter.NewValidator(field, spec, checker)
-			causes := v.Validate()
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus"))
-		})
-	})
 })
 
 func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker *fakeConfigChecker) []metav1.StatusCause {
