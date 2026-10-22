@@ -32,9 +32,9 @@ type InputDeviceDomainConfigurator struct {
 	additionalInputDevices input.DeviceConfigurator
 }
 
-func NewInputDeviceDomainConfigurator(architecture string) InputDeviceDomainConfigurator {
+func NewInputDeviceDomainConfigurator(additionalInputDevices input.DeviceConfigurator) InputDeviceDomainConfigurator {
 	return InputDeviceDomainConfigurator{
-		additionalInputDevices: input.NewDeviceConfigurator(architecture),
+		additionalInputDevices: additionalInputDevices,
 	}
 }
 
