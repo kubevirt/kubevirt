@@ -2440,6 +2440,38 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
 			})
 
+			It("should apply the configured guest memory overhead ratio to pod memory requests", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithGuestMemory("1Gi"),
+				)
+				originalVMI := vmi.DeepCopy()
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				overhead := pod.Spec.Containers[0].Resources.Requests.Memory().DeepCopy()
+				overhead.Sub(*vmi.Spec.Domain.Resources.Requests.Memory())
+				Expect(overhead.Value()).To(BeNumerically(">", 0))
+				Expect(vmi).To(Equal(originalVMI))
+
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = pointer.P("2.0")
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err = svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				expectedRequest := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+				expectedRequest.Add(overhead)
+				// The ratio calculation rounds the added overhead to kilobytes.
+				expectedRequest.Add(*resource.NewScaledQuantity(overhead.ScaledValue(resource.Kilo), resource.Kilo))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Cmp(expectedRequest)).To(BeZero())
+				Expect(vmi).To(Equal(originalVMI))
+			})
+
 			Context("memory overcommit", func() {
 				type memorySetterFunc func(vmi *v1.VirtualMachineInstance)
 				type overcommitExpectation bool
