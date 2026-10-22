@@ -1259,6 +1259,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(option libvmi.Option, gracePeriodSeconds int64) {
 				vmi := libvmifact.NewFedora(option)
+				const customFinalizer = "test.kubevirt.io/waitDeletion"
+				vmi.Finalizers = []string{
+					customFinalizer,
+				}
 
 				By("Creating the VirtualMachineInstance")
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1266,6 +1270,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Wait for the login")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				Expect(vmi.Finalizers).To(ContainElement(customFinalizer))
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
