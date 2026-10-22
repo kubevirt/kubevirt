@@ -127,6 +127,12 @@ linters:
       - linters:
           - mnd
         source: 'Log\.V\('
+      - linters:
+          - mnd
+        source: 'WithTimeout\('
+      - linters:
+          - mnd
+        source: 'WithPolling\('
     paths:
       - third_party$
       - builtin$
