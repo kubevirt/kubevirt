@@ -799,35 +799,20 @@ chpasswd:
 
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, func() {
-		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
-		testEmulatedMachinesS390x := []string{"s390-ccw-virtio*"}
+	It("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component][test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", decorators.WgS390x, func() {
+		machineType, expectedSubstring := "q35", "pc-q35"
+		if testsuite.Arch == testsuite.ArchS390x {
+			machineType, expectedSubstring = "s390-ccw-virtio", "s390-ccw-virtio"
+		}
 
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+		vmi := libvmifact.NewGuestless(
+			libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
+			withMachineType(machineType),
+		)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
 
-			config := kv.Spec.Configuration
-			config.MachineType = ""
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachinesS390x
-
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
-
-		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
-			machineType, expectedSubstring := machineTypeForArch()
-			vmi := libvmifact.NewGuestless(
-				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
-				withMachineType(machineType),
-			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
-
-			Expect(vmi.Status.Machine).ToNot(BeNil())
-			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
-		})
-
+		Expect(vmi.Status.Machine).ToNot(BeNil())
+		Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
 	})
 
 	Context("using automatic resource limits", decorators.WgS390x, func() {
@@ -1599,13 +1584,6 @@ func withMachineType(machineType string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
-}
-
-func machineTypeForArch() (machineType, expectedSubstring string) {
-	if testsuite.Arch == testsuite.ArchS390x {
-		return "s390-ccw-virtio", "s390-ccw-virtio"
-	}
-	return "pc", "pc-i440"
 }
 
 func withSerialBIOS() libvmi.Option {
