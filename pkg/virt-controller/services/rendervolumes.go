@@ -537,7 +537,12 @@ func withHotplugSupport(hotplugDiskDir string) VolumeRendererOption {
 			MountPath:        hotplugDiskDir,
 			MountPropagation: &prop,
 		})
-		renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(hotplugDisks))
+		volume := emptyDirVolume(hotplugDisks)
+		// Use tmpfs for hotplug mount propagation.
+		volume.EmptyDir.Medium = k8sv1.StorageMediumMemory
+		sizeLimit := resource.MustParse("1Mi")
+		volume.EmptyDir.SizeLimit = &sizeLimit
+		renderer.podVolumes = append(renderer.podVolumes, volume)
 		return nil
 	}
 }
