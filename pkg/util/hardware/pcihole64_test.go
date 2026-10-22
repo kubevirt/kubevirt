@@ -57,6 +57,42 @@ var _ = Describe("PCI 64-bit hole sizing", func() {
 
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("returns a wrapped error when a BAR address fails to parse", func() {
+			devicesPath := GinkgoT().TempDir()
+			devicePath := filepath.Join(devicesPath, "0000:81:00.0")
+			Expect(os.MkdirAll(devicePath, 0755)).To(Succeed())
+			resource := "not-hex 0x0000000000001fff 0x00000101\n"
+			Expect(os.WriteFile(filepath.Join(devicePath, "resource"), []byte(resource), 0644)).To(Succeed())
+
+			_, err := PCI64BitPrefetchableBARBytes(devicesPath, "0000:81:00.0")
+
+			Expect(err).To(MatchError(ContainSubstring("failed to parse start address")))
+		})
+
+		It("ignores an SR-IOV PF's aggregate VF BAR reservation lines", func() {
+			devicesPath := GinkgoT().TempDir()
+			devicePath := filepath.Join(devicesPath, "0000:81:00.0")
+			Expect(os.MkdirAll(devicePath, 0755)).To(Succeed())
+			resource := strings.Join([]string{
+				"0x0000000200000000 0x000000020fffffff 0x0000020c", // BAR 0: 64-bit prefetchable, included (256 MiB)
+				"0x0000000000000000 0x0000000000000000 0x00000000", // BAR 1
+				"0x0000000000000000 0x0000000000000000 0x00000000", // BAR 2
+				"0x0000000000000000 0x0000000000000000 0x00000000", // BAR 3
+				"0x0000000000000000 0x0000000000000000 0x00000000", // BAR 4
+				"0x0000000000000000 0x0000000000000000 0x00000000", // BAR 5
+				"0x0000000000000000 0x0000000000000000 0x00000000", // expansion ROM
+				// PCI_IOV_RESOURCES: the PF's aggregate VF BAR reservation,
+				// far larger than the PF's own BAR and must not be counted.
+				"0x0000004000000000 0x00000047ffffffff 0x0000020c", // 32 GiB, excluded
+			}, "\n") + "\n"
+			Expect(os.WriteFile(filepath.Join(devicePath, "resource"), []byte(resource), 0644)).To(Succeed())
+
+			size, err := PCI64BitPrefetchableBARBytes(devicesPath, "0000:81:00.0")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(uint64(0x10000000)))
+		})
 	})
 
 	Describe("PCIHole64KiB", func() {
@@ -64,15 +100,32 @@ var _ = Describe("PCI 64-bit hole sizing", func() {
 			sizeBytes := uint64(256) << 30 // 256 GiB of BARs
 			marginKiB := uint64(1) << 20   // 1 GiB margin
 
-			Expect(PCIHole64KiB(sizeBytes, marginKiB)).To(Equal(uint64(512) << 20)) // 512 GiB in KiB
+			size, err := PCIHole64KiB(sizeBytes, marginKiB)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(uint64(512) << 20)) // 512 GiB in KiB
 		})
 
 		It("returns 0 for a zero size", func() {
-			Expect(PCIHole64KiB(0, 1<<20)).To(Equal(uint64(0)))
+			size, err := PCIHole64KiB(0, 1<<20)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(size).To(Equal(uint64(0)))
 		})
 
-		It("returns 0 on overflow", func() {
-			Expect(PCIHole64KiB(math.MaxUint64, math.MaxUint64)).To(Equal(uint64(0)))
+		It("returns an error when the margin addition overflows", func() {
+			_, err := PCIHole64KiB(math.MaxUint64, math.MaxUint64)
+
+			Expect(err).To(MatchError(ContainSubstring("plus margin")))
+		})
+
+		It("returns an error when rounding to a power of two overflows", func() {
+			// sizeKiB is tiny (1 KiB) but the margin pushes the sum past the
+			// largest representable power of two, overflowing the rounding
+			// loop even though the margin addition itself did not overflow.
+			_, err := PCIHole64KiB(1024, math.MaxUint64-2)
+
+			Expect(err).To(MatchError(ContainSubstring("rounded to a power of two overflows")))
 		})
 	})
 })

@@ -500,7 +500,8 @@ var _ = Describe("Grace domain conversion", func() {
 	})
 
 	It("detects Grace pcihole64 sizing overflow before applying the controller value", func() {
-		Expect(hardware.PCIHole64KiB(math.MaxUint64, math.MaxUint64)).To(Equal(uint64(0)))
+		_, err := hardware.PCIHole64KiB(math.MaxUint64, math.MaxUint64)
+		Expect(err).To(MatchError(ContainSubstring("overflows uint64")))
 	})
 
 	It("fails when Grace pcihole64 sizing exceeds the maximum aperture", func() {

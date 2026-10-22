@@ -531,7 +531,10 @@ func applyGraceNUMADistances(domainSpec *api.DomainSpec, guestToHostNUMA map[uin
 }
 
 func applyGracePCIHole64(domainSpec *api.DomainSpec, pciHoleBytes uint64) error {
-	pciHoleKiB := hardware.PCIHole64KiB(pciHoleBytes, gracePCIHole64MarginKiB)
+	pciHoleKiB, err := hardware.PCIHole64KiB(pciHoleBytes, gracePCIHole64MarginKiB)
+	if err != nil {
+		return fmt.Errorf("failed to size Grace pcihole64: %w", err)
+	}
 	if pciHoleKiB == 0 || pciHoleKiB > graceMaxPCIHole64KiB || pciHoleKiB > uint64(math.MaxUint) {
 		return fmt.Errorf("invalid Grace pcihole64 size %d KiB", pciHoleKiB)
 	}
