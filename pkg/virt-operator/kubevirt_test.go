@@ -4062,7 +4062,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			DeferCleanup(kvTestData.AfterTest)
 		})
 
-		It("should not create virt-launcher-pod-mutator webhook when disabled", func() {
+		DescribeTable("should reconcile virt-launcher-pod-mutator webhook on installation", func(disabled bool) {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -4070,7 +4070,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			disableTemplateFeatureGate(kv)
-			// ContainerPathVolumes NOT enabled
+			if disabled {
+				disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+			}
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
@@ -4093,16 +4095,21 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			_, exists, err := kvTestData.controller.stores.MutatingWebhookCache.GetByKey(components.VirtLauncherPodMutatingWebhookName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse(), "virt-launcher-pod-mutator webhook should not exist when ContainerPathVolumes is disabled")
+			Expect(exists).To(Equal(!disabled))
 
-			for _, action := range kvTestData.kubeClient.Actions() {
-				if action.GetVerb() != "get" || action.GetResource().Resource != "mutatingwebhookconfigurations" {
-					continue
+			if disabled {
+				for _, action := range kvTestData.kubeClient.Actions() {
+					if action.GetVerb() != "get" || action.GetResource().Resource != "mutatingwebhookconfigurations" {
+						continue
+					}
+					Expect(action.(testing.GetAction).GetName()).ToNot(Equal(components.VirtLauncherPodMutatingWebhookName),
+						"the informer cache should be trusted instead of querying the API server for a disabled webhook")
 				}
-				Expect(action.(testing.GetAction).GetName()).ToNot(Equal(components.VirtLauncherPodMutatingWebhookName),
-					"the informer cache should be trusted instead of querying the API server for a disabled webhook")
 			}
-		})
+		},
+			Entry("creates the webhook by default", false),
+			Entry("does not create the webhook when explicitly disabled", true),
+		)
 
 		It("should delete virt-launcher-pod-mutator webhook when ContainerPathVolumes is disabled after being enabled", func() {
 			// Create existing KV with ContainerPathVolumes enabled
@@ -4119,7 +4126,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			// Create new KV with ContainerPathVolumes disabled
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
-			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				DisabledFeatureGates: []string{featuregate.ContainerPathVolumesGate},
+			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 
 			kvTestData.deleteFromCache = true
@@ -4160,7 +4169,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			disableTemplateFeatureGate(kv)
-			// ContainerPathVolumes NOT enabled
+			disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
 			// Create new KV with ContainerPathVolumes enabled

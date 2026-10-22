@@ -115,6 +115,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	DescribeTable("ContainerPath feature gate on VMI creation", func(enabled, allowed bool) {
 		if enabled {
 			enableFeatureGates(featuregate.ContainerPathVolumesGate)
+		} else {
+			withDisabledFeatureGates(featuregate.ContainerPathVolumesGate)
 		}
 		vmi := newBaseVmi()
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
