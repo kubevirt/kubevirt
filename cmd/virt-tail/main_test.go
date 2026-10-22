@@ -21,8 +21,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -239,5 +241,122 @@ func TestTailFileIntegration(t *testing.T) {
 		if line != expected {
 			t.Fatalf("line %d: expected %q, got %q", i, expected, line)
 		}
+	}
+}
+
+// guest-console-log starts before compute creates the per-VMI directory.
+func TestRunWaitsForMissingLogDirectory(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "vmi-uid")
+	logFile := filepath.Join(dir, "virt-serial0-log")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	v := &VirtTail{ctx: ctx, logFile: logFile}
+
+	var mu sync.Mutex
+	var output []string
+	oldPrintln := printLine
+	printLine = func(s string) {
+		mu.Lock()
+		output = append(output, s)
+		mu.Unlock()
+	}
+	defer func() { printLine = oldPrintln }()
+
+	done := make(chan error, 1)
+	go func() { done <- v.run() }()
+
+	assertStillRunning := func() {
+		t.Helper()
+		select {
+		case err := <-done:
+			t.Fatalf("virt-tail exited while the log was unavailable: %v", err)
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+
+	assertStillRunning()
+
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	assertStillRunning()
+
+	if err := os.WriteFile(logFile, []byte("hello from guest\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(8 * time.Second)
+	for {
+		mu.Lock()
+		got := len(output) > 0
+		mu.Unlock()
+		if got {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the log line")
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("virt-tail exited before reading the log: %v", err)
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("run() returned %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() did not return after cancel")
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(output) != 1 || output[0] != "hello from guest" {
+		t.Fatalf("unexpected output %v", output)
+	}
+}
+
+func TestRunStopsWhileWaitingForLogDirectory(t *testing.T) {
+	logFile := filepath.Join(t.TempDir(), "missing", "virt-serial0-log")
+	ctx, cancel := context.WithCancel(context.Background())
+
+	v := &VirtTail{ctx: ctx, logFile: logFile}
+	done := make(chan error, 1)
+	go func() { done <- v.run() }()
+
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("expected a clean exit, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() did not return after cancel")
+	}
+}
+
+func TestRunReturnsWhenLogDirectoryIsFile(t *testing.T) {
+	root := t.TempDir()
+	blocker := filepath.Join(root, "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	v := &VirtTail{ctx: ctx, logFile: filepath.Join(blocker, "virt-serial0-log")}
+	err := v.run()
+	if err == nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		t.Fatalf("expected a path error when the log directory is a file, got %v", err)
 	}
 }
