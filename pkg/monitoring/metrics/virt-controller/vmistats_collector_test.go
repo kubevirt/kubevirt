@@ -39,9 +39,9 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/render"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -861,7 +861,7 @@ func setupTestCollector() {
 		ControllerRevision:  controllerRevisionInformer.GetStore(),
 	}
 
-	vmApplier = apply.NewVMApplier(
+	vmRenderer = render.New(
 		find.NewSpecFinder(
 			instanceTypeInformer.GetStore(),
 			clusterInstanceTypeInformer.GetStore(),

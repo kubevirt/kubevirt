@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -36,21 +35,23 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
-	preferenceannotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
-	preferenceapply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/render"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
-type applyVMHandler interface {
+type renderVMHandler interface {
 	ApplyToVM(*virtv1.VirtualMachine) error
+}
+
+type renderVMIHandler interface {
+	ApplyAutoAttachPreferences(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
+	ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
 }
 
 type instancetypeFindHandler interface {
@@ -74,7 +75,8 @@ type upgradeHandler interface {
 }
 
 type controller struct {
-	applyVMHandler
+	renderVMHandler
+	renderVMIHandler
 	storeHandler
 	expandHandler
 	upgradeHandler
@@ -92,10 +94,12 @@ func New(
 ) *controller {
 	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
 	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	renderer := render.New(finder, prefFinder)
 	return &controller{
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
-		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
+		renderVMHandler:         renderer,
+		renderVMIHandler:        renderer,
 		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
@@ -213,48 +217,4 @@ func (c *controller) handleExpand(
 		return updatedVM, nil
 	}
 	return vm, nil
-}
-
-func (c *controller) ApplyAutoAttachPreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vm.Spec.Preference == nil {
-		return nil
-	}
-	preferenceSpec, err := c.FindPreference(vm)
-	if err != nil {
-		return err
-	}
-	preferenceapply.ApplyAutoAttachPreferences(preferenceSpec, &vmi.Spec)
-
-	return nil
-}
-
-func (c *controller) ApplyToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	instancetypeSpec, err := c.Find(vm)
-	if err != nil {
-		return err
-	}
-
-	preferenceSpec, err := c.FindPreference(vm)
-	if err != nil {
-		return err
-	}
-
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil
-	}
-
-	annotations.Set(vm, vmi)
-	preferenceannotations.Set(vm, vmi)
-
-	if conflicts := apply.NewVMIApplier().ApplyToVMI(
-		k8sfield.NewPath("spec"),
-		instancetypeSpec,
-		preferenceSpec,
-		&vmi.Spec,
-		&vmi.ObjectMeta,
-	); len(conflicts) > 0 {
-		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
-	}
-
-	return nil
 }

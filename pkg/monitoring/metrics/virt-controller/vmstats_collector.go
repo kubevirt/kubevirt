@@ -335,7 +335,7 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 	for _, vm := range vms {
 		// Apply any instance type and preference to a copy of the VM before proceeding
 		vmCopy := vm.DeepCopy()
-		_ = vmApplier.ApplyToVM(vmCopy)
+		_ = vmRenderer.ApplyToVM(vmCopy)
 
 		// Memory requests and limits from domain resources
 		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)

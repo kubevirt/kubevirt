@@ -1,17 +1,24 @@
 package render_test
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
+	instancetypeRender "kubevirt.io/kubevirt/pkg/instancetype/render"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	netbinding "kubevirt.io/kubevirt/pkg/network/netbinding"
@@ -32,6 +39,11 @@ var _ = Describe("render", func() {
 	opts := func() render.Options {
 		return render.Options{LauncherImage: launcherImage}
 	}
+
+	It("rejects a negative launcher UID", func() {
+		_, err := render.NewOfflineRenderer(render.Options{LauncherImage: launcherImage, RunAsUser: -1})
+		Expect(err).To(MatchError("RunAsUser must not be negative"))
+	})
 
 	Describe("PodFromVMI", func() {
 		It("does not mutate the caller-owned VMI", func() {
@@ -303,6 +315,39 @@ var _ = Describe("render", func() {
 			Expect(err).To(MatchError(ContainSubstring("instancetype matchers")))
 		})
 
+		It("matches controller preparation for a completed memory dump and disk pairing", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("dumpvm"),
+			))
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "disk0",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "some/image"},
+				},
+			}, {
+				Name: "dump-pvc",
+				VolumeSource: v1.VolumeSource{
+					MemoryDump: &v1.MemoryDumpVolumeSource{},
+				},
+			}}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = nil
+			vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: "dump-pvc",
+				Phase:     v1.MemoryDumpCompleted,
+			}
+
+			controllerVMI := render.NewVMI(vm)
+			render.PrepareControllerVMI(vm, controllerVMI)
+
+			offline, err := render.VMIFromVM(vm, opts())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controllerVMI.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "dump-pvc")))
+			Expect(offline.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "dump-pvc")))
+			Expect(controllerVMI.Spec.Domain.Devices.Disks).To(ContainElement(HaveField("Name", "disk0")))
+			Expect(offline.Spec.Domain.Devices.Disks).To(ContainElement(HaveField("Name", "disk0")))
+		})
+
 		It("drops a completed memory-dump volume before pairing disks", func() {
 			vm := libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithNamespace("default"),
@@ -345,6 +390,32 @@ var _ = Describe("render", func() {
 			Expect(vmi.Spec.Volumes).To(ContainElement(HaveField("Name", "dump-pvc")))
 		})
 
+		It("rejects an instancetype spec when the VM has no matcher", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("itvm"),
+			))
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype:  &instancetypev1beta1.VirtualMachineInstancetypeSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("no instancetype matcher")))
+		})
+
+		It("rejects a preference spec when the VM has no matcher", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("prefvm"),
+			))
+
+			_, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference:    &instancetypev1beta1.VirtualMachinePreferenceSpec{},
+			})
+			Expect(err).To(MatchError(ContainSubstring("no preference matcher")))
+		})
+
 		It("rejects a VM with a preference matcher", func() {
 			vm := libvmi.NewVirtualMachine(
 				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
@@ -353,6 +424,115 @@ var _ = Describe("render", func() {
 
 			_, err := render.PodFromVM(vm, opts())
 			Expect(err).To(MatchError(ContainSubstring("preference matchers")))
+		})
+
+		It("applies a supplied instancetype spec", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("itvm")),
+				libvmi.WithInstancetype("u1.small"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Instancetype: &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU:    instancetypev1beta1.CPUInstancetype{Guest: 2},
+					Memory: instancetypev1beta1.MemoryInstancetype{Guest: resource.MustParse("2Gi")},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.CPU).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+			Expect(result.VMI.Spec.Domain.Memory).NotTo(BeNil())
+			Expect(result.VMI.Spec.Domain.Memory.Guest.String()).To(Equal("2Gi"))
+			Expect(result.VMI.Annotations).To(HaveKey(v1.InstancetypeAnnotation))
+		})
+
+		It("applies a supplied preference auto-attach input", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreference("fedora"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredAutoattachInputDevice: pointer.P(true),
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.Devices.Inputs).To(HaveLen(1))
+			Expect(result.VMI.Spec.Domain.Devices.Inputs[0].Type).NotTo(BeEmpty())
+		})
+
+		It("applies a preferred interface model to the default pod interface", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("prefvm")),
+				libvmi.WithPreference("fedora"),
+			)
+
+			result, err := render.PodFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredInterfaceModel: "virtio",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.VMI.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
+			Expect(result.VMI.Spec.Domain.Devices.Interfaces[0].Model).To(Equal("virtio"))
+		})
+
+		It("applies architecture and machine preferences before cluster defaults", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("archvm")),
+				libvmi.WithPreference("arm"),
+			)
+
+			vmi, err := render.VMIFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Architecture:  "amd64",
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					PreferredArchitecture: pointer.P("arm64"),
+					Machine: &instancetypev1beta1.MachinePreferences{
+						PreferredMachineType: "virt",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Spec.Architecture).To(Equal("arm64"))
+			Expect(vmi.Spec.Domain.Machine.Type).To(Equal("virt"))
+		})
+
+		It("keeps a preferred disk bus when the volume has no disk entry", func() {
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace("default"), libvmi.WithName("diskvm")),
+				libvmi.WithPreference("linux"),
+			)
+			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+				Name: "disk0",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: &v1.ContainerDiskSource{Image: "some/image"},
+				},
+			}}
+			vm.Spec.Template.Spec.Domain.Devices.Disks = nil
+
+			vmi, err := render.VMIFromVM(vm, render.Options{
+				LauncherImage: launcherImage,
+				Architecture:  "amd64",
+				Preference: &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Devices: &instancetypev1beta1.DevicePreferences{
+						PreferredDiskBus: v1.DiskBusVirtio,
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vmi.Spec.Domain.Devices.Disks).To(ContainElement(And(
+				HaveField("Name", "disk0"),
+				HaveField("Disk.Bus", v1.DiskBusVirtio),
+			)))
 		})
 	})
 
@@ -505,6 +685,167 @@ var _ = Describe("render", func() {
 	})
 
 	Describe("offline vs online equivalence", func() {
+		Context("VM preparation", func() {
+			var (
+				vm           *v1.VirtualMachine
+				config       *virtconfig.ClusterConfig
+				online       *render.OnlineRenderer
+				offline      *render.OfflineRenderer
+				instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype
+				preference   *instancetypev1beta1.VirtualMachineClusterPreference
+			)
+
+			BeforeEach(func() {
+				config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+				instancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+					ObjectMeta: metav1.ObjectMeta{Name: "small"},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU:    instancetypev1beta1.CPUInstancetype{Guest: 2},
+						Memory: instancetypev1beta1.MemoryInstancetype{Guest: resource.MustParse("2Gi")},
+					},
+				}
+				preference = &instancetypev1beta1.VirtualMachineClusterPreference{
+					ObjectMeta: metav1.ObjectMeta{Name: "linux"},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Devices: &instancetypev1beta1.DevicePreferences{
+							PreferredAutoattachInputDevice: pointer.P(true),
+							PreferredDiskBus:               v1.DiskBusSCSI,
+							PreferredInterfaceModel:        "e1000",
+						},
+					},
+				}
+				instancetypeStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+				preferenceStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+				Expect(instancetypeStore.Add(instancetype)).To(Succeed())
+				Expect(preferenceStore.Add(preference)).To(Succeed())
+				handler := instancetypecontroller.New(nil, instancetypeStore, nil, preferenceStore, nil, nil, config, nil)
+				online = render.NewOnlineRenderer(config, handler)
+
+				var err error
+				offline, err = render.NewOfflineRenderer(render.Options{
+					LauncherImage: "kubevirt/virt-launcher:test",
+					Instancetype:  &instancetype.Spec,
+					Preference:    &preference.Spec,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				vm = libvmi.NewVirtualMachine(libvmi.New(
+					libvmi.WithName("shared"), libvmi.WithNamespace("default"),
+					libvmi.WithFirmwareUUID("existing-uuid"),
+				), libvmi.WithClusterInstancetype(instancetype.Name), libvmi.WithClusterPreference(preference.Name))
+				vm.Spec.Template.Spec.Domain.Firmware.Serial = "existing-serial"
+				vm.Spec.Template.Spec.Volumes = []v1.Volume{{
+					Name: "disk0",
+					VolumeSource: v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{Image: "some/image"},
+					},
+				}, {
+					Name: "dump",
+					VolumeSource: v1.VolumeSource{
+						MemoryDump: &v1.MemoryDumpVolumeSource{},
+					},
+				}}
+				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: "dump", Phase: v1.MemoryDumpCompleted,
+				}
+			})
+
+			DescribeTable("produces the same VMI offline as online preparation followed by admission", func(
+				architecture string, machine *v1.Machine, expectedArchitecture, expectedMachineType string,
+			) {
+				preference.Spec.PreferredArchitecture = pointer.P("arm64")
+				preference.Spec.Machine = &instancetypev1beta1.MachinePreferences{PreferredMachineType: "virt-9.0"}
+				vm.Spec.Template.Spec.Architecture = architecture
+				vm.Spec.Template.Spec.Domain.Machine = machine
+
+				originalVM := vm.DeepCopy()
+				originalInstancetype := instancetype.DeepCopy()
+				originalPreference := preference.DeepCopy()
+
+				admittedVM := vm.DeepCopy()
+				instancetypeRender.ApplyPreDefaultPreferences(admittedVM, &preference.Spec)
+				defaults.SetVirtualMachineDefaults(admittedVM, config, nil)
+				Expect(admittedVM.Spec.Template.Spec.Architecture).To(Equal(expectedArchitecture))
+				Expect(admittedVM.Spec.Template.Spec.Domain.Machine.Type).To(Equal(expectedMachineType))
+				onlineVMI, err := online.VMIFromVM(admittedVM)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(onlineVMI.Spec.Domain.Devices.Disks).To(ConsistOf(And(
+					HaveField("Name", "disk0"), HaveField("Disk.Bus", v1.DiskBusSCSI),
+				)))
+				Expect(onlineVMI.Spec.Domain.Devices.Inputs).To(ConsistOf(v1.Input{Name: "default-0"}))
+				Expect(onlineVMI.Spec.Domain.Devices.Interfaces).To(ContainElement(HaveField("Model", "e1000")))
+				Expect(mutators.ApplyNewVMIMutations(onlineVMI, config)).To(Succeed())
+
+				offlineVMI, err := offline.VMIFromVM(vm)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(offlineVMI).To(Equal(onlineVMI))
+				Expect(vm).To(Equal(originalVM))
+				Expect(instancetype).To(Equal(originalInstancetype))
+				Expect(preference).To(Equal(originalPreference))
+			},
+				Entry("with unset architecture and machine", "", nil, "arm64", "virt-9.0"),
+				Entry("with an empty machine type", "", &v1.Machine{}, "arm64", "virt-9.0"),
+				Entry("with explicit architecture and machine", "amd64", &v1.Machine{Type: "pc-q35-9.0"}, "amd64", "pc-q35-9.0"),
+			)
+
+			It("leaves VM defaults and VMI admission mutations out of online rendering", func() {
+				rawVM := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithName("raw"), libvmi.WithNamespace("default")))
+				original := rawVM.DeepCopy()
+				onlineVMI, err := online.VMIFromVM(rawVM)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(onlineVMI.Spec.Architecture).To(BeEmpty())
+				Expect(onlineVMI.Spec.Domain.Machine).To(BeNil())
+				Expect(onlineVMI.Spec.Domain.Firmware).To(BeNil())
+				Expect(onlineVMI.Spec.Domain.CPU).To(BeNil())
+				Expect(onlineVMI.Status.RuntimeUser).To(BeZero())
+
+				Expect(rawVM).To(Equal(original))
+			})
+
+			DescribeTable("isolates admission defaults across renders", func(fromVM bool) {
+				vmi := libvmi.New(libvmi.WithNamespace("default"))
+				renderNext := func() (*render.Result, error) {
+					if fromVM {
+						return offline.PodFromVM(vm)
+					}
+					return offline.PodFromVMI(vmi)
+				}
+
+				first, err := renderNext()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(first.VMI.Spec.EvictionStrategy).To(Equal(pointer.P(v1.EvictionStrategyNone)))
+				*first.VMI.Spec.EvictionStrategy = v1.EvictionStrategyLiveMigrate
+				if fromVM {
+					first.VMI.Spec.Domain.Devices.Inputs[0].Name = "changed"
+				}
+
+				second, err := renderNext()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(second.VMI.Spec.EvictionStrategy).To(Equal(pointer.P(v1.EvictionStrategyNone)))
+				if fromVM {
+					Expect(second.VMI.Spec.Domain.Devices.Inputs[0].Name).To(Equal("default-0"))
+				}
+				*second.VMI.Spec.EvictionStrategy = v1.EvictionStrategyExternal
+				Expect(first.VMI.Spec.EvictionStrategy).To(Equal(pointer.P(v1.EvictionStrategyLiveMigrate)))
+			},
+				Entry("from a VM", true),
+				Entry("from a standalone VMI", false),
+			)
+
+			DescribeTable("preserves errors from the instancetype handler", func(autoAttachError bool) {
+				expected := errors.New("resource lookup failed")
+				handler := failingInstancetypeHandler{err: expected, autoAttachError: autoAttachError}
+				renderer := render.NewOnlineRenderer(config, handler)
+
+				vmi, err := renderer.VMIFromVM(vm)
+				Expect(vmi).To(BeNil())
+				Expect(errors.Is(err, expected)).To(BeTrue())
+			},
+				Entry("when applying auto-attach preferences", true),
+				Entry("when applying the instancetype and preference", false),
+			)
+		})
+
 		It("matches prepared VMI defaults and Pod output after normalizing QEMU timeout jitter", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace("default"),
@@ -590,4 +931,20 @@ func volumeNames(pod *k8sv1.Pod) []string {
 		names = append(names, vol.Name)
 	}
 	return names
+}
+
+type failingInstancetypeHandler struct {
+	err             error
+	autoAttachError bool
+}
+
+func (h failingInstancetypeHandler) ApplyAutoAttachPreferences(_ *v1.VirtualMachine, _ *v1.VirtualMachineInstance) error {
+	if h.autoAttachError {
+		return h.err
+	}
+	return nil
+}
+
+func (h failingInstancetypeHandler) ApplyToVMI(_ *v1.VirtualMachine, _ *v1.VirtualMachineInstance) error {
+	return h.err
 }
