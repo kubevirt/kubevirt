@@ -309,11 +309,10 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "0a4b9740da1839ded674c8f5012c069b235b101f1eaa2552a4721287808541af",
-    strip_prefix = "bazeldnf-v0.5.9-2",
+    sha256 = "377e01159f51d9e61fe198a67837c8e8b880b36f5a98d7a836316f1572acc088",
+    strip_prefix = "bazeldnf-v0.5.9-3",
     urls = [
-        "https://github.com/brianmcarey/bazeldnf/releases/download/v0.5.9-2/bazeldnf-v0.5.9-2.tar.gz",
-        "https://storage.googleapis.com/builddeps/0a4b9740da1839ded674c8f5012c069b235b101f1eaa2552a4721287808541af",
+        "https://github.com/Whitedyl/bazeldnf/releases/download/v0.5.9-3/bazeldnf-v0.5.9-3.tar.gz",
     ],
 )
 
