@@ -93,10 +93,8 @@ const (
 var istioTests = func(vmType VmType) {
 	var (
 		err        error
-		vmi        *v1.VirtualMachineInstance
 		namespace  string
 		virtClient kubecli.KubevirtClient
-		vmiPorts   []v1.Port
 		// Istio Envoy treats traffic differently for ports declared and undeclared in an associated k8s service.
 		// Having both, declared and undeclared ports specified for VMIs with explicit ports allows to test both cases.
 		explicitPorts = []v1.Port{
@@ -164,14 +162,12 @@ var istioTests = func(vmType VmType) {
 			return istioVMI
 		}
 		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+			var vmi *v1.VirtualMachineInstance
 			BeforeEach(setupIstioResources)
 			JustBeforeEach(func() {
-				vmi = startIstioVMI(vmiPorts)
+				vmi = startIstioVMI(nil)
 			})
 
-			BeforeEach(func() {
-				vmiPorts = nil
-			})
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -202,11 +198,7 @@ var istioTests = func(vmType VmType) {
 		})
 		Describe("SSH traffic", func() {
 			BeforeEach(setupIstioResources)
-			JustBeforeEach(func() {
-				vmi = startIstioVMI(vmiPorts)
-			})
-
-			var bastionVMI *v1.VirtualMachineInstance
+			var vmi, bastionVMI *v1.VirtualMachineInstance
 			sshCommand := func(user, ipAddress string) string {
 				return fmt.Sprintf("ssh -y %s@%s\n", user, ipAddress)
 			}
@@ -234,8 +226,8 @@ var istioTests = func(vmType VmType) {
 				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
 			Context("With VMI having explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+				JustBeforeEach(func() {
+					vmi = startIstioVMI(explicitPorts)
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
@@ -249,8 +241,8 @@ var istioTests = func(vmType VmType) {
 				})
 			})
 			Context("With VMI having no explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
+				JustBeforeEach(func() {
+					vmi = startIstioVMI(nil)
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
@@ -362,28 +354,19 @@ var istioTests = func(vmType VmType) {
 			})
 		})
 		Describe("Outbound traffic", func() {
-			BeforeEach(setupIstioResources)
-			JustBeforeEach(func() {
-				vmi = startIstioVMI(vmiPorts)
-			})
-
 			const (
 				externalServiceCheckTimeout  = 5 * time.Second
 				externalServiceCheckInterval = 1 * time.Second
 				istioNamespace               = "istio-system"
 			)
-			var (
-				ingressGatewayServiceIP string
-				serverVMI               *v1.VirtualMachineInstance
-			)
-
-			BeforeEach(func() {
+			startExternalService := func() (*v1.VirtualMachineInstance, string) {
 				networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
-				serverVMI = libvmifact.NewAlpineWithTestTooling(
+				serverVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.NewInterface(
 						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "false"),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
@@ -421,8 +404,8 @@ var istioTests = func(vmType VmType) {
 				By("Getting Istio ingressgateway IP")
 				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
-			})
+				return serverVMI, ingressGatewayService.Spec.ClusterIP
+			}
 
 			checkHTTPServiceReturnCode := func(requestVMI *v1.VirtualMachineInstance, ingressGatewayAddress, returnCode string) error {
 				command := fmt.Sprintf(
@@ -432,7 +415,7 @@ var istioTests = func(vmType VmType) {
 				return runIstioCommand(requestVMI, command, externalServiceCheckTimeout)
 			}
 
-			expectExternalServiceReachable := func(requestVMI *v1.VirtualMachineInstance) {
+			expectExternalServiceReachable := func(requestVMI, serverVMI *v1.VirtualMachineInstance, ingressGatewayServiceIP string) {
 				Expect(checkHTTPServiceReturnCode(serverVMI, ingressGatewayServiceIP, "200")).To(Succeed())
 				command := fmt.Sprintf(
 					`test "$(curl --fail --silent --show-error --max-time 2 http://%s.%s.svc.cluster.local:%d)" = 'Hello World!'`,
@@ -441,60 +424,63 @@ var istioTests = func(vmType VmType) {
 				Expect(runIstioCommand(requestVMI, command, externalServiceCheckTimeout)).To(Succeed())
 			}
 
-			Context("VMI with explicit ports", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+			Context("With default outbound traffic policy", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var explicitPortsVMI, noExplicitPortsVMI *v1.VirtualMachineInstance
+				var ingressGatewayServiceIP string
+
+				BeforeAll(func() {
+					setupIstioResources()
+					_, ingressGatewayServiceIP = startExternalService()
+					explicitPortsVMI = startIstioVMI(explicitPorts)
+					noExplicitPortsVMI = startIstioVMI(nil)
 				})
-				It("Should be able to reach http server outside of mesh", func() {
-					Expect(
-						checkHTTPServiceReturnCode(vmi, ingressGatewayServiceIP, "200"),
-					).ToNot(HaveOccurred())
+
+				Context("VMI with explicit ports", func() {
+					It("Should be able to reach http server outside of mesh", func() {
+						Expect(checkHTTPServiceReturnCode(explicitPortsVMI, ingressGatewayServiceIP, "200")).To(Succeed())
+					})
 				})
-			})
-			Context("VMI with no explicit ports", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
-				})
-				It("Should be able to reach http server outside of mesh", func() {
-					Expect(
-						checkHTTPServiceReturnCode(vmi, ingressGatewayServiceIP, "200"),
-					).ToNot(HaveOccurred())
+				Context("VMI with no explicit ports", func() {
+					It("Should be able to reach http server outside of mesh", func() {
+						Expect(checkHTTPServiceReturnCode(noExplicitPortsVMI, ingressGatewayServiceIP, "200")).To(Succeed())
+					})
 				})
 			})
 
-			Context("With Sidecar allowing only registered external services", func() {
-				// Istio Envoy will intercept the request because of the OutboundTrafficPolicy set to REGISTRY_ONLY.
-				// Envoy responds with 502 Bad Gateway return code.
-				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
-				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
+			Context("With Sidecar allowing only registered external services", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var explicitPortsVMI, noExplicitPortsVMI, serverVMI *v1.VirtualMachineInstance
+				var ingressGatewayServiceIP string
 
-				BeforeEach(func() {
+				BeforeAll(func() {
+					setupIstioResources()
+					serverVMI, ingressGatewayServiceIP = startExternalService()
+
 					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
 					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(namespace).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
+
+					explicitPortsVMI = startIstioVMI(explicitPorts)
+					noExplicitPortsVMI = startIstioVMI(nil)
 				})
 
 				Context("VMI with explicit ports", func() {
-					BeforeEach(func() {
-						vmiPorts = explicitPorts
-					})
 					It("Should not be able to reach http service outside of mesh", func() {
-						expectExternalServiceReachable(vmi)
+						expectExternalServiceReachable(explicitPortsVMI, serverVMI, ingressGatewayServiceIP)
+						// Policy propagation can briefly allow a request after startup.
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(vmi, ingressGatewayServiceIP, "5[0-9][0-9]")
+							return checkHTTPServiceReturnCode(explicitPortsVMI, ingressGatewayServiceIP, "5[0-9][0-9]")
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
+						expectExternalServiceReachable(explicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 					})
 				})
 				Context("VMI with no explicit ports", func() {
-					BeforeEach(func() {
-						vmiPorts = []v1.Port{}
-					})
 					It("Should not be able to reach http service outside of mesh", func() {
-						expectExternalServiceReachable(vmi)
+						expectExternalServiceReachable(noExplicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(vmi, ingressGatewayServiceIP, "5[0-9][0-9]")
+							return checkHTTPServiceReturnCode(noExplicitPortsVMI, ingressGatewayServiceIP, "5[0-9][0-9]")
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
+						expectExternalServiceReachable(noExplicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 					})
 				})
 			})
