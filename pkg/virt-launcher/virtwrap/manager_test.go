@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	converterstorage "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
@@ -88,6 +90,25 @@ type stubDiskDriverConfigurator struct{}
 func (s *stubDiskDriverConfigurator) SetDriverCacheMode(_ *api.Disk) error { return nil }
 
 func (s *stubDiskDriverConfigurator) SetOptimalIOMode(_ *api.Disk) {}
+
+func expectedLatencyHistogramStatistics() *api.DiskDriverStatistics {
+	bins := []api.DiskDriverLatencyHistBin{
+		{Start: 0},
+		{Start: 10_000_000},
+		{Start: 50_000_000},
+		{Start: 100_000_000},
+		{Start: 500_000_000},
+		{Start: 1_000_000_000},
+	}
+
+	return &api.DiskDriverStatistics{
+		LatencyHistograms: []api.DiskDriverLatencyHistogram{
+			{Type: "read", Bins: bins},
+			{Type: "write", Bins: bins},
+			{Type: "flush", Bins: bins},
+		},
+	}
+}
 
 var (
 	clusterConfig *virtconfig.ClusterConfig
@@ -994,6 +1015,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 					Discard:     "unmap",
+					Statistics:  expectedLatencyHistogramStatistics(),
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
@@ -1098,6 +1120,7 @@ var _ = Describe("Manager", func() {
 					Type:        "raw",
 					ErrorPolicy: "stop",
 					Discard:     "unmap",
+					Statistics:  expectedLatencyHistogramStatistics(),
 				},
 				Alias: api.NewUserDefinedAlias("hpvolume1"),
 				Address: &api.Address{
@@ -4312,6 +4335,56 @@ var _ = Describe("getDetachedDisks", func() {
 })
 
 var _ = Describe("getUpdatedDisks", func() {
+	It("should retain latency histograms when media is inserted into an initially empty CD-ROM", func() {
+		vmi := libvmi.New(libvmi.WithEmptyCDRom(v1.DiskBusSATA, "cdrom"))
+		configurator := converterstorage.NewDiskConfigurator(
+			converterstorage.DiskWithArchitecture("amd64"),
+		)
+
+		var oldDomain api.Domain
+		Expect(configurator.Configure(vmi, &oldDomain)).To(Succeed())
+		Expect(oldDomain.Spec.Devices.Disks).To(HaveLen(1))
+		Expect(oldDomain.Spec.Devices.Disks[0].Driver.Statistics).To(
+			Equal(expectedLatencyHistogramStatistics()),
+		)
+
+		vmi.Spec.Volumes = []v1.Volume{{
+			Name: "cdrom",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "cdrom-claim",
+					},
+					Hotpluggable: true,
+				},
+			},
+		}}
+
+		configurator = converterstorage.NewDiskConfigurator(
+			converterstorage.DiskWithArchitecture("amd64"),
+			converterstorage.DiskWithHotplugVolumes(
+				map[string]v1.VolumeStatus{
+					"cdrom": {Phase: v1.VolumeReady},
+				},
+			),
+		)
+
+		var newDomain api.Domain
+		Expect(configurator.Configure(vmi, &newDomain)).To(Succeed())
+
+		updated := getUpdatedDisks(
+			oldDomain.Spec.Devices.Disks,
+			newDomain.Spec.Devices.Disks,
+		)
+
+		Expect(updated).To(HaveLen(1))
+		Expect(updated[0].Source).To(Equal(newDomain.Spec.Devices.Disks[0].Source))
+		Expect(updated[0].Driver.Statistics).To(
+			Equal(expectedLatencyHistogramStatistics()),
+		)
+		Expect(oldDomain.Spec.Devices.Disks[0].Source).To(Equal(api.DiskSource{}))
+	})
+
 	DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
 		res := getUpdatedDisks(oldDisks, newDisks)
 		Expect(res).To(Equal(expected))
