@@ -6986,7 +6986,9 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(err).ToNot(HaveOccurred())
 					})
 
-					It("should retain the failed VMI when persisting the Start request fails", func() {
+					It("should retry persisting the Start request after a transient failure", func() {
+						By("retaining the failed VMI when the status patch fails")
+						reactorsBeforePatchFailure := virtFakeClient.ReactionChain
 						patchErr := fmt.Errorf("cannot persist restart request")
 						virtFakeClient.PrependReactor("patch", "virtualmachines", func(action testing.Action) (bool, runtime.Object, error) {
 							Expect(action.GetSubresource()).To(Equal("status"))
@@ -7000,6 +7002,16 @@ var _ = Describe("VirtualMachine", func() {
 						persistedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Expect(persistedVMI).To(Equal(vmi))
+
+						By("retrying with the same VM after the status endpoint recovers")
+						virtFakeClient.ReactionChain = reactorsBeforePatchFailure
+
+						_, syncErr = controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+
+						Expect(syncErr).ToNot(HaveOccurred())
+						Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+						_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 					})
 
 					It("should persist the Start request before deleting the failed VMI", func() {
