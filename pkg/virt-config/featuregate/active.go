@@ -294,6 +294,13 @@ const (
 	// pod endpoints. When disabled, the Groups field is ignored and Go's
 	// default curve preferences apply.
 	TLSGroupPreferences = "TLSGroupPreferences"
+
+	// Owner: sig-storage / @dsanatar
+	// Alpha: v1.10.0
+	//
+	// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
+	// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
+	SCSIMultiIOThread = "SCSIMultiIOThread"
 )
 
 func init() {
@@ -342,4 +349,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
 }

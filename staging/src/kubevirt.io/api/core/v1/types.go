@@ -3243,6 +3243,12 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	VirtTemplateDeployment *VirtTemplateDeployment `json:"virtTemplateDeployment,omitempty"`
 
+	// MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+	// to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+	// This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+	// +nullable
+	MultiIOThreadAutoPolicy *MultiIOThreadAutoPolicy `json:"multiIOThreadAutoPolicy,omitempty"`
+
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
@@ -3367,6 +3373,13 @@ type CommonInstancetypesDeployment struct {
 
 type VirtTemplateDeployment struct {
 	// Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type MultiIOThreadAutoPolicy struct {
+	// Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+	// Requires SCSIMultiIOThread feature gate to be enabled.
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }

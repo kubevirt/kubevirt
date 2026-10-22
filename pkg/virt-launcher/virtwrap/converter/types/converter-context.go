@@ -73,4 +73,6 @@ type ConverterContext struct {
 	AllowCrossArchEmulation         bool
 	HostArchitecture                string
 	VSOCKProcPath                   string
+	SCSIMultiIOThreadEnabled        bool
+	MultiIOThreadAutoPolicyEnabled  bool
 }

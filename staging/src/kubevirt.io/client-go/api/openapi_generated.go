@@ -505,6 +505,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.MemoryStatus{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		corev1.MigrateOptions{}.OpenAPIModelName():                                                        schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		corev1.MigrationConfiguration{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
+		corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName():                                               schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref),
 		corev1.MultusNetwork{}.OpenAPIModelName():                                                         schema_kubevirtio_api_core_v1_MultusNetwork(ref),
 		corev1.NUMA{}.OpenAPIModelName():                                                                  schema_kubevirtio_api_core_v1_NUMA(ref),
 		corev1.NUMAGuestMappingPassthrough{}.OpenAPIModelName():                                           schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref),
@@ -23372,6 +23373,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref(corev1.VirtTemplateDeployment{}.OpenAPIModelName()),
 						},
 					},
+					"multiIOThreadAutoPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk. This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.",
+							Ref:         ref(corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName()),
+						},
+					},
 					"instancetype": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Instancetype configuration",
@@ -23433,7 +23440,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
 	}
 }
 
@@ -24484,6 +24491,25 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			resource.Quantity{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false. Requires SCSIMultiIOThread feature gate to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
