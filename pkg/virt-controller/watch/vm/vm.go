@@ -2455,16 +2455,13 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	created := vmi != nil
 	vm.Status.Created = created
 
-	ready := false
 	if created {
-		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceReady, k8score.ConditionTrue)
 		var err error
 		vmi, err = c.syncGenerationInfo(vm, vmi, logger)
 		if err != nil {
 			return err
 		}
 	}
-	vm.Status.Ready = ready
 
 	runStrategy, _ := vmOrig.RunStrategy()
 	// sync for the first time only when the VMI gets created
@@ -2699,7 +2696,7 @@ func (c *Controller) isVirtualMachineWaitingReceiver(vm *virtv1.VirtualMachine, 
 	return (vmi == nil || vmi.IsWaitingForSync()) && runStrategy == virtv1.RunStrategyWaitAsReceiver
 }
 
-func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+func syncReadinessFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	vmiReadyCond := controller.NewVirtualMachineInstanceConditionManager().
 		GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
@@ -2711,6 +2708,19 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			Status:             k8score.ConditionFalse,
 			Reason:             "VMINotExists",
 			Message:            "VMI does not exist",
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
+
+	} else if vmi.IsFinal() && (vmiReadyCond == nil || vmiReadyCond.Status != k8score.ConditionFalse) {
+		// Older components can update the VMI phase without clearing readiness.
+		// Keep the VM consistent during upgrades, preserving a False VMI condition
+		// once it becomes available.
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineReady,
+			Status:             k8score.ConditionFalse,
+			Reason:             virtv1.GuestNotRunningReason,
+			Message:            "Guest VM is not reported as running",
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 		})
@@ -2735,13 +2745,14 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			LastTransitionTime: vmiReadyCond.LastTransitionTime,
 		})
 	}
+	vm.Status.Ready = conditionManager.HasConditionWithStatus(vm, virtv1.VirtualMachineReady, k8score.ConditionTrue)
 }
 
 func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, syncErr common.SyncError) {
 	cm := controller.NewVirtualMachineConditionManager()
 
 	// ready condition is handled differently as it persists regardless if vmi exists or not
-	syncReadyConditionFromVMI(vm, vmi)
+	syncReadinessFromVMI(vm, vmi)
 	processFailureCondition(vm, syncErr)
 
 	// nothing to do if vmi hasn't been created yet.
