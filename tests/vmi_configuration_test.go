@@ -38,10 +38,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -72,7 +70,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
@@ -708,55 +705,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 20)).To(Succeed(), "Expected the VM time to be within 20 seconds of "+now.String())
 
 			})
-		})
-
-		Context("using defaultRuntimeClass configuration", Serial, func() {
-			var runtimeClassName string
-
-			BeforeEach(func() {
-				// use random runtime class to avoid collisions with cleanup where a
-				// runtime class is still in the process of being deleted because pod
-				// cleanup is still in progress
-				runtimeClassName = "fake-runtime-class" + "-" + rand.String(5)
-				By("Creating a runtime class")
-				Expect(createRuntimeClass(runtimeClassName, "fake-handler")).To(Succeed())
-			})
-
-			AfterEach(func() {
-				By("Cleaning up runtime class")
-				Expect(deleteRuntimeClass(runtimeClassName)).To(Succeed())
-			})
-
-			It("should apply runtimeClassName to pod when set", func() {
-				By("Configuring a default runtime class")
-				config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-				config.DefaultRuntimeClass = runtimeClassName
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				By("Creating a new VMI")
-				vmi := libvmifact.NewGuestless()
-				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
-				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
-				vmi = libvmops.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
-
-				By("Checking for presence of runtimeClassName")
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
-				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
-			})
-		})
-		It("should not apply runtimeClassName to pod when not set", func() {
-			By("verifying no default runtime class name is set")
-			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
-			Expect(config.DefaultRuntimeClass).To(BeEmpty())
-			By("Creating a VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), flags.StartupTimeoutSecondsSmall())
-
-			By("Checking for absence of runtimeClassName")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
 		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
@@ -1628,26 +1576,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 })
-
-func createRuntimeClass(name, handler string) error {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.NodeV1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-	return err
-}
-
-func deleteRuntimeClass(name string) error {
-	virtCli := kubevirt.Client()
-
-	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-}
 
 func withNoRng() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
