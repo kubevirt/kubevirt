@@ -445,14 +445,61 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
-  # Work around the observed fwupd guest crash on every cluster VM.
+if [[ $KUBEVIRT_PROVIDER == k8s-1.37 && $(uname -m) == x86_64 ]]; then
+  echo "=== CET CPU features (CI host and provider guests) ==="
+  if grep -qm1 -w user_shstk /proc/cpuinfo; then
+    echo "CI host user_shstk: present"
+  else
+    echo "CI host user_shstk: absent"
+  fi
+
   nodes=$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
-  [[ -n "$nodes" ]]
   for node in $nodes; do
-    kubevirtci/cluster-up/ssh.sh "$node" \
-      'sudo systemctl mask --now fwupd-refresh.timer fwupd-refresh.service fwupd.service'
+    echo "--- $node ---"
+    if ! timeout 20 kubevirtci/cluster-up/ssh.sh "$node" '
+      if grep -qm1 -w user_shstk /proc/cpuinfo; then
+        echo "guest user_shstk: present";
+        shstk=1;
+      else
+        echo "guest user_shstk: absent";
+        shstk=0;
+      fi;
+      echo "guest cmdline: $(cat /proc/cmdline)";
+      xstate=$(sudo journalctl -k -b --no-pager -o cat |
+        sed -n "s/.*Enabled xstate features \(0x[0-9a-fA-F]*\).*/\1/p" | tail -1);
+      echo "guest enabled xstate: ${xstate:-unavailable}";
+      if [[ -n $xstate ]]; then
+        if (( xstate & 0x800 )); then
+          echo "guest CET_USER xstate (feature 11): enabled";
+          echo "reported CET mismatch: absent";
+        else
+          echo "guest CET_USER xstate (feature 11): disabled";
+          if (( shstk )); then
+            if grep -qw nousershstk /proc/cmdline; then
+              echo "reported CET mismatch: shadow stacks disabled by nousershstk";
+            else
+              echo "reported CET mismatch: user_shstk advertised without CET_USER xstate";
+            fi;
+          else
+            echo "reported CET mismatch: absent (user_shstk not advertised)";
+          fi;
+        fi;
+      fi
+    '; then
+      echo "CET CPU feature collection failed for $node"
+    fi
   done
+  exit 1
+fi
+
+if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+  # Keep fwupd enabled to observe the guest CET/xstate behavior in CI.
+  # nodes=$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+  # [[ -n "$nodes" ]]
+  # for node in $nodes; do
+  #   kubevirtci/cluster-up/ssh.sh "$node" \
+  #     'sudo systemctl mask --now fwupd-refresh.timer fwupd-refresh.service fwupd.service'
+  # done
 
   KUBEVIRTCI_PATH="$PWD/kubevirtci/cluster-up" \
     kubevirtci/cluster-up/cluster/vgpu-mdev/setup_vgpu_mdev.sh full-setup
