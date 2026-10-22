@@ -709,22 +709,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, func() {
-		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
-		testEmulatedMachinesS390x := []string{"s390-ccw-virtio*"}
-
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-
-			config := kv.Spec.Configuration
-			config.MachineType = ""
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachinesS390x
-
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, func() {
 
 		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
 			machineType, expectedSubstring := machineTypeForArch()
@@ -737,7 +722,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmi.Status.Machine).ToNot(BeNil())
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
 		})
-
 	})
 
 	Context("using automatic resource limits", decorators.WgS390x, func() {
@@ -1515,7 +1499,7 @@ func machineTypeForArch() (machineType, expectedSubstring string) {
 	if testsuite.Arch == testsuite.ArchS390x {
 		return "s390-ccw-virtio", "s390-ccw-virtio"
 	}
-	return "pc", "pc-i440"
+	return "q35", "pc-q35"
 }
 
 func withSerialBIOS() libvmi.Option {
