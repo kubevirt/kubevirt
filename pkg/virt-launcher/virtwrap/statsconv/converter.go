@@ -196,9 +196,56 @@ func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.Dom
 			Capacity:        inItem.Capacity,
 			PhysicalSet:     inItem.PhysicalSet,
 			Physical:        inItem.Physical,
+			LatencyHistograms: stats.DomainStatsBlockLatencyHistograms{
+				Read:  convertLatencyHistogram(inItem.LatencyHistograms.Read),
+				Write: convertLatencyHistogram(inItem.LatencyHistograms.Write),
+				Flush: convertLatencyHistogram(inItem.LatencyHistograms.Flush),
+			},
 		})
 	}
 	return ret
+}
+
+// convertLatencyHistogram converts libvirt's interval bins to cumulative counts.
+// The final bin has no finite upper bound: it contributes to Count only, which
+// supplies the implicit +Inf bucket when exposing a Prometheus const histogram.
+// Finite bounds are the next bin's start in nanoseconds and remain exclusive.
+// Prometheus le bounds are inclusive, so using these same bounds there differs
+// for observations exactly on a boundary.
+func convertLatencyHistogram(in *libvirt.DomainStatsBlockLatencyHistogram) *stats.Histogram {
+	if in == nil {
+		return nil
+	}
+	histogram := &stats.Histogram{
+		Buckets: make([]stats.HistogramBucket, 0, len(in.Bins)),
+	}
+
+	var cumulativeCount uint64
+
+	for i, bin := range in.Bins {
+		if !bin.StartSet || !bin.ValueSet {
+			return nil
+		}
+
+		histogram.Count += bin.Value
+
+		if i == len(in.Bins)-1 {
+			continue
+		}
+
+		nextBin := in.Bins[i+1]
+		if !nextBin.StartSet {
+			return nil
+		}
+
+		cumulativeCount += bin.Value
+
+		histogram.Buckets = append(histogram.Buckets, stats.HistogramBucket{
+			UpperBound:      nextBin.Start,
+			CumulativeCount: cumulativeCount,
+		})
+	}
+	return histogram
 }
 
 func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJobInfo) *stats.DomainJobInfo {
