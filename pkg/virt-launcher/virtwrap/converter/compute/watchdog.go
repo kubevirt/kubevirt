@@ -30,9 +30,9 @@ type WatchdogDomainConfigurator struct {
 	watchdogDevice watchdog.DeviceConfigurator
 }
 
-func NewWatchdogDomainConfigurator(architecture string) WatchdogDomainConfigurator {
+func NewWatchdogDomainConfigurator(watchdogDevice watchdog.DeviceConfigurator) WatchdogDomainConfigurator {
 	return WatchdogDomainConfigurator{
-		watchdogDevice: watchdog.NewDeviceConfigurator(architecture),
+		watchdogDevice: watchdogDevice,
 	}
 }
 
