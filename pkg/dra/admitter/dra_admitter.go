@@ -31,42 +31,37 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Validator struct {
-	field         *k8sfield.Path
-	vmiSpec       *v1.VirtualMachineInstanceSpec
-	configChecker DRAConfigChecker
+	field                 *k8sfield.Path
+	vmiSpec               *v1.VirtualMachineInstanceSpec
+	clusterConfigProvider clusterConfigProvider
 }
 
-type DRAConfigChecker interface {
+type clusterConfigProvider interface {
 	GPUsWithDRAGateEnabled() bool
 	HostDevicesWithDRAEnabled() bool
 	NetworkDevicesWithDRAGateEnabled() bool
 }
 
-func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker DRAConfigChecker) *Validator {
+func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterConfigProvider clusterConfigProvider) *Validator {
 	return &Validator{
-		field:         field,
-		vmiSpec:       vmiSpec,
-		configChecker: configChecker,
+		field:                 field,
+		vmiSpec:               vmiSpec,
+		clusterConfigProvider: clusterConfigProvider,
 	}
 }
 
 func (v Validator) ValidateCreation() []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validateCreationDRA(v.field, v.vmiSpec, v.configChecker)...)
+	causes = append(causes, validateCreationDRA(v.field, v.vmiSpec, v.clusterConfigProvider)...)
 
 	return causes
 }
 
-func (v Validator) Validate() []metav1.StatusCause {
-	return validateCreationDRA(v.field, v.vmiSpec, v.configChecker)
-}
-
-func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker DRAConfigChecker) []metav1.StatusCause {
+func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker clusterConfigProvider) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validateResourceClaims(field.Child("resourceClaims"), spec.ResourceClaims)...)
@@ -261,7 +256,7 @@ func (s *pairDuplicateChecker) mergeTupleSource(
 func validateDRAGPUs(
 	field *k8sfield.Path,
 	gpus []v1.GPU,
-	checker DRAConfigChecker,
+	clusterConfigProvider clusterConfigProvider,
 ) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devices := make([]draCapableDevice, len(gpus))
 	for i, g := range gpus {
@@ -270,7 +265,7 @@ func validateDRAGPUs(
 	return validateDRADevices(field, devices, deviceValidationConfig{
 		fieldPath:   "gpus",
 		typeName:    "GPU",
-		gateEnabled: checker.GPUsWithDRAGateEnabled(),
+		gateEnabled: clusterConfigProvider.GPUsWithDRAGateEnabled(),
 		rejectMixed: true,
 	})
 }
@@ -278,7 +273,7 @@ func validateDRAGPUs(
 func validateDRAHostDevices(
 	field *k8sfield.Path,
 	hostDevices []v1.HostDevice,
-	checker DRAConfigChecker,
+	clusterConfigProvider clusterConfigProvider,
 ) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devices := make([]draCapableDevice, len(hostDevices))
 	for i, hd := range hostDevices {
@@ -287,7 +282,7 @@ func validateDRAHostDevices(
 	return validateDRADevices(field, devices, deviceValidationConfig{
 		fieldPath:   "hostDevices",
 		typeName:    "HostDevice",
-		gateEnabled: checker.HostDevicesWithDRAEnabled(),
+		gateEnabled: clusterConfigProvider.HostDevicesWithDRAEnabled(),
 		rejectMixed: false,
 	})
 }
@@ -412,12 +407,4 @@ func validateNonDRADevices(
 		}
 	}
 	return causes
-}
-
-func ValidateCreation(
-	field *k8sfield.Path,
-	vmiSpec *v1.VirtualMachineInstanceSpec,
-	clusterCfg *virtconfig.ClusterConfig,
-) []metav1.StatusCause {
-	return NewValidator(field, vmiSpec, clusterCfg).ValidateCreation()
 }
