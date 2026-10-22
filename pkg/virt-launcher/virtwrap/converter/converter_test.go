@@ -969,10 +969,30 @@ var _ = Describe("Converter", func() {
 			})
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			bins := []api.DiskDriverLatencyHistBin{
+				{Start: 0},
+				{Start: 10_000_000},
+				{Start: 50_000_000},
+				{Start: 100_000_000},
+				{Start: 500_000_000},
+				{Start: 1_000_000_000},
+			}
 			Expect(dom.Spec.Devices.Disks).To(ContainElement(api.Disk{
-				Type:     "block",
-				Device:   "cdrom",
-				Driver:   &api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: "stop", Discard: "unmap"},
+				Type:   "block",
+				Device: "cdrom",
+				Driver: &api.DiskDriver{
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
+					Discard:     "unmap",
+					Statistics: &api.DiskDriverStatistics{
+						LatencyHistograms: []api.DiskDriverLatencyHistogram{
+							{Type: "read", Bins: bins},
+							{Type: "write", Bins: bins},
+							{Type: "flush", Bins: bins},
+						},
+					},
+				},
 				Target:   api.DiskTarget{Bus: "sata", Device: "sda"},
 				ReadOnly: &api.ReadOnly{},
 				Alias:    api.NewUserDefinedAlias(name),
