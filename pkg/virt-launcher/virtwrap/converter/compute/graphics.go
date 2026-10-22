@@ -33,9 +33,9 @@ type GraphicsDomainConfigurator struct {
 	crossArchEmulation bool
 }
 
-func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests, crossArchEmulation bool) GraphicsDomainConfigurator {
+func NewGraphicsDomainConfigurator(defaultVideoDevice video.DeviceConfigurator, crossArchEmulation bool) GraphicsDomainConfigurator {
 	return GraphicsDomainConfigurator{
-		defaultVideoDevice: video.NewDeviceConfigurator(architecture, useBochsForEFIGuests),
+		defaultVideoDevice: defaultVideoDevice,
 		crossArchEmulation: crossArchEmulation,
 	}
 }
