@@ -592,7 +592,8 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			handler := vmHandler([]export.VolumeInfo{
 				{
-					RawGzURI: "volume0",
+					VolumeName: "disk0",
+					RawGzURI:   "volume0",
 				},
 			}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
@@ -626,7 +627,8 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			handler := vmHandler([]export.VolumeInfo{
 				{
-					RawGzURI: "/volumes/test-dv/disk.img.gz",
+					VolumeName: "disk0",
+					RawGzURI:   "/volumes/test-dv/disk.img.gz",
 				},
 			}, getInternalHost, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
@@ -651,7 +653,8 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			handler := vmHandler([]export.VolumeInfo{
 				{
-					RawGzURI: "volume0",
+					VolumeName: "disk0",
+					RawGzURI:   "volume0",
 				},
 			}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
@@ -671,6 +674,106 @@ var _ = Describe("exportserver", func() {
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP).ToNot(BeNil())
 			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
 		})
+
+		It("Should match DVTemplates to volumes by name, not position", func() {
+			testVm := getTestVm()
+			testVm.Spec.Template.Spec.Volumes = append([]virtv1.Volume{
+				{
+					Name: "plain",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "plain-pvc",
+							},
+						},
+					},
+				},
+			}, testVm.Spec.Template.Spec.Volumes...)
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			Expect(err).ToNot(HaveOccurred())
+			resp := httptest.NewRecorder()
+			handler := vmHandler([]export.VolumeInfo{
+				{
+					VolumeName: "plain",
+					RawGzURI:   "volume0",
+				},
+				{
+					VolumeName: "disk0",
+					RawGzURI:   "volume1",
+				},
+			}, getBasePath, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			list := &v1.List{}
+			Expect(json.Unmarshal(resp.Body.Bytes(), list)).To(Succeed())
+			Expect(list.Items).To(HaveLen(2))
+			resVm := &virtv1.VirtualMachine{}
+			Expect(yaml.Unmarshal(list.Items[1].Raw, resVm)).To(Succeed())
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume1"))
+		})
+
+		It("Should match DVTemplates to restored volumes of a VMSnapshot", func() {
+			testVm := getTestVm()
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			Expect(err).ToNot(HaveOccurred())
+			resp := httptest.NewRecorder()
+			// The restored claim is named after the export, not after the
+			// DVTemplate.
+			handler := vmHandler([]export.VolumeInfo{
+				{
+					PVCName:    "test-export-test-dv",
+					VolumeName: "disk0",
+					RawGzURI:   "volume0",
+				},
+			}, getBasePath, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			list := &v1.List{}
+			Expect(json.Unmarshal(resp.Body.Bytes(), list)).To(Succeed())
+			Expect(list.Items).To(HaveLen(2))
+			resVm := &virtv1.VirtualMachine{}
+			Expect(yaml.Unmarshal(list.Items[1].Raw, resVm)).To(Succeed())
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.URL).To(Equal("https://base_path/volume0"))
+		})
+
+		DescribeTable("Should leave DVTemplates without an exported volume alone", func(source *cdiv1.DataVolumeSource) {
+			testVm := getTestVm()
+			testVm.Spec.DataVolumeTemplates[0].Spec.Source = source
+			getExpandedVM = func() *virtv1.VirtualMachine {
+				return testVm
+			}
+
+			req, err := http.NewRequest("GET", "https://test.blah.invalid/vm_def?x-kubevirt-export-token=bar", nil)
+			Expect(err).ToNot(HaveOccurred())
+			resp := httptest.NewRecorder()
+			handler := vmHandler([]export.VolumeInfo{}, getBasePath, getCaConfigMap)
+			handler.ServeHTTP(resp, req)
+			Expect(resp.Code).To(BeEquivalentTo(http.StatusOK))
+			list := &v1.List{}
+			Expect(json.Unmarshal(resp.Body.Bytes(), list)).To(Succeed())
+			Expect(list.Items).To(HaveLen(2))
+			resVm := &virtv1.VirtualMachine{}
+			Expect(yaml.Unmarshal(list.Items[1].Raw, resVm)).To(Succeed())
+			Expect(resVm.Spec.DataVolumeTemplates).To(HaveLen(1))
+			Expect(resVm.Spec.DataVolumeTemplates[0].Spec.Source).To(Equal(source))
+		},
+			Entry("with a clone source", &cdiv1.DataVolumeSource{
+				PVC: &cdiv1.DataVolumeSourcePVC{Namespace: testNamespace, Name: "clone-source"},
+			}),
+			Entry("with its own HTTP source", &cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{URL: "https://example.invalid/disk.img"},
+			}),
+		)
 
 		It("Should override datavolumes with new source URI", func() {
 			testVm := &virtv1.VirtualMachine{
@@ -734,7 +837,8 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			handler := vmHandler([]export.VolumeInfo{
 				{
-					RawGzURI: "test-dv-volume0",
+					VolumeName: "disk0",
+					RawGzURI:   "test-dv-volume0",
 				},
 			}, getBasePath, getCaConfigMap)
 			handler.ServeHTTP(resp, req)
