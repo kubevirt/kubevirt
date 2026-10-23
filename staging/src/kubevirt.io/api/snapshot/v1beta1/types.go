@@ -23,6 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -59,7 +60,25 @@ const (
 	VirtualMachineSnapshotContentRetain DeletionPolicy = "Retain"
 )
 
+// SnapshotMode defines the flow used to take a VirtualMachineSnapshot
+// of a running VM. The values name what happens to the writes of the
+// running VM, not the storage backend that implements it
+type SnapshotMode string
+
+const (
+	// SnapshotModeDirect freezes the guest filesystems and keeps them frozen
+	// until every VolumeSnapshot of the active disks has been created
+	SnapshotModeDirect SnapshotMode = "Direct"
+
+	// SnapshotModeExternal redirects the writes of the running VM to
+	// copy-on-write overlays, so the guest is unfrozen once the overlays are
+	// in place and the VolumeSnapshots of the read-only base images are taken
+	// afterwards
+	SnapshotModeExternal SnapshotMode = "External"
+)
+
 // VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource
+// +kubebuilder:validation:XValidation:rule="!has(self.overlayScratchSize) || (has(self.snapshotMode) && self.snapshotMode == 'External')",message="overlayScratchSize can only be set when snapshotMode is External"
 type VirtualMachineSnapshotSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
 
@@ -72,6 +91,23 @@ type VirtualMachineSnapshotSpec struct {
 	// Defaults to DefaultFailureDeadline - 5min
 	// +optional
 	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
+
+	// SnapshotMode selects the flow used to snapshot a running VM.
+	// Only meaningful for online snapshots; offline snapshots are unaffected.
+	// External requires the ExternalVMSnapshot feature gate.
+	// Defaults to Direct
+	// +optional
+	// +kubebuilder:default=Direct
+	SnapshotMode *SnapshotMode `json:"snapshotMode,omitempty"`
+
+	// OverlayScratchSize overrides the size of the scratch volume holding the
+	// copy-on-write overlays for the duration of an External mode snapshot.
+	// When not set, the size is derived from FailureDeadline, capped by the
+	// size of the snapshotted disks.
+	// This field can only be set when SnapshotMode is External
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="quantity(string(self)).isGreaterThan(quantity('0'))",message="overlayScratchSize must be greater than zero"
+	OverlayScratchSize *resource.Quantity `json:"overlayScratchSize,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
@@ -287,6 +323,10 @@ type VirtualMachineSnapshotContentStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
+
+	// SnapshotMode is the actual mode the snapshot is taken with
+	// +optional
+	SnapshotMode *SnapshotMode `json:"snapshotMode,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources

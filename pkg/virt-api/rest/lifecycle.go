@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -60,8 +61,13 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
 	}
-	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, v1.VirtualMachineManualRecoveryRequired, k8sv1.ConditionTrue) {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
+	if condition != nil && condition.Status == k8sv1.ConditionTrue {
+		message := volumeMigrationManualRecoveryRequiredErr
+		if condition.Reason == storagetypes.UncommittedOverlaysReason && condition.Message != "" {
+			message = condition.Message
+		}
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%s", message)), response)
 		return
 	}
 
@@ -659,6 +665,36 @@ func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, 
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.BackupURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+func (app *SubresourceAPIApp) ExternalSnapshotVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ExternalSnapshotURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+func (app *SubresourceAPIApp) CommitSnapshotVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.CommitSnapshotURI(vmi)
 	}
 
 	app.putRequestHandler(request, response, validate, getURL, false)

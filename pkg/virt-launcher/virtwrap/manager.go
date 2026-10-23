@@ -213,6 +213,8 @@ type DomainManager interface {
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	GetGuestAgentVersion() string
 	GetAgentData(dataKey string) (string, error)
+	ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error
+	CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
 }
 
 type diskDriverConfigurator interface {
@@ -1867,6 +1869,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 	case cli.IsPaused(domState) && !l.paused.contains(vmi.UID):
+		if storage.OverlaysCommitting(l.metadataCache) {
+			// The commit worker owns this pause and will release it.
+			break
+		}
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		if err := dom.Resume(); err != nil {
 			logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
@@ -2007,7 +2013,10 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 
-	l.expandDisksOnline(dom, domain, vmi)
+	// An overlaid disk expands against the scratch volume, not the base image.
+	if !storage.OverlaysActive(l.metadataCache) {
+		l.expandDisksOnline(dom, domain, vmi)
+	}
 
 	return nil
 }
@@ -2589,6 +2598,9 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
+		if l.storageManager.CommitOverlaysBeforeShutdown(vmi) {
+			return nil
+		}
 		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
@@ -3455,6 +3467,14 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (l *LibvirtDomainManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
 	return l.storageManager.RedefineCheckpoint(vmi, checkpoint)
+}
+
+func (l *LibvirtDomainManager) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error {
+	return l.storageManager.ExternalSnapshot(vmi, overlayDir, volumes)
+}
+
+func (l *LibvirtDomainManager) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	return l.storageManager.CommitSnapshot(vmi, overlayDir)
 }
 
 func AgentDataCommandTTLKeys() []string {

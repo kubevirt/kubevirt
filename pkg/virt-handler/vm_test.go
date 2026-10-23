@@ -744,6 +744,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 
 			initGracePeriodHelper(1, vmi, domain)
 			metav1.Now()
@@ -797,6 +798,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should force kill when grace period expired", func() {
+				domain.Status.Status = api.Paused
+				domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 				initGracePeriodHelper(1, vmi, domain)
 				expired := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 				domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &expired
@@ -2589,6 +2592,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Context("Filesystem Devices", func() {
 			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
 
+			It("should not be allowed to live-migrate while the disks are on snapshot overlays", func() {
+				vmi := libvmi.New()
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: k8sv1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlaysReady,
+				})
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable))
+			})
+
 			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
 				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
 
@@ -3659,6 +3676,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("when the migration source failed", v1.Failed),
 		)
 	})
+
 	Context("launcher client verification in sync", func() {
 		It("should set domainAlive to false when GetVerifiedLauncherClient fails", func() {
 			vmi := libvmi.New(
