@@ -46,39 +46,43 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 		return err
 	}
 
+	isFrozen := fsfreezeStatus == api.FSFrozen
+	hasTPM := tpm.HasPersistentDevice(&vmi.Spec)
 	// idempotent - prevent failure in case fs is already frozen
-	if fsfreezeStatus == api.FSFrozen {
+	// allow exception if VM has TPM so we can retry syncing the swtpm mount in case previous attempt failed.
+	if isFrozen && !hasTPM {
 		return nil
 	}
 
-	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
-	// directory to ensure data integrity. This explicit sync ensures that pending
-	// writes to the swtpm backing files are flushed to disk.
-	if tpm.HasPersistentDevice(&vmi.Spec) {
-		cmd := exec.Command("/usr/bin/sync", util.PathForSwtpm(vmi))
-		out, err := cmd.CombinedOutput()
+	if !isFrozen {
+		domain, err := m.virConn.LookupDomainByName(domainName)
 		if err != nil {
-			log.Log.Errorf("fsync error to TPM state directory: %s, output: %s", err.Error(), out)
+			log.Log.Errorf("Domain lookup failed: %v", err)
 			return err
 		}
-	}
+		defer domain.Free()
 
-	domain, err := m.virConn.LookupDomainByName(domainName)
-	if err != nil {
-		log.Log.Errorf("Domain lookup failed: %v", err)
-		return err
-	}
-	defer domain.Free()
-
-	if err := domain.FSFreeze(nil, 0); err != nil {
-		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
-		return err
+		if err := domain.FSFreeze(nil, 0); err != nil {
+			log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
+			return err
+		}
 	}
 
 	m.cancelSafetyUnfreeze()
 	if safetyUnfreezeTimeout != 0 {
 		go m.scheduleSafetyVMIUnfreeze(vmi, safetyUnfreezeTimeout)
 	}
+
+	// Guest fsfreeze does not cover host-side swtpm state on the backend PVC.
+	// use syncfs to flush the swtpm state to disk
+	if hasTPM {
+		// if sync fails, return error. subsequent calls to FreezeVMI will reattempt the sync.
+		if err := syncFilesystem(util.PathForSwtpm(vmi)); err != nil {
+			log.Log.Reason(err).Errorf("syncfs failed for swtpm directory")
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -137,4 +141,13 @@ func (m *StorageManager) getParsedFSStatus(domainName string) (string, error) {
 	}
 
 	return fsfreezeStatus.Status, nil
+}
+
+// syncFilesystem runs syncfs on the filesystem containing path.
+func syncFilesystem(path string) error {
+	out, err := exec.Command("/usr/bin/sync", "-f", path).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("syncfs failed for %s: %w, output: %s", path, err, out)
+	}
+	return nil
 }
