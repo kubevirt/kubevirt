@@ -39,6 +39,9 @@ type Converter interface {
 	IsROMTuningSupported() bool
 	RequiresMPXCPUValidation() bool
 	ShouldVerboseLogsBeEnabled() bool
+	// SupportPCIHole64Disabling gates all pcie-root pcihole64 configuration on
+	// this architecture: both disabling it via the kubevirt.io/disablePCIHole64
+	// annotation and enlarging it for passthrough devices with large PCI BARs.
 	SupportPCIHole64Disabling() bool
 	SupportPCIePlacement() bool
 	IsMemfdSupported() bool
