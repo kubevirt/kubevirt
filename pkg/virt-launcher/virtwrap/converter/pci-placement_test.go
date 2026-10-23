@@ -38,6 +38,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		originalNodeBasePath string
 		fakePciBasePath      string
 		fakeNodeBasePath     string
+		fakeSysDevices       string
 	)
 
 	createDomainSpecWithNUMA := func(numaCells []api.NUMACell, vcpuPins []api.CPUTuneVCPUPin) *api.DomainSpec {
@@ -171,7 +172,31 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		if fakeNodeBasePath != "" {
 			os.RemoveAll(fakeNodeBasePath)
 		}
+		if fakeSysDevices != "" {
+			os.RemoveAll(fakeSysDevices)
+			fakeSysDevices = ""
+		}
 	})
+
+	setupPCIeRootTopology := func(topology map[string]struct{ sysPath, numaNode string }) {
+		var err error
+		fakeSysDevices, err = os.MkdirTemp("", "sys_devices")
+		Expect(err).ToNot(HaveOccurred())
+
+		for bdf, info := range topology {
+			targetDir := filepath.Join(fakeSysDevices, info.sysPath)
+			err = os.MkdirAll(targetDir, 0o755)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(targetDir, "numa_node"), []byte(info.numaNode+"\n"), 0o644)
+			Expect(err).ToNot(HaveOccurred())
+
+			symlinkPath := filepath.Join(fakePciBasePath, bdf)
+			os.RemoveAll(symlinkPath)
+			err = os.Symlink(targetDir, symlinkPath)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
 
 	Describe("getCurrentControllerIndex", func() {
 		It("should return the highest index of the existing controllers", func() {
@@ -394,7 +419,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 				createPCIDevice("normal", "0x03"),
 			}
 			assigner = newExpanderBusAssignerWithOptions(domainSpec, map[string]*api.IOMMUDevice{
-				"0000:01:00.0": &api.IOMMUDevice{Model: "smmuv3", Driver: &api.IOMMUDriver{}},
+				"0000:01:00.0": {Model: "smmuv3", Driver: &api.IOMMUDriver{}},
 			}, nil)
 
 			err := assigner.PlaceNumaAlignedDevices()
@@ -410,7 +435,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		It("uses NUMA overrides when placing isolated devices", func() {
 			domainSpec.Devices.HostDevices = []api.HostDevice{createPCIDevice("isolated", "0x01")}
 			assigner = newExpanderBusAssignerWithOptions(domainSpec,
-				map[string]*api.IOMMUDevice{"0000:01:00.0": &api.IOMMUDevice{Model: "smmuv3", Driver: &api.IOMMUDriver{}}},
+				map[string]*api.IOMMUDevice{"0000:01:00.0": {Model: "smmuv3", Driver: &api.IOMMUDriver{}}},
 				map[string]uint32{"0000:01:00.0": 1},
 			)
 
@@ -718,6 +743,150 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			Expect(domainSpec.Devices.Controllers[3].Model).To(Equal(api.ControllerModelPCIeRootPort))
 			Expect(domainSpec.Devices.Controllers[3].Index).To(Equal("9"))
 			Expect(domainSpec.Devices.HostDevices[0].Address.Bus).To(Equal("9"))
+		})
+	})
+
+	Describe("PCIe root grouping", func() {
+		var domainSpec *api.DomainSpec
+
+		BeforeEach(func() {
+			domainSpec = createDomainSpecWithNUMA(
+				[]api.NUMACell{
+					{ID: "0", CPUs: "0-3"},
+					{ID: "1", CPUs: "4-7"},
+				},
+				[]api.CPUTuneVCPUPin{
+					{VCPU: 0, CPUSet: "0"}, {VCPU: 1, CPUSet: "1"},
+					{VCPU: 2, CPUSet: "2"}, {VCPU: 3, CPUSet: "3"},
+					{VCPU: 4, CPUSet: "4"}, {VCPU: 5, CPUSet: "5"},
+					{VCPU: 6, CPUSet: "6"}, {VCPU: 7, CPUSet: "7"},
+				},
+			)
+		})
+
+		It("should create separate pxb-pcie for devices on different PCIe roots but same NUMA", func() {
+			setupPCIeRootTopology(map[string]struct{ sysPath, numaNode string }{
+				"0000:01:00.0": {"devices/pci0000:00/0000:00:01.0/0000:01:00.0", "0"},
+				"0000:03:00.0": {"devices/pci0000:00/0000:00:03.0/0000:03:00.0", "0"},
+			})
+
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("gpu", "0x01"),
+				createPCIDevice("nic", "0x03"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(2))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeRootPort)).To(Equal(2))
+
+			for _, controller := range domainSpec.Devices.Controllers {
+				if controller.Model == api.ControllerModelPCIeExpanderBus {
+					Expect(controller.Target).ToNot(BeNil())
+					Expect(controller.Target.NUMANode).ToNot(BeNil())
+					Expect(*controller.Target.NUMANode).To(Equal(uint32(0)))
+				}
+			}
+		})
+
+		It("should create one pxb-pcie for devices on the same PCIe root", func() {
+			setupPCIeRootTopology(map[string]struct{ sysPath, numaNode string }{
+				"0000:01:00.0": {"devices/pci0000:00/0000:00:01.0/0000:01:00.0", "0"},
+				"0000:03:00.0": {"devices/pci0000:00/0000:00:01.0/0000:03:00.0", "0"},
+			})
+
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("gpu", "0x01"),
+				createPCIDevice("nic", "0x03"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeRootPort)).To(Equal(2))
+		})
+
+		It("should fall back to NUMA grouping when PCIe root is unavailable", func() {
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("device1", "0x01"),
+				createPCIDevice("device2", "0x03"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeRootPort)).To(Equal(2))
+		})
+
+		It("should group PCIe root devices separately from NUMA fallback devices", func() {
+			setupPCIeRootTopology(map[string]struct{ sysPath, numaNode string }{
+				"0000:01:00.0": {"devices/pci0000:00/0000:00:01.0/0000:01:00.0", "0"},
+			})
+
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("gpu", "0x01"),
+				createPCIDevice("nic", "0x03"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(2))
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeRootPort)).To(Equal(2))
+		})
+
+		It("should place IOMMU-isolated device on its own pxb-pcie regardless of PCIe root", func() {
+			setupPCIeRootTopology(map[string]struct{ sysPath, numaNode string }{
+				"0000:01:00.0": {"devices/pci0000:00/0000:00:01.0/0000:01:00.0", "0"},
+				"0000:03:00.0": {"devices/pci0000:00/0000:00:01.0/0000:03:00.0", "0"},
+			})
+
+			assigner := newExpanderBusAssignerWithOptions(domainSpec,
+				map[string]*api.IOMMUDevice{"0000:01:00.0": {Model: "smmuv3", Driver: &api.IOMMUDriver{}}},
+				nil,
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("gpu", "0x01"),
+				createPCIDevice("nic", "0x03"),
+			}
+
+			err := assigner.PlaceNumaAlignedDevices()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(countControllersByModel(domainSpec, api.ControllerModelPCIeExpanderBus)).To(Equal(2))
+		})
+
+		It("should set correct NUMA node on pxb-pcie target for each PCIe root group", func() {
+			setupPCIeRootTopology(map[string]struct{ sysPath, numaNode string }{
+				"0000:01:00.0": {"devices/pci0000:00/0000:00:01.0/0000:01:00.0", "0"},
+				"0000:02:00.0": {"devices/pci0000:00/0000:00:02.0/0000:02:00.0", "1"},
+			})
+
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("gpu", "0x01"),
+				createPCIDevice("nic", "0x02"),
+			}
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			expanders := 0
+			numaNodes := map[uint32]bool{}
+			for _, controller := range domainSpec.Devices.Controllers {
+				if controller.Model == api.ControllerModelPCIeExpanderBus {
+					expanders++
+					Expect(controller.Target).ToNot(BeNil())
+					Expect(controller.Target.NUMANode).ToNot(BeNil())
+					numaNodes[*controller.Target.NUMANode] = true
+				}
+			}
+			Expect(expanders).To(Equal(2))
+			Expect(numaNodes).To(HaveLen(2))
+			Expect(numaNodes).To(HaveKey(uint32(0)))
+			Expect(numaNodes).To(HaveKey(uint32(1)))
 		})
 	})
 })
