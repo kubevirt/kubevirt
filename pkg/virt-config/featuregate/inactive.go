@@ -162,6 +162,8 @@ const (
 	// Owner: sig-storage
 	// Alpha: v0.36.0
 	// Deprecated: v1.9.0
+	// Discontinued: v1.10.0
+	// Replaced by DeclarativeHotplugVolumes
 	HotplugVolumesGate = "HotplugVolumes"
 
 	// Owner: sig-storage / @mhenriks
@@ -277,7 +279,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
-	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
+	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Discontinued, Message: "HotplugVolumes has been discontinued since v1.10.0 and has been replaced by DeclarativeHotplugVolumes"})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})

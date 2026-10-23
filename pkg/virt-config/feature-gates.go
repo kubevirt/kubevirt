@@ -86,10 +86,6 @@ func (config *ClusterConfig) PluginsEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.PluginsGate)
 }
 
-func (config *ClusterConfig) HotplugVolumesEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.HotplugVolumesGate)
-}
-
 func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.HostDiskGate)
 }

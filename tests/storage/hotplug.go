@@ -921,26 +921,6 @@ var _ = Describe(SIG("Hotplug", func() {
 				return sc
 			}
 
-			Context("with legacy hotplug", Serial, func() {
-				BeforeEach(func() {
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				})
-
-				AfterEach(func() {
-					kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-				})
-
-				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
-					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
-				},
-					Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
-					Entry("with PersistentVolume immediate attach", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
-					Entry("with DataVolume wait for VM to finish starting", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
-					Entry("with PersistentVolume wait for VM to finish starting", addPVCVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, true),
-					Entry("with Block DataVolume immediate attach", decorators.RequiresRWXBlock, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
-				)
-			})
-
 			Context("with declarative hotplug", func() {
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
 					verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, scForVolumeMode(volumeMode), volumeMode, v1.DiskBusSCSI, waitToStart)
