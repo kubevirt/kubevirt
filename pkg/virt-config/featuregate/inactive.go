@@ -164,6 +164,15 @@ const (
 	// Deprecated: v1.9.0
 	HotplugVolumesGate = "HotplugVolumes"
 
+	// Owner: sig-storage / @mhenriks
+	// Alpha: v1.6.0
+	// Beta: v1.9.0
+	// GA: v1.10.0
+	//
+	// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
+	// also implicitly handles inject/eject CDROM
+	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
+
 	// Owner: sig-storage
 	// Alpha: v1.0.0
 	// GA: v1.9.0
@@ -269,6 +278,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Deprecated, Message: "HotplugVolumes has been deprecated since v1.9.0 and has been replaced by DeclarativeHotplugVolumes"})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})

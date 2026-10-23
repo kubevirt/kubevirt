@@ -3548,8 +3548,8 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 }
 
 func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if c.clusterConfig.HotplugVolumesEnabled() || !c.clusterConfig.DeclarativeHotplugVolumesEnabled() {
-		log.Log.Object(vm).V(4).Info("Declarative hotplug volumes are not enabled, skipping")
+	if c.clusterConfig.HotplugVolumesEnabled() {
+		log.Log.Object(vm).V(4).Info("Legacy HotplugVolumes is enabled, skipping declarative hotplug")
 		return nil
 	}
 

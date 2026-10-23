@@ -149,14 +149,6 @@ const (
 	// to the specified VM or VMI, enabling better dependency tracking.
 	ObjectGraph = "ObjectGraph"
 
-	// Owner: sig-storage / @mhenriks
-	// Alpha: v1.6.0
-	// Beta: v1.9.0
-	//
-	// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
-	// also implicitly handles inject/eject CDROM
-	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
-
 	// Beta: v1.8.0
 	//
 	// PasstBinding enables the use of passt core network binding
@@ -347,7 +339,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NetworkDevicesWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossClusterMigrationProxy, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})

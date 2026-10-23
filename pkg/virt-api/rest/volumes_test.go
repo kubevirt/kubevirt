@@ -85,18 +85,6 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
-	disableDeclarativeHotplugFeatureGate := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
-					},
-				},
-			},
-		})
-	}
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
@@ -140,12 +128,10 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	}
 
 	VolumeUpdateTests := func(featureGate string) {
-		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int, enableGate bool) {
-			if enableGate {
+		DescribeTable("Should succeed with add/volume request", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, isVM bool, code int) {
+			// HotplugVolumes is deprecated and must be enabled explicitly; declarative hotplug is GA
+			if featureGate == featuregate.HotplugVolumesGate {
 				enableFeatureGates(featureGate)
-			} else {
-				// DeclarativeHotplugVolumes is enabled by default, so we need to explicitly disable it
-				disableDeclarativeHotplugFeatureGate()
 			}
 			if addOpts != nil {
 				request.Request.Body = newAddVolumeBody(addOpts)
@@ -236,91 +222,73 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, true, http.StatusAccepted, true),
+			}, nil, true, http.StatusAccepted),
 			Entry("VMI with a valid add volume request", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, false, http.StatusAccepted, true),
+			}, nil, false, http.StatusAccepted),
 			Entry("VMI with an invalid add volume request that's missing a name", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VMI with an invalid add volume request that's missing a disk", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VMI with an invalid add volume request that's missing a volume", &v1.AddVolumeOptions{
 				Name: "vol1",
 				Disk: &v1.Disk{},
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VM with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "hotpluggedPVC",
-			}, true, http.StatusAccepted, true),
+			}, true, http.StatusAccepted),
 			Entry("VMI with a valid remove volume request", nil, &v1.RemoveVolumeOptions{
 				Name: "hotpluggedPVC",
-			}, false, http.StatusAccepted, true),
-			Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest, true),
-			Entry("VMI with a valid remove volume request but no feature gate", nil, &v1.RemoveVolumeOptions{
-				Name: "existingvol",
-			}, false, http.StatusBadRequest, false),
-			Entry("VM with a valid add volume request but no feature gate", &v1.AddVolumeOptions{
-				Name:         "vol1",
-				Disk:         &v1.Disk{},
-				VolumeSource: &v1.HotplugVolumeSource{},
-			}, nil, true, http.StatusBadRequest, false),
+			}, false, http.StatusAccepted),
+			Entry("VMI with a invalid remove volume request missing a name", nil, &v1.RemoveVolumeOptions{}, false, http.StatusBadRequest),
 			Entry("VM with a valid add volume request with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
-			}, nil, true, http.StatusAccepted, true),
+			}, nil, true, http.StatusAccepted),
 			Entry("VMI with a valid add volume request with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				Disk:         &v1.Disk{},
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
-			}, nil, false, http.StatusAccepted, true),
+			}, nil, false, http.StatusAccepted),
 			Entry("VMI with an invalid add volume request that's missing a name with DryRun", &v1.AddVolumeOptions{
 				VolumeSource: &v1.HotplugVolumeSource{},
 				Disk:         &v1.Disk{},
 				DryRun:       withDryRun(),
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VMI with an invalid add volume request that's missing a disk with DryRun", &v1.AddVolumeOptions{
 				Name:         "vol1",
 				VolumeSource: &v1.HotplugVolumeSource{},
 				DryRun:       withDryRun(),
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VMI with an invalid add volume request that's missing a volume with DryRun", &v1.AddVolumeOptions{
 				Name:   "vol1",
 				Disk:   &v1.Disk{},
 				DryRun: withDryRun(),
-			}, nil, false, http.StatusBadRequest, true),
+			}, nil, false, http.StatusBadRequest),
 			Entry("VM with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "hotpluggedPVC",
 				DryRun: withDryRun(),
-			}, true, http.StatusAccepted, true),
+			}, true, http.StatusAccepted),
 			Entry("VMI with a valid remove volume request with DryRun", nil, &v1.RemoveVolumeOptions{
 				Name:   "hotpluggedPVC",
 				DryRun: withDryRun(),
-			}, false, http.StatusAccepted, true),
+			}, false, http.StatusAccepted),
 			Entry("VMI with a invalid remove volume request missing a name with DryRun", nil, &v1.RemoveVolumeOptions{
 				DryRun: withDryRun(),
-			}, false, http.StatusBadRequest, true),
-			Entry("VMI with a valid remove volume request but no feature gate with DryRun", nil, &v1.RemoveVolumeOptions{
-				Name:   "existingvol",
-				DryRun: withDryRun(),
-			}, false, http.StatusBadRequest, false),
-			Entry("VM with a valid add volume request but no feature gate with DryRun", &v1.AddVolumeOptions{
-				Name:         "vol1",
-				Disk:         &v1.Disk{},
-				VolumeSource: &v1.HotplugVolumeSource{},
-				DryRun:       withDryRun(),
-			}, nil, true, http.StatusBadRequest, false),
+			}, false, http.StatusBadRequest),
 		)
 	}
 
-	Context("With DeclarativeHotplugVolumes feature gate", func() {
+	Context("With declarative hotplug volumes", func() {
 		VolumeUpdateTests(featuregate.DeclarativeHotplugVolumesGate)
 	})
 
@@ -368,30 +336,22 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 		Expect(response.StatusCode()).To(Equal(code))
 	},
-		Entry("Reject Add with DeclarativeHotplugVolumes", &v1.AddVolumeOptions{
+		Entry("Reject Add without legacy HotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		}, nil, http.StatusBadRequest),
 		Entry("Accept Add with HotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
 		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate),
-		Entry("Accept Add with both featuregates", &v1.AddVolumeOptions{
-			Name:         "vol1",
-			Disk:         &v1.Disk{},
-			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
-		Entry("Reject Remove with DeclarativeHotplugVolumes", nil, &v1.RemoveVolumeOptions{
+		Entry("Reject Remove without legacy HotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		}, http.StatusBadRequest),
 		Entry("Accept Remove with HotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
 		}, http.StatusAccepted, featuregate.HotplugVolumesGate),
-		Entry("Accept Remove with both featuregates", nil, &v1.RemoveVolumeOptions{
-			Name: "hotpluggedPVC",
-		}, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
 	)
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {

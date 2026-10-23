@@ -146,10 +146,6 @@ func (config *ClusterConfig) ObjectGraphEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.ObjectGraph)
 }
 
-func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
-}
-
 func (config *ClusterConfig) PasstBindingEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.PasstBinding)
 }

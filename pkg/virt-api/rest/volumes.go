@@ -36,10 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const (
-	hotplugVolumeNotEnabledError = "Enable DeclarativeHotplugVolumes or HotplugVolumes feature gate to use this API."
-)
-
 // VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, false)
@@ -60,10 +56,6 @@ func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Req
 	app.removeVolumeRequestHandler(request, response, true)
 }
 
-func (app *SubresourceAPIApp) hotplugVolumesEnabled() bool {
-	return app.clusterConfig.HotplugVolumesEnabled() || app.clusterConfig.DeclarativeHotplugVolumesEnabled()
-}
-
 func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
 	return app.clusterConfig.HotplugVolumesEnabled()
 }
@@ -71,11 +63,6 @@ func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
 func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
@@ -134,11 +121,6 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),

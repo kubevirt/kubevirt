@@ -923,13 +923,11 @@ var _ = Describe(SIG("Hotplug", func() {
 
 			Context("with legacy hotplug", Serial, func() {
 				BeforeEach(func() {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
 				})
 
 				AfterEach(func() {
 					kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 				})
 
 				DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, waitToStart bool) {
