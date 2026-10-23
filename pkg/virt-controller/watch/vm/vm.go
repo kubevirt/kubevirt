@@ -968,6 +968,12 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 }
 
 func (c *Controller) addStartRequest(vm *virtv1.VirtualMachine) error {
+	for _, stateChangeRequest := range vm.Status.StateChangeRequests {
+		if stateChangeRequest.Action == virtv1.StartRequest {
+			return nil
+		}
+	}
+
 	desiredStateChangeRequests := append(vm.Status.StateChangeRequests, virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
 	patchSet := patch.New()
 	patchSet.AddOption(patch.WithAdd("/status/stateChangeRequests", desiredStateChangeRequests))
@@ -1064,18 +1070,18 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			vmiSucceeded := vmi.Status.Phase == virtv1.Succeeded
 
 			if vmi.DeletionTimestamp == nil && (forceStop || vmiFailed || vmiSucceeded) {
-				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance if it failed.
+				// Persist restart intent before deleting the failed VMI so a failed status patch can be retried.
+				if vmiFailed {
+					if err := c.addStartRequest(vm); err != nil {
+						return vm, common.NewSyncError(fmt.Errorf("failed to patch VM with start action: %v", err), vmiFailedDeleteReason)
+					}
+				}
+
 				log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
 					return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
-				}
-
-				if vmiFailed {
-					if err := c.addStartRequest(vm); err != nil {
-						return vm, common.NewSyncError(fmt.Errorf("failed to patch VM with start action: %v", err), vmiFailedDeleteReason)
-					}
 				}
 			}
 			// return to let the controller pick up the expected deletion
