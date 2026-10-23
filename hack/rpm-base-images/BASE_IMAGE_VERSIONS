@@ -1,0 +1,21 @@
+# RPM Base Image Versions
+# This file tracks the pre-built RPM base images used by component Containerfiles.
+# Update this file by running: hack/rpm-base-images/push-base-images.sh
+#
+# Format: IMAGE_NAME=REGISTRY/IMAGE:TAG
+#
+# To rebuild base images (when RPM dependencies change):
+#   hack/rpm-base-images/build-base-images.sh
+#   hack/rpm-base-images/push-base-images.sh
+
+DOCKER_PREFIX=quay.io/vamsi_siddu
+BASE_IMAGE_TAG=latest
+
+launcherbase=quay.io/vamsi_siddu/launcherbase:latest
+libvirt-devel=quay.io/vamsi_siddu/libvirt-devel:latest
+handlerbase=quay.io/vamsi_siddu/handlerbase:latest
+exportserverbase=quay.io/vamsi_siddu/exportserverbase:latest
+libguestfs-tools=quay.io/vamsi_siddu/libguestfs-tools:latest
+pr-helper=quay.io/vamsi_siddu/pr-helper:latest
+sidecar-shim=quay.io/vamsi_siddu/sidecar-shim:latest
+testimage=quay.io/vamsi_siddu/testimage:latest
