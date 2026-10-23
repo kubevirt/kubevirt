@@ -246,6 +246,7 @@ type LibvirtDomainManager struct {
 	driverConfigurator     diskDriverConfigurator
 	disksInfo              map[string]*osdisk.DiskInfo
 	guestDiskSizes         map[string]int64
+	diskInfoGetter         func(string) (*osdisk.DiskInfo, error)
 	domainInfoStats        *stats.DomainJobInfo
 	diskMemoryLimitBytes   int64
 
@@ -399,6 +400,7 @@ func newLibvirtDomainManager(
 		driverConfigurator:   driverConfigurator,
 		disksInfo:            map[string]*osdisk.DiskInfo{},
 		guestDiskSizes:       map[string]int64{},
+		diskInfoGetter:       osdisk.GetDiskInfo,
 		domainInfoStats:      &stats.DomainJobInfo{},
 
 		metadataCache:                 metadataCache,
@@ -1481,19 +1483,9 @@ func expandDiskImageOffline(imagePath string, size int64, preallocated bool) err
 	return nil
 }
 
+// possibleGuestSize computes the guest-visible size of a file-backed disk.
+// Callers must not pass block backends.
 func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, bool) {
-	if dt.BackendIsBlock() {
-		if !dt.HasOverlay() {
-			return 0, true
-		}
-		diskInfo, err := osdisk.GetDiskInfo(dt.BackendPath())
-		if err != nil {
-			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
-			return 0, false
-		}
-		return diskInfo.VirtualSize, true
-	}
-
 	if disk.Capacity == nil {
 		log.DefaultLogger().V(3).Infof("No disk capacity for disk %s, skipping expansion", disk.Alias.GetName())
 		return 0, false

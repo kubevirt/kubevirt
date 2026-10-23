@@ -22,6 +22,8 @@ package libstorage
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/gomega"
@@ -32,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/tests/console"
 )
 
 func LookupVolumeTargetPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
@@ -42,6 +45,21 @@ func LookupVolumeTargetPath(vmi *v1.VirtualMachineInstance, volumeName string) s
 	}
 
 	return ""
+}
+
+// GetGuestBlockDeviceSizeBytes returns the size in bytes of the block device at
+// devicePath as seen by the guest. The guest console must already be logged in.
+func GetGuestBlockDeviceSizeBytes(vmi *v1.VirtualMachineInstance, devicePath string) (int64, error) {
+	out, err := console.RunCommandAndStoreOutput(vmi, fmt.Sprintf("blockdev --getsize64 '%s'", devicePath), 30*time.Second)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the size of %s in VMI %s/%s: %w", devicePath, vmi.Namespace, vmi.Name, err)
+	}
+	out = strings.TrimSpace(out)
+	size, err := strconv.ParseInt(out, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected size output %q for %s in VMI %s/%s: %w", out, devicePath, vmi.Namespace, vmi.Name, err)
+	}
+	return size, nil
 }
 
 func WaitForCBTEnabled(virtClient kubecli.KubevirtClient, namespace, name string) {
