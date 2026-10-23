@@ -26,10 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 )
 
-var DomainDirtyRateStatsCollector = operatormetrics.Collector{
-	Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
-	CollectCallback: domainDirtyRateStatsCollectorCallback,
-}
+var DomainDirtyRateStatsCollector operatormetrics.Collector
 
 func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := settings.vmiInformer.GetStore().List()
