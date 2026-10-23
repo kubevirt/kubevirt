@@ -11,7 +11,7 @@ nature of the system, understanding performance and scalability data becomes cha
 taking specific assumptions into account. This section aims to provide clarity on those assumptions.
 
 1. The data presented in the document was collected from `periodic-kubevirt-e2e-k8s-1.31-sig-performance` and after October 16, 2025, data was collected from `periodic-kubevirt-e2e-k8s-1.34-sig-performance`
-1. The test suite includes three tests:
+1. The test suite includes four tests:
    1. It creates 100 minimal VMIs, with a small pause of 100 ms between creation of 2 VMIs. The definition
       of minimal VMIs can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L273).
       This is represented in the graphs as <Metric> for VMI, for example `vmiCreationToRunningSecondsP50` for VMI
@@ -20,6 +20,11 @@ taking specific assumptions into account. This section aims to provide clarity o
       This is represented in the graphs as <Metric> for VM, for example `vmiCreationToRunningSecondsP50` for VM
    3. It creates VMs with instancetype and preference, the definition can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L203).
       The benchmarks for this will be added in future releases.
+   4. It creates 30 VMs on one node whose root disk is a filesystem PVC. Each claim is an ext4 filesystem on its
+      own loop device, and the claims are Bound before the timer starts, so the result does not include CDI import
+      or volume provisioning. The VMs do not boot a guest and do not attach a graphics device. virt-handler creates
+      `disk.img` on the claim at start. The definition is in `tests/performance/density-pvc.go`.
+      Results are written to `VM-pvc-perf-audit-results.json`. Graphs for this case are not published yet.
 1. The test waits for the VMIs to go into running state and collects a bunch of metrics
 1. The collected metrics are categorized into two buckets, performance and scale
    1. Performance Metrics: This tells users how KubeVirt stack is performing. Examples include
