@@ -843,6 +843,8 @@ const (
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its CPUs are provisioned through DRA
+	VirtualMachineInstanceReasonCPUDRANotMigratable = "CPUDRANotLiveMigratable"
 	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
 	VirtualMachineInstanceReasonDecentralizedNotMigratable = "DecentralizedNotLiveMigratable"
 	// Reason means that VMI is not live migratable because its VirtualMachineState PVC is

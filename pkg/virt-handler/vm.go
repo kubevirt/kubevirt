@@ -54,6 +54,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/executor"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
@@ -1157,6 +1158,10 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(reason, v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
+	if c.cpusFromDRA(vmi) {
+		return newNonMigratableCondition(cpuDRANotMigratableMessage, v1.VirtualMachineInstanceReasonCPUDRANotMigratable), isBlockMigration
+	}
+
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	} else if util.IsTDXVMI(vmi) {
@@ -1199,6 +1204,16 @@ func isMdevGPU(gpu v1.GPU, config *v1.KubeVirtConfiguration) bool {
 		}
 	}
 	return false
+}
+
+// CPU DRA is not supported for live migration yet.
+const cpuDRANotMigratableMessage = "VMI CPUs are provisioned through DRA"
+
+// cpusFromDRA reports whether this VMI draws its CPUs from a CPU ResourceClaim rather than from
+// kubelet's CPU manager. It reads the CPUsWithDRA feature gate on each sync, so that gate has to
+// stay enabled for the duration of a live migration.
+func (c *VirtualMachineController) cpusFromDRA(vmi *v1.VirtualMachineInstance) bool {
+	return drautil.CPUsFromDRA(vmi, c.clusterConfig.CPUsWithDRAGateEnabled())
 }
 
 func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (string, bool) {
@@ -1293,6 +1308,10 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, c.clusterConfig)
 	if ok {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, reason)
+	}
+
+	if c.cpusFromDRA(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUDRANotMigratable, cpuDRANotMigratableMessage)
 	}
 
 	if util.IsSEVVMI(vmi) {

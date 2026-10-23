@@ -28,6 +28,7 @@ var (
 	// These tests require s390x and the CEX DRA driver; see TARGET sig-compute-dra-cex.
 	DRACEX          = Label("DRA-CEX")
 	DRANetwork      = Label("DRA-Network")
+	DRACPU          = Label("DRA-CPU")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
