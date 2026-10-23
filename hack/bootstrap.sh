@@ -64,7 +64,7 @@ build --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
 build --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
 build --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
 
-build --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:${HOST_ARCHITECTURE}-none-linux-gnu
+build --platforms=//bazel/platforms:${HOST_ARCHITECTURE}-none-linux-gnu
 EOT
 }
 

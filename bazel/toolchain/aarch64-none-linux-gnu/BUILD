@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_toolchain", "cc_toolchain_suite")
 load(":cc_toolchain_config.bzl", "cc_toolchain_config")
 load(":cc_toolchain_config_cs10.bzl", "cc_toolchain_config_cs10")
 
@@ -55,7 +56,7 @@ toolchain(
         "@platforms//cpu:aarch64",
     ],
     toolchain = ":aarch64_toolchain",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    toolchain_type = "@rules_cc//cc:toolchain_type",
 )
 
 # CS10 toolchain - selected when centos_stream_version=10
@@ -73,5 +74,5 @@ toolchain(
         "//rpm:is_cs10",
     ],
     toolchain = ":aarch64_toolchain_cs10",
-    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+    toolchain_type = "@rules_cc//cc:toolchain_type",
 )
