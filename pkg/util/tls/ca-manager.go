@@ -136,6 +136,8 @@ func (m *manager) GetCurrentRaw() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	return m.lastRaw, nil
 }
 
