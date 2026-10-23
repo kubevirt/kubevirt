@@ -129,7 +129,7 @@ if [[ -n "$TAR_PATH" ]]; then
     tar xf "$TAR_PATH" -C "$OCI_DIR"
 else
     echo "Pulling from registry..."
-    skopeo copy "docker://$REGISTRY_REF" "oci:$OCI_DIR"
+    skopeo copy --multi-arch=all "docker://$REGISTRY_REF" "oci:$OCI_DIR"
 fi
 
 if [[ ! -f "$OCI_DIR/oci-layout" || ! -f "$OCI_DIR/index.json" ]]; then
