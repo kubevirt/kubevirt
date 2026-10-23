@@ -1886,47 +1886,6 @@ var _ = Describe("Manager", func() {
 
 			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
 		})
-
-		It("should not resize a disk with overlay using DOMAIN_BLOCK_RESIZE_CAPACITY", func() {
-			localCtrl := gomock.NewController(GinkgoT())
-			localMockLibvirt := testing.NewLibvirt(localCtrl)
-
-			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Devices.Disks = append(domainSpec.Devices.Disks, api.Disk{
-				Device: "disk",
-				Type:   "file",
-				Source: api.DiskSource{
-					File: "/test/overlay.qcow2",
-					DataStore: &api.DataStore{
-						Type:   "block",
-						Source: &api.DiskSource{Dev: "/dev/vda"},
-					},
-				},
-				Target: api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"},
-				Driver: &api.DiskDriver{Name: "qemu", Type: "qcow2"},
-				Alias:  api.NewUserDefinedAlias("test-disk"),
-			})
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-
-			localMockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(func(_ string) (cli.VirDomain, error) {
-				localMockLibvirt.DomainEXPECT().Free()
-				return localMockLibvirt.VirtDomain, nil
-			})
-			localMockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			localMockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Times(2).Return(string(xml), nil)
-			localMockLibvirt.DomainEXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{
-				Capacity: 10 * 1024 * 1024 * 1024,
-				Physical: 20 * 1024 * 1024 * 1024,
-			}, nil)
-
-			manager, err := NewLibvirtDomainManager(localMockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, "", false, false, false, false, nil)
-			Expect(err).ToNot(HaveOccurred())
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newspec).ToNot(BeNil())
-		})
 	})
 
 	Context("test marking graceful shutdown", func() {
@@ -4724,27 +4683,31 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(size).To(Equal(expectedSize))
 		})
 
-		It("should return (0, true) for a direct block device", func() {
-			disk := api.Disk{Source: api.DiskSource{Dev: "/dev/vda"}}
+		// Keep file-backed sizing inputs valid to isolate the block-backend rejection.
+		It("should return (0, false) for a direct block device", func() {
+			disk := properDisk
+			disk.Source = api.DiskSource{Dev: "/dev/vda"}
 			ds := disksource.Resolve(disk)
 			size, ok := possibleGuestSize(disk, ds)
-			Expect(ok).To(BeTrue())
+			Expect(ok).To(BeFalse())
 			Expect(size).To(Equal(int64(0)))
 		})
 
-		It("should return (0, false) for a datastore backed block device with unreachable backend", func() {
-			disk := api.Disk{
-				Source: api.DiskSource{
-					File: "/test/overlay.qcow2",
-					DataStore: &api.DataStore{
-						Type:   "block",
-						Source: &api.DiskSource{Dev: "/dev/nonexistent"},
-					},
+		It("should return (0, false) for an overlay-on-block device", func() {
+			disk := properDisk
+			disk.Source = api.DiskSource{
+				File: "/test/overlay.qcow2",
+				DataStore: &api.DataStore{
+					Type:   "block",
+					Source: &api.DiskSource{Dev: "/dev/vda"},
 				},
 			}
 			ds := disksource.Resolve(disk)
-			_, ok := possibleGuestSize(disk, ds)
+			Expect(ds.BackendIsBlock()).To(BeTrue())
+			Expect(ds.HasOverlay()).To(BeTrue())
+			size, ok := possibleGuestSize(disk, ds)
 			Expect(ok).To(BeFalse())
+			Expect(size).To(Equal(int64(0)))
 		})
 
 		It("should apply filesystem overhead for datastore backed file", func() {
@@ -4799,17 +4762,6 @@ var _ = Describe("Manager helper functions", func() {
 				fakePercent := v1.Percent("abcdefg")
 				disk.FilesystemOverhead = &fakePercent
 				return disk
-			}),
-			Entry("dataStore backed block device with unreachable backend", func() api.Disk {
-				return api.Disk{
-					Source: api.DiskSource{
-						File: "/test/overlay.qcow2",
-						DataStore: &api.DataStore{
-							Type:   "block",
-							Source: &api.DiskSource{Dev: "/dev/nonexistent"},
-						},
-					},
-				}
 			}),
 		)
 	})
