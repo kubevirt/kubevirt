@@ -445,6 +445,7 @@ type KubeVirtMetadata struct {
 	Backup           *BackupMetadata           `xml:"backup,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
 	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	SnapshotOverlay  *SnapshotOverlayMetadata  `xml:"snapshotOverlay,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
@@ -459,6 +460,26 @@ type MemoryDumpMetadata struct {
 	Completed      bool         `xml:"completed,omitempty"`
 	Failed         bool         `xml:"failed,omitempty"`
 	FailureReason  string       `xml:"failureReason,omitempty"`
+}
+
+type SnapshotOverlayPhase string
+
+const (
+	SnapshotOverlayPreparing  SnapshotOverlayPhase = "Preparing"
+	SnapshotOverlayReady      SnapshotOverlayPhase = "Ready"
+	SnapshotOverlayCommitting SnapshotOverlayPhase = "Committing"
+	SnapshotOverlayCommitted  SnapshotOverlayPhase = "Committed"
+	// the disks are back on their base images, nothing to commit
+	SnapshotOverlaySnapshotFailed SnapshotOverlayPhase = "SnapshotFailed"
+	// the overlays may still hold writes, so the scratch volume stays
+	SnapshotOverlayCommitFailed SnapshotOverlayPhase = "CommitFailed"
+)
+
+type SnapshotOverlayMetadata struct {
+	ContentUID    types.UID            `xml:"contentUID,omitempty"`
+	ScratchPVCUID types.UID            `xml:"scratchPVCUID,omitempty"`
+	Phase         SnapshotOverlayPhase `xml:"phase,omitempty"`
+	Message       string               `xml:"message,omitempty"`
 }
 
 type MigrationMetadata struct {
@@ -520,6 +541,27 @@ type BackupTarget struct {
 }
 
 type BackupScratch struct {
+	File string `xml:"file,attr,omitempty"`
+}
+
+// DomainSnapshot mirroring libvirt XML under https://libvirt.org/formatsnapshot.html#snapshot-xml
+type DomainSnapshot struct {
+	XMLName       xml.Name       `xml:"domainsnapshot"`
+	Name          string         `xml:"name"`
+	SnapshotDisks *SnapshotDisks `xml:"disks"`
+}
+
+type SnapshotDisks struct {
+	Disks []SnapshotDisk `xml:"disk"`
+}
+
+type SnapshotDisk struct {
+	Name     string              `xml:"name,attr"`
+	Snapshot string              `xml:"snapshot,attr"`
+	Source   *SnapshotDiskSource `xml:"source,omitempty"`
+}
+
+type SnapshotDiskSource struct {
 	File string `xml:"file,attr,omitempty"`
 }
 
