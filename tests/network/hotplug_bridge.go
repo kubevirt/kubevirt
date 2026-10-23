@@ -318,11 +318,7 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 
 			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
 			Eventually(func() bool {
-				var err error
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface == nil || iface.State == v1.InterfaceStateAbsent
+				return ifaceAbsentFromSpec(vmi.Namespace, vmi.Name, linuxBridgeNetworkName2)
 			}, 30*time.Second).Should(BeTrue())
 
 			By("verify unplugged interface is not reported in the VMI status")
@@ -333,11 +329,17 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			By("Unplug the last secondary interface")
 			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
 
+			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
+			Eventually(func() bool {
+				return ifaceAbsentFromSpec(vmi.Namespace, vmi.Name, linuxBridgeNetworkName1)
+			}, 30*time.Second).Should(BeTrue())
+
 			if plugMethod == migrationBased {
-				By("migrating the VMI")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-				libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+				By("Waiting for MigrationRequired condition to appear")
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).
+					Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMigrationRequired))
 			}
 
 			By("verify unplugged iface cleared from VM & VMI")
@@ -348,6 +350,13 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 		)
 	})
 }))
+
+func ifaceAbsentFromSpec(namespace, name, networkName string) bool {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, networkName)
+	return iface == nil || iface.State == v1.InterfaceStateAbsent
+}
 
 func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
 	return *libvmi.MultusNetwork(name, netAttachDefName), libvmi.NewInterface(name, libvmi.WithBridgeBinding())
