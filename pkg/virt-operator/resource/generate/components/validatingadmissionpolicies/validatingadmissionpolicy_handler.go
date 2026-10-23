@@ -154,7 +154,7 @@ func NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount string) *ad
 				},
 				{
 					Name:       "hasNode",
-					Expression: "('authentication.kubernetes.io/node-name' in request.userInfo.extra)",
+					Expression: "has(request.userInfo.extra) && ('authentication.kubernetes.io/node-name' in request.userInfo.extra)",
 				},
 			},
 			Validations: []admissionregistrationv1.Validation{
