@@ -22,6 +22,10 @@ package virthandler
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -31,9 +35,36 @@ const (
 var _ = Describe("virt-handler", func() {
 	Context("findMigrationIp", func() {
 		It("Should return the IP passed to it when no migration0 interface exists", func() {
-			newIp, err := FindMigrationIP(originalIP)
+			newIp, err := FindMigrationIP(originalIP, false)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(newIp).To(Equal(originalIP))
+		})
+		It("Should return the IP passed to it when no migration0 interface exists and allowFallback is true", func() {
+			newIp, err := FindMigrationIP(originalIP, true)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newIp).To(Equal(originalIP))
+		})
+	})
+
+	Context("IsMigrationNetworkFallbackAllowed", func() {
+		It("Should return false when MigrationConfiguration is nil", func() {
+			Expect(IsMigrationNetworkFallbackAllowed(nil)).To(BeFalse())
+		})
+		It("Should return false when AllowMigrationNetworkFallback is nil", func() {
+			mc := &v1.MigrationConfiguration{}
+			Expect(IsMigrationNetworkFallbackAllowed(mc)).To(BeFalse())
+		})
+		It("Should return false when AllowMigrationNetworkFallback is false", func() {
+			mc := &v1.MigrationConfiguration{
+				AllowMigrationNetworkFallback: pointer.P(false),
+			}
+			Expect(IsMigrationNetworkFallbackAllowed(mc)).To(BeFalse())
+		})
+		It("Should return true when AllowMigrationNetworkFallback is true", func() {
+			mc := &v1.MigrationConfiguration{
+				AllowMigrationNetworkFallback: pointer.P(true),
+			}
+			Expect(IsMigrationNetworkFallbackAllowed(mc)).To(BeTrue())
 		})
 	})
 })
