@@ -103,6 +103,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -1949,6 +1950,8 @@ func (l *LibvirtDomainManager) syncDisks(
 			return err
 		}
 	}
+	autoThreadCount := countAutoIOThreads(vmi, spec)
+
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		ds := disksource.Resolve(attachDisk)
@@ -1960,6 +1963,13 @@ func (l *LibvirtDomainManager) syncDisks(
 			continue
 		}
 		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+
+		// Hotplugged virtio disks with auto iothread policy may be assigned a thread id
+		// outside the domain's declared range; reassign valid thread ids before attach to avoid libvirt errors.
+		if vmi.Spec.Domain.IOThreadsPolicy != nil && *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto && attachDisk.Target.Bus == v1.DiskBusVirtio {
+			validateIOThreads(&attachDisk, spec, autoThreadCount, diskHasDedicatedIOThread(&attachDisk, vmi))
+		}
+
 		// set drivers cache mode
 		err = l.driverConfigurator.SetDriverCacheMode(&attachDisk)
 		if err != nil {
@@ -3500,4 +3510,100 @@ func gracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
+}
+
+// countAutoIOThreads calculates the total number of auto threads initially allocated to the VM at domain startup.
+func countAutoIOThreads(vmi *v1.VirtualMachineInstance, spec *api.DomainSpec) uint {
+	if spec.IOThreads == nil || spec.IOThreads.IOThreads == 0 {
+		return 0
+	}
+	total := spec.IOThreads.IOThreads
+	// Permanent (non-hotplug) disks already present in the live domain.
+	domainDisks := make(map[string]struct{}, len(spec.Devices.Disks))
+	for _, disk := range spec.Devices.Disks {
+		ds := disksource.Resolve(disk)
+		if ds.IsHotplugDisk() {
+			continue
+		}
+		if disk.Alias != nil {
+			domainDisks[disk.Alias.GetName()] = struct{}{}
+		}
+	}
+	// count only dedicated disks that already exist in the live domain
+	var dedicated uint
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if !iothreads.HasDedicatedIOThread(disk) {
+			continue
+		}
+		if _, ok := domainDisks[disk.Name]; ok {
+			dedicated++
+		}
+	}
+	if dedicated >= total {
+		// Keep at least one shared thread so new auto disks can still attach.
+		return 1
+	}
+	return total - dedicated
+}
+
+// validateIOThreads checks to see if the assigned thread id for the attachDisk is within the valid thread range
+// if the assigned thread id is out of range, it will be remapped to a valid thread id
+func validateIOThreads(attachDisk *api.Disk, spec *api.DomainSpec, autoThreadCount uint, isDedicated bool) {
+	if attachDisk.Driver == nil {
+		return
+	}
+	// Live domain never declared iothreads (e.g. VM started without a policy),
+	// but conversion of the current VMI may still stamp IOThread(s) on the disk.
+	if spec.IOThreads == nil || spec.IOThreads.IOThreads == 0 {
+		attachDisk.Driver.IOThread = nil
+		attachDisk.Driver.IOThreads = nil
+		return
+	}
+
+	threadRange := autoThreadCount
+	if isDedicated {
+		// Dedicated disks intentionally exceed the auto range to request an exclusive thread
+		// use the total iothreads as the thread range boundary that we will use to potentially remap the out-of-range thread id.
+		threadRange = spec.IOThreads.IOThreads
+	}
+
+	// if attachDisk is allocated a single thread, validate the thread id is within the valid range
+	if attachDisk.Driver.IOThread != nil {
+		diskThread := *attachDisk.Driver.IOThread
+		if diskThread <= threadRange {
+			return
+		}
+
+		// reassign thread id to be within the valid range, where first thread id is 1
+		newThread := diskThread % threadRange
+		if newThread == 0 {
+			newThread = threadRange
+		}
+		diskName := ""
+		if attachDisk.Alias != nil {
+			diskName = attachDisk.Alias.GetName()
+		}
+		log.Log.Infof("hotplug disk %s was assigned an iothread %d that exceeds valid thread range %d, remapping to %d",
+			diskName, diskThread, threadRange, newThread)
+
+		attachDisk.Driver.IOThread = new(newThread)
+	} else if attachDisk.Driver.IOThreads != nil {
+		// if attachDisk is allocated a pool of auto threads, validate each thread id is within the valid range
+		if uint(len(attachDisk.Driver.IOThreads.IOThread)) != threadRange {
+			attachDisk.Driver.IOThreads = iothreads.BuildIOThreadPool(int(threadRange))
+		}
+	}
+}
+
+func diskHasDedicatedIOThread(attachDisk *api.Disk, vmi *v1.VirtualMachineInstance) bool {
+	if attachDisk.Alias == nil || vmi == nil {
+		return false
+	}
+	name := attachDisk.Alias.GetName()
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.Name == name {
+			return iothreads.HasDedicatedIOThread(disk)
+		}
+	}
+	return false
 }
