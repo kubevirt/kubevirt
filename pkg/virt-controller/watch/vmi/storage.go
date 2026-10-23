@@ -218,7 +218,7 @@ func (c *Controller) processHotplugVolumeStatus(
 	usePVCStatus := false
 
 	if attachmentPod == nil {
-		if !c.volumeReady(statusCopy.Phase) {
+		if statusCopy.Phase != virtv1.VolumeReady && !storagetypes.IsMountedDirectoryVolume(vmi, statusCopy) {
 			statusCopy.HotplugVolume.AttachPodUID = ""
 			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 			usePVCStatus = true
@@ -439,11 +439,6 @@ func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
 		return virtv1.HotplugVolumeMounted
 	}
 	return virtv1.HotplugVolumeDetaching
-}
-
-// volumeReady checks if a volume is in a ready state.
-func (c *Controller) volumeReady(phase virtv1.VolumePhase) bool {
-	return phase == virtv1.VolumeReady
 }
 
 // getVolumePhaseMessageReason determines the phase, reason, and message for a volume.
