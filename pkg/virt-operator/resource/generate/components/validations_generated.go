@@ -30740,6 +30740,18 @@ var CRDsValidation map[string]string = map[string]string{
             as failed.
             Defaults to DefaultFailureDeadline - 5min
           type: string
+        quiescePolicy:
+          description: |-
+            QuiescePolicy controls filesystem quiescing for online snapshots.
+            When empty or omitted, defaults to RequireIfAgentConnected: quiesce when the
+            guest agent is connected and retry freeze errors until FailureDeadline,
+            without falling back.
+            BestEffort allows a crash-consistent snapshot when freeze retries are exhausted
+            or another retry would leave insufficient time before FailureDeadline.
+            Skip takes a snapshot without attempting quiescing.
+            Offline snapshots and paused VMs are not quiesced. Without a guest agent,
+            online snapshots are crash-consistent regardless of this policy.
+          type: string
         source:
           description: |-
             TypedLocalObjectReference contains enough information to let you locate the
@@ -36772,6 +36784,14 @@ var CRDsValidation map[string]string = map[string]string{
               format: date-time
               type: string
           type: object
+        freezeFailures:
+          description: FreezeFailures is the number of failed filesystem freeze attempts.
+          format: int32
+          type: integer
+        quiesceFailed:
+          description: QuiesceFailed records that the snapshot fell back to crash
+            consistency after a freeze error.
+          type: boolean
         readyToUse:
           type: boolean
         volumeSnapshotStatus:

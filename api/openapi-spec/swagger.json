@@ -22917,6 +22917,15 @@
      "error": {
       "$ref": "#/definitions/v1beta1.Error"
      },
+     "freezeFailures": {
+      "description": "FreezeFailures is the number of failed filesystem freeze attempts.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "quiesceFailed": {
+      "description": "QuiesceFailed records that the snapshot fell back to crash consistency after a freeze error.",
+      "type": "boolean"
+     },
      "readyToUse": {
       "type": "boolean"
      },
@@ -22972,6 +22981,10 @@
      "failureDeadline": {
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "quiescePolicy": {
+      "description": "QuiescePolicy controls filesystem quiescing for online snapshots. When empty or omitted, defaults to RequireIfAgentConnected: quiesce when the guest agent is connected and retry freeze errors until FailureDeadline, without falling back. BestEffort allows a crash-consistent snapshot when freeze retries are exhausted or another retry would leave insufficient time before FailureDeadline. Skip takes a snapshot without attempting quiescing. Offline snapshots and paused VMs are not quiesced. Without a guest agent, online snapshots are crash-consistent regardless of this policy.",
+      "type": "string"
      },
      "source": {
       "default": {},

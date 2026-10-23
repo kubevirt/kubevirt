@@ -59,6 +59,18 @@ const (
 	VirtualMachineSnapshotContentRetain DeletionPolicy = "Retain"
 )
 
+// QuiescePolicy controls filesystem quiescing for online snapshots.
+type QuiescePolicy string
+
+const (
+	// QuiescePolicyRequireIfAgentConnected preserves the existing behavior.
+	QuiescePolicyRequireIfAgentConnected QuiescePolicy = "RequireIfAgentConnected"
+	// QuiescePolicyBestEffort allows a crash-consistent snapshot if quiescing fails.
+	QuiescePolicyBestEffort QuiescePolicy = "BestEffort"
+	// QuiescePolicySkip disables filesystem quiescing.
+	QuiescePolicySkip QuiescePolicy = "Skip"
+)
+
 // VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource
 type VirtualMachineSnapshotSpec struct {
 	Source corev1.TypedLocalObjectReference `json:"source"`
@@ -72,6 +84,18 @@ type VirtualMachineSnapshotSpec struct {
 	// Defaults to DefaultFailureDeadline - 5min
 	// +optional
 	FailureDeadline *metav1.Duration `json:"failureDeadline,omitempty"`
+
+	// QuiescePolicy controls filesystem quiescing for online snapshots.
+	// When empty or omitted, defaults to RequireIfAgentConnected: quiesce when the
+	// guest agent is connected and retry freeze errors until FailureDeadline,
+	// without falling back.
+	// BestEffort allows a crash-consistent snapshot when freeze retries are exhausted
+	// or another retry would leave insufficient time before FailureDeadline.
+	// Skip takes a snapshot without attempting quiescing.
+	// Offline snapshots and paused VMs are not quiesced. Without a guest agent,
+	// online snapshots are crash-consistent regardless of this policy.
+	// +optional
+	QuiescePolicy QuiescePolicy `json:"quiescePolicy,omitempty"`
 }
 
 // Indication is a way to indicate the state of the vm when taking the snapshot
@@ -82,6 +106,8 @@ const (
 	VMSnapshotNoGuestAgentIndication    Indication = "NoGuestAgent"
 	VMSnapshotGuestAgentIndication      Indication = "GuestAgent"
 	VMSnapshotQuiesceTimeoutIndication  Indication = "QuiesceTimeout"
+	VMSnapshotQuiesceFailedIndication   Indication = "QuiesceFailed"
+	VMSnapshotQuiesceSkippedIndication  Indication = "QuiesceSkipped"
 	VMSnapshotPausedIndication          Indication = "Paused"
 	VMSnapshotPartialSnapshotIndication Indication = "PartialSnapshot"
 )
@@ -287,6 +313,14 @@ type VirtualMachineSnapshotContentStatus struct {
 	// +optional
 	// +listType=atomic
 	VolumeSnapshotStatus []VolumeSnapshotStatus `json:"volumeSnapshotStatus,omitempty"`
+
+	// FreezeFailures is the number of failed filesystem freeze attempts.
+	// +optional
+	FreezeFailures int32 `json:"freezeFailures,omitempty"`
+
+	// QuiesceFailed records that the snapshot fell back to crash consistency after a freeze error.
+	// +optional
+	QuiesceFailed bool `json:"quiesceFailed,omitempty"`
 }
 
 // VirtualMachineSnapshotContentList is a list of VirtualMachineSnapshot resources

@@ -14,6 +14,7 @@ func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
 		"":                "VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot resource",
 		"deletionPolicy":  "+optional",
 		"failureDeadline": "This time represents the number of seconds we permit the vm snapshot\nto take. In case we pass this deadline we mark this snapshot\nas failed.\nDefaults to DefaultFailureDeadline - 5min\n+optional",
+		"quiescePolicy":   "QuiescePolicy controls filesystem quiescing for online snapshots.\nWhen empty or omitted, defaults to RequireIfAgentConnected: quiesce when the\nguest agent is connected and retry freeze errors until FailureDeadline,\nwithout falling back.\nBestEffort allows a crash-consistent snapshot when freeze retries are exhausted\nor another retry would leave insufficient time before FailureDeadline.\nSkip takes a snapshot without attempting quiescing.\nOffline snapshots and paused VMs are not quiesced. Without a guest agent,\nonline snapshots are crash-consistent regardless of this policy.\n+optional",
 	}
 }
 
@@ -121,6 +122,8 @@ func (VirtualMachineSnapshotContentStatus) SwaggerDoc() map[string]string {
 		"readyToUse":           "+optional",
 		"error":                "+optional",
 		"volumeSnapshotStatus": "+optional",
+		"freezeFailures":       "FreezeFailures is the number of failed filesystem freeze attempts.\n+optional",
+		"quiesceFailed":        "QuiesceFailed records that the snapshot fell back to crash consistency after a freeze error.\n+optional",
 	}
 }
 
