@@ -32,13 +32,24 @@ const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
 
 const ContainerNameEnvVar = "CONTAINER_NAME"
 const NetworkBindingPluginNameEnvVar = "NETWORK_BINDING_PLUGIN_NAME"
+const HookChecksumAlgorithmEnvVar = "HOOK_CHECKSUM_ALGORITHM"
+const HookChecksumValueEnvVar = "HOOK_CHECKSUM_VALUE"
+
+const OnDefineDomainHookPath = "/usr/bin/onDefineDomain"
+const PreCloudInitIsoHookPath = "/usr/bin/preCloudInitIso"
 
 type HookSidecarList []HookSidecar
 
+type Checksum struct {
+	Algorithm string `json:"algorithm"`
+	Value     string `json:"value"`
+}
+
 type ConfigMap struct {
-	Name     string `json:"name"`
-	Key      string `json:"key"`
-	HookPath string `json:"hookPath"`
+	Name     string    `json:"name"`
+	Key      string    `json:"key"`
+	HookPath string    `json:"hookPath"`
+	Checksum *Checksum `json:"checksum,omitempty"`
 }
 
 type PVC struct {
@@ -60,12 +71,17 @@ type HookSidecar struct {
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {
-	hookSidecarList := make(HookSidecarList, 0)
-
 	if rawRequestedHookSidecarList, requestedHookSidecarListDefined := vmiObject.GetAnnotations()[HookSidecarListAnnotationName]; requestedHookSidecarListDefined {
-		if err := json.Unmarshal([]byte(rawRequestedHookSidecarList), &hookSidecarList); err != nil {
-			return nil, err
-		}
+		return UnmarshalHookSidecarListAnnotation(rawRequestedHookSidecarList)
+	}
+
+	return HookSidecarList{}, nil
+}
+
+func UnmarshalHookSidecarListAnnotation(rawHookSidecarList string) (HookSidecarList, error) {
+	hookSidecarList := make(HookSidecarList, 0)
+	if err := json.Unmarshal([]byte(rawHookSidecarList), &hookSidecarList); err != nil {
+		return nil, err
 	}
 
 	return hookSidecarList, nil
