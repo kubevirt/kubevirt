@@ -1,6 +1,306 @@
-###############################################################################
-# Bazel now uses Bzlmod by default to manage external dependencies.
-# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
-#
-# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
-###############################################################################
+module(
+    name = "kubevirt",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "package_metadata", version = "0.0.7")
+bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "rules_img", version = "0.3.9")
+bazel_dep(name = "hermetic_launcher", version = "0.0.15")
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.2")
+bazel_dep(name = "rules_go", version = "0.60.0", repo_name = "io_bazel_rules_go")
+bazel_dep(name = "gazelle", version = "0.50.0", repo_name = "bazel_gazelle")
+bazel_dep(name = "bazeldnf", version = "0.99.2-rc2")
+
+# TODO: Drop archive_override once bazeldnf >= 0.99.2 is published to the
+# Bazel Central Registry without non-dev go_deps in its MODULE.bazel.
+archive_override(
+    module_name = "bazeldnf",
+    integrity = "sha256-sWREYYR7m1gn8ymMf7HTSdPeMfpCqVk55mzRSDjvhvU=",
+    patch_cmds = ["sed '/^# if someone wants to build/,$d' MODULE.bazel > MODULE.bazel.tmp && mv MODULE.bazel.tmp MODULE.bazel"],
+    strip_prefix = "bazeldnf-v0.99.2-rc2",
+    urls = ["https://github.com/rmohr/bazeldnf/releases/download/v0.99.2-rc2/bazeldnf-v0.99.2-rc2.tar.gz"],
+)
+
+go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.26.10")
+go_sdk.nogo(nogo = "//:nogo_vet")
+
+# Exposes repos already declared by @bazel_gazelle for nogo/goimports (x/tools)
+# and standalone winrmcli _go_repository targets below (x/crypto, x/net, x/text).
+go_deps = use_extension("@bazel_gazelle//:extensions.bzl", "go_deps")
+use_repo(
+    go_deps,
+    "org_golang_x_crypto",
+    "org_golang_x_net",
+    "org_golang_x_text",
+    "org_golang_x_tools",
+)
+
+bazeldnf_rpms = use_extension("@bazeldnf//bazeldnf:extensions.bzl", "bazeldnf")
+bazeldnf_rpms.config(
+    name = "kubevirt-rpms",
+    ignore_deps = True,
+    lock_file = "//:rpms.json",
+)
+use_repo(bazeldnf_rpms, "kubevirt-rpms")
+
+register_toolchains("//:py_toolchain")
+
+# Register KubeVirt custom C toolchains (CS10 more specific first, then CS9 defaults).
+register_toolchains(
+    "//bazel/toolchain/x86_64-none-linux-gnu:x86_64_linux_toolchain_cs10",
+    "//bazel/toolchain/aarch64-none-linux-gnu:aarch64_linux_toolchain_cs10",
+    "//bazel/toolchain/s390x-none-linux-gnu:s390x_linux_toolchain_cs10",
+    "//bazel/toolchain/s390x-none-linux-gnu:s390x_linux_toolchain",
+    "//bazel/toolchain/aarch64-none-linux-gnu:aarch64_linux_toolchain",
+    "//bazel/toolchain/x86_64-none-linux-gnu:x86_64_linux_toolchain",
+)
+
+_http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+_http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
+pull = use_repo_rule("@rules_img//img:pull.bzl", "pull")
+
+_go_repository = use_repo_rule("@bazel_gazelle//:def.bzl", "go_repository")
+
+# Disk images and guestfs appliances
+_http_file(
+    name = "alpine_image",
+    sha256 = "f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.1-x86_64.iso",
+        "https://storage.googleapis.com/builddeps/f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4",
+    ],
+)
+
+_http_file(
+    name = "alpine_image_aarch64",
+    sha256 = "ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/aarch64/alpine-virt-3.20.1-aarch64.iso",
+        "https://storage.googleapis.com/builddeps/ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a",
+    ],
+)
+
+_http_file(
+    name = "alpine_image_s390x",
+    sha256 = "4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16",
+    urls = [
+        "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/s390x/alpine-standard-3.18.8-s390x.iso",
+        "https://storage.googleapis.com/builddeps/4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16",
+    ],
+)
+
+_http_file(
+    name = "cirros_image",
+    sha256 = "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+    urls = [
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img",
+        "https://storage.googleapis.com/builddeps/932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464",
+    ],
+)
+
+_http_file(
+    name = "cirros_image_aarch64",
+    sha256 = "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629",
+    urls = [
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img",
+        "https://storage.googleapis.com/builddeps/889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629",
+    ],
+)
+
+_http_file(
+    name = "virtio_win_image",
+    sha256 = "57b0f6dc8dc92dc2ae8621f8b1bfbd8a873de9bedc788c4c4b305ea28acc77cd",
+    urls = [
+        "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.266-1/virtio-win-0.1.266.iso",
+        "https://storage.googleapis.com/builddeps/57b0f6dc8dc92dc2ae8621f8b1bfbd8a873de9bedc788c4c4b305ea28acc77cd",
+    ],
+)
+
+_http_archive(
+    name = "libguestfs-appliance-x86_64",
+    sha256 = "fb6da700eeae24da89aae6516091f7c5f46958b0b7812d2b122dc11dca1ab26a",
+    urls = [
+        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-575-centos9-amd64.tar.xz",
+    ],
+)
+
+_http_archive(
+    name = "libguestfs-appliance-s390x",
+    sha256 = "532cb951d4245265da645c8cce14033c19ea8f0d163c01e88f4153dae44e0f95",
+    urls = [
+        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-575-centos9-s390x.tar.xz",
+    ],
+)
+
+# Container base and test images
+pull(
+    name = "go_image_base",
+    digest = "sha256:d2add786f2a5f43d1ab3ae54cd3193de929d0d12c378ff60891921f56f3e47ff",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
+)
+
+pull(
+    name = "go_image_base_aarch64",
+    digest = "sha256:94d5278016c07e4e328da0a983823b92a2341df326d59de3408b8c6fd50bb4b3",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
+)
+
+pull(
+    name = "go_image_base_s390x",
+    digest = "sha256:19daaf0b09ea006981869d1b02664f455627868252d4547724d126de2a765e08",
+    registry = "gcr.io",
+    repository = "distroless/base-debian12",
+)
+
+pull(
+    name = "fedora_with_test_tooling",
+    digest = "sha256:a53fd982787799c2d8cfaa37a2b6fbac4f416437768a25d2eb246dff46bb9d79",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
+)
+
+pull(
+    name = "alpine_with_test_tooling",
+    digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
+pull(
+    name = "alpine_with_test_tooling_arm64",
+    digest = "sha256:5b443506b62f29f5ef5ac1bbf709338212b0b289ee2579e4feead42205685f43",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
+pull(
+    name = "alpine_with_test_tooling_s390x",
+    digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
+    registry = "quay.io",
+    repository = "kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
+pull(
+    name = "fedora_with_test_tooling_aarch64",
+    digest = "sha256:0b29f1b32b2f8d75e35de165a121a9cb211741978972f27ed47e4879c1122b18",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
+)
+
+pull(
+    name = "fedora_with_test_tooling_s390x",
+    digest = "sha256:ae6d6510dfb1e1cbcf09ad85c2c0b3e58494fe10bdaa720362934422037d42a2",
+    registry = "quay.io",
+    repository = "kubevirtci/fedora-with-test-tooling",
+)
+
+pull(
+    name = "s390x-guestless-kernel",
+    digest = "sha256:3bf6fc355fc9718c088c4c881b2d35a073ea274f6b16dc42236ef5e29db2215d",
+    registry = "quay.io",
+    repository = "kubevirt/s390x-guestless-kernel",
+)
+
+pull(
+    name = "alpine-ext-kernel-boot-demo-container-base",
+    digest = "sha256:bccd990554f55623d96fa70bc7efc553dd617523ebca76919b917ad3ee616c1d",
+    registry = "quay.io",
+    repository = "kubevirt/alpine-ext-kernel-boot-demo",
+)
+
+pull(
+    name = "fedora_realtime",
+    digest = "sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565",
+    registry = "quay.io",
+    repository = "kubevirt/fedora-realtime-container-disk",
+)
+
+pull(
+    name = "busybox",
+    digest = "sha256:545e6a6310a27636260920bc07b994a299b6708a1b26910cfefd335fdfb60d2b",
+    registry = "registry.k8s.io",
+    repository = "busybox",
+)
+
+virt_template = use_extension("//images/virt-template:deps.bzl", "virt_template_ext")
+use_repo(
+    virt_template,
+    "virt_template_apiserver",
+    "virt_template_apiserver_aarch64",
+    "virt_template_apiserver_s390x",
+    "virt_template_controller",
+    "virt_template_controller_aarch64",
+    "virt_template_controller_s390x",
+)
+
+# Standalone non-vendored Go tools for winrmcli image
+_go_repository(
+    name = "com_github_masterzen_winrmcli",
+    commit = "c85a68ee8b6e3ac95af2a5fd62d2f41c9e9c5f32",
+    importpath = "github.com/masterzen/winrm-cli",
+)
+
+_go_repository(
+    name = "com_github_packer_community_winrmcp",
+    build_directives = [
+        "gazelle:resolve go github.com/masterzen/winrm @com_github_masterzen_winrm//:winrm",
+        "gazelle:resolve go github.com/nu7hatch/gouuid @com_github_nu7hatch_gouuid//:gouuid",
+        "gazelle:resolve go github.com/dylanmei/iso8601 @com_github_dylanmei_iso8601//:iso8601",
+    ],
+    commit = "c76d91c1e7db27b0868c5d09e292bb540616c9a2",
+    importpath = "github.com/packer-community/winrmcp",
+)
+
+_go_repository(
+    name = "com_github_masterzen_winrm",
+    commit = "1d17eaf15943ca3554cdebb3b1b10aaa543a0b7e",
+    importpath = "github.com/masterzen/winrm",
+)
+
+_go_repository(
+    name = "com_github_nu7hatch_gouuid",
+    commit = "179d4d0c4d8d407a32af483c2354df1d2c91e6c3",
+    importpath = "github.com/nu7hatch/gouuid",
+)
+
+_go_repository(
+    name = "com_github_dylanmei_iso8601",
+    commit = "2075bf119b58e5576c6ed9f867b8f3d17f2e54d4",
+    importpath = "github.com/dylanmei/iso8601",
+)
+
+_go_repository(
+    name = "com_github_gofrs_uuid",
+    commit = "abfe1881e60ef34074c1b8d8c63b42565c356ed6",
+    importpath = "github.com/gofrs/uuid",
+)
+
+_go_repository(
+    name = "com_github_christrenkamp_goxpath",
+    commit = "c5096ec8773dd9f554971472081ddfbb0782334e",
+    importpath = "github.com/ChrisTrenkamp/goxpath",
+)
+
+_go_repository(
+    name = "com_github_azure_go_ntlmssp",
+    commit = "4a21cbd618b459155f8b8ee7f4491cd54f5efa77",
+    importpath = "github.com/Azure/go-ntlmssp",
+)
+
+_go_repository(
+    name = "com_github_masterzen_simplexml",
+    commit = "31eea30827864c9ab643aa5a0d5b2d4988ec8409",
+    importpath = "github.com/masterzen/simplexml",
+)

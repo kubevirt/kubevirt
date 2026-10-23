@@ -5,19 +5,12 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-
-# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
-load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "nogo")
 load("@rules_img//img:push.bzl", "image_push")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:goimports.bzl", "goimports")
 load("//bazel:image.bzl", "kubevirt_image")
+load("//bazel:passwd.bzl", "passwd_entry", "passwd_file")
 
 py_runtime(
     name = "py2_runtime",
