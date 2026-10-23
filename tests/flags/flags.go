@@ -53,6 +53,7 @@ var ApplyDefaulte2eConfiguration bool
 
 var DeployFakeKWOKNodesFlag = false
 var DeployTestingInfrastructureFlag = false
+var RequireCDI = false
 var PathToTestingInfrastrucureManifests = ""
 var DNSServiceName = ""
 var DNSServiceNamespace = ""
@@ -79,7 +80,8 @@ func init() {
 	flag.StringVar(&PrometheusNamespace, "prometheus-installed-namespace", "monitoring", "Set the namespace Prometheus is installed in")
 	flag.BoolVar(&DeployFakeKWOKNodesFlag, "deploy-fake-kwok-nodes", false, "Deploy fake KWOK nodes to test performance.")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
-	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
+	flag.BoolVar(&RequireCDI, "require-cdi", false, "Fail suite startup if CDI is not installed and ready")
+	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "", "Path to rendered testing infrastructure manifests (defaults to -testing-manifest-path or _out/manifests/testing)")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "quay.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
