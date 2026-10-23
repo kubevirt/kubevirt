@@ -36,6 +36,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"go.uber.org/mock/gomock"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -393,6 +395,60 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			Name: "hotpluggedPVC",
 		}, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
 	)
+
+	DescribeTable("should block ephemeral disk changes while an external transaction is prepared", func(volumeRequest *v1.VirtualMachineVolumeRequest) {
+		vmi := api.NewMinimalVMI(testVMName)
+		vmi.Namespace = metav1.NamespaceDefault
+		vmi.Status.Phase = v1.Running
+		vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: "prepared-transaction"}
+		vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "scratch", Type: pointer.P(v1.SnapshotOverlay)}}
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+		status := app.vmiVolumePatch(vmi.Name, vmi.Namespace, volumeRequest)
+		Expect(status).To(HaveOccurred())
+		Expect(status.ErrStatus.Code).To(Equal(int32(http.StatusConflict)))
+	},
+		Entry("remove before overlay condition arrives", &v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "data"}}),
+		Entry("add during overlay recovery", &v1.VirtualMachineVolumeRequest{AddVolumeOptions: &v1.AddVolumeOptions{Name: "data"}}),
+	)
+	DescribeTable("should ignore an overlay annotation without controller-managed overlay state", func(externalEnabled bool) {
+		if externalEnabled {
+			enableFeatureGates(featuregate.ExternalVMSnapshotGate)
+		}
+		vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
+		vmi.Status.Phase = v1.Running
+		vmi.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable = true
+		vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: "not-an-overlay-transaction"}
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+		vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(vmi, nil)
+		Expect(app.vmiVolumePatch(vmi.Name, vmi.Namespace, &v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "data"}})).To(Succeed())
+	},
+		Entry("with the gate disabled", false),
+		Entry("with the gate enabled", true),
+	)
+	It("should allow an ephemeral disk patch after an unrelated VMI status update", func() {
+		vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
+		vmi.UID, vmi.ResourceVersion = "vmi-uid", "42"
+		vmi.Status.Phase = v1.Running
+		vmi.Spec.Volumes[0].PersistentVolumeClaim.Hotpluggable = true
+		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+		vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ types.PatchType, payload []byte, _ metav1.PatchOptions, _ ...string) (*v1.VirtualMachineInstance, error) {
+			current := vmi.DeepCopy()
+			current.ResourceVersion = "43"
+			current.Status.NodeName = "node"
+			encoded, err := json.Marshal(current)
+			Expect(err).ToNot(HaveOccurred())
+			diskPatch, err := jsonpatch.DecodePatch(payload)
+			Expect(err).ToNot(HaveOccurred())
+			updated, err := diskPatch.Apply(encoded)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(json.Unmarshal(updated, current)).To(Succeed())
+			Expect(current.Spec.Volumes).To(BeEmpty())
+			Expect(current.Spec.Domain.Devices.Disks).To(BeEmpty())
+			Expect(current.Status.NodeName).To(Equal("node"))
+			return current, nil
+		})
+		Expect(app.vmiVolumePatch(vmi.Name, vmi.Namespace, &v1.VirtualMachineVolumeRequest{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "data"}})).To(Succeed())
+	})
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 

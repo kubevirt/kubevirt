@@ -369,6 +369,11 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 
+	// SnapshotOverlayPVCUID identifies the scratch PVC verified for the
+	// OverlaySnapshotActive condition. Updated together with that condition.
+	// +optional
+	SnapshotOverlayPVCUID types.UID `json:"snapshotOverlayPVCUID,omitempty"`
+
 	// KernelBootStatus contains info about the kernelBootContainer
 	// +optional
 	KernelBootStatus *KernelBootStatus `json:"kernelBootStatus,omitempty"`
@@ -815,6 +820,10 @@ const (
 
 	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
 	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
+
+	// VirtualMachineInstanceOverlaySnapshotActive indicates the VMI's disks are running on copy-on-write overlays.
+	// False or absent means the disks are on their base images.
+	VirtualMachineInstanceOverlaySnapshotActive VirtualMachineInstanceConditionType = "OverlaySnapshotActive"
 )
 
 // These are valid reasons for VMI conditions.
@@ -841,6 +850,8 @@ const (
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its disks are on snapshot overlays
+	VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable = "SnapshotOverlaysNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
 	// Reason means that VMI is not live migratable because its CPUs are provisioned through DRA
@@ -868,6 +879,19 @@ const (
 
 	// Indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceReasonEvictionRequested = "EvictionRequested"
+
+	// Reason means the overlay snapshot transaction has been accepted and is running
+	VirtualMachineInstanceReasonOverlayPreparing = "OverlayPreparing"
+	// Reason means every snapshottable disk is on its overlay and the base images are read-only
+	VirtualMachineInstanceReasonOverlaysReady = "OverlaysReady"
+	// Reason means the overlays are being committed back into the base images
+	VirtualMachineInstanceReasonOverlayCommitting = "OverlayCommitting"
+	// Reason means the commit failed and the overlays may still be in use
+	VirtualMachineInstanceReasonOverlayCommitFailed = "OverlayCommitFailed"
+	// Reason means the transaction failed and the disks are back on their base images
+	VirtualMachineInstanceReasonOverlaySnapshotFailed = "OverlaySnapshotFailed"
+	// Reason means every disk is verified back on its base image
+	VirtualMachineInstanceReasonOverlayCommitted = "OverlayCommitted"
 )
 
 const (
@@ -3104,6 +3128,18 @@ type VirtualMachineInstanceFileSystem struct {
 // FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
 type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
+}
+
+// SnapshotOverlayOptions names the utility volume the copy-on-write overlays
+// of an External mode VirtualMachineSnapshot are written to
+type SnapshotOverlayOptions struct {
+	// VolumeName is the utility volume attached to the VirtualMachineInstance
+	VolumeName string `json:"volumeName"`
+	// Volumes are the volumes the snapshot captures, the only ones put on overlays.
+	// Not used to commit the overlays.
+	// +optional
+	// +listType=atomic
+	Volumes []string `json:"volumes,omitempty"`
 }
 
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info

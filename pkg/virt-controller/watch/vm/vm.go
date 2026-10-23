@@ -71,6 +71,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
@@ -157,7 +158,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		dataVolumeStore:        dataVolumeInformer.GetStore(),
 		dataSourceStore:        dataSourceInformer.GetStore(),
 		namespaceStore:         namespaceInformer.GetStore(),
-		pvcStore:               pvcInformer.GetStore(),
+		pvcStore:               pvcInformer.GetIndexer(),
 		crIndexer:              crInformer.GetIndexer(),
 		instancetypeController: instancetypeController,
 		recorder:               recorder,
@@ -285,7 +286,7 @@ type Controller struct {
 	dataVolumeStore        cache.Store
 	dataSourceStore        cache.Store
 	namespaceStore         cache.Store
-	pvcStore               cache.Store
+	pvcStore               cache.Indexer
 	crIndexer              cache.Indexer
 	instancetypeController instancetypeHandler
 	recorder               record.EventRecorder
@@ -1289,8 +1290,23 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
-	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
+	recovery := controller.NewVirtualMachineConditionManager().GetCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+	blocked := recovery != nil && recovery.Status == k8score.ConditionTrue
+	if blocked && recovery.Reason != storagetypes.UncommittedOverlaysReason {
 		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
+		return vm, nil
+	}
+	// The condition may not be observed yet, so look for a scratch volume regardless
+	scratch, content, err := snapshotoverlay.RecoveryScratch(c.clientset, c.pvcStore, vm)
+	if errors.Is(err, snapshotoverlay.ErrNotRecoverable) {
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Not starting the virtual machine: %v", err)
+		return vm, nil
+	}
+	if err != nil {
+		return vm, err
+	}
+	if blocked && scratch == nil {
+		log.Log.Object(vm).Error(failedManualRecoveryRequiredCondSetErrMsg)
 		return vm, nil
 	}
 
@@ -1325,6 +1341,10 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
 	vmi.Finalizers = append(vmi.Finalizers, virtv1.VirtualMachineControllerFinalizer)
+
+	if err := snapshotoverlay.AnnotateRecovery(vmi, scratch, content); err != nil {
+		return vm, err
+	}
 
 	// We need to apply auto attach preferences before any new network or input devices are added.
 	if err := c.instancetypeController.ApplyAutoAttachPreferences(vm, vmi); err != nil {
@@ -1367,6 +1387,13 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+
+	if scratch != nil {
+		if err := snapshotoverlay.HotplugRecoveryScratch(c.clientset, vmi, scratch); err != nil {
+			c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error recovering the snapshot overlays: %v", err)
+			return vm, err
+		}
+	}
 
 	return vm, nil
 }
@@ -1658,7 +1685,9 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
-		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+		if !snapshotoverlay.HasUncommittedOverlays(vm) {
+			vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+		}
 		return
 	}
 	if vmi == nil || vmi.IsFinal() {
@@ -2489,6 +2518,10 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	// On a successful migration, the volume change condition is removed and we need to detect the removal before the synchronization of the VMI
 	// condition to the VM
 	syncVolumeMigration(vm, vmi)
+	cleanupPending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+	if err != nil {
+		return err
+	}
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
 	cbt.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
@@ -2498,6 +2531,10 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 		if _, err := c.clientset.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, v1.UpdateOptions{}); err != nil {
 			return err
 		}
+	}
+	if cleanupPending {
+		c.Queue.AddAfter(key, time.Second)
+		return nil
 	}
 	syncVMIDeleted := vmi != nil && vmi.IsWaitingForSync() && vmi.DeletionTimestamp != nil
 	if vmi != nil && (vmi.IsFinal() || syncVMIDeleted) && len(vmi.Finalizers) > 0 {
@@ -2772,6 +2809,9 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 		string(virtv1.VirtualMachineReady):           nil,
 		string(virtv1.VirtualMachineFailure):         nil,
 		string(virtv1.VirtualMachineRestartRequired): nil,
+	}
+	if snapshotoverlay.HasUncommittedOverlays(vm) {
+		syncIgnoreMap[string(virtv1.VirtualMachineManualRecoveryRequired)] = nil
 	}
 	vmiCondMap := make(map[string]interface{})
 
@@ -3314,6 +3354,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	// hotplugged volumes and interfaces
 	if !c.satisfiedExpectations(key) {
 		return vm, vmi, nil, nil
+	}
+
+	if err := snapshotoverlay.HandlePendingRecovery(c.clientset, c.pvcStore, vm, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error recovering the snapshot overlays: %w", err), failedCreateReason), nil
 	}
 	vmCopy := vm.DeepCopy()
 	vm.Spec.RunStrategy = origRunStrategy

@@ -42,6 +42,7 @@ go_library(
         "//pkg/storage/host-disk:go_default_library",
         "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/storage/reservation:go_default_library",
+        "//pkg/storage/snapshotoverlay:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/virtiofs:go_default_library",
         "//pkg/storage/volumepath:go_default_library",

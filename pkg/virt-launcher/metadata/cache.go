@@ -38,6 +38,7 @@ type Cache struct {
 	AccessCredential   SafeData[api.AccessCredentialMetadata]
 	MemoryDump         SafeData[api.MemoryDumpMetadata]
 	Backup             SafeData[api.BackupMetadata]
+	SnapshotOverlay    SafeData[api.SnapshotOverlayMetadata]
 	GuestPanicHandled  SafeData[bool]
 	CompletedMigration SafeData[CompletedMigrationData]
 
@@ -54,6 +55,7 @@ func NewCache() *Cache {
 	cache.AccessCredential.dirtyChannel = cache.notificationSignal
 	cache.MemoryDump.dirtyChannel = cache.notificationSignal
 	cache.Backup.dirtyChannel = cache.notificationSignal
+	cache.SnapshotOverlay.dirtyChannel = cache.notificationSignal
 	cache.GuestPanicHandled.dirtyChannel = cache.notificationSignal
 	cache.CompletedMigration.dirtyChannel = cache.notificationSignal
 	return cache
