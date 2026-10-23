@@ -437,7 +437,10 @@
         }
       },
       "roleAggregationStrategy": "roleAggregationStrategyValue",
-      "emulationPolicy": "emulationPolicyValue"
+      "emulationPolicy": "emulationPolicyValue",
+      "exportConfiguration": {
+        "externalCertificationStrategy": "externalCertificationStrategyValue"
+      }
     },
     "infra": {
       "nodePlacement": {
