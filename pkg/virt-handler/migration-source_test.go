@@ -306,6 +306,121 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		})
 	})
+	Context("migration completion failsafe", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		})
+
+		getUpdatedVMI := func() *v1.VirtualMachineInstance {
+			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			return updatedVMI
+		}
+
+		migratedDomain := func() *api.Domain {
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+			return domain
+		}
+
+		It("should complete a migration whose target domain is ready but was never acked", func() {
+			readyTimestamp := metav1.NewTime(time.Now().Add(-2 * migrationCompletionFailsafeTimeout))
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: &readyTimestamp,
+			}
+			addVMI(vmi, migratedDomain())
+
+			sanityExecute()
+
+			updatedVMI := getUpdatedVMI()
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+			Expect(updatedVMI.Status.MigrationState.Failed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(&readyTimestamp))
+			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
+			Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
+			Expect(updatedVMI.Labels[v1.NodeNameLabel]).To(Equal("othernode"))
+		})
+
+		It("should not complete the migration before the failsafe grace period elapses", func() {
+			readyTimestamp := metav1.Now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: &readyTimestamp,
+			}
+			addVMI(vmi, migratedDomain())
+
+			sanityExecute()
+
+			updatedVMI := getUpdatedVMI()
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+		})
+
+		It("should not complete the migration before the target's domain is confirmed ready", func() {
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:        "othernode",
+				TargetNodeAddress: "127.0.0.1:12345",
+				SourceNode:        host,
+				MigrationUID:      "123",
+			}
+			addVMI(vmi, migratedDomain())
+
+			sanityExecute()
+
+			updatedVMI := getUpdatedVMI()
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+		})
+
+		It("should not complete the migration while the source's own domain hasn't finished migrating (e.g. post-copy still transferring)", func() {
+			// The target's domain can already report Running at post-copy
+			// switchover, well before the source's migration job -- and so
+			// the migration itself -- actually finishes.
+			readyTimestamp := metav1.NewTime(time.Now().Add(-2 * migrationCompletionFailsafeTimeout))
+			startTimestamp := metav1.NewTime(readyTimestamp.Add(-time.Minute))
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				StartTimestamp:                 &startTimestamp,
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: &readyTimestamp,
+				Mode:                           v1.MigrationPostCopy,
+			}
+			// StartTimestamp set + EndTimestamp nil tells processVMI a
+			// migration is already underway, so it won't try to start a new
+			// one against this still-Paused (mid-migration) domain.
+			stillMigratingDomain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			stillMigratingDomain.Status.Status = api.Paused
+			addVMI(vmi, stillMigratingDomain)
+
+			sanityExecute()
+
+			updatedVMI := getUpdatedVMI()
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(BeNil())
+		})
+	})
+
 	Context("setMigrationProgressStatus", func() {
 		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, completed, failed bool, mode v1.MigrationMode) *api.Domain {
 			d := api.NewMinimalDomainWithUUID("test", "1234")

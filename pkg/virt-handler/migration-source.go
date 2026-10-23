@@ -217,8 +217,64 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
 }
 
+// migrationCompletionFailsafeTimeout bounds how long the source waits for the
+// target to ack a completed migration (by setting EndTimestamp) once the
+// target's domain is confirmed running. A target virt-handler that predates
+// CNV-94145's fix never sends that ack when paired with a newer source,
+// leaving an otherwise-successful migration stuck forever; complete it from
+// the source instead once this grace period elapses.
+const migrationCompletionFailsafeTimeout = 60 * time.Second
+
+// completeMigrationIfTargetAckStuck detects a migration whose target domain
+// is confirmed running but whose completion was never acked by the target,
+// and completes it from the source as a failsafe. Returns true if it did so.
+func (c *MigrationSourceController) completeMigrationIfTargetAckStuck(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	ms := vmi.Status.MigrationState
+	if ms == nil || ms.EndTimestamp != nil || ms.TargetNode == "" || vmi.IsDecentralizedMigration() {
+		return false
+	}
+
+	// Required, not just the target-ready check below: in post-copy, the
+	// target's domain reports Running at switchover, well before the
+	// source's blocking libvirt migrate call -- and so the migration itself
+	// -- actually finishes. Only domainMigrated(domain) means the source
+	// considers its own migration job genuinely done.
+	if !domainMigrated(domain) {
+		return false
+	}
+
+	ready := ms.TargetNodeDomainReadyTimestamp
+	if ready == nil || time.Since(ready.Time) < migrationCompletionFailsafeTimeout {
+		return false
+	}
+
+	log.Log.Object(vmi).Warningf(
+		"the target's domain has been ready since %s without an acked migration completion; completing the migration from the source virt-handler",
+		ready.Time)
+
+	// backdated, not now(), so migration-duration metrics reflect when the
+	// migration actually finished rather than how long it sat stuck.
+	ms.EndTimestamp = ready
+	ms.Completed = true
+	vmi.Status.NodeName = ms.TargetNode
+	vmi.Status.EvacuationNodeName = ""
+	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+	vmi.Labels[v1.NodeNameLabel] = ms.TargetNode
+	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
+	vmi.Status.LauncherContainerImageVersion = ""
+	return true
+}
+
 func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.setMigrationProgressStatus(vmi, domain)
+
+	// CNV-94145 failsafe: if the migration was stuck on the target, return
+	// here. hasTargetDetectedReadyDomain below would see the backdated
+	// EndTimestamp as already stale and fail the migration that was just
+	// marked as complete.
+	if c.completeMigrationIfTargetAckStuck(vmi, domain) {
+		return nil
+	}
 
 	// handle migrations differently than normal status updates.
 	//
