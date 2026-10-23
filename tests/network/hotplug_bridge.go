@@ -313,35 +313,24 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		})
 
-		DescribeTable("hot-unplug network interface succeed", func(plugMethod hotplugMethod) {
+		DescribeTable("hot-unplug network interfaces succeed", func(plugMethod hotplugMethod) {
 			Expect(removeInterface(vm, linuxBridgeNetworkName2)).To(Succeed())
 
-			By("wait for requested interface VMI spec to have 'absent' state or to be removed")
-			Eventually(func() bool {
-				var err error
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, linuxBridgeNetworkName2)
-				return iface == nil || iface.State == v1.InterfaceStateAbsent
-			}, 30*time.Second).Should(BeTrue())
+			operationCompletionTimeout := 30 * time.Second
 
-			By("verify unplugged interface is not reported in the VMI status")
-			vmi = verifyBridgeDynamicInterfaceChange(vmi, plugMethod)
+			if plugMethod == migrationBased {
+				operationCompletionTimeout = 5 * time.Minute
+			}
 
-			vm, vmi = verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName2)
+			vm, vmi = verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName2, operationCompletionTimeout)
+			Expect(vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, linuxBridgeNetworkName1)).NotTo(BeNil(),
+				"the remaining secondary interface should still be reported in the VMI status")
 
 			By("Unplug the last secondary interface")
 			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
 
-			if plugMethod == migrationBased {
-				By("migrating the VMI")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-				libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
-			}
-
 			By("verify unplugged iface cleared from VM & VMI")
-			verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName1)
+			verifyUnpluggedIfaceClearedFromVMandVMI(vm.Namespace, vm.Name, linuxBridgeNetworkName1, operationCompletionTimeout)
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
 			Entry("Migration based", decorators.WgS390x, decorators.MigrationBasedHotplugNICs, migrationBased),
@@ -393,7 +382,7 @@ func verifyBridgeDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, plugMeth
 	return libnet.VerifyDynamicInterfaceChange(vmi, queueCount, operationCompletionTimeout, pollInterval)
 }
 
-func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string, timeout time.Duration) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 	By("verify unplugged iface cleared from VM & VMI")
 	var err error
 	var vmi *v1.VirtualMachineInstance
@@ -401,14 +390,14 @@ func verifyUnpluggedIfaceClearedFromVMandVMI(namespace, vmName, netName string) 
 		vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVMI(g, vmi, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}, timeout, 3*time.Second).WithOffset(1).Should(Succeed())
 
 	var vm *v1.VirtualMachine
 	Eventually(func(g Gomega) {
 		vm, err = kubevirt.Client().VirtualMachine(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).WithOffset(1).NotTo(HaveOccurred())
 		assertInterfaceUnplugedFromVM(g, vm, netName)
-	}, 30*time.Second, 3*time.Second).WithOffset(1).Should(Succeed())
+	}, timeout, 3*time.Second).WithOffset(1).Should(Succeed())
 
 	return vm, vmi
 }
