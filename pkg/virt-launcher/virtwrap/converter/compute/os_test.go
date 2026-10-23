@@ -215,7 +215,7 @@ var _ = Describe("OS Domain Configurator", func() {
 
 		DescribeTable("should select the NVRAM path based on the declarative virtualMachineState API",
 			func(option libvmi.Option, expectedNVRam func(*v1.VirtualMachineInstance) string) {
-				vmi := libvmi.New(withEFIBootloader(true), option)
+				vmi := libvmi.New(withEFIBootloader(true), libvmi.WithArchitecture("amd64"), option)
 				var domain api.Domain
 				autoSelectConfig := &compute.EFIConfiguration{
 					SecureLoader:              true,
