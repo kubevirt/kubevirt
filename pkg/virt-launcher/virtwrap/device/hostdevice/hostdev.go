@@ -131,7 +131,7 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 	}
 
 	if len(hostDevices) > 0 {
-		log.Log.Infof("host-devices created: [%s]", strings.Join(hostDevicesAddresses, ", "))
+		log.Log.V(3).Infof("host-devices created: [%s]", strings.Join(hostDevicesAddresses, ", "))
 	}
 
 	return hostDevices, nil
