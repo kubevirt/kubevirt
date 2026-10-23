@@ -36,10 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-const (
-	hotplugVolumeNotEnabledError = "Enable DeclarativeHotplugVolumes or HotplugVolumes feature gate to use this API."
-)
-
 // VMAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, false)
@@ -60,22 +56,9 @@ func (app *SubresourceAPIApp) VMIRemoveVolumeRequestHandler(request *restful.Req
 	app.removeVolumeRequestHandler(request, response, true)
 }
 
-func (app *SubresourceAPIApp) hotplugVolumesEnabled() bool {
-	return app.clusterConfig.HotplugVolumesEnabled() || app.clusterConfig.DeclarativeHotplugVolumesEnabled()
-}
-
-func (app *SubresourceAPIApp) ephemeralHotplugSupported() bool {
-	return app.clusterConfig.HotplugVolumesEnabled()
-}
-
 func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
@@ -110,14 +93,9 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
 	}
 
-	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	// inject into VMI if ephemeral, else patch the VM spec declaratively
 	if ephemeral {
 		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else if app.clusterConfig.HotplugVolumesEnabled() {
-		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
 			return
 		}
@@ -134,11 +112,6 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-
-	if !app.hotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
 
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
@@ -160,14 +133,9 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 		RemoveVolumeOptions: opts,
 	}
 
-	// inject into VMI if ephemeral, else set as a request on the VM to both make permanent and hotplug.
+	// inject into VMI if ephemeral, else patch the VM spec declaratively
 	if ephemeral {
 		if err := app.vmiVolumePatch(name, namespace, &volumeRequest); err != nil {
-			writeError(err, response)
-			return
-		}
-	} else if app.clusterConfig.HotplugVolumesEnabled() {
-		if err := app.vmVolumePatchStatus(name, namespace, &volumeRequest); err != nil {
 			writeError(err, response)
 			return
 		}
@@ -217,7 +185,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return statErr
 	}
 
-	if ownedByVirtualMachine(vmi) && !app.ephemeralHotplugSupported() {
+	if ownedByVirtualMachine(vmi) {
 		return errors.NewBadRequest(fmt.Sprintf("VMI %s/%s is owned by a VM", vmi.Namespace, vmi.Name))
 	}
 
@@ -245,36 +213,6 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 			}
 		}
 		return errors.NewInternalError(fmt.Errorf("unable to patch vmi: %v", err))
-	}
-	return nil
-}
-
-func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volumeRequest *v1.VirtualMachineVolumeRequest) *errors.StatusError {
-	vm, statErr := app.fetchVirtualMachine(name, namespace)
-	if statErr != nil {
-		return statErr
-	}
-
-	err := verifyVolumeOption(vm.Spec.Template.Spec.Volumes, volumeRequest)
-	if err != nil {
-		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
-	}
-
-	patchBytes, err := generateVMVolumeRequestPatch(vm, volumeRequest)
-	if err != nil {
-		return errors.NewConflict(v1.Resource("virtualmachine"), name, err)
-	}
-
-	dryRunOption := getDryRunOption(volumeRequest)
-	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
-		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
-		if errors.IsInvalid(err) {
-			if statErr, ok := err.(*errors.StatusError); ok {
-				return statErr
-			}
-		}
-		return errors.NewInternalError(fmt.Errorf("unable to patch vm status: %v", err))
 	}
 	return nil
 }
@@ -374,81 +312,6 @@ func generateVolumeRequestPatch(prefix string, vmiSpec *v1.VirtualMachineInstanc
 
 func volumeHotpluggable(volume v1.Volume) bool {
 	return (volume.DataVolume != nil && volume.DataVolume.Hotpluggable) || (volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable)
-}
-
-func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
-	vmCopy := vm.DeepCopy()
-
-	// We only validate the list against other items in the list at this point.
-	// The VM validation webhook will validate the list against the VMI spec
-	// during the Patch command
-	if volumeRequest.AddVolumeOptions != nil {
-		if err := addAddVolumeRequests(vm, volumeRequest, vmCopy); err != nil {
-			return nil, err
-		}
-	} else if volumeRequest.RemoveVolumeOptions != nil {
-		if err := addRemoveVolumeRequests(vm, volumeRequest, vmCopy); err != nil {
-			return nil, err
-		}
-	}
-
-	patchSet := patch.New(
-		patch.WithTest("/status/volumeRequests", vm.Status.VolumeRequests),
-	)
-
-	if len(vm.Status.VolumeRequests) > 0 {
-		patchSet.AddOption(patch.WithReplace("/status/volumeRequests", vmCopy.Status.VolumeRequests))
-	} else {
-		patchSet.AddOption(patch.WithAdd("/status/volumeRequests", vmCopy.Status.VolumeRequests))
-	}
-	return patchSet.GeneratePayload()
-}
-
-func addAddVolumeRequests(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest, vmCopy *v1.VirtualMachine) error {
-	name := volumeRequest.AddVolumeOptions.Name
-	for _, request := range vm.Status.VolumeRequests {
-		if err := validateAddVolumeRequest(request, name); err != nil {
-			return err
-		}
-	}
-	vmCopy.Status.VolumeRequests = append(vm.Status.VolumeRequests, *volumeRequest)
-	return nil
-}
-
-func validateAddVolumeRequest(request v1.VirtualMachineVolumeRequest, name string) error {
-	if addVolumeRequestExists(request, name) {
-		return fmt.Errorf("add volume request for volume [%s] already exists", name)
-	}
-	if removeVolumeRequestExists(request, name) {
-		return fmt.Errorf("unable to add volume since a remove volume request for volume [%s] already exists and is still being processed", name)
-	}
-	return nil
-}
-
-func addRemoveVolumeRequests(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest, vmCopy *v1.VirtualMachine) error {
-	name := volumeRequest.RemoveVolumeOptions.Name
-	var volumeRequestsList []v1.VirtualMachineVolumeRequest
-	for _, request := range vm.Status.VolumeRequests {
-		if addVolumeRequestExists(request, name) {
-			// Filter matching AddVolume requests from the new list.
-			continue
-		}
-		if removeVolumeRequestExists(request, name) {
-			return fmt.Errorf("a remove volume request for volume [%s] already exists and is still being processed", name)
-		}
-		volumeRequestsList = append(volumeRequestsList, request)
-	}
-	volumeRequestsList = append(volumeRequestsList, *volumeRequest)
-	vmCopy.Status.VolumeRequests = volumeRequestsList
-	return nil
-}
-
-func removeVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string) bool {
-	return request.RemoveVolumeOptions != nil && request.RemoveVolumeOptions.Name == name
-}
-
-func addVolumeRequestExists(request v1.VirtualMachineVolumeRequest, name string) bool {
-	return request.AddVolumeOptions != nil && request.AddVolumeOptions.Name == name
 }
 
 func ownedByVirtualMachine(vmi *v1.VirtualMachineInstance) bool {

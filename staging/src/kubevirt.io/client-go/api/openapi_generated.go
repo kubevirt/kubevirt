@@ -30656,7 +30656,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
+							Description: "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI. Deprecated: since v1.10.0 Use declarative hotplug API instead",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

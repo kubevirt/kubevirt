@@ -56,24 +56,12 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 			Phase: v1.KubeVirtPhaseDeploying,
 		},
 	}
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
+	_, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-	}
-	disableDeclarativeHotplugFeatureGate := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
-					},
-				},
-			},
-		})
 	}
 	disableFeatureGates := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
@@ -348,21 +336,13 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 		Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
-	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse, featureGates ...string) {
+	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
 		newVMI := api.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
-		if len(featureGates) == 0 {
-			disableDeclarativeHotplugFeatureGate()
-		} else {
-			for _, featureGate := range featureGates {
-				enableFeatureGate(featureGate)
-			}
-		}
-
-		result := AdmitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, config)
+		result := AdmitHotplugStorage(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
 
@@ -502,16 +482,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 			makeCDRomDisks(0, 1),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			nil,
-			featuregate.DeclarativeHotplugVolumesGate),
-		Entry("Should reject cd-rom eject",
-			makeVolumes(0),
-			makeVolumes(0, 1),
-			makeCDRomDisks(0, 1),
-			makeCDRomDisks(0, 1),
-			makeFilesystems(),
-			makeStatus(1, 0),
-			makeExpected("mismatch between volumes declared (1) and required (2)", "")),
+			nil),
 		Entry("Should reject if we add disk with invalid cache mode",
 			makeVolumes(0, 1),
 			makeVolumes(0),
@@ -634,7 +605,7 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "pvc1"},
 			},
 		}
-		Expect(AdmitHotplugStorage(newVols, oldVols, disks, disks, volumeStatuses, vmi, config)).To(BeNil())
+		Expect(AdmitHotplugStorage(newVols, oldVols, disks, disks, volumeStatuses, vmi)).To(BeNil())
 	},
 		Entry("and not hotpluggable", false),
 		Entry("and hotpluggable", true),

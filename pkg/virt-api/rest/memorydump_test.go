@@ -54,7 +54,6 @@ import (
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Memory dump Subresource api", func() {
@@ -92,30 +91,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		}
 	)
 
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
-
-	enableFeatureGate := func(featureGate string) {
-		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-	}
-
-	disableDeclarativeHotplugFeatureGate := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-			Spec: v1.KubeVirtSpec{
-				Configuration: v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
-					},
-				},
-			},
-		})
-	}
-
-	disableFeatureGates := func() {
-		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
-	}
+	config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 
 	cdiConfigInit := func() (cdiConfig *cdiv1.CDIConfig) {
 		cdiConfig = &cdiv1.CDIConfig{
@@ -163,10 +139,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 		app = NewSubresourceAPIApp(virtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
-	AfterEach(func() {
-		disableFeatureGates()
-	})
-
 	newMemoryDumpBody := func(req *v1.VirtualMachineMemoryDumpRequest) io.ReadCloser {
 		reqJson, _ := json.Marshal(req)
 		return &readCloserWrapper{bytes.NewReader(reqJson)}
@@ -197,12 +169,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		return pvc
 	}
 
-	DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
-		if enableGate {
-			enableFeatureGate(featuregate.HotplugVolumesGate)
-		} else {
-			disableDeclarativeHotplugFeatureGate()
-		}
+	DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 
 		vmi := libvmi.New()
@@ -246,29 +213,25 @@ var _ = Describe("Memory dump Subresource api", func() {
 	},
 		Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusAccepted, true, true, createTestPVC("2Gi", fs, notReadOnly)),
-		Entry("VM with a valid memory dump request but no feature gate should fail", &v1.VirtualMachineMemoryDumpRequest{
-			ClaimName: testPVCName,
-		}, http.StatusBadRequest, false, true, createTestPVC("2Gi", fs, notReadOnly)),
+		}, http.StatusAccepted, true, createTestPVC("2Gi", fs, notReadOnly)),
 		Entry("VM with a valid memory dump request vmi not running should fail", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusConflict, true, false, createTestPVC("2Gi", fs, notReadOnly)),
+		}, http.StatusConflict, false, createTestPVC("2Gi", fs, notReadOnly)),
 		Entry("VM with a memory dump request with a non existing PVC", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusNotFound, true, true, nil),
+		}, http.StatusNotFound, true, nil),
 		Entry("VM with a memory dump request pvc block mode should fail", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusConflict, true, true, createTestPVC("2Gi", block, notReadOnly)),
+		}, http.StatusConflict, true, createTestPVC("2Gi", block, notReadOnly)),
 		Entry("VM with a memory dump request pvc read only mode should fail", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusConflict, true, true, createTestPVC("2Gi", fs, readOnly)),
+		}, http.StatusConflict, true, createTestPVC("2Gi", fs, readOnly)),
 		Entry("VM with a memory dump request pvc size too small should fail", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusConflict, true, true, createTestPVC("1Gi", fs, notReadOnly)),
+		}, http.StatusConflict, true, createTestPVC("1Gi", fs, notReadOnly)),
 	)
 
 	DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
-		enableFeatureGate(featuregate.HotplugVolumesGate)
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),

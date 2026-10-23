@@ -170,11 +170,6 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
-		return
-	}
-
 	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body"), response)
 		return
