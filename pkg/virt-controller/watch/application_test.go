@@ -164,7 +164,7 @@ var _ = Describe("Application", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,
 			nil,
-			func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },
+			stubNetStatusUpdater{},
 			func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
 				return nil
 			},
@@ -421,5 +421,11 @@ func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance, _ *k8sv1.
 type stubNetworkAnnotationsGenerator struct{}
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return nil
+}
+
+type stubNetStatusUpdater struct{}
+
+func (s stubNetStatusUpdater) Update(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error {
 	return nil
 }

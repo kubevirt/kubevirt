@@ -226,11 +226,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		var qemuGid int64 = 107
 
-		stubNetStatusUpdate := func(vmi *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
-			vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate"})
-			return nil
-		}
-
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vmi"))
 		controller, _ = NewController(mockQueue,
 			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
@@ -251,7 +246,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 			stubNetworkAnnotationsGenerator{},
 			stubStorageAnnotationsGenerator{},
-			stubNetStatusUpdate,
+			stubNetStatusUpdater{},
 			validateNetVMISpecStub(),
 			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
 			&fakeAllocator{},
@@ -6250,6 +6245,13 @@ func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *
 	return func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
 		return causes
 	}
+}
+
+type stubNetStatusUpdater struct{}
+
+func (s stubNetStatusUpdater) Update(vmi *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
+	vmi.Status.Interfaces = append(vmi.Status.Interfaces, virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate"})
+	return nil
 }
 
 type stubMigrationEvaluator struct {

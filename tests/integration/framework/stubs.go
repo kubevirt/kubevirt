@@ -57,7 +57,9 @@ func (n *noopSynchronizer) Sync(vm *virtv1.VirtualMachine, _ *virtv1.VirtualMach
 	return vm, nil
 }
 
-func noopStatusUpdater(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
+type stubNetVMIStatusUpdater struct{}
+
+func (stubNetVMIStatusUpdater) Update(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) error {
 	return nil
 }
 

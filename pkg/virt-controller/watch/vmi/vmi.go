@@ -102,7 +102,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
-		updateNetworkStatus:               netStatusUpdater,
+		netStatusUpdater:                  netStatusUpdater,
 		validateNetworkSpec:               netSpecValidator,
 		netMigrationEvaluator:             netMigrationEvaluator,
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
@@ -190,7 +190,9 @@ type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
-type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+type statusUpdater interface {
+	Update(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+}
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
@@ -238,7 +240,7 @@ type Controller struct {
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
 	storageAnnotationsGenerator       storageAnnotationsGenerator
-	updateNetworkStatus               statusUpdater
+	netStatusUpdater                  statusUpdater
 	validateNetworkSpec               specValidator
 	netMigrationEvaluator             migrationEvaluator
 	additionalLauncherAnnotationsSync []string
