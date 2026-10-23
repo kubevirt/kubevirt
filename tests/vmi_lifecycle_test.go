@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
-
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1235,7 +1234,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with an active pod.", decorators.WgS390x, func() {
 			It("[test_id:1651]should result in pod being terminated", func() {
 				By("Creating the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), startupTimeout)
+				vmi := libvmops.RunVMIAndExpectLaunch(
+					libvmifact.NewGuestless(
+						libvmi.WithAnnotation("test.kubevirt.io/waitDeletion", "true"),
+					), startupTimeout)
 
 				By("Verifying VirtualMachineInstance's pod is active")
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -1259,6 +1261,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(option libvmi.Option, gracePeriodSeconds int64) {
 				vmi := libvmifact.NewFedora(option)
+				const customFinalizer = "test.kubevirt.io/waitDeletion"
+				vmi.Finalizers = []string{
+					customFinalizer,
+				}
 
 				By("Creating the VirtualMachineInstance")
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1266,6 +1272,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Wait for the login")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				Expect(vmi.Finalizers).To(ContainElement(customFinalizer))
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
