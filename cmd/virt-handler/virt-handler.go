@@ -414,10 +414,21 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// The VM, migration-source and migration-target controllers share one workqueue
+	// and one set of expectations, both owned by the Arbiter. That is what makes it
+	// impossible for two of them to act on the same VMI at the same time.
+	vmiQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vmi"},
+	)
+	vmiExpectations := controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations())
+
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtClient,
 		app.HostOverride,
+		vmiQueue,
+		vmiExpectations,
 		launcherClientsManager,
 		vmiSourceInformer,
 		domainSharedInformer,
@@ -468,6 +479,8 @@ func (app *virtHandlerApp) Run() {
 		app.virtClient,
 		app.HostOverride,
 		migrationIpAddress,
+		vmiQueue,
+		vmiExpectations,
 		launcherClientsManager,
 		vmiTargetInformer,
 		domainSharedInformer,
@@ -492,10 +505,8 @@ func (app *virtHandlerApp) Run() {
 	cbtHandler := virthandler.NewCBTHandler()
 
 	vmController, err := virthandler.NewVirtualMachineController(
-		workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
-		),
+		vmiQueue,
+		vmiExpectations,
 		recorder,
 		app.virtClient,
 		app.k8sClient,
@@ -520,6 +531,22 @@ func (app *virtHandlerApp) Run() {
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	arbiter, err := virthandler.NewArbiter(
+		app.HostOverride,
+		vmiQueue,
+		vmiExpectations,
+		vmiSourceInformer,
+		vmiTargetInformer,
+		domainSharedInformer,
+		vmiInformer.GetStore(),
+		vmController,
+		migrationSourceController,
+		migrationTargetController,
 	)
 	if err != nil {
 		panic(err)
@@ -585,9 +612,8 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
-	go migrationSourceController.Run(5, stop)
-	go migrationTargetController.Run(5, stop)
-	go vmController.Run(10, stop)
+	go vmController.Run(stop)
+	go arbiter.Run(20, stop)
 	go ksmHandler.Run(stop)
 
 	doneCh := make(chan string)
