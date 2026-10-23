@@ -54,12 +54,12 @@ func findRoot() string {
 		if current == "/" || current == "." {
 			return current
 		}
-		if _, err := os.Stat(filepath.Join(current, "WORKSPACE")); err == nil {
-			return strings.TrimSuffix(current, "/") + "/"
-		} else if errors.Is(err, os.ErrNotExist) {
-			continue
-		} else if err != nil {
-			panic(err)
+		for _, marker := range []string{"MODULE.bazel", "WORKSPACE"} {
+			if _, err := os.Stat(filepath.Join(current, marker)); err == nil {
+				return strings.TrimSuffix(current, "/") + "/"
+			} else if !errors.Is(err, os.ErrNotExist) {
+				panic(err)
+			}
 		}
 	}
 }
