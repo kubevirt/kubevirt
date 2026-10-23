@@ -21,6 +21,7 @@ package storage
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ import (
 
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -54,12 +56,40 @@ const (
 
 	// appended to quiesce failures, which reach the user as vmSnapshot.status.error
 	quiesceHint = "; snapshot with the Direct mode for a crash consistent snapshot"
+
+	// what <mirror> reports when the commit has drained the overlay and can pivot
+	mirrorReady = "yes"
+
+	// sized so a slow waiter never blocks the libvirt event loop
+	blockJobEventBuffer = 16
 )
+
+// Timings of a block commit, variables so that tests can shorten them
+var (
+	// how long a commit runs before the guest is paused to help it converge
+	commitConvergenceGracePeriod = 4 * time.Minute
+	// the whole budget for one disk, the pause included
+	commitReadyTimeout = 5 * time.Minute
+	// the event subscription is volatile and lost on a libvirt reconnect, so
+	// readiness is also polled
+	commitReadyPollInterval = 15 * time.Second
+	// how long the guest stays paused before the overlay message reports it
+	longPauseThreshold = 5 * time.Second
+)
+
+// OverlaysActive reports whether the domain's disks are on snapshot overlays
+func OverlaysActive(metadataCache *metadata.Cache) bool {
+	overlay, _ := metadataCache.SnapshotOverlay.Load()
+	return overlay.Phase != "" && overlay.Phase != api.SnapshotOverlaySnapshotFailed && overlay.Phase != api.SnapshotOverlayCommitted
+}
 
 // ExternalSnapshot redirects the disks of volumes to qcow2 overlays under
 // overlayDir in a single libvirt transaction. It returns once libvirt accepts the
 // transaction and reports the result through the domain metadata cache. Idempotent.
 func (m *StorageManager) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error {
+	if m.snapshotShutdownRequested() {
+		return fmt.Errorf("cannot create snapshot overlays during graceful shutdown")
+	}
 	if m.MigrationInProgress() {
 		return fmt.Errorf("failed to take an external snapshot, VMI is currently during migration")
 	}
@@ -81,7 +111,447 @@ func (m *StorageManager) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overla
 // back into their base images. It returns once the commit has started and
 // reports completion through the domain metadata cache. Idempotent.
 func (m *StorageManager) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
-	return fmt.Errorf("snapshot overlay commit is not implemented")
+	if m.snapshotShutdownRequested() {
+		return fmt.Errorf("snapshot overlay commit is managed by graceful shutdown")
+	}
+	return m.commitSnapshot(vmi, overlayDir, "")
+}
+
+// OverlaysCommitting reports whether a block commit is running. It owns any
+// pause of the guest until it finishes.
+func OverlaysCommitting(metadataCache *metadata.Cache) bool {
+	overlay, _ := metadataCache.SnapshotOverlay.Load()
+	return overlay.Phase == api.SnapshotOverlayCommitting
+}
+
+// CommitOverlaysBeforeShutdown starts or joins the block commit before ACPI and
+// reports whether the shutdown has to wait for it. virt-handler enforces the
+// existing grace period meanwhile.
+func (m *StorageManager) CommitOverlaysBeforeShutdown(vmi *v1.VirtualMachineInstance) bool {
+	if !OverlaysActive(m.metadataCache) {
+		return false
+	}
+	firstAttempt := false
+	m.metadataCache.GracePeriod.WithSafeBlock(func(grace *api.GracePeriodMetadata, _ bool) {
+		if grace.DeletionTimestamp == nil {
+			now := metav1.Now()
+			grace.DeletionTimestamp = &now
+			firstAttempt = true
+		}
+	})
+	overlay, _ := m.metadataCache.SnapshotOverlay.Load()
+	if overlay.Phase == api.SnapshotOverlayCommitFailed && !firstAttempt {
+		return false
+	}
+	switch overlay.Phase {
+	case api.SnapshotOverlayReady, api.SnapshotOverlayCommitFailed:
+		if err := m.commitSnapshot(vmi, overlayScratchDir(vmi), "committing overlays before graceful shutdown"); err != nil {
+			log.Log.Object(vmi).Reason(err).Warning("Continuing shutdown after snapshot overlay commit could not start")
+			return false
+		}
+	}
+	return true
+}
+
+func (m *StorageManager) snapshotShutdownRequested() bool {
+	grace, _ := m.metadataCache.GracePeriod.Load()
+	return grace.DeletionTimestamp != nil || (grace.MarkedForGracefulShutdown != nil && *grace.MarkedForGracefulShutdown)
+}
+
+// commitSnapshot is CommitSnapshot with a reason, for an unrequested commit
+func (m *StorageManager) commitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir, reason string) error {
+	if m.MigrationInProgress() {
+		return fmt.Errorf("failed to commit the snapshot overlays, VMI is currently during migration")
+	}
+
+	reference, err := expectedOverlayReference(vmi, overlayDir)
+	if err != nil {
+		return err
+	}
+	claimed, phase, err := m.claimSnapshotCommit(*reference, reason)
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		log.Log.Object(vmi).Infof("Not committing the snapshot overlays, they are in phase %q", phase)
+		return nil
+	}
+
+	go m.runCommitSnapshot(vmi, overlayDir)
+	return nil
+}
+
+// claimSnapshotCommit atomically claims the commit. Returns false and the phase
+// that refused it when the overlays are not in a committable state.
+func (m *StorageManager) claimSnapshotCommit(reference storagetypes.SnapshotOverlayReference, message string) (claimed bool, refusedBy api.SnapshotOverlayPhase, err error) {
+	m.metadataCache.SnapshotOverlay.WithSafeBlock(func(overlay *api.SnapshotOverlayMetadata, _ bool) {
+		if overlay.ContentUID != reference.ContentUID || overlay.ScratchPVCUID != reference.ScratchPVCUID {
+			err = fmt.Errorf("snapshot commit reference does not match the active transaction")
+			return
+		}
+		switch overlay.Phase {
+		case api.SnapshotOverlayReady, api.SnapshotOverlayCommitFailed:
+			overlay.Phase = api.SnapshotOverlayCommitting
+			overlay.Message = message
+			claimed = true
+		default:
+			refusedBy = overlay.Phase
+		}
+	})
+	return claimed, refusedBy, err
+}
+
+func (m *StorageManager) runCommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := m.virConn.LookupDomainByName(domName)
+	if err != nil || dom == nil {
+		m.failCommitSnapshot(vmi, fmt.Errorf("failed to look up domain %s: %v", domName, err))
+		return
+	}
+	defer dom.Free()
+
+	if err := m.commitAllDisks(vmi, dom, overlayDir); err != nil {
+		m.failCommitSnapshot(vmi, err)
+		return
+	}
+
+	if err := verifyAllDisksOnBase(dom, overlayDir); err != nil {
+		m.failCommitSnapshot(vmi, err)
+		return
+	}
+
+	m.setSnapshotOverlayPhase(api.SnapshotOverlayCommitted, "")
+	log.Log.Object(vmi).Info("Snapshot overlays committed, all snapshottable disks are back on their base images")
+}
+
+// commitAllDisks commits one disk at a time. Parallel jobs compete for the
+// bandwidth the guest is dirtying the overlays with.
+func (m *StorageManager) commitAllDisks(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, overlayDir string) error {
+	disks, err := overlaidDisks(dom, overlayDir)
+	if err != nil {
+		return err
+	}
+
+	events, err := subscribeBlockJobEvents(m.virConn)
+	if err != nil {
+		return err
+	}
+	defer events.close(vmi)
+
+	for _, disk := range disks {
+		if err := m.commitDisk(vmi, dom, disk, overlayDir, events.events); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *StorageManager) commitDisk(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, disk api.Disk, overlayDir string, events <-chan libvirt.DomainEventBlockJob) error {
+	target := disk.Target.Device
+	if filepath.Dir(disk.Source.File) != overlayDir {
+		log.Log.Object(vmi).V(3).Infof("Disk %s is already on its base image, nothing to commit", target)
+		return removeOverlay(overlayDir, disk.Alias.GetName())
+	}
+
+	running, err := blockCommitRunning(dom, target)
+	if err != nil {
+		return err
+	}
+	if running {
+		log.Log.Object(vmi).Infof("Disk %s already has a block commit running, waiting for it to converge", target)
+	} else if err := dom.BlockCommit(target, "", "", 0, libvirt.DOMAIN_BLOCK_COMMIT_ACTIVE); err != nil {
+		return fmt.Errorf("failed to start the block commit of disk %s: %w", target, err)
+	}
+
+	// Deferred, so the guest is resumed after the pivot on the way out and on
+	// every error path too: leaving it paused is worse than a failed commit.
+	paused := guestPause{manager: m}
+	defer paused.resume(vmi, dom)
+
+	commitStart := time.Now()
+	if err := m.waitForCommitReady(vmi, dom, target, events, &paused); err != nil {
+		return err
+	}
+	// Held until the overlay is durably gone, so a leftover overlay never
+	// predates writes that went to its base
+	if err := paused.pause(vmi, dom, "to pivot disk "+target); err != nil {
+		return err
+	}
+	if err := pivotDisk(vmi, dom, target, overlayDir, commitStart); err != nil {
+		return err
+	}
+
+	// Unlink at the pivot, not at the end of the commit: a pivoted-away overlay
+	// is stale, and a crash would leave it indistinguishable from a live one.
+	// It is confirmed against the domain first, since the pivot returning is not proof.
+	onBase, err := diskOnBase(dom, target, overlayDir)
+	if err != nil {
+		return err
+	}
+	if !onBase {
+		return fmt.Errorf("disk %s is not on its base image after the pivot", target)
+	}
+	return removeOverlay(overlayDir, disk.Alias.GetName())
+}
+
+// removeOverlay deletes the overlay of one disk, which may already be gone. The
+// removal is synced, since a crash must not bring back an overlay older than its base.
+func removeOverlay(overlayDir, volumeName string) error {
+	path := overlayPath(overlayDir, volumeName)
+	if err := removeOverlayFile(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove the overlay %s: %w", path, err)
+	}
+	if err := syncOverlayDir(overlayDir); err != nil {
+		return fmt.Errorf("failed to persist the removal of the overlay %s: %w", path, err)
+	}
+	return nil
+}
+
+var syncOverlayDir = func(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
+}
+
+// waitForCommitReady blocks until the block commit of one disk has drained its
+// overlay, driven by block job events with a domain XML poll as a fallback
+func (m *StorageManager) waitForCommitReady(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, target string, events <-chan libvirt.DomainEventBlockJob, paused *guestPause) error {
+	// The job may already be ready on a retry, with no event left to come
+	ready, err := blockCommitReady(dom, target)
+	if err != nil {
+		return err
+	}
+	if ready {
+		return nil
+	}
+
+	start := time.Now()
+	poll := time.NewTicker(commitReadyPollInterval)
+	defer poll.Stop()
+	forceConvergence := time.NewTimer(0)
+	defer forceConvergence.Stop()
+	deadline := time.NewTimer(commitReadyTimeout)
+	defer deadline.Stop()
+
+	for {
+		select {
+		case event := <-events:
+			if event.Disk != target {
+				continue
+			}
+			switch event.Status {
+			case libvirt.DOMAIN_BLOCK_JOB_READY, libvirt.DOMAIN_BLOCK_JOB_COMPLETED:
+				return nil
+			case libvirt.DOMAIN_BLOCK_JOB_FAILED, libvirt.DOMAIN_BLOCK_JOB_CANCELED:
+				return fmt.Errorf("the block commit of disk %s ended with status %d", target, event.Status)
+			}
+		case <-poll.C:
+			// Skip the XML parse while the job still reports bytes outstanding
+			if info, err := dom.GetBlockJobInfo(target, 0); err == nil && info != nil && info.End > 0 && info.Cur < info.End {
+				log.Log.Object(vmi).Infof("The block commit of disk %s has copied %d of %d MiB after %s",
+					target, info.Cur/storagetypes.MiB, info.End/storagetypes.MiB, time.Since(start).Round(time.Second))
+				continue
+			}
+
+			ready, err := blockCommitReady(dom, target)
+			if err != nil {
+				return err
+			}
+			if ready {
+				return nil
+			}
+		case <-forceConvergence.C:
+			remaining := commitConvergenceGracePeriod - time.Since(start)
+			if remaining > 0 && !m.snapshotShutdownRequested() {
+				forceConvergence.Reset(min(remaining, time.Second))
+				continue
+			}
+			if err := paused.pause(vmi, dom, "to converge the block commit of disk "+target); err != nil {
+				return err
+			}
+			ready, err := blockCommitReady(dom, target)
+			if err != nil || ready {
+				return err
+			}
+		case <-deadline.C:
+			return fmt.Errorf("the block commit of disk %s did not converge within %v", target, commitReadyTimeout)
+		}
+	}
+}
+
+// guestPause tracks whether this commit is the thing that paused the guest, so
+// that a guest somebody else paused is never resumed underneath them.
+type guestPause struct {
+	manager *StorageManager
+	paused  bool
+	since   time.Time
+	// restores the overlay message a long pause replaced
+	stopReport func()
+}
+
+func (p *guestPause) pause(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, reason string) error {
+	if p.paused {
+		return nil
+	}
+
+	state, _, err := dom.GetState()
+	if err != nil {
+		return fmt.Errorf("failed to get the state of the domain: %w", err)
+	}
+	if state != libvirt.DOMAIN_RUNNING {
+		return nil
+	}
+
+	log.Log.Object(vmi).Infof("Pausing the guest %s", reason)
+	if err := dom.Suspend(); err != nil {
+		return fmt.Errorf("failed to pause the guest %s: %w", reason, err)
+	}
+	p.paused, p.since = true, time.Now()
+	p.stopReport = p.manager.reportLongPause(reason)
+	return nil
+}
+
+func (p *guestPause) resume(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+	if !p.paused {
+		return
+	}
+	if err := dom.Resume(); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to resume the guest after the block commit")
+		return
+	}
+	p.paused = false
+	p.stopReport()
+	log.Log.Object(vmi).Infof("Guest resumed after the block commit, paused for %s", time.Since(p.since).Round(time.Millisecond))
+}
+
+// reportLongPause shows a pause that outlasts longPauseThreshold in the overlay
+// message, from a timer since the commit itself may be stuck in the storage
+func (m *StorageManager) reportLongPause(reason string) (stopReport func()) {
+	var reported, resumed bool
+	var message string
+	timer := time.AfterFunc(longPauseThreshold, func() {
+		m.metadataCache.SnapshotOverlay.WithSafeBlock(func(overlay *api.SnapshotOverlayMetadata, _ bool) {
+			if !resumed {
+				reported, message = true, overlay.Message
+				overlay.Message = fmt.Sprintf("the guest has been paused %s for over %s", reason, longPauseThreshold)
+			}
+		})
+	})
+	return func() {
+		timer.Stop()
+		m.metadataCache.SnapshotOverlay.WithSafeBlock(func(overlay *api.SnapshotOverlayMetadata, _ bool) {
+			resumed = true
+			if reported {
+				overlay.Message = message
+			}
+		})
+	}
+}
+
+// pivotDisk ends the block job and switches the domain back to its base image
+func pivotDisk(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, target, overlayDir string, commitStart time.Time) error {
+	if err := dom.BlockJobAbort(target, libvirt.DOMAIN_BLOCK_JOB_ABORT_PIVOT); err != nil {
+		// The job can pivot itself before this call, so check the domain rather
+		// than parse the error
+		if onBase, baseErr := diskOnBase(dom, target, overlayDir); baseErr == nil && onBase {
+			log.Log.Object(vmi).Infof("Disk %s is already on its base image, the block commit had pivoted itself", target)
+			return nil
+		}
+		return fmt.Errorf("failed to pivot disk %s onto its base image: %w", target, err)
+	}
+
+	log.Log.Object(vmi).Infof("Disk %s pivoted onto its base image after %s", target, time.Since(commitStart).Round(time.Millisecond))
+	return nil
+}
+
+var removeOverlayFile = os.Remove
+
+func (m *StorageManager) failCommitSnapshot(vmi *v1.VirtualMachineInstance, cause error) {
+	log.Log.Object(vmi).Reason(cause).Error("Snapshot overlay commit failed, reporting CommitFailed")
+	m.setSnapshotOverlayPhase(api.SnapshotOverlayCommitFailed, cause.Error())
+}
+
+// blockJobEventStream subscribes to block job events for one commit
+type blockJobEventStream struct {
+	conn           cli.Connection
+	registrationID int
+	events         chan libvirt.DomainEventBlockJob
+}
+
+func subscribeBlockJobEvents(conn cli.Connection) (*blockJobEventStream, error) {
+	stream := &blockJobEventStream{
+		conn:   conn,
+		events: make(chan libvirt.DomainEventBlockJob, blockJobEventBuffer),
+	}
+
+	registrationID, err := conn.VolatileDomainEventBlockJobRegister(
+		func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventBlockJob) {
+			// runs on the libvirt event loop, which must never block
+			select {
+			case stream.events <- *event:
+			default:
+			}
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe to block job events: %w", err)
+	}
+
+	stream.registrationID = registrationID
+	return stream, nil
+}
+
+func (s *blockJobEventStream) close(vmi *v1.VirtualMachineInstance) {
+	if err := s.conn.DomainEventDeregister(s.registrationID); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to unsubscribe from block job events")
+	}
+}
+
+// blockCommitRunning reports whether the disk already has this commit running,
+// and errors on a disk busy with a different block job
+func blockCommitRunning(dom cli.VirDomain, target string) (bool, error) {
+	info, err := dom.GetBlockJobInfo(target, 0)
+	if err != nil {
+		return false, fmt.Errorf("failed to get the block job info of disk %s: %w", target, err)
+	}
+	if info == nil || info.Type == libvirt.DOMAIN_BLOCK_JOB_TYPE_UNKNOWN {
+		return false, nil
+	}
+	if info.Type != libvirt.DOMAIN_BLOCK_JOB_TYPE_ACTIVE_COMMIT {
+		return false, fmt.Errorf("disk %s is busy with a block job of type %d", target, info.Type)
+	}
+	return true, nil
+}
+
+func blockCommitReady(dom cli.VirDomain, target string) (bool, error) {
+	disk, err := domainDisk(dom, target)
+	if err != nil {
+		return false, err
+	}
+	return disk.Mirror != nil && disk.Mirror.Ready == mirrorReady, nil
+}
+
+func diskOnBase(dom cli.VirDomain, target, overlayDir string) (bool, error) {
+	disk, err := domainDisk(dom, target)
+	if err != nil {
+		return false, err
+	}
+	return filepath.Dir(disk.Source.File) != overlayDir, nil
+}
+
+func domainDisk(dom cli.VirDomain, target string) (api.Disk, error) {
+	disks, err := util.GetAllDomainDisks(dom)
+	if err != nil {
+		return api.Disk{}, fmt.Errorf("failed to get the disks of the domain: %w", err)
+	}
+	for _, disk := range disks {
+		if disk.Target.Device == target {
+			return disk, nil
+		}
+	}
+	return api.Disk{}, fmt.Errorf("disk %s is no longer attached to the domain", target)
 }
 
 // claimSnapshotOverlay atomically claims the snapshot transaction.
@@ -196,6 +666,9 @@ func (m *StorageManager) createSnapshotQuiesced(vmi *v1.VirtualMachineInstance, 
 
 	if err := verifyOverlayDirMounted(overlayDir); err != nil {
 		return err
+	}
+	if m.snapshotShutdownRequested() {
+		return fmt.Errorf("cannot create snapshot overlays during graceful shutdown")
 	}
 	snapshot, err := dom.CreateSnapshotXML(snapshotXML,
 		libvirt.DOMAIN_SNAPSHOT_CREATE_DISK_ONLY|
@@ -314,6 +787,34 @@ func snapshottableDisks(volumes []string, disks []api.Disk) []api.Disk {
 	}
 	return snapshottableDisks
 }
+
+// overlaidDisks returns the disks that still have an overlay on the scratch
+// volume. The overlays record what the snapshot redirected: each is removed only
+// once its disk is back on its base image.
+func overlaidDisks(dom cli.VirDomain, overlayDir string) ([]api.Disk, error) {
+	disks, err := util.GetAllDomainDisks(dom)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the disks of the domain: %w", err)
+	}
+	var overlaid []api.Disk
+	for _, disk := range disks {
+		if disk.Alias == nil || disk.Target.Device == "" {
+			continue
+		}
+		path := overlayPath(overlayDir, disk.Alias.GetName())
+		_, err := statOverlayFile(path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat the overlay %s: %w", path, err)
+		}
+		overlaid = append(overlaid, disk)
+	}
+	return overlaid, nil
+}
+
+var statOverlayFile = os.Stat
 
 // verifyAllDisksOnOverlay checks the domain, not the filesystem. libvirt creates
 // the overlay files before it switches the domain over
