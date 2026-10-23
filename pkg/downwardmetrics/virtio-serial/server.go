@@ -53,7 +53,7 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) {
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) <-chan error {
 	report := newMetricsReporter(nodeName, launcherSocketPath)
 
 	server := downwardMetricsServer{
@@ -62,7 +62,12 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 		virtioSerialSocket: channelSocketPath,
 		reportFn:           report,
 	}
-	go server.start(ctx)
+	// Buffered, so the server goroutine can always report its final state.
+	result := make(chan error, 1)
+	go func() {
+		result <- server.start(ctx)
+	}()
+	return result
 }
 
 type metricsReporter func() (*api.Metrics, error)
@@ -88,14 +93,18 @@ type downwardMetricsServer struct {
 	reportFn           metricsReporter
 }
 
-func (s *downwardMetricsServer) start(ctx context.Context) {
+func (s *downwardMetricsServer) start(ctx context.Context) error {
 	conn, err := connect(ctx, s.virtioSerialSocket, s.maxConnectAttempts)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		log.Log.Reason(err).Error("failed to connect to virtio-serial socket")
-		return
+		return err
 	}
 
 	s.serve(ctx, conn)
+	return nil
 }
 
 func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
