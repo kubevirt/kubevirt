@@ -26,6 +26,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 )
 
 type revisionFinder struct {
@@ -59,6 +60,8 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 		if label, ok := cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel]; ok && label == vm.Spec.Instancetype.Name {
 			return cr, nil
 		}
+		log.Log.Object(vm).Warningf("ControllerRevision %s is missing or has an unexpected %s label, falling back to live API lookup",
+			ref.ControllerRevisionRef.Name, instancetypeapi.ControllerRevisionObjectNameLabel)
 	}
 	return nil, nil
 }
