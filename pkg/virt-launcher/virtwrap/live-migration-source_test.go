@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -605,6 +606,12 @@ var _ = Describe("Live migration source", func() {
 			Expect(diskSrc.File.File).To(Equal(cbtOverlayPath))
 			Expect(diskSrc.DataStore).NotTo(BeNil())
 			Expect(diskSrc.DataStore.Source).NotTo(BeNil())
+			// CBT disks do not use slices; source size is in DestXML kubevirt metadata.
+			Expect(diskSrc.DataStore.Source.Slices).To(BeNil())
+			Expect(diskSrc.Slices).To(BeNil())
+			size, ok := storage.MigrationDiskSize(dom, testvol)
+			Expect(ok).To(BeTrue())
+			Expect(size).To(Equal(int64(2028994560)))
 			if isDstBlock {
 				Expect(diskSrc.DataStore.Source.File).To(BeNil())
 				Expect(diskSrc.DataStore.Source.Block).NotTo(BeNil())
@@ -620,6 +627,49 @@ var _ = Describe("Live migration source", func() {
 			Entry("filesystem source and filesystem destination", false, false),
 			Entry("block source and block destination", true, true),
 		)
+
+		It("records CBT overlay sizes for shared volumes that are not volume-migrated", func() {
+			const wantSize int64 = 2028994560
+			originalGetDiskVirtualSize := getDiskVirtualSizeFunc
+			getDiskVirtualSizeFunc = func(disk *libvirtxml.DomainDisk) (int64, error) {
+				return wantSize, nil
+			}
+			DeferCleanup(func() { getDiskVirtualSizeFunc = originalGetDiskVirtualSize })
+
+			cbtOverlayPath := "/var/lib/libvirt/qemu/cbt/" + testvol + ".qcow2"
+			dom := &libvirtxml.Domain{
+				Devices: &libvirtxml.DomainDeviceList{
+					Disks: []libvirtxml.DomainDisk{
+						{
+							Source: &libvirtxml.DomainDiskSource{
+								File: &libvirtxml.DomainDiskSourceFile{File: cbtOverlayPath},
+								DataStore: &libvirtxml.DomainDiskDataStore{
+									Source: &libvirtxml.DomainDiskSource{
+										File: &libvirtxml.DomainDiskSourceFile{File: getFsImagePath(testvol)},
+									},
+								},
+							},
+							Alias: &libvirtxml.DomainAlias{Name: fmt.Sprintf("ua-%s", testvol)},
+						},
+					},
+				},
+			}
+			// No MigratedVolumes: shared RWX / backend-storage live migration.
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{volPVC},
+				},
+			}
+
+			Expect(configureLocalDiskToMigrate(dom, vmi)).To(Succeed())
+
+			diskSrc := dom.Devices.Disks[0].Source
+			Expect(diskSrc.DataStore.Source.Slices).To(BeNil())
+			Expect(diskSrc.Slices).To(BeNil())
+			size, ok := storage.MigrationDiskSize(dom, testvol)
+			Expect(ok).To(BeTrue())
+			Expect(size).To(Equal(wantSize))
+		})
 	})
 
 	Context("shouldConfigureParallelMigration", func() {

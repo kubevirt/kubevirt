@@ -19,82 +19,166 @@
 package disk_test
 
 import (
-	"errors"
-
-	"libvirt.org/go/libvirtxml"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"libvirt.org/go/libvirtxml"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 var _ = Describe("CBTOverlayHook", func() {
 	const (
-		overlayPath = "/var/lib/libvirt/qemu/cbt/disk0.qcow2"
-		fsDataPath  = "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"
-		blkDataPath = "/dev/disk0"
+		volumeName   = "datavolume"
+		sourceSize   = int64(2028994560)
+		fsImagePath  = "/var/run/kubevirt-private/vmi-disks/datavolume/disk.img"
+		blockDevPath = "/dev/datavolume"
 	)
 
-	type overlayCall struct{ overlay, data string }
-
 	var (
-		calls          []overlayCall
-		createErr      error
-		originalCreate = storage.CreateQCOW2Overlay
+		vmi             *v1.VirtualMachineInstance
+		createCalled    int
+		capturedOverlay string
+		capturedImage   string
+		capturedBlock   bool
+		capturedSize    int64
+		originalCreate  func(string, string, int64) error
 	)
 
 	BeforeEach(func() {
-		calls = nil
-		createErr = nil
-		storage.CreateQCOW2Overlay = func(overlay, data string) error {
-			calls = append(calls, overlayCall{overlay, data})
-			return createErr
+		vmi = libvmi.New(
+			libvmi.WithNamespace("default"),
+			libvmi.WithPersistentVolumeClaim(volumeName, "test-pvc"),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithChangedBlockTracking(&v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+				}),
+			)),
+		)
+
+		createCalled = 0
+		capturedOverlay = ""
+		capturedImage = ""
+		capturedBlock = false
+		capturedSize = 0
+
+		originalCreate = storage.CreateQCOW2Overlay
+		storage.CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
+			createCalled++
+			capturedOverlay = overlayPath
+			capturedImage = imagePath
+			capturedBlock = len(imagePath) >= 5 && imagePath[:5] == "/dev/"
+			capturedSize = size
+			return nil
 		}
-		DeferCleanup(func() { storage.CreateQCOW2Overlay = originalCreate })
 	})
 
-	cbtDisk := func(dataStore libvirtxml.DomainDiskSource) libvirtxml.DomainDisk {
-		return libvirtxml.DomainDisk{
-			Alias: &libvirtxml.DomainAlias{Name: "ua-disk0"},
-			Source: &libvirtxml.DomainDiskSource{
-				File:      &libvirtxml.DomainDiskSourceFile{File: overlayPath},
-				DataStore: &libvirtxml.DomainDiskDataStore{Source: &dataStore},
+	AfterEach(func() {
+		storage.CreateQCOW2Overlay = originalCreate
+	})
+
+	domainWithDataStore := func(backend *libvirtxml.DomainDiskSource) *libvirtxml.Domain {
+		dom := &libvirtxml.Domain{
+			Devices: &libvirtxml.DomainDeviceList{
+				Disks: []libvirtxml.DomainDisk{
+					{
+						Alias: &libvirtxml.DomainAlias{Name: "ua-" + volumeName},
+						Source: &libvirtxml.DomainDiskSource{
+							File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"},
+							DataStore: &libvirtxml.DomainDiskDataStore{
+								Source: backend,
+							},
+						},
+					},
+				},
 			},
 		}
+		Expect(storage.SetMigrationDiskSizes(dom, map[string]int64{volumeName: sourceSize})).To(Succeed())
+		return dom
 	}
 
-	domainWith := func(disks ...libvirtxml.DomainDisk) *libvirtxml.Domain {
-		return &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: disks}}
-	}
-
-	DescribeTable("should create the overlay the incoming domain references", func(dataStore libvirtxml.DomainDiskSource, dataPath string) {
-		domain := domainWith(cbtDisk(dataStore))
-
-		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(Succeed())
-		Expect(calls).To(ConsistOf(overlayCall{overlayPath, dataPath}))
-		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(overlayPath))
-	},
-		Entry("with a filesystem data store", libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}, fsDataPath),
-		Entry("with a block data store", libvirtxml.DomainDiskSource{Block: &libvirtxml.DomainDiskSourceBlock{Dev: blkDataPath}}, blkDataPath),
-	)
-
-	It("should ignore disks without a data store", func() {
-		domain := domainWith(libvirtxml.DomainDisk{
-			Alias:  &libvirtxml.DomainAlias{Name: "ua-disk0"},
-			Source: &libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}},
+	It("should skip when CBT is not enabled", func() {
+		vmi.Status.ChangedBlockTracking = nil
+		domain := domainWithDataStore(&libvirtxml.DomainDiskSource{
+			File: &libvirtxml.DomainDiskSourceFile{File: fsImagePath},
 		})
 
-		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(Succeed())
-		Expect(calls).To(BeEmpty())
+		Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(Succeed())
+		Expect(createCalled).To(Equal(0))
 	})
 
-	It("should fail when the overlay cannot be created", func() {
-		createErr = errors.New("boom")
-		domain := domainWith(cbtDisk(libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}))
+	It("should skip disks without dataStore", func() {
+		domain := &libvirtxml.Domain{
+			Devices: &libvirtxml.DomainDeviceList{
+				Disks: []libvirtxml.DomainDisk{
+					{
+						Alias: &libvirtxml.DomainAlias{Name: "ua-" + volumeName},
+						Source: &libvirtxml.DomainDiskSource{
+							File: &libvirtxml.DomainDiskSourceFile{File: fsImagePath},
+						},
+					},
+				},
+			},
+		}
 
-		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(MatchError(ContainSubstring("boom")))
+		Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(Succeed())
+		Expect(createCalled).To(Equal(0))
+	})
+
+	DescribeTable("should size overlay from DestXML metadata",
+		func(backend *libvirtxml.DomainDiskSource, expectBlock bool, expectPath string) {
+			domain := domainWithDataStore(backend)
+
+			Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(Succeed())
+			Expect(createCalled).To(Equal(1))
+			Expect(capturedImage).To(Equal(expectPath))
+			Expect(capturedBlock).To(Equal(expectBlock))
+			Expect(capturedSize).To(Equal(sourceSize))
+			Expect(capturedOverlay).To(Equal(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
+
+			diskSrc := domain.Devices.Disks[0].Source
+			Expect(diskSrc.File).NotTo(BeNil())
+			Expect(diskSrc.File.File).To(Equal(capturedOverlay))
+			Expect(diskSrc.Block).To(BeNil())
+			Expect(diskSrc.Slices).To(BeNil())
+			Expect(diskSrc.DataStore.Source.Slices).To(BeNil())
+			Expect(domain.Metadata).To(BeNil())
+		},
+		Entry("filesystem dataStore", &libvirtxml.DomainDiskSource{
+			File: &libvirtxml.DomainDiskSourceFile{File: fsImagePath},
+		}, false, fsImagePath),
+		Entry("block dataStore", &libvirtxml.DomainDiskSource{
+			Block: &libvirtxml.DomainDiskSourceBlock{Dev: blockDevPath},
+		}, true, blockDevPath),
+	)
+
+	It("should return error when DestXML metadata size is missing", func() {
+		domain := &libvirtxml.Domain{
+			Devices: &libvirtxml.DomainDeviceList{
+				Disks: []libvirtxml.DomainDisk{
+					{
+						Alias: &libvirtxml.DomainAlias{Name: "ua-" + volumeName},
+						Source: &libvirtxml.DomainDiskSource{
+							File: &libvirtxml.DomainDiskSourceFile{File: "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"},
+							DataStore: &libvirtxml.DomainDiskDataStore{
+								Source: &libvirtxml.DomainDiskSource{
+									File: &libvirtxml.DomainDiskSourceFile{File: fsImagePath},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err := disk.CBTOverlayHook(nil, vmi, domain)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("missing source virtual size in DestXML metadata"))
+		Expect(createCalled).To(Equal(0))
 	})
 })
