@@ -5,11 +5,13 @@ go_library(
     srcs = [
         "cbt_overlay.go",
         "hook.go",
+        "latency_histogram.go",
         "source_path.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virt-launcher/virtwrap/converter/storage:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/storage:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -24,6 +26,7 @@ go_test(
         "cbt_overlay_test.go",
         "disk_suite_test.go",
         "hook_test.go",
+        "latency_histogram_test.go",
         "source_path_test.go",
     ],
     race = "on",
