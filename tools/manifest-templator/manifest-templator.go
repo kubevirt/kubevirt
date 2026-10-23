@@ -25,6 +25,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -181,7 +182,11 @@ func main() {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
 		if *infraReplicas != 0 {
-			data.InfraReplicas = uint8(*infraReplicas)
+			replicas, err := infraReplicasToUint8(*infraReplicas)
+			if err != nil {
+				panic(err)
+			}
+			data.InfraReplicas = replicas
 		}
 
 	} else {
@@ -346,4 +351,13 @@ func getKubeVirtLogo(path string) string {
 
 func getTimestamp() string {
 	return time.Now().UTC().Format("2006-01-02T15:04:05Z")
+}
+
+// infraReplicasToUint8 converts the value of the --infra-replicas flag to the
+// type of the template data, rejecting values that would silently wrap around.
+func infraReplicasToUint8(replicas uint) (uint8, error) {
+	if replicas > math.MaxUint8 {
+		return 0, fmt.Errorf("invalid --infra-replicas value %d: must be at most %d", replicas, math.MaxUint8)
+	}
+	return uint8(replicas), nil
 }
