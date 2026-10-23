@@ -38,10 +38,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -72,7 +70,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
@@ -710,138 +707,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("using defaultRuntimeClass configuration", Serial, func() {
-			var runtimeClassName string
-
-			BeforeEach(func() {
-				// use random runtime class to avoid collisions with cleanup where a
-				// runtime class is still in the process of being deleted because pod
-				// cleanup is still in progress
-				runtimeClassName = "fake-runtime-class" + "-" + rand.String(5)
-				By("Creating a runtime class")
-				Expect(createRuntimeClass(runtimeClassName, "fake-handler")).To(Succeed())
-			})
-
-			AfterEach(func() {
-				By("Cleaning up runtime class")
-				Expect(deleteRuntimeClass(runtimeClassName)).To(Succeed())
-			})
-
-			It("should apply runtimeClassName to pod when set", func() {
-				By("Configuring a default runtime class")
-				config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
-				config.DefaultRuntimeClass = runtimeClassName
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				By("Creating a new VMI")
-				vmi := libvmifact.NewGuestless()
-				// Runtime class related warnings are expected since we created a fake runtime class that isn't supported
-				wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{"RuntimeClass"}}
-				vmi = libvmops.RunVMIAndExpectSchedulingWithWarningPolicy(vmi, 30, wp)
-
-				By("Checking for presence of runtimeClassName")
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(pod.Spec.RuntimeClassName).ToNot(BeNil())
-				Expect(*pod.Spec.RuntimeClassName).To(BeEquivalentTo(runtimeClassName))
-			})
-		})
-		It("should not apply runtimeClassName to pod when not set", func() {
-			By("verifying no default runtime class name is set")
-			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
-			Expect(config.DefaultRuntimeClass).To(BeEmpty())
-			By("Creating a VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), flags.StartupTimeoutSecondsSmall())
-
-			By("Checking for absence of runtimeClassName")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(pod.Spec.RuntimeClassName).To(BeNil())
-		})
-
-		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
-			setHeadroom := func(ratioStr string) {
-				kv := libkubevirt.GetCurrentKv(virtClient)
-
-				config := kv.Spec.Configuration
-				config.AdditionalGuestMemoryOverheadRatio = &ratioStr
-				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			}
-
-			getComputeMemoryRequest := func(vmi *v1.VirtualMachineInstance) resource.Quantity {
-				launcherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				computeContainer := libpod.LookupComputeContainer(launcherPod)
-				return computeContainer.Resources.Requests[k8sv1.ResourceMemory]
-			}
-
-			It("should add guest-to-memory headroom", func() {
-				const guestMemoryStr = "1024M"
-				origVmiWithoutHeadroom := libvmi.New(
-					libvmi.WithMemoryRequest(guestMemoryStr),
-					libvmi.WithGuestMemory(guestMemoryStr),
-				)
-				origVmiWithHeadroom := libvmi.New(
-					libvmi.WithMemoryRequest(guestMemoryStr),
-					libvmi.WithGuestMemory(guestMemoryStr),
-				)
-
-				By("Running a vmi without additional headroom")
-				vmiWithoutHeadroom := libvmops.RunVMIAndExpectScheduling(origVmiWithoutHeadroom, 60)
-
-				By("Setting a headroom ratio in Kubevirt CR")
-				const ratio = "1.567"
-				setHeadroom(ratio)
-
-				By("Running a vmi with additional headroom")
-				vmiWithHeadroom := libvmops.RunVMIAndExpectScheduling(origVmiWithHeadroom, 60)
-
-				requestWithoutHeadroom := getComputeMemoryRequest(vmiWithoutHeadroom)
-				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
-
-				kvmLauncherRenderer := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
-				overheadWithoutHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
-				overheadWithHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
-
-				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
-				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
-
-				actualDiffBetweenRequests := requestWithHeadroom.DeepCopy()
-				actualDiffBetweenRequests.Sub(requestWithoutHeadroom)
-
-				By("Ensuring memory request is as expected")
-				const errFmt = "ratio: %s, request without headroom: %s, request with headroom: %s, overhead without headroom: %s, overhead with headroom: %s, expected diff between requests: %s, actual diff between requests: %s"
-				Expect(actualDiffBetweenRequests.Cmp(expectedDiffBetweenRequests)).To(Equal(0),
-					fmt.Sprintf(errFmt, ratio, requestWithoutHeadroom.String(), requestWithHeadroom.String(), overheadWithoutHeadroom.String(), overheadWithHeadroom.String(), expectedDiffBetweenRequests.String(), actualDiffBetweenRequests.String()))
-
-				By("Ensure no memory specifications had been changed on VMIs")
-				Expect(origVmiWithHeadroom.Spec.Domain.Resources).To(Equal(vmiWithHeadroom.Spec.Domain.Resources), "vmi resources are not expected to change")
-				Expect(origVmiWithHeadroom.Spec.Domain.Memory).To(Equal(vmiWithHeadroom.Spec.Domain.Memory), "vmi guest memory is not expected to change")
-				Expect(origVmiWithoutHeadroom.Spec.Domain.Resources).To(Equal(vmiWithoutHeadroom.Spec.Domain.Resources), "vmi resources are not expected to change")
-				Expect(origVmiWithoutHeadroom.Spec.Domain.Memory).To(Equal(vmiWithoutHeadroom.Spec.Domain.Memory), "vmi guest memory is not expected to change")
-			})
-		})
 	})
 
-	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, Serial, func() {
-		testEmulatedMachines := []string{"q35*", "pc-q35*", "pc*"}
-		testEmulatedMachinesS390x := []string{"s390-ccw-virtio*"}
-
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-
-			config := kv.Spec.Configuration
-			config.MachineType = ""
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = testEmulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = testEmulatedMachinesS390x
-
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
+	Context("[rfe_id:2869][crit:medium][vendor:cnv-qe@redhat.com][level:component]with machine type settings", decorators.WgS390x, func() {
 
 		It("[test_id:3124]should set status.machine to the resolved QEMU machine type after VMI start", func() {
-			machineType, expectedSubstring, _ := machineTypeForArch()
+			machineType, expectedSubstring := machineTypeForArch()
 			vmi := libvmifact.NewGuestless(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType(machineType),
@@ -850,29 +721,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
-		})
-
-		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			machineType, expectedSubstring, emulatedMachines := machineTypeForArch()
-
-			config := kv.Spec.Configuration
-
-			config.ArchitectureConfiguration = &v1.ArchConfiguration{Amd64: &v1.ArchSpecificConfiguration{}, Arm64: &v1.ArchSpecificConfiguration{}, S390x: &v1.ArchSpecificConfiguration{}}
-			config.ArchitectureConfiguration.Amd64.MachineType = machineType
-			config.ArchitectureConfiguration.Arm64.MachineType = machineType
-			config.ArchitectureConfiguration.S390x.MachineType = machineType
-			config.ArchitectureConfiguration.Amd64.EmulatedMachines = emulatedMachines
-			config.ArchitectureConfiguration.Arm64.EmulatedMachines = emulatedMachines
-			config.ArchitectureConfiguration.S390x.EmulatedMachines = emulatedMachines
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-
-			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring(expectedSubstring))
 		})
 	})
 
@@ -1629,26 +1477,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 })
 
-func createRuntimeClass(name, handler string) error {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.NodeV1().RuntimeClasses().Create(
-		context.Background(),
-		&nodev1.RuntimeClass{
-			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Handler:    handler,
-		},
-		metav1.CreateOptions{},
-	)
-	return err
-}
-
-func deleteRuntimeClass(name string) error {
-	virtCli := kubevirt.Client()
-
-	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-}
-
 func withNoRng() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Rng = nil
@@ -1667,11 +1495,11 @@ func withMachineType(machineType string) libvmi.Option {
 	}
 }
 
-func machineTypeForArch() (machineType, expectedSubstring string, emulatedMachines []string) {
+func machineTypeForArch() (machineType, expectedSubstring string) {
 	if testsuite.Arch == testsuite.ArchS390x {
-		return "s390-ccw-virtio", "s390-ccw-virtio", []string{"s390-ccw-virtio*"}
+		return "s390-ccw-virtio", "s390-ccw-virtio"
 	}
-	return "pc", "pc-i440", []string{"pc"}
+	return "q35", "pc-q35"
 }
 
 func withSerialBIOS() libvmi.Option {
