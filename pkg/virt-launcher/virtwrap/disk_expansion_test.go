@@ -29,7 +29,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/log"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
@@ -59,7 +61,7 @@ var _ = Describe("getBlockResizeArgs", func() {
 		Expect(rszArgs.flags).To(Equal(libvirt.DOMAIN_BLOCK_RESIZE_BYTES | libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY))
 	})
 
-	It("should return false for overlay on block with no disk info", func() {
+	It("should let libvirt infer size for overlay on block (CAPACITY)", func() {
 		disk := api.Disk{
 			Source: api.DiskSource{
 				File:      "/test/overlay.qcow2",
@@ -68,8 +70,10 @@ var _ = Describe("getBlockResizeArgs", func() {
 			Alias: api.NewUserDefinedAlias("test-disk"),
 		}
 		ds := disksource.Resolve(disk)
-		_, ok := getBlockResizeArgs(disk, ds)
-		Expect(ok).To(BeFalse())
+		rszArgs, ok := getBlockResizeArgs(disk, ds)
+		Expect(ok).To(BeTrue())
+		Expect(rszArgs.size).To(Equal(uint64(0)))
+		Expect(rszArgs.flags).To(Equal(libvirt.DOMAIN_BLOCK_RESIZE_BYTES | libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY))
 	})
 
 	It("should return possibleGuestSize for file backed disk", func() {
@@ -111,9 +115,10 @@ var _ = Describe("getBlockResizeArgs", func() {
 
 var _ = Describe("expandDisksOnline", func() {
 	var (
-		ctrl        *gomock.Controller
-		mockLibvirt *testing.Libvirt
-		manager     *LibvirtDomainManager
+		ctrl                     *gomock.Controller
+		mockLibvirt              *testing.Libvirt
+		manager                  *LibvirtDomainManager
+		origGetDiskInfoForResize func(string) (*osdisk.DiskInfo, error)
 	)
 
 	const gb = 1024 * 1024 * 1024
@@ -129,12 +134,38 @@ var _ = Describe("expandDisksOnline", func() {
 		return vmi
 	}
 
+	overlayBlockDomain := func(capacity int64) *api.Domain {
+		return &api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{{
+						Source: api.DiskSource{
+							File:      "/test/overlay.qcow2",
+							DataStore: &api.DataStore{Type: "block", Source: &api.DiskSource{Dev: "/dev/vda"}},
+						},
+						Alias:    api.NewUserDefinedAlias("disk0"),
+						Capacity: &capacity,
+					}},
+				},
+			},
+		}
+	}
+
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLibvirt = testing.NewLibvirt(ctrl)
 		manager = &LibvirtDomainManager{
 			guestDiskSizes: map[string]int64{},
 		}
+		origGetDiskInfoForResize = getDiskInfoForResize
+		getDiskInfoForResize = func(path string) (*osdisk.DiskInfo, error) {
+			Fail("getDiskInfoForResize must not be called")
+			return nil, nil
+		}
+	})
+
+	AfterEach(func() {
+		getDiskInfoForResize = origGetDiskInfoForResize
 	})
 
 	It("should seed map with PVC capacity on first sync without calling BlockResize", func() {
@@ -205,6 +236,175 @@ var _ = Describe("expandDisksOnline", func() {
 		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
 
 		Expect(manager.guestDiskSizes["disk0"]).To(Equal(newCapacity))
+	})
+
+	It("should call BlockResize with the overlay path and CAPACITY for overlay-on-block when capacity changes", func() {
+		oldCapacity := int64(1 * gb)
+		newCapacity := int64(2 * gb)
+		manager.guestDiskSizes["disk0"] = oldCapacity
+
+		domain := overlayBlockDomain(newCapacity)
+		vmi := pvcBackedVMI("disk0")
+
+		mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+			libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(nil)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(newCapacity))
+	})
+
+	unsupportedErr := libvirt.Error{Code: libvirt.ERR_OPERATION_UNSUPPORTED}
+
+	It("should fall back to explicit size (BYTES) when CAPACITY is unsupported for overlay-on-block", func() {
+		manager.guestDiskSizes["disk0"] = int64(1 * gb)
+		domain := overlayBlockDomain(int64(2 * gb))
+		vmi := pvcBackedVMI("disk0")
+
+		const stubbedVirtualSize = int64(5 * gb)
+		getDiskInfoForResize = func(path string) (*osdisk.DiskInfo, error) {
+			Expect(path).To(Equal("/dev/vda"))
+			return &osdisk.DiskInfo{VirtualSize: stubbedVirtualSize}, nil
+		}
+
+		gomock.InOrder(
+			mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(unsupportedErr),
+			mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(stubbedVirtualSize),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Times(1).Return(nil),
+		)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(2 * gb)))
+	})
+
+	It("should not update the map when the fallback BlockResize also fails", func() {
+		manager.guestDiskSizes["disk0"] = int64(1 * gb)
+		domain := overlayBlockDomain(int64(2 * gb))
+		vmi := pvcBackedVMI("disk0")
+
+		getDiskInfoForResize = func(path string) (*osdisk.DiskInfo, error) {
+			return &osdisk.DiskInfo{VirtualSize: int64(5 * gb)}, nil
+		}
+
+		gomock.InOrder(
+			mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(unsupportedErr),
+			mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(5*gb),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Times(1).Return(fmt.Errorf("fallback resize failed")),
+		)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(1 * gb)))
+	})
+
+	It("should not call the fallback BlockResize when getDiskInfoForResize fails", func() {
+		manager.guestDiskSizes["disk0"] = int64(1 * gb)
+		domain := overlayBlockDomain(int64(2 * gb))
+		vmi := pvcBackedVMI("disk0")
+
+		getDiskInfoForResize = func(path string) (*osdisk.DiskInfo, error) {
+			return nil, fmt.Errorf("qemu-img info failed")
+		}
+
+		mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+			libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(unsupportedErr)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(1 * gb)))
+	})
+
+	DescribeTable("should not call the fallback BlockResize when the data-file virtual size is not positive",
+		func(virtualSize int64) {
+			manager.guestDiskSizes["disk0"] = int64(1 * gb)
+			domain := overlayBlockDomain(int64(2 * gb))
+			vmi := pvcBackedVMI("disk0")
+
+			getDiskInfoForResize = func(path string) (*osdisk.DiskInfo, error) {
+				return &osdisk.DiskInfo{VirtualSize: virtualSize}, nil
+			}
+
+			mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(unsupportedErr)
+
+			manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+			Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(1 * gb)))
+		},
+		Entry("zero virtual size", int64(0)),
+		Entry("negative virtual size", int64(-1)),
+	)
+
+	It("should not fall back on a non-unsupported error for overlay-on-block", func() {
+		manager.guestDiskSizes["disk0"] = int64(1 * gb)
+		domain := overlayBlockDomain(int64(2 * gb))
+		vmi := pvcBackedVMI("disk0")
+
+		internalErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+		mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", uint64(0),
+			libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(internalErr)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(1 * gb)))
+	})
+
+	It("should not fall back for a direct block device even on an unsupported error", func() {
+		manager.guestDiskSizes["disk0"] = int64(1 * gb)
+		newCapacity := int64(2 * gb)
+		domain := &api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{{
+						Source:   api.DiskSource{Dev: "/dev/vda"},
+						Alias:    api.NewUserDefinedAlias("disk0"),
+						Capacity: &newCapacity,
+					}},
+				},
+			},
+		}
+		vmi := pvcBackedVMI("disk0")
+
+		mockLibvirt.DomainEXPECT().BlockResize("/dev/vda", uint64(0),
+			libvirt.DOMAIN_BLOCK_RESIZE_BYTES|libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY).Times(1).Return(unsupportedErr)
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(int64(1 * gb)))
+	})
+
+	// resizeWithFallback is called directly: the guard on the data-file being a block device
+	// is exercised without involving stat/statfs on a real file.
+	It("should not fall back for overlay-on-file on an unsupported error", func() {
+		ds := disksource.Resolve(api.Disk{
+			Source: api.DiskSource{
+				File:      "/test/overlay.qcow2",
+				DataStore: &api.DataStore{Type: "file", Source: &api.DiskSource{File: "/test/disk.img"}},
+			},
+		})
+		Expect(ds.HasOverlay()).To(BeTrue())
+		Expect(ds.BackendIsBlock()).To(BeFalse())
+		rszArgs := blockResizeArgs{size: uint64(2 * gb), flags: libvirt.DOMAIN_BLOCK_RESIZE_BYTES}
+
+		mockLibvirt.DomainEXPECT().BlockResize("/test/overlay.qcow2", rszArgs.size, rszArgs.flags).
+			Times(1).Return(unsupportedErr)
+
+		err := resizeWithFallback(mockLibvirt.VirtDomain, ds, rszArgs, log.DefaultLogger())
+
+		Expect(err).To(Equal(unsupportedErr))
+	})
+
+	It("should only seed guestDiskSizes for overlay-on-block on first sync without calling BlockResize", func() {
+		capacity := int64(2 * gb)
+		domain := overlayBlockDomain(capacity)
+		vmi := pvcBackedVMI("disk0")
+
+		manager.expandDisksOnline(mockLibvirt.VirtDomain, domain, vmi)
+
+		Expect(manager.guestDiskSizes["disk0"]).To(Equal(capacity))
 	})
 
 	It("should not call BlockResize when capacity decreases", func() {

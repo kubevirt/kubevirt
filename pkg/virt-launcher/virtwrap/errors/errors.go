@@ -52,6 +52,11 @@ func IsOk(err error) bool {
 	return checkError(err, libvirt.ERR_OK)
 }
 
+// IsOperationUnsupported detects libvirt's VIR_ERR_OPERATION_UNSUPPORTED. It accepts both error and libvirt.Error (as returned by GetLastError function).
+func IsOperationUnsupported(err error) bool {
+	return checkError(err, libvirt.ERR_OPERATION_UNSUPPORTED)
+}
+
 func FormatLibvirtError(err error) string {
 	var libvirtError string
 	lerr, ok := err.(libvirt.Error)
