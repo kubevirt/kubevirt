@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 )
 
 var (
@@ -37,6 +38,12 @@ var (
 )
 
 func init() {
+	// go test binaries are passed -test.* flags. Replacing the default FlagSet
+	// and parsing it here exits those binaries before the testing harness runs.
+	if testing.Testing() {
+		return
+	}
+
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	flag.StringVar(&Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
