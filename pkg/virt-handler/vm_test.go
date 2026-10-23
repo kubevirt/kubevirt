@@ -97,6 +97,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var virtfakeClient *kubevirtfake.Clientset
 
 	var controller *VirtualMachineController
+	var arbiter *Arbiter
 	var mockQueue *testutils.MockWorkQueue[string]
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
@@ -190,6 +191,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-handler-vm"))
 		controller, _ = NewVirtualMachineController(
 			mockQueue,
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			recorder,
 			virtClient,
 			k8sfakeClient,
@@ -215,6 +217,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		arbiter = newTestArbiter(controller.BaseController, map[role]vmiController{roleVM: controller})
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -259,7 +262,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	sanityExecute := func() {
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter, []cache.Store{
 			controller.domainStore, controller.vmiStore,
 		}, Default)
 	}
@@ -267,7 +270,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	sanityExecuteNoDomain := func() {
 		// Don't check if the domain store is the same as we know there are some
 		// flows that will automatically delete an entry from the domain store.
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter, []cache.Store{
 			controller.vmiStore,
 		}, Default)
 	}
@@ -1608,7 +1611,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 
-				controller.Execute()
+				arbiter.Execute()
 			})
 
 			It("should call mount if VMI is scheduled to run", func() {
@@ -3470,6 +3473,43 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
+	Context("on taking a VMI back from the migration source controller", func() {
+		It("should stop the source migration proxy once the migration is done", func() {
+			proxy := &stubProxyCleaner{}
+			controller.migrationProxy = proxy
+
+			By("Creating a source VMI whose migration failed, so the guest keeps running here")
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithName("testvmi"))
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi.Labels = map[string]string{v1.NodeNameLabel: host}
+			now := metav1.Now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode:     host,
+				TargetNode:     "othernode",
+				MigrationUID:   "123",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Failed:         true,
+				Completed:      true,
+			}
+
+			// An Unknown domain makes sync() return straight away: the hand-back is what
+			// this spec is about, not what the VM controller does afterwards.
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Unknown
+			addVMI(vmi, domain)
+
+			Expect(migrationRole(vmi, true, domain, host)).To(Equal(roleVM),
+				"sanity: a finished migration belongs to the vm controller again")
+
+			sanityExecute()
+
+			Expect(proxy.stoppedSources).To(ConsistOf(string(vmiTestUUID)),
+				"nothing else stops the source proxy while the guest keeps running here")
+		})
+	})
+
 	Context("on VM stop / VMI delete during migration", func() {
 		It("should kill the VM", func() {
 			By("Creating a migrating VMI with a domain in failed post-copy migration state")
@@ -3532,10 +3572,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			// TargetState's Sync/Node addresses keep IsMigrationSource() true forever; an
 			// EndTimestamp flips the migration from "in progress" to "completed".
+			// An ended migration is always a terminal one: failPostMigration and the
+			// target's finalization set EndTimestamp together with Completed/Failed.
 			decentralizedMigrationState := func(end *metav1.Time) *v1.VirtualMachineInstanceMigrationState {
 				return &v1.VirtualMachineInstanceMigrationState{
 					StartTimestamp: &start,
 					EndTimestamp:   end,
+					Completed:      end != nil,
+					Failed:         end != nil && finalPhase == v1.Failed,
 					SourceNode:     host,
 					MigrationUID:   migrationUID,
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
@@ -4088,6 +4132,19 @@ func NewRunningVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Virt
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
+}
+
+type stubProxyCleaner struct {
+	stoppedSources []string
+	stoppedTargets []string
+}
+
+func (p *stubProxyCleaner) StopSourceListener(key string) {
+	p.stoppedSources = append(p.stoppedSources, key)
+}
+
+func (p *stubProxyCleaner) StopTargetListener(key string) {
+	p.stoppedTargets = append(p.stoppedTargets, key)
 }
 
 type netConfStub struct {

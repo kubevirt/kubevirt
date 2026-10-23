@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -73,6 +74,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient     *kubecli.MockKubevirtClient
 		virtfakeClient *kubevirtfake.Clientset
 		controller     *MigrationSourceController
+		arbiter        *Arbiter
 		mockQueue      *testutils.MockWorkQueue[string]
 
 		vmiTestUUID types.UID
@@ -110,7 +112,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	}
 
 	sanityExecute := func() {
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter, []cache.Store{
 			controller.domainStore, controller.vmiStore,
 		}, Default)
 	}
@@ -187,6 +189,11 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			recorder,
 			virtClient,
 			host,
+			workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[string](),
+				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
+			),
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			launcherClientManager,
 			vmiInformer,
 			domainInformer,
@@ -210,6 +217,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
+		arbiter = newTestArbiter(controller.BaseController, map[role]vmiController{roleSource: controller})
 
 		wg.Add(1)
 
@@ -689,7 +697,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					Expect(*options.ParallelMigrationThreads).To(Equal(parallelMultifdMigrationThreads))
 				}).Times(1).Return(nil)
 
-				controller.Execute()
+				arbiter.Execute()
 				testutils.ExpectEvent(recorder, VMIMigrating)
 			},
 				Entry("with a nil CPU quantity", nil),
@@ -704,7 +712,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					Expect(options.ParallelMigrationThreads).To(BeNil())
 				}).Times(1).Return(nil)
 
-				controller.Execute()
+				arbiter.Execute()
 				testutils.ExpectEvent(recorder, VMIMigrating)
 			},
 				Entry("if CPU is limited", k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}, nil),

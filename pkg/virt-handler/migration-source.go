@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -69,7 +68,6 @@ type MigrationSourceController struct {
 	*BaseController
 	migrationProxy     proxyManager
 	pluginExecutor     plugins.NodeHookExecutor
-	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	passtRepairHandler passtRepairSourceHandler
 }
 
@@ -77,6 +75,8 @@ func NewMigrationSourceController(
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	host string,
+	queue workqueue.TypedRateLimitingInterface[string],
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -90,10 +90,6 @@ func NewMigrationSourceController(
 	pluginExecutor plugins.NodeHookExecutor,
 ) (*MigrationSourceController, error) {
 
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
-		workqueue.DefaultTypedControllerRateLimiter[string](),
-		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
-	)
 	logger := log.Log.With("controller", "migration-source")
 
 	hypervisorName := clusterConfig.GetHypervisor().Name
@@ -104,6 +100,7 @@ func NewMigrationSourceController(
 		recorder,
 		virtClient,
 		queue,
+		vmiExpectations,
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
@@ -119,33 +116,12 @@ func NewMigrationSourceController(
 		return nil, err
 	}
 
-	c := &MigrationSourceController{
+	return &MigrationSourceController{
 		BaseController:     baseCtrl,
 		pluginExecutor:     pluginExecutor,
-		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		passtRepairHandler: passtRepairHandler,
 		migrationProxy:     migrationProxy,
-	}
-
-	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addDeleteDomainFunc,
-		DeleteFunc: c.addDeleteDomainFunc,
-		UpdateFunc: c.updateDomainFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	}, nil
 }
 
 func (c *MigrationSourceController) hasTargetDetectedReadyDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
@@ -197,7 +173,7 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
-		!c.isMigrationSource(vmi) {
+		!c.isSourceOfMigration(vmi) {
 		return
 	}
 
@@ -307,59 +283,6 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 	return nil
 }
 
-func (c *MigrationSourceController) Run(threadiness int, stopCh chan struct{}) {
-	defer c.queue.ShutDown()
-	c.logger.Info("Starting virt-handler source controller.")
-
-	cache.WaitForCacheSync(stopCh, c.hasSynced)
-
-	// queue keys for previous Domains on the host that no longer exist
-	// in the cache. This ensures we perform local cleanup of deleted VMs.
-	for _, domain := range c.domainStore.List() {
-		d := domain.(*api.Domain)
-		vmiRef := v1.NewVMIReferenceWithUUID(
-			d.ObjectMeta.Namespace,
-			d.ObjectMeta.Name,
-			d.Spec.Metadata.KubeVirt.UID)
-
-		key := controller.VirtualMachineInstanceKey(vmiRef)
-
-		_, exists, _ := c.vmiStore.GetByKey(key)
-		if !exists {
-			c.queue.Add(key)
-		}
-	}
-
-	// Start the actual work
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	<-stopCh
-	c.logger.Info("Stopping virt-handler source controller.")
-}
-
-func (c *MigrationSourceController) runWorker() {
-	for c.Execute() {
-	}
-}
-
-func (c *MigrationSourceController) Execute() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-	if err := c.execute(key); err != nil {
-		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
-		c.queue.AddRateLimited(key)
-	} else {
-		c.logger.V(4).Infof("processed VirtualMachineInstance %v", key)
-		c.queue.Forget(key)
-	}
-	return true
-}
-
 func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if domain != nil {
 		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain status: %v, reason: %v", vmi.Status.Phase, domain.Status.Status, domain.Status.Reason)
@@ -419,66 +342,40 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
-func (c *MigrationSourceController) execute(key string) error {
-	vmi, vmiExists, err := c.getVMIFromCache(key)
-	if err != nil {
-		return err
-	}
-
-	if !vmiExists || ((vmi.IsDecentralizedMigration() && vmi.Status.Phase == v1.Succeeded) ||
-		!vmi.IsDecentralizedMigration() && vmi.IsFinal()) ||
-		vmi.DeletionTimestamp != nil {
-		c.logger.V(4).Infof("vmi for key %v is terminating, succeeded or does not exists", key)
-		if !vmiExists {
-			metrics.ResetVMISync(key)
-		}
-		return nil
-	}
-
-	if !c.vmiExpectations.SatisfiedExpectations(key) {
-		c.logger.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
-		return nil
-	}
-
-	domain, domainExists, _, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
+// execute drives the outgoing side of a migration for a VMI the Arbiter has
+// decided this controller owns. Whether this node is the source of an in-flight
+// migration is migrationSourceOwns' decision, not this function's, so the only
+// checks left here are about whether there is work to do.
+func (c *MigrationSourceController) execute(state *vmiState) error {
+	vmi, domain, domainExists := state.vmi, state.domain, state.domainExists
 
 	if domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		c.logger.V(4).Object(vmi).Infof("Detected stale vmi %s that still needs cleanup before new vmi with identical name/namespace can be processed", vmi.UID)
 		return nil
 	}
 
-	if vmi.Status.MigrationState == nil {
-		c.logger.V(4).Object(vmi).Info("no migration is in progress")
-		return nil
-	}
-
-	// post migration clean up
+	// Post migration clean up. Only a decentralized source is still owned by this
+	// controller once the migration is done; for every other migration the VM
+	// controller has taken the VMI back and stops the listener itself.
 	if isMigrationDone(vmi.Status.MigrationState) {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
 		// Completed/EndTimestamp can be synced onto the source VMI before this
 		// controller observes the migrated domain. Still run sync so updateStatus
-		// can mark a decentralized source VMI as Succeeded. Limit to the source
-		// node — every virt-handler watches the VMI, but only this host has the domain.
-		if vmi.IsDecentralizedMigration() &&
-			vmi.Status.Phase != v1.Succeeded &&
-			vmi.Status.MigrationState.SourceNode == c.host {
+		// can mark a decentralized source VMI as Succeeded.
+		if vmi.IsDecentralizedMigration() {
 			return c.sync(vmi.DeepCopy(), domain)
 		}
-		return nil
-	}
-
-	if !c.isMigrationSource(vmi) {
-		c.logger.Object(vmi).V(4).Info("not a migration source")
 		return nil
 	}
 
 	return c.sync(vmi.DeepCopy(), domain)
 }
 
-func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
+// isSourceOfMigration reports whether this node is the source side of the
+// migration recorded on the VMI. Unlike migrationSourceOwns it says nothing about
+// whether this controller may act: it only qualifies the migration progress this
+// controller is allowed to copy from the domain onto the VMI.
+func (c *MigrationSourceController) isSourceOfMigration(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.IsDecentralizedMigration() {
 		return vmi.Status.MigrationState != nil &&
 			vmi.Status.MigrationState.SourceNode == c.host &&
@@ -647,43 +544,6 @@ func (c *MigrationSourceController) processVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	return c.migrateVMI(vmi, domain)
-}
-
-func (c *MigrationSourceController) addFunc(obj interface{}) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) deleteFunc(obj interface{}) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) updateFunc(_, new interface{}) {
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) addDeleteDomainFunc(obj interface{}) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) updateDomainFunc(_, new interface{}) {
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.queue.Add(key)
-	}
 }
 
 func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient) error {

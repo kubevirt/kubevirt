@@ -4,6 +4,7 @@ load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "arbiter.go",
         "cbt.go",
         "controller.go",
         "guestagent.go",
@@ -93,6 +94,7 @@ go_test(
     name = "go_default_test",
     timeout = "long",
     srcs = [
+        "arbiter_test.go",
         "cbt_test.go",
         "controller_test.go",
         "migration-source_test.go",
@@ -143,6 +145,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
@@ -159,6 +162,7 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )
