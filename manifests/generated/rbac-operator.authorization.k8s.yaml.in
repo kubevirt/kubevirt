@@ -439,6 +439,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  verbs:
+  - get
+- apiGroups:
   - ""
   resources:
   - persistentvolumeclaims
@@ -1080,6 +1086,7 @@ rules:
   - virtualmachineinstances/usbredir
   - virtualmachines/objectgraph
   - virtualmachineinstances/objectgraph
+  - virtualmachinetemplates/objectgraph
   verbs:
   - get
 - apiGroups:
@@ -1267,6 +1274,7 @@ rules:
   - virtualmachineinstances/usbredir
   - virtualmachines/objectgraph
   - virtualmachineinstances/objectgraph
+  - virtualmachinetemplates/objectgraph
   verbs:
   - get
 - apiGroups:
@@ -1445,6 +1453,7 @@ rules:
   - virtualmachineinstances/sev/querylaunchmeasurement
   - virtualmachines/objectgraph
   - virtualmachineinstances/objectgraph
+  - virtualmachinetemplates/objectgraph
   verbs:
   - get
 - apiGroups:

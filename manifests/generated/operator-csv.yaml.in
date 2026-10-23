@@ -406,6 +406,12 @@ spec:
           - patch
           - update
         - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplates
+          verbs:
+          - get
+        - apiGroups:
           - ""
           resources:
           - persistentvolumeclaims
@@ -1047,6 +1053,7 @@ spec:
           - virtualmachineinstances/usbredir
           - virtualmachines/objectgraph
           - virtualmachineinstances/objectgraph
+          - virtualmachinetemplates/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1234,6 +1241,7 @@ spec:
           - virtualmachineinstances/usbredir
           - virtualmachines/objectgraph
           - virtualmachineinstances/objectgraph
+          - virtualmachinetemplates/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1412,6 +1420,7 @@ spec:
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachines/objectgraph
           - virtualmachineinstances/objectgraph
+          - virtualmachinetemplates/objectgraph
           verbs:
           - get
         - apiGroups:

@@ -134,6 +134,41 @@ var _ = Describe("Authorizer", func() {
 				})
 			})
 
+			Context("with a virtualmachinetemplates subresource", func() {
+				BeforeEach(func() {
+					req.Request.Method = http.MethodGet
+					req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachinetemplates/testtemplate/objectgraph"
+				})
+
+				It("should issue a SubjectAccessReview instead of rejecting the resource type", func() {
+					allowedFn = func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
+						Expect(sar.Spec.ResourceAttributes).ToNot(BeNil())
+						Expect(sar.Spec.ResourceAttributes.Resource).To(Equal("virtualmachinetemplates"))
+						Expect(sar.Spec.ResourceAttributes.Subresource).To(Equal("objectgraph"))
+						Expect(sar.Spec.ResourceAttributes.Name).To(Equal("testtemplate"))
+						Expect(sar.Spec.ResourceAttributes.Namespace).To(Equal("default"))
+						Expect(sar.Spec.ResourceAttributes.Verb).To(Equal("get"))
+						sar.Status.Allowed = true
+						return sar, nil
+					}
+
+					result, reason, err := app.Authorize(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(reason).To(BeEmpty())
+					Expect(result).To(BeTrue())
+				})
+			})
+
+			It("should reject a resource type that has no subresource endpoints", func() {
+				req.Request.Method = http.MethodGet
+				req.Request.URL.Path = "/apis/subresources.kubevirt.io/v1/namespaces/default/virtualmachinepools/testpool/objectgraph"
+
+				result, reason, err := app.Authorize(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(BeFalse())
+				Expect(reason).To(ContainSubstring("unknown resource type virtualmachinepools"))
+			})
+
 			Context("with namespaced base resource", func() {
 				allowed := func(allowed bool) func(review *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {
 					return func(sar *authv1.SubjectAccessReview) (*authv1.SubjectAccessReview, error) {

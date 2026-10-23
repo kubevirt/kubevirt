@@ -21,6 +21,7 @@ package rest
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -44,6 +45,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	templatev1beta1 "kubevirt.io/virt-template-api/core/v1beta1"
+	templatefake "kubevirt.io/virt-template-client-go/virttemplate/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -121,7 +125,7 @@ var _ = Describe("Object Graph", func() {
 			}
 			var config *virtconfig.ClusterConfig
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
-			app = NewSubresourceAPIApp(kvClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+			app = NewSubresourceAPIApp(kvClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config, nil)
 		})
 
 		disableFeatureGates := func() {
@@ -161,6 +165,81 @@ var _ = Describe("Object Graph", func() {
 				app.VMObjectGraph(request, response)
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 				ExpectMessage(recorder, Equal("virtualmachine.kubevirt.io \"testvm\" not found"))
+			})
+		})
+
+		When("VMTemplateObjectGraph API request arrives", func() {
+			It("should return an error if the FG is not enabled", func() {
+				app.templateClient = templatefake.NewSimpleClientset()
+				disableFeatureGates()
+				app.VMTemplateObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				ExpectMessage(recorder, Equal("ObjectGraph feature gate not enabled: Unable to return object graph."))
+			})
+
+			It("should return an error if no template client is configured", func() {
+				app.VMTemplateObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusServiceUnavailable)
+			})
+
+			It("should return an error if the VirtualMachineTemplate is not found", func() {
+				app.templateClient = templatefake.NewSimpleClientset()
+				app.VMTemplateObjectGraph(request, response)
+				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
+				ExpectMessage(recorder, Equal("virtualmachinetemplate.template.kubevirt.io \"testvm\" not found"))
+			})
+
+			It("should return the object graph for an existing VirtualMachineTemplate", func() {
+				embeddedVM := &v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-vm"},
+					Spec: v1.VirtualMachineSpec{
+						Template: &v1.VirtualMachineInstanceTemplateSpec{
+							Spec: v1.VirtualMachineInstanceSpec{
+								Volumes: []v1.Volume{
+									{
+										Name: "rootdisk",
+										VolumeSource: v1.VolumeSource{
+											PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+												PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+													ClaimName: "test-root-disk-pvc",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				raw, err := json.Marshal(embeddedVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				tpl := &templatev1beta1.VirtualMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      testVMName,
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: templatev1beta1.VirtualMachineTemplateSpec{
+						VirtualMachine: &runtime.RawExtension{Raw: raw},
+					},
+				}
+				app.templateClient = templatefake.NewSimpleClientset(tpl)
+				request.Request.Body = http.NoBody
+				response.SetRequestAccepts(restful.MIME_JSON)
+
+				app.VMTemplateObjectGraph(request, response)
+				Expect(recorder.Code).To(Equal(http.StatusOK))
+
+				var graphNode v1.ObjectGraphNode
+				Expect(json.Unmarshal(recorder.Body.Bytes(), &graphNode)).To(Succeed())
+				Expect(graphNode.ObjectReference.Kind).To(Equal("VirtualMachineTemplate"))
+				Expect(graphNode.ObjectReference.Name).To(Equal(testVMName))
+
+				var childNames []string
+				for _, child := range graphNode.Children {
+					childNames = append(childNames, child.ObjectReference.Name)
+				}
+				Expect(childNames).To(ContainElement("test-root-disk-pvc"))
 			})
 		})
 
@@ -779,6 +858,767 @@ var _ = Describe("Object Graph", func() {
 			for _, child := range graphNodes.Children {
 				Expect(child.Labels[ObjectGraphDependencyLabel]).To(Equal("network"))
 			}
+		})
+	})
+
+	Context("with VirtualMachineTemplate", func() {
+		var embeddedVM *v1.VirtualMachine
+
+		BeforeEach(func() {
+			embeddedVM = &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{
+							Volumes: []v1.Volume{
+								{
+									Name: "rootdisk",
+									VolumeSource: v1.VolumeSource{
+										PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+											PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+												ClaimName: "test-root-disk-pvc",
+											},
+										},
+									},
+								},
+							},
+							AccessCredentials: []v1.AccessCredential{
+								{
+									SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+										Source: v1.SSHPublicKeyAccessCredentialSource{
+											Secret: &v1.AccessCredentialSecretSource{
+												SecretName: "test-ssh-secret",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		newVMTemplate := func(namespace string, embeddedVM *v1.VirtualMachine) *templatev1beta1.VirtualMachineTemplate {
+			raw, err := json.Marshal(embeddedVM)
+			Expect(err).NotTo(HaveOccurred())
+			return &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-template",
+					Namespace: namespace,
+				},
+				Spec: templatev1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: raw},
+				},
+			}
+		}
+
+		It("should generate the object graph for a VirtualMachineTemplate", func() {
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(graphNodes.ObjectReference.Kind).To(Equal("VirtualMachineTemplate"))
+			Expect(*graphNodes.ObjectReference.APIGroup).To(Equal("template.kubevirt.io"))
+			Expect(graphNodes.ObjectReference.Name).To(Equal("test-template"))
+			Expect(*graphNodes.ObjectReference.Namespace).To(Equal("template-namespace"))
+			Expect(graphNodes.Labels).To(HaveKeyWithValue(ObjectGraphDependencyLabel, string(DependencyTypeConfig)))
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("test-ssh-secret"))
+			Expect(childMap["test-ssh-secret"].ObjectReference.Kind).To(Equal("Secret"))
+			Expect(*childMap["test-ssh-secret"].ObjectReference.Namespace).To(Equal("template-namespace"))
+
+			Expect(childMap).To(HaveKey("test-root-disk-pvc"))
+			Expect(childMap["test-root-disk-pvc"].ObjectReference.Kind).To(Equal("PersistentVolumeClaim"))
+		})
+
+		It("should not emit a VirtualMachineInstance node even if the embedded status claims Created", func() {
+			embeddedVM.Status.Created = true
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			kubeClient.Fake.PrependReactor("list", "pods", func(action testing.Action) (bool, runtime.Object, error) {
+				Fail("launcher pod lookup should not happen for a VirtualMachineTemplate")
+				return true, nil, nil
+			})
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, child := range graphNodes.Children {
+				Expect(child.ObjectReference.Kind).NotTo(Equal("VirtualMachineInstance"))
+			}
+		})
+
+		It("should not look up a backend storage PVC even if the embedded VM requires persistent TPM", func() {
+			embeddedVM.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+				Persistent: pointer.P(true),
+			}
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			// A decoy backend PVC that would (wrongly) match if the template path ever
+			// performed a live backend-storage lookup keyed by the embedded VM's name.
+			decoyPVC := k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unrelated-backend-storage-pvc",
+					Namespace: "template-namespace",
+					Labels: map[string]string{
+						"persistent-state-for": embeddedVM.Name,
+					},
+				},
+			}
+			kubeClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+				return true, &k8sv1.PersistentVolumeClaimList{Items: []k8sv1.PersistentVolumeClaim{decoyPVC}}, nil
+			})
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, child := range graphNodes.Children {
+				Expect(child.ObjectReference.Name).NotTo(Equal("unrelated-backend-storage-pvc"))
+			}
+		})
+
+		It("should mark nodes with unresolved template parameters as optional", func() {
+			embeddedVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "${DISK_NAME}"
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("${DISK_NAME}"))
+			Expect(childMap["${DISK_NAME}"].Optional).NotTo(BeNil())
+			Expect(*childMap["${DISK_NAME}"].Optional).To(BeTrue())
+
+			options := &v1.ObjectGraphOptions{IncludeOptionalNodes: pointer.P(false)}
+			graph = NewObjectGraph(kvClient, kubeClient, options)
+			graphNodes, err = graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+			for _, child := range graphNodes.Children {
+				Expect(child.ObjectReference.Name).NotTo(Equal("${DISK_NAME}"))
+			}
+		})
+
+		It("should mark nodes using the non-string ${{PARAM}} form as optional", func() {
+			// The engine substitutes both "${NAME}" and "${{NAME}}", so either form left in a
+			// name means the node cannot correspond to an object that exists today.
+			embeddedVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "${{DISK_NAME}}"
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("${{DISK_NAME}}"))
+			Expect(childMap["${{DISK_NAME}}"].Optional).NotTo(BeNil())
+			Expect(*childMap["${{DISK_NAME}}"].Optional).To(BeTrue())
+		})
+
+		It("should not treat a non-parameterized namespace as unresolved", func() {
+			embeddedVM.Namespace = "Hardcoded_Elsewhere"
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(graphNodes.Children).NotTo(BeEmpty())
+
+			for _, child := range graphNodes.Children {
+				Expect(child.Optional).To(BeNil(), "node %s should not be optional", child.ObjectReference.Name)
+				Expect(*child.ObjectReference.Namespace).To(Equal("template-namespace"))
+			}
+		})
+
+		It("should not treat a hardcoded non-DNS1123 resource name as unresolved", func() {
+			embeddedVM.Spec.Template.Spec.Volumes = append(embeddedVM.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "serviceaccount-disk",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: "test-ServiceAccount",
+					},
+				},
+			})
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("test-ServiceAccount"))
+			Expect(childMap["test-ServiceAccount"].Optional).To(BeNil())
+		})
+
+		It("should fall back to the instance type/preference RevisionName since the embedded status is discarded", func() {
+			embeddedVM.Spec.Instancetype = &v1.InstancetypeMatcher{
+				Name:         "test-instancetype",
+				Kind:         "VirtualMachineInstancetype",
+				RevisionName: "test-instancetype-revision",
+			}
+			embeddedVM.Spec.Preference = &v1.PreferenceMatcher{
+				Name:         "test-preference",
+				Kind:         "VirtualMachinePreference",
+				RevisionName: "test-preference-revision",
+			}
+			embeddedVM.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{Name: "status-instancetype-revision"},
+			}
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("test-instancetype"))
+			Expect(childMap).To(HaveKey("test-preference"))
+			Expect(childMap).To(HaveKey("test-instancetype-revision"))
+			Expect(childMap).To(HaveKey("test-preference-revision"))
+			Expect(childMap).NotTo(HaveKey("status-instancetype-revision"))
+		})
+
+		It("should return an error when the embedded VirtualMachine is syntactically invalid JSON", func() {
+			tpl := &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "bad-json-template",
+					Namespace: "template-namespace",
+				},
+				Spec: templatev1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: []byte("{not valid json")},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			_, err := graph.GetObjectGraph(tpl)
+			Expect(err).To(MatchError(ContainSubstring("failed to decode embedded VirtualMachine")))
+		})
+
+		It("should not fail decoding when an unrelated field holds an unresolved non-string ${{PARAM}} value", func() {
+			vmJSON, err := json.Marshal(embeddedVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			var vmMap map[string]interface{}
+			Expect(json.Unmarshal(vmJSON, &vmMap)).To(Succeed())
+
+			templateSpec := vmMap["spec"].(map[string]interface{})["template"].(map[string]interface{})["spec"].(map[string]interface{})
+			templateSpec["domain"] = map[string]interface{}{
+				"cpu": map[string]interface{}{"cores": "${{CORES}}"},
+			}
+
+			patchedRaw, err := json.Marshal(vmMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			tpl := &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-template",
+					Namespace: "template-namespace",
+				},
+				Spec: templatev1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: patchedRaw},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("test-ssh-secret"))
+			Expect(childMap).To(HaveKey("test-root-disk-pvc"))
+		})
+
+		It("should mark a nested child optional when its parent DataVolume name is an unresolved parameter", func() {
+			embeddedVM.Spec.Template.Spec.Volumes = append(embeddedVM.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "datavolumedisk",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "${DV_NAME}",
+					},
+				},
+			})
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("${DV_NAME}"))
+			dvNode := childMap["${DV_NAME}"]
+			Expect(dvNode.Optional).NotTo(BeNil())
+			Expect(*dvNode.Optional).To(BeTrue())
+
+			Expect(dvNode.Children).To(HaveLen(1))
+			pvcChild := dvNode.Children[0]
+			Expect(pvcChild.ObjectReference.Kind).To(Equal("PersistentVolumeClaim"))
+			Expect(pvcChild.Optional).NotTo(BeNil(), "nested PVC child should also be marked optional")
+			Expect(*pvcChild.Optional).To(BeTrue())
+		})
+
+		It("should mark every dependent resource as optional when the embedded namespace is an unresolved parameter", func() {
+			embeddedVM.Namespace = "${TARGET_NAMESPACE}"
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(graphNodes.Children).NotTo(BeEmpty())
+
+			for _, child := range graphNodes.Children {
+				Expect(child.Optional).NotTo(BeNil(), "node %s should be marked optional", child.ObjectReference.Name)
+				Expect(*child.Optional).To(BeTrue(), "node %s should be marked optional", child.ObjectReference.Name)
+				Expect(*child.ObjectReference.Namespace).To(Equal("${TARGET_NAMESPACE}"),
+					"node %s should surface the unresolved namespace instead of the template's namespace", child.ObjectReference.Name)
+			}
+
+			options := &v1.ObjectGraphOptions{IncludeOptionalNodes: pointer.P(false)}
+			graph = NewObjectGraph(kvClient, kubeClient, options)
+			graphNodes, err = graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(graphNodes.Children).To(BeEmpty())
+		})
+
+		It("should return an error when the template has no embedded VirtualMachine", func() {
+			tpl := &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "empty-template",
+					Namespace: "template-namespace",
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			_, err := graph.GetObjectGraph(tpl)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return an error, not panic, when the embedded VirtualMachine has no spec.template", func() {
+			incompleteVM := &v1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{Name: "incomplete-vm"},
+			}
+			tpl := newVMTemplate("template-namespace", incompleteVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			var err error
+			Expect(func() {
+				_, err = graph.GetObjectGraph(tpl)
+			}).NotTo(Panic())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return a childless graph when spec.template is present but empty", func() {
+			tpl := &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "empty-template",
+					Namespace: "template-namespace",
+				},
+				Spec: templatev1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{
+						Raw: []byte(`{"spec":{"template":{}}}`),
+					},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(graphNodes.ObjectReference.Name).To(Equal("empty-template"))
+			Expect(graphNodes.Children).To(BeEmpty())
+		})
+
+		It("should default an instance type/preference without a Kind to the cluster-scoped resource", func() {
+			embeddedVM.Spec.Instancetype = &v1.InstancetypeMatcher{Name: "test-instancetype"}
+			embeddedVM.Spec.Preference = &v1.PreferenceMatcher{Name: "test-preference"}
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).To(HaveKey("test-instancetype"))
+			Expect(childMap["test-instancetype"].ObjectReference.Kind).To(Equal("VirtualMachineClusterInstancetype"))
+			Expect(childMap).To(HaveKey("test-preference"))
+			Expect(childMap["test-preference"].ObjectReference.Kind).To(Equal("VirtualMachineClusterPreference"))
+		})
+
+		It("should resolve a template parameter to its default value instead of marking the node optional", func() {
+			embeddedVM.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "${DISK_NAME}"
+			tpl := newVMTemplate("template-namespace", embeddedVM)
+			tpl.Spec.Parameters = []templatev1beta1.Parameter{
+				{Name: "DISK_NAME", Value: "resolved-disk-name"},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			childMap := make(map[string]v1.ObjectGraphNode)
+			for _, child := range graphNodes.Children {
+				childMap[child.ObjectReference.Name] = child
+			}
+
+			Expect(childMap).NotTo(HaveKey("${DISK_NAME}"))
+			Expect(childMap).To(HaveKey("resolved-disk-name"))
+			Expect(childMap["resolved-disk-name"].Optional).To(BeNil())
+		})
+
+		Context("with a DataVolumeTemplate", func() {
+			var goldenPVCSource cdiv1.DataVolumeSpec
+
+			BeforeEach(func() {
+				embeddedVM.Spec.Template.Spec.Volumes = append(embeddedVM.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "datavolumedisk",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{Name: "datavolumedisk"},
+					},
+				})
+				goldenPVCSource = cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{Namespace: "golden-images", Name: "golden-pvc"},
+					},
+				}
+			})
+
+			childrenByName := func(graphNodes v1.ObjectGraphNode) map[string]v1.ObjectGraphNode {
+				childMap := make(map[string]v1.ObjectGraphNode)
+				for _, child := range graphNodes.Children {
+					childMap[child.ObjectReference.Name] = child
+				}
+				return childMap
+			}
+
+			It("should emit the golden image PVC alongside the speculative DataVolume node", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec:       goldenPVCSource,
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				childMap := childrenByName(graphNodes)
+
+				// The golden image exists independently of the template, so it is reported as a
+				// regular dependency rather than nested under the DataVolume that does not exist yet.
+				Expect(childMap).To(HaveKey("golden-pvc"))
+				goldenPVC := childMap["golden-pvc"]
+				Expect(goldenPVC.ObjectReference.Kind).To(Equal("PersistentVolumeClaim"))
+				Expect(*goldenPVC.ObjectReference.Namespace).To(Equal("golden-images"))
+				Expect(goldenPVC.Optional).To(BeNil())
+			})
+
+			It("should emit the golden image VolumeSnapshot when the DataVolumeTemplate sources from a snapshot", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec: cdiv1.DataVolumeSpec{
+							Source: &cdiv1.DataVolumeSource{
+								Snapshot: &cdiv1.DataVolumeSourceSnapshot{Namespace: "golden-images", Name: "golden-snapshot"},
+							},
+						},
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				childMap := childrenByName(graphNodes)
+
+				Expect(childMap).To(HaveKey("golden-snapshot"))
+				goldenSnapshot := childMap["golden-snapshot"]
+				Expect(goldenSnapshot.ObjectReference.Kind).To(Equal("VolumeSnapshot"))
+				Expect(*goldenSnapshot.ObjectReference.APIGroup).To(Equal("snapshot.storage.k8s.io"))
+				Expect(*goldenSnapshot.ObjectReference.Namespace).To(Equal("golden-images"))
+				Expect(goldenSnapshot.Optional).To(BeNil())
+			})
+
+			DescribeTable("should not emit a source node when the source name is empty", func(sourceKind string) {
+				vmJSON, err := json.Marshal(embeddedVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				var vmMap map[string]interface{}
+				Expect(json.Unmarshal(vmJSON, &vmMap)).To(Succeed())
+
+				vmMap["spec"].(map[string]interface{})["dataVolumeTemplates"] = []interface{}{
+					map[string]interface{}{
+						"metadata": map[string]interface{}{"name": "datavolumedisk"},
+						"spec": map[string]interface{}{
+							"source": map[string]interface{}{
+								sourceKind: map[string]interface{}{"name": "", "namespace": "golden-images"},
+							},
+						},
+					},
+				}
+
+				patchedRaw, err := json.Marshal(vmMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				tpl := &templatev1beta1.VirtualMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-template",
+						Namespace: "template-namespace",
+					},
+					Spec: templatev1beta1.VirtualMachineTemplateSpec{
+						VirtualMachine: &runtime.RawExtension{Raw: patchedRaw},
+					},
+				}
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(childrenByName(graphNodes)).NotTo(HaveKey(""))
+			},
+				Entry("pvc source", "pvc"),
+				Entry("snapshot source", "snapshot"),
+			)
+
+			It("should not emit a DataSource node when the sourceRef name is empty", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec: cdiv1.DataVolumeSpec{
+							SourceRef: &cdiv1.DataVolumeSourceRef{Kind: "DataSource", Name: ""},
+						},
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(childrenByName(graphNodes)).NotTo(HaveKey(""))
+			})
+
+			It("should mark the DataVolume the template would create, and its PVC, as optional", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec:       goldenPVCSource,
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				dvNode := childrenByName(graphNodes)["datavolumedisk"]
+				Expect(dvNode.Optional).NotTo(BeNil())
+				Expect(*dvNode.Optional).To(BeTrue())
+
+				Expect(dvNode.Children).To(HaveLen(1))
+				pvcChild := dvNode.Children[0]
+				Expect(pvcChild.ObjectReference.Kind).To(Equal("PersistentVolumeClaim"))
+				Expect(pvcChild.Optional).NotTo(BeNil(), "the PVC the DataVolume would create does not exist either")
+				Expect(*pvcChild.Optional).To(BeTrue())
+			})
+
+			It("should still report the golden image PVC when optional nodes are excluded", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec:       goldenPVCSource,
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				options := &v1.ObjectGraphOptions{IncludeOptionalNodes: pointer.P(false)}
+				graph := NewObjectGraph(kvClient, kubeClient, options)
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				childMap := childrenByName(graphNodes)
+				Expect(childMap).To(HaveKey("golden-pvc"))
+				Expect(childMap).NotTo(HaveKey("datavolumedisk"))
+			})
+
+			It("should keep the golden image PVC when an unrelated field holds a ${SIZE} parameter", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec:       goldenPVCSource,
+					},
+				}
+				vmJSON, err := json.Marshal(embeddedVM)
+				Expect(err).NotTo(HaveOccurred())
+
+				var vmMap map[string]interface{}
+				Expect(json.Unmarshal(vmJSON, &vmMap)).To(Succeed())
+
+				// A ${SIZE} placeholder cannot parse as a resource.Quantity. A typed decode of the
+				// DataVolumeTemplate would discard the entry and lose the golden image with it.
+				dvts := vmMap["spec"].(map[string]interface{})["dataVolumeTemplates"].([]interface{})
+				dvtSpec := dvts[0].(map[string]interface{})["spec"].(map[string]interface{})
+				dvtSpec["storage"] = map[string]interface{}{
+					"resources": map[string]interface{}{
+						"requests": map[string]interface{}{"storage": "${SIZE}"},
+					},
+				}
+
+				patchedRaw, err := json.Marshal(vmMap)
+				Expect(err).NotTo(HaveOccurred())
+
+				tpl := &templatev1beta1.VirtualMachineTemplate{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-template",
+						Namespace: "template-namespace",
+					},
+					Spec: templatev1beta1.VirtualMachineTemplateSpec{
+						VirtualMachine: &runtime.RawExtension{Raw: patchedRaw},
+					},
+				}
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(childrenByName(graphNodes)).To(HaveKey("golden-pvc"))
+			})
+
+			It("should emit a DataSource node for a sourceRef, falling back to the VM's namespace", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec: cdiv1.DataVolumeSpec{
+							SourceRef: &cdiv1.DataVolumeSourceRef{
+								Kind: "DataSource",
+								Name: "golden-datasource",
+							},
+						},
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				childMap := childrenByName(graphNodes)
+				Expect(childMap).To(HaveKey("golden-datasource"))
+				dataSource := childMap["golden-datasource"]
+				Expect(dataSource.ObjectReference.Kind).To(Equal("DataSource"))
+				Expect(*dataSource.ObjectReference.Namespace).To(Equal("template-namespace"))
+				Expect(*dataSource.ObjectReference.APIGroup).To(Equal("cdi.kubevirt.io"))
+			})
+
+			It("should honour an explicit sourceRef namespace", func() {
+				embeddedVM.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: "datavolumedisk"},
+						Spec: cdiv1.DataVolumeSpec{
+							SourceRef: &cdiv1.DataVolumeSourceRef{
+								Kind:      "DataSource",
+								Name:      "golden-datasource",
+								Namespace: pointer.P("golden-images"),
+							},
+						},
+					},
+				}
+				tpl := newVMTemplate("template-namespace", embeddedVM)
+
+				graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+				graphNodes, err := graph.GetObjectGraph(tpl)
+				Expect(err).NotTo(HaveOccurred())
+
+				dataSource := childrenByName(graphNodes)["golden-datasource"]
+				Expect(*dataSource.ObjectReference.Namespace).To(Equal("golden-images"))
+			})
+		})
+
+		It("should decode networks individually, skipping one with an unresolved non-string parameter", func() {
+			vmJSON, err := json.Marshal(embeddedVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			var vmMap map[string]interface{}
+			Expect(json.Unmarshal(vmJSON, &vmMap)).To(Succeed())
+
+			templateSpec := vmMap["spec"].(map[string]interface{})["template"].(map[string]interface{})["spec"].(map[string]interface{})
+			templateSpec["networks"] = []interface{}{
+				map[string]interface{}{
+					"name":   "net1",
+					"multus": map[string]interface{}{"networkName": "net1-nad"},
+				},
+				map[string]interface{}{
+					"name":   "net2",
+					"multus": map[string]interface{}{"networkName": "net2-nad", "default": "${{DEFAULT}}"},
+				},
+			}
+
+			patchedRaw, err := json.Marshal(vmMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			tpl := &templatev1beta1.VirtualMachineTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-template",
+					Namespace: "template-namespace",
+				},
+				Spec: templatev1beta1.VirtualMachineTemplateSpec{
+					VirtualMachine: &runtime.RawExtension{Raw: patchedRaw},
+				},
+			}
+
+			graph := NewObjectGraph(kvClient, kubeClient, &v1.ObjectGraphOptions{})
+			graphNodes, err := graph.GetObjectGraph(tpl)
+			Expect(err).NotTo(HaveOccurred())
+
+			var nadNames []string
+			for _, child := range graphNodes.Children {
+				if child.ObjectReference.Kind == "NetworkAttachmentDefinition" {
+					nadNames = append(nadNames, child.ObjectReference.Name)
+				}
+			}
+
+			Expect(nadNames).To(ContainElement("net1-nad"))
+			Expect(nadNames).NotTo(ContainElement("net2-nad"))
 		})
 	})
 })
