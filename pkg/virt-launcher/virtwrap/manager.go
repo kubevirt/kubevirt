@@ -1471,17 +1471,12 @@ func expandDiskImageOffline(imagePath string, size int64, preallocated bool) err
 	return nil
 }
 
+// possibleGuestSize computes the guest-visible size of a file-backed disk.
+// It does not handle block backends and returns (0, false) for them.
 func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, bool) {
 	if dt.BackendIsBlock() {
-		if !dt.HasOverlay() {
-			return 0, true
-		}
-		diskInfo, err := osdisk.GetDiskInfo(dt.BackendPath())
-		if err != nil {
-			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
-			return 0, false
-		}
-		return diskInfo.VirtualSize, true
+		// sized in the online resize path, not here
+		return 0, false
 	}
 
 	if disk.Capacity == nil {
