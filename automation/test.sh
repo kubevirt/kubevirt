@@ -209,6 +209,11 @@ esac
 
 detect_centos_stream_version
 
+# CS10 ARM64 images support the firmware and variable store used by Secure Boot.
+if [[ $TARGET =~ wg-arm64 && ${KUBEVIRT_CENTOS_STREAM_VERSION} == "10" ]]; then
+  export KUBEVIRT_ARM64_SECURE_BOOT="${KUBEVIRT_ARM64_SECURE_BOOT:-true}"
+fi
+
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
@@ -656,6 +661,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
 
   if [[ ${KUBEVIRT_CROSS_ARCH_EMULATION} != "true" ]]; then
     add_to_label_filter "(!requires-cross-arch-emulation)" "&&"
+  fi
+
+  if [[ ${KUBEVIRT_ARM64_SECURE_BOOT} != "true" ]]; then
+    add_to_label_filter "(!requires-arm64-secure-boot)" "&&"
   fi
 
   if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then

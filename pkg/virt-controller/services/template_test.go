@@ -6523,6 +6523,21 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--firmware-auto-selection"))
 		})
+
+		DescribeTable("should pass --arm64-secure-boot only when the feature gate is enabled", func(enabled bool) {
+			config, kvStore, svc = configFactory(defaultArch)
+			if enabled {
+				enableFeatureGate(featuregate.ARM64SecureBoot)
+			}
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(slices.Contains(pod.Spec.Containers[0].Args, "--arm64-secure-boot")).To(Equal(enabled))
+		},
+			Entry("enabled", true),
+			Entry("disabled", false),
+		)
 	})
 })
 

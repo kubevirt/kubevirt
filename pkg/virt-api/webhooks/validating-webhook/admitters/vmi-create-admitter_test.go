@@ -2792,6 +2792,87 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		Context("ARM64 Secure Boot", func() {
+			BeforeEach(func() {
+				vmi.Spec.Architecture = "arm64"
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(true),
+						},
+					},
+				}
+			})
+
+			It("should accept ARM64 EFI with SecureBoot and without SMM when feature gate is enabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot, featuregate.FirmwareAutoSelection)
+
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when ARM64SecureBoot feature gate is disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.FirmwareAutoSelection)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when FirmwareAutoSelection feature gate is disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when both feature gates are disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(2))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+				Expect(causes[1].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+			})
+
+			It("should accept ARM64 EFI without SecureBoot and without ARM64SecureBoot feature gate", func() {
+				enableFeatureGates(featuregate.MultiArchitecture)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(false)
+
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+		})
+
+		It("should still require SMM for amd64 EFI with SecureBoot", func() {
+			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SecureBoot requires SMM"))
+		})
+
+		It("should reject SecureBoot on unsupported architectures", func() {
+			enableFeatureGates(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = "riscv64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SecureBoot is not supported on architecture riscv64"))
+		})
+
 		It("should not accept BIOS and EFI together", func() {
 			vmi.Spec.Subdomain = "testsubdomain"
 

@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -310,6 +311,95 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
+
+		// Ubuntu 24.04 is used as a container disk for CI convenience; any bootable
+		// ARM64 disk with a valid Secure Boot chain would work.
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
+		Context("ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func() {
+			var (
+				vm  *v1.VirtualMachine
+				vmi *v1.VirtualMachineInstance
+			)
+
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+				vmi = libvmi.New(
+					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithRng(),
+					libvmi.WithArchitecture("arm64"),
+					libvmi.WithUefi(true),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
+disable_root: false
+chpasswd:
+  expire: false
+  users:
+    - name: root
+      password: kubevirt
+      type: text
+`)),
+				)
+			})
+
+			createVM := func() {
+				GinkgoHelper()
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyHalted))
+				var err error
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			startAndCheckSecureBoot := func() {
+				GinkgoHelper()
+				By("Starting the VM and logging into Ubuntu")
+				vm = libvmops.StartVirtualMachine(vm)
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BCas{C: []expect.Caser{
+						&expect.Case{R: regexp.MustCompile(`(?m)^\S+ login: `), S: "root\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`Password:`), S: "kubevirt\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`root@[^:]+:[^\r\n]*# `), T: expect.OK()},
+					}},
+				}, 5*time.Minute)).To(Succeed())
+				Expect(console.RunCommand(vmi, "stty cols 500 rows 500", 10*time.Second)).To(Succeed())
+
+				By("Checking that Secure Boot is enabled in the guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "mokutil --sb-state\n"},
+					&expect.BExp{R: console.RetValue("SecureBoot enabled")},
+				}, 10)).To(Succeed())
+			}
+
+			It("should enable Secure Boot in the guest", func() {
+				createVM()
+				startAndCheckSecureBoot()
+			})
+
+			It("should persist firmware variables across VM restarts", decorators.RequiresRWOFsVMStateStorageClass, func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				createVM()
+				startAndCheckSecureBoot()
+				libvmops.WriteEFITestVariable(vmi)
+				previousUID := vmi.UID
+
+				By("Replacing the VMI and virt-launcher pod by stopping and starting the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				startAndCheckSecureBoot()
+				Expect(vmi.UID).ToNot(Equal(previousUID))
+				libvmops.CheckEFITestVariable(vmi)
+			})
+		})
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {

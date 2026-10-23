@@ -38,6 +38,7 @@ const (
 	ContainerDiskVirtio            ContainerDisk = "virtio-container-disk"
 	ContainerDiskEmpty             ContainerDisk = "empty"
 	ContainerDiskFedoraRealtime    ContainerDisk = "fedora-realtime"
+	ContainerDiskUbuntu            ContainerDisk = "ubuntu"
 	KernelBoot                     ContainerDisk = "alpine-ext-kernel-boot-demo"
 	KernelBootS390xGuestless       ContainerDisk = "s390x-guestless-kernel"
 )
@@ -81,6 +82,8 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 		return fmt.Sprintf("%s/alpine-ext-kernel-boot-demo:%s", registry, flags.KubeVirtUtilityVersionTag)
 	case KernelBootS390xGuestless:
 		return fmt.Sprintf("%s/s390x-guestless-kernel:%s", registry, flags.KubeVirtUtilityVersionTag)
+	case ContainerDiskUbuntu:
+		return fmt.Sprintf("%s/ubuntu:24.04", registry)
 	}
 
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))

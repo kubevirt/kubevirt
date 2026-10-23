@@ -114,6 +114,10 @@ func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }
 
+func (config *ClusterConfig) ARM64SecureBootEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.ARM64SecureBoot)
+}
+
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }
