@@ -742,6 +742,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 
 			initGracePeriodHelper(1, vmi, domain)
 			metav1.Now()
@@ -795,6 +796,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should force kill when grace period expired", func() {
+				domain.Status.Status = api.Paused
+				domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 				initGracePeriodHelper(1, vmi, domain)
 				expired := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 				domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &expired

@@ -1845,7 +1845,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 	defer dom.Free()
-	domState, _, err := dom.GetState()
+	domState, reason, err := dom.GetState()
 	if err != nil {
 		logger.Reason(err).Error(failedGetDomainState)
 		return nil, err
@@ -1874,6 +1874,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			return nil, err
 		}
 	case cli.IsPaused(domState) && !l.paused.contains(vmi.UID):
+		if util.ConvReason(domState, reason) == api.ReasonPausedUser && storage.OverlaysCommitting(l.metadataCache) {
+			// The commit worker owns this pause and will release it.
+			break
+		}
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		if err := dom.Resume(); err != nil {
 			logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
@@ -2596,6 +2600,9 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
+		if l.storageManager.CommitOverlaysBeforeShutdown(vmi) {
+			return nil
+		}
 		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
