@@ -32,8 +32,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -111,13 +109,6 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 	return cloudInitData != nil && cloudInitData.UserData != "" && (cloudInitData.NoCloudMetaData != nil || cloudInitData.ConfigDriveMetaData != nil)
 }
 
-func cloudInitUUIDFromVMI(vmi *v1.VirtualMachineInstance) string {
-	if vmi.Spec.Domain.Firmware == nil {
-		return uuid.NewString()
-	}
-	return string(vmi.Spec.Domain.Firmware.UUID)
-}
-
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
@@ -139,7 +130,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, cloudInitUUIDFromVMI(vmi), instancetype, keys)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, string(vmi.Spec.Domain.Firmware.UUID), instancetype, keys)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -150,7 +141,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 				return nil, err
 			}
 
-			uuid := cloudInitUUIDFromVMI(vmi)
+			uuid := string(vmi.Spec.Domain.Firmware.UUID)
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(vmi.Name, uuid, hostname, vmi.Namespace, keys, instancetype)
 			cloudInitData.VolumeName = volume.Name
@@ -578,7 +569,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		if data.NoCloudMetaData == nil {
 			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
 			data.NoCloudMetaData = &NoCloudMetadata{
-				InstanceID: cloudInitUUIDFromVMI(vmi),
+				InstanceID: string(vmi.Spec.Domain.Firmware.UUID),
 			}
 			data.NoCloudMetaData.InstanceType = instanceType
 		}
@@ -598,7 +589,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 			instanceId := fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace)
 			data.ConfigDriveMetaData = &ConfigDriveMetadata{
 				InstanceID: instanceId,
-				UUID:       cloudInitUUIDFromVMI(vmi),
+				UUID:       string(vmi.Spec.Domain.Firmware.UUID),
 			}
 			data.ConfigDriveMetaData.InstanceType = instanceType
 		}

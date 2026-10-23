@@ -259,6 +259,7 @@ var _ = Describe("CloudInit", func() {
 						Namespace: "fake-namespace",
 					},
 				}
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
@@ -277,6 +278,7 @@ var _ = Describe("CloudInit", func() {
 						Namespace: namespace,
 					},
 				}
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -605,6 +607,7 @@ var _ = Describe("CloudInit", func() {
 			}
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 			err = GenerateLocalData(vmi, instancetype, cloudInitData)
