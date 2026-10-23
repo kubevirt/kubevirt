@@ -284,6 +284,11 @@ func (in *VirtualMachineBackupStatus) DeepCopyInto(out *VirtualMachineBackupStat
 		*out = new(BackupLinks)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Offline != nil {
+		in, out := &in.Offline, &out.Offline
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

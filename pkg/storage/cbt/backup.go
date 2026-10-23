@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -77,7 +78,11 @@ var (
 	errSourceNameEmpty = errors.New("source name is empty")
 	errCleanupPending  = errors.New("cleanup pending")
 	errActiveBackups   = errors.New("active backups pending")
+	errOfflineWaiting  = errors.New("waiting on another offline operation")
 )
+
+// retry every 1s instead of backing off, errCleanupPending is not a failure
+const cleanupPendingRequeueInterval = time.Second
 
 type VMBackupController struct {
 	client                kubecli.KubevirtClient
@@ -87,10 +92,12 @@ type VMBackupController struct {
 	vmiStore              cache.Store
 	pvcStore              cache.Store
 	vmExportStore         cache.Store
+	podIndexer            cache.Indexer
 	recorder              record.EventRecorder
 	backupQueue           workqueue.TypedRateLimitingInterface[string]
 	trackerQueue          workqueue.TypedRateLimitingInterface[string]
 	hasSynced             func() bool
+	clusterConfig         *virtconfig.ClusterConfig
 }
 
 func NewVMBackupController(client kubecli.KubevirtClient,
@@ -100,7 +107,9 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 	vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	vmExportInformer cache.SharedIndexInformer,
+	podInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
+	clusterConfig *virtconfig.ClusterConfig,
 ) (*VMBackupController, error) {
 	c := &VMBackupController{
 		backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -117,12 +126,14 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		vmiStore:              vmiInformer.GetStore(),
 		pvcStore:              pvcInformer.GetStore(),
 		vmExportStore:         vmExportInformer.GetStore(),
+		podIndexer:            podInformer.GetIndexer(),
 		recorder:              recorder,
 		client:                client,
+		clusterConfig:         clusterConfig,
 	}
 
 	c.hasSynced = func() bool {
-		return backupInformer.HasSynced() && backupTrackerInformer.HasSynced() && vmInformer.HasSynced() && vmiInformer.HasSynced() && pvcInformer.HasSynced() && vmExportInformer.HasSynced()
+		return backupInformer.HasSynced() && backupTrackerInformer.HasSynced() && vmInformer.HasSynced() && vmiInformer.HasSynced() && pvcInformer.HasSynced() && vmExportInformer.HasSynced() && podInformer.HasSynced()
 	}
 
 	_, err := backupInformer.AddEventHandler(
@@ -382,12 +393,13 @@ func (ctrl *VMBackupController) Execute() bool {
 
 	err := ctrl.execute(key)
 	if err != nil {
-		if errors.Is(err, errCleanupPending) {
+		if errors.Is(err, errCleanupPending) || errors.Is(err, errOfflineWaiting) {
 			log.Log.V(4).Infof("reenqueuing VirtualMachineBackup %v: %v", key, err)
+			ctrl.backupQueue.AddAfter(key, cleanupPendingRequeueInterval)
 		} else {
 			log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackup %v", key)
+			ctrl.backupQueue.AddRateLimited(key)
 		}
-		ctrl.backupQueue.AddRateLimited(key)
 	} else {
 		log.Log.V(4).Infof("processed VirtualMachineBackup %v", key)
 		ctrl.backupQueue.Forget(key)
@@ -471,6 +483,11 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) erro
 	}
 
 	backupStatus := getBackupStatus(vmi)
+
+	if ctrl.shouldReconcileOffline(backup, vmiExists, backupStatus) {
+		return ctrl.reconcileOffline(backup, backupTracker, sourceName, backupDeleting)
+	}
+
 	switch {
 	case backupStatus != nil && backupStatus.Completed:
 		return ctrl.reconcileCompleted(backup, vmi, backupTracker, backupStatus)
@@ -979,6 +996,10 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		Volumes:      toBackupVolumeInfo(backupStatus.Volumes),
 	}
 
+	return ctrl.patchTrackerCheckpoint(namespace, tracker, newCheckpoint)
+}
+
+func (ctrl *VMBackupController) patchTrackerCheckpoint(namespace string, tracker *backupv1.VirtualMachineBackupTracker, newCheckpoint backupv1.BackupCheckpoint) error {
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
 		LatestCheckpoint: &newCheckpoint,
 	}
@@ -1013,10 +1034,6 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
 
 	return nil
-}
-
-func isPushMode(backup *backupv1.VirtualMachineBackup) bool {
-	return backup.Spec.Mode == nil || *backup.Spec.Mode == backupv1.PushMode
 }
 
 func (ctrl *VMBackupController) cleanupVMIState(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) (bool, error) {
@@ -1060,6 +1077,11 @@ func IsBackupTerminal(backup *backupv1.VirtualMachineBackup) bool {
 	return isBackupComplete(backup) || isBackupFailed(backup)
 }
 
+func isBackupExportReady(backup *backupv1.VirtualMachineBackup) bool {
+	cond := meta.FindStatusCondition(backupConditions(backup), string(backupv1.ConditionProgressing))
+	return cond != nil && cond.Reason == backupv1.ReasonExportReady
+}
+
 func isBackupDeleting(backup *backupv1.VirtualMachineBackup) bool {
 	return backup != nil && backup.DeletionTimestamp != nil
 }
@@ -1086,7 +1108,7 @@ func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBacku
 	cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionProgressing))
 	if cond == nil || cond.Reason != backupv1.ReasonAborting {
 		eventSev := corev1.EventTypeNormal
-		if isPushMode(backup) {
+		if backup.IsPushMode() {
 			eventSev = corev1.EventTypeWarning
 		}
 		ctrl.recorder.Event(backup, eventSev, backupAbortingEvent, message)

@@ -53,8 +53,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
-
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
@@ -108,6 +106,16 @@ type ExportServerConfig struct {
 	BackupType       string
 	BackupCheckpoint string
 
+	OfflineBackup         bool
+	BackupStatePath       string
+	SocketDir             string
+	BackupBaseCheckpoint  string
+	BackupMode            string
+	BackupTargetDir       string
+	BackupName            string
+	BackupTracked         bool
+	BackupKeepCheckpoints []string
+
 	Paths *export.ServerPaths
 
 	// unit testing helpers
@@ -118,6 +126,7 @@ type ExportServerConfig struct {
 	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 	OCIHandler         func(*oci.Builder) http.Handler
+	CommandRunner      commandRunner
 
 	PermissionChecker func(string) bool
 
@@ -146,6 +155,8 @@ type exportServer struct {
 
 	nbdSource  nbdSource
 	ociBuilder *oci.Builder
+
+	offline *offlineDataPlane
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -252,15 +263,42 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 	return result
 }
 
-func (s *exportServer) Run() {
-	s.initHandler()
+const offlineTerminationLogPath = "/dev/termination-log"
 
+func (s *exportServer) handleOfflineError(err error) {
+	if errors.Is(err, errEmptyIncremental) {
+		log.Log.Info("Offline incremental backup has no changed blocks; reporting empty delta")
+		if werr := os.WriteFile(offlineTerminationLogPath, []byte(export.EmptyIncrementalReason), 0o644); werr != nil {
+			log.Log.Reason(werr).Warning("failed to write termination log")
+		}
+		os.Exit(1)
+	}
+	panic(err)
+}
+
+func (s *exportServer) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	if !s.Deadline.IsZero() {
 		log.Log.Infof("Deadline set to %s", s.Deadline)
 		ctx, cancel = context.WithDeadline(ctx, s.Deadline)
 	}
 	defer cancel()
+
+	if s.OfflineBackup {
+		if s.isOfflinePush() {
+			if err := s.runOfflinePush(ctx); err != nil {
+				s.handleOfflineError(err)
+			}
+			log.Log.Info("Offline push backup completed")
+			return
+		}
+		if err := s.startOfflineDataPlane(ctx); err != nil {
+			s.handleOfflineError(err)
+		}
+		defer s.offline.stop()
+	}
+
+	s.initHandler()
 
 	srv := s.buildServer(ctx)
 
@@ -296,11 +334,9 @@ func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 		NextProtos:       []string{"h2", "http/1.1"},
 	}
 
-	rootHandler := s.handler
-
 	return &http.Server{
 		Addr:      s.ListenAddr,
-		Handler:   rootHandler,
+		Handler:   s.handler,
 		TLSConfig: tlsConfig,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
@@ -343,6 +379,10 @@ func NewExportServer(config ExportServerConfig) (service.Service, error) {
 
 	if es.TokenSecretHandler == nil {
 		es.TokenSecretHandler = secretHandler
+	}
+
+	if es.CommandRunner == nil {
+		es.CommandRunner = runCommand
 	}
 
 	if es.TokenGetter == nil {
@@ -994,10 +1034,7 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 			pageSize = p
 		}
 
-		var bitmapName string
-		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
-			bitmapName = s.BackupCheckpoint
-		}
+		bitmapName := s.backupBitmapName(exportName)
 
 		streamCtx, streamCancel := context.WithCancel(req.Context())
 		defer streamCancel()
