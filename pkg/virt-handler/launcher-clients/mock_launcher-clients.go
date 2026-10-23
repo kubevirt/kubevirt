@@ -20,6 +20,7 @@
 package launcher_clients
 
 import (
+	"errors"
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -29,12 +30,13 @@ import (
 )
 
 type MockLauncherClientManager struct {
-	Client            cmdclient.LauncherClient
-	ClientInfo        *virtcache.LauncherClientInfo
-	UnResponsive      bool
-	Initialized       bool
-	UnResponsiveError error
-	IrrecoverableErr  bool
+	Client                   cmdclient.LauncherClient
+	ClientInfo               *virtcache.LauncherClientInfo
+	UnResponsive             bool
+	Initialized              bool
+	UnResponsiveError        error
+	IrrecoverableErr         bool
+	CloseLauncherClientError error
 }
 
 func (m *MockLauncherClientManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
@@ -55,8 +57,18 @@ func (m *MockLauncherClientManager) GetLauncherClientInfo(vmi *v1.VirtualMachine
 	return m.ClientInfo
 }
 
-func (m *MockLauncherClientManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) {
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+func (m *MockLauncherClientManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) error {
+	if string(vmi.GetUID()) == "" {
+		return nil
+	}
+	if m.CloseLauncherClientError != nil {
+		return m.CloseLauncherClientError
+	}
+	err := virtcache.GhostRecordGlobalStore.DeleteIfUID(vmi.Namespace, vmi.Name, vmi.UID)
+	if errors.Is(err, virtcache.ErrGhostRecordUIDMismatch) {
+		return nil
+	}
+	return err
 }
 
 func (m *MockLauncherClientManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
