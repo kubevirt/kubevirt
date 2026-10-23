@@ -446,6 +446,44 @@ func (mr *MockStreamMockRecorder) Write(p any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockStream)(nil).Write), p)
 }
 
+// MockdirtyRateCalculator is a mock of dirtyRateCalculator interface.
+type MockdirtyRateCalculator struct {
+	ctrl     *gomock.Controller
+	recorder *MockdirtyRateCalculatorMockRecorder
+	isgomock struct{}
+}
+
+// MockdirtyRateCalculatorMockRecorder is the mock recorder for MockdirtyRateCalculator.
+type MockdirtyRateCalculatorMockRecorder struct {
+	mock *MockdirtyRateCalculator
+}
+
+// NewMockdirtyRateCalculator creates a new mock instance.
+func NewMockdirtyRateCalculator(ctrl *gomock.Controller) *MockdirtyRateCalculator {
+	mock := &MockdirtyRateCalculator{ctrl: ctrl}
+	mock.recorder = &MockdirtyRateCalculatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockdirtyRateCalculator) EXPECT() *MockdirtyRateCalculatorMockRecorder {
+	return m.recorder
+}
+
+// StartDirtyRateCalc mocks base method.
+func (m *MockdirtyRateCalculator) StartDirtyRateCalc(seconds int, flags libvirt.DomainDirtyRateCalcFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartDirtyRateCalc", seconds, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartDirtyRateCalc indicates an expected call of StartDirtyRateCalc.
+func (mr *MockdirtyRateCalculatorMockRecorder) StartDirtyRateCalc(seconds, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartDirtyRateCalc", reflect.TypeOf((*MockdirtyRateCalculator)(nil).StartDirtyRateCalc), seconds, flags)
+}
+
 // MockVirDomain is a mock of VirDomain interface.
 type MockVirDomain struct {
 	ctrl     *gomock.Controller
