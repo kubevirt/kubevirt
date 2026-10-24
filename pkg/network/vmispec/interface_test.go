@@ -89,35 +89,28 @@ var _ = Describe("VMI network spec", func() {
 		})
 		It("returns false when interface binding is not plugin with device-info", func() {
 			Expect(netvmispec.HasBindingPluginDeviceInfo(
-				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
+				libvmi.NewInterface("net1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: nonDeviceInfoPlugin})),
 				bindingPlugins,
 			)).To(BeFalse())
 		})
 		It("returns true when interface binding is plugin with device-info", func() {
 			Expect(netvmispec.HasBindingPluginDeviceInfo(
-				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+				libvmi.NewInterface("net2", libvmi.WithBindingPlugin(v1.PluginBinding{Name: deviceInfoPlugin})),
 				bindingPlugins,
 			)).To(BeTrue())
 		})
 	})
 	Context("binding plugin network with device info exist", func() {
 		It("returns false when there is no network with device info plugin", func() {
-			ifaces := []v1.Interface{interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin)}
+			ifaces := []v1.Interface{libvmi.NewInterface("net1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: nonDeviceInfoPlugin}))}
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeFalse())
 		})
 		It("returns true when there is at least one network with device-info plugin", func() {
 			ifaces := []v1.Interface{
-				interfaceWithBindingPlugin("net1", nonDeviceInfoPlugin),
-				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
+				libvmi.NewInterface("net1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: nonDeviceInfoPlugin})),
+				libvmi.NewInterface("net2", libvmi.WithBindingPlugin(v1.PluginBinding{Name: deviceInfoPlugin})),
 			}
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
 		})
 	})
 })
-
-func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
-	return v1.Interface{
-		Name:    name,
-		Binding: &v1.PluginBinding{Name: pluginName},
-	}
-}
