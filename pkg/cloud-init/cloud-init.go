@@ -513,7 +513,14 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 	var err error
 
 	domainBasePath := getDomainBasePath(vmi.Name, vmi.Namespace)
-	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
+	if err := util.MkdirAllWithNosec(domainBasePath); err != nil {
+		return err
+	}
+	dataBasePath, err := os.MkdirTemp(domainBasePath, "cloud-init-data-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dataBasePath)
 
 	var dataPath, metaFile, userFile, networkFile, iso string
 	switch data.DataSource {
@@ -545,7 +552,7 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
 	}
 
-	err = util.MkdirAllWithNosec(dataPath)
+	err = os.MkdirAll(dataPath, 0700)
 	if err != nil {
 		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
 		return err
@@ -562,29 +569,21 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 	}
 
 	err = writeIso(iso, func(staging string) error {
-		err = removeFilesIfExist(userFile, metaFile, networkFile)
-		if err != nil {
-			return err
-		}
-
 		err = os.WriteFile(userFile, userData, 0600)
 		if err != nil {
 			return err
 		}
-		defer os.Remove(userFile)
 
 		err = os.WriteFile(metaFile, metaData, 0600)
 		if err != nil {
 			return err
 		}
-		defer os.Remove(metaFile)
 
 		if len(networkData) > 0 {
 			err = os.WriteFile(networkFile, networkData, 0600)
 			if err != nil {
 				return err
 			}
-			defer os.Remove(networkFile)
 		}
 
 		switch data.DataSource {
@@ -603,15 +602,6 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 	}
 
 	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
-	return nil
-}
-
-func removeFilesIfExist(paths ...string) error {
-	for _, path := range paths {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
-	}
 	return nil
 }
 

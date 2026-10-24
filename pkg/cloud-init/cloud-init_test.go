@@ -442,6 +442,11 @@ var _ = Describe("CloudInit", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = GenerateIso(vmi, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
+
+			entries, err := os.ReadDir(getDomainBasePath(vmi.Name, vmi.Namespace))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].Name()).To(Equal(noCloudFile))
 		})
 	})
 
