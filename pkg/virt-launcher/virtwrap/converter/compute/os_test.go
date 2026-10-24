@@ -166,8 +166,9 @@ var _ = Describe("OS Domain Configurator", func() {
 			Entry("with secure boot", true),
 		)
 
-		It("should use firmware auto-selection when enabled", func() {
+		DescribeTable("should use firmware auto-selection when enabled", func(enrolledKeys *bool, expectedEnrolledKeys string) {
 			vmi := libvmi.New(withEFIBootloader(true))
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.EnrolledKeys = enrolledKeys
 			var domain api.Domain
 			autoSelectConfig := &compute.EFIConfiguration{
 				SecureLoader:              true,
@@ -181,7 +182,7 @@ var _ = Describe("OS Domain Configurator", func() {
 				FirmwareInfo: &api.FirmwareInfo{
 					Features: []api.FirmwareFeature{
 						{Enabled: "yes", Name: compute.FirmwareFeatureSecureBoot},
-						{Enabled: "yes", Name: compute.FirmwareFeatureEnrolledKeys},
+						{Enabled: expectedEnrolledKeys, Name: compute.FirmwareFeatureEnrolledKeys},
 					},
 				},
 				NVRam: &api.NVRam{
@@ -191,7 +192,11 @@ var _ = Describe("OS Domain Configurator", func() {
 			}
 			expectedDomain := newDomainWithOS(expectedOS)
 			Expect(domain).To(Equal(expectedDomain))
-		})
+		},
+			Entry("with enrolled keys by default", nil, "yes"),
+			Entry("with enrolled keys", new(true), "yes"),
+			Entry("without enrolled keys", new(false), "no"),
+		)
 
 		It("should use firmware auto-selection without NVRAM for ARM64", func() {
 			vmi := libvmi.New(

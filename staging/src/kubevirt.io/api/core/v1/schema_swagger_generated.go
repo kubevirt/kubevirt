@@ -131,9 +131,10 @@ func (BIOS) SwaggerDoc() map[string]string {
 
 func (EFI) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "If set, EFI will be used instead of BIOS.",
-		"secureBoot": "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true\n+optional",
-		"persistent": "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false\n+optional",
+		"":             "If set, EFI will be used instead of BIOS.",
+		"secureBoot":   "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true\n+optional",
+		"enrolledKeys": "If set to false, the firmware starts in Setup Mode with no Secure Boot\nkeys pre-enrolled, so the guest can enroll its own. Only valid with\nSecureBoot enabled and requires the FirmwareAutoSelection feature gate.\nDefaults to true\n+optional",
+		"persistent":   "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false\n+optional",
 	}
 }
 
