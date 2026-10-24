@@ -42,6 +42,24 @@ var _ = Describe("GPU HostDevice", func() {
 		Expect(gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)).To(BeEmpty())
 	})
 
+	It("correctly identifies when vGPU display options are set or unset", func() {
+		gpusWithoutDisplay := []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+		}
+		Expect(gpu.IsVgpuDisplaySet(gpusWithoutDisplay)).To(BeFalse())
+
+		gpusWithDisplay := []v1.GPU{
+			{
+				DeviceName: gpuResource0,
+				Name:       gpuName0,
+				VirtualGPUOptions: &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{},
+				},
+			},
+		}
+		Expect(gpu.IsVgpuDisplaySet(gpusWithDisplay)).To(BeTrue())
+	})
+
 	It("fails to create devices given no resource", func() {
 		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{{DeviceName: gpuResource0, Name: gpuName0}}
 		_, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
