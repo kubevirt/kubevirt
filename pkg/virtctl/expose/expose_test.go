@@ -261,6 +261,24 @@ var _ = Describe("Expose", func() {
 			)
 		})
 
+		It("honors --target-port for inferred service ports", func() {
+            ports := []v1.Port{{Name: "a", Protocol: "TCP", Port: 80}, {Name: "b", Protocol: "UDP", Port: 81}}
+            vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{Name: "pod", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
+            vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{Name: "pod", Ports: ports})
+            _, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.Background(), vmi, metav1.UpdateOptions{})
+            Expect(err).ToNot(HaveOccurred())
+
+            resName := getResName("vmi")
+            err = runCommand("vmi", resName, "--name", serviceName, "--target-port", "8080")
+            Expect(err).ToNot(HaveOccurred())
+
+            service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+            Expect(err).ToNot(HaveOccurred())
+            Expect(service.Spec.Ports).To(ConsistOf(
+                k8sv1.ServicePort{Name: "port-1", Protocol: k8sv1.ProtocolTCP, Port: 80, TargetPort: intstr.FromInt32(8080)},
+                k8sv1.ServicePort{Name: "port-2", Protocol: k8sv1.ProtocolUDP, Port: 81, TargetPort: intstr.FromInt32(8080)},
+            ))
+        })
 		DescribeTable("creating a service with cluster-ip", func(resType string) {
 			const clusterIP = "1.2.3.4"
 			resName := getResName(resType)
