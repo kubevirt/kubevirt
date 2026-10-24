@@ -540,10 +540,13 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
-		if data.ConfigDriveMetaData != nil {
-			data.ConfigDriveMetaData.Devices = data.DevicesData
+		configDriveMetadata := data.ConfigDriveMetaData
+		if configDriveMetadata != nil {
+			withDevices := *configDriveMetadata
+			withDevices.Devices = data.DevicesData
+			configDriveMetadata = &withDevices
 		}
-		metaData, err = json.Marshal(data.ConfigDriveMetaData)
+		metaData, err = json.Marshal(configDriveMetadata)
 		if err != nil {
 			return err
 		}
