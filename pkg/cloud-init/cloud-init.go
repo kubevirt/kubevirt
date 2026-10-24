@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -38,8 +37,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
-
-const isoStagingFmt = "%s.staging"
 
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
 
@@ -440,7 +437,7 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 		case err := <-done:
 			if err != nil {
 				log.Log.Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
-				return err
+				return errors.Join(err, os.Remove(isoOutFile))
 			}
 			return nil
 		}
@@ -483,49 +480,25 @@ func PrepareLocalPath(vmiName string, namespace string) error {
 // GenerateIsoPlaceholder creates a zero-filled placeholder for a
 // cloud-init ISO during migration.
 func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitData, size int64) error {
-
-	var err error
-	var isoStaging, iso string
-
+	var iso string
 	switch data.DataSource {
 	case DataSourceNoCloud, DataSourceConfigDrive:
 		iso = GetIsoFilePath(data.DataSource, vmiName, namespace)
 	default:
 		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
 	}
-	isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-
-	err = removeFilesIfExist(isoStaging)
-	if err != nil {
-		return err
-	}
-
-	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
-		return err
-	}
-
-	f, err := os.Create(isoStaging)
-	if err != nil {
-		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
-	}
-
-	writeErr := util.WriteBytes(f, 0, size)
-	closeErr := f.Close()
-	if writeErr != nil {
-		return writeErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-
-	if err := chownToQEMU(isoStaging); err != nil {
-		return err
-	}
-	err = os.Rename(isoStaging, iso)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
+	if err := writeIso(iso, func(staging string) error {
+		file, err := os.Create(staging)
+		if err != nil {
+			return fmt.Errorf("failed to create empty iso: '%s'", staging)
+		}
+		writeErr := util.WriteBytes(file, 0, size)
+		closeErr := file.Close()
+		if writeErr != nil || closeErr != nil {
+			return errors.Join(writeErr, closeErr, os.Remove(staging))
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -542,7 +515,7 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 	domainBasePath := getDomainBasePath(vmi.Name, vmi.Namespace)
 	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
 
-	var dataPath, metaFile, userFile, networkFile, iso, isoStaging string
+	var dataPath, metaFile, userFile, networkFile, iso string
 	switch data.DataSource {
 	case DataSourceNoCloud:
 		dataPath = dataBasePath
@@ -550,7 +523,6 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
 		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
-		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		metaData, err = json.Marshal(data.NoCloudMetaData)
 		if err != nil {
 			return err
@@ -561,7 +533,6 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
-		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.ConfigDriveMetaData != nil {
 			data.ConfigDriveMetaData.Devices = data.DevicesData
 		}
@@ -590,48 +561,44 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		networkData = []byte(data.NetworkData)
 	}
 
-	err = removeFilesIfExist(userFile, metaFile, networkFile, isoStaging)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(userFile, userData, 0600)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(userFile)
-
-	err = os.WriteFile(metaFile, metaData, 0600)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(metaFile)
-
-	if len(networkData) > 0 {
-		err = os.WriteFile(networkFile, networkData, 0600)
+	err = writeIso(iso, func(staging string) error {
+		err = removeFilesIfExist(userFile, metaFile, networkFile)
 		if err != nil {
 			return err
 		}
-		defer os.Remove(networkFile)
-	}
 
-	switch data.DataSource {
-	case DataSourceNoCloud:
-		err = cloudInitIsoFunc(isoStaging, "cidata", dataBasePath)
-	case DataSourceConfigDrive:
-		err = cloudInitIsoFunc(isoStaging, "config-2", dataBasePath)
-	}
+		err = os.WriteFile(userFile, userData, 0600)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(userFile)
+
+		err = os.WriteFile(metaFile, metaData, 0600)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(metaFile)
+
+		if len(networkData) > 0 {
+			err = os.WriteFile(networkFile, networkData, 0600)
+			if err != nil {
+				return err
+			}
+			defer os.Remove(networkFile)
+		}
+
+		switch data.DataSource {
+		case DataSourceNoCloud:
+			err = cloudInitIsoFunc(staging, "cidata", dataBasePath)
+		case DataSourceConfigDrive:
+			err = cloudInitIsoFunc(staging, "config-2", dataBasePath)
+		}
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return err
-	}
-
-	if err := chownToQEMU(isoStaging); err != nil {
-		return err
-	}
-
-	err = os.Rename(isoStaging, iso)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
 		return err
 	}
 
@@ -644,6 +611,30 @@ func removeFilesIfExist(paths ...string) error {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
+	}
+	return nil
+}
+
+// writeIso generates a staging file and publishes it with qemu ownership.
+// generate must remove any partial staging file on failure.
+func writeIso(iso string, generate func(staging string) error) error {
+	staging := iso + ".staging"
+	if err := os.Remove(staging); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := util.MkdirAllWithNosec(filepath.Dir(iso)); err != nil {
+		return err
+	}
+	if err := generate(staging); err != nil {
+		return err
+	}
+	defer os.Remove(staging)
+	if err := chownToQEMU(staging); err != nil {
+		return err
+	}
+	if err := os.Rename(staging, iso); err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", staging, iso)
+		return err
 	}
 	return nil
 }
