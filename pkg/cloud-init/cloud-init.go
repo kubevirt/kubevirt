@@ -34,7 +34,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/precond"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -107,7 +106,6 @@ type DeviceData struct {
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
-	precond.MustNotBeNil(vmi)
 	// ClusterInstancetypeAnnotation will take precedence over a namespaced Instancetype
 	// for setting instance_type in the metadata
 	instancetype := vmi.Annotations[v1.ClusterInstancetypeAnnotation]
@@ -486,8 +484,6 @@ func PrepareLocalPath(vmiName string, namespace string) error {
 // GenerateIsoPlaceholder creates a zero-filled placeholder for a
 // cloud-init ISO during migration.
 func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitData, size int64) error {
-	precond.MustNotBeEmpty(vmiName)
-	precond.MustNotBeNil(data)
 
 	var err error
 	var isoStaging, iso string
@@ -540,8 +536,6 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 
 // GenerateIso generates a cloud-init ISO for the VMI.
 func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
-	precond.MustNotBeEmpty(vmi.Name)
-	precond.MustNotBeNil(data)
 
 	var metaData []byte
 	var err error
