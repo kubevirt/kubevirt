@@ -276,6 +276,17 @@ coding conventions](#detailed-coding-conventions).
     - E.g. use `kubevirt.Client()` in test functions instead of passing the
       client as an additional function call argument.
     - Again: Use structs and receiver methods to keep state.
+- Prefer testing a package's behavior through its public API.
+    - Place unit tests in the corresponding external test package, e.g.
+      `package foo_test` for `package foo`, so tests use the same exported API
+      as consumers of the package.
+    - Assert observable behavior rather than implementation details so internal
+      refactoring does not require rewriting tests.
+    - Tests may use the same package when unexported behavior needs focused
+      coverage that is difficult to obtain through the public API. Do not
+      export identifiers solely to make them accessible to tests.
+    - See [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments#interfaces)
+      and the [black box testing documentation](https://pkg.go.dev/testing#hdr-Overview).
 - Table-driven tests are preferred for testing matrices of scenarios/inputs.
     - Use Gingko's `DescribeTable` to construct test tables.
 - Do not expect an asynchronous thing to happen immediately.
@@ -293,7 +304,8 @@ coding conventions](#detailed-coding-conventions).
           say `package autoscaler` not `package autoscalercontroller`.
     - Unless there's a good reason, the `package foo` line should match the
       name of the directory in which the `.go` file exists.
-    - Do not use uppercase characters, underscores, or dashes in package names.
+    - Do not use uppercase characters, underscores, or dashes in package names,
+      except for the `_test` suffix for external test packages.
     - Command-line flags should use dashes, not underscores.
     - Importers can use a different name if they need to disambiguate.
     - Locks should be called `lock` and should never be embedded (
