@@ -423,6 +423,22 @@ var _ = Describe("CloudInit", func() {
 	})
 
 	Describe("GenerateIso", func() {
+		It("does not modify ConfigDrive metadata when adding devices", func() {
+			vmi := libvmi.New(libvmi.WithName("guest"), libvmi.WithNamespace("default"))
+			metadata := &ConfigDriveMetadata{InstanceID: "provided"}
+			devices := []DeviceData{{Type: NICMetadataType, Bus: "pci"}}
+			data := &CloudInitData{
+				DataSource:          DataSourceConfigDrive,
+				UserData:            "fake\nuser\ndata\n",
+				ConfigDriveMetaData: metadata,
+				DevicesData:         &devices,
+			}
+
+			Expect(GenerateIso(vmi, data)).To(Succeed())
+			Expect(data.ConfigDriveMetaData).To(BeIdenticalTo(metadata))
+			Expect(metadata.Devices).To(BeNil())
+		})
+
 		It("should cleanly run twice", func() {
 			userData := "fake\nuser\ndata\n"
 
