@@ -343,6 +343,13 @@ image_push(
 )
 
 image_push(
+    name = "push-network-queue-cap",
+    image = "//cmd/plugin-sidecars/network-queue-cap:network-queue-cap-image",
+    registry = "quay.io",
+    repository = "kubevirt/network-queue-cap",
+)
+
+image_push(
     name = "push-example-cloudinit-hook-sidecar",
     image = "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
     registry = "quay.io",
