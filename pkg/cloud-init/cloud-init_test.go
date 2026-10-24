@@ -51,6 +51,7 @@ var _ = Describe("CloudInit", func() {
 		return &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Volumes: volumes,
+				Domain:  v1.DomainSpec{Firmware: &v1.Firmware{}},
 			},
 		}
 	}
@@ -422,11 +423,11 @@ var _ = Describe("CloudInit", func() {
 							"somekey":      "ssh-1234",
 							"someotherkey": "ssh-5678",
 						})
-						keys, err := resolveNoCloudSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
-						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
-						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
-						Expect(keys).To(HaveLen(2))
+						Expect(data.UserData).To(Equal("secret-userdata"))
+						Expect(data.NetworkData).To(Equal("secret-networkdata"))
+						Expect(data.NoCloudMetaData.PublicSSHKeys).To(HaveLen(2))
 					})
 
 					It("should resolve camel-case no-cloud data from volume", func() {
@@ -436,22 +437,22 @@ var _ = Describe("CloudInit", func() {
 							"userData":    "secret-userdata",
 							"networkData": "secret-networkdata",
 						})
-						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
-						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
-						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
+						Expect(data.UserData).To(Equal("secret-userdata"))
+						Expect(data.NetworkData).To(Equal("secret-networkdata"))
 					})
 
 					It("should resolve empty no-cloud volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
-						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
 						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						_, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
@@ -561,27 +562,27 @@ var _ = Describe("CloudInit", func() {
 							"somekey":      "ssh-1234",
 							"someotherkey": "ssh-5678",
 						})
-						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
-						Expect(testVolume.CloudInitConfigDrive.UserData).To(Equal("secret-userdata"))
-						Expect(testVolume.CloudInitConfigDrive.NetworkData).To(Equal("secret-networkdata"))
-						Expect(keys).To(HaveLen(2))
+						Expect(data.UserData).To(Equal("secret-userdata"))
+						Expect(data.NetworkData).To(Equal("secret-networkdata"))
+						Expect(data.ConfigDriveMetaData.PublicSSHKeys).To(HaveLen(2))
 					})
 
 					It("should resolve empty config-drive volume and do nothing", func() {
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{})
-						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(Not(HaveOccurred()), "failed to resolve empty volumes")
-						Expect(keys).To(BeEmpty())
+						Expect(data).To(BeNil())
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
 						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
-						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						data, err := ReadCloudInitVolumeDataSource(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
-						Expect(keys).To(BeEmpty())
+						Expect(data).To(BeNil())
 
 					})
 				})
