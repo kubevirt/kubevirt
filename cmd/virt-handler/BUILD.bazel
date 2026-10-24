@@ -45,6 +45,7 @@ go_library(
         "//pkg/virt-handler/launcher-clients:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
         "//pkg/virt-handler/node-labeller:go_default_library",
+        "//pkg/virt-handler/notify-manager:go_default_library",
         "//pkg/virt-handler/plugins:go_default_library",
         "//pkg/virt-handler/rest:go_default_library",
         "//pkg/virt-handler/seccomp:go_default_library",

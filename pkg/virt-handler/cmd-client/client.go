@@ -58,7 +58,7 @@ var (
 	// add older version when supported
 	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
 	supportedCmdVersions = []uint32{1}
-	baseDir              = "/var/run/kubevirt"
+	baseDir              = "/run/kubevirt"
 	podsBaseDir          = "/pods"
 )
 
@@ -296,7 +296,7 @@ func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientCon
 	}
 }
 
-func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) LauncherClient {
+func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) *VirtLauncherClient {
 	return &VirtLauncherClient{
 		v1client: client,
 		conn:     conn,
