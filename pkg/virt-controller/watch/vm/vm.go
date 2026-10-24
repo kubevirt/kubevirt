@@ -266,6 +266,27 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	return ds, nil
 }
 
+// synchronizer defines the contract for VM synchronizers.
+//
+// Contract Requirements:
+// - MUST only modify the local vm object passed as parameter (ObjectMeta, Spec and Status fields allowed)
+// - MUST NOT make direct API calls to Update(), UpdateStatus(), Patch(), or PatchStatus() on the VM
+// - MUST return the modified VM object (or original if no changes)
+//
+// The main VM controller is responsible for:
+// - Detecting changes via DeepEqual checks on Spec/Status
+// - Persisting Spec/ObjectMeta changes via Update()
+// - Persisting Status changes via UpdateStatus()
+//
+// Writes to other resources are allowed, including ControllerRevision creation and VMI patches.
+// Expand currently retains its own VM persistence and snapshot cleanup; see docs/devel/vm-controller-synchronizers.md.
+//
+// Example Pattern:
+//
+//	func (s *MySynchronizer) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+//	    vm.Status.SomeField = computedValue
+//	    return vm, nil
+//	}
 type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
@@ -372,6 +393,12 @@ func (c *Controller) execute(key string) error {
 
 	logger.V(4).Info("Started processing vm")
 
+	// Synchronizer contract for Spec/Status modifications:
+	// - Synchronizers (instancetype, network) modify the local VM object and return it
+	// - sync() runs synchronizers in sequence and persists Spec/ObjectMeta changes via Update()
+	// - updateStatus() persists the accumulated Status changes via UpdateStatus()
+	// - This separation follows Kubernetes subresource pattern and avoids intermediate API calls
+
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
@@ -455,7 +482,38 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	// Replaced snapshots must remain available until their new references are durable.
+	c.cleanupReplacedControllerRevisions(originalVM, vm)
+
 	return syncErr
+}
+
+func (c *Controller) cleanupReplacedControllerRevisions(originalVM, vm *virtv1.VirtualMachine) {
+	refs := [][2]*virtv1.InstancetypeStatusRef{
+		{originalVM.Status.InstancetypeRef, vm.Status.InstancetypeRef},
+		{originalVM.Status.PreferenceRef, vm.Status.PreferenceRef},
+	}
+	for _, pair := range refs {
+		oldRef, newRef := pair[0], pair[1]
+		if !revision.HasControllerRevisionRef(oldRef) || !revision.HasControllerRevisionRef(newRef) ||
+			oldRef.ControllerRevisionRef.Name == newRef.ControllerRevisionRef.Name {
+			continue
+		}
+		// Only clean up upgrades of the same matcher, and retain snapshots that
+		// the persisted spec still references explicitly.
+		oldRefCopy := oldRef.DeepCopy()
+		oldRefCopy.ControllerRevisionRef = newRef.ControllerRevisionRef
+		if !equality.Semantic.DeepEqual(oldRefCopy, newRef) ||
+			(vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName == oldRef.ControllerRevisionRef.Name) ||
+			(vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName == oldRef.ControllerRevisionRef.Name) {
+			continue
+		}
+		if err := c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			context.Background(), oldRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+		); err != nil && !apiErrors.IsNotFound(err) {
+			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete replaced instancetype.kubevirt.io ControllerRevision")
+		}
+	}
 }
 
 func (c *Controller) handleCloneDataVolume(vm *virtv1.VirtualMachine, dv *cdiv1.DataVolume) error {
@@ -3272,20 +3330,15 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
-	// FIXME(lyarwood): Move alongside netSynchronizer
-	syncedVM, err := c.instancetypeController.Sync(vm, vmi)
-	if err != nil {
-		return vm, vmi, handleSynchronizerErr(err), nil
+	if c.instancetypeController != nil {
+		syncedVM, syncerErr := c.instancetypeController.Sync(vm, vmi)
+		if syncerErr != nil {
+			return vm, vmi, handleSynchronizerErr(syncerErr), nil
+		}
+		vm.ObjectMeta = syncedVM.ObjectMeta
+		vm.Spec = syncedVM.Spec
+		vm.Status = syncedVM.Status
 	}
-	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
-		return syncedVM, vmi, nil, nil
-	}
-	if !equality.Semantic.DeepEqual(vm.Status, syncedVM.Status) {
-		return syncedVM, vmi, nil, nil
-	}
-
-	vm.ObjectMeta = syncedVM.ObjectMeta
-	vm.Spec = syncedVM.Spec
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
@@ -3325,6 +3378,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 		vmCopy.ObjectMeta = syncedVM.ObjectMeta
 		vmCopy.Spec = syncedVM.Spec
+		vmCopy.Status = syncedVM.Status
 	}
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
@@ -3374,12 +3428,16 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	// Persist Spec/ObjectMeta changes via Update() if synchronizers or handlers modified them.
+	// Status changes are persisted separately via UpdateStatus() in updateStatus() function.
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
 		vm = updatedVm
+		// Preserve Status changes from synchronizers (especially instancetype) since Update() only persists Spec/ObjectMeta
+		vm.Status = vmCopy.Status
 	} else {
 		vm = vmCopy
 	}

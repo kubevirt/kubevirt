@@ -214,7 +214,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		return objects
 	}
 
-	sanitySync := func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	sanitySync := func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
 		stores := []cache.Store{
 			instancetypeInformerStore,
 			clusterInstancetypeInformerStore,
@@ -228,12 +228,13 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
 		}
 
-		_, err := instancetypeController.Sync(vm, vmi)
+		updatedVM, err := instancetypeController.Sync(vm, vmi)
 		Expect(err).ToNot(HaveOccurred())
 
 		for i, objects := range listOfObjects {
 			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
 		}
+		return updatedVM
 	}
 
 	Context("instancetype", func() {
@@ -280,10 +281,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -352,10 +351,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeRevision.Name))
 		})
 
@@ -375,10 +372,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -536,10 +531,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -607,10 +600,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceRevision.Name))
 		})
 
@@ -627,10 +618,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -791,11 +780,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
 			Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
@@ -834,11 +820,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sanitySync(vm, vmi)
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
+			vm = sanitySync(vm, vmi)
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Status.InstancetypeRef).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
