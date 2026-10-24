@@ -263,3 +263,7 @@ func (config *ClusterConfig) SCSIMultiIOThreadEnabled() bool {
 func (config *ClusterConfig) DeclarativeVMStateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.DeclarativeVMState)
 }
+
+func (config *ClusterConfig) MigrationCompressionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationCompression)
+}
