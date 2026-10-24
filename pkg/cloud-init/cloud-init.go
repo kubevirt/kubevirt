@@ -45,7 +45,7 @@ const isoStagingFmt = "%s.staging"
 
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
 
-var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
+var cloudInitLocalDir = "/var/run/kubevirt-ephemeral-disks/cloud-init-data"
 var cloudInitIsoFunc = defaultIsoFunc
 
 // Locations of data source disk files
@@ -461,14 +461,8 @@ func SetLocalDirectory(dir string) error {
 		return fmt.Errorf("unable to initialize cloudInit local cache directory (%s). %v", dir, err)
 	}
 
-	SetLocalDirectoryOnly(dir)
-	return nil
-}
-
-// XXX refactor this whole package
-// This is just a cheap workaround to make e2e tests pass
-func SetLocalDirectoryOnly(dir string) {
 	cloudInitLocalDir = dir
+	return nil
 }
 
 func getDomainBasePath(domain string, namespace string) string {

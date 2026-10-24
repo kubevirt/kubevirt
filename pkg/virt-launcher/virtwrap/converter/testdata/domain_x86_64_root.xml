@@ -54,14 +54,14 @@
       <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"></address>
     </disk>
     <disk device="disk" type="file" model="virtio-non-transitional">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
       <address type="pci" domain="0x0000" bus="0x00" slot="0x06" function="0x0"></address>
     </disk>
     <disk device="cdrom" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw"></driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
