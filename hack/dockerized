@@ -6,6 +6,9 @@ set -e
 source $(dirname "$0")/common.sh
 
 if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
+    if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
+        "${KUBEVIRT_DIR}/hack/ensure-bazel.sh"
+    fi
     /bin/bash -c "$@"
     exit $?
 fi
@@ -202,6 +205,11 @@ fi
 # Update cert trust, if custom is provided
 if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
     $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
+fi
+
+# Ensure the container has the expected Bazel version before invoking the build command
+if [ "${KUBEVIRT_NO_BAZEL}" != "true" ]; then
+    $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${BUILDER}-bazel-server /entrypoint.sh "./hack/ensure-bazel.sh"
 fi
 
 # Run the command
