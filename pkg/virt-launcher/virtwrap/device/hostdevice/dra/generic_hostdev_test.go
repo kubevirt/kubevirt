@@ -105,6 +105,7 @@ var _ = Describe("CreateDRAHostDevices", func() {
 
 			dev := hostDevs[0]
 			Expect(dev.Type).To(Equal(api.HostDevicePCI))
+			Expect(dev.Mode).To(Equal("subsystem"))
 			Expect(dev.Managed).To(Equal("no"))
 			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "hd1"))
 			Expect(dev.Source.Address.Type).To(Equal(api.AddressPCI))
