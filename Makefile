@@ -42,6 +42,21 @@ bazel-push-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"
 	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
 
+# Publish the pinned virt-template-apiserver and virt-template-controller images
+# to DOCKER_PREFIX. This is separate from bazel-push-images so a normal image
+# push does not publish virt-template on its own (for example a single-arch
+# push whose DOCKER_PREFIX is a public registry).
+# A comma-separated BUILD_ARCH is a multi-arch release build; that case is a
+# no-op so the upstream virt-template tags stay unchanged.
+comma := ,
+ifeq ($(findstring $(comma),${BUILD_ARCH}),)
+bazel-push-virt-template-images:
+	hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/virt-template/push-images.sh"
+else
+bazel-push-virt-template-images:
+	@echo "Skipping virt-template image push; BUILD_ARCH=${BUILD_ARCH} is multi-arch"
+endif
+
 push: bazel-push-images
 
 bazel-test:
@@ -281,6 +296,7 @@ vmlog-checker:
 	bazel-build \
 	bazel-build-images \
 	bazel-push-images \
+	bazel-push-virt-template-images \
 	bazel-test \
 	functest-image-build \
 	functest-image-push \
