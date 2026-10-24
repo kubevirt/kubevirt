@@ -279,15 +279,13 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			}
 
 			if iface.State == v1.InterfaceStateAbsent {
-				var filteredIfacesSpec []nmstate.Interface
-				for _, ifaceSpec := range ifacesSpec {
-					// Interfaces with no type are not owned by kubevirt, therefore not removed.
-					if ifaceSpec.TypeName != "" {
-						ifaceSpec.State = nmstate.IfaceStateAbsent
-						filteredIfacesSpec = append(filteredIfacesSpec, ifaceSpec)
-					}
+				// Mark all the interfaces composing the bridge binding for removal.
+				// This includes the pod (veth) interface, which KubeVirt renamed to
+				// "<name>-nic" while plugging: the CNI can no longer locate it under
+				// its original name on DEL, so KubeVirt is responsible for removing it.
+				for i := range ifacesSpec {
+					ifacesSpec[i].State = nmstate.IfaceStateAbsent
 				}
-				ifacesSpec = filteredIfacesSpec
 			}
 
 		case iface.Masquerade != nil:
