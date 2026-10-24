@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
@@ -521,7 +520,7 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
+	if err := chownToQEMU(isoStaging); err != nil {
 		return err
 	}
 	err = os.Rename(isoStaging, iso)
@@ -626,7 +625,7 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 		return err
 	}
 
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
+	if err := chownToQEMU(isoStaging); err != nil {
 		return err
 	}
 
@@ -647,4 +646,12 @@ func removeFilesIfExist(paths ...string) error {
 		}
 	}
 	return nil
+}
+
+// chownToQEMU is needed if virt-launcher runs as featuregate.Root
+func chownToQEMU(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }
