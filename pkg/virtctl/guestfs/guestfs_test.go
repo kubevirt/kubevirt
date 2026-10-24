@@ -30,8 +30,12 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
@@ -46,7 +50,7 @@ const (
 	testNamespace = "default"
 )
 
-func fakeAttacherCreator(client *guestfs.K8sClient, p *v1.Pod, command string) error {
+func fakeAttacherCreator(_ *rest.Config, _ kubernetes.Interface, _ *v1.Pod, _ string) error {
 	return nil
 }
 
@@ -70,7 +74,13 @@ var _ = Describe("Guestfs shell", func() {
 			VolumeMode: &mode,
 		},
 	}
-	fakeCreateClientPVC := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
+	// setK8sClient makes the given fake clientset the one virtctl builds from the client config.
+	setK8sClient := func(client kubernetes.Interface) {
+		kubecli.GetK8sClientFromClientConfig = func(_ clientcmd.ClientConfig) (kubernetes.Interface, error) {
+			return client, nil
+		}
+	}
+	fakeClientPVC := func() {
 		kubeClient = fake.NewSimpleClientset(pvc)
 		kubeClient.Fake.PrependReactor("get", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			podRunning := &v1.Pod{
@@ -94,9 +104,9 @@ var _ = Describe("Guestfs shell", func() {
 			}
 			return true, podRunning, nil
 		})
-		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
+		setK8sClient(kubeClient)
 	}
-	fakeCreateClientPVCinUse := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
+	fakeClientPVCinUse := func() {
 		otherPod := &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-pod",
@@ -117,20 +127,20 @@ var _ = Describe("Guestfs shell", func() {
 		}
 
 		kubeClient = fake.NewSimpleClientset(pvc, otherPod)
-		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
+		setK8sClient(kubeClient)
 	}
-	fakeCreateClientPVCWithMockVirtClient := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
+	fakeClientPVCRecordingPod := func() {
 		kubeClient = fake.NewSimpleClientset(pvc)
 		kubeClient.Fake.PrependReactor("create", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			libguestfsPod = action.(k8stesting.CreateAction).GetObject().(*v1.Pod)
 			libguestfsPod.Status.Phase = v1.PodRunning
 			return false, libguestfsPod, nil
 		})
-		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubecli.MockKubevirtClientInstance}, nil
+		setK8sClient(kubeClient)
 	}
-	fakeCreateClient := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
+	fakeClientNoPVC := func() {
 		kubeClient = fake.NewSimpleClientset()
-		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
+		setK8sClient(kubeClient)
 	}
 
 	Context("attach to PVC", func() {
@@ -142,16 +152,15 @@ var _ = Describe("Guestfs shell", func() {
 		AfterEach(func() {
 			guestfs.ImageSetFunc = guestfs.SetImage
 			guestfs.CreateAttacherFunc = guestfs.CreateAttacher
-			guestfs.CreateClientFunc = guestfs.CreateClient
 		})
 
 		It("Successfully attach to PVC", func() {
-			guestfs.CreateClientFunc = fakeCreateClientPVC
+			fakeClientPVC()
 			Expect(testing.NewRepeatableVirtctlCommand(commandName, pvcName)()).To(Succeed())
 		})
 
 		It("PVC in use", func() {
-			guestfs.CreateClientFunc = fakeCreateClientPVCinUse
+			fakeClientPVCinUse()
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -159,7 +168,7 @@ var _ = Describe("Guestfs shell", func() {
 		})
 
 		It("PVC doesn't exist", func() {
-			guestfs.CreateClientFunc = fakeCreateClient
+			fakeClientNoPVC()
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
@@ -167,13 +176,13 @@ var _ = Describe("Guestfs shell", func() {
 		})
 
 		It("UID cannot be used with root", func() {
-			guestfs.CreateClientFunc = fakeCreateClientPVC
+			fakeClientPVC()
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
 			err := cmd()
 			Expect(err).To(MatchError("cannot set uid if root is true"))
 		})
 		It("GID can be use only together with the uid flag", func() {
-			guestfs.CreateClientFunc = fakeCreateClientPVC
+			fakeClientPVC()
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--gid=1001")
 			err := cmd()
 			Expect(err).To(MatchError("gid requires the uid to be set"))
@@ -192,7 +201,8 @@ var _ = Describe("Guestfs shell", func() {
 			ctrl := gomock.NewController(GinkgoT())
 			kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 			kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-			guestfs.CreateClientFunc = fakeCreateClientPVCWithMockVirtClient
+			kubecli.MockKubevirtClientInstance.EXPECT().Config().Return(&rest.Config{}).AnyTimes()
+			fakeClientPVCRecordingPod()
 			kubevirtClient := kubevirtfake.NewSimpleClientset()
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(testNamespace).Return(kubevirtClient.KubevirtV1().VirtualMachines(testNamespace)).AnyTimes()
 			vm, err := kubevirtClient.KubevirtV1().VirtualMachines(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
