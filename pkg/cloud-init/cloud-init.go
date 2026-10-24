@@ -104,11 +104,6 @@ type DeviceData struct {
 	Tags        []string           `json:"tags"`
 }
 
-// IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateIso can be called with it.
-func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
-	return cloudInitData != nil && cloudInitData.UserData != "" && (cloudInitData.NoCloudMetaData != nil || cloudInitData.ConfigDriveMetaData != nil)
-}
-
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
