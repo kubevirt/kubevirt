@@ -19071,8 +19071,7 @@ func schema_kubevirtio_api_core_v1_ArchConfiguration(ref common.ReferenceCallbac
 					},
 					"ppc64le": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: ppc64le architecture is no longer supported.",
-							Ref:         ref(corev1.ArchSpecificConfiguration{}.OpenAPIModelName()),
+							Ref: ref(corev1.ArchSpecificConfiguration{}.OpenAPIModelName()),
 						},
 					},
 					"s390x": {

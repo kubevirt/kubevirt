@@ -1,4 +1,4 @@
-//go:build (linux && amd64) || (linux && arm64) || (linux && s390x)
+//go:build (linux && amd64) || (linux && arm64) || (linux && s390x) || (linux && ppc64le)
 
 /*
  * This file is part of the KubeVirt project

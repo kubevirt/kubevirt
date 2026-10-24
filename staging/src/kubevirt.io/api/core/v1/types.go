@@ -3462,10 +3462,8 @@ const (
 )
 
 type ArchConfiguration struct {
-	Amd64 *ArchSpecificConfiguration `json:"amd64,omitempty"`
-	Arm64 *ArchSpecificConfiguration `json:"arm64,omitempty"`
-
-	// Deprecated: ppc64le architecture is no longer supported.
+	Amd64               *ArchSpecificConfiguration `json:"amd64,omitempty"`
+	Arm64               *ArchSpecificConfiguration `json:"arm64,omitempty"`
 	Ppc64le             *ArchSpecificConfiguration `json:"ppc64le,omitempty"`
 	S390x               *ArchSpecificConfiguration `json:"s390x,omitempty"`
 	DefaultArchitecture string                     `json:"defaultArchitecture,omitempty"`

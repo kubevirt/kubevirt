@@ -1,0 +1,27 @@
+<domainCapabilities>
+  <path>/usr/libexec/qemu-kvm</path>
+  <domain>kvm</domain>
+  <machine>pseries-rhel10.0.0</machine>
+  <arch>ppc64le</arch>
+  <vcpu max='384'/>
+  <iothreads supported='yes'/>
+  <cpu>
+    <mode name='host-passthrough' supported='yes'>
+      <enum name='hostPassthroughMigratable'>
+        <value>off</value>
+      </enum>
+    </mode>
+    <mode name='maximum' supported='no'/>
+    <mode name='host-model' supported='yes'>
+      <model fallback='allow'>POWER10</model>
+      <vendor>IBM</vendor>
+    </mode>
+    <mode name='custom' supported='yes'>
+      <model usable='unknown' vendor='IBM'>POWER10</model>
+      <model usable='unknown' vendor='IBM'>POWER11</model>
+      <model usable='unknown' vendor='IBM'>POWER7</model>
+      <model usable='unknown' vendor='IBM'>POWER8</model>
+      <model usable='unknown' vendor='IBM'>POWER9</model>
+    </mode>
+  </cpu>
+</domainCapabilities>

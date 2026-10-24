@@ -4124,6 +4124,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			Entry("no watchdog configured", nil, "", false),
 		)
+
+		DescribeTable("validate for ppc64le",
+			func(watchdog *v1.Watchdog, expectedMessage string, shouldReject bool) {
+				vmi.Spec.Domain.Devices.Watchdog = watchdog
+				causes := webhooks.ValidateVirtualMachineInstancePPC64LESetting(k8sfield.NewPath("fake"), &vmi.Spec)
+
+				if shouldReject {
+					Expect(causes).To(HaveLen(1))
+					Expect(causes[0].Field).To(Equal("fake.domain.devices.watchdog"))
+					Expect(causes[0].Message).To(Equal(expectedMessage))
+				} else {
+					Expect(causes).To(BeEmpty())
+				}
+			},
+			Entry("I6300ESB is accepted", &v1.Watchdog{
+				Name: "w7",
+				WatchdogDevice: v1.WatchdogDevice{
+					I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionPoweroff},
+				},
+			}, "", false),
+
+			Entry("Diag288 is rejected", &v1.Watchdog{
+				Name: "w8",
+				WatchdogDevice: v1.WatchdogDevice{
+					Diag288: &v1.Diag288Watchdog{Action: v1.WatchdogActionPoweroff},
+				},
+			}, "ppc64le only supports I6300ESB watchdog device", true),
+
+			Entry("no watchdog configured", nil, "", false),
+		)
 	})
 
 	Context("with VideoConfig", func() {
@@ -4168,6 +4198,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("arm64 allows bochs", "arm64", "ramfb"),
 
 			Entry("s390x allows virtio", "s390x", "virtio"),
+
+			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
 		)
 
 		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
@@ -4201,6 +4233,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("s390x rejects xenfb", "s390x", "xenfb"),
 			Entry("s390x rejects none", "s390x", "none"),
 			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
+
+			Entry("ppc64le rejects bochs", "ppc64le", "bochs"),
+			Entry("ppc64le rejects vga", "ppc64le", "vga"),
+			Entry("ppc64le rejects cirrus", "ppc64le", "cirrus"),
+			Entry("ppc64le rejects ramfb", "ppc64le", "ramfb"),
+			Entry("ppc64le rejects qxl", "ppc64le", "qxl"),
+			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
 		)
 	})
 
