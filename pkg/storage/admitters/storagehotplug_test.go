@@ -568,6 +568,22 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 				makeFilesystems(1),
 				makeStatus(2, 0),
 				makeExpected("mismatch between volumes declared (3) and required (2)", "")),
+			Entry("Should accept if volume used by filesystem has no volume status yet",
+				makeVolumes(0, 1),
+				makeVolumes(0, 1),
+				makeDisks(0),
+				makeDisks(0),
+				makeFilesystems(1),
+				makeStatus(1, 0),
+				nil),
+			Entry("Should reject if volume used by filesystem is added",
+				makeVolumes(0, 1),
+				makeVolumes(0),
+				makeDisks(0),
+				makeDisks(0),
+				makeFilesystems(1),
+				makeStatus(1, 0),
+				makeExpected("Number of permanent volumes has changed", "")),
 		)
 	})
 
