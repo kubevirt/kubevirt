@@ -6,7 +6,7 @@ go_library(
         "oneshot-cache.go",
         "time-defined-cache.go",
     ],
-    importpath = "kubevirt.io/kubevirt/tools/cache",
+    importpath = "kubevirt.io/kubevirt/pkg/cache",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/pointer:go_default_library",

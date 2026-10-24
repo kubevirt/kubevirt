@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtcache "kubevirt.io/kubevirt/tools/cache"
+	virtcache "kubevirt.io/kubevirt/pkg/cache"
 )
 
 var _ = Describe("time defined cache", func() {
