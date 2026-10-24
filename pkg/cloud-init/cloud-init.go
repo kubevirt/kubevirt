@@ -511,13 +511,13 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
 	}
 
-	err = util.WriteBytes(f, 0, size)
-	if err != nil {
-		return err
+	writeErr := util.WriteBytes(f, 0, size)
+	closeErr := f.Close()
+	if writeErr != nil {
+		return writeErr
 	}
-	util.CloseIOAndCheckErr(f, &err)
-	if err != nil {
-		return err
+	if closeErr != nil {
+		return closeErr
 	}
 
 	if err := chownToQEMU(isoStaging); err != nil {
