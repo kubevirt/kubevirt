@@ -20,12 +20,20 @@
 package apply
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-func applyFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Features == nil {
+type featurePreferences struct{}
+
+func (featurePreferences) Apply(
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
+) {
+	if preferenceSpec == nil || preferenceSpec.Features == nil {
 		return
 	}
 

@@ -37,7 +37,7 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 		field      = k8sfield.NewPath("spec", "template", "spec")
 	)
 
@@ -50,7 +50,7 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 			NodeSelector: map[string]string{"key": "value"},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.NodeSelector).To(Equal(instancetypeSpec.NodeSelector))
 	})
@@ -59,7 +59,7 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{}
 		vmi.Spec.NodeSelector = map[string]string{"key": "value"}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.NodeSelector).To(Equal(map[string]string{"key": "value"}))
 	})
@@ -70,7 +70,7 @@ var _ = Describe("instancetype.spec.NodeSelector", func() {
 		}
 		vmi.Spec.NodeSelector = map[string]string{"key": "value"}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.nodeSelector"))
 	})

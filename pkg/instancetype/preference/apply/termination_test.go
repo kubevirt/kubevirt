@@ -39,7 +39,7 @@ var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 	)
 
 	BeforeEach(func() {
@@ -52,7 +52,7 @@ var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.TerminationGracePeriodSeconds).To(HaveValue(Equal(*preferenceSpec.PreferredTerminationGracePeriodSeconds)))
 	})
 
@@ -62,7 +62,7 @@ var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
 			PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.TerminationGracePeriodSeconds).To(HaveValue(Equal(userDefinedValue)))
 	})
 })
