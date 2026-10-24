@@ -45,6 +45,13 @@ type PodIsolationDetector interface {
 	DetectForSocket(socket string) (IsolationResult, error)
 }
 
+// PodProcessIDDetector detects only the process IDs needed by consumers that do
+// not need the full IsolationResult.
+type PodProcessIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (ProcessIDs, error)
+	DetectForSocketProcessIDs(socket string) (ProcessIDs, error)
+}
+
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
@@ -54,6 +61,31 @@ type socketBasedIsolationDetector struct {
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
 func NewSocketBasedIsolationDetector() PodIsolationDetector {
 	return &socketBasedIsolationDetector{}
+}
+
+// NewSocketBasedProcessIDDetector returns a detector that exposes only process IDs.
+func NewSocketBasedProcessIDDetector() PodProcessIDDetector {
+	return &processIDDetector{detector: NewSocketBasedIsolationDetector()}
+}
+
+type processIDDetector struct {
+	detector PodIsolationDetector
+}
+
+func (d *processIDDetector) DetectProcessIDs(vm *v1.VirtualMachineInstance) (ProcessIDs, error) {
+	result, err := d.detector.Detect(vm)
+	if err != nil {
+		return ProcessIDs{}, err
+	}
+	return ProcessIDs{PID: result.Pid(), PPID: result.PPid()}, nil
+}
+
+func (d *processIDDetector) DetectForSocketProcessIDs(socket string) (ProcessIDs, error) {
+	result, err := d.detector.DetectForSocket(socket)
+	if err != nil {
+		return ProcessIDs{}, err
+	}
+	return ProcessIDs{PID: result.Pid(), PPID: result.PPid()}, nil
 }
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {

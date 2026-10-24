@@ -67,6 +67,64 @@ var _ = Describe("IsolationResult", func() {
 		})
 	})
 
+	Context("Narrow path APIs", func() {
+		It("resolves the mount root and root mount by PID", func() {
+			root, err := MountRootForPID(os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(root).ToNot(BeNil())
+
+			mountInfo, err := MountInfoRootForPID(os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mountInfo).ToNot(BeNil())
+		})
+		
+		It("returns errors when the PID has no proc entry", func() {
+			_, err := MountRootForPID(-1)
+			Expect(err).To(HaveOccurred())
+
+			_, err = MountInfoRootForPID(-1)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("safely joins paths under an already resolved root", func() {
+			tmpDir := GinkgoT().TempDir()
+			child := filepath.Join(tmpDir, "child")
+			Expect(os.Mkdir(child, 0755)).To(Succeed())
+			root, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			joined, err := SafeJoinRoot(root, "child")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unsafepath.UnsafeAbsolute(joined.Raw())).To(Equal(child))
+		})
+
+		It("returns an error when a joined path does not exist", func() {
+			root, err := safepath.JoinAndResolveWithRelativeRoot(GinkgoT().TempDir())
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = SafeJoinRoot(root, "missing")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("maps a root mount by parent and child PID", func() {
+			path, err := ParentPathForRootMountByPID(os.Getpid(), os.Getpid())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).ToNot(BeNil())
+
+			path, err = ParentPathForMountByPID(os.Getpid(), os.Getpid(), "", "/", "", "")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(path).ToNot(BeNil())
+		})
+
+		It("returns an error when mapping mounts for an invalid PID", func() {
+			_, err := ParentPathForMountByPID(os.Getpid(), -1, "", "/", "", "")
+			Expect(err).To(HaveOccurred())
+
+			_, err = ParentPathForRootMountByPID(os.Getpid(), -1)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 	Context("Mountpoint handling", func() {
 
 		var ctrl *gomock.Controller

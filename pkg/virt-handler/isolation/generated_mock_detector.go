@@ -69,3 +69,57 @@ func (mr *MockPodIsolationDetectorMockRecorder) DetectForSocket(socket any) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockPodIsolationDetector)(nil).DetectForSocket), socket)
 }
+
+// MockPodProcessIDDetector is a mock of PodProcessIDDetector.
+type MockPodProcessIDDetector struct {
+	ctrl     *gomock.Controller
+	recorder *MockPodProcessIDDetectorMockRecorder
+	isgomock struct{}
+}
+
+// MockPodProcessIDDetectorMockRecorder records expectations for MockPodProcessIDDetector.
+type MockPodProcessIDDetectorMockRecorder struct {
+	mock *MockPodProcessIDDetector
+}
+
+// NewMockPodProcessIDDetector creates a new mock process ID detector.
+func NewMockPodProcessIDDetector(ctrl *gomock.Controller) *MockPodProcessIDDetector {
+	mock := &MockPodProcessIDDetector{ctrl: ctrl}
+	mock.recorder = &MockPodProcessIDDetectorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns the recorder used to set process ID detector expectations.
+func (m *MockPodProcessIDDetector) EXPECT() *MockPodProcessIDDetectorMockRecorder {
+	return m.recorder
+}
+
+// DetectProcessIDs mocks the base method.
+func (m *MockPodProcessIDDetector) DetectProcessIDs(vm *v1.VirtualMachineInstance) (ProcessIDs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetectProcessIDs", vm)
+	ret0, _ := ret[0].(ProcessIDs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DetectProcessIDs records an expected call to DetectProcessIDs.
+func (mr *MockPodProcessIDDetectorMockRecorder) DetectProcessIDs(vm any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectProcessIDs", reflect.TypeOf((*MockPodProcessIDDetector)(nil).DetectProcessIDs), vm)
+}
+
+// DetectForSocketProcessIDs mocks the base method.
+func (m *MockPodProcessIDDetector) DetectForSocketProcessIDs(socket string) (ProcessIDs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DetectForSocketProcessIDs", socket)
+	ret0, _ := ret[0].(ProcessIDs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DetectForSocketProcessIDs records an expected call to DetectForSocketProcessIDs.
+func (mr *MockPodProcessIDDetectorMockRecorder) DetectForSocketProcessIDs(socket any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocketProcessIDs", reflect.TypeOf((*MockPodProcessIDDetector)(nil).DetectForSocketProcessIDs), socket)
+}
