@@ -290,6 +290,7 @@ const (
 
 	// Owner: sig-network
 	// Alpha: v1.9.0
+	// Beta: v1.11.0
 	//
 	// PortRangesSpec enables the portRanges field, initially only on masquerade interfaces,
 	// allowing compact specification of contiguous port intervals to forward to the VM guest.
@@ -368,7 +369,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
