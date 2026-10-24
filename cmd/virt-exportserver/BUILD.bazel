@@ -1,8 +1,8 @@
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_img//img:image.bzl", "image_manifest")
 load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:passwd.bzl", "passwd_entry", "passwd_file")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
