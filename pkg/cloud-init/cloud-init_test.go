@@ -17,483 +17,29 @@
  *
  */
 
-package cloudinit
+package cloudinit_test
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	cloudinitdata "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var _ = Describe("CloudInit", func() {
-
-	var (
-		isoCreationFunc IsoCreationFunc
-		tmpDir          string
-	)
-
-	BeforeEach(func() {
-		var err error
-		tmpDir, err = os.MkdirTemp("", "cloudinittest")
-		Expect(err).ToNot(HaveOccurred())
-		err = SetLocalDirectory(tmpDir)
-		if err != nil {
-			panic(err)
-		}
-		isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
-			switch volumeID {
-			case "cidata", "config-2":
-				// Valid volume IDs for nocloud and configdrive
-			default:
-				return fmt.Errorf("unexpected volume ID '%s'", volumeID)
-			}
-
-			// fake creating the iso
-			_, err := os.Create(isoOutFile)
-
-			return err
-		}
-	})
-
-	JustBeforeEach(func() {
-		SetIsoCreationFunction(isoCreationFunc)
-	})
-
-	AfterEach(func() {
-		os.RemoveAll(tmpDir)
-	})
-	Describe("Data Model", func() {
-		Context("verify meta-data model", func() {
-			It("should match the generated configdrive metadata", func() {
-				exampleJSONParsed := `{
-  "instance_type": "fake.fake-instancetype",
-  "instance_id": "fake.fake-namespace",
-  "local_hostname": "fake",
-  "uuid": "fake.fake-namespace",
-  "devices": [
-    {
-      "type": "nic",
-      "bus": "pci",
-      "address": "0000:01:00:0",
-      "mac": "02:00:00:84:e9:58",
-      "tags": [
-        "testtag"
-      ]
-    }
-  ],
-  "public_keys": {
-    "0": "somekey"
-  }
-}`
-				devices := []DeviceData{
-					{
-						Type:    NICMetadataType,
-						Bus:     api.AddressPCI,
-						Address: "0000:01:00:0",
-						MAC:     "02:00:00:84:e9:58",
-						Tags:    []string{"testtag"},
-					},
-				}
-
-				metadataStruct := ConfigDriveMetadata{
-					InstanceType:  "fake.fake-instancetype",
-					InstanceID:    "fake.fake-namespace",
-					LocalHostname: "fake",
-					UUID:          "fake.fake-namespace",
-					Devices:       &devices,
-					PublicSSHKeys: map[string]string{"0": "somekey"},
-				}
-				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(buf)).To(Equal(exampleJSONParsed))
-			})
-			It("should match the generated configdrive metadata for hostdev with numaNode", func() {
-				exampleJSONParsed := `{
-  "instance_id": "fake.fake-namespace",
-  "local_hostname": "fake",
-  "uuid": "fake.fake-namespace",
-  "devices": [
-    {
-      "type": "hostdev",
-      "bus": "pci",
-      "address": "0000:65:10:0",
-      "numaNode": 1,
-      "alignedCPUs": [
-        0,
-        1
-      ],
-      "tags": [
-        "testtag1"
-      ]
-    }
-  ],
-  "public_keys": {
-    "0": "somekey"
-  }
-}`
-				devices := []DeviceData{
-					{
-						Type:        HostDevMetadataType,
-						Bus:         api.AddressPCI,
-						Address:     "0000:65:10:0",
-						MAC:         "",
-						NumaNode:    uint32(1),
-						AlignedCPUs: []uint32{0, 1},
-						Tags:        []string{"testtag1"},
-					},
-				}
-
-				metadataStruct := ConfigDriveMetadata{
-					InstanceID:    "fake.fake-namespace",
-					LocalHostname: "fake",
-					UUID:          "fake.fake-namespace",
-					Devices:       &devices,
-					PublicSSHKeys: map[string]string{"0": "somekey"},
-				}
-				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(buf)).To(Equal(exampleJSONParsed))
-			})
-			It("should match the generated nocloud metadata", func() {
-				exampleJSONParsed := `{
-  "instance-type": "fake.fake-instancetype",
-  "instance-id": "fake.fake-namespace",
-  "local-hostname": "fake"
-}`
-
-				metadataStruct := NoCloudMetadata{
-					InstanceType:  "fake.fake-instancetype",
-					InstanceID:    "fake.fake-namespace",
-					LocalHostname: "fake",
-				}
-				buf, err := json.MarshalIndent(metadataStruct, "", "  ")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(buf)).To(Equal(exampleJSONParsed))
-			})
-		})
-	})
-	Describe("Volume-based data source", func() {
-		Context("when ISO generation fails", func() {
-			timedOut := false
-
-			BeforeEach(func() {
-				isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
-					var args []string
-
-					args = append(args, "10")
-					cmd := exec.Command("sleep", args...)
-
-					err := cmd.Start()
-					if err != nil {
-						return err
-					}
-
-					done := make(chan error)
-					go func() { done <- cmd.Wait() }()
-
-					timeout := time.After(1 * time.Second)
-
-					for {
-						select {
-						case <-timeout:
-							cmd.Process.Kill()
-							timedOut = true
-						case err := <-done:
-							if err != nil {
-								return err
-							}
-							return nil
-						}
-					}
-				}
-			})
-
-			It("should fail local data generation", func() {
-				userData := "fake\nuser\ndata\n"
-				source := &v1.CloudInitNoCloudSource{
-					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-				}
-				cloudInitData, _ := readCloudInitNoCloudSource(source)
-
-				vmi := &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "fake-domain",
-						Namespace: "fake-namespace",
-					},
-				}
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateIso(vmi, cloudInitData)
-				Expect(err).To(HaveOccurred())
-				Expect(timedOut).To(BeTrue())
-			})
-		})
-
-		Describe("A new VirtualMachineInstance definition", func() {
-			verifyCloudInitData := func(cloudInitData *CloudInitData) {
-				domain := "fake-domain"
-				namespace := "fake-namespace"
-
-				vmi := &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      domain,
-						Namespace: namespace,
-					},
-				}
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateIso(vmi, cloudInitData)
-				Expect(err).ToNot(HaveOccurred())
-
-				// verify iso is created
-				var isoFile string
-				switch cloudInitData.DataSource {
-				case DataSourceNoCloud:
-					isoFile = noCloudFile
-				case DataSourceConfigDrive:
-					isoFile = configDriveFile
-				default:
-					panic(fmt.Errorf("Invalid data source '%s'", cloudInitData.DataSource))
-				}
-				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/%s", tmpDir, namespace, domain, isoFile))
-				Expect(err).ToNot(HaveOccurred())
-
-				err = removeLocalData(domain, namespace)
-				Expect(err).ToNot(HaveOccurred())
-
-				// verify iso and entire dir is deleted
-				_, err = os.Stat(fmt.Sprintf("%s/%s/%s", tmpDir, namespace, domain))
-				if errors.Is(err, os.ErrNotExist) {
-					err = nil
-				}
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			Context("with CloudInitNoCloud volume source", func() {
-				verifyCloudInitNoCloudIso := func(source *v1.CloudInitNoCloudSource) {
-					cloudInitData, _ := readCloudInitNoCloudSource(source)
-					verifyCloudInitData(cloudInitData)
-				}
-
-				It("should succeed to verify userDataBase64 ", func() {
-					userData := "fake\nuser\ndata\n"
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-					}
-					verifyCloudInitNoCloudIso(cloudInitData)
-				})
-
-				It("should succeed to verify userDataBase64 and networkData", func() {
-					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						NetworkData:    networkData,
-					}
-					verifyCloudInitNoCloudIso(cloudInitData)
-				})
-
-				It("should succeed to verify userDataBase64 and networkDataBase64", func() {
-					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
-						NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
-					}
-					verifyCloudInitNoCloudIso(cloudInitData)
-				})
-
-				It("should succeed to verify userData", func() {
-					userData := "fake\nuser\ndata\n"
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserData: userData,
-					}
-					verifyCloudInitNoCloudIso(cloudInitData)
-				})
-
-				It("should succeed to verify networkData if there is no userData", func() {
-					networkData := "fake\nnetwork\ndata\n"
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						NetworkData: networkData,
-					}
-					verifyCloudInitNoCloudIso(cloudInitData)
-				})
-
-				It("should fail to verify bad cloudInitNoCloud UserDataBase64", func() {
-					source := &v1.CloudInitNoCloudSource{
-						UserDataBase64: "#######garbage******",
-					}
-					_, err := readCloudInitNoCloudSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
-				})
-
-				It("should fail to verify bad cloudInitNoCloud NetworkDataBase64", func() {
-					source := &v1.CloudInitNoCloudSource{
-						UserData:          "fake",
-						NetworkDataBase64: "#######garbage******",
-					}
-					_, err := readCloudInitNoCloudSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
-				})
-
-				It("should fail to verify if there is no userData nor networkData", func() {
-					source := &v1.CloudInitNoCloudSource{}
-					_, err := readCloudInitNoCloudSource(source)
-					Expect(err).Should(MatchError("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source"))
-				})
-
-			})
-
-			Context("with CloudInitConfigDrive volume source", func() {
-				verifyCloudInitConfigDriveIso := func(source *v1.CloudInitConfigDriveSource) {
-					cloudInitData, _ := readCloudInitConfigDriveSource(source)
-					verifyCloudInitData(cloudInitData)
-				}
-
-				It("should succeed to verify userDataBase64 ", func() {
-					userData := "fake\nuser\ndata\n"
-					cloudInitData := &v1.CloudInitConfigDriveSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-					}
-					verifyCloudInitConfigDriveIso(cloudInitData)
-				})
-
-				It("should succeed to verify userDataBase64 and networkData", func() {
-					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
-					cloudInitData := &v1.CloudInitConfigDriveSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						NetworkData:    networkData,
-					}
-					verifyCloudInitConfigDriveIso(cloudInitData)
-				})
-
-				It("should succeed to verify userDataBase64 and networkDataBase64", func() {
-					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
-					cloudInitData := &v1.CloudInitConfigDriveSource{
-						UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
-						NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
-					}
-					verifyCloudInitConfigDriveIso(cloudInitData)
-				})
-
-				It("should succeed to verify userData", func() {
-					userData := "fake\nuser\ndata\n"
-					cloudInitData := &v1.CloudInitConfigDriveSource{
-						UserData: userData,
-					}
-					verifyCloudInitConfigDriveIso(cloudInitData)
-				})
-
-				It("should fail to verify bad cloudInitNoCloud UserDataBase64", func() {
-					source := &v1.CloudInitConfigDriveSource{
-						UserDataBase64: "#######garbage******",
-					}
-					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
-				})
-
-				It("should fail to verify bad cloudInitNoCloud NetworkDataBase64", func() {
-					source := &v1.CloudInitConfigDriveSource{
-						UserData:          "fake",
-						NetworkDataBase64: "#######garbage******",
-					}
-					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
-				})
-
-			})
-		})
-	})
-
-	Describe("GenerateIso", func() {
-		It("does not modify ConfigDrive metadata when adding devices", func() {
-			vmi := libvmi.New(libvmi.WithName("guest"), libvmi.WithNamespace("default"))
-			metadata := &ConfigDriveMetadata{InstanceID: "provided"}
-			devices := []DeviceData{{Type: NICMetadataType, Bus: "pci"}}
-			data := &CloudInitData{
-				DataSource:          DataSourceConfigDrive,
-				UserData:            "fake\nuser\ndata\n",
-				ConfigDriveMetaData: metadata,
-				DevicesData:         &devices,
-			}
-
-			Expect(GenerateIso(vmi, data)).To(Succeed())
-			Expect(data.ConfigDriveMetaData).To(BeIdenticalTo(metadata))
-			Expect(metadata.Devices).To(BeNil())
-		})
-
-		It("should cleanly run twice", func() {
-			userData := "fake\nuser\ndata\n"
-
-			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fake-domain",
-					Namespace: "fake-namespace",
-				},
-			}
-			source := &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-			}
-			cloudInitData, err := readCloudInitNoCloudSource(source)
-			Expect(err).NotTo(HaveOccurred())
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			err = GenerateIso(vmi, cloudInitData)
-			Expect(err).NotTo(HaveOccurred())
-			err = GenerateIso(vmi, cloudInitData)
-			Expect(err).NotTo(HaveOccurred())
-
-			entries, err := os.ReadDir(getDomainBasePath(vmi.Name, vmi.Namespace))
-			Expect(err).NotTo(HaveOccurred())
-			Expect(entries).To(HaveLen(1))
-			Expect(entries[0].Name()).To(Equal(noCloudFile))
-		})
-	})
-
-	Describe("PrepareLocalPath", func() {
-		It("should create the correct directory structure", func() {
-			namespace := "fake-namespace"
-			domain := "fake-domain"
-			expectedPath := filepath.Join(tmpDir, namespace, domain)
-			err := PrepareLocalPath(domain, namespace)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(expectedPath)
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-})
-
-func removeLocalData(domain string, namespace string) error {
-	domainBasePath := getDomainBasePath(domain, namespace)
-	err := os.RemoveAll(domainBasePath)
-	if err != nil && errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
-}
-
-var _ = Describe("ReadCloudInitVolumeDataSource", func() {
+var _ = Describe("cloudinit.ReadCloudInitVolumeDataSource", func() {
 	var root string
 	BeforeEach(func() { root = GinkgoT().TempDir() })
 	It("returns nil when the VMI has no cloud-init volume", func() {
 		vmi := libvmi.New()
-		data, err := ReadCloudInitVolumeDataSource(vmi, root)
+		data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data).To(BeNil())
 	})
@@ -506,7 +52,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.DataSource).To(Equal(cloudinit.DataSourceNoCloud))
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
@@ -521,7 +67,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudEncodedNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -540,7 +86,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			volume := libvmi.GetCloudInitVolume(vmi).CloudInitNoCloud
 			volume.UserDataBase64 = "!"
 			volume.NetworkDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -552,7 +98,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(BeEmpty())
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -562,7 +108,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				libvmi.WithFirmwareUUID("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"),
 				libvmi.WithCloudInitNoCloud(),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -574,7 +120,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			libvmi.GetCloudInitVolume(vmi).CloudInitNoCloud.UserDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -586,7 +132,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			libvmi.GetCloudInitVolume(vmi).CloudInitNoCloud.NetworkDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -599,7 +145,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 			writeFixture(root, "cloudinitdisk/userData", "secret-user")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("secret-user"))
@@ -614,7 +160,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			writeFixture(root, "cloudinitdisk/networkdata", "primary-network")
 			writeFixture(root, "cloudinitdisk/networkData", "secondary-network")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NetworkData).To(Equal("primary-network"))
@@ -627,7 +173,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudUserDataSecretName("missing-user-secret"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 		})
@@ -640,7 +186,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudNetworkDataSecretName("missing-network-secret"),
 				),
 			)
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("no cloud-init data-source found at volume: cloudinitdisk"))
 		})
 		It("accepts a network secret when the user secret is missing", func() {
@@ -653,7 +199,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			writeFixture(root, "cloudinitdisk/networkdata", "fake\nnetwork\ndata\n")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -668,7 +214,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 			writeFixture(root, "cloudinitdisk/userdata", "")
 			writeFixture(root, "cloudinitdisk/userData", "ignored")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 		})
@@ -692,7 +238,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "second-access-cred/..data", "..version")
 			symlinkFixture(root, "second-access-cred/link", "..data/key")
 			symlinkFixture(root, "first-access-cred/..data", "missing")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.PublicSSHKeys).To(Equal(map[string]string{"0": "first", "1": "last", "2": "second"}))
 		})
@@ -706,7 +252,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 
 			writeFixture(root, "keys-access-cred", "regular file")
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(filepath.Join(root, "keys-access-cred")))
 		})
@@ -721,7 +267,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 
 			Expect(os.Mkdir(filepath.Join(root, "keys-access-cred"), 0700)).To(Succeed())
 			symlinkFixture(root, "keys-access-cred/public", "missing")
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Unable to read public keys found at volume: " + filepath.Join(root, "keys-access-cred/public")))
 		})
@@ -735,7 +281,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.DataSource).To(Equal(cloudinit.DataSourceConfigDrive))
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
@@ -750,7 +296,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveEncodedNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -769,7 +315,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			volume := libvmi.GetCloudInitVolume(vmi).CloudInitConfigDrive
 			volume.UserDataBase64 = "!"
 			volume.NetworkDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("fake\nuser\ndata\n"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -781,7 +327,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveNetworkData("fake\nnetwork\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(BeEmpty())
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -791,7 +337,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				libvmi.WithFirmwareUUID("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"),
 				libvmi.WithCloudInitConfigDrive(),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("userDataBase64, userData, networkDataBase64 or networkData is required for a cloud-init data source"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -803,7 +349,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			libvmi.GetCloudInitVolume(vmi).CloudInitConfigDrive.UserDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -815,7 +361,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			libvmi.GetCloudInitVolume(vmi).CloudInitConfigDrive.NetworkDataBase64 = "!"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("illegal base64 data at input byte 0"))
 			Expect(data.VolumeName).To(Equal(libvmi.CloudInitDiskName))
 		})
@@ -828,7 +374,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 			writeFixture(root, "cloudinitdisk/userData", "secret-user")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("secret-user"))
@@ -843,7 +389,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			writeFixture(root, "cloudinitdisk/networkdata", "primary-network")
 			writeFixture(root, "cloudinitdisk/networkData", "secondary-network")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NetworkData).To(Equal("primary-network"))
@@ -856,7 +402,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveUserDataSecretName("missing-user-secret"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 		})
@@ -869,7 +415,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveNetworkDataSecretName("missing-network-secret"),
 				),
 			)
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(MatchError("no cloud-init data-source found at volume: cloudinitdisk"))
 		})
 		It("accepts a network secret when the user secret is missing", func() {
@@ -882,7 +428,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			writeFixture(root, "cloudinitdisk/networkdata", "fake\nnetwork\ndata\n")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 			Expect(data.NetworkData).To(Equal("fake\nnetwork\ndata\n"))
@@ -897,7 +443,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 			writeFixture(root, "cloudinitdisk/userdata", "")
 			writeFixture(root, "cloudinitdisk/userData", "ignored")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.UserData).To(Equal("inline"))
 		})
@@ -921,7 +467,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "second-access-cred/..data", "..version")
 			symlinkFixture(root, "second-access-cred/link", "..data/key")
 			symlinkFixture(root, "first-access-cred/..data", "missing")
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.PublicSSHKeys).To(Equal(map[string]string{"0": "first", "1": "last", "2": "second"}))
 		})
@@ -935,7 +481,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			)
 
 			writeFixture(root, "keys-access-cred", "regular file")
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(filepath.Join(root, "keys-access-cred")))
 		})
@@ -950,7 +496,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 
 			Expect(os.Mkdir(filepath.Join(root, "keys-access-cred"), 0700)).To(Succeed())
 			symlinkFixture(root, "keys-access-cred/public", "missing")
-			_, err := ReadCloudInitVolumeDataSource(vmi, root)
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("Unable to read public keys found at volume: " + filepath.Join(root, "keys-access-cred/public")))
 		})
@@ -964,7 +510,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.InstanceID).To(Equal("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"))
@@ -979,7 +525,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.InstanceType).To(Equal("cluster"))
@@ -992,7 +538,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudUserData("fake\nuser\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.InstanceType).To(Equal("namespaced"))
 		})
@@ -1003,7 +549,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithNoCloudUserData("fake\nuser\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.InstanceID).To(BeEmpty())
 		})
@@ -1016,7 +562,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.LocalHostname).To(Equal("guest"))
@@ -1032,7 +578,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.LocalHostname).To(Equal(strings.Repeat("a", 63)))
@@ -1045,7 +591,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			vmi.Spec.Hostname = "guest-host"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.NoCloudMetaData.LocalHostname).To(Equal("guest-host"))
 		})
@@ -1059,7 +605,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.UUID).To(Equal("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"))
@@ -1074,7 +620,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.InstanceType).To(Equal("cluster"))
@@ -1087,7 +633,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveUserData("fake\nuser\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.InstanceType).To(Equal("namespaced"))
 		})
@@ -1098,7 +644,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 					cloudinitdata.WithConfigDriveUserData("fake\nuser\ndata\n"),
 				),
 			)
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.UUID).To(BeEmpty())
 		})
@@ -1111,7 +657,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.Hostname).To(Equal("guest"))
@@ -1127,7 +673,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.Hostname).To(Equal(strings.Repeat("a", 63)))
@@ -1140,7 +686,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 				),
 			)
 			vmi.Spec.Hostname = "guest-host"
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(data.ConfigDriveMetaData.Hostname).To(Equal("guest-host"))
 		})
@@ -1163,10 +709,211 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 		thirdVolume.Name = "third"
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, secondVolume, thirdVolume)
 		writeFixture(root, "second/userdata", "resolved")
-		data, err := ReadCloudInitVolumeDataSource(vmi, root)
+		data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(data.UserData).To(Equal("first"))
-		Expect(data.DataSource).To(Equal(DataSourceNoCloud))
+		Expect(data.DataSource).To(Equal(cloudinit.DataSourceNoCloud))
+	})
+
+})
+
+var _ = Describe("BuildIsoPlan", func() {
+	Context("NoCloud", func() {
+		It("builds the exact ISO layout and serialized metadata", func() {
+			data := &cloudinit.CloudInitData{
+				DataSource:  cloudinit.DataSourceNoCloud,
+				UserData:    "fake\nuser\ndata\n",
+				NetworkData: "fake\nnetwork\ndata\n",
+				NoCloudMetaData: &cloudinit.NoCloudMetadata{
+					InstanceID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5", LocalHostname: "vm",
+				},
+			}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan).To(Equal(&cloudinit.IsoPlan{
+				VolumeID: "cidata",
+				Files: []cloudinit.IsoFile{
+					{Path: "user-data", Data: []byte("fake\nuser\ndata\n")},
+					{Path: "meta-data", Data: []byte(`{"instance-id":"cf73b4f4-6975-4d93-b51c-b7ae392bdea5","local-hostname":"vm"}`)},
+					{Path: "network-config", Data: []byte("fake\nnetwork\ndata\n")},
+				},
+			}))
+		})
+
+		It("omits the network file when no network data is supplied", func() {
+			data := &cloudinit.CloudInitData{
+				DataSource: cloudinit.DataSourceNoCloud,
+				UserData:   "fake\nuser\ndata\n",
+				NoCloudMetaData: &cloudinit.NoCloudMetadata{
+					InstanceID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5", LocalHostname: "vm",
+				},
+			}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan.Files).To(Equal([]cloudinit.IsoFile{
+				{Path: "user-data", Data: []byte("fake\nuser\ndata\n")},
+				{Path: "meta-data", Data: []byte(`{"instance-id":"cf73b4f4-6975-4d93-b51c-b7ae392bdea5","local-hostname":"vm"}`)},
+			}))
+		})
+
+		It("includes an empty user-data file for network-only input", func() {
+			data := &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceNoCloud, NetworkData: "fake\nnetwork\ndata\n", NoCloudMetaData: &cloudinit.NoCloudMetadata{InstanceID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5"}}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan.Files[0]).To(Equal(cloudinit.IsoFile{Path: "user-data", Data: []byte{}}))
+			Expect(plan.Files[2]).To(Equal(cloudinit.IsoFile{Path: "network-config", Data: []byte("fake\nnetwork\ndata\n")}))
+		})
+
+		It("rejects generation without user or network data", func() {
+			data := &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceNoCloud}
+			_, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).To(MatchError("UserData or NetworkData is required for cloud-init data source"))
+		})
+
+	})
+	Context("ConfigDrive", func() {
+		It("builds the exact ISO layout and serialized metadata", func() {
+			data := &cloudinit.CloudInitData{
+				DataSource:  cloudinit.DataSourceConfigDrive,
+				UserData:    "fake\nuser\ndata\n",
+				NetworkData: "fake\nnetwork\ndata\n",
+				ConfigDriveMetaData: &cloudinit.ConfigDriveMetadata{
+					InstanceID: "vm.ns", Hostname: "vm", UUID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5",
+				},
+			}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan).To(Equal(&cloudinit.IsoPlan{
+				VolumeID: "config-2",
+				Files: []cloudinit.IsoFile{
+					{Path: "openstack/latest/user_data", Data: []byte("fake\nuser\ndata\n")},
+					{Path: "openstack/latest/meta_data.json", Data: []byte(`{"instance_id":"vm.ns","hostname":"vm","uuid":"cf73b4f4-6975-4d93-b51c-b7ae392bdea5"}`)},
+					{Path: "openstack/latest/network_data.json", Data: []byte("fake\nnetwork\ndata\n")},
+				},
+			}))
+		})
+
+		It("omits the network file when no network data is supplied", func() {
+			data := &cloudinit.CloudInitData{
+				DataSource: cloudinit.DataSourceConfigDrive,
+				UserData:   "fake\nuser\ndata\n",
+				ConfigDriveMetaData: &cloudinit.ConfigDriveMetadata{
+					InstanceID: "vm.ns", Hostname: "vm", UUID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5",
+				},
+			}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan.Files).To(Equal([]cloudinit.IsoFile{
+				{Path: "openstack/latest/user_data", Data: []byte("fake\nuser\ndata\n")},
+				{Path: "openstack/latest/meta_data.json", Data: []byte(`{"instance_id":"vm.ns","hostname":"vm","uuid":"cf73b4f4-6975-4d93-b51c-b7ae392bdea5"}`)},
+			}))
+		})
+
+		It("includes an empty user_data file for network-only input", func() {
+			data := &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceConfigDrive, NetworkData: "fake\nnetwork\ndata\n", ConfigDriveMetaData: &cloudinit.ConfigDriveMetadata{InstanceID: "vm.ns"}}
+			plan, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan.Files[0]).To(Equal(cloudinit.IsoFile{Path: "openstack/latest/user_data", Data: []byte{}}))
+			Expect(plan.Files[2]).To(Equal(cloudinit.IsoFile{Path: "openstack/latest/network_data.json", Data: []byte("fake\nnetwork\ndata\n")}))
+		})
+
+		It("rejects generation without user or network data", func() {
+			data := &cloudinit.CloudInitData{DataSource: cloudinit.DataSourceConfigDrive}
+			_, err := cloudinit.BuildIsoPlan(data)
+			Expect(err).To(MatchError("UserData or NetworkData is required for cloud-init data source"))
+		})
+
+	})
+	It("serializes NoCloud metadata", func() {
+		data := &cloudinit.CloudInitData{
+			DataSource: cloudinit.DataSourceNoCloud,
+			UserData:   "fake\nuser\ndata\n",
+			NoCloudMetaData: &cloudinit.NoCloudMetadata{
+				InstanceID: "provided", InstanceType: "provided-type", LocalHostname: "host",
+				PublicSSHKeys: map[string]string{"0": "key"},
+			},
+		}
+		plan, err := cloudinit.BuildIsoPlan(data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(plan.Files[1].Data)).To(MatchJSON(`{"instance-id":"provided","instance-type":"provided-type","local-hostname":"host","public-keys":{"0":"key"}}`))
+	})
+
+	It("serializes ConfigDrive metadata", func() {
+		data := &cloudinit.CloudInitData{
+			DataSource: cloudinit.DataSourceConfigDrive,
+			UserData:   "fake\nuser\ndata\n",
+			ConfigDriveMetaData: &cloudinit.ConfigDriveMetadata{
+				InstanceID: "provided", InstanceType: "provided-type",
+				UUID: "cf73b4f4-6975-4d93-b51c-b7ae392bdea5", LocalHostname: "local", Hostname: "host",
+				PublicSSHKeys: map[string]string{"0": "key"},
+			},
+		}
+		plan, err := cloudinit.BuildIsoPlan(data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(plan.Files[1].Data)).To(MatchJSON(`{"instance_type":"provided-type","instance_id":"provided","local_hostname":"local","hostname":"host","uuid":"cf73b4f4-6975-4d93-b51c-b7ae392bdea5","public_keys":{"0":"key"}}`))
+	})
+
+	It("includes ConfigDrive devices metadata", func() {
+		devices := []cloudinit.DeviceData{
+			{
+				Type: cloudinit.HostDevMetadataType, Bus: "pci", Address: "0000:65:10:0",
+				Serial: "serial", NumaNode: 1, AlignedCPUs: []uint32{0, 1}, Tags: []string{"tag"},
+			},
+			{
+				Type: cloudinit.NICMetadataType, Bus: "pci", Address: "0000:01:00:0",
+				MAC: "02:00:00:84:e9:58", Tags: []string{"tag"},
+			},
+		}
+		data := &cloudinit.CloudInitData{
+			DataSource:          cloudinit.DataSourceConfigDrive,
+			UserData:            "fake\nuser\ndata\n",
+			ConfigDriveMetaData: &cloudinit.ConfigDriveMetadata{InstanceID: "provided"},
+			DevicesData:         &devices,
+		}
+		plan, err := cloudinit.BuildIsoPlan(data)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(data.ConfigDriveMetaData.Devices).To(BeNil())
+		Expect(string(plan.Files[1].Data)).To(MatchJSON(`{
+			"instance_id": "provided",
+			"devices": [
+				{"type":"hostdev","bus":"pci","address":"0000:65:10:0","serial":"serial","numaNode":1,"alignedCPUs":[0,1],"tags":["tag"]},
+				{"type":"nic","bus":"pci","address":"0000:01:00:0","mac":"02:00:00:84:e9:58","tags":["tag"]}
+			]
+		}`))
+	})
+
+	DescribeTable("preserves hook-generated nil metadata as JSON null",
+		func(source cloudinit.DataSourceType, volumeID, userPath, metadataPath string) {
+			data := &cloudinit.CloudInitData{
+				DataSource: source,
+				UserData:   "#cloud-config\n",
+				// NoCloudMetaData and ConfigDriveMetaData are intentionally nil, as if broken by a hook.
+			}
+
+			plan, err := cloudinit.BuildIsoPlan(data)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(plan).To(Equal(&cloudinit.IsoPlan{
+				VolumeID: volumeID,
+				Files: []cloudinit.IsoFile{
+					{Path: userPath, Data: []byte("#cloud-config\n")},
+					{Path: metadataPath, Data: []byte("null")},
+				},
+			}))
+			Expect(data.NoCloudMetaData).To(BeNil())
+			Expect(data.ConfigDriveMetaData).To(BeNil())
+		},
+		Entry("NoCloud", cloudinit.DataSourceNoCloud,
+			"cidata", "user-data", "meta-data"),
+		Entry("ConfigDrive", cloudinit.DataSourceConfigDrive,
+			"config-2", "openstack/latest/user_data",
+			"openstack/latest/meta_data.json"),
+	)
+
+	It("rejects unsupported sources", func() {
+		plan, err := cloudinit.BuildIsoPlan(&cloudinit.CloudInitData{DataSource: "unknown", UserData: "fake\nuser\ndata\n"})
+		Expect(err).To(MatchError("Invalid cloud-init data source: 'unknown'"))
+		Expect(plan).To(BeNil())
 	})
 
 })
@@ -1233,10 +980,10 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "cloudinitdisk/userdata", "..data/userdata")
 			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(data.DataSource).To(Equal(DataSourceNoCloud))
+			Expect(data.DataSource).To(Equal(cloudinit.DataSourceNoCloud))
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
 		})
@@ -1257,12 +1004,46 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "cloudinitdisk/userdata", "..data/userdata")
 			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
 
-			data, err := ReadCloudInitVolumeDataSource(vmi, root)
+			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(data.DataSource).To(Equal(DataSourceConfigDrive))
+			Expect(data.DataSource).To(Equal(cloudinit.DataSourceConfigDrive))
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
 		})
+	})
+})
+
+func setCloudInitDirectory() string {
+	GinkgoHelper()
+	root := GinkgoT().TempDir()
+	previous := filepath.Dir(cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, "", ""))
+	DeferCleanup(cloudinit.SetLocalDirectory, previous)
+	Expect(cloudinit.SetLocalDirectory(root)).To(Succeed())
+	return root
+}
+
+var _ = Describe("GenerateIso", func() {
+	It("preserves the published ISO and cleans staging and input files when generation fails", func() {
+		cache := setCloudInitDirectory()
+		vmDir := filepath.Join(cache, "default", "guest")
+		vmi := libvmi.New(libvmi.WithName("guest"), libvmi.WithNamespace("default"))
+		data := &cloudinit.CloudInitData{
+			DataSource: cloudinit.DataSourceNoCloud,
+			UserData:   "fake\nuser\ndata\n",
+		}
+		writeFixture(vmDir, "noCloud.iso", "existing ISO")
+		writeFixture(vmDir, "noCloud.iso.staging", "stale staging file")
+		GinkgoT().Setenv("PATH", "no-iso-binary")
+
+		Expect(cloudinit.GenerateIso(vmi, data)).NotTo(Succeed())
+
+		content, err := os.ReadFile(filepath.Join(vmDir, "noCloud.iso"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(Equal("existing ISO"))
+		entries, err := os.ReadDir(vmDir)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(HaveLen(1))
+		Expect(entries[0].Name()).To(Equal("noCloud.iso"))
 	})
 })

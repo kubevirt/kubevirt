@@ -19,17 +19,14 @@ go_test(
         "cloud-init_test.go",
         "cloudinit_suite_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )

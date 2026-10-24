@@ -38,10 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
-type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
-
 var cloudInitLocalDir = "/var/run/kubevirt-ephemeral-disks/cloud-init-data"
-var cloudInitIsoFunc = defaultIsoFunc
 
 // Locations of data source disk files
 const (
@@ -399,7 +396,59 @@ func readCloudInitConfigDriveMetaData(name, uuid, hostname, namespace string, ke
 	}
 }
 
-func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
+// IsoFile is content at a relative path inside the ISO input root.
+type IsoFile struct {
+	Path string
+	Data []byte
+}
+
+// IsoPlan describes complete ISO contents, without absolute host paths.
+type IsoPlan struct {
+	VolumeID string
+	Files    []IsoFile
+}
+
+// BuildIsoPlan chooses the ISO layout and serializes metadata without IO.
+// Identity metadata comes from ReadCloudInitVolumeDataSource and may be
+// changed by hooks.
+// ConfigDrive devices are added to a local metadata copy; data is not modified.
+func BuildIsoPlan(data *CloudInitData) (*IsoPlan, error) {
+	plan := &IsoPlan{}
+	var metaFile, userFile, networkFile string
+	var metadata []byte
+	var err error
+	switch data.DataSource {
+	case DataSourceNoCloud:
+		plan.VolumeID = "cidata"
+		metaFile, userFile, networkFile = "meta-data", "user-data", "network-config"
+		metadata, err = json.Marshal(data.NoCloudMetaData)
+	case DataSourceConfigDrive:
+		plan.VolumeID = "config-2"
+		metaFile, userFile, networkFile = "openstack/latest/meta_data.json", "openstack/latest/user_data", "openstack/latest/network_data.json"
+		configDriveMetadata := data.ConfigDriveMetaData
+		if configDriveMetadata != nil {
+			withDevices := *configDriveMetadata
+			withDevices.Devices = data.DevicesData
+			configDriveMetadata = &withDevices
+		}
+		metadata, err = json.Marshal(configDriveMetadata)
+	default:
+		return nil, fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if data.UserData == "" && data.NetworkData == "" {
+		return nil, fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
+	}
+	plan.Files = []IsoFile{{Path: userFile, Data: []byte(data.UserData)}, {Path: metaFile, Data: metadata}}
+	if data.NetworkData != "" {
+		plan.Files = append(plan.Files, IsoFile{Path: networkFile, Data: []byte(data.NetworkData)})
+	}
+	return plan, nil
+}
+
+func dirToIso(inDir, isoOutFile, volumeID string) error {
 
 	var args []string
 
@@ -442,11 +491,6 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 			return nil
 		}
 	}
-}
-
-// The unit test suite uses this function
-func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
-	cloudInitIsoFunc = isoFunc
 }
 
 func SetLocalDirectory(dir string) error {
@@ -508,103 +552,41 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 
 // GenerateIso generates a cloud-init ISO for the VMI.
 func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
-
-	var metaData []byte
-	var err error
-
-	domainBasePath := getDomainBasePath(vmi.Name, vmi.Namespace)
-	if err := util.MkdirAllWithNosec(domainBasePath); err != nil {
-		return err
-	}
-	dataBasePath, err := os.MkdirTemp(domainBasePath, "cloud-init-data-")
+	plan, err := BuildIsoPlan(data)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dataBasePath)
-
-	var dataPath, metaFile, userFile, networkFile, iso string
-	switch data.DataSource {
-	case DataSourceNoCloud:
-		dataPath = dataBasePath
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
-		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
-		metaData, err = json.Marshal(data.NoCloudMetaData)
+	domainRoot := getDomainBasePath(vmi.Name, vmi.Namespace)
+	iso := GetIsoFilePath(data.DataSource, vmi.Name, vmi.Namespace)
+	if err := writeIso(iso, func(staging string) error {
+		dataRoot, err := os.MkdirTemp(domainRoot, "cloud-init-data-")
 		if err != nil {
 			return err
 		}
-	case DataSourceConfigDrive:
-		dataPath = fmt.Sprintf("%s/openstack/latest", dataBasePath)
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
-		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
-		configDriveMetadata := data.ConfigDriveMetaData
-		if configDriveMetadata != nil {
-			withDevices := *configDriveMetadata
-			withDevices.Devices = data.DevicesData
-			configDriveMetadata = &withDevices
-		}
-		metaData, err = json.Marshal(configDriveMetadata)
-		if err != nil {
+		defer os.RemoveAll(dataRoot)
+		if err := writeIsoPlan(dataRoot, plan); err != nil {
 			return err
 		}
-
-	default:
-		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
-	}
-
-	err = os.MkdirAll(dataPath, 0700)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
+		return dirToIso(dataRoot, staging, plan.VolumeID)
+	}); err != nil {
 		return err
 	}
+	log.Log.V(2).Infof("generated cloud-init iso file %s", iso)
+	return nil
+}
 
-	if data.UserData == "" && data.NetworkData == "" {
-		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
-	}
-	userData := []byte(data.UserData)
-
-	var networkData []byte
-	if data.NetworkData != "" {
-		networkData = []byte(data.NetworkData)
-	}
-
-	err = writeIso(iso, func(staging string) error {
-		err = os.WriteFile(userFile, userData, 0600)
-		if err != nil {
+// writeIsoPlan writes planned input files into a fresh directory.
+// Callers own the input directory and its eventual cleanup.
+func writeIsoPlan(dataRoot string, plan *IsoPlan) error {
+	for _, file := range plan.Files {
+		filePath := filepath.Join(dataRoot, file.Path)
+		if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
 			return err
 		}
-
-		err = os.WriteFile(metaFile, metaData, 0600)
-		if err != nil {
+		if err := os.WriteFile(filePath, file.Data, 0600); err != nil {
 			return err
 		}
-
-		if len(networkData) > 0 {
-			err = os.WriteFile(networkFile, networkData, 0600)
-			if err != nil {
-				return err
-			}
-		}
-
-		switch data.DataSource {
-		case DataSourceNoCloud:
-			err = cloudInitIsoFunc(staging, "cidata", dataBasePath)
-		case DataSourceConfigDrive:
-			err = cloudInitIsoFunc(staging, "config-2", dataBasePath)
-		}
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return err
 	}
-
-	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
 	return nil
 }
 
