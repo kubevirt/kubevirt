@@ -32,9 +32,11 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -113,4 +115,61 @@ var _ = Describe(SIG("Domain resilience", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(matcher.ThisVMI(vmi)).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 	})
+
+	It("VMI should survive virt-handler restart after live migration", decorators.RequiresTwoSchedulableNodes, Serial, func() {
+		virtClient := kubevirt.Client
+		namespace := testsuite.GetTestNamespace(nil)
+
+		By("Starting an Alpine VMI")
+		vmi := libvmifact.NewAlpine()
+		vmi, err := virtClient().VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(matcher.ThisVMI(vmi)).WithTimeout(120 * time.Second).WithPolling(time.Second).
+			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+
+		vmi, err = virtClient().VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		sourceNode := vmi.Status.NodeName
+
+		By("Migrating the VMI")
+		migration := libmigration.New(vmi.Name, namespace)
+		libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient(), migration)
+
+		vmi, err = virtClient().VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		targetNode := vmi.Status.NodeName
+
+		Expect(targetNode).ToNot(Equal(sourceNode), "VMI should have migrated to a different node")
+
+		By("Restarting virt-handler on the migration target")
+		virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient(), targetNode)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = virtClient().CoreV1().Pods(virtHandlerPod.Namespace).Delete(
+			context.Background(),
+			virtHandlerPod.Name,
+			metav1.DeleteOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for virt-handler to restart")
+		Eventually(func() (*k8sv1.Pod, error) {
+			return libnode.GetVirtHandlerPod(virtClient(), targetNode)
+		}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).
+			Should(matcher.HaveConditionTrue(k8sv1.PodReady))
+
+		By("Verifying the VMI remains running")
+		Eventually(func() v1.VirtualMachineInstancePhase {
+			currentVMI, err := virtClient().VirtualMachineInstance(namespace).Get(
+				context.Background(),
+				vmi.Name,
+				metav1.GetOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			return currentVMI.Status.Phase
+		}).WithTimeout(60 * time.Second).WithPolling(2 * time.Second).
+			Should(Equal(v1.Running))
+	})
+
 }))
