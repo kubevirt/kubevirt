@@ -933,7 +933,7 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 		if size != 0 {
 			err = cloudinit.GenerateIsoPlaceholder(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
 		} else {
-			err = cloudinit.GenerateIso(vmi, cloudInitDataStore)
+			err = cloudinit.GenerateIso(vmi.Name, vmi.Namespace, cloudInitDataStore)
 		}
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)
