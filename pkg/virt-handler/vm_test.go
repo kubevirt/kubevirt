@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -216,6 +217,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		// Production hands cold starts to the pool. Keep unit tests synchronous so
+		// SyncVMI still happens inside execute.
+		controller.startLauncher = syncStartLauncher{}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -1495,6 +1499,45 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
+		})
+
+		It("should not hold the reconcile worker for the whole VM start", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi = addActivePods(vmi, podTestUUID, host)
+			createVMI(vmi)
+
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
+
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ *v1.VirtualMachineInstance, _ *cmdv1.VirtualMachineOptions) error {
+					close(started)
+					<-release
+					return nil
+				},
+			).Times(1)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			controller.startLauncher = newBoundedStartLauncher(vmStartPoolSize)
+
+			sanityExecute()
+			Eventually(started).Should(BeClosed())
+
+			key, err := virtcontroller.KeyFunc(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			controller.queue.Add(key)
+			sanityExecute()
+
+			releaseOnce.Do(func() { close(release) })
+			Eventually(func() time.Duration {
+				return controller.vmStarts.cooldownRemaining(string(vmi.UID), time.Now())
+			}).Should(BeNumerically(">", 0))
+			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should adjust an existing migration method if live migration condition previously existed", func() {

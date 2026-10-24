@@ -125,6 +125,9 @@ type VirtualMachineController struct {
 	lastSeenPanicCount       sync.Map
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
+	vmStarts                 *vmStartTracker
+	startLauncher            startRunner
+	now                      func() time.Time
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
@@ -201,6 +204,9 @@ func NewVirtualMachineController(
 		heartBeatInterval:        1 * time.Minute,
 		netConf:                  netConf,
 		sriovHotplugExecutorPool: executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
+		vmStarts:                 newVMStartTracker(),
+		startLauncher:            newBoundedStartLauncher(vmStartPoolSize),
+		now:                      time.Now,
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
@@ -1501,6 +1507,14 @@ func (c *VirtualMachineController) sync(key string,
 
 	var syncErr error
 
+	// A start running in the pool still owns the launcher client. Deleting or
+	// shutting the domain down from this worker would race that SyncVMI.
+	if vmi.UID != "" && c.vmStarts.inProgress(string(vmi.UID)) && (shouldShutdown || shouldDelete || forceShutdownIrrecoverable) {
+		c.logger.Object(vmi).V(3).Info("Deferring shutdown while VM start is still in progress")
+		c.queue.AddAfter(key, vmStartShutdownRetry)
+		return nil
+	}
+
 	// Process the VirtualMachineInstance update in this order.
 	// * Shutdown and Deletion due to VirtualMachineInstance deletion, process stopping, graceful shutdown trigger, etc...
 	// * Cleanup of already shutdown and Deleted VMIs
@@ -1556,6 +1570,9 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	c.logger.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
 	c.lastSeenPanicCount.Delete(vmiId)
+	if !c.vmStarts.inProgress(vmiId) {
+		c.vmStarts.clear(vmiId)
+	}
 
 	c.migrationProxy.StopTargetListener(vmiId)
 	c.migrationProxy.StopSourceListener(vmiId)
@@ -2223,6 +2240,71 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
+	uid := string(vmi.UID)
+	if uid != "" && c.vmStarts.inProgress(uid) {
+		return nil
+	}
+	if uid == "" || !domainNeedsAsyncStart(vmi, domain) {
+		if uid != "" {
+			c.vmStarts.clear(uid)
+		}
+		return c.vmUpdateHelperDefault(vmi, domain)
+	}
+	if err := c.vmStarts.takeError(uid); err != nil {
+		return err
+	}
+	if wait := c.vmStarts.cooldownRemaining(uid, c.now()); wait > 0 {
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), wait)
+		return nil
+	}
+	return c.handOffVMStart(vmi, domain)
+}
+
+// handOffVMStart runs the cold-start critical section off the reconcile worker.
+// The worker returns as soon as the start is queued. The pool requeues the VMI
+// when SyncVMI finishes so the status update can observe the result.
+// The synchronous launcher used by unit tests runs the start before returning,
+// which keeps the existing execute-then-assert tests stable.
+func (c *VirtualMachineController) handOffVMStart(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	uid := string(vmi.UID)
+	if !c.vmStarts.begin(uid) {
+		return nil
+	}
+
+	key := controller.VirtualMachineInstanceKey(vmi)
+	vmiCopy := vmi.DeepCopy()
+	var domainCopy *api.Domain
+	if domain != nil {
+		domainCopy = domain.DeepCopy()
+	}
+	requeue := c.startLauncher.Async()
+	c.logger.Object(vmi).V(3).Info("Handing VM start off the reconcile worker")
+	c.startLauncher.Run(func() {
+		err := c.runVMStart(vmiCopy, domainCopy, requeue)
+		c.vmStarts.finish(uid, err, c.now())
+		if requeue {
+			c.queue.Add(key)
+		}
+	})
+	if requeue {
+		return nil
+	}
+	if err := c.vmStarts.takeError(uid); err != nil {
+		return err
+	}
+	c.vmStarts.clear(uid)
+	return nil
+}
+
+func (c *VirtualMachineController) runVMStart(vmi *v1.VirtualMachineInstance, domain *api.Domain, recoverPanic bool) (err error) {
+	if recoverPanic {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				err = fmt.Errorf("vm start panicked: %v", recovered)
+				c.logger.Reason(err).Error("VM start on the start pool panicked")
+			}
+		}()
+	}
 	return c.vmUpdateHelperDefault(vmi, domain)
 }
 
