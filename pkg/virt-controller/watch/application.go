@@ -32,7 +32,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -105,6 +104,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
+
+	"kubevirt.io/kubevirt/pkg/storage/container-disk/diskpaths"
 )
 
 const (
@@ -691,7 +692,7 @@ func (vca *VirtControllerApp) initCommon() {
 		golog.Fatal(err)
 	}
 
-	containerdisk.SetLocalDirectoryOnly(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
+	diskpaths.SetLocalDirectory(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
 
 	netAnnotationsGenerator := netannotations.NewGenerator(vca.clusterConfig)
 	storageAnnotationsGenerator := storageannotations.NewGenerator(vca.clusterConfig)
