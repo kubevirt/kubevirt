@@ -86,10 +86,6 @@ func (config *ClusterConfig) PluginsEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.PluginsGate)
 }
 
-func (config *ClusterConfig) HotplugVolumesEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.HotplugVolumesGate)
-}
-
 func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.HostDiskGate)
 }
@@ -148,10 +144,6 @@ func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 
 func (config *ClusterConfig) ObjectGraphEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.ObjectGraph)
-}
-
-func (config *ClusterConfig) DeclarativeHotplugVolumesEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.DeclarativeHotplugVolumesGate)
 }
 
 func (config *ClusterConfig) PasstBindingEnabled() bool {

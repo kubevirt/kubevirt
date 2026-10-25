@@ -118,7 +118,6 @@ func AdjustKubeVirtResource() {
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.ObjectGraph,
 		featuregate.DeclarativeVMState,
-		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,

@@ -486,7 +486,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"printableStatus":           "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
 		"conditions":                "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":       "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeRequests":            "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
+		"volumeRequests":            "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\nDeprecated: since v1.10.0\nUse declarative hotplug API instead\n+listType=atomic",
 		"volumeSnapshotStatuses":    "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":              "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":         "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",

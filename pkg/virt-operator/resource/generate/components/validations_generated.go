@@ -10803,6 +10803,8 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             VolumeRequests indicates a list of volumes add or remove from the VMI template and
             hotplug on an active running VMI.
+            Deprecated: since v1.10.0
+            Use declarative hotplug API instead
           items:
             properties:
               addVolumeOptions:
@@ -36128,6 +36130,8 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         VolumeRequests indicates a list of volumes add or remove from the VMI template and
                         hotplug on an active running VMI.
+                        Deprecated: since v1.10.0
+                        Use declarative hotplug API instead
                       items:
                         properties:
                           addVolumeOptions:

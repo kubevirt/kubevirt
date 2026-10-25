@@ -54,12 +54,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -940,13 +938,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 	Context("Hotplug volumes", func() {
 
-		enableLegacyHotplug := func() {
-			// even if DeclarativeHotplugVolumesGate is enabled this takes precedence
-			if !checks.HasFeature(featuregate.HotplugVolumesGate) {
-				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
-			}
-		}
-
 		waitForHotplugVol := func(vmName, ns, volName string) {
 			Eventually(func() string {
 				updatedVMI, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmName, metav1.GetOptions{})
@@ -960,12 +951,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(Equal(""))
 		}
 
-		DescribeTable("should be able to add and remove a volume with the volume migration feature gate enabled", func(persist bool) {
+		It("should be able to add and remove a volume with the volume migration feature gate enabled", func() {
 			const volName = "vol0"
-
-			if !persist {
-				enableLegacyHotplug()
-			}
 
 			ns := testsuite.GetTestNamespace(nil)
 			dv := createBlankDV(virtClient, ns, "1Gi")
@@ -999,11 +986,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				},
 				VolumeSource: volumeSource,
 			}
-			if persist {
-				Expect(virtClient.VirtualMachine(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
-			} else {
-				Expect(virtClient.VirtualMachineInstance(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
-			}
+			Expect(virtClient.VirtualMachine(ns).AddVolume(context.Background(), vm.Name, addOpts)).ToNot(HaveOccurred())
 			Eventually(func() string {
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1019,11 +1002,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			removeOpts := &virtv1.RemoveVolumeOptions{
 				Name: volName,
 			}
-			if persist {
-				Expect(virtClient.VirtualMachine(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
-			} else {
-				Expect(virtClient.VirtualMachineInstance(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
-			}
+			Expect(virtClient.VirtualMachine(ns).RemoveVolume(context.Background(), vm.Name, removeOpts)).ToNot(HaveOccurred())
 			Eventually(func() []v1.VolumeStatus {
 				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1031,10 +1010,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}).WithTimeout(120 * time.Second).WithPolling(2 * time.Second).ShouldNot(
 				ContainElement(HaveField("Name", Equal(volName))),
 			)
-		},
-			Entry("with a persistent volume", true),
-			Entry("with an ephemeral volume", Serial, false),
-		)
+		})
 
 		Context("should be able to volume migrate a VM", func() {
 			addVolume := func(vmName, ns, volName, dvName string) {

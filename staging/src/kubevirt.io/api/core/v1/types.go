@@ -2240,6 +2240,8 @@ type VirtualMachineStatus struct {
 	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
 	// VolumeRequests indicates a list of volumes add or remove from the VMI template and
 	// hotplug on an active running VMI.
+	// Deprecated: since v1.10.0
+	// Use declarative hotplug API instead
 	// +listType=atomic
 	VolumeRequests []VirtualMachineVolumeRequest `json:"volumeRequests,omitempty" optional:"true"`
 

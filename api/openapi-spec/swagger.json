@@ -20340,7 +20340,7 @@
       "$ref": "#/definitions/v1.VolumeStatus"
      },
      "volumeRequests": {
-      "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
+      "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI. Deprecated: since v1.10.0 Use declarative hotplug API instead",
       "type": "array",
       "items": {
        "default": {},

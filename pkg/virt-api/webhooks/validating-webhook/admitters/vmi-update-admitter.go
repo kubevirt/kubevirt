@@ -191,8 +191,7 @@ func admitHotplug(
 		newVMI.Spec.Domain.Devices.Disks,
 		oldVMI.Spec.Domain.Devices.Disks,
 		oldVMI.Status.VolumeStatus,
-		newVMI,
-		clusterConfig)
+		newVMI)
 
 }
 

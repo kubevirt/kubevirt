@@ -34,8 +34,8 @@ import (
 )
 
 // AdmitHotplugStorage compares the old and new volumes and disks, and ensures that they match and are valid.
-func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
-	if err := validateExpectedDisksAndFilesystems(newVolumes, newDisks, newVMI.Spec.Domain.Devices.Filesystems, config); err != nil {
+func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, volumeStatuses []v1.VolumeStatus, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	if err := validateExpectedDisksAndFilesystems(newVolumes, newDisks, newVMI.Spec.Domain.Devices.Filesystems); err != nil {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{
 				Type:    metav1.CauseTypeFieldValueInvalid,
@@ -131,7 +131,7 @@ func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 	return nil
 }
 
-func validateExpectedDisksAndFilesystems(volumes []v1.Volume, disks []v1.Disk, filesystems []v1.Filesystem, config *virtconfig.ClusterConfig) error {
+func validateExpectedDisksAndFilesystems(volumes []v1.Volume, disks []v1.Disk, filesystems []v1.Filesystem) error {
 	names := make(map[string]struct{})
 	for _, volume := range volumes {
 		if volume.MemoryDump == nil {
@@ -142,8 +142,8 @@ func validateExpectedDisksAndFilesystems(volumes []v1.Volume, disks []v1.Disk, f
 	requiredVolumes := len(filesystems)
 	for _, disk := range disks {
 		_, ok := names[disk.Name]
-		// it's okay for a CDRom to not be mapped to a volume
-		if !ok && disk.CDRom != nil && config.DeclarativeHotplugVolumesEnabled() {
+		// it's okay for a CDRom to not be mapped to a volume (declarative inject/eject)
+		if !ok && disk.CDRom != nil {
 			continue
 		}
 		requiredVolumes++
