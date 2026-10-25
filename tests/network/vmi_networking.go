@@ -494,28 +494,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), 8080, cidrWithLeadingZeros),
 			)
 
-			It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-				ipv4Address := "8.8.8.8"
-				if flags.IPV4ConnectivityCheckAddress != "" {
-					ipv4Address = flags.IPV4ConnectivityCheckAddress
-				}
-				dns := "google.com"
-				if flags.ConnectivityCheckDNS != "" {
-					dns = flags.ConnectivityCheckDNS
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), conformanceVMI(), metav1.CreateOptions{},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Checking ping (IPv4)")
-				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
-				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
-			})
-
 			DescribeTable("IPv6", decorators.IPv6, func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
@@ -546,8 +524,32 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, cloudinit.DefaultIPv6CIDR),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
+		})
 
-			It("should be able to reach the outside world", decorators.IPv6, Label("RequiresOutsideConnectivity"), func() {
+		Context("should reach the outside world", Label("RequiresOutsideConnectivity"), func() {
+			It("should be able to reach the outside world [IPv4]", func() {
+				libnet.SkipWhenClusterNotSupportIpv4()
+				ipv4Address := "8.8.8.8"
+				if flags.IPV4ConnectivityCheckAddress != "" {
+					ipv4Address = flags.IPV4ConnectivityCheckAddress
+				}
+				dns := "google.com"
+				if flags.ConnectivityCheckDNS != "" {
+					dns = flags.ConnectivityCheckDNS
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), conformanceVMI(), metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+				By("Checking ping (IPv4)")
+				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
+			})
+
+			It("should be able to reach the outside world", decorators.IPv6, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
