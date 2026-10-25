@@ -473,14 +473,6 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				}, 300)).To(Succeed(), "the state of the TPM did not persist")
 			}
 
-			checkEFI := func(vmi *v1.VirtualMachineInstance) {
-				By("Ensuring the efivar is present")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "hexdump /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
-					&expect.BExp{R: "0042"},
-				}, 10)).To(Succeed(), "expected efivar is missing")
-			}
-
 			addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
 				By("Storing a secret into the TPM")
 				// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
@@ -496,14 +488,6 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 					&expect.BExp{R: ""},
 				}, 300)).To(Succeed(), "failed to store secret into the TPM")
 				checkTPM(vmi)
-			}
-
-			addDataToEFI := func(vmi *v1.VirtualMachineInstance) {
-				By("Creating an efivar")
-				cmd := `printf "\x07\x00\x00\x00\x42" > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc`
-				err := console.RunCommand(vmi, cmd, 10*time.Second)
-				Expect(err).NotTo(HaveOccurred())
-				checkEFI(vmi)
 			}
 
 			var currentBackendStorageClass string
@@ -533,7 +517,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				Expect(console.LoginToFedora(targetVMI)).To(Succeed())
 				By("Ensuring the TPM and EFI vars contain the same data after stop and start")
 				checkTPM(targetVMI)
-				checkEFI(targetVMI)
+				libvmops.CheckEFITestVariable(targetVMI)
 			}
 
 			verifyComputeLiveMigrate := func(vmi *v1.VirtualMachineInstance) {
@@ -574,7 +558,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				sourceVMI = libwait.WaitUntilVMIReady(sourceVMI, console.LoginToFedora)
 
 				addDataToTPM(sourceVMI)
-				addDataToEFI(sourceVMI)
+				libvmops.WriteEFITestVariable(sourceVMI)
+				libvmops.CheckEFITestVariable(sourceVMI)
 
 				By("Migrating the VMI")
 				targetVM := createReceiverVMFromVMISpec(targetVMI)

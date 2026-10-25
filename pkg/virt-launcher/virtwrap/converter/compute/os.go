@@ -122,15 +122,17 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 			},
 		}
 		domain.Spec.OS.BootLoader = nil
-		// ARM64 Secure Boot uses uefi-vars firmware descriptors ("device": "memory")
-		// which are incompatible with the pflash <nvram> element. Libvirt manages
-		// variable storage via <varstore> for these descriptors automatically.
-		// For x86_64 pflash firmware, we must keep the explicit <nvram> to preserve
-		// KubeVirt's NVRAM filename convention and prevent format mismatches.
-		if vmi.Spec.Architecture != "arm64" {
+		switch vmi.Spec.Architecture {
+		case "amd64":
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
 				NVRam:  nvramPath(vmi),
+			}
+		case "arm64":
+			// Use the existing EFI backend-storage mount instead of libvirt's
+			// default varstore directory so ARM64 firmware state persists.
+			domain.Spec.OS.VarStore = &api.VarStore{
+				Path: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.json"),
 			}
 		}
 		return
