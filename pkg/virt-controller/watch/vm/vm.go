@@ -1135,9 +1135,9 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 
 	case virtv1.RunStrategyHalted:
 		// For this runStrategy, no VMI should be running under any circumstances.
-		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
+		// Set RunStrategyAlways/running = true for an explicit paused start.
 		if vmi == nil {
-			if hasStartRequest(vm) {
+			if hasStartPausedRequest(vm) {
 				vmCopy := vm.DeepCopy()
 				runStrategy := virtv1.RunStrategyAlways
 				running := true
@@ -2856,6 +2856,12 @@ func (c *Controller) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, v
 			}
 		}
 	case virtv1.StartRequest:
+		// A direct edit to Halted cancels pending automatic restarts.
+		runStrategy, _ := vm.RunStrategy()
+		if runStrategy == virtv1.RunStrategyHalted && !hasStartPausedRequest(vm) {
+			return true
+		}
+
 		// Update VMI as the runStrategy might have started/stopped the VM.
 		// Example: if the runStrategy is `RerunOnFailure` and the VMI just failed
 		// `syncRunStrategy()` will delete the VMI object and enqueue a StartRequest.
