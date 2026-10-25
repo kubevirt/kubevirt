@@ -201,7 +201,6 @@ var _ = Describe("Template", func() {
 
 			It("should add network DRA claim to compute container resources when feature gate is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
 				Expect(err).ToNot(HaveOccurred())
@@ -220,7 +219,8 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add network DRA claim to compute container resources when feature gate is disabled", func() {
-				config, _, svc = configFactory(defaultArch)
+				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
 				Expect(err).ToNot(HaveOccurred())
