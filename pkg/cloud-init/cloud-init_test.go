@@ -246,7 +246,6 @@ var _ = Describe("CloudInit", func() {
 			})
 
 			It("should fail local data generation", func() {
-				instancetype := "fake-instancetype"
 				userData := "fake\nuser\ndata\n"
 				source := &v1.CloudInitNoCloudSource{
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
@@ -260,7 +259,7 @@ var _ = Describe("CloudInit", func() {
 					},
 				}
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateIso(vmi, instancetype, cloudInitData)
+				err := GenerateIso(vmi, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
@@ -270,7 +269,6 @@ var _ = Describe("CloudInit", func() {
 			verifyCloudInitData := func(cloudInitData *CloudInitData) {
 				domain := "fake-domain"
 				namespace := "fake-namespace"
-				instancetype := "fake-instancetype"
 
 				vmi := &v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -279,7 +277,7 @@ var _ = Describe("CloudInit", func() {
 					},
 				}
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateIso(vmi, instancetype, cloudInitData)
+				err := GenerateIso(vmi, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -593,7 +591,6 @@ var _ = Describe("CloudInit", func() {
 
 	Describe("GenerateIso", func() {
 		It("should cleanly run twice", func() {
-			instancetype := "fake-instancetype"
 			userData := "fake\nuser\ndata\n"
 
 			vmi := &v1.VirtualMachineInstance{
@@ -608,9 +605,9 @@ var _ = Describe("CloudInit", func() {
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			err = GenerateIso(vmi, instancetype, cloudInitData)
+			err = GenerateIso(vmi, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateIso(vmi, instancetype, cloudInitData)
+			err = GenerateIso(vmi, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
