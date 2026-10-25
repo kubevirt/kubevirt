@@ -193,6 +193,10 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 
+cluster-sync-fast:
+	@test -n "$$PUSH_TARGETS" || { echo 'Set PUSH_TARGETS to the KubeVirt images to sync' >&2; exit 2; }
+	tilt ci --file Tiltfile
+
 builder-build:
 	./hack/builder/build.sh
 
@@ -296,6 +300,7 @@ vmlog-checker:
 	cluster-clean \
 	cluster-deploy \
 	cluster-sync \
+	cluster-sync-fast \
 	olm-verify \
 	olm-push \
 	coverage \
