@@ -539,7 +539,7 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 }
 
 // GenerateIso generates a cloud-init ISO for the VMI.
-func GenerateIso(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
+func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
 	precond.MustNotBeEmpty(vmi.Name)
 	precond.MustNotBeNil(data)
 
@@ -558,13 +558,6 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, instanceType string, data *Clou
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
 		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-		if data.NoCloudMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			data.NoCloudMetaData = &NoCloudMetadata{
-				InstanceID: string(vmi.Spec.Domain.Firmware.UUID),
-			}
-			data.NoCloudMetaData.InstanceType = instanceType
-		}
 		metaData, err = json.Marshal(data.NoCloudMetaData)
 		if err != nil {
 			return err
@@ -576,16 +569,9 @@ func GenerateIso(vmi *v1.VirtualMachineInstance, instanceType string, data *Clou
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-		if data.ConfigDriveMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			instanceId := fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace)
-			data.ConfigDriveMetaData = &ConfigDriveMetadata{
-				InstanceID: instanceId,
-				UUID:       string(vmi.Spec.Domain.Firmware.UUID),
-			}
-			data.ConfigDriveMetaData.InstanceType = instanceType
+		if data.ConfigDriveMetaData != nil {
+			data.ConfigDriveMetaData.Devices = data.DevicesData
 		}
-		data.ConfigDriveMetaData.Devices = data.DevicesData
 		metaData, err = json.Marshal(data.ConfigDriveMetaData)
 		if err != nil {
 			return err
