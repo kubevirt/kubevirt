@@ -12,7 +12,6 @@
 // limitations under the License.
 
 //go:build linux
-// +build linux
 
 // Package sysfs provides functions to retrieve system and kernel metrics
 // from the pseudo-filesystem sys.

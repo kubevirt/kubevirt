@@ -10,6 +10,7 @@ go_library(
         "process.go",
         "signal_other.go",
         "signal_unix.go",
+        "signal_windows.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/process",
     importpath = "sigs.k8s.io/controller-runtime/pkg/internal/testing/process",

@@ -4,10 +4,12 @@ go_library(
     name = "go_default_library",
     srcs = [
         "errors.go",
+        "ifaces.go",
+        "options.go",
         "pointer.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/jsonpointer",
     importpath = "github.com/go-openapi/jsonpointer",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/go-openapi/swag/jsonname:go_default_library"],
+    deps = ["//vendor/github.com/go-openapi/jsonpointer/jsonname:go_default_library"],
 )

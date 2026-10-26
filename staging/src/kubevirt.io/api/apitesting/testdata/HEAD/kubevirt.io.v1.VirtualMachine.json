@@ -836,7 +836,8 @@
                     "resource": "resourceValue",
                     "divisor": "0"
                   },
-                  "mode": 4
+                  "mode": 4,
+                  "user": 5
                 }
               ],
               "volumeLabel": "volumeLabelValue"
@@ -873,7 +874,8 @@
                 "name": "nameValue",
                 "value": "valueValue"
               }
-            ]
+            ],
+            "protocol": "protocolValue"
           },
           "tcpSocket": {
             "port": "portValue",
@@ -902,7 +904,8 @@
                 "name": "nameValue",
                 "value": "valueValue"
               }
-            ]
+            ],
+            "protocol": "protocolValue"
           },
           "tcpSocket": {
             "port": "portValue",

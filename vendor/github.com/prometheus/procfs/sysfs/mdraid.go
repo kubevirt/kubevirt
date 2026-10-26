@@ -12,13 +12,14 @@
 // limitations under the License.
 
 //go:build linux
-// +build linux
 
 package sysfs
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/procfs/internal/util"
@@ -27,10 +28,10 @@ import (
 // Mdraid holds info parsed from relevant files in the /sys/block/md*/md directory.
 type Mdraid struct {
 	Device          string            // Kernel device name of array.
-	Level           string            // mdraid level.
+	Level           string            // mdraid level. Empty if level file is unreadable.
 	ArrayState      string            // State of the array.
 	MetadataVersion string            // mdraid metadata version.
-	Disks           uint64            // Number of devices in a fully functional array.
+	Disks           *uint64           // Number of devices in a fully functional array. Nil when unavailable (e.g. container/imsm/ddf, empty level, or empty raid_disks).
 	Components      []MdraidComponent // mdraid component devices.
 	UUID            string            // UUID of the array.
 
@@ -82,10 +83,38 @@ func (fs FS) Mdraids() ([]Mdraid, error) {
 			return mdraids, err
 		}
 
-		if val, err := util.ReadUintFromFile(filepath.Join(path, "raid_disks")); err == nil {
-			md.Disks = val
-		} else {
-			return mdraids, err
+		// Parse raid_disks:
+		// - Container types (container/imsm/ddf) have no physical disks assigned.
+		// - Empty level file means we can't determine the array type, skip parsing.
+		// - During reshape/grow, raid_disks may contain "current (previous)" (e.g. "11 (10)").
+		// - Normal case is a plain integer.
+		switch md.Level {
+		case "container", "imsm", "ddf":
+			// No disks for container-type arrays, Disks remains nil.
+		case "":
+			// Empty level file, cannot determine disk count, Disks remains nil.
+		default:
+			data, err := os.ReadFile(filepath.Join(path, "raid_disks"))
+			if err != nil {
+				return mdraids, fmt.Errorf("reading raid_disks for %s: %w", md.Device, err)
+			}
+			content := strings.TrimSpace(string(data))
+			if content == "" {
+				// Empty file, Disks remains nil.
+				break
+			}
+
+			// Try normal integer parse first.
+			if val, parseErr := strconv.ParseUint(content, 10, 64); parseErr == nil {
+				md.Disks = &val
+			} else if idx := strings.Index(content, " "); idx > 0 {
+				// Reshape format: "current (previous)", extract the first number.
+				if val, parseErr := strconv.ParseUint(content[:idx], 10, 64); parseErr == nil {
+					md.Disks = &val
+				}
+				// If parsing fails, Disks remains nil (reshape in progress, count may be inaccurate).
+			}
+			// If neither format matches, Disks remains nil.
 		}
 
 		if val, err := util.SysReadFile(filepath.Join(path, "uuid")); err == nil {
