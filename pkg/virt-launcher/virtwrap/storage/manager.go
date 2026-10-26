@@ -31,6 +31,10 @@ const (
 	MaxConcurrentMemoryDumps = 1
 )
 
+type checkpointCandidate struct {
+	released bool
+}
+
 type StorageManager struct {
 	virConn                  cli.Connection
 	metadataCache            *metadata.Cache
@@ -39,6 +43,8 @@ type StorageManager struct {
 
 	overlayUsage         func(overlayDir string) (int64, error)
 	overlayUsageInterval time.Duration
+	// Protected by the domain manager's domainModifyLock.
+	checkpointCandidates map[string]checkpointCandidate
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache) *StorageManager {
@@ -49,6 +55,7 @@ func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache)
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		overlayUsage:             overlayUsedPercent,
 		overlayUsageInterval:     overlayUsagePollInterval,
+		checkpointCandidates:     make(map[string]checkpointCandidate),
 	}
 }
 

@@ -47,6 +47,7 @@ const ConnectionInterval = 500 * time.Millisecond
 // TODO: Should we handle libvirt connection errors transparent or panic?
 type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
+	DeleteDomainCheckpoint(domainName, checkpointName string) error
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
 	DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error
@@ -275,6 +276,27 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	dom, err = l.Connect.DomainDefineXML(xml)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) DeleteDomainCheckpoint(domainName, checkpointName string) error {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return err
+	}
+	domain, err := l.Connect.LookupDomainByName(domainName)
+	if err != nil {
+		l.checkConnectionLost(err)
+		return err
+	}
+	defer domain.Free()
+	checkpoint, err := domain.CheckpointLookupByName(checkpointName, 0)
+	if err != nil {
+		l.checkConnectionLost(err)
+		return err
+	}
+	defer checkpoint.Free()
+	err = checkpoint.Delete(0)
+	l.checkConnectionLost(err)
+	return err
 }
 
 func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {

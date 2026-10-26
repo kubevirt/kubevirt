@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -41,6 +42,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -80,8 +82,10 @@ func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, ba
 	err = m.backup(vmi, backupOptions)
 	if err != nil {
 		logger.Reason(err).Error("Backup failed to start")
-		// Reset metadata cache so retries can proceed with fresh metadata
-		m.metadataCache.Backup.Store(api.BackupMetadata{})
+		// In case the backup failed to start, reset the metadata cache so retries can proceed with fresh metadata
+		m.metadataCache.Backup.Store(api.BackupMetadata{
+			CheckpointCleanupPending: len(m.checkpointCandidates) > 0,
+		})
 		return err
 	}
 
@@ -117,15 +121,90 @@ func (m *StorageManager) initializeBackupMetadata(backupOptions *backupv1.Backup
 	}
 
 	b := api.BackupMetadata{
-		Name:           backupOptions.BackupName,
-		StartTimestamp: backupOptions.BackupStartTime,
-		SkipQuiesce:    backupOptions.SkipQuiesce,
-		Mode:           string(backupOptions.Mode),
+		Name:                     backupOptions.BackupName,
+		StartTimestamp:           backupOptions.BackupStartTime,
+		SkipQuiesce:              backupOptions.SkipQuiesce,
+		Mode:                     string(backupOptions.Mode),
+		CheckpointCleanupPending: len(m.checkpointCandidates) > 0,
 	}
 	m.metadataCache.Backup.Store(b)
 	log.Log.Infof("Initialized backup metadata: %v", b)
 
 	return false, nil
+}
+
+// CleanupBackupCheckpoints reclaims bases after a successful backup has been promoted.
+// Keep released candidates eligible if a later backup fails.
+// Missing checkpoints and recovery after a restart are deliberately left alone.
+func (m *StorageManager) CleanupBackupCheckpoints(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) error {
+	uid, initialized := m.metadataCache.UID.Load()
+	if !initialized || uid != vmi.UID {
+		return nil
+	}
+	if len(m.checkpointCandidates) == 0 || m.MigrationInProgress() {
+		return nil
+	}
+	// Wait until the controller has finished processing the current backup.
+	if vmi.Status.ChangedBlockTracking != nil && vmi.Status.ChangedBlockTracking.BackupStatus != nil {
+		return nil
+	}
+	reference, err := storagetypes.GetBackupCheckpointReference(vmi)
+	if err != nil || reference == nil {
+		return err
+	}
+	referencedCheckpointNames := reference.ReferencedCheckpointNames
+	backup, exists := m.metadataCache.Backup.Load()
+	canRelease := exists && backup.Completed && !backup.Failed &&
+		backup.Name == reference.BackupName && backup.CheckpointName == reference.CheckpointName &&
+		backup.StartTimestamp != nil && backup.StartTimestamp.Equal(reference.StartTimestamp)
+	// Record all releases before a job check or deletion can fail.
+	if !m.releaseBackupCheckpointCandidates(referencedCheckpointNames, canRelease) {
+		return nil
+	}
+	job, err := dom.GetJobInfo()
+	if err != nil {
+		return err
+	}
+	if job == nil || job.Type != libvirt.DOMAIN_JOB_NONE {
+		return nil
+	}
+	err = m.deleteReleasedBackupCheckpoints(api.VMINamespaceKeyFunc(vmi), referencedCheckpointNames)
+	m.metadataCache.Backup.WithSafeBlock(func(current *api.BackupMetadata, _ bool) {
+		if current.CheckpointName == backup.CheckpointName {
+			current.CheckpointCleanupPending = len(m.checkpointCandidates) > 0
+		}
+	})
+	return err
+}
+
+func (m *StorageManager) releaseBackupCheckpointCandidates(referencedCheckpointNames []string, canRelease bool) bool {
+	ready := false
+	for name, candidate := range m.checkpointCandidates {
+		if slices.Contains(referencedCheckpointNames, name) {
+			continue
+		}
+		if canRelease && !candidate.released {
+			candidate.released = true
+			m.checkpointCandidates[name] = candidate
+		}
+		ready = ready || candidate.released
+	}
+	return ready
+}
+
+func (m *StorageManager) deleteReleasedBackupCheckpoints(domainName string, referencedCheckpointNames []string) error {
+	var cleanupErrors []error
+	for name, candidate := range m.checkpointCandidates {
+		if !candidate.released || slices.Contains(referencedCheckpointNames, name) {
+			continue
+		}
+		if err := m.virConn.DeleteDomainCheckpoint(domainName, name); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("delete released checkpoint %s: %w", name, err))
+			continue
+		}
+		delete(m.checkpointCandidates, name)
+	}
+	return errors.Join(cleanupErrors...)
 }
 
 func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) (failed error) {
@@ -224,7 +303,19 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		})
 	}
 
-	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
+	if err := dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0); err != nil {
+		return err
+	}
+	// Only track the base if at least one disk used it.
+	if domainBackup.Incremental != nil {
+		if _, exists := m.checkpointCandidates[*domainBackup.Incremental]; !exists {
+			m.checkpointCandidates[*domainBackup.Incremental] = checkpointCandidate{}
+		}
+		m.metadataCache.Backup.WithSafeBlock(func(backup *api.BackupMetadata, _ bool) {
+			backup.CheckpointCleanupPending = len(m.checkpointCandidates) > 0
+		})
+	}
+	return nil
 }
 
 func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
