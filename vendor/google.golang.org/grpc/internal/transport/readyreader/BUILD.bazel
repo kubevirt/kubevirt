@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "raw_conn_linux.go",
+        "raw_conn_nonlinux.go",
+        "ready_reader.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/transport/readyreader",
+    importpath = "google.golang.org/grpc/internal/transport/readyreader",
+    visibility = ["//vendor/google.golang.org/grpc:__subpackages__"],
+    deps = ["//vendor/google.golang.org/grpc/mem:go_default_library"],
+)

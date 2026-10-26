@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "cbor.go",
+        "collections.go",
         "framer.go",
         "raw.go",
     ],
@@ -14,6 +15,7 @@ go_library(
         "//vendor/github.com/fxamacker/cbor/v2:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/conversion:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/serializer/cbor/internal/modes:go_default_library",

@@ -8,6 +8,7 @@ go_library(
         "cronjobstatus.go",
         "job.go",
         "jobcondition.go",
+        "jobschedulingconfiguration.go",
         "jobspec.go",
         "jobstatus.go",
         "jobtemplatespec.go",
@@ -31,5 +32,6 @@ go_library(
         "//vendor/k8s.io/client-go/applyconfigurations/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/applyconfigurations/internal:go_default_library",
         "//vendor/k8s.io/client-go/applyconfigurations/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/applyconfigurations/scheduling/v1alpha3:go_default_library",
     ],
 )

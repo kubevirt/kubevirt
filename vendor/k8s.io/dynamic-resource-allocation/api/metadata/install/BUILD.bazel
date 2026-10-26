@@ -11,5 +11,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
         "//vendor/k8s.io/dynamic-resource-allocation/api/metadata:go_default_library",
         "//vendor/k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/api/metadata/v1beta1:go_default_library",
     ],
 )
