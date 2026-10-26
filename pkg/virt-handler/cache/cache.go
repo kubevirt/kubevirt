@@ -21,6 +21,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -100,13 +101,13 @@ func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *Gh
 
 	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
-		ghostRecord := ghostRecord{}
-		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		record := ghostRecord{}
+		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &record); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
-		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		GhostRecordGlobalStore.cache[key] = ghostRecord
+		key := record.Namespace + "/" + record.Name
+		GhostRecordGlobalStore.cache[key] = record
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
 	return &GhostRecordGlobalStore
@@ -204,6 +205,53 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	return nil
 }
 
+// ErrGhostRecordUIDMismatch is returned by DeleteIfUID when the stored
+// record belongs to a different UID than the caller expected.
+var ErrGhostRecordUIDMismatch = errors.New("ghost record exists with differing UID")
+
+// Get returns a copy of the ghost record for namespace/name, if one exists.
+func (store *GhostRecordStore) Get(namespace string, name string) (ghostRecord, bool) {
+	store.Lock()
+	defer store.Unlock()
+
+	record, ok := store.cache[namespace+"/"+name]
+	return record, ok
+}
+
+// DeleteIfUID removes the ghost record and its checkpoint only when the
+// stored UID equals expectedUID, so cleanup for an old VMI incarnation can
+// never remove the record of a newer one under the same name. An absent
+// record is treated as success.
+func (store *GhostRecordStore) DeleteIfUID(namespace string, name string, expectedUID types.UID) error {
+	store.Lock()
+	defer store.Unlock()
+
+	if string(expectedUID) == "" {
+		return fmt.Errorf("unable to delete ghost record with empty expected UID")
+	}
+
+	key := namespace + "/" + name
+	record, ok := store.cache[key]
+	if !ok {
+		// already deleted
+		return nil
+	}
+
+	if record.UID != expectedUID {
+		return fmt.Errorf("unable to delete ghost record %s with UID %s: %w", key, expectedUID, ErrGhostRecordUIDMismatch)
+	}
+
+	// A checkpoint that is already gone counts as deleted; otherwise the
+	// in-memory record could never be removed and every retry would fail.
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
+	}
+
+	delete(store.cache, key)
+
+	return nil
+}
+
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
@@ -218,7 +266,7 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
-	if err := store.checkpointManager.Delete(string(record.UID)); err != nil {
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
 	}
 
