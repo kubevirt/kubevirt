@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1beta1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
@@ -70,8 +71,8 @@ var (
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
-	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
-	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
+	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1beta1.SchemeGroupVersion.Group
+	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1beta1.SchemeGroupVersion.Group
 	PLUGIN                           = "plugins." + plugin.GroupName
 )
 
@@ -701,12 +702,20 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEBACKUP
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: backupv1alpha1.SchemeGroupVersion.Group,
+		Group: backupv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    backupv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -747,12 +756,20 @@ func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEBACKUPTRACKER
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: backupv1alpha1.SchemeGroupVersion.Group,
+		Group: backupv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    backupv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
