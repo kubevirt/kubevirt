@@ -234,7 +234,7 @@ var _ = Describe("Offline backup data plane", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			statePath := filepath.Join(dir, "state")
-			overlayRelPath := cbt.GetQCOW2OverlayPVCPath("rootdisk")
+			overlayRelPath := cbt.GetQCOW2OverlayBackendPath("rootdisk", "rootdisk-pvc")
 			Expect(os.MkdirAll(filepath.Dir(filepath.Join(statePath, overlayRelPath)), 0755)).To(Succeed())
 			overlayPath = filepath.Join(statePath, overlayRelPath)
 			_, err = runCommand(context.Background(), "qemu-img", "create", "-f", "qcow2",
@@ -309,7 +309,7 @@ var _ = Describe("Offline backup data plane", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			statePath = filepath.Join(dir, "state")
-			overlayRelPath = cbt.GetQCOW2OverlayPVCPath("rootdisk")
+			overlayRelPath = cbt.GetQCOW2OverlayBackendPath("rootdisk", "rootdisk-pvc")
 			Expect(os.MkdirAll(filepath.Dir(filepath.Join(statePath, overlayRelPath)), 0755)).To(Succeed())
 			_, err = runCommand(context.Background(), "qemu-img", "create", "-f", "qcow2",
 				"-o", fmt.Sprintf("data_file=%s,data_file_raw=on", dataPath), filepath.Join(statePath, overlayRelPath), "2M")

@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +50,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -56,6 +58,7 @@ import (
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
 	exportapi "kubevirt.io/kubevirt/pkg/storage/export/export"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
@@ -485,6 +488,91 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
+	It("Backup falls back to Full for a volume repointed at another PVC", func() {
+		const (
+			bootDiskName  = "disk0"
+			dataDiskName  = "disk1"
+			blankDiskSize = "256Mi"
+		)
+
+		bootDv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(cd.AlpineVolumeSize)),
+		)
+		dataDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(blankDiskSize)),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
+		)
+		dataDv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(dataDv.Namespace).Create(context.Background(), dataDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.AddDataVolume(vm, dataDiskName, dataDv)
+
+		By(fmt.Sprintf("Creating VM %s with 2 disks", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		totalSize := resource.MustParse(cd.AlpineVolumeSize)
+		totalSize.Add(resource.MustParse(blankDiskSize))
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(totalSize.String()), libstorage.WithStorageProfile())
+		secondBackupPVC := libstorage.CreateFSPVC("second-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(totalSize.String()), libstorage.WithStorageProfile())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating first full backup")
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(fullBackup.Status.IncludedVolumes).To(HaveEach(HaveField("Type", backupv1.Full)), "First backup should be Full")
+
+		By("Stopping the VM")
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			return err
+		}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+		By(fmt.Sprintf("Repointing volume %s at a new DataVolume", dataDiskName))
+		newDataDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(blankDiskSize)),
+		)
+		newDataDv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newDataDv.Namespace).Create(context.Background(), newDataDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		dataVolumeIndex := slices.IndexFunc(vm.Spec.Template.Spec.Volumes, func(v v1.Volume) bool { return v.Name == dataDiskName })
+		Expect(dataVolumeIndex).ToNot(Equal(-1))
+		dataVolumePath := fmt.Sprintf("/spec/template/spec/volumes/%d", dataVolumeIndex)
+		repointPatch, err := patch.New(
+			patch.WithTest(dataVolumePath+"/name", dataDiskName),
+			patch.WithReplace(dataVolumePath+"/dataVolume/name", newDataDv.Name),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, repointPatch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Starting the VM again")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Creating second backup - only the repointed volume should fall back to Full")
+		secondBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, secondBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(secondBackup.Status.IncludedVolumes).To(ConsistOf(
+			And(HaveField("VolumeName", bootDiskName), HaveField("Type", backupv1.Incremental)),
+			And(HaveField("VolumeName", dataDiskName), HaveField("Type", backupv1.Full)),
+		))
+	})
+
 	It("Backup falls back to Full when checkpoint is corrupted", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
@@ -530,8 +618,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		pvcName := backendstorage.CurrentPVCName(vmi)
 		Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
-		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
-		cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
+		cbtOverlayPath := cbt.GetQCOW2OverlayBackendPath(vm.Spec.Template.Spec.Volumes[0].Name, storagetypes.PVCNameFromVirtVolume(&vm.Spec.Template.Spec.Volumes[0]))
 
 		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -1681,7 +1768,7 @@ func corruptBitmap(virtClient kubecli.KubevirtClient, namespace, pvcName, cbtOve
 
 	executorPod := createExecutorPod(pvc)
 
-	fullPath := fmt.Sprintf("%s%s", libstorage.DefaultPvcMountPath, cbtOverlayPath)
+	fullPath := filepath.Join(libstorage.DefaultPvcMountPath, cbtOverlayPath)
 
 	By("Listing backend storage PVC contents before deletion")
 	lsOutput, err := exec.ExecuteCommandOnPod(

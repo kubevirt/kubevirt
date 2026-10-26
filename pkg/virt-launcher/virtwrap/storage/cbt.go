@@ -94,6 +94,11 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 	scratch := os.NewFile(uintptr(fd), "cbt-scratch")
 	defer scratch.Close()
 
+	// #nosec G301: qemu traverses the directory to reach the overlay.
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay directory for %s: %w", overlayPath, err)
+	}
+
 	tmpOverlay := overlayPath + ".tmp"
 	if err := os.Remove(tmpOverlay); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to remove stale QCOW2 overlay %s: %w", tmpOverlay, err)
@@ -203,7 +208,7 @@ func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.Do
 		if !cbt.IsCBTEligibleVolume(&volume) {
 			continue
 		}
-		desiredPaths[cbt.GetQCOW2OverlayPath(vmi, volume.Name)] = struct{}{}
+		desiredPaths[cbt.GetQCOW2OverlayPath(vmi, &volume)] = struct{}{}
 	}
 	addLiveDomainCBTOverlayPaths(desiredPaths, cbtDir, domainSpec)
 	return cbtDir, desiredPaths
@@ -303,7 +308,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 			continue
 		}
 
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, &volume)
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
 
 		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
@@ -331,7 +336,7 @@ func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *co
 	applyCBTMap := make(map[string]string)
 	for _, volume := range vmi.Spec.Volumes {
 		if cbt.IsCBTEligibleVolume(&volume) {
-			applyCBTMap[volume.Name] = cbt.GetQCOW2OverlayPath(vmi, volume.Name)
+			applyCBTMap[volume.Name] = cbt.GetQCOW2OverlayPath(vmi, &volume)
 		}
 	}
 	c.ApplyCBT = applyCBTMap
