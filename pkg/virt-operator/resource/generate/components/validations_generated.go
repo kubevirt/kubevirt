@@ -78,8 +78,8 @@ var CRDsValidation map[string]string = map[string]string{
                 * An existing PVC (PersistentVolumeClaim)
                 If the provisioner or an external controller can support the specified data source,
                 it will create a new volume based on the contents of the specified data source.
-                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                copied to dataSource when dataSourceRef.namespace is not specified.
                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
               properties:
                 apiGroup:
@@ -122,7 +122,6 @@ var CRDsValidation map[string]string = map[string]string{
                   specified.
                 * While dataSource only allows local objects, dataSourceRef allows objects
                   in any namespaces.
-                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
               properties:
                 apiGroup:
@@ -5824,8 +5823,8 @@ var CRDsValidation map[string]string = map[string]string{
                           * An existing PVC (PersistentVolumeClaim)
                           If the provisioner or an external controller can support the specified data source,
                           it will create a new volume based on the contents of the specified data source.
-                          When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                          and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                          dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                          copied to dataSource when dataSourceRef.namespace is not specified.
                           If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                         properties:
                           apiGroup:
@@ -5868,7 +5867,6 @@ var CRDsValidation map[string]string = map[string]string{
                             specified.
                           * While dataSource only allows local objects, dataSourceRef allows objects
                             in any namespaces.
-                          (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                           (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                         properties:
                           apiGroup:
@@ -9063,6 +9061,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Number must be in the range 1 to 65535.
                             Name must be an IANA_SVC_NAME.
                           x-kubernetes-int-or-string: true
+                        protocol:
+                          description: |-
+                            Protocol selects the wire protocol for the probe connection.
+                            Nil defaults to HTTP/1.1.
+                          type: string
                         scheme:
                           description: |-
                             Scheme to use for connecting to the host.
@@ -9289,6 +9292,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Number must be in the range 1 to 65535.
                             Name must be an IANA_SVC_NAME.
                           x-kubernetes-int-or-string: true
+                        protocol:
+                          description: |-
+                            Protocol selects the wire protocol for the probe connection.
+                            Nil defaults to HTTP/1.1.
+                          type: string
                         scheme:
                           description: |-
                             Scheme to use for connecting to the host.
@@ -9733,8 +9741,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 * An existing PVC (PersistentVolumeClaim)
                                 If the provisioner or an external controller can support the specified data source,
                                 it will create a new volume based on the contents of the specified data source.
-                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                copied to dataSource when dataSourceRef.namespace is not specified.
                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                               properties:
                                 apiGroup:
@@ -9779,7 +9787,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   specified.
                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                   in any namespaces.
-                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                               properties:
                                 apiGroup:
@@ -10198,6 +10205,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   - resource
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                user:
+                                  description: |-
+                                    user is Optional: The owner UID of the created file.
+                                    If specified, the item-level user field takes precedence over defaultUser.
+                                    (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                  format: int64
+                                  type: integer
                               required:
                               - path
                               type: object
@@ -15720,6 +15734,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Number must be in the range 1 to 65535.
                     Name must be an IANA_SVC_NAME.
                   x-kubernetes-int-or-string: true
+                protocol:
+                  description: |-
+                    Protocol selects the wire protocol for the probe connection.
+                    Nil defaults to HTTP/1.1.
+                  type: string
                 scheme:
                   description: |-
                     Scheme to use for connecting to the host.
@@ -15945,6 +15964,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Number must be in the range 1 to 65535.
                     Name must be an IANA_SVC_NAME.
                   x-kubernetes-int-or-string: true
+                protocol:
+                  description: |-
+                    Protocol selects the wire protocol for the probe connection.
+                    Nil defaults to HTTP/1.1.
+                  type: string
                 scheme:
                   description: |-
                     Scheme to use for connecting to the host.
@@ -16388,8 +16412,8 @@ var CRDsValidation map[string]string = map[string]string{
                         * An existing PVC (PersistentVolumeClaim)
                         If the provisioner or an external controller can support the specified data source,
                         it will create a new volume based on the contents of the specified data source.
-                        When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                        and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                        dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                        copied to dataSource when dataSourceRef.namespace is not specified.
                         If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                       properties:
                         apiGroup:
@@ -16432,7 +16456,6 @@ var CRDsValidation map[string]string = map[string]string{
                           specified.
                         * While dataSource only allows local objects, dataSourceRef allows objects
                           in any namespaces.
-                        (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                         (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                       properties:
                         apiGroup:
@@ -16842,6 +16865,13 @@ var CRDsValidation map[string]string = map[string]string{
                           - resource
                           type: object
                           x-kubernetes-map-type: atomic
+                        user:
+                          description: |-
+                            user is Optional: The owner UID of the created file.
+                            If specified, the item-level user field takes precedence over defaultUser.
+                            (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                          format: int64
+                          type: integer
                       required:
                       - path
                       type: object
@@ -22948,6 +22978,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Number must be in the range 1 to 65535.
                             Name must be an IANA_SVC_NAME.
                           x-kubernetes-int-or-string: true
+                        protocol:
+                          description: |-
+                            Protocol selects the wire protocol for the probe connection.
+                            Nil defaults to HTTP/1.1.
+                          type: string
                         scheme:
                           description: |-
                             Scheme to use for connecting to the host.
@@ -23174,6 +23209,11 @@ var CRDsValidation map[string]string = map[string]string{
                             Number must be in the range 1 to 65535.
                             Name must be an IANA_SVC_NAME.
                           x-kubernetes-int-or-string: true
+                        protocol:
+                          description: |-
+                            Protocol selects the wire protocol for the probe connection.
+                            Nil defaults to HTTP/1.1.
+                          type: string
                         scheme:
                           description: |-
                             Scheme to use for connecting to the host.
@@ -23618,8 +23658,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 * An existing PVC (PersistentVolumeClaim)
                                 If the provisioner or an external controller can support the specified data source,
                                 it will create a new volume based on the contents of the specified data source.
-                                When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                copied to dataSource when dataSourceRef.namespace is not specified.
                                 If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                               properties:
                                 apiGroup:
@@ -23664,7 +23704,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   specified.
                                 * While dataSource only allows local objects, dataSourceRef allows objects
                                   in any namespaces.
-                                (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                 (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                               properties:
                                 apiGroup:
@@ -24083,6 +24122,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   - resource
                                   type: object
                                   x-kubernetes-map-type: atomic
+                                user:
+                                  description: |-
+                                    user is Optional: The owner UID of the created file.
+                                    If specified, the item-level user field takes precedence over defaultUser.
+                                    (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                  format: int64
+                                  type: integer
                               required:
                               - path
                               type: object
@@ -25107,8 +25153,8 @@ var CRDsValidation map[string]string = map[string]string{
                                   * An existing PVC (PersistentVolumeClaim)
                                   If the provisioner or an external controller can support the specified data source,
                                   it will create a new volume based on the contents of the specified data source.
-                                  When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                  and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                  dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                  copied to dataSource when dataSourceRef.namespace is not specified.
                                   If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                 properties:
                                   apiGroup:
@@ -25153,7 +25199,6 @@ var CRDsValidation map[string]string = map[string]string{
                                     specified.
                                   * While dataSource only allows local objects, dataSourceRef allows objects
                                     in any namespaces.
-                                  (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                   (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                 properties:
                                   apiGroup:
@@ -28410,6 +28455,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     Number must be in the range 1 to 65535.
                                     Name must be an IANA_SVC_NAME.
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  description: |-
+                                    Protocol selects the wire protocol for the probe connection.
+                                    Nil defaults to HTTP/1.1.
+                                  type: string
                                 scheme:
                                   description: |-
                                     Scheme to use for connecting to the host.
@@ -28636,6 +28686,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     Number must be in the range 1 to 65535.
                                     Name must be an IANA_SVC_NAME.
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  description: |-
+                                    Protocol selects the wire protocol for the probe connection.
+                                    Nil defaults to HTTP/1.1.
+                                  type: string
                                 scheme:
                                   description: |-
                                     Scheme to use for connecting to the host.
@@ -29083,8 +29138,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         * An existing PVC (PersistentVolumeClaim)
                                         If the provisioner or an external controller can support the specified data source,
                                         it will create a new volume based on the contents of the specified data source.
-                                        When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                        and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                        dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                        copied to dataSource when dataSourceRef.namespace is not specified.
                                         If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                       properties:
                                         apiGroup:
@@ -29129,7 +29184,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           specified.
                                         * While dataSource only allows local objects, dataSourceRef allows objects
                                           in any namespaces.
-                                        (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                         (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                       properties:
                                         apiGroup:
@@ -29556,6 +29610,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           - resource
                                           type: object
                                           x-kubernetes-map-type: atomic
+                                        user:
+                                          description: |-
+                                            user is Optional: The owner UID of the created file.
+                                            If specified, the item-level user field takes precedence over defaultUser.
+                                            (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                          format: int64
+                                          type: integer
                                       required:
                                       - path
                                       type: object
@@ -31048,8 +31109,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       * An existing PVC (PersistentVolumeClaim)
                                       If the provisioner or an external controller can support the specified data source,
                                       it will create a new volume based on the contents of the specified data source.
-                                      When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                      and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                      dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                      copied to dataSource when dataSourceRef.namespace is not specified.
                                       If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                     properties:
                                       apiGroup:
@@ -31094,7 +31155,6 @@ var CRDsValidation map[string]string = map[string]string{
                                         specified.
                                       * While dataSource only allows local objects, dataSourceRef allows objects
                                         in any namespaces.
-                                      (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                       (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                     properties:
                                       apiGroup:
@@ -34389,6 +34449,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         Number must be in the range 1 to 65535.
                                         Name must be an IANA_SVC_NAME.
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      description: |-
+                                        Protocol selects the wire protocol for the probe connection.
+                                        Nil defaults to HTTP/1.1.
+                                      type: string
                                     scheme:
                                       description: |-
                                         Scheme to use for connecting to the host.
@@ -34617,6 +34682,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         Number must be in the range 1 to 65535.
                                         Name must be an IANA_SVC_NAME.
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      description: |-
+                                        Protocol selects the wire protocol for the probe connection.
+                                        Nil defaults to HTTP/1.1.
+                                      type: string
                                     scheme:
                                       description: |-
                                         Scheme to use for connecting to the host.
@@ -35064,8 +35134,8 @@ var CRDsValidation map[string]string = map[string]string{
                                             * An existing PVC (PersistentVolumeClaim)
                                             If the provisioner or an external controller can support the specified data source,
                                             it will create a new volume based on the contents of the specified data source.
-                                            When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                                            and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                                            dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                                            copied to dataSource when dataSourceRef.namespace is not specified.
                                             If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                                           properties:
                                             apiGroup:
@@ -35110,7 +35180,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               specified.
                                             * While dataSource only allows local objects, dataSourceRef allows objects
                                               in any namespaces.
-                                            (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                                             (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                                           properties:
                                             apiGroup:
@@ -35546,6 +35615,13 @@ var CRDsValidation map[string]string = map[string]string{
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              description: |-
+                                                user is Optional: The owner UID of the created file.
+                                                If specified, the item-level user field takes precedence over defaultUser.
+                                                (Alpha) This field requires the AtomicWriteVolumeUserFields feature gate to be enabled.
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -36631,8 +36707,8 @@ var CRDsValidation map[string]string = map[string]string{
                           * An existing PVC (PersistentVolumeClaim)
                           If the provisioner or an external controller can support the specified data source,
                           it will create a new volume based on the contents of the specified data source.
-                          When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
-                          and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                          dataSource contents will be copied to dataSourceRef, and dataSourceRef contents will be
+                          copied to dataSource when dataSourceRef.namespace is not specified.
                           If the namespace is specified, then dataSourceRef will not be copied to dataSource.
                         properties:
                           apiGroup:
@@ -36675,7 +36751,6 @@ var CRDsValidation map[string]string = map[string]string{
                             specified.
                           * While dataSource only allows local objects, dataSourceRef allows objects
                             in any namespaces.
-                          (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
                           (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
                         properties:
                           apiGroup:

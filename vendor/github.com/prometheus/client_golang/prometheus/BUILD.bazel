@@ -14,7 +14,6 @@ go_library(
         "gauge.go",
         "get_pid.go",
         "go_collector.go",
-        "go_collector_go116.go",
         "go_collector_latest.go",
         "histogram.go",
         "labels.go",

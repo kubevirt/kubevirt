@@ -12,18 +12,15 @@
 // limitations under the License.
 
 //go:build linux
-// +build linux
 
 package sysfs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
-
-	fsp "io/fs"
 
 	"github.com/prometheus/procfs/internal/util"
 )
@@ -38,6 +35,9 @@ type ClassThermalZoneStats struct {
 	Policy  string  // One of the various thermal governors used for a particular zone.
 	Mode    *bool   // Optional: One of the predefined values in [enabled, disabled].
 	Passive *uint64 // Optional: millidegrees Celsius. (0 for disabled, > 1000 for enabled+value)
+
+	// ReadError contains any errors returned when gathering data.
+	ReadErrors error
 }
 
 // ClassThermalZoneStats returns Thermal Zone metrics for all zones.
@@ -49,38 +49,33 @@ func (fs FS) ClassThermalZoneStats() ([]ClassThermalZoneStats, error) {
 
 	stats := make([]ClassThermalZoneStats, 0, len(zones))
 	for _, zone := range zones {
-		zoneStats, err := parseClassThermalZone(zone)
-		if err != nil {
-			if errors.Is(err, syscall.ENODATA) || errors.As(err, new(*fsp.PathError)) || errors.Is(err, syscall.EAGAIN) {
-				continue
-			}
-			return nil, err
-		}
+		zoneStats := parseClassThermalZone(zone)
 		zoneStats.Name = strings.TrimPrefix(filepath.Base(zone), "thermal_zone")
 		stats = append(stats, zoneStats)
 	}
 	return stats, nil
 }
 
-func parseClassThermalZone(zone string) (ClassThermalZoneStats, error) {
+func parseClassThermalZone(zone string) ClassThermalZoneStats {
+	var errs []error
 	// Required attributes.
 	zoneType, err := util.SysReadFile(filepath.Join(zone, "type"))
 	if err != nil {
-		return ClassThermalZoneStats{}, err
+		errs = append(errs, fmt.Errorf("error reading type: %w", err))
 	}
 	zonePolicy, err := util.SysReadFile(filepath.Join(zone, "policy"))
 	if err != nil {
-		return ClassThermalZoneStats{}, err
+		errs = append(errs, fmt.Errorf("error reading policy: %w", err))
 	}
 	zoneTemp, err := util.SysReadIntFromFile(filepath.Join(zone, "temp"))
-	if err != nil {
-		return ClassThermalZoneStats{}, err
+	if err != nil && !errors.Is(err, os.ErrInvalid) {
+		errs = append(errs, fmt.Errorf("error reading temp: %w", err))
 	}
 
 	// Optional attributes.
 	mode, err := util.SysReadFile(filepath.Join(zone, "mode"))
 	if err != nil && !os.IsNotExist(err) && !os.IsPermission(err) {
-		return ClassThermalZoneStats{}, err
+		errs = append(errs, fmt.Errorf("error reading mode: %w", err))
 	}
 	zoneMode := util.ParseBool(mode)
 
@@ -90,16 +85,17 @@ func parseClassThermalZone(zone string) (ClassThermalZoneStats, error) {
 	case os.IsNotExist(err), os.IsPermission(err):
 		zonePassive = nil
 	case err != nil:
-		return ClassThermalZoneStats{}, err
+		errs = append(errs, fmt.Errorf("error reading passive: %w", err))
 	default:
 		zonePassive = &passive
 	}
 
 	return ClassThermalZoneStats{
-		Type:    zoneType,
-		Policy:  zonePolicy,
-		Temp:    zoneTemp,
-		Mode:    zoneMode,
-		Passive: zonePassive,
-	}, nil
+		Type:       zoneType,
+		Policy:     zonePolicy,
+		Temp:       zoneTemp,
+		Mode:       zoneMode,
+		Passive:    zonePassive,
+		ReadErrors: errors.Join(errs...),
+	}
 }

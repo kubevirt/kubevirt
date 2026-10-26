@@ -7,6 +7,7 @@ go_library(
         "decorator_dsl.go",
         "deprecated_dsl.go",
         "ginkgo_t_dsl.go",
+        "helpergo_dsl.go",
         "reporting_dsl.go",
         "table_dsl.go",
     ],

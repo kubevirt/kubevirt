@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["consistencyhandler.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/client/internal/consistencyhandler",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/client/internal/consistencyhandler",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg/client:__subpackages__"],
+    deps = [
+        "//vendor/github.com/go-logr/logr:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/cache/cacheapi:go_default_library",
+    ],
+)

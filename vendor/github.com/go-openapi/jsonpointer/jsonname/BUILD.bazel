@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "go_name_provider.go",
+        "ifaces.go",
+        "name_provider.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/jsonpointer/jsonname",
+    importpath = "github.com/go-openapi/jsonpointer/jsonname",
+    visibility = ["//visibility:public"],
+)
