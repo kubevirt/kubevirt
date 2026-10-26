@@ -502,7 +502,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
-		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi\nDeprecated: memory dumps are attached as utility volumes of type MemoryDump.",
 		"containerPath":         "ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.\nThe path must correspond to an existing volumeMount in the compute container.\n+optional",
 	}
 }
@@ -530,7 +530,9 @@ func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
 }
 
 func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"": "MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI.\nDeprecated: memory dumps are attached as utility volumes of type MemoryDump.",
+	}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {

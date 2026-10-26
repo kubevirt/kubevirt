@@ -35,6 +35,7 @@ const (
 
 	// Owner: sig-storage
 	// Alpha: v1.7.0
+	// Beta: v1.10.0
 	//
 	// UtilityVolumes enables utility volumes feature which provides a general capability
 	// of hot-plugging volumes directly into the virt-launcher Pod for operational workflows
@@ -361,7 +362,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: CrossClusterMigrationProxy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ObjectGraph, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})

@@ -191,6 +191,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 
 	warnings := warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig)
 	warnings = append(warnings, warnDisabledACPIAmd64(&vmCopy.Spec.Template.Spec, admitter.ClusterConfig)...)
+	warnings = append(warnings, storageadmitters.WarnDeprecatedMemoryDumpVolumes(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec)...)
 	if vm.Spec.Running != nil {
 		warnings = append(warnings, "spec.running is deprecated, please use spec.runStrategy instead.")
 	}

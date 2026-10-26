@@ -207,17 +207,6 @@ func waitForMemoryDumpCompletion(vmName, pvcName, previousOut string, shouldEqua
 			return false
 		}
 
-		found := false
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if volume.Name == pvcName {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-
 		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 			Get(context.Background(), pvcName, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
@@ -236,17 +225,7 @@ func waitForMemoryDumpDeletion(vmName, pvcName, previousOut string, shouldEqual 
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmName, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
 
-		if vm.Status.MemoryDumpRequest != nil {
-			return false
-		}
-
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if volume.Name == pvcName {
-				return false
-			}
-		}
-
-		return true
+		return vm.Status.MemoryDumpRequest == nil
 	}, 90*time.Second, 2*time.Second).Should(BeTrue())
 
 	// Expect PVC to still exist

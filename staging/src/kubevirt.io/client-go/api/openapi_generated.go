@@ -24216,7 +24216,8 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI. Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
@@ -30872,7 +30873,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
 							Ref:         ref(corev1.MemoryDumpVolumeSource{}.OpenAPIModelName()),
 						},
 					},
@@ -31053,7 +31054,7 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
 							Ref:         ref(corev1.MemoryDumpVolumeSource{}.OpenAPIModelName()),
 						},
 					},

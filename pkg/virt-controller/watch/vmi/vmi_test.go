@@ -4185,6 +4185,35 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectPodExists(servingPod.Namespace, servingPod.Name)
 		})
 
+		DescribeTable("Should track the memory dump of a memory dump utility volume", func(existing *virtv1.DomainMemoryDumpInfo, expected virtv1.DomainMemoryDumpInfo) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{{
+				Name:                              "dump-vol",
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "dump-pvc"},
+				Type:                              new(virtv1.MemoryDump),
+			}}
+			if existing != nil {
+				addVolumeStatuses(vmi, virtv1.VolumeStatus{Name: "dump-vol", MemoryDumpVolume: existing})
+			}
+			Expect(controller.pvcIndexer.Add(&k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: "dump-pvc", Namespace: k8sv1.NamespaceDefault},
+				Status:     k8sv1.PersistentVolumeClaimStatus{Phase: k8sv1.ClaimBound},
+			})).To(Succeed())
+
+			Expect(controller.updateVolumeStatus(vmi, newPodForVirtualMachine(vmi, k8sv1.PodRunning), nil)).To(Succeed())
+
+			Expect(vmi.Status.VolumeStatus).To(ConsistOf(And(
+				HaveField("Name", "dump-vol"),
+				HaveField("MemoryDumpVolume", HaveValue(Equal(expected))),
+			)))
+		},
+			Entry("once the volume is added", nil, virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc"}),
+			Entry("without resetting a dump in progress",
+				&virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc", TargetFileName: "dump.memory.dump"},
+				virtv1.DomainMemoryDumpInfo{ClaimName: "dump-pvc", TargetFileName: "dump.memory.dump"},
+			),
+		)
+
 		DescribeTable("Should keep a mounted directory volume until the attachment pod serves a newly added hotplug volume",
 			func(addDirectoryVolume func(vmi *virtv1.VirtualMachineInstance), directoryStatus virtv1.VolumeStatus) {
 				vmi := newPendingVirtualMachine("testvmi")
