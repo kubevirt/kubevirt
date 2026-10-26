@@ -73,10 +73,12 @@ type Builder struct {
 	configDesc   ocispec.Descriptor
 	diskDescs    []ocispec.Descriptor
 	manifestDesc ocispec.Descriptor
+	indexDesc    ocispec.Descriptor
 
-	layoutBlob   []byte
-	manifestBlob []byte
-	indexBlob    []byte
+	layoutBlob    []byte
+	manifestBlob  []byte
+	indexBlob     []byte
+	rootIndexBlob []byte
 
 	ready atomic.Bool
 }
@@ -143,6 +145,13 @@ func (b *Builder) Prepare(ctx context.Context) error {
 		return fmt.Errorf("failed to build index: %w", err)
 	}
 	b.indexBlob = indexBlob
+	b.indexDesc = descriptorFromBytes(ocispec.MediaTypeImageIndex, b.indexBlob)
+
+	rootIndexBlob, err := b.buildRootIndex()
+	if err != nil {
+		return fmt.Errorf("failed to build %s: %w", ocispec.ImageIndexFile, err)
+	}
+	b.rootIndexBlob = rootIndexBlob
 
 	layoutBlob, err := json.Marshal(ocispec.ImageLayout{Version: ocispec.ImageLayoutVersion})
 	if err != nil {
@@ -160,7 +169,8 @@ func (b *Builder) Size() int64 {
 		return -1
 	}
 	total := tarEntrySize(int64(len(b.layoutBlob)))
-	total += tarEntrySize(int64(len(b.indexBlob)))
+	total += tarEntrySize(int64(len(b.rootIndexBlob)))
+	total += tarEntrySize(b.indexDesc.Size)
 	total += tarEntrySize(b.manifestDesc.Size)
 	total += tarEntrySize(b.configDesc.Size)
 	for _, desc := range b.diskDescs {
@@ -187,7 +197,10 @@ func (b *Builder) WriteTar(ctx context.Context, w io.Writer) (retErr error) {
 	if err := writeTarBlob(tw, ocispec.ImageLayoutFile, b.layoutBlob); err != nil {
 		return err
 	}
-	if err := writeTarBlob(tw, ocispec.ImageIndexFile, b.indexBlob); err != nil {
+	if err := writeTarBlob(tw, ocispec.ImageIndexFile, b.rootIndexBlob); err != nil {
+		return err
+	}
+	if err := writeTarBlob(tw, blobPath(b.indexDesc.Digest), b.indexBlob); err != nil {
 		return err
 	}
 	if err := writeTarBlob(tw, blobPath(b.manifestDesc.Digest), b.manifestBlob); err != nil {
@@ -234,6 +247,24 @@ func (b *Builder) buildIndex() ([]byte, error) {
 		},
 		Annotations: map[string]string{
 			ocispec.AnnotationCreated: b.createdAt.Format(time.RFC3339),
+		},
+	})
+}
+
+// buildRootIndex builds index.json pointing to the index blob.
+func (b *Builder) buildRootIndex() ([]byte, error) {
+	return json.Marshal(ocispec.Index{
+		Versioned: specs.Versioned{SchemaVersion: 2},
+		MediaType: ocispec.MediaTypeImageIndex,
+		Manifests: []ocispec.Descriptor{
+			{
+				MediaType: ocispec.MediaTypeImageIndex,
+				Digest:    b.indexDesc.Digest,
+				Size:      b.indexDesc.Size,
+				Annotations: map[string]string{
+					ocispec.AnnotationRefName: "latest",
+				},
+			},
 		},
 	})
 }
