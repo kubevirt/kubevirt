@@ -227,6 +227,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		controller.BaseController.mountRootForPID = func(int) (*safepath.Path, error) {
+			return rootDir, nil
+		}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

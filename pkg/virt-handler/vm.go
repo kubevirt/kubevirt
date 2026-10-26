@@ -175,7 +175,6 @@ func NewVirtualMachineController(
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		launcherClients,
 		"/proc/%d/root/var/run",
@@ -898,13 +897,13 @@ func (c *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		res, err := c.podIsolationDetector.Detect(vmi)
+		processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 		if err != nil {
 			log.DefaultLogger().Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue
 		}
 
-		rootPath, err := res.MountRoot()
+		rootPath, err := c.mountRootForPID(processIDs.PID)
 		if err != nil {
 			log.DefaultLogger().Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue

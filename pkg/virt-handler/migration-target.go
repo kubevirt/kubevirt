@@ -138,7 +138,6 @@ func NewMigrationTargetController(
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		launcherClients,
 		virtLauncherFSRunDirPattern,
@@ -754,11 +753,11 @@ func migrationProxyKey(vmi *v1.VirtualMachineInstance) string {
 }
 
 func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
-	mountRoot, err := res.MountRoot()
+	mountRoot, err := c.mountRootForPID(processIDs.PID)
 	if err != nil {
 		return err
 	}

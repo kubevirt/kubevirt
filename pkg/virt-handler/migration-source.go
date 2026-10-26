@@ -109,7 +109,6 @@ func NewMigrationSourceController(
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		launcherClients,
 		virtLauncherFSRunDirPattern,
@@ -494,11 +493,11 @@ func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInst
 
 func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 
-	res, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
-	mountRoot, err := res.MountRoot()
+	mountRoot, err := c.mountRootForPID(processIDs.PID)
 	if err != nil {
 		return err
 	}

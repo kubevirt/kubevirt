@@ -202,6 +202,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil,
 			nil,
 		)
+		controller.BaseController.mountRootForPID = func(int) (*safepath.Path, error) {
+			return rootDir, nil
+		}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
