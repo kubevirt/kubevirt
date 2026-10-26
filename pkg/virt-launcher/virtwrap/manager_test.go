@@ -3773,28 +3773,37 @@ var _ = Describe("Manager", func() {
 			Expect(data).To(Equal(devicesData))
 		})
 
-		It("should cache an empty successful result when the guest agent does not support the command", func() {
+		DescribeTable("should cache an empty successful result when the guest agent rejects the command", func(agentErr error) {
 			manager := newVMStatsCollectorManager()
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}).Times(1)
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", agentErr).Times(1)
 
 			data, err := manager.GetAgentData("guest-get-devices")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(BeEmpty())
 
-			// The empty result is cached, so the unsupported command is not re-issued within the TTL.
+			// The empty result is cached, so the rejected command is not re-issued within the TTL.
 			data, err = manager.GetAgentData("guest-get-devices")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(BeEmpty())
-		})
+		},
+			Entry("agent command failed", libvirt.Error{
+				Code:    libvirt.ERR_AGENT_COMMAND_FAILED,
+				Message: `unable to execute QEMU agent command 'guest-get-devices': The command guest-get-devices has not been found`,
+			}),
+			Entry("no support", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}),
+		)
 
-		It("should surface unexpected libvirt errors", func() {
+		DescribeTable("should surface libvirt errors that did not come from the guest agent", func(agentErr error) {
 			manager := newVMStatsCollectorManager()
-			connErr := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", connErr)
+			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(devicesCmd, testDomainName).Return("", agentErr)
 
 			_, err := manager.GetAgentData("guest-get-devices")
 			Expect(err).To(HaveOccurred())
-		})
+		},
+			Entry("internal error", libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}),
+			Entry("agent unresponsive", libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}),
+			Entry("agent command timeout", libvirt.Error{Code: libvirt.ERR_AGENT_COMMAND_TIMEOUT}),
+		)
 
 		It("should return an error for an unknown command", func() {
 			manager := newVMStatsCollectorManager()
@@ -3851,6 +3860,26 @@ var _ = Describe("Manager", func() {
 		Entry("no support", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}, true),
 		Entry("wrapped no support", fmt.Errorf("agent command failed: %w", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}), true),
 		Entry("unrelated libvirt error", libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}, false),
+		Entry("non-libvirt error", fmt.Errorf("boom"), false),
+		Entry("agent command failed", libvirt.Error{Code: libvirt.ERR_AGENT_COMMAND_FAILED}, false),
+	)
+
+	DescribeTable("isAgentCommandFailed",
+		func(err error, expected bool) {
+			Expect(isAgentCommandFailed(err)).To(Equal(expected))
+		},
+		Entry("nil error", nil, false),
+		Entry("agent command failed", libvirt.Error{Code: libvirt.ERR_AGENT_COMMAND_FAILED}, true),
+		Entry("agent command not found",
+			libvirt.Error{
+				Code:    libvirt.ERR_AGENT_COMMAND_FAILED,
+				Message: `unable to execute QEMU agent command 'guest-get-devices': The command guest-get-devices has not been found`,
+			}, true),
+		Entry("wrapped agent command failed",
+			fmt.Errorf("agent command failed: %w", libvirt.Error{Code: libvirt.ERR_AGENT_COMMAND_FAILED}), true),
+		Entry("agent unresponsive", libvirt.Error{Code: libvirt.ERR_AGENT_UNRESPONSIVE}, false),
+		Entry("agent command timeout", libvirt.Error{Code: libvirt.ERR_AGENT_COMMAND_TIMEOUT}, false),
+		Entry("no support", libvirt.Error{Code: libvirt.ERR_NO_SUPPORT}, false),
 		Entry("non-libvirt error", fmt.Errorf("boom"), false),
 	)
 

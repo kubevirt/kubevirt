@@ -449,12 +449,12 @@ func newLibvirtDomainManager(
 		for cmd, ttl := range agentDataCommandTTLs {
 			reCalcFunc := func() (string, error) {
 				data, err := connection.QemuAgentCommand(`{"execute":"`+cmd+`"}`, domainName)
-				if err != nil && isAgentCommandNotSupported(err) {
-					// The guest agent does not implement this command (for
-					// example guest-get-devices on non-Windows guests). Treat it
-					// as an empty successful result so the cache records a
-					// timestamp and does not re-issue the command until the TTL
-					// elapses.
+				if isAgentCommandNotSupported(err) || isAgentCommandFailed(err) {
+					// The guest agent rejected the command, most commonly
+					// because it does not implement it (for example
+					// guest-get-devices on non-Windows guests). Treat it as an
+					// empty successful result so the cache records a timestamp
+					// and does not re-issue the command until the TTL elapses.
 					return "", nil
 				}
 				return data, err
@@ -3472,14 +3472,26 @@ func AgentDataCommandTTLKeys() []string {
 }
 
 func isAgentCommandNotSupported(err error) bool {
+	return hasLibvirtErrorCode(err,
+		libvirt.ERR_ARGUMENT_UNSUPPORTED,
+		libvirt.ERR_OPERATION_UNSUPPORTED,
+		libvirt.ERR_NO_SUPPORT,
+	)
+}
+
+// isAgentCommandFailed detects VIR_ERR_AGENT_COMMAND_FAILED, which libvirt
+// returns whenever the guest agent rejects a command
+func isAgentCommandFailed(err error) bool {
+	return hasLibvirtErrorCode(err, libvirt.ERR_AGENT_COMMAND_FAILED)
+}
+
+func hasLibvirtErrorCode(err error, codes ...libvirt.ErrorNumber) bool {
 	var libvirtErr libvirt.Error
 	if !errors.As(err, &libvirtErr) {
 		return false
 	}
 
-	return libvirtErr.Code == libvirt.ERR_ARGUMENT_UNSUPPORTED ||
-		libvirtErr.Code == libvirt.ERR_OPERATION_UNSUPPORTED ||
-		libvirtErr.Code == libvirt.ERR_NO_SUPPORT
+	return slices.Contains(codes, libvirtErr.Code)
 }
 
 func selectEFIEnvironment(hostEFI *efi.EFIEnvironment, ovmfPath string, allowCrossArchEmulation bool, guestArch string) *efi.EFIEnvironment {
