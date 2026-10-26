@@ -126,7 +126,7 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI); reviewResponse != nil {
 			return reviewResponse
 		}
-		if reviewResponse := storageadmitters.AdmitSnapshotOverlayAnnotationsUpdate(oldVMI, newVMI); reviewResponse != nil {
+		if reviewResponse := storageadmitters.AdmitStorageAnnotationsUpdate(oldVMI, newVMI); reviewResponse != nil {
 			return reviewResponse
 		}
 	}
