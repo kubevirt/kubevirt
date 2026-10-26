@@ -100,7 +100,9 @@ var _ = Describe("CBT", func() {
 	}
 
 	disableFeatureGate := func() {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+			DisabledFeatureGates: []string{featuregate.IncrementalBackupGate},
+		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 

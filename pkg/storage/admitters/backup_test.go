@@ -344,7 +344,7 @@ func disableFeatureGate(kvStore cache.Store, featureGate string) {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{},
+						DisabledFeatureGates: []string{featureGate},
 					},
 				},
 			},
@@ -368,6 +368,7 @@ func disableFeatureGate(kvStore cache.Store, featureGate string) {
 		kvCopy.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
 	}
 	kvCopy.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGates
+	kvCopy.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featureGate}
 	testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCopy)
 }
 

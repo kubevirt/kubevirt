@@ -3497,9 +3497,9 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
-				if enableFeatureGate {
+				if !enableFeatureGate {
 					kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.IncrementalBackupGate},
+						DisabledFeatureGates: []string{featuregate.IncrementalBackupGate},
 					}
 				}
 
