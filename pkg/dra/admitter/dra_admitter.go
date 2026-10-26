@@ -43,7 +43,6 @@ type Validator struct {
 
 type DRAConfigChecker interface {
 	GPUsWithDRAGateEnabled() bool
-	HostDevicesWithDRAEnabled() bool
 	NetworkDevicesWithDRAGateEnabled() bool
 }
 
@@ -75,7 +74,7 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 	gpuCauses, gpuClaimNames, gpuClaimRequestPairs := validateDRAGPUs(field, spec.Domain.Devices.GPUs, checker)
 	causes = append(causes, gpuCauses...)
 
-	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices, checker)
+	hdCauses, hdClaimNames, hdClaimRequestPairs := validateDRAHostDevices(field, spec.Domain.Devices.HostDevices)
 	causes = append(causes, hdCauses...)
 
 	var netClaimRequestPairs map[string]int
@@ -287,7 +286,6 @@ func validateDRAGPUs(
 func validateDRAHostDevices(
 	field *k8sfield.Path,
 	hostDevices []v1.HostDevice,
-	checker DRAConfigChecker,
 ) ([]metav1.StatusCause, sets.Set[string], map[string]int) {
 	devices := make([]draCapableDevice, len(hostDevices))
 	for i, hd := range hostDevices {
@@ -296,7 +294,7 @@ func validateDRAHostDevices(
 	return validateDRADevices(field, devices, deviceValidationConfig{
 		fieldPath:   "hostDevices",
 		typeName:    "HostDevice",
-		gateEnabled: checker.HostDevicesWithDRAEnabled(),
+		gateEnabled: true,
 		rejectMixed: false,
 	})
 }
