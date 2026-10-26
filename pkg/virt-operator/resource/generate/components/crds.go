@@ -707,7 +707,7 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
-				Storage: true,
+				Storage: false,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -715,7 +715,7 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 			{
 				Name:    backupv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
-				Storage: false,
+				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -761,7 +761,7 @@ func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
-				Storage: true,
+				Storage: false,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
@@ -769,7 +769,7 @@ func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error
 			{
 				Name:    backupv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
-				Storage: false,
+				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
