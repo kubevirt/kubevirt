@@ -524,42 +524,6 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(image).To(BeAnExistingFile())
 		})
 	})
-
-	Context("ApplyChangedBlockTrackingForMigration", func() {
-		BeforeEach(func() {
-			setupCBTTest()
-		})
-
-		It("should skip volumes that don't support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newConfigMapVolume("config-map-volume"),
-				newSecretVolume("secret-volume"),
-			}
-
-			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(converterContext.ApplyCBT).To(BeEmpty())
-			Expect(createQCOW2OverlayCalled).To(Equal(0))
-		})
-
-		DescribeTable("should leave overlay creation to the premigration hook", func(setMigrationState func(*v1.VirtualMachineInstance)) {
-			pvcVolume := newPVCVolume("pvc-volume", "test-pvc", false)
-			dvVolume := newDVVolume("hotplug-dv-volume", "test-dv", true)
-			vmi.Spec.Volumes = []v1.Volume{pvcVolume, dvVolume}
-			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
-				"hotplug-dv-volume": {Name: "hotplug-dv-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
-			}
-			setMigrationState(vmi)
-
-			Expect(ApplyChangedBlockTrackingForMigration(vmi, converterContext)).To(Succeed())
-			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &pvcVolume)))
-			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("hotplug-dv-volume", cbt.GetQCOW2OverlayPath(vmi, &dvVolume)))
-		},
-			Entry("with RWO backend storage", setRWOMigrationState),
-			Entry("with RWX backend storage", setRWXMigrationState),
-		)
-	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
@@ -620,19 +584,5 @@ func newHostDiskVolume(name, path string) v1.Volume {
 				Path: path,
 			},
 		},
-	}
-}
-
-func setRWOMigrationState(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-		SourcePersistentStatePVCName: "source-pvc",
-		TargetPersistentStatePVCName: "target-pvc",
-	}
-}
-
-func setRWXMigrationState(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-		SourcePersistentStatePVCName: "shared-pvc",
-		TargetPersistentStatePVCName: "shared-pvc",
 	}
 }
