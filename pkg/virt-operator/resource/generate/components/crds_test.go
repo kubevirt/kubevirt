@@ -27,6 +27,20 @@ import (
 const timestamp = "2025-01-01T12:34:56Z"
 
 var _ = Describe("CRDs", func() {
+	It("should expose quiesce policy as an optional open string", func() {
+		crd, err := NewVirtualMachineSnapshotCrd()
+		Expect(err).ToNot(HaveOccurred())
+		for _, version := range crd.Spec.Versions {
+			spec := version.Schema.OpenAPIV3Schema.Properties["spec"]
+			policy := spec.Properties["quiescePolicy"]
+			Expect(policy.Type).To(Equal("string"))
+			Expect(policy.Enum).To(BeEmpty())
+			Expect(policy.Default).To(BeNil())
+			Expect(spec.Required).ToNot(ContainElement("quiescePolicy"))
+			Expect(spec.Properties).ToNot(HaveKey("skipQuiesce"))
+		}
+	})
+
 	DescribeTable("Schema should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
 		Expect(err).ToNot(HaveOccurred())
