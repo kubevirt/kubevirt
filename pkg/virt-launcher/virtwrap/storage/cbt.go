@@ -323,14 +323,3 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	c.ApplyCBT = applyCBTMap
 	return nil
 }
-
-func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
-	applyCBTMap := make(map[string]string)
-	for _, volume := range vmi.Spec.Volumes {
-		if cbt.IsCBTEligibleVolume(&volume) {
-			applyCBTMap[volume.Name] = cbt.GetQCOW2OverlayPath(vmi, &volume)
-		}
-	}
-	c.ApplyCBT = applyCBTMap
-	return nil
-}
