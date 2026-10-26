@@ -334,10 +334,11 @@ var _ = Describe(SIG("bridge nic-hotunplug", Serial, func() {
 			Expect(removeInterface(vm, linuxBridgeNetworkName1)).To(Succeed())
 
 			if plugMethod == migrationBased {
-				By("migrating the VMI")
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-				libmigration.ConfirmVMIPostMigration(kubevirt.Client(), vmi, migrationUID)
+				By("Waiting for MigrationRequired condition to appear")
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRequired))
+				Eventually(matcher.ThisVMI(vmi), 1*time.Minute, 2*time.Second).
+					Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMigrationRequired))
 			}
 
 			By("verify unplugged iface cleared from VM & VMI")
