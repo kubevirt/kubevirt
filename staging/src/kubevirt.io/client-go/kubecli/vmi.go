@@ -103,6 +103,8 @@ func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions
 	return v.SerialConsoleContext(context.Background(), name, options)
 }
 
+// SerialConsoleContext opens a console stream within the caller's context and
+// optional connection timeout. Timeouts retain context.DeadlineExceeded.
 func (v *vmis) SerialConsoleContext(ctx context.Context, name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
 	if options == nil || options.ConnectionTimeout == 0 {
 		return kvcorev1.AsyncSubresourceHelperContext(ctx, v.config, v.resource, v.namespace, name, "console", url.Values{})
@@ -117,7 +119,7 @@ func (v *vmis) SerialConsoleContext(ctx context.Context, name string, options *k
 			return con, nil
 		}
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+			return nil, serialConsoleTimeoutError{}
 		}
 		var asyncSubresourceError *kvcorev1.AsyncSubresourceError
 		// return if response status code does not equal to 400
@@ -130,12 +132,24 @@ func (v *vmis) SerialConsoleContext(ctx context.Context, name string, options *k
 		case <-ctx.Done():
 			timer.Stop()
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+				return nil, serialConsoleTimeoutError{}
 			}
 			return nil, ctx.Err()
 		case <-timer.C:
 		}
 	}
+}
+
+type serialConsoleTimeoutError struct{}
+
+// Error preserves the serial console timeout text expected by callers.
+func (serialConsoleTimeoutError) Error() string {
+	return "Timeout trying to connect to the virtual machine instance"
+}
+
+// Unwrap makes console connection timeouts detectable with errors.Is.
+func (serialConsoleTimeoutError) Unwrap() error {
+	return context.DeadlineExceeded
 }
 
 func (v *vmis) Get(ctx context.Context, name string, options metav1.GetOptions) (vmi *v1.VirtualMachineInstance, err error) {

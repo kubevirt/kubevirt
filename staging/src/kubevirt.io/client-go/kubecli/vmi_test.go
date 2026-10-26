@@ -232,14 +232,12 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Entry("with proxied server URL", proxyPath),
 	)
 
-	It("should time out SerialConsoleContext when the console stays unready", func() {
+	DescribeTable("should preserve the SerialConsoleContext timeout message and deadline error", func(handler http.HandlerFunc) {
 		client, err := GetKubevirtClientFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 
 		consolePath := path.Join(subVMIPath, "console")
-		server.RouteToHandler("GET", consolePath, func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "console is not ready", http.StatusBadRequest)
-		})
+		server.RouteToHandler("GET", consolePath, handler)
 
 		_, err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).SerialConsoleContext(
 			context.Background(),
@@ -247,7 +245,15 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 			&kvcorev1.SerialConsoleOptions{ConnectionTimeout: 200 * time.Millisecond},
 		)
 		Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
-	})
+		Expect(err).To(MatchError(context.DeadlineExceeded))
+	},
+		Entry("when waiting to retry an unready console", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "console is not ready", http.StatusBadRequest)
+		}),
+		Entry("when the websocket handshake stalls", func(w http.ResponseWriter, r *http.Request) {
+			<-r.Context().Done()
+		}),
+	)
 
 	It("should retry SerialConsoleContext after a 400 and then connect", func() {
 		client, err := GetKubevirtClientFromFlags(server.URL(), "")
