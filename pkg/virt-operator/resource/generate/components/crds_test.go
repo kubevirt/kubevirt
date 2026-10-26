@@ -14,7 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/jsonpath"
 
-	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1beta1 "kubevirt.io/api/backup/v1beta1"
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
@@ -338,14 +338,14 @@ var _ = Describe("CRDs", func() {
 			"RestoreInProgress", "test-source", "test-target",
 		),
 		Entry("for VirtualMachineBackup", NewVirtualMachineBackupCrd,
-			backupv1alpha1.VirtualMachineBackup{
-				Spec: backupv1alpha1.VirtualMachineBackupSpec{
+			backupv1beta1.VirtualMachineBackup{
+				Spec: backupv1beta1.VirtualMachineBackupSpec{
 					Source: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachineBackupTracker",
 						Name: "test-tracker",
 					},
 				},
-				Status: &backupv1alpha1.VirtualMachineBackupStatus{
+				Status: &backupv1beta1.VirtualMachineBackupStatus{
 					CheckpointName: pointer.P("test-checkpoint"),
 					StartTimestamp: &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
 				},
@@ -353,15 +353,15 @@ var _ = Describe("CRDs", func() {
 			"VirtualMachineBackupTracker", "test-tracker", "test-checkpoint", "2026-01-01T00:00:00Z",
 		),
 		Entry("for VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd,
-			backupv1alpha1.VirtualMachineBackupTracker{
-				Spec: backupv1alpha1.VirtualMachineBackupTrackerSpec{
+			backupv1beta1.VirtualMachineBackupTracker{
+				Spec: backupv1beta1.VirtualMachineBackupTrackerSpec{
 					Source: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: "test-vm",
 					},
 				},
-				Status: &backupv1alpha1.VirtualMachineBackupTrackerStatus{
-					LatestCheckpoint: &backupv1alpha1.BackupCheckpoint{
+				Status: &backupv1beta1.VirtualMachineBackupTrackerStatus{
+					LatestCheckpoint: &backupv1beta1.BackupCheckpoint{
 						Name:         "test-checkpoint",
 						CreationTime: pointer.P(createTime()),
 					},

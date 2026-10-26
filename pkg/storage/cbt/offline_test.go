@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -115,9 +115,9 @@ var _ = Describe("Offline backup", func() {
 			kubevirtCli := kubevirtfake.NewSimpleClientset()
 			virtClient := kubecli.NewMockKubevirtClient(mockCtrl)
 			virtClient.EXPECT().VirtualMachineBackup(namespace).
-				Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackups(namespace)).AnyTimes()
+				Return(kubevirtCli.BackupV1beta1().VirtualMachineBackups(namespace)).AnyTimes()
 			virtClient.EXPECT().VirtualMachineBackupTracker(namespace).
-				Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(namespace)).AnyTimes()
+				Return(kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(namespace)).AnyTimes()
 
 			vm := vmWithVolumes()
 			vm.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled}
@@ -130,12 +130,12 @@ var _ = Describe("Offline backup", func() {
 
 			backup := offlineBackup()
 			backup.Spec.Mode = pointer.P(backupv1.PullMode)
-			_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackups(namespace).Create(
+			_, err := kubevirtCli.BackupV1beta1().VirtualMachineBackups(namespace).Create(
 				context.Background(), backup, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			tracker := createTracker("tracker1", vmName)
-			_, err = kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(namespace).Create(
+			_, err = kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(namespace).Create(
 				context.Background(), tracker, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -143,7 +143,7 @@ var _ = Describe("Offline backup", func() {
 			// The export controller refuses to build an export until StartTimestamp is set.
 			Expect(backup.Status.StartTimestamp).ToNot(BeNil())
 
-			updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(namespace).Get(
+			updated, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(namespace).Get(
 				context.Background(), tracker.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updated.Finalizers).To(ContainElement(backupv1.VirtualMachineBackupTrackerFinalizer))
@@ -406,11 +406,11 @@ var _ = Describe("Offline tracker advance gating", func() {
 	// presence or absence tells us whether the tracker advanced.
 	expectTrackerPatch := func() {
 		virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-			Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+			Return(kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
 	}
 
 	latestCheckpointName := func() string {
-		updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
+		updated, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Get(
 			context.Background(), trackerName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if updated.Status == nil || updated.Status.LatestCheckpoint == nil {
@@ -425,7 +425,7 @@ var _ = Describe("Offline tracker advance gating", func() {
 		tracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
 			LatestCheckpoint: &backupv1.BackupCheckpoint{Name: "checkpoint-1"},
 		}
-		_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Create(
+		_, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Create(
 			context.Background(), tracker, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return tracker

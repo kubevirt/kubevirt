@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 

@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	exportv1 "kubevirt.io/api/export/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
