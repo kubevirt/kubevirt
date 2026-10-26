@@ -45,6 +45,7 @@ var _ = Describe("Hook", func() {
 		sourceNs, targetNs := sourceNamespace, targetNamespace
 		vmi := libvmi.New(
 			libvmi.WithNamespace(sourceNamespace),
+			libvmi.WithPersistentVolumeClaim("disk0", "dst"),
 			libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{

@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
@@ -70,16 +71,26 @@ var _ = Describe("CBTOverlayHook", func() {
 		return &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: disks}}
 	}
 
-	DescribeTable("should create the overlay the incoming domain references", func(dataStore libvirtxml.DomainDiskSource, dataPath string) {
-		domain := domainWith(cbtDisk(dataStore))
+	DescribeTable("should create the overlay at the path of the claim the target VMI names",
+		func(dataStore libvirtxml.DomainDiskSource, dataPath string) {
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "dst"))
+			targetOverlay := cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])
+			domain := domainWith(cbtDisk(dataStore))
 
-		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(Succeed())
-		Expect(calls).To(ConsistOf(overlayCall{overlayPath, dataPath}))
-		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(overlayPath))
-	},
+			Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(Succeed())
+			Expect(calls).To(ConsistOf(overlayCall{targetOverlay, dataPath}))
+			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(targetOverlay))
+		},
 		Entry("with a filesystem data store", libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}, fsDataPath),
 		Entry("with a block data store", libvirtxml.DomainDiskSource{Block: &libvirtxml.DomainDiskSourceBlock{Dev: blkDataPath}}, blkDataPath),
 	)
+
+	It("should fail when the target VMI has no volume for the disk", func() {
+		domain := domainWith(cbtDisk(libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}))
+
+		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(MatchError(ContainSubstring("no target volume")))
+		Expect(calls).To(BeEmpty())
+	})
 
 	It("should ignore disks without a data store", func() {
 		domain := domainWith(libvirtxml.DomainDisk{
@@ -93,8 +104,9 @@ var _ = Describe("CBTOverlayHook", func() {
 
 	It("should fail when the overlay cannot be created", func() {
 		createErr = errors.New("boom")
+		vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "dst"))
 		domain := domainWith(cbtDisk(libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}))
 
-		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(MatchError(ContainSubstring("boom")))
+		Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(MatchError(ContainSubstring("boom")))
 	})
 })

@@ -20,31 +20,53 @@ package disk
 
 import (
 	"fmt"
+	"strings"
 
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
-// CBTOverlayHook creates the CBT overlays the incoming domain references.
-func CBTOverlayHook(_ *convertertypes.ConverterContext, _ *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+// CBTOverlayHook creates the CBT overlays the incoming domain references,
+// each at the path of the claim the target VMI names for its volume.
+func CBTOverlayHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	if domain.Devices == nil {
 		return nil
 	}
 	for i := range domain.Devices.Disks {
-		source := domain.Devices.Disks[i].Source
-		if source == nil || source.DataStore == nil || source.File == nil {
+		d := &domain.Devices.Disks[i]
+		if d.Source == nil || d.Source.DataStore == nil || d.Source.File == nil {
 			continue
 		}
-		dataPath, err := dataFilePath(source.DataStore)
+		dataPath, err := dataFilePath(d.Source.DataStore)
 		if err != nil {
 			return err
 		}
-		if err := storage.CreateQCOW2Overlay(source.File.File, dataPath); err != nil {
-			return fmt.Errorf("failed to create CBT overlay %s: %w", source.File.File, err)
+		volume := volumeForAlias(vmi, d.Alias)
+		if volume == nil {
+			return fmt.Errorf("no target volume for CBT overlay %s", d.Source.File.File)
+		}
+		d.Source.File.File = cbt.GetQCOW2OverlayPath(vmi, volume)
+		if err := storage.CreateQCOW2Overlay(d.Source.File.File, dataPath); err != nil {
+			return fmt.Errorf("failed to create CBT overlay %s: %w", d.Source.File.File, err)
+		}
+	}
+	return nil
+}
+
+func volumeForAlias(vmi *v1.VirtualMachineInstance, alias *libvirtxml.DomainAlias) *v1.Volume {
+	if alias == nil {
+		return nil
+	}
+	name := strings.TrimPrefix(alias.Name, api.UserAliasPrefix)
+	for i := range vmi.Spec.Volumes {
+		if vmi.Spec.Volumes[i].Name == name {
+			return &vmi.Spec.Volumes[i]
 		}
 	}
 	return nil
