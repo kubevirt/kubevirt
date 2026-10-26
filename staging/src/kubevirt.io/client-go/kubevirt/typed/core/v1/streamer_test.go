@@ -125,6 +125,33 @@ var _ = Describe("AsyncSubresourceHelperContext", func() {
 		Expect(err).To(MatchError(context.Canceled))
 	})
 
+	It("should return a cancellation error when a stalled handshake is cancelled", func() {
+		handshakeStarted := make(chan struct{})
+		finishHandshake := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			close(handshakeStarted)
+			<-finishHandshake
+		}))
+		defer server.Close()
+		defer close(finishHandshake)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		result := make(chan error, 1)
+		go func() {
+			_, err := AsyncSubresourceHelperContext(ctx, &rest.Config{Host: server.URL}, "virtualmachineinstances", "default", "testvmi", "vsock", nil)
+			result <- err
+		}()
+
+		Eventually(handshakeStarted, 5*time.Second).Should(BeClosed())
+		cancel()
+
+		var err error
+		Eventually(result, 5*time.Second).Should(Receive(&err))
+		Expect(errors.Is(err, context.Canceled)).To(BeTrue())
+	})
+
 	It("should fail a stalled handshake when the context deadline expires", func() {
 		server := newHangingUpgradeServer()
 		defer server.Close()
