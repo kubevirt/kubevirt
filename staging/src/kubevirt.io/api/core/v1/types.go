@@ -2372,6 +2372,7 @@ type VirtualMachineInstanceBackupStatus struct {
 	// Volumes lists the volumes included in the backup
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems:=256
 	Volumes []VirtualMachineInstanceBackupVolumeInfo `json:"volumes,omitempty"`
 	// QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.
 	// +optional
@@ -2383,6 +2384,10 @@ type VirtualMachineInstanceBackupStatus struct {
 type VirtualMachineInstanceBackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
+	// Type is how the volume was backed up, either Full or Incremental.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['Full', 'Incremental']",message="type must be Full or Incremental"
+	Type string `json:"type,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM

@@ -399,7 +399,7 @@ var _ = Describe("Backup Controller", func() {
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-			Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+			Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 		})
 	})
 
@@ -422,42 +422,6 @@ var _ = Describe("Backup Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(backupv1.ReasonInitializing))
 			Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(backupTrackerNotFoundMsg, backupTrackerName)))
-			return true, updateObj, nil
-		})
-
-		err := controller.execute(types.NamespacedName{Namespace: testNamespace, Name: backupName}.String())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(statusUpdated).To(BeTrue())
-	})
-
-	It("should wait when backupTracker needs checkpoint redefinition", func() {
-		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
-		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
-		controller.backupTrackerInformer.GetStore().Add(backupTracker)
-
-		backup := createBackupWithTracker(backupName, vmName, pvcName)
-		addBackup(backup)
-
-		vm := createVM(vmName)
-		controller.vmStore.Add(vm)
-
-		vmi := createVMIWithPVCAttached()
-		controller.vmiStore.Add(vmi)
-
-		statusUpdated := false
-		kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update := action.(testing.UpdateAction)
-			if update.GetSubresource() != "status" {
-				return false, nil, nil
-			}
-			statusUpdated = true
-			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
-
-			cond := meta.FindStatusCondition(updateObj.Status.Conditions, string(backupv1.ConditionProgressing))
-			Expect(cond).NotTo(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(backupv1.ReasonInitializing))
-			Expect(cond.Message).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
 			return true, updateObj, nil
 		})
 
@@ -792,7 +756,7 @@ var _ = Describe("Backup Controller", func() {
 	It("should cleanup when VMI backup status is missing", func() {
 		backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 		backup.Status = &backupv1.VirtualMachineBackupStatus{
-			Type: backupv1.Full,
+			StartTimestamp: new(metav1.Now()),
 			Conditions: []metav1.Condition{
 				newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 			},
@@ -838,8 +802,8 @@ var _ = Describe("Backup Controller", func() {
 
 			// VMI with backup in progress but volumes already populated by virt-launcher
 			volumesInfo := []v1.VirtualMachineInstanceBackupVolumeInfo{
-				{VolumeName: "rootdisk"},
-				{VolumeName: "datadisk"},
+				{VolumeName: "rootdisk", Type: string(backupv1.Incremental)},
+				{VolumeName: "datadisk", Type: string(backupv1.Full)},
 			}
 			vmi := createInitializedVMI()
 			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = false
@@ -851,9 +815,10 @@ var _ = Describe("Backup Controller", func() {
 
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(2))
-			Expect(backupCopy.Status.IncludedVolumes[0].VolumeName).To(Equal("rootdisk"))
-			Expect(backupCopy.Status.IncludedVolumes[1].VolumeName).To(Equal("datadisk"))
+			Expect(backupCopy.Status.IncludedVolumes).To(ConsistOf(
+				backupv1.BackupVolumeInfo{VolumeName: "rootdisk", Type: backupv1.Incremental},
+				backupv1.BackupVolumeInfo{VolumeName: "datadisk", Type: backupv1.Full},
+			))
 		})
 
 		It("should not update includedVolumes when already set in backup status", func() {
@@ -1090,7 +1055,7 @@ var _ = Describe("Backup Controller", func() {
 		It("should fail backup if VMI is deleted while backup is progressing", func() {
 			backup := createBackup(backupName, vmName, pvcName, backupv1.PushMode)
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
-				Type: backupv1.Full,
+				StartTimestamp: new(metav1.Now()),
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
 				},
@@ -1533,7 +1498,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate full backup when backupTracker exists but has no LatestCheckpoint", func() {
@@ -1570,7 +1535,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate incremental backup when backupTracker has LatestCheckpoint", func() {
@@ -1602,13 +1567,14 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.TargetPath).ToNot(BeNil())
 				Expect(options.Incremental).ToNot(BeNil())
 				Expect(*options.Incremental).To(Equal(checkpointName))
+				Expect(options.IncrementalCreationTime).To(Equal(backupTracker.Status.LatestCheckpoint.CreationTime))
 				return nil
 			})
 
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Incremental))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should initiate full backup with ForceFullBackup even with LatestCheckpoint", func() {
@@ -1646,7 +1612,7 @@ var _ = Describe("Backup Controller", func() {
 		backupCopy, err := syncBackup(backup)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
-		Expect(backupCopy.Status.Type).To(Equal(backupv1.Full))
+		Expect(backupCopy.Status.StartTimestamp).ToNot(BeNil())
 	})
 
 	It("should return error when cleanup not complete for finished backup", func() {
@@ -1726,7 +1692,7 @@ var _ = Describe("Backup Controller", func() {
 		Expect(backupCopy.Status.CheckpointName).To(BeNil())
 	})
 
-	DescribeTable("should update backupTracker with checkpoint and volumes info when backup completes",
+	DescribeTable("should update backupTracker with the new checkpoint when backup completes",
 		func(existingCheckpoint string, expectedOp string) {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, existingCheckpoint)
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
@@ -1766,7 +1732,7 @@ var _ = Describe("Backup Controller", func() {
 				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
 				Return(vmi, nil)
 
-			// Expect patch to update backupTracker with checkpoint and volumes info
+			// Expect patch to update backupTracker with the new checkpoint
 			trackerPatched := false
 			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				patchAction := action.(testing.PatchAction)
@@ -1778,20 +1744,12 @@ var _ = Describe("Backup Controller", func() {
 				Expect(string(patchBytes)).To(ContainSubstring(expectedOp))
 				Expect(string(patchBytes)).To(ContainSubstring("latestCheckpoint"))
 				Expect(string(patchBytes)).To(ContainSubstring(checkpointName))
-				Expect(string(patchBytes)).To(ContainSubstring("volumes"))
-				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("rootdisk"))
-				Expect(string(patchBytes)).To(ContainSubstring("datadisk"))
 
 				updatedTracker := backupTracker.DeepCopy()
 				updatedTracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
 					LatestCheckpoint: &backupv1.BackupCheckpoint{
 						Name:         checkpointName,
 						CreationTime: &metav1.Time{Time: metav1.Now().Time},
-						Volumes: []backupv1.BackupVolumeInfo{
-							{VolumeName: "rootdisk"},
-							{VolumeName: "datadisk"},
-						},
 					},
 				}
 				return true, updatedTracker, nil
@@ -2270,7 +2228,7 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should delete the export when the VMI is deleted during the backup", func() {
-			backup.Status.Type = backupv1.Full
+			backup.Status.StartTimestamp = new(metav1.Now())
 			Expect(controller.vmiStore.Delete(vmi)).To(Succeed())
 			controller.vmExportStore.Add(vmExport)
 

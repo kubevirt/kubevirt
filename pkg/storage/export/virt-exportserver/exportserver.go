@@ -105,7 +105,6 @@ type ExportServerConfig struct {
 	TokenFile string
 
 	NBDSocket        string
-	BackupType       string
 	BackupCheckpoint string
 
 	Paths *export.ServerPaths
@@ -177,7 +176,7 @@ func (s *exportServer) initHandler() {
 	}
 	for _, bi := range s.Paths.Backups {
 		log.Log.Infof("Handling backup path %s (Map) and %s (Data)\n", bi.MapURI, bi.DataURI)
-		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi.Path)))
+		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi)))
 		mux.Handle(bi.DataURI, tokenChecker(s.TokenGetter, s.backupDataHandler(bi.Path)))
 	}
 	if s.Paths.VMURI != "" {
@@ -957,7 +956,8 @@ func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "OK")
 }
 
-func (s *exportServer) backupMapHandler(exportName string) http.Handler {
+func (s *exportServer) backupMapHandler(backup export.BackupInfo) http.Handler {
+	exportName := backup.Path
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -995,7 +995,7 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 		}
 
 		var bitmapName string
-		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
+		if backup.Type == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
 			bitmapName = s.BackupCheckpoint
 		}
 

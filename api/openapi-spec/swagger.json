@@ -8995,61 +8995,6 @@
      }
     ]
    },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
-    "put": {
-     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
-     "consumes": [
-      "*/*"
-     ],
-     "operationId": "v1RedefineCheckpoint",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
-     }
-    ]
-   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
@@ -10823,61 +10768,6 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
-    "put": {
-     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
-     "consumes": [
-      "*/*"
-     ],
-     "operationId": "v1alpha3RedefineCheckpoint",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -18654,6 +18544,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental.",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",
@@ -20574,26 +20468,6 @@
      }
     }
    },
-   "v1alpha1.BackupCheckpoint": {
-    "type": "object",
-    "properties": {
-     "creationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "name": {
-      "type": "string"
-     },
-     "volumes": {
-      "description": "Volumes lists volumes included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
    "v1alpha1.BackupLink": {
     "description": "BackupLink contains a CA certificate and per-volume endpoints for one network path",
     "type": "object",
@@ -20650,6 +20524,9 @@
      "incremental": {
       "type": "string"
      },
+     "incrementalCreationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
      "mode": {
       "type": "string"
      },
@@ -20668,6 +20545,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",
@@ -20946,9 +20827,9 @@
       "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
       "$ref": "#/definitions/v1alpha1.BackupLinks"
      },
-     "type": {
-      "description": "Type indicates if the backup was full or incremental",
-      "type": "string"
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },

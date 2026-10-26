@@ -784,7 +784,6 @@ rules:
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/backup
-  - virtualmachineinstances/redefine-checkpoint
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/reset
@@ -966,15 +965,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - backup.kubevirt.io
-  resources:
-  - virtualmachinebackuptrackers
-  - virtualmachinebackuptrackers/status
-  verbs:
-  - list
-  - watch
-  - patch
 - apiGroups:
   - plugin.kubevirt.io
   resources:
@@ -1569,6 +1559,12 @@ rules:
   - network-attachment-definitions
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/redefine-checkpoint
+  verbs:
+  - update
 - apiGroups:
   - authentication.k8s.io
   resources:

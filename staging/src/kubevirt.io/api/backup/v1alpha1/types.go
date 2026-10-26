@@ -45,6 +45,10 @@ const (
 type BackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
+	// Type is how the volume was backed up, either Full or Incremental
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['Full', 'Incremental']",message="type must be Full or Incremental"
+	Type BackupType `json:"type,omitempty"`
 }
 
 // BackupLinks contains internal and external links for accessing backup data in pull mode
@@ -84,10 +88,6 @@ type BackupVolumeLink struct {
 type BackupCheckpoint struct {
 	Name         string       `json:"name,omitempty"`
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
-	// Volumes lists volumes included in the backup
-	// +optional
-	// +listType=atomic
-	Volumes []BackupVolumeInfo `json:"volumes,omitempty"`
 }
 
 // BackupType is the const type for the backup possible types
@@ -111,13 +111,14 @@ const (
 
 // BackupOptions are options used to configure virtual machine backup job
 type BackupOptions struct {
-	BackupName      string       `json:"backupName,omitempty"`
-	Cmd             BackupCmd    `json:"cmd,omitempty"`
-	Mode            BackupMode   `json:"mode,omitempty"`
-	BackupStartTime *metav1.Time `json:"backupStartTime,omitempty"`
-	Incremental     *string      `json:"incremental,omitempty"`
-	TargetPath      *string      `json:"targetPath,omitempty"`
-	SkipQuiesce     bool         `json:"skipQuiesce,omitempty"`
+	BackupName              string       `json:"backupName,omitempty"`
+	Cmd                     BackupCmd    `json:"cmd,omitempty"`
+	Mode                    BackupMode   `json:"mode,omitempty"`
+	BackupStartTime         *metav1.Time `json:"backupStartTime,omitempty"`
+	Incremental             *string      `json:"incremental,omitempty"`
+	IncrementalCreationTime *metav1.Time `json:"incrementalCreationTime,omitempty"`
+	TargetPath              *string      `json:"targetPath,omitempty"`
+	SkipQuiesce             bool         `json:"skipQuiesce,omitempty"`
 }
 
 // VirtualMachineBackupTracker defines the way to track the latest checkpoint of
@@ -150,12 +151,6 @@ type VirtualMachineBackupTrackerStatus struct {
 	// LatestCheckpoint is the metadata of the checkpoint of
 	// the latest performed backup
 	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
-
-	// +optional
-	// CheckpointRedefinitionRequired is set to true by virt-handler when the VM
-	// restarts and has a checkpoint that needs to be redefined in libvirt.
-	// virt-controller will process this flag, attempt redefinition, and clear it.
-	CheckpointRedefinitionRequired *bool `json:"checkpointRedefinitionRequired,omitempty"`
 }
 
 // VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources
@@ -247,8 +242,8 @@ const (
 // VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource
 type VirtualMachineBackupStatus struct {
 	// +optional
-	// Type indicates if the backup was full or incremental
-	Type BackupType `json:"type,omitempty"`
+	// StartTimestamp is the timestamp when the backup started
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -259,6 +254,7 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
+	// +kubebuilder:validation:MaxItems=256
 	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
 	// +optional
 	// Links exposes internal (in-cluster) and external (Ingress/Route) endpoints

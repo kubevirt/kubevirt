@@ -10451,12 +10451,20 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: type must be Full or Incremental
+                          rule: self in ['Full', 'Incremental']
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
                     required:
                     - volumeName
                     type: object
+                  maxItems: 256
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
@@ -11369,12 +11377,20 @@ var CRDsValidation map[string]string = map[string]string{
             description: BackupVolumeInfo contains information about a volume included
               in a backup
             properties:
+              type:
+                description: Type is how the volume was backed up, either Full or
+                  Incremental
+                type: string
+                x-kubernetes-validations:
+                - message: type must be Full or Incremental
+                  rule: self in ['Full', 'Incremental']
               volumeName:
                 description: VolumeName is the volume name from VMI spec
                 type: string
             required:
             - volumeName
             type: object
+          maxItems: 256
           type: array
           x-kubernetes-list-type: atomic
         links:
@@ -11461,8 +11477,9 @@ var CRDsValidation map[string]string = map[string]string{
               - cert
               type: object
           type: object
-        type:
-          description: Type indicates if the backup was full or incremental
+        startTimestamp:
+          description: StartTimestamp is the timestamp when the backup started
+          format: date-time
           type: string
       type: object
   required:
@@ -11531,12 +11548,6 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
     status:
       properties:
-        checkpointRedefinitionRequired:
-          description: |-
-            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
-            restarts and has a checkpoint that needs to be redefined in libvirt.
-            virt-controller will process this flag, attempt redefinition, and clear it.
-          type: boolean
         latestCheckpoint:
           description: |-
             LatestCheckpoint is the metadata of the checkpoint of
@@ -11547,20 +11558,6 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             name:
               type: string
-            volumes:
-              description: Volumes lists volumes included in the backup
-              items:
-                description: BackupVolumeInfo contains information about a volume
-                  included in a backup
-                properties:
-                  volumeName:
-                    description: VolumeName is the volume name from VMI spec
-                    type: string
-                required:
-                - volumeName
-                type: object
-              type: array
-              x-kubernetes-list-type: atomic
           type: object
       type: object
   required:
@@ -17086,12 +17083,20 @@ var CRDsValidation map[string]string = map[string]string{
                     description: VirtualMachineInstanceBackupVolumeInfo contains information
                       about a volume included in a backup
                     properties:
+                      type:
+                        description: Type is how the volume was backed up, either
+                          Full or Incremental.
+                        type: string
+                        x-kubernetes-validations:
+                        - message: type must be Full or Incremental
+                          rule: self in ['Full', 'Incremental']
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
                         type: string
                     required:
                     - volumeName
                     type: object
+                  maxItems: 256
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
@@ -35748,6 +35753,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   contains information about a volume included in
                                   a backup
                                 properties:
+                                  type:
+                                    description: Type is how the volume was backed
+                                      up, either Full or Incremental.
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: type must be Full or Incremental
+                                      rule: self in ['Full', 'Incremental']
                                   volumeName:
                                     description: VolumeName is the volume name from
                                       VMI spec
@@ -35755,6 +35767,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - volumeName
                                 type: object
+                              maxItems: 256
                               type: array
                               x-kubernetes-list-type: atomic
                           type: object
