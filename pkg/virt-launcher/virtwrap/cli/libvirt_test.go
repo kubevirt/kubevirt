@@ -47,6 +47,7 @@ var _ = Describe("Libvirt Suite", func() {
 
 		BeforeEach(func() {
 			conn = &LibvirtConnection{
+				state:         &connState{},
 				alive:         true,
 				reconnectLock: &sync.Mutex{},
 			}
@@ -95,6 +96,44 @@ var _ = Describe("Libvirt Suite", func() {
 			wg.Wait()
 
 			Expect(conn.domainRebootEventCallbacks).To(HaveLen(registrations))
+		})
+	})
+
+	Context("Upon reconnect", func() {
+		It("should deliver events only through the new connection", func() {
+			Expect(libvirt.EventRegisterDefaultImpl()).To(Succeed())
+
+			conn, err := NewConnectionWithTimeout("test:///default", "", "", time.Hour, time.Millisecond, time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() {
+				_, err := conn.Close()
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			events := make(chan libvirt.DomainEventType, 10)
+			Expect(conn.DomainEventLifecycleRegister(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+				events <- event.Event
+			})).To(Succeed())
+
+			lvConn := conn.(*LibvirtConnection)
+			lvConn.reconnectLock.Lock()
+			lvConn.alive = false
+			lvConn.reconnectLock.Unlock()
+			Expect(lvConn.reconnectIfNecessary()).To(Succeed())
+
+			dom, err := conn.LookupDomainByName("test")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(dom.Free)
+			Expect(dom.Suspend()).To(Succeed())
+			DeferCleanup(dom.Resume)
+
+			timer, err := libvirt.EventAddTimeout(0, func(int) {})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(libvirt.EventRemoveTimeout, timer)
+			Expect(libvirt.EventRunDefaultImpl()).To(Succeed())
+
+			Expect(events).To(HaveLen(1))
+			Expect(events).To(Receive(Equal(libvirt.DOMAIN_EVENT_SUSPENDED)))
 		})
 	})
 })

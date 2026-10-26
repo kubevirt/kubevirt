@@ -84,8 +84,13 @@ type VirStream struct {
 	*libvirt.Stream
 }
 
+type connState struct {
+	callbackIDs []int
+}
+
 type LibvirtConnection struct {
 	Connect       *libvirt.Connect
+	state         *connState
 	user          string
 	pass          string
 	uri           string
@@ -163,9 +168,28 @@ func registerEventCallback[T any](l *LibvirtConnection, callbacks *[]T, callback
 	}
 
 	*callbacks = append(*callbacks, callback)
-	_, err := register(callback)
+	err := l.state.trackCallbackID(register(callback))
 	l.checkConnectionLostLocked(err)
 	return err
+}
+
+func (s *connState) trackCallbackID(id int, err error) error {
+	if err != nil {
+		return err
+	}
+	s.callbackIDs = append(s.callbackIDs, id)
+	return nil
+}
+
+func deregisterCallbacks(conn *libvirt.Connect, ids []int) {
+	if conn == nil {
+		return
+	}
+	for _, id := range ids {
+		if err := conn.DomainEventDeregister(id); err != nil {
+			log.Log.Reason(err).V(4).Infof("Failed to deregister callback %d from libvirt connection", id)
+		}
+	}
 }
 
 func (l *LibvirtConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
@@ -567,63 +591,77 @@ func (l *LibvirtConnection) reconnectIfNecessaryLocked() (err error) {
 		return nil
 	}
 
-	if l.Connect, err = newConnection(l.uri, l.user, l.pass); err != nil {
+	newConn, err := newConnection(l.uri, l.user, l.pass)
+	if err != nil {
 		return err
 	}
-	l.alive = true
 
 	log.Log.Info("Established new Libvirt Connection")
 
+	newState := &connState{}
+	if err = l.registerCallbacks(newConn, newState); err != nil {
+		deregisterCallbacks(newConn, newState.callbackIDs)
+		if _, closeErr := newConn.Close(); closeErr != nil {
+			log.Log.Reason(closeErr).V(4).Info("Failed to close partially set up libvirt connection")
+		}
+		return err
+	}
+
+	oldConn, oldState := l.Connect, l.state
+	l.Connect, l.state, l.alive = newConn, newState, true
+	deregisterCallbacks(oldConn, oldState.callbackIDs)
+
+	log.Log.Infof("Re-registered domain and agent callbacks for new connection")
+
+	if l.reconnect != nil {
+		l.reconnect <- true
+	}
+	return nil
+}
+
+// registerCallbacks expects reconnectLock to be held.
+func (l *LibvirtConnection) registerCallbacks(conn *libvirt.Connect, state *connState) error {
 	for _, callback := range l.domainEventCallbacks {
 		log.Log.Infof("Re-registered domain callback: %p", callback)
-		if _, err = l.Connect.DomainEventLifecycleRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventLifecycleRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.domainRebootEventCallbacks {
 		log.Log.Infof("Re-registered domain reboot callback: %p", callback)
-		if _, err = l.Connect.DomainEventRebootRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventRebootRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.domainEventJobCompletedCallbacks {
 		log.Log.Infof("Re-registered job completed callback: %p", callback)
-		if _, err = l.Connect.DomainEventJobCompletedRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventJobCompletedRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.agentEventCallbacks {
 		log.Log.Infof("Re-registered agent callback: %p", callback)
-		if _, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventAgentLifecycleRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.domainDeviceAddedEventCallbacks {
 		log.Log.Infof("Re-registered domain device added callback: %p", callback)
-		if _, err = l.Connect.DomainEventDeviceAddedRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventDeviceAddedRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.domainDeviceRemovedEventCallbacks {
 		log.Log.Infof("Re-registered domain device removed callback: %p", callback)
-		if _, err = l.Connect.DomainEventDeviceRemovedRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventDeviceRemovedRegister(nil, callback)); err != nil {
 			return err
 		}
 	}
 	for _, callback := range l.domainDeviceMemoryDeviceSizeChangeCallbacks {
 		log.Log.Infof("Re-registered domain memory device size change callback: %p", callback)
-		if _, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback); err != nil {
+		if err := state.trackCallbackID(conn.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)); err != nil {
 			return err
 		}
-	}
-
-	log.Log.Infof("Re-registered domain and agent callbacks for new connection")
-
-	if l.reconnect != nil {
-		// Notify the callback about the reconnect through channel.
-		// The callback triggers an immediate domain state reconciliation
-		// via eventCallback, sending a watch.Modified event to virt-handler.
-		l.reconnect <- true
 	}
 	return nil
 }
@@ -733,7 +771,7 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	logger.V(1).Info("Connected to libvirt daemon")
 
 	lvConn := &LibvirtConnection{
-		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
+		Connect: virConn, state: &connState{}, user: user, pass: pass, uri: uri, alive: true,
 		reconnectLock: &sync.Mutex{},
 		stop:          make(chan struct{}),
 	}
