@@ -148,6 +148,7 @@ func NewVirtualMachineController(
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
+	processIDDetector isolation.PodProcessIDDetector,
 	migrationProxy proxyCleaner,
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *libvirtxml.Caps,
@@ -175,11 +176,12 @@ func NewVirtualMachineController(
 		domainInformer,
 		clusterConfig,
 		podIsolationDetector,
+		processIDDetector,
 		launcherClients,
 		"/proc/%d/root/var/run",
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
-		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		hypervisor.GetVirtRuntime(processIDDetector, hypervisorName),
 		pluginStore,
 	)
 	if err != nil {
@@ -1934,12 +1936,12 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
+	if err := c.downwardMetricsManager.StartServer(vmi, processIDs.PID); err != nil {
 		return err
 	}
 

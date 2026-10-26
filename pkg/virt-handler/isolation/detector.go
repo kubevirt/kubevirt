@@ -65,54 +65,58 @@ func NewSocketBasedIsolationDetector() PodIsolationDetector {
 
 // NewSocketBasedProcessIDDetector returns a detector that exposes only process IDs.
 func NewSocketBasedProcessIDDetector() PodProcessIDDetector {
-	return &processIDDetector{detector: NewSocketBasedIsolationDetector()}
+	return &processIDDetector{}
 }
 
-type processIDDetector struct {
-	detector PodIsolationDetector
-}
+type processIDDetector struct{}
 
 func (d *processIDDetector) DetectProcessIDs(vm *v1.VirtualMachineInstance) (ProcessIDs, error) {
-	result, err := d.detector.Detect(vm)
-	if err != nil {
-		return ProcessIDs{}, err
-	}
-	return ProcessIDs{PID: result.Pid(), PPID: result.PPid()}, nil
+	return detectProcessIDs(vm)
 }
 
 func (d *processIDDetector) DetectForSocketProcessIDs(socket string) (ProcessIDs, error) {
-	result, err := d.detector.DetectForSocket(socket)
+	return detectProcessIDsForSocket(socket)
+}
+
+func detectProcessIDs(vm *v1.VirtualMachineInstance) (ProcessIDs, error) {
+	socket, err := cmdclient.FindSocket(vm)
 	if err != nil {
 		return ProcessIDs{}, err
 	}
-	return ProcessIDs{PID: result.Pid(), PPID: result.PPid()}, nil
+	return detectProcessIDsForSocket(socket)
 }
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
-	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket, err := cmdclient.FindSocket(vm)
+	processIDs, err := detectProcessIDs(vm)
 	if err != nil {
 		return nil, err
 	}
-
-	return s.DetectForSocket(socket)
+	return NewIsolationResult(processIDs.PID, processIDs.PPID), nil
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
-	pid, err := s.getPid(socket)
+	processIDs, err := detectProcessIDsForSocket(socket)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
+		return nil, err
+	}
+	return NewIsolationResult(processIDs.PID, processIDs.PPID), nil
+}
+
+func detectProcessIDsForSocket(socket string) (ProcessIDs, error) {
+	pid, err := getPid(socket)
+	if err != nil {
+		return ProcessIDs{}, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
 	}
 
 	ppid, err := getPPid(pid)
 	if err != nil {
-		return nil, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
+		return ProcessIDs{}, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
 	}
 
-	return NewIsolationResult(pid, ppid), nil
+	return ProcessIDs{PID: pid, PPID: ppid}, nil
 }
 
-func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
+func getPid(socket string) (int, error) {
 	safeSocket, err := safepath.NewFileNoFollow(socket)
 	if err != nil {
 		return -1, err

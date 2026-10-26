@@ -83,6 +83,7 @@ func NewMigrationSourceController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
+	processIDDetector isolation.PodProcessIDDetector,
 	migrationProxy proxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
@@ -109,11 +110,12 @@ func NewMigrationSourceController(
 		domainInformer,
 		clusterConfig,
 		podIsolationDetector,
+		processIDDetector,
 		launcherClients,
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
-		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		hypervisor.GetVirtRuntime(processIDDetector, hypervisorName),
 		pluginStore,
 	)
 	if err != nil {

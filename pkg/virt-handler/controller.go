@@ -107,6 +107,7 @@ type BaseController struct {
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
+	processIDDetector           isolation.PodProcessIDDetector
 	launcherClients             launcherclients.LauncherClientsManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
@@ -128,6 +129,7 @@ func NewBaseController(
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
+	processIDDetector isolation.PodProcessIDDetector,
 	launcherClients launcherclients.LauncherClientsManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
@@ -146,6 +148,7 @@ func NewBaseController(
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
 		podIsolationDetector:        podIsolationDetector,
+		processIDDetector:           processIDDetector,
 		launcherClients:             launcherClients,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
@@ -361,12 +364,12 @@ func (c *BaseController) setupNetwork(vmi *v1.VirtualMachineInstance, networks [
 		return nil
 	}
 
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	return netConf.Setup(vmi, networks, isolationRes.Pid())
+	return netConf.Setup(vmi, networks, processIDs.PID)
 }
 
 func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

@@ -176,6 +176,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
+		mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
+		mockProcessIDDetector.EXPECT().DetectProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
@@ -192,6 +194,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			domainInformer,
 			config,
 			mockIsolationDetector,
+			mockProcessIDDetector,
 			migrationProxy,
 			"/tmp/%d",
 			&netStatStub{},

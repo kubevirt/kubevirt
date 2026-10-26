@@ -141,12 +141,12 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 }
 
 func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool) (Manager, error) {
-	isolationRes, err := detectVMIsolation(vmi)
+	processIDs, err := detectVMProcessIDs(vmi)
 	if err != nil {
 		return nil, err
 	}
 
-	mountRoot, err := isolationRes.MountRoot()
+	mountRoot, err := isolation.MountRootForPID(processIDs.PID)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDev
 		return nil, err
 	}
 
-	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
+	return newManagerFromPid(processIDs.PID, vmiDeviceRules)
 }
 
 // GetGlobalCpuSetPath returns the CPU set of the main cgroup slice
@@ -182,19 +182,18 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 	return cpusetStr, nil
 }
 
-// detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
-// Socket is optional and makes the execution faster
-func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
+// detectVMProcessIDs detects the launcher process IDs for a VM.
+func detectVMProcessIDs(vm *v1.VirtualMachineInstance) (processIDs isolation.ProcessIDs, err error) {
 	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector()
+	detector := isolation.NewSocketBasedProcessIDDetector()
 
-	isolationRes, err = detector.Detect(vm)
+	processIDs, err = detector.DetectProcessIDs(vm)
 
 	if err != nil {
-		return nil, fmt.Errorf(detectionErrFormat, vm.Name, err)
+		return isolation.ProcessIDs{}, fmt.Errorf(detectionErrFormat, vm.Name, err)
 	}
 
-	return isolationRes, nil
+	return processIDs, nil
 }
 
 var miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")

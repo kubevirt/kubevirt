@@ -48,8 +48,12 @@ type TLSConn interface {
 
 type tlsWrapperFunc func(conn net.Conn) TLSConn
 
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
 type Dialer struct {
-	isolationDetector isolation.PodIsolationDetector
+	processIDDetector processIDDetector
 	servers           *ServerCache
 	procPath          string
 	netnsDoFn         netnsDoFunc
@@ -58,7 +62,7 @@ type Dialer struct {
 }
 
 func NewDialer(
-	isolationDetector isolation.PodIsolationDetector,
+	processIDDetector processIDDetector,
 	serverCache *ServerCache,
 	procPath string,
 	netnsFn netnsDoFunc,
@@ -66,7 +70,7 @@ func NewDialer(
 	tlsWrapperFn tlsWrapperFunc,
 ) *Dialer {
 	return &Dialer{
-		isolationDetector: isolationDetector,
+		processIDDetector: processIDDetector,
 		servers:           serverCache,
 		procPath:          procPath,
 		dialFn:            dialFn,
@@ -76,11 +80,11 @@ func NewDialer(
 }
 
 func NewDefaultDialer(
-	isolationDetector isolation.PodIsolationDetector,
+	processIDDetector processIDDetector,
 	certManager certificate.Manager,
 	caManager kvtls.ClientCAManager,
 ) *Dialer {
-	return NewDialer(isolationDetector,
+	return NewDialer(processIDDetector,
 		NewServerCache(caManager),
 		mode.DefaultProcPath,
 		func(pid int, fn func() error) error { return netns.New(pid).Do(fn) },
@@ -105,12 +109,12 @@ func (d *Dialer) Dial(vmi *v1.VirtualMachineInstance, port uint32, useTLS bool) 
 		return nil, fmt.Errorf("VSOCK is not enabled for the VM")
 	}
 
-	isolationRes, err := d.isolationDetector.Detect(vmi)
+	processIDs, err := d.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect pod isolation: %w", err)
 	}
 
-	pid := isolationRes.Pid()
+	pid := processIDs.PID
 
 	cid := *vmi.Status.VSOCKCID
 	vsockMode := mode.ModeGlobal

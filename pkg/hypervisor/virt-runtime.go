@@ -35,11 +35,11 @@ type VirtRuntime interface {
 	AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error
 }
 
-func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervisorName string) VirtRuntime {
+func GetVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, hypervisorName string) VirtRuntime {
 	switch hypervisorName {
 	case v1.HyperVDirectHypervisorName:
-		return mshv.NewMshvVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
+		return mshv.NewMshvVirtRuntime(podProcessIDDetector, log.Log.With("controller", "vm"))
 	default:
-		return kvm.NewKvmVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
+		return kvm.NewKvmVirtRuntime(podProcessIDDetector, log.Log.With("controller", "vm"))
 	}
 }

@@ -29,12 +29,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mdlayher/vsock"
-	mount "github.com/moby/sys/mountinfo"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virthandlervsock "kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 	virtvsock "kubevirt.io/kubevirt/pkg/vsock"
@@ -49,10 +47,10 @@ var _ = Describe("Dialer", func() {
 	)
 
 	var (
-		fakeIsolation *fakeIsolationDetector
-		vmi           *v1.VirtualMachineInstance
-		procPath      string
-		dialer        *virthandlervsock.Dialer
+		fakeProcessIDDetector *fakeProcessIDDetector
+		vmi                   *v1.VirtualMachineInstance
+		procPath              string
+		dialer                *virthandlervsock.Dialer
 
 		dialFn          func(contextID, port uint32, cfg *vsock.Config) (*vsock.Conn, error)
 		dialFnCalled    bool
@@ -67,7 +65,7 @@ var _ = Describe("Dialer", func() {
 		vmi = libvmi.New()
 		vmi.Status.VSOCKCID = pointer.P(testCID)
 
-		fakeIsolation = &fakeIsolationDetector{
+		fakeProcessIDDetector = &fakeProcessIDDetector{
 			pidResult: testPid,
 			err:       nil,
 		}
@@ -87,7 +85,7 @@ var _ = Describe("Dialer", func() {
 			return nil
 		}
 
-		dialer = virthandlervsock.NewDialer(fakeIsolation,
+		dialer = virthandlervsock.NewDialer(fakeProcessIDDetector,
 			virthandlervsock.NewServerCache(nil),
 			procPath,
 			func(pid int, fn func() error) error {
@@ -324,48 +322,16 @@ var _ = Describe("Dialer", func() {
 	})
 })
 
-type fakeIsolationResult struct {
-	pid int
-}
-
-func (f *fakeIsolationResult) Pid() int {
-	return f.pid
-}
-
-func (f *fakeIsolationResult) PPid() int {
-	panic("should not be called")
-}
-
-func (f *fakeIsolationResult) PIDNamespace() string {
-	panic("should not be called")
-}
-
-func (f *fakeIsolationResult) MountRoot() (*safepath.Path, error) {
-	panic("should not be called")
-}
-
-func (f *fakeIsolationResult) MountNamespace() string {
-	panic("should not be called")
-}
-
-func (f *fakeIsolationResult) Mounts(_ mount.FilterFunc) ([]*mount.Info, error) {
-	panic("should not be called")
-}
-
-type fakeIsolationDetector struct {
+type fakeProcessIDDetector struct {
 	pidResult int
 	err       error
 }
 
-func (f *fakeIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
+func (f *fakeProcessIDDetector) DetectProcessIDs(_ *v1.VirtualMachineInstance) (isolation.ProcessIDs, error) {
 	if f.err != nil {
-		return nil, f.err
+		return isolation.ProcessIDs{}, f.err
 	}
-	return &fakeIsolationResult{pid: f.pidResult}, nil
-}
-
-func (f *fakeIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
-	panic("should not be called")
+	return isolation.ProcessIDs{PID: f.pidResult}, nil
 }
 
 type fakeTLSConn struct {

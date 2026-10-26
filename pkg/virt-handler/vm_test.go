@@ -181,6 +181,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
+		mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
+		mockProcessIDDetector.EXPECT().DetectProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
 
 		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
@@ -212,6 +214,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 			config,
 			mockIsolationDetector,
+			mockProcessIDDetector,
 			migrationProxy,
 			fakeDownwardMetricsManager,
 			nil, // capabilities

@@ -41,14 +41,14 @@ import (
 var ListProcesses = ps.Processes
 
 type KvmVirtRuntime struct {
-	podIsolationDetector isolation.PodIsolationDetector
+	podProcessIDDetector isolation.PodProcessIDDetector
 	logger               *log.FilteredLogger
 	KvmHypervisorBackend
 }
 
-func NewKvmVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
+func NewKvmVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
 	return &KvmVirtRuntime{
-		podIsolationDetector: podIsoDetector,
+		podProcessIDDetector: podProcessIDDetector,
 		logger:               logger,
 		KvmHypervisorBackend: KvmHypervisorBackend{},
 	}
@@ -59,7 +59,7 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 		return nil
 	}
 
-	isolationResult, err := k.podIsolationDetector.Detect(vmi)
+	processIDs, err := k.podProcessIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 		!vmi.Status.MigrationState.TargetNodeDomainDetected
 	var targetProcess ps.Process
 	if vmi.IsRunning() && !isMigrationTargetAwaitingDomain {
-		targetProcess, err = GetQEMUProcess(isolationResult)
+		targetProcess, err = GetQEMUProcess(processIDs.PPID)
 		if err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 		if err != nil {
 			return fmt.Errorf("failed to get all processes: %v", err)
 		}
-		targetProcess, err = common.FindVirtqemudProcess(processes, isolationResult.Pid())
+		targetProcess, err = common.FindVirtqemudProcess(processes, processIDs.PID)
 		if err != nil {
 			return err
 		}
@@ -127,13 +127,13 @@ func (k *KvmVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgro
 }
 
 func (k *KvmVirtRuntime) affinePitThread(vmi *v1.VirtualMachineInstance) error {
-	res, err := k.podIsolationDetector.Detect(vmi)
+	processIDs, err := k.podProcessIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
 	var Mask unix.CPUSet
 	Mask.Zero()
-	qemuprocess, err := GetQEMUProcess(res)
+	qemuprocess, err := GetQEMUProcess(processIDs.PPID)
 	if err != nil {
 		return err
 	}
@@ -142,7 +142,7 @@ func (k *KvmVirtRuntime) affinePitThread(vmi *v1.VirtualMachineInstance) error {
 		return nil
 	}
 
-	pitpid, err := KvmPitPid(res)
+	pitpid, err := KvmPitPid(processIDs.PPID)
 	if err != nil {
 		return err
 	}
@@ -239,20 +239,20 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func GetQEMUProcess(r isolation.IsolationResult) (ps.Process, error) {
+func GetQEMUProcess(parentPID int) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
 	}
-	qemuProcess, err := common.FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, r.PPid())
+	qemuProcess, err := common.FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, parentPID)
 	if err != nil {
 		return nil, err
 	}
 	return qemuProcess, nil
 }
 
-func KvmPitPid(r isolation.IsolationResult) (int, error) {
-	qemuprocess, err := GetQEMUProcess(r)
+func KvmPitPid(parentPID int) (int, error) {
+	qemuprocess, err := GetQEMUProcess(parentPID)
 	if err != nil {
 		return -1, err
 	}

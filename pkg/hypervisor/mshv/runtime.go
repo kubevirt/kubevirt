@@ -39,14 +39,14 @@ import (
 var ListProcesses = ps.Processes
 
 type MshvVirtRuntime struct {
-	podIsolationDetector isolation.PodIsolationDetector
+	podProcessIDDetector isolation.PodProcessIDDetector
 	logger               *log.FilteredLogger
 	MshvHypervisorBackend
 }
 
-func NewMshvVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *log.FilteredLogger) *MshvVirtRuntime {
+func NewMshvVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, logger *log.FilteredLogger) *MshvVirtRuntime {
 	return &MshvVirtRuntime{
-		podIsolationDetector: podIsoDetector,
+		podProcessIDDetector: podProcessIDDetector,
 		logger:               logger,
 	}
 }
@@ -56,7 +56,7 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		return nil
 	}
 
-	isolationResult, err := m.podIsolationDetector.Detect(vmi)
+	processIDs, err := m.podProcessIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		!vmi.Status.MigrationState.TargetNodeDomainDetected
 	var targetProcess ps.Process
 	if vmi.IsRunning() && !isMigrationTargetAwaitingDomain {
-		targetProcess, err = getQEMUProcess(isolationResult)
+		targetProcess, err = getQEMUProcess(processIDs.PPID)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func (m *MshvVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config
 		if err != nil {
 			return fmt.Errorf("failed to get all processes: %v", err)
 		}
-		targetProcess, err = common.FindVirtqemudProcess(processes, isolationResult.Pid())
+		targetProcess, err = common.FindVirtqemudProcess(processes, processIDs.PID)
 		if err != nil {
 			return err
 		}
@@ -181,12 +181,12 @@ func (m *MshvVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInst
 var qemuProcessExecutablePrefixes = []string{"qemu-system"}
 
 // getQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func getQEMUProcess(r isolation.IsolationResult) (ps.Process, error) {
+func getQEMUProcess(parentPID int) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
 	}
-	qemuProcess, err := common.FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, r.PPid())
+	qemuProcess, err := common.FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, parentPID)
 	if err != nil {
 		return nil, err
 	}
