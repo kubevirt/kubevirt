@@ -166,10 +166,6 @@ func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate)
 }
 
-func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
-}
-
 func (config *ClusterConfig) CPUsWithDRAGateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.CPUsWithDRAGate)
 }
@@ -183,8 +179,9 @@ func (config *ClusterConfig) NetworkDevicesWithDRAGateEnabled() bool {
 }
 
 func (config *ClusterConfig) AnyDeviceDRAGateEnabled() bool {
-	return config.GPUsWithDRAGateEnabled() ||
-		config.HostDevicesWithDRAEnabled() ||
+	// HostDevicesWithDRA is GA, so this stays enabled when the other DRA gates are disabled.
+	return config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate) ||
+		config.GPUsWithDRAGateEnabled() ||
 		config.NetworkDevicesWithDRAGateEnabled()
 }
 

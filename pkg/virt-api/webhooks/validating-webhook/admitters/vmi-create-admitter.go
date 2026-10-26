@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -706,7 +707,7 @@ func validateMDEVRamFB(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 
 func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if spec.Domain.Devices.HostDevices != nil && !config.HostDevicesPassthroughEnabled() {
+	if !config.HostDevicesPassthroughEnabled() && hasNonDRAHostDevices(spec.Domain.Devices.HostDevices) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Host Devices feature gate is not enabled in kubevirt-config",
@@ -714,6 +715,15 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 		})
 	}
 	return causes
+}
+
+func hasNonDRAHostDevices(hostDevices []v1.HostDevice) bool {
+	for _, hostDev := range hostDevices {
+		if !drautil.IsHostDeviceDRA(hostDev) {
+			return true
+		}
+	}
+	return false
 }
 
 func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
