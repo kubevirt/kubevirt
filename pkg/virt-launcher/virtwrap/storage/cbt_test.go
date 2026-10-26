@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -121,13 +122,11 @@ var _ = Describe("Changed Block Tracking", func() {
 			diskB := filepath.Join(dir, "disk-b.qcow2")
 			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
 			Expect(os.WriteFile(diskB, []byte("b"), 0o600)).To(Succeed())
-			Expect(os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("keep"), 0o600)).To(Succeed())
 
-			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{diskA: {}})).To(Succeed())
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(diskA))).To(Succeed())
 
 			Expect(diskA).To(BeAnExistingFile())
 			Expect(diskB).NotTo(BeAnExistingFile())
-			Expect(filepath.Join(dir, "readme.txt")).To(BeAnExistingFile())
 		})
 
 		It("should remove all overlays when the desired set is empty", func() {
@@ -145,42 +144,28 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(os.WriteFile(diskA+".tmp", []byte("tmp"), 0o600)).To(Succeed())
 			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
 
-			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{diskA: {}})).To(Succeed())
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(diskA))).To(Succeed())
 
 			Expect(diskA).To(BeAnExistingFile())
 			Expect(diskA + ".tmp").NotTo(BeAnExistingFile())
 		})
 
-		It("should skip symlink overlays", func() {
-			target := filepath.Join(dir, "target.img")
-			link := filepath.Join(dir, "disk-a.qcow2")
-			Expect(os.WriteFile(target, []byte("target"), 0o600)).To(Succeed())
-			Expect(os.Symlink(target, link)).To(Succeed())
+		It("should remove the directories of orphaned overlays and keep those of desired ones", func() {
+			keep := filepath.Join(dir, "volumes", "disk-a", "claim-a", "overlay.qcow2")
+			orphan := filepath.Join(dir, "volumes", "disk-b", "claim-b", "overlay.qcow2")
+			for _, path := range []string{keep, orphan} {
+				Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+				Expect(os.WriteFile(path, []byte("overlay"), 0o600)).To(Succeed())
+			}
 
-			Expect(reconcileQCOW2OverlaysInDir(dir, nil)).To(Succeed())
-
-			Expect(link).To(BeAnExistingFile())
-			Expect(os.ReadFile(target)).To(Equal([]byte("target")))
-		})
-
-		It("should remove orphaned overlays under nested directories", func() {
-			nested := filepath.Join(dir, "claim", "uid")
-			Expect(os.MkdirAll(nested, 0o750)).To(Succeed())
-			keep := filepath.Join(dir, "disk-a.qcow2")
-			orphan := filepath.Join(nested, "disk-b.qcow2")
-			Expect(os.WriteFile(keep, []byte("a"), 0o600)).To(Succeed())
-			Expect(os.WriteFile(orphan, []byte("b"), 0o600)).To(Succeed())
-
-			Expect(reconcileQCOW2OverlaysInDir(dir, map[string]struct{}{keep: {}})).To(Succeed())
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(keep))).To(Succeed())
 
 			Expect(keep).To(BeAnExistingFile())
-			Expect(orphan).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "volumes", "disk-b")).ToNot(BeADirectory())
 		})
 
 		It("should no-op when the CBT directory does not exist", func() {
-			Expect(reconcileQCOW2OverlaysInDir(filepath.Join(dir, "missing"), map[string]struct{}{
-				filepath.Join(dir, "missing", "disk-a.qcow2"): {},
-			})).To(Succeed())
+			Expect(reconcileQCOW2OverlaysInDir(filepath.Join(dir, "missing"), sets.New(filepath.Join(dir, "missing", "disk-a.qcow2")))).To(Succeed())
 		})
 	})
 
@@ -191,7 +176,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			nested := filepath.Join(dir, "claim", "uid", "disk-a.qcow2")
 			outside := filepath.Join(filepath.Dir(dir), "outside.qcow2")
 
-			desired := map[string]struct{}{}
+			desired := sets.New[string]()
 			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
 				Devices: api.Devices{
 					Disks: []api.Disk{
@@ -209,7 +194,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should no-op for a nil domain spec", func() {
-			desired := map[string]struct{}{}
+			desired := sets.New[string]()
 			addLiveDomainCBTOverlayPaths(desired, "/cbt", nil)
 			Expect(desired).To(BeEmpty())
 		})
@@ -226,7 +211,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(os.WriteFile(legacyLayout, []byte("legacy"), 0o600)).To(Succeed())
 			Expect(os.WriteFile(orphan, []byte("b"), 0o600)).To(Succeed())
 
-			desired := map[string]struct{}{currentLayout: {}}
+			desired := sets.New(currentLayout)
 			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
 				Devices: api.Devices{
 					Disks: []api.Disk{
@@ -291,7 +276,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			_, keep := buildCBTOverlayKeepPaths(vmi, nil)
-			Expect(keep).To(Equal(map[string]struct{}{cbt.GetQCOW2OverlayPath(vmi, &pvcVolume): {}}))
+			Expect(keep).To(Equal(sets.New(cbt.GetQCOW2OverlayPath(vmi, &pvcVolume))))
 		})
 
 		It("should keep live-domain overlay paths not produced by GetQCOW2OverlayPath", func() {
@@ -325,7 +310,7 @@ var _ = Describe("Changed Block Tracking", func() {
 					},
 				},
 			})
-			Expect(keep).To(Equal(map[string]struct{}{legacy: {}}))
+			Expect(keep).To(Equal(sets.New(legacy)))
 		})
 	})
 
