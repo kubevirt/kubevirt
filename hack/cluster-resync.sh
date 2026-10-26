@@ -23,8 +23,11 @@ load_specs() {
         specs+=$'\n'"$template_specs"
     fi
     if [[ -n ${PUSH_TARGETS:-} ]]; then
-        read -r -a requested <<< "${PUSH_TARGETS//,/ }"
-        ((${#requested[@]})) || { echo 'PUSH_TARGETS is empty' >&2; return 2; }
+        read -r -a requested <<<"${PUSH_TARGETS//,/ }"
+        ((${#requested[@]})) || {
+            echo 'PUSH_TARGETS is empty' >&2
+            return 2
+        }
         for image in "${requested[@]}"; do selected[$image]=1; done
     fi
     images=()
@@ -38,7 +41,7 @@ load_specs() {
         digest_path=${target#//}
         digest_files+=("bazel-bin/${digest_path/:/\/}_digest")
         unset 'selected[$image]'
-    done <<< "$specs"
+    done <<<"$specs"
     if ((${#selected[@]})); then
         echo "Unknown or disabled PUSH_TARGETS: ${!selected[*]}" >&2
         return 2
@@ -46,14 +49,14 @@ load_specs() {
 }
 
 rollout_targets() {
-    if [[ ${changed[virt-operator]:-} ]]; then echo deployment/virt-operator; fi
-    if [[ ${changed[virt-api]:-} ]]; then echo deployment/virt-api; fi
-    if [[ ${changed[virt-controller]:-} ]]; then echo deployment/virt-controller; fi
-    if [[ ${changed[virt-exportproxy]:-} ]]; then echo deployment/virt-exportproxy; fi
-    if [[ ${changed[virt-synchronization-controller]:-} ]]; then echo deployment/virt-synchronization-controller; fi
-    if [[ ${changed[virt-handler]:-} || ${changed[virt-launcher]:-} ]]; then echo daemonset/virt-handler; fi
-    if [[ ${changed[virt-template-apiserver]:-} ]]; then echo deployment/virt-template-apiserver; fi
-    if [[ ${changed[virt-template-controller]:-} ]]; then echo deployment/virt-template-controller; fi
+    if [[ ${changed["virt-operator"]:-} ]]; then echo deployment/virt-operator; fi
+    if [[ ${changed["virt-api"]:-} ]]; then echo deployment/virt-api; fi
+    if [[ ${changed["virt-controller"]:-} ]]; then echo deployment/virt-controller; fi
+    if [[ ${changed["virt-exportproxy"]:-} ]]; then echo deployment/virt-exportproxy; fi
+    if [[ ${changed["virt-synchronization-controller"]:-} ]]; then echo deployment/virt-synchronization-controller; fi
+    if [[ ${changed["virt-handler"]:-} || ${changed["virt-launcher"]:-} ]]; then echo daemonset/virt-handler; fi
+    if [[ ${changed["virt-template-apiserver"]:-} ]]; then echo deployment/virt-template-apiserver; fi
+    if [[ ${changed["virt-template-controller"]:-} ]]; then echo deployment/virt-template-controller; fi
 }
 
 if [[ ${1:-} == list ]]; then
@@ -79,14 +82,17 @@ build_images() {
     # shellcheck disable=SC1091
     source hack/config.sh
 
-    read -r -a bazel_configs <<< "${BAZEL_CS_CONFIG:-}"
+    read -r -a bazel_configs <<<"${BAZEL_CS_CONFIG:-}"
     bazel build --config="$ARCHITECTURE" "${bazel_configs[@]}" \
         --define container_prefix= --define image_prefix= \
         --define container_tag= "${targets[@]}"
 
     for i in "${!images[@]}"; do
         file=${digest_files[$i]}
-        [[ -f $file ]] || { echo "Missing Bazel digest: $file" >&2; return 1; }
+        [[ -f $file ]] || {
+            echo "Missing Bazel digest: $file" >&2
+            return 1
+        }
         digest=$(sha256sum "$file" | cut -d ' ' -f 1)
         printf 'FAST_IMAGE_DIGEST=%s:%s\n' "${images[$i]}" "$digest"
     done
@@ -113,7 +119,10 @@ source hack/virt-template/default.sh
 
 operator_image=$("$kubectl_cmd" -n "$namespace" get deployment virt-operator \
     -o=jsonpath='{.spec.template.spec.containers[?(@.name=="virt-operator")].image}')
-[[ -n $operator_image ]] || { echo "No installed virt-operator in $namespace" >&2; exit 1; }
+[[ -n $operator_image ]] || {
+    echo "No installed virt-operator in $namespace" >&2
+    exit 1
+}
 installed_tag=${operator_image##*:}
 tag=${DOCKER_TAG:-$installed_tag}
 if [[ $tag != "$installed_tag" ]]; then
@@ -134,8 +143,8 @@ disabled_gates=$("$kubectl_cmd" -n "$namespace" get kv kubevirt \
 # disabled. An explicit featureGates entry takes precedence over disablement.
 FAST_VIRT_TEMPLATE_ENABLED=true
 if [[ $template_setting == false ]] || {
-    ! grep -Fxq Template <<< "$enabled_gates" &&
-    grep -Fxq Template <<< "$disabled_gates"
+    ! grep -Fxq Template <<<"$enabled_gates" &&
+        grep -Fxq Template <<<"$disabled_gates"
 }; then
     FAST_VIRT_TEMPLATE_ENABLED=false
 fi
@@ -174,14 +183,17 @@ while IFS= read -r line; do
     [[ $line == FAST_IMAGE_DIGEST=* ]] || continue
     value=${line#FAST_IMAGE_DIGEST=}
     built_digests[${value%%:*}]=${value#*:}
-done <<< "$build_output"
+done <<<"$build_output"
 
 core_push=()
 template_push=()
 records=()
 for image in "${images[@]}"; do
     digest=${built_digests[$image]:-}
-    [[ -n $digest ]] || { echo "Build returned no digest for $image" >&2; exit 1; }
+    [[ -n $digest ]] || {
+        echo "Build returned no digest for $image" >&2
+        exit 1
+    }
     image_tag=$tag
     image_alt_tag=$alt_tag
     if [[ $image == virt-template-* ]]; then
@@ -224,13 +236,22 @@ mapfile -t workloads < <(rollout_targets)
 for workload in "${workloads[@]}"; do
     workload_json=$("$kubectl_cmd" -n "$namespace" get "$workload" -o json)
     selector=$(jq -r \
-        '.spec.selector | if (.matchExpressions // []) != [] then error("unsupported selector") else .matchLabels | to_entries | map("\(.key)=\(.value)") | join(",") end' <<< "$workload_json")
-    expected=$(jq -r 'if .kind == "DaemonSet" then .status.desiredNumberScheduled else .spec.replicas end' <<< "$workload_json")
-    [[ -n $selector ]] || { echo "No pod selector for $workload" >&2; exit 1; }
-    [[ $expected =~ ^[1-9][0-9]*$ ]] || { echo "No desired pods for $workload" >&2; exit 1; }
+        '.spec.selector | if (.matchExpressions // []) != [] then error("unsupported selector") else .matchLabels | to_entries | map("\(.key)=\(.value)") | join(",") end' <<<"$workload_json")
+    expected=$(jq -r 'if .kind == "DaemonSet" then .status.desiredNumberScheduled else .spec.replicas end' <<<"$workload_json")
+    [[ -n $selector ]] || {
+        echo "No pod selector for $workload" >&2
+        exit 1
+    }
+    [[ $expected =~ ^[1-9][0-9]*$ ]] || {
+        echo "No desired pods for $workload" >&2
+        exit 1
+    }
     pod_names=$("$kubectl_cmd" -n "$namespace" get pods -l "$selector" -o name)
-    [[ -n $pod_names ]] || { echo "No pods to replace for $workload" >&2; exit 1; }
-    mapfile -t old_pods <<< "$pod_names"
+    [[ -n $pod_names ]] || {
+        echo "No pods to replace for $workload" >&2
+        exit 1
+    }
+    mapfile -t old_pods <<<"$pod_names"
     "$kubectl_cmd" -n "$namespace" delete "${old_pods[@]}" --wait=false
     for pod in "${old_pods[@]}"; do
         "$kubectl_cmd" -n "$namespace" wait "$pod" --for=delete \
@@ -239,17 +260,20 @@ for workload in "${workloads[@]}"; do
     "$kubectl_cmd" -n "$namespace" rollout status "$workload" \
         --timeout="${KUBEVIRT_FAST_ROLLOUT_TIMEOUT:-10m}"
     ready=false
-    for ((attempt=0; attempt<10; attempt++)); do
+    for ((attempt = 0; attempt < 10; attempt++)); do
         if pod_json=$("$kubectl_cmd" -n "$namespace" get pods -l "$selector" -o json) &&
             jq -e --argjson expected "$expected" \
                 '(.items | length) == $expected and all(.items[]; any(.status.conditions[]?; .type == "Ready" and .status == "True"))' \
-                <<< "$pod_json" >/dev/null; then
+                <<<"$pod_json" >/dev/null; then
             ready=true
             break
         fi
         sleep 1
     done
-    [[ $ready == true ]] || { echo "$workload did not replace all $expected ready pods" >&2; exit 1; }
+    [[ $ready == true ]] || {
+        echo "$workload did not replace all $expected ready pods" >&2
+        exit 1
+    }
 done
 
 wait_kubevirt_ready
@@ -262,11 +286,11 @@ if [[ -f $state_file ]]; then
     while IFS= read -r old_record; do
         old_image=${old_record%%$'\t'*}
         if [[ ! ${selected_images[$old_image]:-} ]]; then
-            printf '%s\n' "$old_record" >> "$tmp"
+            printf '%s\n' "$old_record" >>"$tmp"
         fi
-    done < "$state_file"
+    done <"$state_file"
 fi
-printf '%s\n' "${records[@]}" >> "$tmp"
+printf '%s\n' "${records[@]}" >>"$tmp"
 mv "$tmp" "$state_file"
 updated=("${core_push[@]}" "${template_push[@]}")
 echo "Updated ${updated[*]}"
