@@ -68,39 +68,60 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		Expect(domain).To(Equal(expectedDomain))
 	})
 
-	DescribeTable("should enable kernel hashes for SEV-SNP", func(options []libvmi.Option, expectedKernelHashes string) {
-		vmi := libvmi.New(append(options, libvmi.WithSEV(false, true))...)
-		var domain api.Domain
-
-		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
-		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-		Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
-		Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev-snp"))
-		Expect(domain.Spec.LaunchSecurity.KernelHashes).To(Equal(expectedKernelHashes))
-	},
-		Entry("when the kernel is booted directly",
-			[]libvmi.Option{libvmi.WithKernelBoot("kernel-image", "/boot/vmlinuz", "/boot/initrd", "console=ttyS0")},
-			"yes"),
-		Entry("but not when the kernel boot container has no kernel path",
-			[]libvmi.Option{libvmi.WithKernelBootContainer("kernel-image")},
-			""),
-		Entry("but not when the VMI has no kernel boot", nil, ""),
-	)
-
-	It("should not enable kernel hashes for SEV when the kernel is booted directly", func() {
-		vmi := libvmi.New(
+	Context("kernel hashes", func() {
+		directKernelBoot := []libvmi.Option{
 			libvmi.WithKernelBoot("kernel-image", "/boot/vmlinuz", "/boot/initrd", "console=ttyS0"),
-			libvmi.WithSEV(true, false),
+		}
+		initrdOnlyKernelBoot := []libvmi.Option{libvmi.WithKernelBootContainer("kernel-image")}
+
+		DescribeTable("should be enabled", func(launchSecurity libvmi.Option, expectedType string) {
+			vmi := libvmi.New(append([]libvmi.Option{launchSecurity}, directKernelBoot...)...)
+			var domain api.Domain
+
+			configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal(expectedType))
+			Expect(domain.Spec.LaunchSecurity.KernelHashes).To(Equal("yes"))
+		},
+			Entry("for SEV", libvmi.WithSEV(false, false), "sev"),
+			Entry("for SEV-ES", libvmi.WithSEV(true, false), "sev"),
+			Entry("for SEV-SNP", libvmi.WithSEV(false, true), "sev-snp"),
 		)
-		var domain api.Domain
 
-		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
-		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		DescribeTable("should be disabled", func(launchSecurity libvmi.Option, kernelBoot []libvmi.Option, expectedType string) {
+			vmi := libvmi.New(append([]libvmi.Option{launchSecurity}, kernelBoot...)...)
+			var domain api.Domain
 
-		Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
-		Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
-		Expect(domain.Spec.LaunchSecurity.KernelHashes).To(BeEmpty())
+			configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal(expectedType))
+			Expect(domain.Spec.LaunchSecurity.KernelHashes).To(BeEmpty())
+		},
+			Entry("for SEV when the kernel boot container has no kernel path",
+				libvmi.WithSEV(false, false), initrdOnlyKernelBoot, "sev"),
+			Entry("for SEV-SNP when the kernel boot container has no kernel path",
+				libvmi.WithSEV(false, true), initrdOnlyKernelBoot, "sev-snp"),
+			Entry("for SEV when the VMI has no kernel boot",
+				libvmi.WithSEV(false, false), nil, "sev"),
+			Entry("for SEV-SNP when the VMI has no kernel boot",
+				libvmi.WithSEV(false, true), nil, "sev-snp"),
+		)
+
+		It("should never be enabled for TDX", func() {
+			vmi := libvmi.New(append([]libvmi.Option{withTDX()}, directKernelBoot...)...)
+			var domain api.Domain
+
+			configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("tdx"))
+			Expect(domain.Spec.LaunchSecurity.KernelHashes).To(BeEmpty())
+		})
 	})
 
 	It("should configure LaunchSecurity when specified in the VMI on intel", func() {

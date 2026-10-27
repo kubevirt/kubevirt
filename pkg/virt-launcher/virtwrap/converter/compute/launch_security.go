@@ -62,24 +62,28 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 
 func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
+	// The AMD firmware rejects a direct kernel boot unless the kernel, initrd
+	// and cmdline hashes are measured into the launch digest.
+	kernelHashes := ""
+	if vmitrait.HasDirectKernelBoot(vmi) {
+		kernelHashes = "yes"
+	}
+
 	if launchSec.SEV == nil && launchSec.SNP != nil {
 		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
 		domain := &api.LaunchSecurity{
-			Type: "sev-snp",
+			Type:         "sev-snp",
+			KernelHashes: kernelHashes,
 		}
 		// Use Default Policy
 		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		// The AMD firmware rejects a direct kernel boot unless the kernel,
-		// initrd and cmdline hashes are measured into the launch digest.
-		if vmitrait.HasDirectKernelBoot(vmi) {
-			domain.KernelHashes = "yes"
-		}
 		return domain
 	} else if launchSec.SEV != nil {
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
 		domain := &api.LaunchSecurity{
-			Type:   "sev",
-			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+			Type:         "sev",
+			Policy:       "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+			KernelHashes: kernelHashes,
 		}
 		if launchSec.SEV.DHCert != "" {
 			domain.DHCert = launchSec.SEV.DHCert
