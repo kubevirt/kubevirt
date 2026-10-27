@@ -143,4 +143,32 @@ var _ = Describe("VMI traits", func() {
 			Expect(vmitrait.HasVFIO(libvmi.New())).To(BeFalse())
 		})
 	})
+
+	Context("HasDirectKernelBoot", func() {
+		DescribeTable("should report", func(vmi *v1.VirtualMachineInstance, expected bool) {
+			Expect(vmitrait.HasDirectKernelBoot(vmi)).To(Equal(expected))
+		},
+			Entry("true when the kernel-boot container supplies a kernel",
+				libvmi.New(libvmi.WithKernelBoot("kernel-image", "/boot/vmlinuz", "/boot/initrd", "")),
+				true,
+			),
+			Entry("true when the kernel-boot container supplies a kernel but no initrd",
+				libvmi.New(libvmi.WithKernelBoot("kernel-image", "/boot/vmlinuz", "", "")),
+				true,
+			),
+			Entry("false when the kernel-boot container supplies only an initrd",
+				libvmi.New(libvmi.WithKernelBoot("kernel-image", "", "/boot/initrd", "")),
+				false,
+			),
+			Entry("false when the kernel-boot container has no artifact paths",
+				libvmi.New(libvmi.WithKernelBootContainer("kernel-image")),
+				false,
+			),
+			Entry("false when the VMI has no kernel boot",
+				libvmi.New(),
+				false,
+			),
+			Entry("false when the VMI is nil", nil, false),
+		)
+	})
 })
