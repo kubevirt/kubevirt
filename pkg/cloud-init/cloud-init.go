@@ -104,7 +104,7 @@ type DeviceData struct {
 	Tags        []string           `json:"tags"`
 }
 
-// IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
+// IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateIso can be called with it.
 func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 	return cloudInitData != nil && cloudInitData.UserData != "" && (cloudInitData.NoCloudMetaData != nil || cloudInitData.ConfigDriveMetaData != nil)
 }
@@ -494,7 +494,9 @@ func PrepareLocalPath(vmiName string, namespace string) error {
 	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
 }
 
-func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
+// GenerateIsoPlaceholder creates a zero-filled placeholder for a
+// cloud-init ISO during migration.
+func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitData, size int64) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
@@ -547,7 +549,8 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	return nil
 }
 
-func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
+// GenerateIso generates a cloud-init ISO for the VMI.
+func GenerateIso(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
 	precond.MustNotBeEmpty(vmi.Name)
 	precond.MustNotBeNil(data)
 

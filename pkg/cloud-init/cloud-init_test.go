@@ -260,7 +260,7 @@ var _ = Describe("CloudInit", func() {
 					},
 				}
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateLocalData(vmi, instancetype, cloudInitData)
+				err := GenerateIso(vmi, instancetype, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(BeTrue())
 			})
@@ -279,7 +279,7 @@ var _ = Describe("CloudInit", func() {
 					},
 				}
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-				err := GenerateLocalData(vmi, instancetype, cloudInitData)
+				err := GenerateIso(vmi, instancetype, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
@@ -591,7 +591,7 @@ var _ = Describe("CloudInit", func() {
 		})
 	})
 
-	Describe("GenerateLocalData", func() {
+	Describe("GenerateIso", func() {
 		It("should cleanly run twice", func() {
 			instancetype := "fake-instancetype"
 			userData := "fake\nuser\ndata\n"
@@ -608,9 +608,9 @@ var _ = Describe("CloudInit", func() {
 			cloudInitData, err := readCloudInitNoCloudSource(source)
 			Expect(err).NotTo(HaveOccurred())
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			err = GenerateIso(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
-			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			err = GenerateIso(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
