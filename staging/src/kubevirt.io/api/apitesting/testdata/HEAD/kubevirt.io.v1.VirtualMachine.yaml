@@ -887,6 +887,7 @@ spec:
             name: nameValue
   updateVolumesStrategy: updateVolumesStrategyValue
 status:
+  backupInProgress: backupInProgressValue
   changedBlockTracking:
     backupStatus:
       backupMsg: backupMsgValue

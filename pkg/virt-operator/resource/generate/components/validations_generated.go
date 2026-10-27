@@ -10408,6 +10408,10 @@ var CRDsValidation map[string]string = map[string]string{
         Status holds the current state of the controller and brief information
         about its associated VirtualMachineInstance
       properties:
+        backupInProgress:
+          description: BackupInProgress is the name of the VirtualMachineBackup currently
+            executing
+          type: string
         changedBlockTracking:
           description: ChangedBlockTracking represents the status of the changedBlockTracking
           nullable: true
@@ -35739,6 +35743,10 @@ var CRDsValidation map[string]string = map[string]string{
                     Status holds the current state of the controller and brief information
                     about its associated VirtualMachineInstance
                   properties:
+                    backupInProgress:
+                      description: BackupInProgress is the name of the VirtualMachineBackup
+                        currently executing
+                      type: string
                     changedBlockTracking:
                       description: ChangedBlockTracking represents the status of the
                         changedBlockTracking

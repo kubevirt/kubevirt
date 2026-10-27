@@ -30643,6 +30643,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
+					"backupInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackupInProgress is the name of the VirtualMachineBackup currently executing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"created": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Created indicates if the virtual machine is created in the cluster",
