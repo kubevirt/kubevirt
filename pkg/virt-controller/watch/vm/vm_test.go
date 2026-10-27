@@ -7089,7 +7089,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Status.StateChangeRequests = stateChangeRequests
 				vm.Status.RunStrategy = statusRunStrategy
 
-				result := shouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
+				result := virtcontroller.ShouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
 				Expect(result).To(Equal(expected))
 			},
 				Entry("return true when VM was never started (empty status RunStrategy)",

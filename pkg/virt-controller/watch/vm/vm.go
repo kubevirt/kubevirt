@@ -998,7 +998,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		// asks to stop a VMI, a new one must be immediately re-started.
 		if vmi != nil {
 			var forceRestart bool
-			if forceRestart = hasStopRequestForVMI(vm, vmi); forceRestart {
+			if forceRestart = controller.HasStopRequestForVMI(vm, vmi); forceRestart {
 				log.Log.Object(vm).Infof("processing forced restart request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
 			if forceRestart || vmi.IsFinal() {
@@ -1057,7 +1057,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		// For this RunStrategy, a VMI should only be restarted if it failed.
 		// If a VMI enters the Succeeded phase, it should not be restarted.
 		if vmi != nil {
-			forceStop := hasStopRequestForVMI(vm, vmi)
+			forceStop := controller.HasStopRequestForVMI(vm, vmi)
 			if forceStop {
 				log.Log.Object(vm).Infof("processing stop request for VMI with phase %s and VM runStrategy: %s", vmi.Status.Phase, runStrategy)
 			}
@@ -1083,7 +1083,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			return vm, nil
 		}
 
-		if !shouldStartRerunOnFailure(vm, runStrategy) {
+		if !controller.ShouldStartRerunOnFailure(vm, runStrategy) {
 			return vm, nil
 		}
 
@@ -1106,7 +1106,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		if vmi != nil {
 			log.Log.Object(vm).V(4).Info("VMI exists")
 
-			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop {
+			if forceStop := controller.HasStopRequestForVMI(vm, vmi); forceStop {
 				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
@@ -1117,7 +1117,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 				return vm, nil
 			}
 		} else {
-			if hasStartRequest(vm) {
+			if controller.HasStartRequest(vm) {
 				log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
 
 				vm, err = c.startVMI(vm)
@@ -1132,7 +1132,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		// For this runStrategy, no VMI should be running under any circumstances.
 		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
 		if vmi == nil {
-			if hasStartRequest(vm) {
+			if controller.HasStartRequest(vm) {
 				vmCopy := vm.DeepCopy()
 				runStrategy := virtv1.RunStrategyAlways
 				running := true
@@ -1232,44 +1232,6 @@ func (c *Controller) isVMIStopExpected(vm *virtv1.VirtualMachine) bool {
 // It returns true when there is an explicit StartRequest
 // or when the RunStrategy has just been switched to RerunOnFailure from
 // a different strategy (detected via vm.Status.RunStrategy)
-func shouldStartRerunOnFailure(vm *virtv1.VirtualMachine, runStrategy virtv1.VirtualMachineRunStrategy) bool {
-	return hasStartRequest(vm) || vm.Status.RunStrategy != runStrategy
-}
-
-// isSetToStart determines whether a VM is configured to be started (running).
-func isSetToStart(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	runStrategy, err := vm.RunStrategy()
-	if err != nil {
-		log.Log.Object(vm).Errorf(fetchingRunStrategyErrFmt, err)
-		return false
-	}
-
-	switch runStrategy {
-	case virtv1.RunStrategyAlways:
-		return true
-	case virtv1.RunStrategyHalted:
-		return false
-	case virtv1.RunStrategyManual:
-		if vmi != nil {
-			return !hasStopRequestForVMI(vm, vmi)
-		}
-		return hasStartRequest(vm)
-	case virtv1.RunStrategyRerunOnFailure:
-		if vmi != nil {
-			return vmi.Status.Phase != virtv1.Succeeded
-		}
-		return shouldStartRerunOnFailure(vm, runStrategy)
-	case virtv1.RunStrategyOnce:
-		if vmi == nil {
-			return true
-		}
-		return false
-	default:
-		// Shouldn't ever be here, but...
-		return false
-	}
-}
-
 func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
@@ -1919,26 +1881,6 @@ func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
 	return stateChange.Action == virtv1.StartRequest &&
 		hasPaused &&
 		pausedValue == virtv1.StartRequestDataPausedTrue
-}
-
-func hasStartRequest(vm *virtv1.VirtualMachine) bool {
-	if len(vm.Status.StateChangeRequests) == 0 {
-		return false
-	}
-
-	stateChange := vm.Status.StateChangeRequests[0]
-	return stateChange.Action == virtv1.StartRequest
-}
-
-func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	if len(vm.Status.StateChangeRequests) == 0 {
-		return false
-	}
-
-	stateChange := vm.Status.StateChangeRequests[0]
-	return stateChange.Action == virtv1.StopRequest &&
-		stateChange.UID != nil &&
-		*stateChange.UID == vmi.UID
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -2602,7 +2544,7 @@ func (c *Controller) isVirtualMachineStatusProvisioning(vm *virtv1.VirtualMachin
 
 // isVirtualMachineStatusWaitingForVolumeBinding
 func (c *Controller) isVirtualMachineStatusWaitingForVolumeBinding(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-	if !isSetToStart(vm, vmi) {
+	if !controller.IsSetToStart(vm, vmi) {
 		return false
 	}
 
