@@ -631,6 +631,9 @@ func (t *vmRestoreTarget) UpdateRestoreInProgress() error {
 	if t.vm.Status.RestoreInProgress != nil && *t.vm.Status.RestoreInProgress != t.vmRestore.Name {
 		return fmt.Errorf("vm restore %s in progress", *t.vm.Status.RestoreInProgress)
 	}
+	if t.vm.Status.RestoreInProgress == nil && t.vm.Status.BackupInProgress != nil {
+		return fmt.Errorf("vm backup %s in progress", *t.vm.Status.BackupInProgress)
+	}
 
 	vmCopy := t.vm.DeepCopy()
 

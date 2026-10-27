@@ -522,6 +522,18 @@ var _ = Describe("Restore controller", func() {
 				Expect(*updateVMStatusCalls).To(Equal(1))
 			})
 
+			It("should not claim a vm while a backup is in progress", func() {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				vm.Status.BackupInProgress = new("backup")
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+				addVirtualMachineRestore(r)
+
+				updateVMStatusCalls := expectVMUpdateStatus(kubevirtClient, vm)
+				controller.processVMRestoreWorkItem()
+				Expect(*updateVMStatusCalls).To(BeZero())
+			})
+
 			It("should update restore status with condition and VolumeRestores", func() {
 				r := createRestoreWithOwner()
 				vm := createRestoreInProgressVM()

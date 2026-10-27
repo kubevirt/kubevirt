@@ -198,6 +198,12 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, nil
 	}
 
+	if s.vm.Status.SnapshotInProgress == nil && s.vm.Status.BackupInProgress != nil {
+		s.state.lockMsg += fmt.Sprintf(" backup %q in progress", *s.vm.Status.BackupInProgress)
+		log.Log.V(3).Info(s.state.lockMsg)
+		return false, nil
+	}
+
 	vmCopy := s.vm.DeepCopy()
 
 	if vmCopy.Status.SnapshotInProgress == nil {
