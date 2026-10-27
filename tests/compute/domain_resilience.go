@@ -116,7 +116,8 @@ var _ = Describe(SIG("Domain resilience", func() {
 		Eventually(matcher.ThisVMI(vmi)).WithTimeout(30 * time.Second).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 	})
 
-	It("VMI should survive virt-handler restart after live migration", decorators.RequiresTwoSchedulableNodes, Serial, func() {
+	// This test requires two schedulable nodes, which are not available in the flake-check lane.
+	It("VMI should survive virt-handler restart after live migration", decorators.RequiresTwoSchedulableNodes, decorators.NoFlakeCheck, Serial, func() {
 		virtClient := kubevirt.Client
 		namespace := testsuite.GetTestNamespace(nil)
 
