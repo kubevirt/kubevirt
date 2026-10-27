@@ -30,9 +30,9 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/render"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
@@ -43,7 +43,7 @@ const (
 	logVerbosityDebug = 4
 )
 
-type vmApplyHandler interface {
+type vmRenderHandler interface {
 	ApplyToVM(vm *virtv1.VirtualMachine) error
 }
 
@@ -74,7 +74,7 @@ var (
 	indexers       *Indexers
 	stores         *Stores
 	clusterConfig  *virtconfig.ClusterConfig
-	vmApplier      vmApplyHandler
+	vmRenderer     vmRenderHandler
 	kubevirtClient kubecli.KubevirtClient
 )
 
@@ -96,7 +96,7 @@ func SetupMetrics(
 	clusterConfig = virtClusterConfig
 	kubevirtClient = clientset
 
-	vmApplier = apply.NewVMApplier(
+	vmRenderer = render.New(
 		find.NewSpecFinder(
 			stores.Instancetype,
 			stores.ClusterInstancetype,
