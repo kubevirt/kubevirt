@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
-        "instancetype.go",
+        "offline.go",
+        "online.go",
+        "prepare.go",
         "render.go",
         "vmi.go",
     ],
@@ -13,10 +15,7 @@ go_library(
     deps = [
         "//pkg/defaults:go_default_library",
         "//pkg/hooks:go_default_library",
-        "//pkg/instancetype/annotations:go_default_library",
-        "//pkg/instancetype/apply:go_default_library",
-        "//pkg/instancetype/preference/annotations:go_default_library",
-        "//pkg/instancetype/preference/apply:go_default_library",
+        "//pkg/instancetype/render:go_default_library",
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/pod/annotations:go_default_library",
         "//pkg/network/resources:go_default_library",
@@ -38,7 +37,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
@@ -53,7 +51,10 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//pkg/defaults:go_default_library",
         "//pkg/hooks:go_default_library",
+        "//pkg/instancetype/controller/vm:go_default_library",
+        "//pkg/instancetype/render:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/network/netbinding:go_default_library",
