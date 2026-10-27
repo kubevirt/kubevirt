@@ -670,7 +670,7 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func(_ string) isolation.PodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: 9999,
 				}
