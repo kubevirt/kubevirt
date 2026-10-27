@@ -23,8 +23,9 @@ import (
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-func applyMachinePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.Machine == nil {
+// ApplyMachinePreferences fills an unset VMI machine type from the preference.
+func ApplyMachinePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec == nil || preferenceSpec.Machine == nil {
 		return
 	}
 

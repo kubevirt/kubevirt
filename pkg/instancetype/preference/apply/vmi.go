@@ -44,7 +44,7 @@ func (a *vmiApplier) Apply(
 	ApplyDevicePreferences(preferenceSpec, vmiSpec)
 	applyFeaturePreferences(preferenceSpec, vmiSpec)
 	applyFirmwarePreferences(preferenceSpec, vmiSpec)
-	applyMachinePreferences(preferenceSpec, vmiSpec)
+	ApplyMachinePreferences(preferenceSpec, vmiSpec)
 	applyClockPreferences(preferenceSpec, vmiSpec)
 	applySubdomain(preferenceSpec, vmiSpec)
 	applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)

@@ -18,9 +18,9 @@ go_library(
     deps = [
         "//pkg/controller:go_default_library",
         "//pkg/hypervisor:go_default_library",
-        "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
+        "//pkg/instancetype/render:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/labels:go_default_library",
         "//pkg/monitoring/metrics/common/vmisync:go_default_library",
@@ -62,9 +62,9 @@ go_test(
     race = "on",
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",
+        "//pkg/instancetype/render:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
