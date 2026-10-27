@@ -20,6 +20,8 @@
 package vmi
 
 import (
+	"fmt"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -49,6 +51,7 @@ type ControllerConfig struct {
 }
 
 // Informers supplies the caches and event sources used by a VMI controller.
+// Keep syncFunc in sync with the informers declared here.
 type Informers struct {
 	VMI            cache.SharedIndexInformer
 	VM             cache.SharedIndexInformer
@@ -61,6 +64,41 @@ type Informers struct {
 	CDI            cache.SharedIndexInformer
 	CDIConfig      cache.SharedIndexInformer
 	KubeVirt       cache.SharedIndexInformer
+}
+
+// syncFunc validates the informers and builds their cache synchronization check.
+func (i Informers) syncFunc() (cache.InformerSynced, error) {
+	informers := []struct {
+		name     string
+		informer cache.SharedIndexInformer
+	}{
+		{"VMI", i.VMI},
+		{"VM", i.VM},
+		{"Pod", i.Pod},
+		{"PVC", i.PVC},
+		{"Migration", i.Migration},
+		{"StorageClass", i.StorageClass},
+		{"DataVolume", i.DataVolume},
+		{"StorageProfile", i.StorageProfile},
+		{"CDI", i.CDI},
+		{"CDIConfig", i.CDIConfig},
+		{"KubeVirt", i.KubeVirt},
+	}
+	syncs := make([]cache.InformerSynced, 0, len(informers))
+	for _, entry := range informers {
+		if entry.informer == nil {
+			return nil, fmt.Errorf("informer %s must not be nil", entry.name)
+		}
+		syncs = append(syncs, entry.informer.HasSynced)
+	}
+	return func() bool {
+		for _, hasSynced := range syncs {
+			if !hasSynced() {
+				return false
+			}
+		}
+		return true
+	}, nil
 }
 
 // NetworkDependencies supplies the network collaborators used by a VMI controller.
