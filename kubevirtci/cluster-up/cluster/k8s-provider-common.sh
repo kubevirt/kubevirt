@@ -111,6 +111,10 @@ function up() {
     if [[ "${KUBEVIRT_USE_DRA_CPU}" == "true" ]]; then
         "${KUBEVIRTCI_PATH}/cluster/dra-cpu/install_dra_driver_cpu.sh"
     fi
+
+    if [[ "${KUBEVIRT_WITH_VGPU_SRIOV}" == "true" ]]; then
+        "${KUBEVIRTCI_PATH}/cluster/vgpu-sriov/install_fake_vgpu_sriov_module.sh"
+    fi
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
