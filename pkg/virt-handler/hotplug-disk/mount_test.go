@@ -891,7 +891,7 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func(_ string) isolation.PodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: 9999,
 				}
@@ -900,7 +900,6 @@ var _ = Describe("HotplugVolume", func() {
 			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ErrWaitingForHotplugMount), "expected error waiting for hotplug mount")
-		})
 		})
 
 		It("unmountFileSystemHotplugVolumes should return error if isMounted returns error", func() {
