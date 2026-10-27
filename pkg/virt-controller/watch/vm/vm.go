@@ -129,6 +129,7 @@ const (
 	volumesUpdateErrorReason           = "VolumesUpdateError"
 	tolerationsChangeErrorReason       = "TolerationsChangeError"
 	annotationsLabelsChangeErrorReason = "AnnotationsLabelsChangeError"
+	startHeldReason                    = "StartHeld"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -1242,6 +1243,12 @@ func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) *virtv1.V
 }
 
 func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	if vm.Status.BackupInProgress != nil {
+		log.Log.Object(vm).V(3).Infof("Delaying start while backup %s is in progress", *vm.Status.BackupInProgress)
+		c.recorder.Eventf(vm, k8score.EventTypeNormal, startHeldReason, "Start delayed until backup %s completes", *vm.Status.BackupInProgress)
+		return vm, nil
+	}
+
 	ready, err := c.handleDataVolumes(vm)
 	if err != nil {
 		return vm, err
