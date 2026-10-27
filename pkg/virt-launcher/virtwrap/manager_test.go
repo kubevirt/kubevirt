@@ -655,6 +655,44 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
 		})
+		DescribeTable("should preserve the commit worker's pause", func(shutdown bool) {
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectedDomainFor(vmi)
+			domainSpec.Type = v1.KvmHypervisorName
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(xml), nil)
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting})
+			if shutdown {
+				now := metav1.Now()
+				metadataCache.GracePeriod.Store(api.GracePeriodMetadata{DeletionTimestamp: &now})
+			}
+			manager, err := newLibvirtDomainManagerDefault()
+			Expect(err).NotTo(HaveOccurred())
+			_, err = manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).NotTo(HaveOccurred())
+		},
+			Entry("during shutdown", true),
+			Entry("during a live commit", false),
+		)
+		It("should resume a pause the commit worker does not own, even while committing", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			domainSpec := expectedDomainFor(vmi)
+			domainSpec.Type = v1.KvmHypervisorName
+			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).NotTo(HaveOccurred())
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Resume().Return(nil)
+			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(3).Return(string(xml), nil)
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting})
+			manager, err := newLibvirtDomainManagerDefault()
+			Expect(err).NotTo(HaveOccurred())
+			_, err = manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).NotTo(HaveOccurred())
+		})
 		It("should pause a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
@@ -1930,6 +1968,57 @@ var _ = Describe("Manager", func() {
 	})
 
 	Context("test marking graceful shutdown", func() {
+		DescribeTable("should defer ACPI while launcher prepares or commits overlays", func(phase api.SnapshotOverlayPhase, graceSeconds int64, elapsed time.Duration) {
+			mockLibvirt.DomainEXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: phase})
+			manager, err := newLibvirtDomainManagerDefault()
+			Expect(err).NotTo(HaveOccurred())
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.TerminationGracePeriodSeconds = &graceSeconds
+			if elapsed > 0 {
+				started := metav1.NewTime(time.Now().Add(-elapsed))
+				metadataCache.GracePeriod.Store(api.GracePeriodMetadata{DeletionTimestamp: &started})
+			}
+
+			Expect(manager.SignalShutdownVMI(vmi)).To(Succeed())
+			grace, _ := metadataCache.GracePeriod.Load()
+			Expect(grace.DeletionTimestamp).NotTo(BeNil())
+			Expect(manager.SignalShutdownVMI(vmi)).To(Succeed())
+			retried, _ := metadataCache.GracePeriod.Load()
+			Expect(retried.DeletionTimestamp).To(Equal(grace.DeletionTimestamp))
+
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitted})
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+			Expect(manager.SignalShutdownVMI(vmi)).To(Succeed())
+		},
+			Entry("preparing", api.SnapshotOverlayPreparing, int64(30), time.Duration(0)),
+			Entry("committing", api.SnapshotOverlayCommitting, int64(30), time.Duration(0)),
+			Entry("leaving grace expiry to virt-handler", api.SnapshotOverlayCommitting, int64(30), 26*time.Second),
+			Entry("using the existing short grace period", api.SnapshotOverlayCommitting, int64(6), 2*time.Second),
+		)
+
+		DescribeTable("should proceed with ACPI when waiting cannot help", func(phase api.SnapshotOverlayPhase) {
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockLibvirt.DomainEXPECT().ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT).Return(nil)
+			metadataCache.SnapshotOverlay.Store(api.SnapshotOverlayMetadata{Phase: phase})
+			started := metav1.NewTime(time.Now().Add(-time.Second))
+			metadataCache.GracePeriod.Store(api.GracePeriodMetadata{DeletionTimestamp: &started})
+			manager, err := newLibvirtDomainManagerDefault()
+			Expect(err).NotTo(HaveOccurred())
+			vmi := newVMI(testNamespace, testVmName)
+
+			Expect(manager.SignalShutdownVMI(vmi)).To(Succeed())
+			grace, _ := metadataCache.GracePeriod.Load()
+			Expect(grace.DeletionTimestamp).To(Equal(&started))
+		},
+			Entry("commit failed", api.SnapshotOverlayCommitFailed),
+			Entry("commit cannot start without the transaction reference", api.SnapshotOverlayReady),
+			Entry("commit finished", api.SnapshotOverlayCommitted),
+			Entry("preparation failed safely", api.SnapshotOverlaySnapshotFailed),
+		)
+
 		It("Should set metadata when calling MarkGracefulShutdown api", func() {
 			manager, _ := newLibvirtDomainManagerDefault()
 			manager.MarkGracefulShutdownVMI()

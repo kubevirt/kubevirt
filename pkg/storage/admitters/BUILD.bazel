@@ -69,6 +69,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
+        "//pkg/storage/types:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",

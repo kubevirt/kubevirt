@@ -638,6 +638,30 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("externalsnapshot")).
+			To(subresourceApp.ExternalSnapshotVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.SnapshotOverlayOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"ExternalSnapshot").
+			Doc("Redirect the disks of a VirtualMachineInstance to copy-on-write overlays.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("commitsnapshot")).
+			To(subresourceApp.CommitSnapshotVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.SnapshotOverlayOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"CommitSnapshot").
+			Doc("Commit the copy-on-write overlays of a VirtualMachineInstance back into their base images.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -674,6 +698,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/backup",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/externalsnapshot",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/commitsnapshot",
 						Namespaced: true,
 					},
 					{

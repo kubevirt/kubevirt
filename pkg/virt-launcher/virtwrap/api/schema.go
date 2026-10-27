@@ -445,6 +445,7 @@ type KubeVirtMetadata struct {
 	Backup           *BackupMetadata           `xml:"backup,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
 	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
+	SnapshotOverlay  *SnapshotOverlayMetadata  `xml:"snapshotOverlay,omitempty"`
 }
 
 type AccessCredentialMetadata struct {
@@ -459,6 +460,27 @@ type MemoryDumpMetadata struct {
 	Completed      bool         `xml:"completed,omitempty"`
 	Failed         bool         `xml:"failed,omitempty"`
 	FailureReason  string       `xml:"failureReason,omitempty"`
+}
+
+// SnapshotOverlayPhase is reported as the reason of the OverlaySnapshotActive condition
+type SnapshotOverlayPhase string
+
+const (
+	SnapshotOverlayPreparing  SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayPreparing
+	SnapshotOverlayReady      SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlaysReady
+	SnapshotOverlayCommitting SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitting
+	SnapshotOverlayCommitted  SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitted
+	// the disks are back on their base images, nothing to commit
+	SnapshotOverlaySnapshotFailed SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlaySnapshotFailed
+	// the overlays may still hold writes, so the scratch volume stays
+	SnapshotOverlayCommitFailed SnapshotOverlayPhase = v1.VirtualMachineInstanceReasonOverlayCommitFailed
+)
+
+type SnapshotOverlayMetadata struct {
+	ContentUID    types.UID            `xml:"contentUID,omitempty"`
+	ScratchPVCUID types.UID            `xml:"scratchPVCUID,omitempty"`
+	Phase         SnapshotOverlayPhase `xml:"phase,omitempty"`
+	Message       string               `xml:"message,omitempty"`
 }
 
 type MigrationMetadata struct {
@@ -520,6 +542,27 @@ type BackupTarget struct {
 }
 
 type BackupScratch struct {
+	File string `xml:"file,attr,omitempty"`
+}
+
+// DomainSnapshot mirroring libvirt XML under https://libvirt.org/formatsnapshot.html#snapshot-xml
+type DomainSnapshot struct {
+	XMLName       xml.Name       `xml:"domainsnapshot"`
+	Name          string         `xml:"name"`
+	SnapshotDisks *SnapshotDisks `xml:"disks"`
+}
+
+type SnapshotDisks struct {
+	Disks []SnapshotDisk `xml:"disk"`
+}
+
+type SnapshotDisk struct {
+	Name     string              `xml:"name,attr"`
+	Snapshot string              `xml:"snapshot,attr"`
+	Source   *SnapshotDiskSource `xml:"source,omitempty"`
+}
+
+type SnapshotDiskSource struct {
 	File string `xml:"file,attr,omitempty"`
 }
 
@@ -863,6 +906,11 @@ type Disk struct {
 	FilesystemOverhead *v1.Percent   `xml:"filesystemOverhead,omitempty"`
 	Capacity           *int64        `xml:"capacity,omitempty"`
 	Shareable          *Shareable    `xml:"shareable,omitempty"`
+	Mirror             *DiskMirror   `xml:"mirror,omitempty"`
+}
+
+type DiskMirror struct {
+	Ready string `xml:"ready,attr,omitempty"`
 }
 
 type DiskAuth struct {

@@ -26,10 +26,12 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/core"
+	v1 "kubevirt.io/api/core/v1"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -39,6 +41,8 @@ import (
 
 type vmSnapshotConfigChecker interface {
 	SnapshotEnabled() bool
+	ExternalVMSnapshotEnabled() bool
+	UtilityVolumesEnabled() bool
 }
 
 // VMSnapshotAdmitter validates VirtualMachineSnapshots
@@ -53,6 +57,60 @@ func NewVMSnapshotAdmitter(config vmSnapshotConfigChecker, client kubecli.Kubevi
 		config: config,
 		Client: client,
 	}
+}
+
+func externalMode(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
+	return vmSnapshot.Spec.SnapshotMode != nil && *vmSnapshot.Spec.SnapshotMode == snapshotv1.SnapshotModeExternal
+}
+
+// validateExternalSource rejects an External mode snapshot of a stopped VM, since
+// the overlays are put in place through the running domain, and of a VM with a
+// disk libvirt cannot put an overlay on.
+func (admitter *VMSnapshotAdmitter) validateExternalSource(ctx context.Context, vmSnapshot *snapshotv1.VirtualMachineSnapshot, namespace string, sourceField *k8sfield.Path) ([]metav1.StatusCause, error) {
+	if !externalMode(vmSnapshot) {
+		return nil, nil
+	}
+
+	notRunning := []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s mode requires a running VirtualMachine", snapshotv1.SnapshotModeExternal),
+		Field:   sourceField.Child("name").String(),
+	}}
+
+	vmi, err := admitter.Client.VirtualMachineInstance(namespace).Get(ctx, vmSnapshot.Spec.Source.Name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return notRunning, nil
+		}
+		return nil, err
+	}
+	if !vmi.IsRunning() {
+		return notRunning, nil
+	}
+	return validateOverlayDisks(sourceField.Child("name"), vmi.Spec.Domain.Devices.Disks), nil
+}
+
+// validateOverlayDisks rejects the disks libvirt refuses a live external snapshot of:
+// SCSI passthrough, and writable shared disks, since a qcow2 overlay cannot be shared
+func validateOverlayDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	for _, disk := range disks {
+		var kind string
+		switch {
+		case disk.LUN != nil:
+			kind = "LUN"
+		case disk.Disk != nil && !disk.Disk.ReadOnly && disk.Shareable != nil && *disk.Shareable:
+			kind = "shareable"
+		default:
+			continue
+		}
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s mode does not support the %s disk %s", snapshotv1.SnapshotModeExternal, kind, disk.Name),
+			Field:   field.String(),
+		})
+	}
+	return causes
 }
 
 // Admit validates an AdmissionReview
@@ -77,6 +135,16 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
+		if externalMode(vmSnapshot) {
+			if !admitter.config.ExternalVMSnapshotEnabled() {
+				return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot feature gate not enabled"))
+			}
+			// The overlays are kept on a utility volume
+			if !admitter.config.UtilityVolumesEnabled() {
+				return webhookutils.ToAdmissionResponseError(fmt.Errorf("ExternalVMSnapshot requires the UtilityVolumes feature gate"))
+			}
+		}
+
 		sourceField := k8sfield.NewPath("spec", "source")
 
 		if vmSnapshot.Spec.Source.APIGroup == nil {
@@ -100,6 +168,12 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 						Field:   sourceField.Child("kind").String(),
 					},
 				}
+				break
+			}
+
+			causes, err = admitter.validateExternalSource(ctx, vmSnapshot, ar.Request.Namespace, sourceField)
+			if err != nil {
+				return webhookutils.ToAdmissionResponseError(err)
 			}
 		default:
 			causes = []metav1.StatusCause{

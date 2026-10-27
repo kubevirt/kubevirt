@@ -29,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -63,6 +64,35 @@ func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks 
 	}
 
 	return nil
+}
+
+// AdmitSnapshotOverlayStorageUpdate rejects disk and volume changes while snapshot overlays are prepared or active.
+func AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	if !storagetypes.HasSnapshotOverlayState(oldVMI) && !storagetypes.HasSnapshotOverlayState(newVMI) {
+		return nil
+	}
+	if equality.Semantic.DeepEqual(oldVMI.Spec.Volumes, newVMI.Spec.Volumes) &&
+		equality.Semantic.DeepEqual(oldVMI.Spec.Domain.Devices.Disks, newVMI.Spec.Domain.Devices.Disks) {
+		return nil
+	}
+	return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueNotSupported,
+		Message: "Cannot change disks or volumes while snapshot overlays are prepared or active",
+		Field:   "spec",
+	}})
+}
+
+// AdmitSnapshotOverlayReferenceUpdate rejects a change to the overlay reference
+// annotation, which tells the snapshot controller what the launcher was asked for.
+func AdmitSnapshotOverlayReferenceUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	if oldVMI.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] == newVMI.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] {
+		return nil
+	}
+	return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueNotSupported,
+		Message: fmt.Sprintf("modification of the %s annotation on a VMI object is prohibited", storagetypes.OverlaySnapshotReferenceAnnotation),
+		Field:   "metadata.annotations",
+	}})
 }
 
 func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field string) []metav1.StatusCause {

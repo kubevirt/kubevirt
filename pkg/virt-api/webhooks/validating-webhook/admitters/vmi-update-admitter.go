@@ -126,6 +126,9 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI); reviewResponse != nil {
 			return reviewResponse
 		}
+		if reviewResponse := storageadmitters.AdmitSnapshotOverlayReferenceUpdate(oldVMI, newVMI); reviewResponse != nil {
+			return reviewResponse
+		}
 	}
 
 	return &admissionv1.AdmissionResponse{
@@ -182,6 +185,10 @@ func admitHotplug(
 	}
 
 	if response := storageadmitters.AdmitUtilityVolumes(&newVMI.Spec, &oldVMI.Spec, oldVMI.Status.VolumeStatus, clusterConfig); response != nil {
+		return response
+	}
+
+	if response := storageadmitters.AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI); response != nil {
 		return response
 	}
 

@@ -131,6 +131,8 @@ type LauncherClient interface {
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
 	GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error)
+	ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error
+	CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
 }
 
 type VirtLauncherClient struct {
@@ -906,4 +908,47 @@ func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance
 
 	err = handleError(err, "Backup", response)
 	return err
+}
+
+func (c *VirtLauncherClient) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.ExternalSnapshotRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		OverlayDir: overlayDir,
+		Volumes:    volumes,
+	}
+
+	// The transaction runs asynchronously, so this only covers accepting it.
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.ExternalSnapshot(ctx, request)
+
+	return handleError(err, "ExternalSnapshot", response)
+}
+
+func (c *VirtLauncherClient) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.CommitSnapshotRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		OverlayDir: overlayDir,
+	}
+
+	// The commit runs asynchronously, so this only covers starting it.
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.CommitSnapshot(ctx, request)
+
+	return handleError(err, "CommitSnapshot", response)
 }
