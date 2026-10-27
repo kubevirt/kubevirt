@@ -19259,14 +19259,14 @@ func schema_kubevirtio_api_core_v1_CPU(ref common.ReferenceCallback) common.Open
 				Properties: map[string]spec.Schema{
 					"cores": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Cores specifies the number of cores inside the vmi. Must be a value greater or equal 1.",
+							Description: "Cores specifies the number of cores inside the vmi. Defaults to 1 if omitted or set to 0.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
 					},
 					"sockets": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Sockets specifies the number of sockets inside the vmi. Must be a value greater or equal 1.",
+							Description: "Sockets specifies the number of sockets inside the vmi. Defaults to 1 if omitted or set to 0. If cores, sockets and threads are all omitted or set to 0, sockets defaults to the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
@@ -19280,7 +19280,7 @@ func schema_kubevirtio_api_core_v1_CPU(ref common.ReferenceCallback) common.Open
 					},
 					"threads": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Threads specifies the number of threads inside the vmi. Must be a value greater or equal 1.",
+							Description: "Threads specifies the number of threads inside the vmi. Defaults to 1 if omitted or set to 0.",
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},
