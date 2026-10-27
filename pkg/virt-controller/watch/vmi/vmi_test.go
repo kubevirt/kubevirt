@@ -6488,3 +6488,53 @@ func actionsSummary(actions []testing.Action) []expectedAction {
 	}
 	return result
 }
+
+var _ = Describe("VMI controller cache synchronization", func() {
+	It("waits for the migration cache even after the other caches have synced", func() {
+		informer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+		shared := &syncStatusInformer{SharedIndexInformer: informer, synced: true}
+		migration := &syncStatusInformer{SharedIndexInformer: informer}
+
+		controller, err := NewController(
+			nil,
+			nil,
+			shared,
+			shared,
+			shared,
+			shared,
+			migration,
+			shared,
+			nil,
+			nil,
+			shared,
+			shared,
+			shared,
+			shared,
+			shared,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(controller.hasSynced()).To(BeFalse())
+
+		migration.synced = true
+		Expect(controller.hasSynced()).To(BeTrue())
+	})
+})
+
+type syncStatusInformer struct {
+	cache.SharedIndexInformer
+	synced bool
+}
+
+func (i *syncStatusInformer) HasSynced() bool {
+	return i.synced
+}
