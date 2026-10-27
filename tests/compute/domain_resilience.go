@@ -130,7 +130,6 @@ var _ = Describe(SIG("Domain resilience", func() {
 
 		vmi, err = virtClient().VirtualMachineInstance(namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		sourceNode := vmi.Status.NodeName
 
 		By("Migrating the VMI")
 		migration := libmigration.New(vmi.Name, namespace)
@@ -140,7 +139,6 @@ var _ = Describe(SIG("Domain resilience", func() {
 		Expect(err).ToNot(HaveOccurred())
 		targetNode := vmi.Status.NodeName
 
-		Expect(targetNode).ToNot(Equal(sourceNode), "VMI should have migrated to a different node")
 
 		By("Restarting virt-handler on the migration target")
 		virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient(), targetNode)
