@@ -139,7 +139,6 @@ var _ = Describe(SIG("Domain resilience", func() {
 		Expect(err).ToNot(HaveOccurred())
 		targetNode := vmi.Status.NodeName
 
-
 		By("Restarting virt-handler on the migration target")
 		virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient(), targetNode)
 		Expect(err).ToNot(HaveOccurred())
