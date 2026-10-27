@@ -55,6 +55,10 @@ const (
 
 func NewController(config ControllerConfig) (*Controller, error) {
 	informers := config.Informers
+	hasSynced, err := informers.syncFunc()
+	if err != nil {
+		return nil, err
+	}
 
 	c := &Controller{
 		templateService:   config.TemplateService,
@@ -86,16 +90,10 @@ func NewController(config ControllerConfig) (*Controller, error) {
 		netMigrationEvaluator:             config.Network.MigrationEvaluator,
 		additionalLauncherAnnotationsSync: config.AdditionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      config.AdditionalLauncherLabelsSync,
+		hasSynced:                         hasSynced,
 	}
 
-	c.hasSynced = func() bool {
-		return informers.VM.HasSynced() && informers.VMI.HasSynced() && informers.Pod.HasSynced() &&
-			informers.DataVolume.HasSynced() && informers.CDIConfig.HasSynced() && informers.CDI.HasSynced() &&
-			informers.PVC.HasSynced() && informers.StorageClass.HasSynced() && informers.StorageProfile.HasSynced() &&
-			informers.KubeVirt.HasSynced() && informers.Migration.HasSynced()
-	}
-
-	_, err := informers.VMI.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.VMI.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,

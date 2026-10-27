@@ -20,6 +20,9 @@
 package vmi
 
 import (
+	"fmt"
+	"reflect"
+
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -49,6 +52,8 @@ type ControllerConfig struct {
 }
 
 // Informers supplies the caches and event sources used by a VMI controller.
+// Every field must be exported and have type cache.SharedIndexInformer so that
+// syncFunc can validate and include every cache in synchronization.
 type Informers struct {
 	VMI            cache.SharedIndexInformer
 	VM             cache.SharedIndexInformer
@@ -61,6 +66,31 @@ type Informers struct {
 	CDI            cache.SharedIndexInformer
 	CDIConfig      cache.SharedIndexInformer
 	KubeVirt       cache.SharedIndexInformer
+}
+
+// syncFunc validates the informers and builds their cache synchronization check.
+func (i Informers) syncFunc() (cache.InformerSynced, error) {
+	value := reflect.ValueOf(i)
+	syncs := make([]cache.InformerSynced, 0, value.NumField())
+	for info, field := range value.Fields() {
+		if !field.CanInterface() || field.Type() != reflect.TypeFor[cache.SharedIndexInformer]() {
+			return nil, fmt.Errorf("informer %s must be an exported cache.SharedIndexInformer", info.Name)
+		}
+		// Also reject a typed nil pointer held by the informer interface.
+		if field.IsNil() || (field.Elem().Kind() == reflect.Pointer && field.Elem().IsNil()) {
+			return nil, fmt.Errorf("informer %s must not be nil", info.Name)
+		}
+		informer := field.Interface().(cache.SharedIndexInformer)
+		syncs = append(syncs, informer.HasSynced)
+	}
+	return func() bool {
+		for _, hasSynced := range syncs {
+			if !hasSynced() {
+				return false
+			}
+		}
+		return true
+	}, nil
 }
 
 // NetworkDependencies supplies the network collaborators used by a VMI controller.
