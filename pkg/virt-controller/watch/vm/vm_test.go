@@ -6986,6 +6986,242 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("RunStrategy", func() {
 
+			Context("RerunOnFailure restart requests", func() {
+				var vm *v1.VirtualMachine
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					vm, vmi = watchtesting.DefaultVirtualMachine(true)
+					vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
+					vm.Status.RunStrategy = v1.RunStrategyRerunOnFailure
+
+					var err error
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				getPersistedVMStateChangeRequests := func() []v1.VirtualMachineStateChangeRequest {
+					GinkgoHelper()
+					persistedVM, err := virtFakeClient.Tracker().Get(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm.Namespace, vm.Name)
+					Expect(err).ToNot(HaveOccurred())
+					return persistedVM.(*v1.VirtualMachine).Status.StateChangeRequests
+				}
+
+				DescribeTable("addStartRequest should preserve a single pending Start request", func(initialStateChangeRequests, expectedStateChangeRequests []v1.VirtualMachineStateChangeRequest) {
+					vm.Status.StateChangeRequests = initialStateChangeRequests
+					Expect(virtFakeClient.Tracker().Update(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm, vm.Namespace)).To(Succeed())
+
+					Expect(controller.addStartRequest(vm)).To(Succeed())
+					Expect(controller.addStartRequest(vm)).To(Succeed())
+
+					Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(expectedStateChangeRequests))
+				},
+					Entry("after repeated calls with an empty queue",
+						[]v1.VirtualMachineStateChangeRequest{},
+						[]v1.VirtualMachineStateChangeRequest{{Action: v1.StartRequest}},
+					),
+					Entry("with an existing paused Start request",
+						[]v1.VirtualMachineStateChangeRequest{{
+							Action: v1.StartRequest,
+							Data:   map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue},
+						}},
+						[]v1.VirtualMachineStateChangeRequest{{
+							Action: v1.StartRequest,
+							Data:   map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue},
+						}},
+					),
+					Entry("with a Stop request before an existing paused Start request",
+						[]v1.VirtualMachineStateChangeRequest{
+							{Action: v1.StopRequest, UID: pointer.P(types.UID("failed-vmi-uid"))},
+							{Action: v1.StartRequest, Data: map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue}},
+						},
+						[]v1.VirtualMachineStateChangeRequest{
+							{Action: v1.StopRequest, UID: pointer.P(types.UID("failed-vmi-uid"))},
+							{Action: v1.StartRequest, Data: map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue}},
+						},
+					),
+				)
+
+				Context("with a failed VMI", func() {
+					BeforeEach(func() {
+						vmi.UID = "failed-vmi-uid"
+						vmi.Status.Phase = v1.Failed
+						var err error
+						vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					It("should retry persisting the Start request after a transient failure", func() {
+						By("retaining the failed VMI when the status patch fails")
+						reactorsBeforePatchFailure := virtFakeClient.ReactionChain
+						patchErr := fmt.Errorf("cannot persist restart request")
+						virtFakeClient.PrependReactor("patch", "virtualmachines", func(action testing.Action) (bool, runtime.Object, error) {
+							Expect(action.GetSubresource()).To(Equal("status"))
+							return true, nil, patchErr
+						})
+
+						_, syncErr := controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+
+						Expect(syncErr).To(MatchError(ContainSubstring(patchErr.Error())))
+						Expect(getPersistedVMStateChangeRequests()).To(BeEmpty())
+						persistedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(persistedVMI).To(Equal(vmi))
+
+						By("retrying with the same VM after the status endpoint recovers")
+						virtFakeClient.ReactionChain = reactorsBeforePatchFailure
+
+						_, syncErr = controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+
+						Expect(syncErr).ToNot(HaveOccurred())
+						Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+						_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+					})
+
+					It("should persist the Start request before deleting the failed VMI", func() {
+						virtFakeClient.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+							Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+							return false, nil, nil
+						})
+
+						_, syncErr := controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+
+						Expect(syncErr).ToNot(HaveOccurred())
+						Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+						_, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+					})
+
+					It("should retain one Start request when deletion repeatedly fails", func() {
+						deleteErr := fmt.Errorf("cannot delete failed VMI")
+						virtFakeClient.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+							return true, nil, deleteErr
+						})
+
+						_, syncErr := controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+						Expect(syncErr).To(MatchError(ContainSubstring(deleteErr.Error())))
+
+						_, syncErr = controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+						Expect(syncErr).To(MatchError(ContainSubstring(deleteErr.Error())))
+
+						Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+						persistedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(persistedVMI).To(Equal(vmi))
+					})
+
+					It("should cancel the restart when the VM is halted after a failed deletion", func() {
+						reactorsBeforeDeleteFailure := virtFakeClient.ReactionChain
+						deleteErr := fmt.Errorf("cannot delete failed VMI")
+						virtFakeClient.PrependReactor("delete", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+							return true, nil, deleteErr
+						})
+
+						_, syncErr := controller.syncRunStrategy(vm, vmi, v1.RunStrategyRerunOnFailure)
+						Expect(syncErr).To(MatchError(ContainSubstring(deleteErr.Error())))
+						Expect(getPersistedVMStateChangeRequests()).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest}))
+
+						By("halting the VM without replacing the pending Start request")
+						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+						var err error
+						vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						By("deleting the failed VMI after the API recovers")
+						virtFakeClient.ReactionChain = reactorsBeforeDeleteFailure
+						_, syncErr = controller.syncRunStrategy(vm, vmi, v1.RunStrategyHalted)
+						Expect(syncErr).ToNot(HaveOccurred())
+						_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+
+						By("reconciling after observing the VMI deletion")
+						clearExpectations(vm)
+						addVirtualMachine(vm)
+						sanityExecute(vm)
+
+						vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyHalted)))
+						Expect(vm.Status.StateChangeRequests).To(BeEmpty())
+						_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+					})
+				})
+			})
+
+			Context("Halted start requests", func() {
+				var vm *v1.VirtualMachine
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					vm, vmi = watchtesting.DefaultVirtualMachine(false)
+					vm.Status.RunStrategy = v1.RunStrategyRerunOnFailure
+					vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{{Action: v1.StartRequest}}
+
+					var err error
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				DescribeTable("should discard an ordinary Start request without starting the VM", func(runStrategy *v1.VirtualMachineRunStrategy, running *bool) {
+					vm.Spec.RunStrategy = runStrategy
+					vm.Spec.Running = running
+					Expect(virtFakeClient.Tracker().Update(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm, vm.Namespace)).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					persistedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					persistedRunStrategy, err := persistedVM.RunStrategy()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persistedRunStrategy).To(Equal(v1.RunStrategyHalted))
+					Expect(persistedVM.Status.StateChangeRequests).To(BeEmpty())
+					_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+				},
+					Entry("with runStrategy Halted", pointer.P(v1.RunStrategyHalted), nil),
+					Entry("with legacy running false", nil, pointer.P(false)),
+				)
+
+				DescribeTable("should discard an ordinary Start request while the failed VMI still exists", func(runStrategy *v1.VirtualMachineRunStrategy, running *bool) {
+					vm.Spec.RunStrategy = runStrategy
+					vm.Spec.Running = running
+					vmi.Status.Phase = v1.Failed
+
+					Expect(controller.isTrimFirstChangeRequestNeeded(vm, vmi)).To(BeTrue())
+				},
+					Entry("with runStrategy Halted", pointer.P(v1.RunStrategyHalted), nil),
+					Entry("with legacy running false", nil, pointer.P(false)),
+				)
+
+				DescribeTable("should honor a paused Start request", func(runStrategy *v1.VirtualMachineRunStrategy, running *bool, expectedRunStrategy *v1.VirtualMachineRunStrategy, expectedRunning *bool) {
+					vm.Spec.RunStrategy = runStrategy
+					vm.Spec.Running = running
+					vm.Status.StateChangeRequests = []v1.VirtualMachineStateChangeRequest{{
+						Action: v1.StartRequest,
+						Data:   map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue},
+					}}
+					Expect(virtFakeClient.Tracker().Update(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm, vm.Namespace)).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					persistedVM, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persistedVM.Spec.RunStrategy).To(Equal(expectedRunStrategy))
+					Expect(persistedVM.Spec.Running).To(Equal(expectedRunning))
+					Expect(persistedVM.Status.StateChangeRequests).To(HaveExactElements(v1.VirtualMachineStateChangeRequest{
+						Action: v1.StartRequest,
+						Data:   map[string]string{v1.StartRequestDataPausedKey: v1.StartRequestDataPausedTrue},
+					}))
+				},
+					Entry("with runStrategy Halted", pointer.P(v1.RunStrategyHalted), nil, pointer.P(v1.RunStrategyAlways), nil),
+					Entry("with legacy running false", nil, pointer.P(false), nil, pointer.P(true)),
+				)
+			})
+
 			It("when starting a VM with RerunOnFailure the VM should get started", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
