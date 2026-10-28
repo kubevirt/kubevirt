@@ -63,6 +63,8 @@ var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.D
 		)
 		Expect(err).ToNot(HaveOccurred())
 
+		fmt.Println("created the shared ResourceClaimTemplate")
+
 		By("creating four VMIs backed by the ResourceClaimTemplate")
 		vmiNames := make([]string, 0, draVfioVMICount)
 		for range draVfioVMICount {
