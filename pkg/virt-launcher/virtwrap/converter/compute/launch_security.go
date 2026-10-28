@@ -69,34 +69,29 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 		kernelHashes = "yes"
 	}
 
-	if launchSec.SEV == nil && launchSec.SNP != nil {
-		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
-		domain := &api.LaunchSecurity{
-			Type:         "sev-snp",
-			KernelHashes: kernelHashes,
-		}
-		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		return domain
-	} else if launchSec.SEV != nil {
+	// Admission guarantees exactly one launch security type is set.
+	switch {
+	case launchSec.SEV != nil:
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
-		domain := &api.LaunchSecurity{
+		return &api.LaunchSecurity{
 			Type:         "sev",
 			Policy:       "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
 			KernelHashes: kernelHashes,
+			DHCert:       launchSec.SEV.DHCert,
+			Session:      launchSec.SEV.Session,
 		}
-		if launchSec.SEV.DHCert != "" {
-			domain.DHCert = launchSec.SEV.DHCert
+	case launchSec.SNP != nil:
+		// Use Default Policy
+		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+		return &api.LaunchSecurity{
+			Type:         "sev-snp",
+			Policy:       "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16),
+			KernelHashes: kernelHashes,
 		}
-		if launchSec.SEV.Session != "" {
-			domain.Session = launchSec.SEV.Session
-		}
-		return domain
-	} else if launchSec.TDX != nil {
-		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
+	case launchSec.TDX != nil:
 		return &api.LaunchSecurity{
 			Type:                   "tdx",
-			QuoteGenerationService: &api.QGS{Path: qgsSocketPath},
+			QuoteGenerationService: &api.QGS{Path: vmi.Annotations[v1.QGSSocketPathAnnotation]},
 		}
 	}
 
