@@ -246,6 +246,11 @@ var _ = ginkgo.Describe("Schema", func() {
 		newDomain.XMLName.Local = ""
 		newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 
+		// XMLName is applied during unmarshal but not in original domain
+		for i := range newDomain.Devices.Disks {
+			newDomain.Devices.Disks[i].XMLName.Local = ""
+		}
+
 		Expect(newDomain).To(Equal(domain.Spec))
 	}
 
