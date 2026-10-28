@@ -380,6 +380,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 		var driverPath string
 		var rootPCIId string
+		var fakeVGPUHidden bool
 
 		runBashCmd := func(cmd string) (string, error) {
 			args := []string{"bash", "-x", "-c", cmd}
@@ -414,6 +415,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 		BeforeEach(func() {
 			rootPCIId = "none"
+			fakeVGPUHidden = false
 		})
 
 		AfterEach(func() {
@@ -422,66 +424,107 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				// Make sure we don't leave the device in an unbound state
 				_ = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
 			}
+			if CurrentSpecReport().Failed() && fakeVGPUHidden {
+				_ = runBashCmdRw("echo show > /sys/class/nvidia/nvidia/hotplug_control")
+			}
 		})
 
 		It("should create mdevs on devices that appear after CR configuration", func() {
-			By("looking for an mdev-compatible PCI device")
-			out, err := runBashCmd(findMdevCapableDevices)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(ContainSubstring(mdevBusPath))
-			pciId := "'" + filepath.Base(out) + "'"
+			usingFakeVGPU := flags.EmulatedVGPUMDEV
 
-			By("finding the driver")
-			driverPath, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(driverPath).To(ContainSubstring("drivers"))
+			var pciId, mdevType, deviceName, resourceName string
+			var err error
+			var out string
+			const fakeVGPUParent = "'nvidia'"
+			const hotplugControl = "/sys/class/nvidia/nvidia/hotplug_control"
+			// This test verifies virt-handler creates mdev instances when devices appear.
+			// For real GPUs: uses PCI driver unbind/bind to make device disappear/reappear.
+			// For fake vGPU: uses a sysfs hotplug_control interface that unregisters/registers
+			// the mdev parent, achieving the same effect (device disappears from mdev_bus).
+			// Both paths test identical virt-handler code - it watches /sys/class/mdev_bus/
+			// for changes regardless of whether the underlying device is PCI-based or not.
+			if usingFakeVGPU {
+				// Fake vGPU path: use hotplug_control sysfs interface
+				By("hiding fake vGPU device (simulating hot-unplug)")
+				err = runBashCmdRw("echo hide > " + hotplugControl)
+				Expect(err).ToNot(HaveOccurred())
+				fakeVGPUHidden = true
 
-			By("finding a supported type")
-			out, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).ToNot(BeEmpty())
-			mdevType := filepath.Base(out)
+				// Verify device is hidden
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + fakeVGPUParent)
+					return err
+				}).Should(HaveOccurred(), "device should be hidden")
 
-			By("finding the name of the device")
-			fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
-			deviceName, err := runBashCmd("cat " + fileName)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(deviceName).ToNot(BeEmpty())
+				// Set up variables for fake vGPU
+				pciId = fakeVGPUParent
+				mdevType = "nvidia-222"
+				deviceName = "GRID T4-1B"
+				resourceName = "nvidia.com/GRID_T4-1B"
 
-			By("unbinding the device from its driver")
-			re := regexp.MustCompile(`[\da-f]{2}\.[\da-f]'$`)
-			rootPCIId = re.ReplaceAllString(pciId, "00.0'")
-			err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = runBashCmd("ls " + mdevBusPath + pciId)
-				return err
-			}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
+			} else {
+				// Real GPU path: use PCI driver unbind/bind
+				By("looking for an mdev-compatible PCI device")
+				out, err = runBashCmd(findMdevCapableDevices)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(ContainSubstring(mdevBusPath))
+				pciId = "'" + filepath.Base(out) + "'"
+
+				By("finding the driver")
+				driverPath, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(driverPath).To(ContainSubstring("drivers"))
+
+				By("finding a supported type")
+				out, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).ToNot(BeEmpty())
+				mdevType = filepath.Base(out)
+
+				By("finding the name of the device")
+				fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
+				deviceName, err = runBashCmd("cat " + fileName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(deviceName).ToNot(BeEmpty())
+
+				By("unbinding the device from its driver")
+				re := regexp.MustCompile(`[\da-f]{2}\.[\da-f]'$`)
+				rootPCIId = re.ReplaceAllString(pciId, "00.0'")
+				err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + pciId)
+					return err
+				}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
+
+				resourceName = filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
+			}
 
 			By("adding the device to the KubeVirt CR")
-			resourceName := filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
-			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
-				MediatedDevicesTypes: []string{mdevType},
-			}
-			config.PermittedHostDevices = &v1.PermittedHostDevices{
-				MediatedDevices: []v1.MediatedHostDevice{
-					{
-						MDEVNameSelector: deviceName,
-						ResourceName:     resourceName,
-					},
-				},
-			}
+			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{MediatedDeviceTypes: []string{mdevType}}
+			config.PermittedHostDevices = &v1.PermittedHostDevices{MediatedDevices: []v1.MediatedHostDevice{{MDEVNameSelector: deviceName, ResourceName: resourceName}}}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
-			By("re-binding the device to its driver")
-			err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = runBashCmd("ls " + mdevBusPath + pciId)
-				return err
-			}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
+			if usingFakeVGPU {
+				By("showing fake vGPU device (simulating hot-plug)")
+				err = runBashCmdRw("echo show > " + hotplugControl)
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + pciId)
+					return err
+				}).ShouldNot(HaveOccurred(), "device should be visible")
+				fakeVGPUHidden = false
+			} else {
+				By("re-binding the device to its driver")
+				err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + pciId)
+					return err
+				}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
+			}
 
 			By("expecting the creation of a mediated device")
 			mdevUUIDPath := fmt.Sprintf(mdevUUIDPathFmt, pciId, uuidRegex)
