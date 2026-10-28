@@ -101,20 +101,16 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return nil
 	}
 
-	multusStatusNetworksByName := netvmispec.IndexInterfaceStatusByName(
+	multusStatusNetworksByName := indexInterfaceStatusByInfoSource(
 		vmi.Status.Interfaces,
-		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
-		},
+		netvmispec.InfoSourceMultusStatus,
 	)
 	networkDRAEnabled := c.clusterConfigProvider.NetworkDevicesWithDRAGateEnabled()
 	var podStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface
 	if networkDRAEnabled {
-		podStatusNetworksByName = netvmispec.IndexInterfaceStatusByName(
+		podStatusNetworksByName = indexInterfaceStatusByInfoSource(
 			vmi.Status.Interfaces,
-			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-				return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
-			},
+			netvmispec.InfoSourcePodStatus,
 		)
 	}
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
@@ -483,4 +479,14 @@ func splitIPByFamiliy(ips []string) ([]string, []string) {
 		}
 	}
 	return IPv4Addresses, IPv6Addresses
+}
+
+func indexInterfaceStatusByInfoSource(
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	infoSource string,
+) map[string]v1.VirtualMachineInstanceNetworkInterface {
+	return netvmispec.IndexInterfaceStatusByName(ifaceStatuses,
+		func(s v1.VirtualMachineInstanceNetworkInterface) bool {
+			return netvmispec.ContainsInfoSource(s.InfoSource, infoSource)
+		})
 }
