@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -26,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -44,6 +46,16 @@ const (
 	mdevBusPath               = "/sys/class/mdev_bus/"
 	mdevSupportedTypesDirName = "mdev_supported_types"
 )
+
+func disableFakeVGPUDisplay(gpu *v1.GPU, fake bool) {
+	if fake {
+		gpu.VirtualGPUOptions = &v1.VGPUOptions{
+			Display: &v1.VGPUDisplayOptions{
+				Enabled: ptr.To(false),
+			},
+		}
+	}
+}
 
 var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
@@ -285,6 +297,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: deviceName,
 				},
 			}
+
+			usingFakeVGPU := flags.EmulatedVGPUMDEV
+			disableFakeVGPUDisplay(&vGPUs[0], usingFakeVGPU)
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -300,10 +315,13 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			// make sure that one mdev has display and ramfb on
-			By("Maiking sure that a boot display is enabled")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+
+			if !usingFakeVGPU {
+				// make sure that one mdev has display and ramfb on
+				By("Making sure that a boot display is enabled")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+			}
 		})
 		It("Should override default mdev configuration on a specific node", func() {
 			By("Determining the expected amount of mediated device instances used for the test")
@@ -337,6 +355,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: updatedDeviceName,
 				},
 			}
+			disableFakeVGPUDisplay(&vGPUs[0], flags.EmulatedVGPUMDEV)
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
