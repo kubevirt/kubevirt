@@ -48,6 +48,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -87,10 +88,6 @@ const (
 	ProvisioningFailed = "ProvisioningFailed"
 	// ErrClaimNotValid stores the 'ErrClaimNotValid' event condition used for DV error handling
 	ErrClaimNotValid = "ErrClaimNotValid"
-
-	// OptimisticLockErrorMsg is returned by kube-apiserver when trying to update an old version of a resource
-	// https://github.com/kubernetes/kubernetes/blob/b89f564539fad77cd22de1b155d84638daf8c83f/staging/src/k8s.io/apiserver/pkg/registry/generic/registry/store.go#L240
-	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
 type processingCompleteFunc func(kubernetes.Interface, *cobra.Command, string, string, time.Duration, time.Duration) error
@@ -965,7 +962,7 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 	for _, event := range eventList.Items {
 		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.UID == pvcUID {
 			if event.Reason == ProvisioningFailed {
-				if !strings.Contains(event.Message, OptimisticLockErrorMsg) {
+				if !strings.Contains(event.Message, apimachinery.OptimisticLockErrorMsg) {
 					return fmt.Errorf("Provisioning failed: %s", event.Message)
 				}
 			}

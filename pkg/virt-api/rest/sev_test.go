@@ -37,7 +37,9 @@ import (
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -232,6 +234,20 @@ var _ = Describe("SEV Subresources", func() {
 			"Session": Equal("AAABBB"),
 			"DHCert":  Equal("CCCDDD"),
 		})))
+	})
+
+	It("Should return a conflict when the VMI changes before the SEV session patch", func() {
+		body, err := json.Marshal(&v1.SEVSessionOptions{Session: "AAABBB", DHCert: "CCCDDD"})
+		Expect(err).ToNot(HaveOccurred())
+		request.Request.Body = &readCloserWrapper{bytes.NewReader(body)}
+
+		createVMI(NotRunning, UnPaused, []libvmi.Option{libvmi.WithSEVAttestation()}, []libvmistatus.Option{libvmistatus.WithPhase(v1.Scheduled)})
+		virtClient.PrependReactor("patch", "virtualmachineinstances", func(_ testing.Action) (bool, runtime.Object, error) {
+			return true, nil, newJSONPatchApplyError()
+		})
+
+		app.SEVSetupSessionHandler(request, response)
+		Expect(response.StatusCode()).To(Equal(http.StatusConflict))
 	})
 
 	It("Should allow to inject SEV launch secret into a paused VMI", func() {
