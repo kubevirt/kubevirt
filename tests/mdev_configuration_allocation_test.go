@@ -345,6 +345,15 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
 			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)), mdevTestLabel)
 
+			By("Waiting for updated mediated-device resource to appear on the labeled node")
+			Eventually(func(g Gomega) {
+				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), testNodeName, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				qty, ok := node.Status.Allocatable[k8sv1.ResourceName(updatedDeviceName)]
+				g.Expect(ok).To(BeTrue())
+				g.Expect(qty.Sign()).To(BeNumerically(">", 0))
+			}, 2*time.Minute, 1*time.Second).Should(Succeed(), "wait for kubelet to advertise updated mdev resource")
+
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
