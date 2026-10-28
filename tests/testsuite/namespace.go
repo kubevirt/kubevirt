@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,211 +81,222 @@ func CleanNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(restConfig)
 	Expect(err).ToNot(HaveOccurred())
 
+	var wg sync.WaitGroup
 	for _, namespace := range TestNamespaces {
-		listOptions := metav1.ListOptions{
-			LabelSelector: cleanup.TestLabelForNamespace(namespace),
-		}
+		wg.Add(1)
+		go func(namespace string) {
+			defer wg.Done()
+			defer GinkgoRecover()
+			cleanNamespace(virtCli, namespace)
+		}(namespace)
+	}
+	wg.Wait()
+}
 
-		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
-		if err != nil {
+func cleanNamespace(virtCli kubecli.KubevirtClient, namespace string) {
+	listOptions := metav1.ListOptions{
+		LabelSelector: cleanup.TestLabelForNamespace(namespace),
+	}
+
+	_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+
+	// Clean namespace labels
+	Expect(resetNamespaceLabelsToDefault(virtCli, namespace)).To(Succeed())
+
+	clusterinstancetypes, err := virtCli.VirtualMachineClusterInstancetype().List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, clusterinstancetypes := range clusterinstancetypes.Items {
+		Expect(virtCli.VirtualMachineClusterInstancetype().Delete(context.Background(), clusterinstancetypes.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	instancetype, err := virtCli.VirtualMachineInstancetype(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	for _, instancetype := range instancetype.Items {
+		Expect(virtCli.VirtualMachineInstancetype(namespace).Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	clusterPreference, err := virtCli.VirtualMachineClusterPreference().List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, clusterpreference := range clusterPreference.Items {
+		Expect(virtCli.VirtualMachineClusterPreference().Delete(context.Background(), clusterpreference.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	vmPreference, err := virtCli.VirtualMachinePreference(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	for _, preference := range vmPreference.Items {
+		Expect(virtCli.VirtualMachinePreference(namespace).Delete(context.Background(), preference.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	//Remove all Jobs
+	jobDeleteStrategy := metav1.DeletePropagationOrphan
+	jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
+	Expect(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error()).To(Succeed())
+	//Remove all HPA
+	Expect(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error()).To(Succeed())
+
+	// Remove all VirtualMachinePools
+	Expect(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove all VirtualMachines
+	Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error()).To(Succeed())
+
+	// Remove all VirtualMachineReplicaSets
+	Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error()).To(Succeed())
+
+	// Remove all VMIs
+	vmiGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstances"}
+	Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
+	Expect(stripFinalizersFromGVR(vmiGVR, namespace)).To(Succeed())
+
+	// Remove all Pods
+	podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	var gracePeriod int64 = 0
+	for _, pod := range podList.Items {
+		err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+		if errors.IsNotFound(err) {
 			continue
 		}
-
-		// Clean namespace labels
-		Expect(resetNamespaceLabelsToDefault(virtCli, namespace)).To(Succeed())
-
-		clusterinstancetypes, err := virtCli.VirtualMachineClusterInstancetype().List(context.Background(), listOptions)
 		Expect(err).ToNot(HaveOccurred())
-		for _, clusterinstancetypes := range clusterinstancetypes.Items {
-			Expect(virtCli.VirtualMachineClusterInstancetype().Delete(context.Background(), clusterinstancetypes.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		instancetype, err := virtCli.VirtualMachineInstancetype(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, instancetype := range instancetype.Items {
-			Expect(virtCli.VirtualMachineInstancetype(namespace).Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		clusterPreference, err := virtCli.VirtualMachineClusterPreference().List(context.Background(), listOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, clusterpreference := range clusterPreference.Items {
-			Expect(virtCli.VirtualMachineClusterPreference().Delete(context.Background(), clusterpreference.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		vmPreference, err := virtCli.VirtualMachinePreference(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, preference := range vmPreference.Items {
-			Expect(virtCli.VirtualMachinePreference(namespace).Delete(context.Background(), preference.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		//Remove all Jobs
-		jobDeleteStrategy := metav1.DeletePropagationOrphan
-		jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
-		Expect(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error()).To(Succeed())
-		//Remove all HPA
-		Expect(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error()).To(Succeed())
-
-		// Remove all VirtualMachinePools
-		Expect(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove all VirtualMachines
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do(context.Background()).Error()).To(Succeed())
-
-		// Remove all VirtualMachineReplicaSets
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancereplicasets").Do(context.Background()).Error()).To(Succeed())
-
-		// Remove all VMIs
-		vmiGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstances"}
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstances").Do(context.Background()).Error()).To(Succeed())
-		Expect(stripFinalizersFromGVR(vmiGVR, namespace)).To(Succeed())
-
-		// Remove all Pods
-		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		var gracePeriod int64 = 0
-		for _, pod := range podList.Items {
-			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Remove all ResourceClaims
-		err = virtCli.ResourceV1().ResourceClaims(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
-		Expect(err).To(Or(
-			Not(HaveOccurred()),
-			MatchError(errors.IsNotFound, "errors.IsNotFound"),
-		))
-
-		// Remove all ResourceClaimTemplates
-		err = virtCli.ResourceV1().ResourceClaimTemplates(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
-		Expect(err).To(Or(
-			Not(HaveOccurred()),
-			MatchError(errors.IsNotFound, "errors.IsNotFound"),
-		))
-
-		// Remove all Services
-		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, svc := range svcList.Items {
-			err := virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Remove all ResourceQuota
-		rqList, err := virtCli.CoreV1().ResourceQuotas(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, rq := range rqList.Items {
-			err := virtCli.CoreV1().ResourceQuotas(namespace).Delete(context.Background(), rq.Name, metav1.DeleteOptions{})
-			if errors.IsNotFound(err) {
-				continue
-			}
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		// Remove PVCs
-		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error()).To(Succeed())
-		if libstorage.HasCDI() {
-			// Remove DataVolumes
-			Expect(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error()).To(Succeed())
-		}
-		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, pv := range pvs.Items {
-			if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.Namespace != namespace {
-				continue
-			}
-			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
-			Expect(err).To(Or(
-				Not(HaveOccurred()),
-				MatchError(errors.IsNotFound, "errors.IsNotFound"),
-			))
-		}
-
-		// Remove all VirtualMachineInstance Secrets
-		labelSelector := libsecret.TestsSecretLabel
-		Expect(
-			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
-				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
-			),
-		).To(Succeed())
-
-		// Remove all VirtualMachineInstance Presets
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error()).To(Succeed())
-		// Remove all limit ranges
-		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
-
-		// Remove all Migration Objects
-		migrationGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstancemigrations"}
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error()).To(Succeed())
-		Expect(stripFinalizersFromGVR(migrationGVR, namespace)).To(Succeed())
-		// Remove all NetworkAttachmentDefinitions
-		nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
-		Expect(err).To(Or(
-			Not(HaveOccurred()),
-			MatchError(errors.IsNotFound, "errors.IsNotFound"),
-		))
-		for _, netDef := range nets.Items {
-			Expect(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
-		for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
-			Expect(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace)).To(Succeed())
-		}
-
-		// Remove all Istio PeerAuthentications
-		Expect(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace)).To(Succeed())
-
-		// Remove migration policies
-		migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), listOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, policy := range migrationPolicyList.Items {
-			Expect(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		// Remove StorageClasses
-		scList, err := virtCli.StorageV1().StorageClasses().List(context.Background(), listOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, sc := range scList.Items {
-			Expect(virtCli.StorageV1().StorageClasses().Delete(context.Background(), sc.Name, metav1.DeleteOptions{})).To(Succeed())
-		}
-
-		// Remove clones
-		Expect(virtCli.VirtualMachineClone(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove vm snapshots
-		Expect(virtCli.VirtualMachineSnapshot(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-		Expect(virtCli.VirtualMachineSnapshotContent(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-		Expect(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove events
-		deleteEventsFromNamespace(namespace)
-
-		// Remove vmbackups
-		Expect(virtCli.VirtualMachineBackup(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove vmbackuptrackers
-		Expect(virtCli.VirtualMachineBackupTracker(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove vmexports
-		Expect(virtCli.VirtualMachineExport(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
-
-		// Remove VirtualMachineTemplateRequests and strip finalizers
-		vmtrGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplaterequests"}
-		Expect(removeAllGroupVersionResourceFromNamespace(vmtrGVR, namespace)).To(Succeed())
-		Expect(stripFinalizersFromGVR(vmtrGVR, namespace)).To(Succeed())
-
-		// Remove VirtualMachineTemplates
-		vmtGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplates"}
-		Expect(removeAllGroupVersionResourceFromNamespace(vmtGVR, namespace)).To(Succeed())
-
 	}
+
+	// Remove all ResourceClaims
+	err = virtCli.ResourceV1().ResourceClaims(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsNotFound, "errors.IsNotFound"),
+	))
+
+	// Remove all ResourceClaimTemplates
+	err = virtCli.ResourceV1().ResourceClaimTemplates(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsNotFound, "errors.IsNotFound"),
+	))
+
+	// Remove all Services
+	svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	for _, svc := range svcList.Items {
+		err := virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	// Remove all ResourceQuota
+	rqList, err := virtCli.CoreV1().ResourceQuotas(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	for _, rq := range rqList.Items {
+		err := virtCli.CoreV1().ResourceQuotas(namespace).Delete(context.Background(), rq.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			continue
+		}
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	// Remove PVCs
+	Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error()).To(Succeed())
+	if libstorage.HasCDI() {
+		// Remove DataVolumes
+		Expect(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error()).To(Succeed())
+	}
+	// Remove PVs
+	pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, pv := range pvs.Items {
+		if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.Namespace != namespace {
+			continue
+		}
+		err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+		Expect(err).To(Or(
+			Not(HaveOccurred()),
+			MatchError(errors.IsNotFound, "errors.IsNotFound"),
+		))
+	}
+
+	// Remove all VirtualMachineInstance Secrets
+	labelSelector := libsecret.TestsSecretLabel
+	Expect(
+		virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
+			metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
+		),
+	).To(Succeed())
+
+	// Remove all VirtualMachineInstance Presets
+	Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error()).To(Succeed())
+	// Remove all limit ranges
+	Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
+
+	// Remove all Migration Objects
+	migrationGVR := schema.GroupVersionResource{Group: "kubevirt.io", Version: "v1", Resource: "virtualmachineinstancemigrations"}
+	Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error()).To(Succeed())
+	Expect(stripFinalizersFromGVR(migrationGVR, namespace)).To(Succeed())
+	// Remove all NetworkAttachmentDefinitions
+	nets, err := virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).List(context.Background(), metav1.ListOptions{})
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsNotFound, "errors.IsNotFound"),
+	))
+	for _, netDef := range nets.Items {
+		Expect(virtCli.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Delete(context.Background(), netDef.GetName(), metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	// Remove all Istio Sidecars, VirtualServices, DestinationRules and Gateways
+	for _, res := range []string{"sidecars", "virtualservices", "destinationrules", "gateways"} {
+		Expect(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: res}, namespace)).To(Succeed())
+	}
+
+	// Remove all Istio PeerAuthentications
+	Expect(removeAllGroupVersionResourceFromNamespace(schema.GroupVersionResource{Group: "security.istio.io", Version: "v1beta1", Resource: "peerauthentications"}, namespace)).To(Succeed())
+
+	// Remove migration policies
+	migrationPolicyList, err := virtCli.MigrationPolicy().List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, policy := range migrationPolicyList.Items {
+		Expect(virtCli.MigrationPolicy().Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	// Remove StorageClasses
+	scList, err := virtCli.StorageV1().StorageClasses().List(context.Background(), listOptions)
+	Expect(err).ToNot(HaveOccurred())
+	for _, sc := range scList.Items {
+		Expect(virtCli.StorageV1().StorageClasses().Delete(context.Background(), sc.Name, metav1.DeleteOptions{})).To(Succeed())
+	}
+
+	// Remove clones
+	Expect(virtCli.VirtualMachineClone(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove vm snapshots
+	Expect(virtCli.VirtualMachineSnapshot(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+	Expect(virtCli.VirtualMachineSnapshotContent(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+	Expect(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove events
+	deleteEventsFromNamespace(namespace)
+
+	// Remove vmbackups
+	Expect(virtCli.VirtualMachineBackup(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove vmbackuptrackers
+	Expect(virtCli.VirtualMachineBackupTracker(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove vmexports
+	Expect(virtCli.VirtualMachineExport(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+
+	// Remove VirtualMachineTemplateRequests and strip finalizers
+	vmtrGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplaterequests"}
+	Expect(removeAllGroupVersionResourceFromNamespace(vmtrGVR, namespace)).To(Succeed())
+	Expect(stripFinalizersFromGVR(vmtrGVR, namespace)).To(Succeed())
+
+	// Remove VirtualMachineTemplates
+	vmtGVR := schema.GroupVersionResource{Group: "template.kubevirt.io", Version: "v1beta1", Resource: "virtualmachinetemplates"}
+	Expect(removeAllGroupVersionResourceFromNamespace(vmtGVR, namespace)).To(Succeed())
+
 }
 
 func removeNamespaces() {
