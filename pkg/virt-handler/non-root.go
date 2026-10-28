@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path) error {
 	volumeModes := map[string]*k8sv1.PersistentVolumeMode{}
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.PersistentVolumeClaimInfo != nil {
@@ -60,7 +60,7 @@ func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation
 		if !types.IsPVCBlock(volumeMode) {
 			continue
 		}
-		devPath, err := isolation.SafeJoin(res, string(filepath.Separator), "dev", vmi.Spec.Volumes[i].Name)
+		devPath, err := isolation.SafeJoinRoot(mountRoot, string(filepath.Separator), "dev", vmi.Spec.Volumes[i].Name)
 		if err != nil {
 			return nil
 		}
@@ -81,7 +81,7 @@ func changeOwnership(path *safepath.Path) error {
 }
 
 // changeOwnershipOfHostDisks needs unmodified vmi (not passed to ReplacePVCByHostDisk function)
-func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, mountRoot *safepath.Path) error {
 	for i := range vmiWithAllPVCs.Spec.Volumes {
 		if volumeSource := &vmiWithAllPVCs.Spec.Volumes[i].VolumeSource; volumeSource.HostDisk != nil {
 			volumeName := vmiWithAllPVCs.Spec.Volumes[i].Name
@@ -91,7 +91,7 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					diskDir := hostdisk.GetMountedHostDiskDir(volumeName)
-					path, err := isolation.SafeJoin(res, diskDir)
+					path, err := isolation.SafeJoinRoot(mountRoot, diskDir)
 					if err != nil {
 						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
 					}
@@ -103,7 +103,7 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 				return fmt.Errorf("Failed to recognize if hostdisk contains image, %s", err)
 			}
 
-			path, err := isolation.SafeJoin(res, diskPath)
+			path, err := isolation.SafeJoinRoot(mountRoot, diskPath)
 			if err != nil {
 				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
 			}
@@ -117,15 +117,15 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
+func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path) error {
+	if err := changeOwnershipOfBlockDevices(vmi, mountRoot); err != nil {
 		return err
 	}
-	return changeOwnershipOfHostDisks(vmi, res)
+	return changeOwnershipOfHostDisks(vmi, mountRoot)
 }
 
-func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
-	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
+func (*BaseController) prepareVFIO(mountRoot *safepath.Path) error {
+	vfioBasePath, err := isolation.SafeJoinRoot(mountRoot, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -168,12 +168,7 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 	return nil
 }
 
-func (c *BaseController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	rootMount, err := res.MountRoot()
-	if err != nil {
-		return err
-	}
-
+func (c *BaseController) prepareNetwork(vmi *v1.VirtualMachineInstance, rootMount *safepath.Path) error {
 	if netvmispec.RequiresVirtioNetDevice(vmi, c.clusterConfig.AllowEmulation()) {
 		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
 			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
@@ -189,18 +184,14 @@ func (c *BaseController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isol
 	return nil
 }
 
-func (c *BaseController) nonRootSetup(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
+func (c *BaseController) nonRootSetup(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path) error {
+	if err := c.prepareStorage(vmi, mountRoot); err != nil {
 		return err
 	}
-	if err := c.prepareStorage(vmi, res); err != nil {
+	if err := c.prepareVFIO(mountRoot); err != nil {
 		return err
 	}
-	if err := c.prepareVFIO(res); err != nil {
-		return err
-	}
-	if err := c.prepareNetwork(vmi, res); err != nil {
+	if err := c.prepareNetwork(vmi, mountRoot); err != nil {
 		return err
 	}
 	return nil

@@ -39,7 +39,7 @@ import (
 
 var _ = Describe("InjectNotify", func() {
 
-	var pod *isolation.MockIsolationResult
+	var root *safepath.Path
 	var socketPath string
 
 	BeforeEach(func() {
@@ -49,13 +49,12 @@ var _ = Describe("InjectNotify", func() {
 
 		Expect(os.MkdirAll(filepath.Join(tmp, "dir"), 0777)).To(Succeed())
 
-		pod = isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
-		pod.EXPECT().MountRoot().Return(safeTmp, nil)
+		root = safeTmp
 
 		socketPath = filepath.Join(tmp, "dir", "domain-notify-pipe.sock")
 	})
 	It("should return working listener", func() {
-		listener, err := InjectNotify(pod, "dir", false)
+		listener, err := InjectNotifyWithMountRoot(root, "dir", false)
 		Expect(err).ToNot(HaveOccurred())
 		defer listener.Close()
 
@@ -81,9 +80,18 @@ var _ = Describe("InjectNotify", func() {
 		diskutils.DefaultOwnershipManager = ownershipManager
 		ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(1)
 
-		listener, err := InjectNotify(pod, "dir", true)
+		listener, err := InjectNotifyWithMountRoot(root, "dir", true)
 		Expect(err).ToNot(HaveOccurred())
 		defer listener.Close()
+	})
+
+	It("keeps the deprecated IsolationResult API working", func() {
+		pod := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+		pod.EXPECT().MountRoot().Return(root, nil)
+
+		listener, err := InjectNotify(pod, "dir", false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(listener.Close()).To(Succeed())
 	})
 })
 
@@ -130,12 +138,9 @@ var _ = Describe("ChanFromListener", func() {
 
 		Expect(os.MkdirAll(filepath.Join(tmp, "dir"), 0777)).To(Succeed())
 
-		pod := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
-		pod.EXPECT().MountRoot().Return(safeTmp, nil)
-
 		socketPath := filepath.Join(tmp, "dir", "domain-notify-pipe.sock")
 
-		listener, err := InjectNotify(pod, "dir", false)
+		listener, err := InjectNotifyWithMountRoot(safeTmp, "dir", false)
 		Expect(err).ToNot(HaveOccurred())
 		defer listener.Close()
 		ctx, cancelListener := context.WithCancel(context.Background())

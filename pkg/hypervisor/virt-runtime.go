@@ -35,7 +35,11 @@ type VirtRuntime interface {
 	AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error
 }
 
-func GetVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, hypervisorName string) VirtRuntime {
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
+func GetVirtRuntime(podProcessIDDetector processIDDetector, hypervisorName string) VirtRuntime {
 	switch hypervisorName {
 	case v1.HyperVDirectHypervisorName:
 		return mshv.NewMshvVirtRuntime(podProcessIDDetector, log.Log.With("controller", "vm"))

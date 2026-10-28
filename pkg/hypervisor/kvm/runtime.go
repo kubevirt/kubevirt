@@ -41,12 +41,16 @@ import (
 var ListProcesses = ps.Processes
 
 type KvmVirtRuntime struct {
-	podProcessIDDetector isolation.PodProcessIDDetector
+	podProcessIDDetector processIDDetector
 	logger               *log.FilteredLogger
 	KvmHypervisorBackend
 }
 
-func NewKvmVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
+func NewKvmVirtRuntime(podProcessIDDetector processIDDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
 	return &KvmVirtRuntime{
 		podProcessIDDetector: podProcessIDDetector,
 		logger:               logger,

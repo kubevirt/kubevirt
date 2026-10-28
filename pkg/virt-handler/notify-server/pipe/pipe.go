@@ -57,6 +57,12 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 	if err != nil {
 		return nil, err
 	}
+	return InjectNotifyWithMountRoot(root, virtShareDir, nonRoot)
+}
+
+// InjectNotifyWithMountRoot injects the notify socket using an already-resolved VMI mount root.
+func InjectNotifyWithMountRoot(root *safepath.Path, virtShareDir string,
+	nonRoot bool) (net.Listener, error) {
 	socketDir, err := root.AppendAndResolveWithRelativeRoot(virtShareDir)
 	if err != nil {
 		return nil, err

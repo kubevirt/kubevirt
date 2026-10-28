@@ -173,16 +173,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
 
-		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
-		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
 		rootDir, err := safepath.JoinAndResolveWithRelativeRoot(vmiShareDir)
 		Expect(err).ToNot(HaveOccurred())
-		mockIsolationResult.EXPECT().MountRoot().Return(rootDir, nil).AnyTimes()
-
-		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
 		mockProcessIDDetector.EXPECT().DetectProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
+		mockProcessIDDetector.EXPECT().DetectForSocketProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
 
 		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
@@ -213,7 +208,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainInformer,
 			10,
 			config,
-			mockIsolationDetector,
 			mockProcessIDDetector,
 			migrationProxy,
 			fakeDownwardMetricsManager,
@@ -224,7 +218,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			cbtHandler,
 			nil,
 			&noopNodeHookExecutor{},
-			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
+			container_disk.NewMounter(mockProcessIDDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
 		controller.BaseController.mountRootForPID = func(int) (*safepath.Path, error) {

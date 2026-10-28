@@ -20,27 +20,21 @@
 package virthandler
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"syscall"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
-
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 var _ = Describe("prepareVFIO", func() {
 	var (
-		res        *isolation.MockIsolationResult
 		controller *BaseController
 	)
 
 	BeforeEach(func() {
-		res = isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
 		controller = &BaseController{}
 	})
 
@@ -50,32 +44,20 @@ var _ = Describe("prepareVFIO", func() {
 		return root
 	}
 
-	It("returns the error when the mount root cannot be resolved", func() {
-		res.EXPECT().MountRoot().Return(nil, errors.New("mount root is unavailable"))
-
-		Expect(controller.prepareVFIO(res)).To(MatchError("mount root is unavailable"))
-	})
-
 	It("succeeds when the VFIO directory does not exist", func() {
-		res.EXPECT().MountRoot().Return(mountRootOf(GinkgoT().TempDir()), nil)
-
-		Expect(controller.prepareVFIO(res)).To(Succeed())
+		Expect(controller.prepareVFIO(mountRootOf(GinkgoT().TempDir()))).To(Succeed())
 	})
 
 	It("succeeds when the VFIO control device does not exist", func() {
 		tempDir := GinkgoT().TempDir()
 		Expect(os.MkdirAll(filepath.Join(tempDir, "dev", "vfio"), 0777)).To(Succeed())
-		res.EXPECT().MountRoot().Return(mountRootOf(tempDir), nil)
-
-		Expect(controller.prepareVFIO(res)).To(Succeed())
+		Expect(controller.prepareVFIO(mountRootOf(tempDir))).To(Succeed())
 	})
 
 	It("returns the error when the VFIO directory is not a directory", func() {
 		tempDir := GinkgoT().TempDir()
 		Expect(os.MkdirAll(filepath.Join(tempDir, "dev"), 0777)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(tempDir, "dev", "vfio"), nil, 0666)).To(Succeed())
-		res.EXPECT().MountRoot().Return(mountRootOf(tempDir), nil)
-
-		Expect(controller.prepareVFIO(res)).To(MatchError(syscall.ENOTDIR))
+		Expect(controller.prepareVFIO(mountRootOf(tempDir))).To(MatchError(syscall.ENOTDIR))
 	})
 })

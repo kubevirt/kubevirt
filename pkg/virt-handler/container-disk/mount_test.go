@@ -82,16 +82,16 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
-	detectsSocket := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket("someting").Return(nil, nil)
+	detectsSocket := func(detector *isolation.MockPodProcessIDDetector) {
+		detector.EXPECT().DetectForSocketProcessIDs("someting").Return(isolation.ProcessIDs{}, nil)
 	}
 
-	noSocketDetected := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket("someting").Return(nil, fmt.Errorf("Not Found"))
+	noSocketDetected := func(detector *isolation.MockPodProcessIDDetector) {
+		detector.EXPECT().DetectForSocketProcessIDs("someting").Return(isolation.ProcessIDs{}, fmt.Errorf("Not Found"))
 	}
 
-	detectForSocketNotCalled := func(detector *isolation.MockPodIsolationDetector) {
-		detector.EXPECT().DetectForSocket(gomock.Any()).Times(0)
+	detectForSocketNotCalled := func(detector *isolation.MockPodProcessIDDetector) {
+		detector.EXPECT().DetectForSocketProcessIDs(gomock.Any()).Times(0)
 	}
 
 	Context("checking if containerDisks are ready", func() {
@@ -106,15 +106,15 @@ var _ = Describe("ContainerDisk", func() {
 
 		DescribeTable("should", func(
 			pathGetter containerdisk.SocketPathGetter,
-			mockSetup func(*isolation.MockPodIsolationDetector),
+			mockSetup func(*isolation.MockPodProcessIDDetector),
 			addedDelay time.Duration,
 			errorMatcher gomega_types.GomegaMatcher,
 			shouldBeReady bool,
 		) {
 			ctrl := gomock.NewController(GinkgoT())
-			mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
-			m.podIsolationDetector = mockIsolationDetector
-			mockSetup(mockIsolationDetector)
+			mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
+			m.processIDDetector = mockProcessIDDetector
+			mockSetup(mockProcessIDDetector)
 
 			m.socketPathGetter = pathGetter
 			ready, err := m.ContainerDisksReady(vmi, time.Now().Add(addedDelay))
@@ -182,15 +182,15 @@ var _ = Describe("ContainerDisk", func() {
 
 			DescribeTable("should", func(
 				pathGetter containerdisk.KernelBootSocketPathGetter,
-				mockSetup func(*isolation.MockPodIsolationDetector),
+				mockSetup func(*isolation.MockPodProcessIDDetector),
 				addedDelay time.Duration,
 				errorMatcher gomega_types.GomegaMatcher,
 				shouldBeReady bool,
 			) {
 				ctrl := gomock.NewController(GinkgoT())
-				mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
-				m.podIsolationDetector = mockIsolationDetector
-				mockSetup(mockIsolationDetector)
+				mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
+				m.processIDDetector = mockProcessIDDetector
+				mockSetup(mockProcessIDDetector)
 
 				m.kernelBootSocketPathGetter = pathGetter
 				ready, err := m.ContainerDisksReady(vmi, time.Now().Add(addedDelay))

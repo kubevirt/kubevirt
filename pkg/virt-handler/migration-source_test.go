@@ -168,14 +168,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
 
-		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
-		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
 		rootDir, err := safepath.JoinAndResolveWithRelativeRoot(vmiShareDir)
 		Expect(err).ToNot(HaveOccurred())
-		mockIsolationResult.EXPECT().MountRoot().Return(rootDir, nil).AnyTimes()
-
-		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
 		mockProcessIDDetector.EXPECT().DetectProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
 
@@ -193,7 +187,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			vmiInformer,
 			domainInformer,
 			config,
-			mockIsolationDetector,
 			mockProcessIDDetector,
 			migrationProxy,
 			"/tmp/%d",

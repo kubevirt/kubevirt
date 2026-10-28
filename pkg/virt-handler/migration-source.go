@@ -49,7 +49,6 @@ import (
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -82,8 +81,7 @@ func NewMigrationSourceController(
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
-	podIsolationDetector isolation.PodIsolationDetector,
-	processIDDetector isolation.PodProcessIDDetector,
+	processIDDetector processIDDetector,
 	migrationProxy proxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,

@@ -39,12 +39,16 @@ import (
 var ListProcesses = ps.Processes
 
 type MshvVirtRuntime struct {
-	podProcessIDDetector isolation.PodProcessIDDetector
+	podProcessIDDetector processIDDetector
 	logger               *log.FilteredLogger
 	MshvHypervisorBackend
 }
 
-func NewMshvVirtRuntime(podProcessIDDetector isolation.PodProcessIDDetector, logger *log.FilteredLogger) *MshvVirtRuntime {
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
+func NewMshvVirtRuntime(podProcessIDDetector processIDDetector, logger *log.FilteredLogger) *MshvVirtRuntime {
 	return &MshvVirtRuntime{
 		podProcessIDDetector: podProcessIDDetector,
 		logger:               logger,

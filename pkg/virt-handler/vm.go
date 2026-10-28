@@ -82,7 +82,6 @@ import (
 	deviceManager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/heartbeat"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
@@ -147,8 +146,7 @@ func NewVirtualMachineController(
 	domainInformer cache.SharedInformer,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
-	podIsolationDetector isolation.PodIsolationDetector,
-	processIDDetector isolation.PodProcessIDDetector,
+	processIDDetector processIDDetector,
 	migrationProxy proxyCleaner,
 	downwardMetricsManager downwardMetricsManager,
 	capabilities *libvirtxml.Caps,

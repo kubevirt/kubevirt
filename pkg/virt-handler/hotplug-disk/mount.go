@@ -57,12 +57,10 @@ var ErrWaitingForHotplugMount = errors.New("waiting for hotplug mount")
 
 const (
 	unableFindHotplugMountedDir = "unable to find hotplug mounted directories for vmi without uid"
+	nodeIsolationPID            = 1
 )
 
 var (
-	nodeIsolationResult = func() isolation.IsolationResult {
-		return isolation.NodeIsolationResult()
-	}
 	deviceBasePath = func(podUID types.UID, kubeletPodsDir string) (*safepath.Path, error) {
 		return safepath.JoinAndResolveWithRelativeRoot("/proc/1/root", kubeletPodsDir, fmt.Sprintf("/%s/volumes/kubernetes.io~empty-dir/hotplug-disks", string(podUID)))
 	}
@@ -135,20 +133,24 @@ var (
 		return isolation.IsBlockDevice(path)
 	}
 
-	isolationDetector = func() isolation.PodIsolationDetector {
-		return isolation.NewSocketBasedIsolationDetector()
+	isolationDetector = func() socketProcessIDDetector {
+		return isolation.NewSocketBasedProcessIDDetector()
 	}
 
 	parentPathForMount = func(
-		parent isolation.IsolationResult,
-		child isolation.IsolationResult,
+		parentPID int,
+		childPID int,
 		findmntInfo FindmntInfo,
 		podUID string,
 		kubeletPodsDir string,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target, podUID, kubeletPodsDir)
+		return isolation.ParentPathForMountByPID(parentPID, childPID, findmntInfo.Source, findmntInfo.Target, podUID, kubeletPodsDir)
 	}
 )
+
+type socketProcessIDDetector interface {
+	DetectForSocketProcessIDs(socket string) (isolation.ProcessIDs, error)
+}
 
 type volumeMounter struct {
 	checkpointManager  checkpoint.CheckpointManager
@@ -607,17 +609,16 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
-	iso := isolationDetector()
-	isoRes, err := iso.DetectForSocket(socketPath(sourceUID))
+	processIDs, err := isolationDetector().DetectForSocketProcessIDs(socketPath(sourceUID))
 	if err != nil {
 		return nil, err
 	}
-	findmounts, err := LookupFindmntInfoByVolume(volume, isoRes.Pid())
+	findmounts, err := LookupFindmntInfoByVolume(volume, processIDs.PID)
 	if err != nil {
 		return nil, err
 	}
-	nodeIsoRes := nodeIsolationResult()
-	mountRoot, err := nodeIsoRes.MountRoot()
+	parentPID := nodeIsolationPID
+	mountRoot, err := isolation.MountRootForPID(parentPID)
 	if err != nil {
 		return nil, err
 	}
@@ -625,7 +626,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, string(sourceUID), m.kubeletPodsDir)
+			path, err := parentPathForMount(parentPID, processIDs.PID, findmnt, string(sourceUID), m.kubeletPodsDir)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err

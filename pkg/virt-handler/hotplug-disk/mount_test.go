@@ -63,20 +63,19 @@ const (
 )
 
 var (
-	tempDir                string
-	tmpDirSafe             *safepath.Path
-	orgIsoDetector         = isolationDetector
-	orgDeviceBasePath      = deviceBasePath
-	orgStatSourceCommand   = statSourceDevice
-	orgStatCommand         = statDevice
-	orgMknodCommand        = mknodCommand
-	orgMountCommand        = mountCommand
-	orgUnMountCommand      = unmountCommand
-	orgIsMounted           = isMounted
-	orgIsBlockDevice       = isBlockDevice
-	orgFindMntByVolume     = findMntByVolume
-	orgFindMntByDevice     = findMntByDevice
-	orgNodeIsolationResult = nodeIsolationResult
+	tempDir              string
+	tmpDirSafe           *safepath.Path
+	orgIsoDetector       = isolationDetector
+	orgDeviceBasePath    = deviceBasePath
+	orgStatSourceCommand = statSourceDevice
+	orgStatCommand       = statDevice
+	orgMknodCommand      = mknodCommand
+	orgMountCommand      = mountCommand
+	orgUnMountCommand    = unmountCommand
+	orgIsMounted         = isMounted
+	orgIsBlockDevice     = isBlockDevice
+	orgFindMntByVolume   = findMntByVolume
+	orgFindMntByDevice   = findMntByDevice
 )
 
 var _ = Describe("HotplugVolume", func() {
@@ -135,18 +134,14 @@ var _ = Describe("HotplugVolume", func() {
 		expectedCgroupRule = nil
 		ownershipManager = diskutils.NewMockOwnershipManagerInterface(ctrl)
 
-		nodeIsolationResult = func() isolation.IsolationResult {
-			return isolation.NewIsolationResult(os.Getpid(), os.Getppid())
-		}
-
 		parentPathForMount = func(
-			parent isolation.IsolationResult,
-			_ isolation.IsolationResult,
+			parentPID int,
+			_ int,
 			findmntInfo FindmntInfo,
 			_ string,
 			_ string,
 		) (*safepath.Path, error) {
-			path, err := parent.MountRoot()
+			path, err := isolation.MountRootForPID(parentPID)
 			Expect(err).ToNot(HaveOccurred())
 			return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
 		}
@@ -310,7 +305,6 @@ var _ = Describe("HotplugVolume", func() {
 			statSourceDevice = orgStatSourceCommand
 			mknodCommand = orgMknodCommand
 			isBlockDevice = orgIsBlockDevice
-			nodeIsolationResult = orgNodeIsolationResult
 		})
 
 		It("isBlockVolume should determine if we have a block volume", func() {
@@ -756,8 +750,8 @@ var _ = Describe("HotplugVolume", func() {
 			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return volumeDir, nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
+			isolationDetector = func() socketProcessIDDetector {
+				return &mockProcessIDDetector{
 					pid: os.Getpid(),
 				}
 			}
@@ -800,8 +794,8 @@ var _ = Describe("HotplugVolume", func() {
 		It("getSourcePodFile should return error if iso detection returns error", func() {
 			_, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
+			isolationDetector = func() socketProcessIDDetector {
+				return &mockProcessIDDetector{
 					pid: 9999,
 				}
 			}
@@ -880,8 +874,8 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
+			isolationDetector = func() socketProcessIDDetector {
+				return &mockProcessIDDetector{
 					pid: 9999,
 				}
 			}
@@ -909,8 +903,8 @@ var _ = Describe("HotplugVolume", func() {
 			// Override the mock to assert that the correct podUID is passed
 			uidWasVerified := false
 			parentPathForMount = func(
-				parent isolation.IsolationResult,
-				_ isolation.IsolationResult,
+				parentPID int,
+				_ int,
 				findmntInfo FindmntInfo,
 				podUID string,
 				kubeletPodsDir string,
@@ -918,7 +912,7 @@ var _ = Describe("HotplugVolume", func() {
 				Expect(podUID).To(Equal(expectedSourceUID), "parentPathForMount should receive the correct sourceUID")
 				Expect(kubeletPodsDir).To(Equal("/var/lib/kubelet/pods"), "parentPathForMount should receive the configured kubelet pods directory")
 				uidWasVerified = true
-				path, err := parent.MountRoot()
+				path, err := isolation.MountRootForPID(parentPID)
 				Expect(err).ToNot(HaveOccurred())
 				return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
 			}
@@ -1012,8 +1006,8 @@ var _ = Describe("HotplugVolume", func() {
 			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
 				return fakeStat(true, 0777, 123456), nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
-				return &mockIsolationDetector{
+			isolationDetector = func() socketProcessIDDetector {
+				return &mockProcessIDDetector{
 					pid: os.Getpid(),
 				}
 			}
@@ -1401,29 +1395,16 @@ var _ = Describe("HotplugVolume", func() {
 
 })
 
-type mockIsolationDetector struct {
-	pid  int
-	ppid int
-	err  error
+type mockProcessIDDetector struct {
+	pid int
+	err error
 }
 
-func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
-	return isolation.NewIsolationResult(i.pid, i.ppid), i.err
-}
-
-func (i *mockIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
+func (i *mockProcessIDDetector) DetectForSocketProcessIDs(_ string) (isolation.ProcessIDs, error) {
 	if i.pid != 9999 {
-		return isolation.NewIsolationResult(i.pid, i.ppid), nil
+		return isolation.ProcessIDs{PID: i.pid}, nil
 	}
-	return nil, fmt.Errorf("isolation error")
-}
-
-func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
-	return i
-}
-
-func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *string) error {
-	return nil
+	return isolation.ProcessIDs{}, fmt.Errorf("isolation error")
 }
 
 func newFile(baseDir string, elems ...string) (*safepath.Path, error) {

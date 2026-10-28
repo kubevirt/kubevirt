@@ -50,6 +50,7 @@ import (
 const (
 	failedCheckMountPointFmt = "failed to check mount point for containerDisk %v: %v"
 	failedUnmountFmt         = "failed to unmount containerDisk %v: %v : %v"
+	nodeIsolationPID         = 1
 )
 
 var (
@@ -60,7 +61,7 @@ var (
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type mounter struct {
-	podIsolationDetector       isolation.PodIsolationDetector
+	processIDDetector          socketProcessIDDetector
 	checkpointManager          checkpoint.CheckpointManager
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
@@ -69,7 +70,10 @@ type mounter struct {
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
-	nodeIsolationResult        isolation.IsolationResult
+}
+
+type socketProcessIDDetector interface {
+	DetectForSocketProcessIDs(socket string) (isolation.ProcessIDs, error)
 }
 
 type Mounter interface {
@@ -93,17 +97,16 @@ type kernelArtifacts struct {
 	initrd *safepath.Path
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, checkpointManager checkpoint.CheckpointManager, clusterConfig *virtconfig.ClusterConfig) Mounter {
+func NewMounter(processIDDetector socketProcessIDDetector, checkpointManager checkpoint.CheckpointManager, clusterConfig *virtconfig.ClusterConfig) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
-		podIsolationDetector:       isoDetector,
+		processIDDetector:          processIDDetector,
 		checkpointManager:          checkpointManager,
 		suppressWarningTimeout:     1 * time.Minute,
 		needsBindMountFunc:         newNeedsBindMountFunc(""),
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
-		nodeIsolationResult:        isolation.NodeIsolationResult(),
 	}
 }
 
@@ -377,7 +380,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		if volume.ContainerDisk != nil {
 			sock, err := m.socketPathGetter(vmi, i)
 			if err == nil {
-				_, err = m.podIsolationDetector.DetectForSocket(sock)
+				_, err = m.processIDDetector.DetectForSocketProcessIDs(sock)
 			}
 
 			if err != nil {
@@ -394,7 +397,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 	if vmitrait.HasKernelBootContainerImage(vmi) {
 		sock, err := m.kernelBootSocketPathGetter(vmi)
 		if err == nil {
-			_, err = m.podIsolationDetector.DetectForSocket(sock)
+			_, err = m.processIDDetector.DetectForSocketProcessIDs(sock)
 		}
 		if err != nil {
 			log.DefaultLogger().Object(vmi).Reason(err).Info("kernelboot container not yet ready")
@@ -616,12 +619,12 @@ func (m *mounter) getContainerDiskPath(vmi *v1.VirtualMachineInstance, volume *v
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(sock)
+	processIDs, err := m.processIDDetector.DetectForSocketProcessIDs(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for containerDisk %v: %v", volume.Name, err)
 	}
 
-	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
+	mountPoint, err := isolation.ParentPathForRootMountByPID(nodeIsolationPID, processIDs.PID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect root mount point of containerDisk %v on the node: %v", volume.Name, err)
 	}
@@ -635,12 +638,12 @@ func (m *mounter) getKernelArtifactPaths(vmi *v1.VirtualMachineInstance) (*kerne
 		return nil, ErrDiskContainerGone
 	}
 
-	res, err := m.podIsolationDetector.DetectForSocket(sock)
+	processIDs, err := m.processIDDetector.DetectForSocketProcessIDs(sock)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect socket for kernelboot container: %v", err)
 	}
 
-	mountPoint, err := isolation.ParentPathForRootMount(m.nodeIsolationResult, res)
+	mountPoint, err := isolation.ParentPathForRootMountByPID(nodeIsolationPID, processIDs.PID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect root mount point of kernel/initrd container on the node: %v", err)
 	}

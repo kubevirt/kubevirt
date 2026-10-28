@@ -302,7 +302,6 @@ func (app *virtHandlerApp) Run() {
 		os.Exit(2)
 	}
 
-	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
 	processIDDetector := isolation.NewSocketBasedProcessIDDetector()
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
@@ -388,7 +387,7 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, processIDDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat()
@@ -425,7 +424,6 @@ func (app *virtHandlerApp) Run() {
 		vmiSourceInformer,
 		domainSharedInformer,
 		app.clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
@@ -448,7 +446,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	cdMounter := hcontainerdisk.NewMounter(podIsolationDetector,
+	cdMounter := hcontainerdisk.NewMounter(processIDDetector,
 		checkpoint.NewSimpleCheckpointManager(containerDiskState, containerDiskStateTmp),
 		app.clusterConfig,
 	)
@@ -476,7 +474,6 @@ func (app *virtHandlerApp) Run() {
 		vmiTargetInformer,
 		domainSharedInformer,
 		app.clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
@@ -513,7 +510,6 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		app.MaxDevices,
 		app.clusterConfig,
-		podIsolationDetector,
 		processIDDetector,
 		migrationProxy,
 		downwardMetricsManager,
@@ -600,7 +596,7 @@ func (app *virtHandlerApp) Run() {
 	defer close(doneCh)
 
 	consoleHandler := rest.NewConsoleHandler(
-		podIsolationDetector,
+		processIDDetector,
 		vmiSourceInformer.GetStore(),
 		vsock.NewDefaultDialer(processIDDetector, app.vsockClientCertManager, app.caManager),
 	)

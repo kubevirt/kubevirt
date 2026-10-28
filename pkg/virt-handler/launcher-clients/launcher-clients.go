@@ -46,21 +46,25 @@ type LauncherClientsManager interface {
 }
 
 type launcherClientsManager struct {
-	virtShareDir         string
-	connGroup            singleflight.Group
-	launcherClients      virtcache.LauncherClientInfoByVMI
-	podIsolationDetector isolation.PodIsolationDetector
+	virtShareDir      string
+	connGroup         singleflight.Group
+	launcherClients   virtcache.LauncherClientInfoByVMI
+	processIDDetector processIDDetector
+}
+
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
 }
 
 func NewLauncherClientsManager(
 	virtShareDir string,
-	podIsolationDetector isolation.PodIsolationDetector,
+	processIDDetector processIDDetector,
 ) LauncherClientsManager {
 
 	l := &launcherClientsManager{
-		virtShareDir:         virtShareDir,
-		launcherClients:      virtcache.LauncherClientInfoByVMI{},
-		podIsolationDetector: podIsolationDetector,
+		virtShareDir:      virtShareDir,
+		launcherClients:   virtcache.LauncherClientInfoByVMI{},
+		processIDDetector: processIDDetector,
 	}
 
 	return l
@@ -218,12 +222,16 @@ func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir s
 
 func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
 
-	res, err := l.podIsolationDetector.Detect(vmi)
+	processIDs, err := l.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
+	mountRoot, err := isolation.MountRootForPID(processIDs.PID)
+	if err != nil {
+		return err
+	}
 
-	listener, err := pipe.InjectNotify(res, l.virtShareDir, vmitrait.IsNonRoot(vmi))
+	listener, err := pipe.InjectNotifyWithMountRoot(mountRoot, l.virtShareDir, vmitrait.IsNonRoot(vmi))
 	if err != nil {
 		return err
 	}

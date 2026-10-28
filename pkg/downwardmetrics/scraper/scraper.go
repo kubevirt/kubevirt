@@ -46,8 +46,12 @@ type StaticHostMetrics struct {
 }
 
 type Scraper struct {
-	isolation isolation.PodProcessIDDetector
-	reporter  *DownwardMetricsReporter
+	processIDDetector processIDDetector
+	reporter          *DownwardMetricsReporter
+}
+
+type processIDDetector interface {
+	DetectProcessIDs(vm *k6sv1.VirtualMachineInstance) (isolation.ProcessIDs, error)
 }
 
 func (s *Scraper) Complete() {}
@@ -63,7 +67,7 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 		return
 	}
 
-	processIDs, err := s.isolation.DetectProcessIDs(vmi)
+	processIDs, err := s.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		log.Log.Reason(err).Infof("failed to detect root directory of the vmi pod")
 		return
@@ -177,11 +181,11 @@ func RunDownwardMetricsCollector(
 	ctx context.Context,
 	nodeName string,
 	vmiInformer cache.SharedIndexInformer,
-	isolationDetector isolation.PodProcessIDDetector,
+	processIDDetector processIDDetector,
 ) error {
 	scraper := &Scraper{
-		isolation: isolationDetector,
-		reporter:  NewReporter(nodeName),
+		processIDDetector: processIDDetector,
+		reporter:          NewReporter(nodeName),
 	}
 	statsCollector := collector.NewConcurrentCollector(1)
 

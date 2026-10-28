@@ -98,6 +98,10 @@ type netconf interface {
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
@@ -106,7 +110,7 @@ type BaseController struct {
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
-	processIDDetector           isolation.PodProcessIDDetector
+	processIDDetector           processIDDetector
 	mountRootForPID             func(int) (*safepath.Path, error)
 	launcherClients             launcherclients.LauncherClientsManager
 	virtLauncherFSRunDirPattern string
@@ -128,7 +132,7 @@ func NewBaseController(
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
-	processIDDetector isolation.PodProcessIDDetector,
+	processIDDetector processIDDetector,
 	launcherClients launcherclients.LauncherClientsManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
@@ -346,7 +350,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 	}
 
 	if vmitrait.IsNonRoot(vmi) {
-		if err := c.nonRootSetup(vmi); err != nil {
+		if err := c.nonRootSetup(vmi, virtLauncherRootMount); err != nil {
 			return err
 		}
 	}

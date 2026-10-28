@@ -43,32 +43,38 @@ import (
 )
 
 type ConsoleHandler struct {
-	podIsolationDetector isolation.PodIsolationDetector
-	serialStopChans      map[types.UID]chan struct{}
-	vncStopChans         map[types.UID]chan struct{}
-	serialLock           *sync.Mutex
-	vncLock              *sync.Mutex
-	vmiStore             cache.Store
-	usbredir             map[types.UID]UsbredirHandlerVMI
-	usbredirLock         *sync.Mutex
-	vsockDialer          *virtvsock.Dialer
+	processIDDetector processIDDetector
+	mountRootForPID   func(int) (*safepath.Path, error)
+	serialStopChans   map[types.UID]chan struct{}
+	vncStopChans      map[types.UID]chan struct{}
+	serialLock        *sync.Mutex
+	vncLock           *sync.Mutex
+	vmiStore          cache.Store
+	usbredir          map[types.UID]UsbredirHandlerVMI
+	usbredirLock      *sync.Mutex
+	vsockDialer       *virtvsock.Dialer
 }
 
 type UsbredirHandlerVMI struct {
 	stopChans map[int]chan struct{}
 }
 
-func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, vsockDialer *virtvsock.Dialer) *ConsoleHandler {
+type processIDDetector interface {
+	DetectProcessIDs(vm *v1.VirtualMachineInstance) (isolation.ProcessIDs, error)
+}
+
+func NewConsoleHandler(processIDDetector processIDDetector, vmiStore cache.Store, vsockDialer *virtvsock.Dialer) *ConsoleHandler {
 	return &ConsoleHandler{
-		podIsolationDetector: podIsolationDetector,
-		serialStopChans:      make(map[types.UID]chan struct{}),
-		vncStopChans:         make(map[types.UID]chan struct{}),
-		serialLock:           &sync.Mutex{},
-		vncLock:              &sync.Mutex{},
-		usbredirLock:         &sync.Mutex{},
-		vmiStore:             vmiStore,
-		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
-		vsockDialer:          vsockDialer,
+		processIDDetector: processIDDetector,
+		mountRootForPID:   isolation.MountRootForPID,
+		serialStopChans:   make(map[types.UID]chan struct{}),
+		vncStopChans:      make(map[types.UID]chan struct{}),
+		serialLock:        &sync.Mutex{},
+		vncLock:           &sync.Mutex{},
+		usbredirLock:      &sync.Mutex{},
+		vmiStore:          vmiStore,
+		usbredir:          make(map[types.UID]UsbredirHandlerVMI),
+		vsockDialer:       vsockDialer,
 	}
 }
 
@@ -258,11 +264,11 @@ func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stop
 }
 
 func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socketName string) (*safepath.Path, error) {
-	result, err := t.podIsolationDetector.Detect(vmi)
+	processIDs, err := t.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return nil, err
 	}
-	root, err := result.MountRoot()
+	root, err := t.mountRootForPID(processIDs.PID)
 	if err != nil {
 		return nil, err
 	}

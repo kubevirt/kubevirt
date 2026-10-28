@@ -145,12 +145,12 @@ func RelabelFilesUnprivileged(continueOnError bool, files ...*safepath.Path) err
 }
 
 func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance) (string, error) {
-	detector := isolation.NewSocketBasedIsolationDetector()
-	isolationRes, err := detector.Detect(vmi)
+	detector := isolation.NewSocketBasedProcessIDDetector()
+	processIDs, err := detector.DetectProcessIDs(vmi)
 	if err != nil {
 		return "", err
 	}
-	virtLauncherRoot, err := isolationRes.MountRoot()
+	virtLauncherRoot, err := isolation.MountRootForPID(processIDs.PID)
 	if err != nil {
 		return "", err
 	}
