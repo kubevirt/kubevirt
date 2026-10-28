@@ -52,10 +52,16 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		// There should be only one node in this lane
-		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		Expect(nodes).To(HaveLen(1))
-		testNodeName = nodes[0].Name
+		workerNodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+			LabelSelector: "node-role.kubernetes.io/worker," + v1.NodeSchedulable + "=true",
+		})
+		Expect(err).ToNot(HaveOccurred())
+		// Single-node kind-vgpu clusters expose only a schedulable control-plane node.
+		if len(workerNodes.Items) == 0 {
+			workerNodes = libnode.GetAllSchedulableNodes(virtClient)
+		}
+		Expect(workerNodes.Items).NotTo(BeEmpty())
+		testNodeName = workerNodes.Items[0].Name
 	})
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
@@ -89,6 +95,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
 			testPod := libpod.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
+			testPod.Spec.NodeName = testNodeName
 			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -108,6 +115,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		fi
 	        exit 0`
 		testPod := libpod.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
+		testPod.Spec.NodeName = testNodeName
 		testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -306,7 +314,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
 					NodeSelector: map[string]string{
-						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)): mdevTestLabel,
+						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): mdevTestLabel,
 					},
 					MediatedDeviceTypes: []string{
 						"nvidia-223",
@@ -318,7 +326,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
-			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
+			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)), mdevTestLabel)
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -376,6 +384,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				ReadOnly:  false,
 				MountPath: "/sys",
 			})
+			testPod.Spec.NodeName = testNodeName
 			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
