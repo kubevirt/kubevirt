@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -398,6 +397,11 @@ func overlaysRequested(scratch *corev1.PersistentVolumeClaim, vmi *kubevirtv1.Vi
 	return reference != nil && reference.ContentUID == content.UID || overlaysActive(vmi), nil
 }
 
+// recoveryPending reports a VMI created to recover the overlays of this content
+func recoveryPending(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
+	return vmi != nil && vmi.Annotations[storagetypes.PendingOverlayRecoveryAnnotation] == scratchPVCName(content)
+}
+
 // cleanupOverlays commits an abandoned transaction, then completes its durable cleanup.
 func (ctrl *VMSnapshotController) cleanupOverlays(content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
 	if !externalMode(content) {
@@ -464,7 +468,7 @@ func (ctrl *VMSnapshotController) removeScratchVolume(content *snapshotv1.Virtua
 	if err != nil {
 		return false, err
 	}
-	referenced := reference != nil && reference.ContentUID == content.UID
+	referenced := recoveryPending(vmi, content) || (reference != nil && reference.ContentUID == content.UID)
 	if !scratchVolumeDetached(vmi, content) || referenced {
 		return false, ctrl.detachScratchVolume(vmi, content)
 	}
@@ -573,15 +577,31 @@ func (ctrl *VMSnapshotController) settleInterruptedSource(vmSnapshot *snapshotv1
 		return 0, err
 	}
 	vm := source.VirtualMachine()
+	vmi, err := ctrl.getSourceVMI(content)
+	if err != nil {
+		return 0, err
+	}
+	scratch, err := ctrl.getScratchPVC(content)
+	if err != nil {
+		return 0, err
+	}
+	// A recovery context left without its scratch volume would start on the base images
+	vanished := scratch == nil && recoveryPending(vmi, content)
+	recovering := vmi != nil && !vmi.IsFinal() && !vanished
+	// Without a manual commit only a running recovery settles the overlays, and
 	// canDiscardOverlays only releases the scratch PVC with the committed UID
 	committed := vm.Annotations[storagetypes.OverlaysCommittedAnnotation]
-	if committed == "" {
+	if committed == "" && !recovering {
 		restored, err := ctrl.overlaysRestored(content, vm)
 		if err != nil || !restored {
+			if vanished {
+				ctrl.Recorder.Eventf(vm, corev1.EventTypeWarning, overlaysMissingEvent,
+					"Scratch PVC %s was deleted before its overlays were committed", scratchPVCName(content))
+			}
 			return snapshotRetryInterval, err
 		}
 	}
-	done, err := ctrl.removeScratchVolume(content)
+	done, err := ctrl.cleanupOverlays(content)
 	if err != nil || !done {
 		return snapshotRetryInterval, err
 	}
@@ -625,7 +645,7 @@ func (ctrl *VMSnapshotController) requestOverlays(
 	if scratch.UID == "" {
 		return fmt.Errorf("the scratch volume of %s has no UID", content.Name)
 	}
-	found, err := scratchUtilityVolumeFound(vmi, content)
+	found, err := utilityvolume.Find(vmi, scratchPVCName(content), scratchPVCName(content), kubevirtv1.SnapshotOverlay)
 	if err != nil {
 		return err
 	}
@@ -797,14 +817,12 @@ func (ctrl *VMSnapshotController) createScratchPVC(
 }
 
 func (ctrl *VMSnapshotController) hotplugScratchVolume(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) error {
-	volumes := append(slices.Clone(vmi.Spec.UtilityVolumes), kubevirtv1.UtilityVolume{
-		Name: scratchPVCName(content),
-		PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-			ClaimName: scratchPVCName(content),
-		},
-		Type: pointer.P(kubevirtv1.SnapshotOverlay),
-	})
-	return ctrl.patchVMI(vmi, patch.WithTest("/spec/utilityVolumes", vmi.Spec.UtilityVolumes), patch.WithAdd("/spec/utilityVolumes", volumes))
+	payload, err := utilityvolume.AddPatch(vmi, scratchPVCName(content), scratchPVCName(content), kubevirtv1.SnapshotOverlay)
+	if err != nil {
+		return err
+	}
+	_, err = ctrl.Client.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	return err
 }
 
 func (ctrl *VMSnapshotController) initializeOverlayReference(vmi *kubevirtv1.VirtualMachineInstance, reference *storagetypes.SnapshotOverlayReference) error {
@@ -858,6 +876,9 @@ func (ctrl *VMSnapshotController) detachScratchVolume(vmi *kubevirtv1.VirtualMac
 	if reference != nil && reference.ContentUID == content.UID {
 		delete(annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
 	}
+	if annotations[storagetypes.PendingOverlayRecoveryAnnotation] == scratchPVCName(content) {
+		delete(annotations, storagetypes.PendingOverlayRecoveryAnnotation)
+	}
 	if len(annotations) != len(vmi.Annotations) {
 		options = append(options, patch.WithTest("/metadata/annotations", vmi.Annotations), patch.WithReplace("/metadata/annotations", annotations))
 	}
@@ -874,24 +895,10 @@ func scratchVolumeAttached(vmi *kubevirtv1.VirtualMachineInstance, content *snap
 func scratchVolumeDetached(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) bool {
 	// the volume status of a final VMI is not updated
 	if vmi != nil && vmi.IsFinal() {
-		found, err := scratchUtilityVolumeFound(vmi, content)
+		found, err := utilityvolume.Find(vmi, scratchPVCName(content), scratchPVCName(content), kubevirtv1.SnapshotOverlay)
 		return err == nil && !found
 	}
 	return utilityvolume.Detached(vmi, scratchPVCName(content))
-}
-
-// scratchUtilityVolumeFound rejects another source under the scratch volume's name
-func scratchUtilityVolumeFound(vmi *kubevirtv1.VirtualMachineInstance, content *snapshotv1.VirtualMachineSnapshotContent) (bool, error) {
-	for _, volume := range vmi.Spec.UtilityVolumes {
-		if volume.Name != scratchPVCName(content) {
-			continue
-		}
-		if volume.ClaimName != scratchPVCName(content) || volume.Type == nil || *volume.Type != kubevirtv1.SnapshotOverlay {
-			return false, fmt.Errorf("scratch utility volume %s has a different source", volume.Name)
-		}
-		return true, nil
-	}
-	return false, nil
 }
 
 func (ctrl *VMSnapshotController) getScratchPVC(content *snapshotv1.VirtualMachineSnapshotContent) (*corev1.PersistentVolumeClaim, error) {

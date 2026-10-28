@@ -475,14 +475,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		),
 	)
 
-	DescribeTable("should let only KubeVirt change the snapshot overlay reference", func(oldReference, newReference, username string, allowed bool) {
+	DescribeTable("should let only KubeVirt change the snapshot overlay annotations", func(annotation, oldValue, newValue, username string, allowed bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		updateVmi := vmi.DeepCopy()
-		if oldReference != "" {
-			vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: oldReference}
+		if oldValue != "" {
+			vmi.Annotations = map[string]string{annotation: oldValue}
 		}
-		if newReference != "" {
-			updateVmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: newReference}
+		if newValue != "" {
+			updateVmi.Annotations = map[string]string{annotation: newValue}
 		}
 		newVMIBytes, _ := json.Marshal(&updateVmi)
 		oldVMIBytes, _ := json.Marshal(&vmi)
@@ -498,11 +498,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(Equal(allowed))
 	},
-		Entry("removed by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:someNamespace:someUser", false),
-		Entry("changed by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"t"}`, "system:serviceaccount:someNamespace:someUser", false),
-		Entry("added by a user", "", `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", false),
-		Entry("removed by the controller", `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
-		Entry("kept by a user", `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", true),
+		Entry("reference removed by a user", storagetypes.OverlaySnapshotReferenceAnnotation, `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:someNamespace:someUser", false),
+		Entry("reference changed by a user", storagetypes.OverlaySnapshotReferenceAnnotation, `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"t"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("reference added by a user", storagetypes.OverlaySnapshotReferenceAnnotation, "", `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("reference removed by the controller", storagetypes.OverlaySnapshotReferenceAnnotation, `{"contentUID":"c","scratchPVCUID":"s"}`, "", "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
+		Entry("reference kept by a user", storagetypes.OverlaySnapshotReferenceAnnotation, `{"contentUID":"c","scratchPVCUID":"s"}`, `{"contentUID":"c","scratchPVCUID":"s"}`, "system:serviceaccount:someNamespace:someUser", true),
+		Entry("pending recovery removed by a user", storagetypes.PendingOverlayRecoveryAnnotation, "snap-scratch-c", "", "system:serviceaccount:someNamespace:someUser", false),
+		Entry("pending recovery added by a user", storagetypes.PendingOverlayRecoveryAnnotation, "", "snap-scratch-c", "system:serviceaccount:someNamespace:someUser", false),
+		Entry("pending recovery removed by the controller", storagetypes.PendingOverlayRecoveryAnnotation, "snap-scratch-c", "", "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
 	)
 
 	DescribeTable(

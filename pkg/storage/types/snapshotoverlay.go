@@ -45,6 +45,10 @@ const OverlayProtectionFinalizer = "snapshot.kubevirt.io/overlay-protection"
 // through the VMI JSON already included in snapshot and commit requests.
 const OverlaySnapshotReferenceAnnotation = "snapshot.kubevirt.io/overlay-reference"
 
+// PendingOverlayRecoveryAnnotation names the scratch volume a VMI is waiting
+// to have hotplugged before its domain starts on the overlays it holds.
+const PendingOverlayRecoveryAnnotation = "snapshot.kubevirt.io/pending-overlay-recovery"
+
 // UncommittedOverlaysReason is the ManualRecoveryRequired reason for overlays a
 // stopped launcher left uncommitted.
 const UncommittedOverlaysReason = "UncommittedOverlays"
