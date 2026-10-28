@@ -94,6 +94,14 @@ const (
 	// are put in place, and the VolumeSnapshots are then taken of the read-only base images.
 	ExternalVMSnapshotGate = "ExternalVMSnapshot"
 
+	// Owner: @alromeros
+	// Alpha: v1.10.0
+	//
+	// OfflineIncrementalBackup extends IncrementalBackup to stopped VMs, serving
+	// persisted QCOW2 dirty bitmaps via qemu-nbd from a non-privileged export pod.
+	// Requires IncrementalBackup to be enabled.
+	OfflineIncrementalBackupGate = "OfflineIncrementalBackup"
+
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	// Owner: @alaypatel07
@@ -374,6 +382,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OfflineIncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Beta})
