@@ -30,6 +30,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	policy "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -341,6 +342,10 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				migs, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
 				return migs.Items, err
 			}, 30*time.Second, 1*time.Second).Should(HaveLen(1))
+
+			By("Rejecting a cancellation for another node with a conflict")
+			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).EvacuateCancel(context.Background(), vmi.Name, &v1.EvacuateCancelOptions{EvacuationNodeName: "other-node"})
+			Expect(err).To(MatchError(errors.IsConflict, "k8serrors.IsConflict"))
 
 			By("Cancelling evacuation")
 			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).EvacuateCancel(context.Background(), vmi.Name, &v1.EvacuateCancelOptions{EvacuationNodeName: vmi.Status.NodeName})

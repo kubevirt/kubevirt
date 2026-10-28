@@ -23,7 +23,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 
@@ -151,11 +150,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	if patchErr != nil {
-		if strings.Contains(patchErr.Error(), jsonpatchTestErr) {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, patchErr), response)
-		} else {
-			writeError(errors.NewInternalError(patchErr), response)
-		}
+		writeError(newPatchError("virtualmachine", name, patchErr), response)
 		return
 	}
 
@@ -207,7 +202,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		var err error
 		oldGracePeriodSeconds, err = app.patchVMITerminationGracePeriod(vmi, namespace, *bodyStruct.GracePeriod, bodyStruct.DryRun)
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(newPatchError("virtualmachineinstance", name, err), response)
 			return
 		}
 	}
@@ -249,11 +244,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	if patchErr != nil {
-		if strings.Contains(patchErr.Error(), jsonpatchTestErr) {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, patchErr), response)
-		} else {
-			writeError(errors.NewInternalError(patchErr), response)
-		}
+		writeError(newPatchError("virtualmachine", name, patchErr), response)
 		return
 	}
 
@@ -462,7 +453,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		var err error
 		oldGracePeriodSeconds, err = app.patchVMITerminationGracePeriod(vmi, namespace, int64(1), bodyStruct.DryRun)
 		if err != nil {
-			writeError(errors.NewInternalError(err), response)
+			writeError(newPatchError("virtualmachineinstance", name, err), response)
 			return
 		}
 		// Reflect the patched value locally so the rollback patch uses the correct
@@ -487,11 +478,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				log.Log.Object(vmi).Errorf("Failed to rollback VMI terminationGracePeriodSeconds: %v", rollbackErr)
 			}
 		}
-		if strings.Contains(err.Error(), jsonpatchTestErr) {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
-		} else {
-			writeError(errors.NewInternalError(err), response)
-		}
+		writeError(newPatchError("virtualmachine", name, err), response)
 		return
 	}
 

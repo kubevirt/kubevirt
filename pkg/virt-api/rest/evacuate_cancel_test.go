@@ -37,7 +37,9 @@ import (
 
 	k8scorev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -59,9 +61,10 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		request  *restful.Request
 		response *restful.Response
 
-		virtClient *kubecli.MockKubevirtClient
-		kubeClient *k8sfake.Clientset
-		app        *SubresourceAPIApp
+		virtClient     *kubecli.MockKubevirtClient
+		kubeClient     *k8sfake.Clientset
+		kubevirtClient *fake.Clientset
+		app            *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -127,7 +130,8 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			},
 		)
 
-		fakeKubevirtClients := fake.NewSimpleClientset().KubevirtV1()
+		kubevirtClient = fake.NewSimpleClientset()
+		fakeKubevirtClients := kubevirtClient.KubevirtV1()
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
@@ -207,7 +211,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			//empty opts is invalid
 			request.Request.Body = newEvacuateCancelBody(opt)
 			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 	})
 
@@ -253,6 +257,17 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			request.Request.Body = newInvalidBody()
 			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+
+		It("should return a conflict when the VMI changes before the patch", func() {
+			vmi := createVMI(newVMI(true, workerNode))
+			kubevirtClient.PrependReactor("patch", "virtualmachineinstances", func(_ testing.Action) (bool, runtime.Object, error) {
+				return true, nil, newJSONPatchApplyError()
+			})
+
+			request.Request.Body = newEvacuateCancelBody(&v1.EvacuateCancelOptions{EvacuationNodeName: vmi.Status.NodeName})
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusConflict))
 		})
 	})
 })
