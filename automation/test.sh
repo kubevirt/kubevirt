@@ -28,6 +28,7 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 readonly SRIOV_TEST_LANE="$(<./kubevirtci/stable_provider.txt)"
+readonly VGPU_TEST_LANE="$(<./kubevirtci/stable_provider.txt)"
 
 readonly NETWORK_SMOKE_LABELS="conformance"
 
@@ -146,6 +147,10 @@ case "$TARGET" in
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
     add_feature_gate "Plugins"
+    if [[ "${KUBEVIRT_PROVIDER}" == "${VGPU_TEST_LANE}" ]]; then
+      export KUBEVIRT_WITH_VGPU_MDEV=true
+      export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-vgpu-mdev=true"
+    fi
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
@@ -609,7 +614,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,DRA-CPU,DRA-CEX,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,DRA-GPU,DRA-CPU,DRA-CEX,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    if [[ "${KUBEVIRT_WITH_VGPU_MDEV}" != "true" ]]; then
+      add_to_label_filter '(!VGPU)' '&&'
+    fi
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
