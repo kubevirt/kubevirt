@@ -698,10 +698,10 @@ func GetVirtualMachineBackupTrackerInformerIndexers() cache.Indexers {
 				return nil, unexpectedObjectError
 			}
 
+			// APIGroup is optional and unvalidated, so tolerate a nil or core APIGroup.
 			source := tracker.Spec.Source
-			if source.APIGroup != nil &&
-				*source.APIGroup == core.GroupName &&
-				source.Kind == "VirtualMachine" {
+			if source.Kind == v1.VirtualMachineGroupVersionKind.Kind &&
+				(source.APIGroup == nil || *source.APIGroup == core.GroupName) {
 				return []string{fmt.Sprintf("%s/%s", tracker.Namespace, source.Name)}, nil
 			}
 

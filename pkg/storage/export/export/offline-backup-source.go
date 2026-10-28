@@ -1,0 +1,384 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package export
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	exportv1 "kubevirt.io/api/export/v1"
+
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+)
+
+const (
+	offlineStateMountPath  = "/backup-state"
+	offlineSocketDir       = "/sockets"
+	offlineTargetMountPath = "/backup-target"
+	offlineSocketVolume    = "backup-sockets"
+	offlineStateVolume     = "backup-state"
+	offlineTargetVolume    = "backup-target"
+
+	backupTimeFormat = "2006-01-02_15-04-05"
+
+	backupTypeProbeContainerName = "backup-type-probe"
+)
+
+type OfflineVMBackupSource struct {
+	*VMBackupSource
+	vmName          string
+	dataPVCs        map[string]*corev1.PersistentVolumeClaim
+	statePVC        *corev1.PersistentVolumeClaim
+	targetPVC       *corev1.PersistentVolumeClaim
+	baseCheckpoint  string
+	tracked         bool
+	keepCheckpoints []string
+}
+
+func NewOfflineVMBackupSource(vmBackup *backupv1.VirtualMachineBackup, vmName string, dataPVCs map[string]*corev1.PersistentVolumeClaim, statePVC, targetPVC *corev1.PersistentVolumeClaim, baseCheckpoint string, tracked bool, keepCheckpoints []string) *OfflineVMBackupSource {
+	return &OfflineVMBackupSource{
+		VMBackupSource:  NewVMBackupSource(vmBackup, nil),
+		vmName:          vmName,
+		dataPVCs:        dataPVCs,
+		statePVC:        statePVC,
+		targetPVC:       targetPVC,
+		baseCheckpoint:  baseCheckpoint,
+		tracked:         tracked,
+		keepCheckpoints: keepCheckpoints,
+	}
+}
+
+func (s *OfflineVMBackupSource) isPush() bool {
+	return s.vmBackup.IsPushMode()
+}
+
+// The embedded VMBackupSource.IsSourceAvailable now also requires a running VMI,
+// which an offline backup's stopped VM never has.
+func (s *OfflineVMBackupSource) IsSourceAvailable() bool {
+	return s.vmBackup != nil &&
+		s.vmBackup.Status != nil &&
+		meta.IsStatusConditionTrue(s.vmBackup.Status.Conditions, string(backupv1.ConditionProgressing))
+}
+
+// embedded methods don't dispatch virtually in Go, so without this override
+// ReadyCondition would call VMBackupSource's own IsSourceAvailable, not ours
+func (s *OfflineVMBackupSource) ReadyCondition() exportv1.Condition {
+	if !s.IsSourceAvailable() || !s.HasContent() {
+		return newReadyCondition(corev1.ConditionFalse, initializingReason, "")
+	}
+	return exportv1.Condition{}
+}
+
+// The embedded VMBackupSource.UpdateStatus overwrites the Ready condition needed
+// to detect empty-incremental and failed exporter pods. Using this one instead.
+func (s *OfflineVMBackupSource) UpdateStatus(*exportv1.VirtualMachineExport, *corev1.Pod, *corev1.Service) (time.Duration, error) {
+	var requeue time.Duration
+	if !s.IsSourceAvailable() {
+		requeue = requeueTime
+	}
+	return requeue, nil
+}
+
+func (s *OfflineVMBackupSource) targetDir() string {
+	backupTime := s.vmBackup.CreationTimestamp.UTC().Format(backupTimeFormat)
+	return fmt.Sprintf("%s/%s/%s-%s", offlineTargetMountPath, s.vmName, s.vmBackup.Name, backupTime)
+}
+
+func (s *OfflineVMBackupSource) ConfigurePod(pod *corev1.Pod) {
+	container := &pod.Spec.Containers[0]
+
+	mountPVC(pod, container, offlineStateVolume, s.statePVC, offlineStateMountPath)
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name:         offlineSocketVolume,
+		VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+	})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      offlineSocketVolume,
+		MountPath: offlineSocketDir,
+	})
+
+	container.Env = append(container.Env,
+		corev1.EnvVar{Name: "OFFLINE_BACKUP", Value: "true"},
+		corev1.EnvVar{Name: "BACKUP_STATE_PATH", Value: offlineStateMountPath},
+		corev1.EnvVar{Name: "SOCKET_DIR", Value: offlineSocketDir},
+	)
+	if s.vmBackup.Status.CheckpointName != nil {
+		container.Env = append(container.Env, corev1.EnvVar{Name: "BACKUP_CHECKPOINT", Value: *s.vmBackup.Status.CheckpointName})
+	}
+	if s.baseCheckpoint != "" {
+		container.Env = append(container.Env, corev1.EnvVar{Name: "BACKUP_BASE_CHECKPOINT", Value: s.baseCheckpoint})
+	}
+	if s.tracked {
+		container.Env = append(container.Env, corev1.EnvVar{Name: "BACKUP_TRACKED", Value: "true"})
+	}
+	if len(s.keepCheckpoints) > 0 {
+		container.Env = append(container.Env, corev1.EnvVar{Name: "BACKUP_KEEP_CHECKPOINTS", Value: strings.Join(s.keepCheckpoints, ",")})
+	}
+
+	if s.isPush() && s.targetPVC != nil {
+		mountPVC(pod, container, offlineTargetVolume, s.targetPVC, offlineTargetMountPath)
+		container.Env = append(container.Env,
+			corev1.EnvVar{Name: "BACKUP_MODE", Value: string(backupv1.PushMode)},
+			corev1.EnvVar{Name: "BACKUP_TARGET_DIR", Value: s.targetDir()},
+			corev1.EnvVar{Name: "BACKUP_NAME", Value: s.vmBackup.Name},
+		)
+	}
+
+	probeContainer := corev1.Container{
+		Name:            backupTypeProbeContainerName,
+		Image:           container.Image,
+		ImagePullPolicy: container.ImagePullPolicy,
+		SecurityContext: container.SecurityContext,
+		Resources:       container.Resources,
+		Env: []corev1.EnvVar{
+			{Name: "OFFLINE_BACKUP_TYPE_PROBE", Value: "true"},
+			{Name: "BACKUP_STATE_PATH", Value: offlineStateMountPath},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: offlineStateVolume, MountPath: offlineStateMountPath},
+		},
+	}
+	if s.baseCheckpoint != "" {
+		probeContainer.Env = append(probeContainer.Env, corev1.EnvVar{Name: "BACKUP_BASE_CHECKPOINT", Value: s.baseCheckpoint})
+	}
+
+	for index, volume := range s.vmBackup.Status.IncludedVolumes {
+		pvc := s.dataPVCs[volume.VolumeName]
+		if pvc == nil {
+			continue
+		}
+		diskPath := offlineDataMountPath(pvc)
+		mountPVC(pod, container, getExportPodVolumeName(pvc), pvc, diskPath)
+		container.Env = append(container.Env,
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_BACKUP_PATH", index), Value: volume.VolumeName},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_DATA_URI", index), Value: backupDataURI(volume.VolumeName)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_MAP_URI", index), Value: backupMapURI(volume.VolumeName)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_TYPE", index), Value: string(volume.Type)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_DISK_PATH", index), Value: diskPath},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayPVCPath(volume.VolumeName)},
+		)
+		probeContainer.Env = append(probeContainer.Env,
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_BACKUP_PATH", index), Value: volume.VolumeName},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_TYPE", index), Value: string(volume.Type)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayPVCPath(volume.VolumeName)},
+		)
+	}
+
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, probeContainer)
+}
+
+func offlineDataMountPath(pvc *corev1.PersistentVolumeClaim) string {
+	volumeName := getExportPodVolumeName(pvc)
+	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+		return fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
+	}
+	return fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
+}
+
+// always RW: qemu-img bitmap --add/--remove needs write access to the data disk too
+func mountPVC(pod *corev1.Pod, container *corev1.Container, volumeName string, pvc *corev1.PersistentVolumeClaim, mountPath string) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name},
+		},
+	})
+	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
+		container.VolumeDevices = append(container.VolumeDevices, corev1.VolumeDevice{
+			Name:       volumeName,
+			DevicePath: mountPath,
+		})
+		return
+	}
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPath,
+	})
+}
+
+func anyIncrementalVolume(volumes []backupv1.BackupVolumeInfo) bool {
+	for _, v := range volumes {
+		if v.Type == backupv1.Incremental {
+			return true
+		}
+	}
+	return false
+}
+
+func (ctrl *VMExportController) getOfflineBackupSource(vmExport *exportv1.VirtualMachineExport, vmBackup *backupv1.VirtualMachineBackup) (*OfflineVMBackupSource, error) {
+	vmName, err := ctrl.getBackupSourceVMName(vmBackup)
+	if err != nil {
+		return nil, err
+	}
+
+	statePVC, err := ctrl.findStatePVC(vmExport.Namespace, vmName)
+	if err != nil {
+		return nil, err
+	}
+	if statePVC == nil {
+		return nil, fmt.Errorf("backend-storage PVC for VM %s/%s not found", vmExport.Namespace, vmName)
+	}
+
+	dataPVCs, err := ctrl.resolveOfflineDataPVCs(vmExport.Namespace, vmName, vmBackup)
+	if err != nil {
+		return nil, err
+	}
+
+	baseCheckpoint := ""
+	// A volume can fall back to full, so included volumes may be mixed. Any incremental one needs
+	// the tracker's base checkpoint.
+	if anyIncrementalVolume(vmBackup.Status.IncludedVolumes) {
+		tracker, exists, err := ctrl.getBackupTracker(vmExport.Namespace, vmBackup.Spec.Source.Name)
+		if err != nil {
+			return nil, err
+		}
+		if !exists || tracker.Status == nil || tracker.Status.LatestCheckpoint == nil {
+			return nil, fmt.Errorf("incremental backup %s/%s has no base checkpoint on tracker %s/%s yet",
+				vmBackup.Namespace, vmBackup.Name, vmExport.Namespace, vmBackup.Spec.Source.Name)
+		}
+		baseCheckpoint = tracker.Status.LatestCheckpoint.Name
+	}
+
+	var targetPVC *corev1.PersistentVolumeClaim
+	if vmBackup.IsPushMode() {
+		if vmBackup.Spec.PvcName == nil {
+			return nil, fmt.Errorf("push mode offline backup %s/%s has no target PVC", vmBackup.Namespace, vmBackup.Name)
+		}
+		pvc, exists, err := ctrl.getPvc(vmExport.Namespace, *vmBackup.Spec.PvcName)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("target PVC %s/%s not found", vmExport.Namespace, *vmBackup.Spec.PvcName)
+		}
+		targetPVC = pvc
+	}
+
+	tracked := vmBackup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind
+	keepCheckpoints, err := ctrl.latestTrackerCheckpointsForVM(vmExport.Namespace, vmName)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOfflineVMBackupSource(vmBackup, vmName, dataPVCs, statePVC, targetPVC, baseCheckpoint, tracked, keepCheckpoints), nil
+}
+
+// TODO: Once VEP #312 merges, simplify this drastically: the PVC will be
+// discoverable through VM status or spec, if it applies.
+func (ctrl *VMExportController) findStatePVC(namespace, vmName string) (*corev1.PersistentVolumeClaim, error) {
+	vm, exists, err := ctrl.getVm(namespace, vmName)
+	if err != nil || !exists {
+		return nil, err
+	}
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	for _, volume := range volumes {
+		pvcName := types.PVCNameFromVirtVolume(&volume)
+		if pvcName == "" {
+			continue
+		}
+		pvc, exists, err := ctrl.getPvc(namespace, pvcName)
+		if err != nil || !exists {
+			return nil, err
+		}
+		return pvc, nil
+	}
+	return nil, nil
+}
+
+func (ctrl *VMExportController) resolveOfflineDataPVCs(namespace, vmName string, vmBackup *backupv1.VirtualMachineBackup) (map[string]*corev1.PersistentVolumeClaim, error) {
+	vm, exists, err := ctrl.getVm(namespace, vmName)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("VM %s/%s not found", namespace, vmName)
+	}
+	if vm.Spec.Template == nil {
+		return nil, fmt.Errorf("VM %s/%s has no template", namespace, vmName)
+	}
+
+	included := map[string]bool{}
+	for _, v := range vmBackup.Status.IncludedVolumes {
+		included[v.VolumeName] = true
+	}
+
+	dataPVCs := map[string]*corev1.PersistentVolumeClaim{}
+	for i := range vm.Spec.Template.Spec.Volumes {
+		volume := vm.Spec.Template.Spec.Volumes[i]
+		if !included[volume.Name] {
+			continue
+		}
+		pvcName := types.PVCNameFromVirtVolume(&volume)
+		if pvcName == "" {
+			continue
+		}
+		pvc, exists, err := ctrl.getPvc(namespace, pvcName)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, fmt.Errorf("data PVC %s/%s for volume %s not found", namespace, pvcName, volume.Name)
+		}
+		dataPVCs[volume.Name] = pvc
+	}
+	return dataPVCs, nil
+}
+
+// isOfflineBackup reports whether the backup is running offline, i.e. it holds its source VM via
+// vm.Status.BackupInProgress.
+func (ctrl *VMExportController) isOfflineBackup(vmBackup *backupv1.VirtualMachineBackup) (bool, error) {
+	vmName, err := ctrl.getBackupSourceVMName(vmBackup)
+	if err != nil {
+		return false, err
+	}
+	vm, exists, err := ctrl.getVm(vmBackup.Namespace, vmName)
+	if err != nil || !exists {
+		return false, err
+	}
+	return vm.Status.BackupInProgress != nil && *vm.Status.BackupInProgress == vmBackup.Name, nil
+}
+
+func (ctrl *VMExportController) getBackupSourceVMName(vmBackup *backupv1.VirtualMachineBackup) (string, error) {
+	if vmBackup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
+		tracker, exists, err := ctrl.getBackupTracker(vmBackup.Namespace, vmBackup.Spec.Source.Name)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return "", fmt.Errorf("VirtualMachineBackupTracker not found: %s/%s", vmBackup.Namespace, vmBackup.Spec.Source.Name)
+		}
+		return tracker.Spec.Source.Name, nil
+	}
+	return vmBackup.Spec.Source.Name, nil
+}

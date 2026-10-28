@@ -41,10 +41,12 @@ type VolumeInfo struct {
 
 // BackupInfo contains paths for a backup volume
 type BackupInfo struct {
-	Path    string
-	DataURI string
-	MapURI  string
-	Type    string
+	Path        string
+	DataURI     string
+	MapURI      string
+	Type        string
+	DiskPath    string
+	OverlayPath string
 }
 
 // ServerPaths contains static paths and per-volume paths
@@ -110,10 +112,12 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 	for _, k := range backupKeys {
 		envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
 		bi := BackupInfo{
-			Path:    env[k],
-			DataURI: env[envPrefix+"_DATA_URI"],
-			MapURI:  env[envPrefix+"_MAP_URI"],
-			Type:    env[envPrefix+"_TYPE"],
+			Path:        env[k],
+			DataURI:     env[envPrefix+"_DATA_URI"],
+			MapURI:      env[envPrefix+"_MAP_URI"],
+			Type:        env[envPrefix+"_TYPE"],
+			DiskPath:    env[envPrefix+"_DISK_PATH"],
+			OverlayPath: env[envPrefix+"_OVERLAY_PATH"],
 		}
 		result.Backups = append(result.Backups, bi)
 	}
