@@ -20,16 +20,11 @@
 package virthandler
 
 import (
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
-func passtSocketDirOnHost(path isolation.IsolationResult) (string, error) {
-	root, err := path.MountRoot()
-	if err != nil {
-		return "", err
-	}
-
+func passtSocketDirOnHost(root *safepath.Path) (string, error) {
 	const repairSocketDir = "var/run/libvirt/qemu/run/passt"
 	safePath, err := root.AppendAndResolveWithRelativeRoot(repairSocketDir)
 	if err != nil {

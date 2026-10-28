@@ -39,11 +39,11 @@ var (
 // configureRealTimeVCPUs parses the realtime mask value and configured the selected vcpus
 // for real time workloads by setting the scheduler to FIFO and process priority equal to 1.
 func (c *KvmVirtRuntime) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.podProcessIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return err
 	}
-	qemuProcess, err := GetQEMUProcess(res)
+	qemuProcess, err := GetQEMUProcess(processIDs.PPID)
 	if err != nil {
 		return err
 	}

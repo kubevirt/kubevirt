@@ -107,7 +107,8 @@ type BaseController struct {
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
-	podIsolationDetector        isolation.PodIsolationDetector
+	processIDDetector           isolation.PodProcessIDDetector
+	mountRootForPID             func(int) (*safepath.Path, error)
 	launcherClients             launcherclients.LauncherClientsManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
@@ -128,7 +129,7 @@ func NewBaseController(
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
-	podIsolationDetector isolation.PodIsolationDetector,
+	processIDDetector isolation.PodProcessIDDetector,
 	launcherClients launcherclients.LauncherClientsManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
@@ -146,7 +147,8 @@ func NewBaseController(
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
-		podIsolationDetector:        podIsolationDetector,
+		processIDDetector:           processIDDetector,
+		mountRootForPID:             isolation.MountRootForPID,
 		launcherClients:             launcherClients,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
@@ -305,9 +307,9 @@ func (c *BaseController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
+func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, mountRoot *safepath.Path) error {
 	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
+		socketPath, err := isolation.SafeJoinRoot(mountRoot, virtiofs.VirtioFSSocketPath(fs.Name))
 		if err != nil {
 			return err
 		}
@@ -319,12 +321,12 @@ func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isola
 }
 
 func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, recorder record.EventRecorder) error {
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	virtLauncherRootMount, err := isolationRes.MountRoot()
+	virtLauncherRootMount, err := c.mountRootForPID(processIDs.PID)
 	if err != nil {
 		return err
 	}
@@ -354,7 +356,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		}
 	}
 
-	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {
+	if err := c.configureVirtioFS(vmi, virtLauncherRootMount); err != nil {
 		return err
 	}
 
@@ -366,12 +368,12 @@ func (c *BaseController) setupNetwork(vmi *v1.VirtualMachineInstance, networks [
 		return nil
 	}
 
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	return netConf.Setup(vmi, networks, isolationRes.Pid())
+	return netConf.Setup(vmi, networks, processIDs.PID)
 }
 
 func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
@@ -407,11 +409,17 @@ func isMigrationInProgress(vmi *v1.VirtualMachineInstance, domain *api.Domain) b
 }
 
 func (c *BaseController) passtSocketDirOnHostForVMI(vmi *v1.VirtualMachineInstance) (string, error) {
-	path, err := c.podIsolationDetector.Detect(vmi)
+	processIDs, err := c.processIDDetector.DetectProcessIDs(vmi)
 	if err != nil {
 		return "", err
 	}
-	return passtSocketDirOnHost(path)
+
+	mountRoot, err := c.mountRootForPID(processIDs.PID)
+	if err != nil {
+		return "", err
+	}
+
+	return passtSocketDirOnHost(mountRoot)
 }
 
 func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bool, error) {

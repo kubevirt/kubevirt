@@ -172,6 +172,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
+		mockProcessIDDetector := isolation.NewMockPodProcessIDDetector(ctrl)
+		mockProcessIDDetector.EXPECT().DetectProcessIDs(gomock.Any()).Return(isolation.ProcessIDs{PID: 1, PPID: 1}, nil).AnyTimes()
 
 		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
@@ -202,6 +204,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 			config,
 			mockIsolationDetector,
+			mockProcessIDDetector,
 			migrationProxy,
 			fakeDownwardMetricsManager,
 			nil, // capabilities
@@ -214,6 +217,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		controller.BaseController.mountRootForPID = func(int) (*safepath.Path, error) {
+			return rootDir, nil
+		}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

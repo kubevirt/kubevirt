@@ -302,6 +302,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
+	processIDDetector := isolation.NewSocketBasedProcessIDDetector()
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
 		panic(err)
@@ -423,6 +424,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		app.clusterConfig,
 		podIsolationDetector,
+		processIDDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
@@ -473,6 +475,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		app.clusterConfig,
 		podIsolationDetector,
+		processIDDetector,
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		&capabilities,
@@ -509,6 +512,7 @@ func (app *virtHandlerApp) Run() {
 		app.MaxDevices,
 		app.clusterConfig,
 		podIsolationDetector,
+		processIDDetector,
 		migrationProxy,
 		downwardMetricsManager,
 		&capabilities,
@@ -581,7 +585,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	if err := scraper.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
+	if err := scraper.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, processIDDetector); err != nil {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
@@ -596,7 +600,7 @@ func (app *virtHandlerApp) Run() {
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
-		vsock.NewDefaultDialer(podIsolationDetector, app.vsockClientCertManager, app.caManager),
+		vsock.NewDefaultDialer(processIDDetector, app.vsockClientCertManager, app.caManager),
 	)
 
 	errCh := make(chan error)

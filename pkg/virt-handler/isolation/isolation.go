@@ -66,6 +66,12 @@ type RealIsolationResult struct {
 	ppid int
 }
 
+// ProcessIDs contains the host process and parent process IDs discovered for a pod.
+type ProcessIDs struct {
+	PID  int
+	PPID int
+}
+
 func NewIsolationResult(pid, ppid int) IsolationResult {
 	return &RealIsolationResult{pid: pid, ppid: ppid}
 }
@@ -114,6 +120,11 @@ func IsBlockDevice(path *safepath.Path) (bool, error) {
 
 func (r *RealIsolationResult) MountRoot() (*safepath.Path, error) {
 	return safepath.JoinAndResolveWithRelativeRoot(fmt.Sprintf("/proc/%d/root", r.pid))
+}
+
+// MountRootForPID returns the safe root path for a process ID.
+func MountRootForPID(pid int) (*safepath.Path, error) {
+	return NewIsolationResult(pid, 0).MountRoot()
 }
 
 func (r *RealIsolationResult) MountRootRelative(relativePath string) (*safepath.Path, error) {
@@ -194,6 +205,11 @@ func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
 	return mountInfoFor(r, "/")
 }
 
+// MountInfoRootForPID returns the root mount information for a process ID.
+func MountInfoRootForPID(pid int) (*mount.Info, error) {
+	return MountInfoRoot(NewIsolationResult(pid, 0))
+}
+
 func mountsFilter(compare, m *mount.Info, source, podUID, kubeletPodsDir string) (bool, bool) {
 	nfsMatch := false
 	if strings.Contains(m.FSType, "nfs") && compare.FSType == m.FSType {
@@ -265,10 +281,25 @@ func ParentPathForMount(parent IsolationResult, child IsolationResult, source, t
 	return path.AppendAndResolveWithRelativeRoot(strings.TrimPrefix(childMountInfo.Root, parentMountInfo.Root))
 }
 
+// ParentPathForMountByPID maps a child mount path into the parent process by PID.
+func ParentPathForMountByPID(parentPID, childPID int, source, target, podUID, kubeletPodsDir string) (*safepath.Path, error) {
+	return ParentPathForMount(NewIsolationResult(parentPID, 0), NewIsolationResult(childPID, 0), source, target, podUID, kubeletPodsDir)
+}
+
 // ParentPathForRootMount takes a container (child) and composes a path to
 // the root mount point in the context of the parent.
 func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
 	return ParentPathForMount(parent, child, "", "/", "", "")
+}
+
+// ParentPathForRootMountByPID maps a child's root mount into the parent process by PID.
+func ParentPathForRootMountByPID(parentPID, childPID int) (*safepath.Path, error) {
+	return ParentPathForRootMount(NewIsolationResult(parentPID, 0), NewIsolationResult(childPID, 0))
+}
+
+// SafeJoinRoot safely joins path elements beneath an already resolved root.
+func SafeJoinRoot(root *safepath.Path, elems ...string) (*safepath.Path, error) {
+	return root.AppendAndResolveWithRelativeRoot(elems...)
 }
 
 func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {
@@ -276,5 +307,5 @@ func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {
 	if err != nil {
 		return nil, err
 	}
-	return mountRoot.AppendAndResolveWithRelativeRoot(elems...)
+	return SafeJoinRoot(mountRoot, elems...)
 }

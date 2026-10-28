@@ -107,6 +107,18 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(result.PPid()).To(Equal(os.Getppid()))
 		})
 
+		It("Should detect process IDs through the narrow detector API", func() {
+			result, err := NewSocketBasedProcessIDDetector().DetectProcessIDs(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ProcessIDs{PID: os.Getpid(), PPID: os.Getppid()}))
+		})
+
+		It("Should detect process IDs for a socket through the narrow detector API", func() {
+			result, err := NewSocketBasedProcessIDDetector().DetectForSocketProcessIDs(socket.Addr().String())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ProcessIDs{PID: os.Getpid(), PPID: os.Getppid()}))
+		})
+
 		It("Should detect the Mount root of the test suite", func() {
 			result, err := NewSocketBasedIsolationDetector().Detect(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -114,5 +126,10 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
+	})
+
+	It("Should report errors from the narrow detector API", func() {
+		_, err := NewSocketBasedProcessIDDetector().DetectForSocketProcessIDs(filepath.Join(GinkgoT().TempDir(), "missing.sock"))
+		Expect(err).To(HaveOccurred())
 	})
 })
