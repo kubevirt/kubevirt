@@ -156,6 +156,9 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
 	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
+		if isJSONPatchApplyError(err) {
+			return newObjectModifiedConflict("virtualmachine", name)
+		}
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
 				return statErr

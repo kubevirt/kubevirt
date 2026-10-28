@@ -30,6 +30,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -43,6 +44,7 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -189,18 +191,29 @@ var _ = Describe("Add volume command", func() {
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			})
 
-			It("should retry on error", func() {
+			DescribeTable("should retry on error", func(concurrentErr error) {
 				count := 0
 				expectVMEndpointAddVolumeErrorFunc(func() error {
 					if count == 0 {
 						count++
-						return errors.New(concurrentErrorAdd)
+						return concurrentErr
 					} else {
 						return nil
 					}
 				}, verifyDVVolumeSource)
 				Expect(runCmd("")).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(2))
+			},
+				Entry("when the server rejects the request", errors.New(concurrentErrorAdd)),
+				Entry("when the VM changed", k8serrors.NewConflict(v1.Resource("virtualmachine"), vmiName, errors.New(apimachinery.OptimisticLockErrorMsg))),
+			)
+
+			It("should fail immediately on other conflicts", func() {
+				expectVMEndpointAddVolumeErrorFunc(func() error {
+					return k8serrors.NewConflict(v1.Resource("virtualmachine"), vmiName, errors.New("volume already exists"))
+				}, verifyDVVolumeSource)
+				Expect(runCmd("")).To(MatchError(ContainSubstring("volume already exists")))
+				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			})
 
 			It("should fail after 15 retries", func() {

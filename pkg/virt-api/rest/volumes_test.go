@@ -38,6 +38,7 @@ import (
 	"go.uber.org/mock/gomock"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -329,6 +330,48 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	Context("With HotplugVolumes feature gate", func() {
 		VolumeUpdateTests(featuregate.HotplugVolumesGate)
 	})
+
+	DescribeTable("should map a failed volume patch", func(featureGate string, isVM bool, patchErr error, expectedCode int) {
+		enableFeatureGates(featureGate)
+		request.Request.Body = newAddVolumeBody(&v1.AddVolumeOptions{
+			Name:         "vol1",
+			Disk:         &v1.Disk{},
+			VolumeSource: &v1.HotplugVolumeSource{},
+		})
+		vmi := libvmi.New(
+			libvmi.WithName(testVMName),
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+		)
+		vm := libvmi.NewVirtualMachine(vmi)
+
+		switch {
+		case !isVM:
+			vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			app.VMIAddVolumeRequestHandler(request, response)
+		case featureGate == featuregate.HotplugVolumesGate:
+			vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil)
+			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			app.VMAddVolumeRequestHandler(request, response)
+		default:
+			vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil)
+			vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			app.VMAddVolumeRequestHandler(request, response)
+		}
+
+		Expect(response.StatusCode()).To(Equal(expectedCode))
+	},
+		Entry("as a conflict when the VMI changed", featuregate.HotplugVolumesGate, false, newJSONPatchApplyError(), http.StatusConflict),
+		Entry("as a conflict when the VM volume requests changed", featuregate.HotplugVolumesGate, true, newJSONPatchApplyError(), http.StatusConflict),
+		Entry("as a conflict when the VM template changed", featuregate.DeclarativeHotplugVolumesGate, true, newJSONPatchApplyError(), http.StatusConflict),
+		Entry("as is when the patch is invalid", featuregate.HotplugVolumesGate, false, &errors.StatusError{ErrStatus: metav1.Status{
+			Status:  metav1.StatusFailure,
+			Code:    http.StatusUnprocessableEntity,
+			Reason:  metav1.StatusReasonInvalid,
+			Message: `admission webhook "virtualmachineinstances-update-validator.kubevirt.io" denied the request`,
+		}}, http.StatusUnprocessableEntity),
+	)
 
 	DescribeTable("Should handle VMI with owner and", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, code int, featuregates ...string) {
 		enableFeatureGates(featuregates...)

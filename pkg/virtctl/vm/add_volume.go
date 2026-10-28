@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -35,6 +36,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -202,7 +204,7 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 			err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 		}
 
-		if err != nil && err.Error() != concurrentError {
+		if err != nil && !isConcurrentModification(err) {
 			return fmt.Errorf("error adding volume, %v", err)
 		}
 		if err == nil {
@@ -218,4 +220,12 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
+}
+
+// isConcurrentModification reports whether err means the VM or VMI changed while
+// the request was applied, so the request can be retried. Servers that do not
+// report it as a conflict return concurrentError instead.
+func isConcurrentModification(err error) bool {
+	return err.Error() == concurrentError ||
+		(k8serrors.IsConflict(err) && strings.Contains(err.Error(), apimachinery.OptimisticLockErrorMsg))
 }

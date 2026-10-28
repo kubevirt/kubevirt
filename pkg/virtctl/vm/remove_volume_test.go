@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
@@ -35,6 +36,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	kvtesting "kubevirt.io/client-go/testing"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -160,12 +162,12 @@ var _ = Describe("Remove volume command", func() {
 		Expect(cmdRemove()).To(MatchError(ContainSubstring("error removing")))
 	})
 
-	It("should retry on error", func() {
+	DescribeTable("should retry on error", func(concurrentErr error) {
 		count := 0
 		expectVMEndpointRemoveVolumeErrorFunc(false, func() error {
 			if count == 0 {
 				count++
-				return errors.New(concurrentErrorRemove)
+				return concurrentErr
 			} else {
 				return nil
 			}
@@ -173,7 +175,10 @@ var _ = Describe("Remove volume command", func() {
 		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
 		cmdRemove := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Expect(cmdRemove()).To(Succeed())
-	})
+	},
+		Entry("when the server rejects the request", errors.New(concurrentErrorRemove)),
+		Entry("when the VM changed", k8serrors.NewConflict(v1.Resource("virtualmachine"), vmiName, errors.New(apimachinery.OptimisticLockErrorMsg))),
+	)
 
 	It("should fail after 15 retries", func() {
 		expectVMEndpointRemoveVolumeErrorFunc(false, func() error {

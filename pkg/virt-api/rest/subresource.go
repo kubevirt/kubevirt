@@ -309,11 +309,17 @@ func isJSONPatchApplyError(err error) bool {
 	return status.Status().Message == jsonPatchApplyErrorMsg
 }
 
+// newObjectModifiedConflict returns the conflict for a JSON patch that no
+// longer applies, so the client can retry.
+func newObjectModifiedConflict(resource, name string) *errors.StatusError {
+	return errors.NewConflict(v1.Resource(resource), name, goerrors.New(apimachinery.OptimisticLockErrorMsg))
+}
+
 // newPatchError returns a conflict when err is a JSON patch that no longer
-// applies, so the client can retry, and an internal error otherwise.
+// applies and an internal error otherwise.
 func newPatchError(resource, name string, err error) *errors.StatusError {
 	if isJSONPatchApplyError(err) {
-		return errors.NewConflict(v1.Resource(resource), name, goerrors.New(apimachinery.OptimisticLockErrorMsg))
+		return newObjectModifiedConflict(resource, name)
 	}
 	return errors.NewInternalError(err)
 }
