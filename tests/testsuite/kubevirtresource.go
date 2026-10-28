@@ -113,6 +113,7 @@ func AdjustKubeVirtResource() {
 		featuregate.SidecarGate,
 		featuregate.IncrementalBackupGate,
 		featuregate.ExternalVMSnapshotGate,
+		featuregate.OfflineIncrementalBackupGate,
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
