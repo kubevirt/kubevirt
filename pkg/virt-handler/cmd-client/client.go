@@ -272,7 +272,13 @@ func NewClient(socketPath string) (LauncherClient, error) {
 
 	// create info client and find cmd version to use
 	infoClient := info.NewCmdInfoClient(conn)
-	return newClientWithInfoClient(infoClient, conn)
+	client, err := newClientWithInfoClient(infoClient, conn)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
