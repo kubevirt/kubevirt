@@ -202,6 +202,9 @@ func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeReques
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", string(patchBytes))
 	if _, err := app.virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm: %v", err)
+		if isJSONPatchApplyError(err) {
+			return newObjectModifiedConflict("virtualmachine", name)
+		}
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
 				return statErr
@@ -246,6 +249,9 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", string(patchBytes))
 	if _, err := app.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
+		if isJSONPatchApplyError(err) {
+			return newObjectModifiedConflict("virtualmachineinstance", name)
+		}
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
 				return statErr
@@ -276,6 +282,9 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
 	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
+		if isJSONPatchApplyError(err) {
+			return newObjectModifiedConflict("virtualmachine", name)
+		}
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
 				return statErr
