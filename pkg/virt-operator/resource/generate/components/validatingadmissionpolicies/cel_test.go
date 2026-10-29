@@ -24,14 +24,50 @@ import (
 	"strings"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	. "github.com/onsi/gomega"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-func evalCELValue(expression string, object map[string]interface{}, vars map[string]interface{}) interface{} {
+// admissionInput is the set of CEL variables a ValidatingAdmissionPolicy can see.
+// Nil oldObject and params are exposed as CEL null, matching CREATE requests and
+// bindings that did not resolve a parameter object.
+type admissionInput struct {
+	object    map[string]interface{}
+	oldObject interface{}
+	params    interface{}
+	request   interface{}
+}
+
+func (in admissionInput) activation(vars map[string]interface{}) map[string]interface{} {
+	oldObject := in.oldObject
+	if oldObject == nil {
+		oldObject = types.NullValue
+	}
+	params := in.params
+	if params == nil {
+		params = types.NullValue
+	}
+	request := in.request
+	if request == nil {
+		request = map[string]interface{}{}
+	}
+	return map[string]interface{}{
+		"object":    in.object,
+		"oldObject": oldObject,
+		"params":    params,
+		"request":   request,
+		"variables": vars,
+	}
+}
+
+func evalCELValue(expression string, in admissionInput, vars map[string]interface{}) interface{} {
 	env, err := cel.NewEnv(
 		cel.Variable("object", cel.DynType),
+		cel.Variable("oldObject", cel.DynType),
+		cel.Variable("params", cel.DynType),
+		cel.Variable("request", cel.DynType),
 		cel.Variable("variables", cel.DynType),
 	)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -42,29 +78,25 @@ func evalCELValue(expression string, object map[string]interface{}, vars map[str
 	prg, err := env.Program(ast)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	out, _, err := prg.Eval(map[string]interface{}{
-		"object":    object,
-		"variables": vars,
-	})
+	out, _, err := prg.Eval(in.activation(vars))
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return out.Value()
 }
 
-func evalCELWithVars(expression string, object map[string]interface{}, vars map[string]interface{}) bool {
-	return evalCELValue(expression, object, vars).(bool)
+func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, obj map[string]interface{}) error {
+	return evaluatePolicyInput(policy, admissionInput{object: obj})
 }
 
-func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, obj map[string]interface{}) error {
+func evaluatePolicyInput(policy *admissionregistrationv1.ValidatingAdmissionPolicy, in admissionInput) error {
 	vars := map[string]interface{}{}
 	for _, v := range policy.Spec.Variables {
-		val := evalCELValue(v.Expression, obj, vars)
-		vars[v.Name] = val
+		vars[v.Name] = evalCELValue(v.Expression, in, vars)
 	}
 
 	var msgs []string
 	for _, v := range policy.Spec.Validations {
-		if !evalCELWithVars(v.Expression, obj, vars) {
+		if !evalCELValue(v.Expression, in, vars).(bool) {
 			msgs = append(msgs, v.Message)
 		}
 	}
@@ -72,4 +104,16 @@ func evaluatePolicy(policy *admissionregistrationv1.ValidatingAdmissionPolicy, o
 		return fmt.Errorf("%s", strings.Join(msgs, "; "))
 	}
 	return nil
+}
+
+// policyApplies reports whether every match condition is true. An empty list
+// matches every object, which is how the API server treats a policy with no
+// match conditions.
+func policyApplies(policy *admissionregistrationv1.ValidatingAdmissionPolicy, in admissionInput) bool {
+	for _, condition := range policy.Spec.MatchConditions {
+		if !evalCELValue(condition.Expression, in, map[string]interface{}{}).(bool) {
+			return false
+		}
+	}
+	return true
 }
