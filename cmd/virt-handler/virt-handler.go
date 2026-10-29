@@ -290,10 +290,9 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
-	// We keep a record on disk of every VMI virt-handler starts.
-	// That record isn't deleted from this node until the VMI
-	// is completely torn down.
-	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
+	// The ghost record store is created further down, once the feature gate
+	// is known: with the gate on the checkpoint files are deleted first, so
+	// that virt-handler never loads VMI state from disk.
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -405,11 +404,23 @@ func (app *virtHandlerApp) Run() {
 	var authClient kubernetes.Interface
 	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
 		authClient = app.k8sClient
+		// Discovery no longer reads ghost records, so nothing maintains the
+		// checkpoint files from here on. Delete them now, so that disabling
+		// the gate later starts from an empty cache rather than a snapshot
+		// of the cluster as it was when the gate was turned on.
+		logger.Info("LauncherSocketAuthentication enabled: deleting ghost record checkpoint files")
+		if err := virtcache.DeleteGhostRecordCheckpoints(checkpointPath); err != nil {
+			logger.Reason(err).Warning("Failed to delete ghost record checkpoints")
+		}
 	}
 	// Logged unconditionally, including when disabled: an enabled gate that
 	// virt-handler failed to observe is otherwise indistinguishable from one
 	// that was never set.
 	logger.Infof("launcher socket authentication enabled: %t", authClient != nil)
+	// With the gate off we keep a record on disk of every VMI virt-handler
+	// starts. That record isn't deleted from this node until the VMI is
+	// completely torn down.
+	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, authClient)
 	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, authClient)

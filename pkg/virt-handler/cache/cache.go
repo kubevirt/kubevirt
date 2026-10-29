@@ -205,6 +205,29 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	return nil
 }
 
+// DeleteGhostRecordCheckpoints removes every ghost record checkpoint file
+// from the given directory. It is a free function rather than a method
+// because it must run before the store is created: with the
+// LauncherSocketAuthentication gate on, virt-handler must not read VMI
+// state from disk at all, not even to load records it is about to drop.
+func DeleteGhostRecordCheckpoints(checkpointDir string) error {
+	entries, err := os.ReadDir(checkpointDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("reading checkpoint directory %s: %w", checkpointDir, err)
+	}
+	var errs []error
+	for _, entry := range entries {
+		path := filepath.Join(checkpointDir, entry.Name())
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, fmt.Errorf("deleting %s: %w", path, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
