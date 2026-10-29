@@ -35,14 +35,19 @@ import (
 	"google.golang.org/grpc"
 
 	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	cmdauth "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/auth"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
@@ -731,6 +736,453 @@ var _ = Describe("Domain Watcher", func() {
 			serveCmdAuth(ctx, targetSocket, &fakeAuthServer{token: "target-token"})
 			Expect(AuthenticateSocket(ctx, clientReturning(authenticatedReview(targetUID, cmdauth.Audience)),
 				targetSocket, migrationPods)).To(Succeed())
+		})
+	})
+
+	Context("VMI-based socket discovery (socketsFromVMIStore)", func() {
+		var (
+			vmiStore cache.Store
+			podsDir  string
+		)
+
+		vmiKeyFunc := func(obj any) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+			podsDir = GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+		})
+
+		createSocketForPod := func(podUID string) string {
+			socketDir := cmdclient.SocketDirectoryOnHost(podUID)
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+			return socketPath
+		}
+
+		It("should discover sockets for VMI with ActivePods", func() {
+			podUID := "pod-uid-1"
+			createSocketForPod(podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+					UID:       "vmi-uid-1",
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(podUID): "node-1",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].path).To(Equal(cmdclient.SocketFilePathOnHost(podUID)))
+			Expect(entries[0].vmi.Status.ActivePods).To(HaveKey(types.UID(podUID)))
+		})
+
+		It("should skip pods whose socket does not exist on disk", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-socket-vmi",
+					Namespace: "test-ns",
+					UID:       "vmi-uid-2",
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						"nonexistent-pod": "node-1",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("should discover sockets for multiple VMIs", func() {
+			pod1 := "pod-uid-a"
+			pod2 := "pod-uid-b"
+			createSocketForPod(pod1)
+			createSocketForPod(pod2)
+
+			vmi1 := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi-1", Namespace: "ns", UID: "uid-1"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(pod1): "node-1"},
+				},
+			}
+			vmi2 := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi-2", Namespace: "ns", UID: "uid-2"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(pod2): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi1)).To(Succeed())
+			Expect(vmiStore.Add(vmi2)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(HaveLen(2))
+		})
+
+		It("should handle VMI with no ActivePods", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "empty-vmi", Namespace: "ns", UID: "uid-3"},
+				Status:     v1.VirtualMachineInstanceStatus{},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("should drive handleResync from the VMI store, not ghost records", func() {
+			podUID := "resync-pod-uid"
+			socketDir := cmdclient.SocketDirectoryOnHost(podUID)
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			GinkgoT().Setenv("NODE_NAME", "this-node")
+
+			ctrl := gomock.NewController(GinkgoT())
+			domainManager := virtwrap.NewMockDomainManager(ctrl)
+			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{api.NewMinimalDomain("resync-vmi")}, nil)
+			domainManager.EXPECT().GetGuestOSInfo().Return(nil)
+			domainManager.EXPECT().InterfacesStatus().Return(nil)
+			runConnCountingCmdServer(socketPath, domainManager)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "resync-vmi", Namespace: "ns", UID: "uid-resync"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "this-node"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			// Empty ghost record store: a handleResync that still read ghost
+			// records would find nothing and emit no event.
+			ghosts := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+			)
+			d := &domainWatcher{
+				result:           make(chan watch.Event, 1),
+				vmiStore:         vmiStore,
+				ghostRecordStore: ghosts,
+				useVMIDiscovery:  true,
+			}
+			d.handleResync(context.Background())
+
+			var event watch.Event
+			Expect(d.result).To(Receive(&event))
+			Expect(event.Type).To(Equal(watch.Modified))
+			Expect(event.Object.(*api.Domain).Name).To(Equal("resync-vmi"))
+		})
+
+		It("should skip ActivePods entries for other nodes without touching the filesystem", func() {
+			localPod := "local-pod-uid"
+			remotePod := "remote-pod-uid"
+			// Both sockets exist on this filesystem. Only the node name
+			// distinguishes them, so a missing node filter would find two.
+			createSocketForPod(localPod)
+			createSocketForPod(remotePod)
+
+			GinkgoT().Setenv("NODE_NAME", "this-node")
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "node-filtered-vmi", Namespace: "ns", UID: "uid-node"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(localPod):  "this-node",
+						types.UID(remotePod): "other-node",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].path).To(Equal(cmdclient.SocketFilePathOnHost(localPod)))
+		})
+
+		It("should report no socket for a VMI with more than one local socket", func() {
+			first := "first-pod-uid"
+			second := "second-pod-uid"
+			createSocketForPod(first)
+			createSocketForPod(second)
+
+			GinkgoT().Setenv("NODE_NAME", "this-node")
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "ambiguous-vmi", Namespace: "ns", UID: "uid-ambiguous"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(first):  "this-node",
+						types.UID(second): "this-node",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			// Domains are keyed by namespace/name, so emitting one event per
+			// socket would make the two launchers overwrite each other every
+			// resync. Reporting neither is what GetLauncherClient does too.
+			Expect(socketsFromVMIStore(d.vmiStore)).To(BeEmpty())
+		})
+
+		It("should discover only the local pod during migration", func() {
+			localPod := "local-pod"
+			remotePod := "remote-pod"
+			createSocketForPod(localPod)
+			// Do not create socket for remote pod (it's on another node)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "migrating-vmi", Namespace: "ns", UID: "uid-4"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(localPod):  "this-node",
+						types.UID(remotePod): "other-node",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].path).To(Equal(cmdclient.SocketFilePathOnHost(localPod)))
+		})
+
+		It("should return nil when vmiStore is nil", func() {
+			d := &domainWatcher{
+				vmiStore:        nil,
+				useVMIDiscovery: true,
+			}
+			entries := socketsFromVMIStore(d.vmiStore)
+			Expect(entries).To(BeNil())
+		})
+	})
+
+	Context("domainForStaleSocket with VMI discovery", func() {
+		It("should build the domain from the VMI discovery found", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: "test-ns", UID: "vmi-uid-abc"},
+			}
+			socketPath := "/pods/target-pod-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+
+			d := &domainWatcher{useVMIDiscovery: true}
+			domain := d.domainForStaleSocket(socketPath, map[string]*v1.VirtualMachineInstance{socketPath: vmi})
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Name).To(Equal("test-vmi"))
+			Expect(domain.Namespace).To(Equal("test-ns"))
+			Expect(domain.ObjectMeta.UID).To(Equal(types.UID("vmi-uid-abc")))
+		})
+
+		It("should return nil for a socket whose VMI has left the store", func() {
+			d := &domainWatcher{useVMIDiscovery: true}
+			Expect(d.domainForStaleSocket("/pods/gone/volumes/x/launcher-sock", nil)).To(BeNil())
+		})
+
+		It("should fall back to ghost records when discovery is off", func() {
+			ghostRecordStore := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+			)
+			socketPath := "/path/to/ghost-socket"
+			Expect(ghostRecordStore.Add("ns", "ghost-vmi", socketPath, "ghost-uid")).To(Succeed())
+
+			d := &domainWatcher{useVMIDiscovery: false, ghostRecordStore: ghostRecordStore}
+			domain := d.domainForStaleSocket(socketPath, nil)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Name).To(Equal("ghost-vmi"))
+		})
+	})
+
+	Context("handleStaleSocketConnections with VMI discovery", func() {
+		var (
+			vmiStore cache.Store
+			podsDir  string
+		)
+
+		vmiKeyFunc := func(obj any) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+			podsDir = GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+		})
+
+		createSocketFile := func(podUID string) string {
+			socketDir := cmdclient.SocketDirectoryOnHost(podUID)
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+			return socketPath
+		}
+
+		It("should detect stale sockets from VMI store instead of ghost records", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			podUID := "stale-pod-uid"
+			socketPath := createSocketFile(podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "stale-vmi", Namespace: "ns", UID: "vmi-uid-stale"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			watchdogTimeout := 10
+			oldTime := time.Now().UTC().Unix() - int64(watchdogTimeout) - 5
+			d := &domainWatcher{
+				vmiStore:            vmiStore,
+				useVMIDiscovery:     true,
+				unresponsiveSockets: map[string]int64{socketPath: oldTime},
+				consecutiveFails:    new(int),
+				result:              make(chan watch.Event, 100),
+				cancel:              cancel,
+			}
+
+			err := d.handleStaleSocketConnections(ctx, watchdogTimeout)
+			Expect(err).ToNot(HaveOccurred())
+
+			var receivedEvent watch.Event
+			Eventually(d.result).Should(Receive(&receivedEvent))
+			domain, ok := receivedEvent.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domain.Name).To(Equal("stale-vmi"))
+			Expect(domain.ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+		})
+	})
+
+	Context("DeleteGhostRecordCheckpoints", func() {
+		It("should remove all checkpoint files, so a later store loads nothing", func() {
+			checkpointDir := GinkgoT().TempDir()
+			ghostRecordStore := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(checkpointDir, GinkgoT().TempDir()),
+			)
+
+			err := ghostRecordStore.Add("ns", "vmi-1", "/sock1", "uid-1")
+			Expect(err).ToNot(HaveOccurred())
+			err = ghostRecordStore.Add("ns", "vmi-2", "/sock2", "uid-2")
+			Expect(err).ToNot(HaveOccurred())
+
+			entries, err := os.ReadDir(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entries).To(HaveLen(2))
+
+			err = DeleteGhostRecordCheckpoints(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			entries, err = os.ReadDir(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+
+			// Deletion runs before the store is built, so what matters is
+			// that a store created afterwards sees no records.
+			reloaded := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(checkpointDir, GinkgoT().TempDir()),
+			)
+			Expect(reloaded.Exists("ns", "vmi-1")).To(BeFalse())
+			Expect(reloaded.Exists("ns", "vmi-2")).To(BeFalse())
+		})
+
+		It("should handle non-existent directory", func() {
+			err := DeleteGhostRecordCheckpoints("/tmp/nonexistent-ghost-dir-" + fmt.Sprintf("%d", time.Now().UnixNano()))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should handle empty directory", func() {
+			emptyDir := GinkgoT().TempDir()
+			err := DeleteGhostRecordCheckpoints(emptyDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("listDomainsFromVMIStore", func() {
+		var vmiStore cache.Store
+
+		vmiKeyFunc := func(obj any) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+		})
+
+		It("should return nil for nil store", func() {
+			domains := listDomainsFromVMIStore(context.Background(), nil, nil)
+			Expect(domains).To(BeNil())
+		})
+
+		It("should return empty for VMIs with no local sockets", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi", Namespace: "ns", UID: "uid"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{"nonexistent-pod": "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			domains := listDomainsFromVMIStore(context.Background(), vmiStore, nil)
+			Expect(domains).To(BeEmpty())
+		})
+
+		It("should omit a local socket that fails authentication", func() {
+			podsDir := GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+			defer cmdclient.SetPodsBaseDir("/pods")
+
+			podUID := "pod-uid"
+			Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(podUID), 0755)).To(Succeed())
+			Expect(os.WriteFile(cmdclient.SocketFilePathOnHost(podUID), []byte("not-a-socket"), 0644)).To(Succeed())
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi", Namespace: "ns", UID: "uid"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			domains := listDomainsFromVMIStore(context.Background(), vmiStore, fake.NewSimpleClientset())
+			Expect(domains).To(BeEmpty())
 		})
 	})
 
