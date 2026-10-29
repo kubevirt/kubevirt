@@ -3878,7 +3878,14 @@ const (
 	USBResourcePrefix  = "USB_RESOURCE"
 )
 
-// PermittedHostDevices holds information about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough.
+//
+// virt-handler registers a device plugin for each entry. The host-device
+// ValidatingAdmissionPolicy (managedHostDeviceNamesExpr in
+// pkg/virt-operator/resource/generate/components/validatingadmissionpolicies)
+// must name every JSON field of this struct. A new device category that is
+// missing from that expression is still registered by virt-handler and becomes
+// allocatable by any pod.
 type PermittedHostDevices struct {
 	// +listType=atomic
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
