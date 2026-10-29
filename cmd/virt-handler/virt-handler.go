@@ -560,6 +560,7 @@ func (app *virtHandlerApp) Run() {
 		cdMounter,
 		hvMounter,
 		ghostRecordStore,
+		authClient != nil,
 	)
 	if err != nil {
 		panic(err)

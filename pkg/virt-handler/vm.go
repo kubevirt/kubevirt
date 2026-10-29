@@ -133,6 +133,11 @@ type VirtualMachineController struct {
 	migrationProxy           proxyCleaner
 	getCgroupManager         cgroupManagerGetter
 	ghostRecordStore         *virtcache.GhostRecordStore
+	// launcherAuthEnabled mirrors the LauncherSocketAuthentication gate as
+	// it was resolved at startup. Reading the gate live here would let this
+	// one call site disagree with the rest of virt-handler, which cannot
+	// follow a change without a restart.
+	launcherAuthEnabled bool
 }
 
 type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error)
@@ -168,6 +173,7 @@ func NewVirtualMachineController(
 	cdMounter containerdisk.Mounter,
 	hvMounter hotplugvolume.VolumeMounter,
 	ghostRecordStore *virtcache.GhostRecordStore,
+	launcherAuthEnabled bool,
 ) (*VirtualMachineController, error) {
 
 	logger := log.Log.With("controller", "vm")
@@ -214,6 +220,7 @@ func NewVirtualMachineController(
 		migrationProxy:           migrationProxy,
 		getCgroupManager:         newCgroupManager,
 		ghostRecordStore:         ghostRecordStore,
+		launcherAuthEnabled:      launcherAuthEnabled,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -363,8 +370,9 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
-	// to retrieve it from the ghost record
-	if string(vmi.UID) == "" {
+	// to retrieve it from the ghost record (only when ghost records
+	// are still in use, i.e. authentication is not enabled).
+	if string(vmi.UID) == "" && !c.launcherAuthEnabled {
 		uid := c.ghostRecordStore.LastKnownUID(key)
 		if uid != "" {
 			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
