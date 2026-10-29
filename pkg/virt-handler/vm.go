@@ -357,8 +357,9 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	// As a last effort, if the UID still can't be determined attempt
-	// to retrieve it from the ghost record
-	if string(vmi.UID) == "" {
+	// to retrieve it from the ghost record (only when ghost records
+	// are still in use, i.e. authentication is not enabled).
+	if string(vmi.UID) == "" && !c.clusterConfig.LauncherSocketAuthenticationEnabled() {
 		uid := virtcache.GhostRecordGlobalStore.LastKnownUID(key)
 		if uid != "" {
 			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
