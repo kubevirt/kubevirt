@@ -150,9 +150,13 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			return nil, fmt.Errorf("launcher socket authentication failed for %s/%s: %w", vmi.Namespace, vmi.Name, err)
 		}
 
-		err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
-		if err != nil {
-			return nil, err
+		// When authentication is enabled, VMI-based discovery replaces
+		// ghost records. Skip the ghost record write.
+		if l.authClient == nil {
+			err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		client, err := cmdclient.NewClient(socketFile)
@@ -204,7 +208,11 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 		clientInfo.Close()
 	}
 
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	// When authentication is enabled, VMI-based discovery replaces
+	// ghost records. Skip the ghost record delete.
+	if l.authClient == nil {
+		virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	}
 	l.launcherClients.Delete(vmi.UID)
 }
 
