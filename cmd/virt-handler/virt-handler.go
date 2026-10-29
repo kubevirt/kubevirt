@@ -312,6 +312,13 @@ func (app *virtHandlerApp) Run() {
 	var authClient kubernetes.Interface
 	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
 		authClient = app.k8sClient
+		// With VMI-based discovery, ghost record checkpoint files are
+		// stale by definition. Delete them to avoid bringing back old
+		// records if the gate is later disabled.
+		logger.Info("LauncherSocketAuthentication enabled: deleting ghost record checkpoint files")
+		if err := virtcache.DeleteGhostRecordCheckpoints(checkpointPath); err != nil {
+			logger.Reason(err).Warning("Failed to delete ghost record checkpoints")
+		}
 	}
 	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, authClient)
 
