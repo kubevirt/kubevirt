@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
@@ -252,11 +253,26 @@ func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder
 // authClient may be nil to skip authentication (backwards compatible).
 func NewSharedInformerWithAuth(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration, authClient kubernetes.Interface) cache.SharedInformer {
 	consecutiveFails := new(int)
+	useVMIDiscovery := authClient != nil
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
+	listFunc := func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+		log.Log.V(3).Info("Synchronizing domains")
+		var domains []*api.Domain
+		if useVMIDiscovery {
+			domains = listDomainsFromVMIStore(vmiStore)
+		} else {
+			domains = listAllKnownDomains()
+		}
+		list := api.DomainList{Items: []api.Domain{}}
+		for _, domain := range domains {
+			list.Items = append(list.Items, *domain)
+		}
+		return &list, nil
+	}
 	lw := domainListWatch{&cache.ListWatch{
-		ListWithContextFunc: List,
+		ListWithContextFunc: listFunc,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
 			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails, authClient, vmiStore), nil
 		},
@@ -286,6 +302,68 @@ func listAllKnownDomains() []*api.Domain {
 		}
 	}
 	return domains
+}
+
+// listDomainsFromVMIStore discovers launcher sockets by iterating VMIs
+// in the store and checking ActivePods. This is used instead of ghost
+// records when the LauncherSocketAuthentication feature gate is enabled.
+func listDomainsFromVMIStore(vmiStore cache.Store) []*api.Domain {
+	if vmiStore == nil {
+		return nil
+	}
+	var domains []*api.Domain
+	for _, obj := range vmiStore.List() {
+		vmi, ok := obj.(*v1.VirtualMachineInstance)
+		if !ok {
+			continue
+		}
+		for podUID := range vmi.Status.ActivePods {
+			socketFile := cmdclient.SocketFilePathOnHost(string(podUID))
+			if domain := getDomainFromSocket(vmi, socketFile); domain != nil {
+				domains = append(domains, domain)
+			}
+		}
+	}
+	return domains
+}
+
+// getDomainFromSocket connects to a launcher socket and retrieves the
+// domain, falling back to a synthetic domain when the connection fails.
+func getDomainFromSocket(vmi *v1.VirtualMachineInstance, socketFile string) *api.Domain {
+	exists, err := diskutils.FileExists(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to check launcher socket %s", socketFile)
+		return nil
+	}
+	if !exists {
+		return nil
+	}
+
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromVMI(vmi, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, domainExists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromVMI(vmi, api.DomainStatus{Status: api.Unknown})
+	}
+	if !domainExists {
+		return nil
+	}
+	return domain
+}
+
+func newDomainFromVMI(vmi *v1.VirtualMachineInstance, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+	domain.ObjectMeta.UID = vmi.UID
+	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
+	domain.Status = status
+	return domain
 }
 
 func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
