@@ -68,6 +68,11 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 	})
 
 	Context("with a plugin that contributes no guest definition hooks", func() {
+		BeforeEach(func() {
+			// libvirtxml rejects a hostdev without a mode, so converting this spec fails
+			spec.Devices.HostDevices = []virtwrapApi.HostDevice{{Type: virtwrapApi.HostDevicePCI}}
+		})
+
 		It("should return the original spec and an empty xml when a sidecar hook does not permit GuestDefinition", func() {
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "sidecar-other-hookpoint"},
