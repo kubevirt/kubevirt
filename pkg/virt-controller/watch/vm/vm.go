@@ -317,7 +317,7 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.hasSynced)
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		workers.Go(func() { wait.Until(c.runWorker, time.Second, stopCh) })
 	}
 
@@ -1173,7 +1173,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 					log.Log.Object(vm).V(4).Infof("VMI %s/%s is a receiver VMI and has completed migration", vmi.Namespace, vmi.Name)
 					// Restore the original run strategy
 					if val, ok := vm.Annotations[virtv1.RestoreRunStrategy]; ok {
-						vm.Spec.RunStrategy = pointer.P(virtv1.VirtualMachineRunStrategy(val))
+						vm.Spec.RunStrategy = new(virtv1.VirtualMachineRunStrategy(val))
 					}
 
 					return vm, nil
@@ -1508,11 +1508,7 @@ func calculateStartBackoffTime(failCount int, maxDelay int) int {
 	}
 
 	multiplier := int(math.Pow(float64(failCount), float64(2)))
-	interval := maxDelay / 30
-
-	if interval < minInterval {
-		interval = minInterval
-	}
+	interval := max(maxDelay/30, minInterval)
 
 	delaySeconds = interval * multiplier
 	randomRange := (delaySeconds / 2) + 1
@@ -1736,13 +1732,13 @@ func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	var raw map[string]interface{}
+	var raw map[string]any
 	err = json.Unmarshal(vmBytes, &raw)
 	if err != nil {
 		return nil, err
 	}
-	objCopy := make(map[string]interface{})
-	spec := raw["spec"].(map[string]interface{})
+	objCopy := make(map[string]any)
+	spec := raw["spec"].(map[string]any)
 	objCopy["spec"] = spec
 	patch, err := json.Marshal(objCopy)
 	return patch, err
@@ -1951,7 +1947,7 @@ func (c *Controller) getMatchingControllers(vmi *virtv1.VirtualMachineInstance) 
 }
 
 // When a vmi is created, enqueue the VirtualMachine that manages it and update its expectations.
-func (c *Controller) addVirtualMachineInstance(obj interface{}) {
+func (c *Controller) addVirtualMachineInstance(obj any) {
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
 	log.Log.Object(vmi).V(4).Info("VirtualMachineInstance added.")
@@ -2000,7 +1996,7 @@ func (c *Controller) addVirtualMachineInstance(obj interface{}) {
 // When a vmi is updated, figure out what VirtualMachine manage it and wake them
 // up. If the labels of the vmi have changed we need to awaken both the old
 // and new VirtualMachine. old and cur must be *v1.VirtualMachineInstance types.
-func (c *Controller) updateVirtualMachineInstance(old, cur interface{}) {
+func (c *Controller) updateVirtualMachineInstance(old, cur any) {
 	curVMI := cur.(*virtv1.VirtualMachineInstance)
 	oldVMI := old.(*virtv1.VirtualMachineInstance)
 	if curVMI.ResourceVersion == oldVMI.ResourceVersion {
@@ -2065,7 +2061,7 @@ func (c *Controller) updateVirtualMachineInstance(old, cur interface{}) {
 
 // When a vmi is deleted, enqueue the VirtualMachine that manages the vmi and update its expectations.
 // obj could be an *v1.VirtualMachineInstance, or a DeletionFinalStateUnknown marker item.
-func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
+func (c *Controller) deleteVirtualMachineInstance(obj any) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -2118,7 +2114,7 @@ func (c *Controller) listVMsMatchingPVC(namespace, pvcName string) ([]*virtv1.Vi
 }
 
 // addPVC handles the addition of a PVC, enqueuing affected VMIs.
-func (c *Controller) addPVC(obj interface{}) {
+func (c *Controller) addPVC(obj any) {
 	pvc := obj.(*k8score.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
 		return
@@ -2133,7 +2129,7 @@ func (c *Controller) addPVC(obj interface{}) {
 	}
 }
 
-func (c *Controller) addDataVolume(obj interface{}) {
+func (c *Controller) addDataVolume(obj any) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
 		c.deleteDataVolume(dataVolume)
@@ -2157,7 +2153,7 @@ func (c *Controller) addDataVolume(obj interface{}) {
 	}
 	c.queueVMsForDataVolume(dataVolume)
 }
-func (c *Controller) updateDataVolume(old, cur interface{}) {
+func (c *Controller) updateDataVolume(old, cur any) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
 	oldDataVolume := old.(*cdiv1.DataVolume)
 	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
@@ -2190,7 +2186,7 @@ func (c *Controller) updateDataVolume(old, cur interface{}) {
 	c.queueVMsForDataVolume(curDataVolume)
 }
 
-func (c *Controller) deleteDataVolume(obj interface{}) {
+func (c *Controller) deleteDataVolume(obj any) {
 	dataVolume, ok := obj.(*cdiv1.DataVolume)
 	// When a delete is dropped, the relist will notice a dataVolume in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -2250,19 +2246,19 @@ func (c *Controller) queueVMsForDataVolume(dataVolume *cdiv1.DataVolume) {
 	}
 }
 
-func (c *Controller) addVirtualMachine(obj interface{}) {
+func (c *Controller) addVirtualMachine(obj any) {
 	c.enqueueVm(obj)
 }
 
-func (c *Controller) deleteVirtualMachine(obj interface{}) {
+func (c *Controller) deleteVirtualMachine(obj any) {
 	c.enqueueVm(obj)
 }
 
-func (c *Controller) updateVirtualMachine(_, curr interface{}) {
+func (c *Controller) updateVirtualMachine(_, curr any) {
 	c.enqueueVm(curr)
 }
 
-func (c *Controller) enqueueVm(obj interface{}) {
+func (c *Controller) enqueueVm(obj any) {
 	logger := log.Log
 	vm := obj.(*virtv1.VirtualMachine)
 	key, err := controller.KeyFunc(vm)
@@ -2751,7 +2747,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	}
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
-	syncIgnoreMap := map[string]interface{}{
+	syncIgnoreMap := map[string]any{
 		string(virtv1.VirtualMachineReady):           nil,
 		string(virtv1.VirtualMachineFailure):         nil,
 		string(virtv1.VirtualMachineRestartRequired): nil,
@@ -2759,7 +2755,7 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 	if snapshotoverlay.HasUncommittedOverlays(vm) {
 		syncIgnoreMap[string(virtv1.VirtualMachineManualRecoveryRequired)] = nil
 	}
-	vmiCondMap := make(map[string]interface{})
+	vmiCondMap := make(map[string]any)
 
 	// generically add/update all vmi conditions
 	for _, cond := range vmi.Status.Conditions {
@@ -3111,8 +3107,8 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 			if pattern == "" {
 				continue
 			}
-			if strings.HasSuffix(pattern, "*") {
-				prefix := strings.TrimSuffix(pattern, "*")
+			if before, ok := strings.CutSuffix(pattern, "*"); ok {
+				prefix := before
 				// Reject bare "*" to prevent accidental sync-all. Only prefix wildcards like "vendor.io/*" are supported.
 				if prefix == "" {
 					continue
@@ -3548,7 +3544,7 @@ func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, v
 	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
 }
 
-func (c *Controller) handleKubeVirtUpdate(oldObj, newObj interface{}) {
+func (c *Controller) handleKubeVirtUpdate(oldObj, newObj any) {
 	okv, ok := oldObj.(*virtv1.KubeVirt)
 	if !ok {
 		return
@@ -3572,7 +3568,7 @@ func (c *Controller) handleKubeVirtUpdate(oldObj, newObj interface{}) {
 	}
 }
 
-func (c *Controller) handleNamespaceUpdate(oldObj, newObj interface{}) {
+func (c *Controller) handleNamespaceUpdate(oldObj, newObj any) {
 	oldNS, ok := oldObj.(*k8score.Namespace)
 	if !ok {
 		return
