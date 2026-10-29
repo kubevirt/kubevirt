@@ -794,9 +794,7 @@ func (c *Controller) processMigrationPhase(
 			migrationCopy.Status.Phase = virtv1.MigrationPending
 		}
 	case virtv1.MigrationScheduling:
-		if conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota) {
-			conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
-		}
+		conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationRejectedByResourceQuota)
 		if migration.IsDecentralizedSource() {
 			if err := c.patchMigratedVolumesForDecentralizedMigration(vmi); err != nil {
 				return err
@@ -1583,9 +1581,7 @@ func (c *Controller) getCatchAllPendingTimeoutSeconds(migration *virtv1.VirtualM
 func (c *Controller) handleVMBackup(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) (bool, error) {
 	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
 	if !migrationsutil.IsBackupInProgress(vmi) {
-		if conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup) {
-			conditionManager.RemoveCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup)
-		}
+		conditionManager.RemoveCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup)
 		return false, nil
 	}
 

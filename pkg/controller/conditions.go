@@ -52,14 +52,9 @@ func (d *VirtualMachinePoolConditionManager) HasCondition(pool *poolv1.VirtualMa
 }
 
 func (d *VirtualMachinePoolConditionManager) RemoveCondition(pool *poolv1.VirtualMachinePool, cond poolv1.VirtualMachinePoolConditionType) {
-	var conds []poolv1.VirtualMachinePoolCondition
-	for _, c := range pool.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	pool.Status.Conditions = conds
+	pool.Status.Conditions = slices.DeleteFunc(pool.Status.Conditions, func(c poolv1.VirtualMachinePoolCondition) bool {
+		return c.Type == cond
+	})
 }
 
 // UpdateCondition updates the given VirtualMachinePoolCondition, unless it is already set with the same status and reason.
@@ -108,14 +103,9 @@ func (d *VirtualMachineConditionManager) HasConditionWithStatus(vm *v1.VirtualMa
 }
 
 func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, cond v1.VirtualMachineConditionType) {
-	var conds []v1.VirtualMachineCondition
-	for _, c := range vm.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vm.Status.Conditions = conds
+	vm.Status.Conditions = slices.DeleteFunc(vm.Status.Conditions, func(c v1.VirtualMachineCondition) bool {
+		return c.Type == cond
+	})
 }
 
 type VirtualMachineInstanceConditionManager struct {
@@ -147,10 +137,7 @@ func (d *VirtualMachineInstanceConditionManager) CheckFailure(vmi *v1.VirtualMac
 		if d.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceSynchronized, k8sv1.ConditionFalse, reason) {
 			return false
 		}
-		if d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
-			d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
-		}
-		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+		d.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
 			Message:            syncErr.Error(),
@@ -228,15 +215,6 @@ func (d *VirtualMachineInstanceConditionManager) AddPodCondition(vmi *v1.Virtual
 	}
 }
 
-func (d *VirtualMachineInstanceConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType) *k8sv1.PodCondition {
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == conditionType {
-			return &cond
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineInstanceConditionManager) ConditionsEqual(vmi1, vmi2 *v1.VirtualMachineInstance) bool {
 	if len(vmi1.Status.Conditions) != len(vmi2.Status.Conditions) {
 		return false
@@ -272,20 +250,10 @@ func (d *VirtualMachineInstanceMigrationConditionManager) GetCondition(migration
 	return nil
 }
 
-func (d *VirtualMachineInstanceMigrationConditionManager) HasConditionWithStatus(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType, status k8sv1.ConditionStatus) bool {
-	c := d.GetCondition(migration, cond)
-	return c != nil && c.Status == status
-}
-
 func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) {
-	var conds []v1.VirtualMachineInstanceMigrationCondition
-	for _, c := range migration.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	migration.Status.Conditions = conds
+	migration.Status.Conditions = slices.DeleteFunc(migration.Status.Conditions, func(c v1.VirtualMachineInstanceMigrationCondition) bool {
+		return c.Type == cond
+	})
 }
 
 // UpdateCondition updates the given VirtualMachineMigrationCondition, unless it is already set with the same status and reason.
@@ -325,10 +293,6 @@ func (d *PodConditionManager) GetCondition(pod *k8sv1.Pod, cond k8sv1.PodConditi
 	return nil
 }
 
-func (d *PodConditionManager) HasCondition(pod *k8sv1.Pod, cond k8sv1.PodConditionType) bool {
-	return d.GetCondition(pod, cond) != nil
-}
-
 func (d *PodConditionManager) HasConditionWithStatus(pod *k8sv1.Pod, cond k8sv1.PodConditionType, status k8sv1.ConditionStatus) bool {
 	c := d.GetCondition(pod, cond)
 	return c != nil && c.Status == status
@@ -337,17 +301,6 @@ func (d *PodConditionManager) HasConditionWithStatus(pod *k8sv1.Pod, cond k8sv1.
 func (d *PodConditionManager) HasConditionWithStatusAndReason(pod *k8sv1.Pod, cond k8sv1.PodConditionType, status k8sv1.ConditionStatus, reason string) bool {
 	c := d.GetCondition(pod, cond)
 	return c != nil && c.Status == status && c.Reason == reason
-}
-
-func (d *PodConditionManager) RemoveCondition(pod *k8sv1.Pod, cond k8sv1.PodConditionType) {
-	var conds []k8sv1.PodCondition
-	for _, c := range pod.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	pod.Status.Conditions = conds
 }
 
 // UpdateCondition updates the given PodCondition, unless it is already set with the same status and reason.
