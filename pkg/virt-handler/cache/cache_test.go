@@ -39,6 +39,8 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
@@ -76,26 +78,10 @@ var _ = Describe("Domain informer", func() {
 			Expect(string(uid)).To(Equal("1234-1"))
 		})
 
-		It("should omit a socket that fails authentication and still report a missing socket", func() {
-			socketPath := filepath.Join(GinkgoT().TempDir(), "launcher-sock")
-			Expect(os.WriteFile(socketPath, []byte("not-a-socket"), 0644)).To(Succeed())
-			Expect(ghostRecordStore.Add("ns", "live", socketPath, "vmi-uid")).To(Succeed())
-
-			missing := filepath.Join(GinkgoT().TempDir(), "gone")
-			Expect(ghostRecordStore.Add("ns", "gone", missing, "vmi-uid-2")).To(Succeed())
-
-			Expect(ghostRecordStore.listAllKnownDomains()).To(HaveLen(2))
-
-			authed := ghostRecordStore.listKnownDomains(context.Background(), fake.NewSimpleClientset(), nil)
-			Expect(authed).To(HaveLen(1))
-			Expect(authed[0].Name).To(Equal("gone"))
-			Expect(authed[0].DeletionTimestamp).ToNot(BeNil())
-		})
-
-		// Exercised through DomainList rather than listKnownDomains, so that
-		// the informer's actual entry point is covered: a DomainList that
-		// drops its authClient would still pass the test above.
-		It("should authenticate through DomainList when an auth client is set", func() {
+		// Ghost records are only read when the gate is off. With an auth
+		// client set, DomainList must switch to the VMI store and ignore
+		// them entirely, which is the whole point of this change.
+		It("should read ghost records only when no auth client is set", func() {
 			socketPath := filepath.Join(GinkgoT().TempDir(), "launcher-sock")
 			Expect(os.WriteFile(socketPath, []byte("not-a-socket"), 0644)).To(Succeed())
 			Expect(ghostRecordStore.Add("ns", "live", socketPath, "vmi-uid")).To(Succeed())
@@ -104,9 +90,16 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unauthed.(*api.DomainList).Items).To(HaveLen(1))
 
-			list, err := ghostRecordStore.DomainList(context.Background(), fake.NewSimpleClientset(), nil)
+			// Empty VMI store, so VMI-based discovery finds nothing. A
+			// DomainList still reading ghost records would return the one
+			// above.
+			vmiStore := cache.NewStore(func(obj any) (string, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				return vmi.Namespace + "/" + vmi.Name, nil
+			})
+			list, err := ghostRecordStore.DomainList(context.Background(), fake.NewSimpleClientset(), vmiStore)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(list.(*api.DomainList).Items).To(BeEmpty(), "a socket that fails authentication must not reach the domain cache")
+			Expect(list.(*api.DomainList).Items).To(BeEmpty())
 		})
 
 		It("Should find ghost record by socket ", func() {

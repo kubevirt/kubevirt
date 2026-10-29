@@ -21,6 +21,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,9 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/client-go/log"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -273,7 +273,14 @@ func (store *GhostRecordStore) List(ctx context.Context, _ metav1.ListOptions) (
 
 func (store *GhostRecordStore) DomainList(ctx context.Context, authClient kubernetes.Interface, vmiStore cache.Store) (runtime.Object, error) {
 	log.Log.V(3).Info("Synchronizing domains")
-	domains := store.listKnownDomains(ctx, authClient, vmiStore)
+	// An auth client means the feature gate is on, which is also when
+	// discovery moves off ghost records and onto the VMI store.
+	var domains []*api.Domain
+	if authClient != nil {
+		domains = listDomainsFromVMIStore(ctx, vmiStore, authClient)
+	} else {
+		domains = store.listKnownDomains()
+	}
 	list := api.DomainList{
 		Items: []api.Domain{},
 	}
@@ -284,31 +291,15 @@ func (store *GhostRecordStore) DomainList(ctx context.Context, authClient kubern
 }
 
 func (store *GhostRecordStore) listAllKnownDomains() []*api.Domain {
-	return store.listKnownDomains(context.Background(), nil, nil)
+	return store.listKnownDomains()
 }
 
-// listKnownDomains enumerates ghost records. When authClient is set, a
-// socket that still exists must authenticate before GetDomain. A missing
-// socket file is reported as a deletion-marked domain without dialing,
-// because there is no peer to authenticate.
-func (store *GhostRecordStore) listKnownDomains(ctx context.Context, authClient kubernetes.Interface, vmiStore cache.Store) []*api.Domain {
+// listKnownDomains enumerates ghost records. It is only reached when the
+// LauncherSocketAuthentication gate is off, which is also the only time
+// ghost records are maintained, so nothing here authenticates.
+func (store *GhostRecordStore) listKnownDomains() []*api.Domain {
 	var domains []*api.Domain
-
-	ghostRecords := store.list()
-	for _, record := range ghostRecords {
-		if authClient != nil {
-			exists, err := diskutils.FileExists(record.SocketFile)
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to check launcher socket %s", record.SocketFile)
-				continue
-			}
-			if exists {
-				if err := AuthenticateSocket(ctx, authClient, record.SocketFile, activePodsForGhostRecord(vmiStore, record)); err != nil {
-					log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during domain list, skipping", record.SocketFile)
-					continue
-				}
-			}
-		}
+	for _, record := range store.list() {
 		if domain := getDomainFromRecord(record); domain != nil {
 			domains = append(domains, domain)
 		}
@@ -316,19 +307,93 @@ func (store *GhostRecordStore) listKnownDomains(ctx context.Context, authClient 
 	return domains
 }
 
-func activePodsForGhostRecord(vmiStore cache.Store, record ghostRecord) map[types.UID]string {
+// socketEntry pairs a VMI with the launcher socket it owns on this node.
+type socketEntry struct {
+	vmi  *v1.VirtualMachineInstance
+	path string
+}
+
+// socketsFromVMIStore derives at most one launcher socket per VMI from the
+// VMI store. This replaces ghost record enumeration when the
+// LauncherSocketAuthentication feature gate is enabled.
+//
+// cmdclient.FindSocket applies exactly the filters this needs, and is what
+// GetLauncherClient uses to pick its socket: it reads the node name from
+// NODE_NAME (which the virt-handler DaemonSet sets) and skips ActivePods
+// entries for other nodes without touching the filesystem, keeps only
+// sockets that exist, and refuses to guess when a VMI has more than one
+// local socket. Sharing it keeps the domain-watcher and the VM controller
+// on the same peer.
+func socketsFromVMIStore(vmiStore cache.Store) []socketEntry {
 	if vmiStore == nil {
 		return nil
 	}
-	obj, exists, err := vmiStore.GetByKey(record.Namespace + "/" + record.Name)
-	if err != nil || !exists {
+	var entries []socketEntry
+	for _, obj := range vmiStore.List() {
+		vmi, ok := obj.(*v1.VirtualMachineInstance)
+		if !ok {
+			continue
+		}
+		socket, err := cmdclient.FindSocket(vmi)
+		if err != nil {
+			// No local socket is the normal case: the VMI runs on another
+			// node, or its launcher has not created the socket yet.
+			if !errors.Is(err, cmdclient.ErrNoSocketFound) {
+				log.Log.Object(vmi).Reason(err).Warning("skipping VMI during launcher socket discovery")
+			}
+			continue
+		}
+		entries = append(entries, socketEntry{vmi: vmi, path: socket})
+	}
+	return entries
+}
+
+// listDomainsFromVMIStore builds the domain list from VMI-derived sockets.
+// A socket that exists must authenticate before GetDomain, and a failure
+// omits it. handleResync cannot evict a domain this List already added.
+func listDomainsFromVMIStore(ctx context.Context, vmiStore cache.Store, authClient kubernetes.Interface) []*api.Domain {
+	var domains []*api.Domain
+	for _, entry := range socketsFromVMIStore(vmiStore) {
+		if err := AuthenticateSocket(ctx, authClient, entry.path, entry.vmi.Status.ActivePods); err != nil {
+			log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during domain list, skipping", entry.path)
+			continue
+		}
+		if domain := getDomainFromSocket(entry.vmi, entry.path); domain != nil {
+			domains = append(domains, domain)
+		}
+	}
+	return domains
+}
+
+// getDomainFromSocket connects to a launcher socket and retrieves the
+// domain. The socket is known to exist: FindSocket only returns paths it
+// has already resolved on disk.
+func getDomainFromSocket(vmi *v1.VirtualMachineInstance, socketFile string) *api.Domain {
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromVMI(vmi, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, domainExists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromVMI(vmi, api.DomainStatus{Status: api.Unknown})
+	}
+	if !domainExists {
 		return nil
 	}
-	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	if !ok {
-		return nil
-	}
-	return vmi.Status.ActivePods
+	return domain
+}
+
+func newDomainFromVMI(vmi *v1.VirtualMachineInstance, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(vmi.Namespace, vmi.Name)
+	domain.ObjectMeta.UID = vmi.UID
+	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
+	domain.Status = status
+	return domain
 }
 
 func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {

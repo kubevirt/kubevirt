@@ -67,6 +67,13 @@ type domainWatcher struct {
 	ghostRecordStore    *GhostRecordStore
 	authClient          kubernetes.Interface
 	vmiStore            cache.Store
+	// useVMIDiscovery is true when the LauncherSocketAuthentication
+	// feature gate is enabled. Socket discovery then uses VMI store
+	// iteration via ActivePods instead of ghost records, and only those
+	// entries carry a VMI. Everything that reads socketEntry.vmi must be
+	// guarded on this flag rather than on authClient, so that the two
+	// cannot drift apart.
+	useVMIDiscovery bool
 }
 
 func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int, ghostRecordStore *GhostRecordStore, authClient kubernetes.Interface, vmiStore cache.Store) *domainWatcher {
@@ -80,6 +87,7 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 		ghostRecordStore:    ghostRecordStore,
 		authClient:          authClient,
 		vmiStore:            vmiStore,
+		useVMIDiscovery:     authClient != nil,
 	}
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
@@ -168,20 +176,33 @@ func (d *domainWatcher) recordNotifyServerFailureEvent(err error) {
 }
 
 func (d *domainWatcher) handleResync(ctx context.Context) {
-	socketFiles := listSockets(d.ghostRecordStore.list())
-
 	log.Log.Infof("resyncing virt-launcher domains")
-	for _, socket := range socketFiles {
-		// Skipped entirely when the feature gate is off, so that resolving
-		// ActivePods costs nothing on the default path.
-		if d.authClient != nil {
-			if err := AuthenticateSocket(ctx, d.authClient, socket, d.activePodsForSocket(socket)); err != nil {
-				log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", socket)
+
+	var entries []socketEntry
+
+	if d.useVMIDiscovery {
+		entries = socketsFromVMIStore(d.vmiStore)
+	} else {
+		// Ghost records are only used when the gate is off, in which case
+		// nothing authenticates, so resolving the VMI here would be wasted
+		// work on the default path.
+		for _, rec := range d.ghostRecordStore.list() {
+			entries = append(entries, socketEntry{path: rec.SocketFile})
+		}
+	}
+
+	for _, entry := range entries {
+		// Guarded on the same flag that chose the discovery source above:
+		// ghost-record entries carry no VMI, and only VMI-derived entries
+		// are ever authenticated.
+		if d.useVMIDiscovery {
+			if err := AuthenticateSocket(ctx, d.authClient, entry.path, entry.vmi.Status.ActivePods); err != nil {
+				log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during resync, skipping", entry.path)
 				continue
 			}
 		}
 
-		client, err := cmdclient.NewClient(socket)
+		client, err := cmdclient.NewClient(entry.path)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket during resync")
 			// Ignore failure to connect to client.
@@ -197,7 +218,7 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 		client.Close()
 		if err != nil {
 			// this resync is best effort only.
-			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
+			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", entry.path)
 			continue
 		} else if !exists {
 			// nothing to sync if it doesn't exist
@@ -208,26 +229,6 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 			return
 		}
 	}
-}
-
-func (d *domainWatcher) activePodsForSocket(socketPath string) map[types.UID]string {
-	if d.vmiStore == nil {
-		return nil
-	}
-	record, found := d.ghostRecordStore.findBySocket(socketPath)
-	if !found {
-		return nil
-	}
-	key := record.Namespace + "/" + record.Name
-	obj, exists, err := d.vmiStore.GetByKey(key)
-	if err != nil || !exists {
-		return nil
-	}
-	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	if !ok {
-		return nil
-	}
-	return vmi.Status.ActivePods
 }
 
 // AuthenticateSocket connects to a virt-launcher socket, requests its
@@ -328,8 +329,17 @@ func podUIDFromSocketPath(socketPath string) (string, error) {
 
 func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchdogTimeoutSeconds int) error {
 	var unresponsive []string
+	var socketFiles []string
+	vmiBySocket := map[string]*v1.VirtualMachineInstance{}
 
-	socketFiles := listSockets(d.ghostRecordStore.list())
+	if d.useVMIDiscovery {
+		for _, entry := range socketsFromVMIStore(d.vmiStore) {
+			socketFiles = append(socketFiles, entry.path)
+			vmiBySocket[entry.path] = entry.vmi
+		}
+	} else {
+		socketFiles = listSockets(d.ghostRecordStore.list())
+	}
 
 	for _, socket := range socketFiles {
 		sock, err := net.DialTimeout("unix", socket, time.Duration(socketDialTimeoutSeconds)*time.Second)
@@ -360,31 +370,43 @@ func (d *domainWatcher) handleStaleSocketConnections(ctx context.Context, watchd
 		diff := now - timeStamp
 
 		if diff > int64(watchdogTimeoutSeconds) {
+			domain := d.domainForStaleSocket(key, vmiBySocket)
+			if domain == nil {
+				continue
+			}
+			deletionTime := metav1.Now()
+			domain.ObjectMeta.DeletionTimestamp = &deletionTime
+			log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
+			if !d.send(ctx, watch.Event{Type: watch.Modified, Object: domain}) {
+				return ctx.Err()
+			}
 
-			record, exists := d.ghostRecordStore.findBySocket(key)
-
-			if !exists {
-				// ignore if info file doesn't exist
-				// this is possible with legacy VMIs that haven't
-				// been updated. The watchdog file will catch these.
-			} else {
-				domain := newDomainFromGhostRecord(record, api.DomainStatus{})
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
-				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
-				if !d.send(ctx, watch.Event{Type: watch.Modified, Object: domain}) {
-					return ctx.Err()
-				}
-
-				err := cmdclient.MarkSocketUnresponsive(key)
-				if err != nil {
-					log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
-				}
+			if err := cmdclient.MarkSocketUnresponsive(key); err != nil {
+				log.Log.Reason(err).Errorf("Unable to mark vmi as unresponsive socket %s", key)
 			}
 		}
 	}
 
 	return nil
+}
+
+// domainForStaleSocket builds a minimal domain object for a stale socket.
+// With VMI-based discovery the owning VMI is already known from discovery,
+// so this is a lookup rather than a scan. A socket with no entry belongs to
+// a VMI that has since left the store, and yields no domain.
+func (d *domainWatcher) domainForStaleSocket(socketPath string, vmiBySocket map[string]*v1.VirtualMachineInstance) *api.Domain {
+	if d.useVMIDiscovery {
+		vmi, found := vmiBySocket[socketPath]
+		if !found {
+			return nil
+		}
+		return newDomainFromVMI(vmi, api.DomainStatus{})
+	}
+	record, exists := d.ghostRecordStore.findBySocket(socketPath)
+	if !exists {
+		return nil
+	}
+	return newDomainFromGhostRecord(record, api.DomainStatus{})
 }
 
 func (d *domainWatcher) Stop() {
