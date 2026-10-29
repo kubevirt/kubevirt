@@ -567,10 +567,19 @@ func (l *LibvirtConnection) reconnectIfNecessaryLocked() (err error) {
 		return nil
 	}
 
-	if l.Connect, err = newConnection(l.uri, l.user, l.pass); err != nil {
+	oldConnect := l.Connect
+	virConn, err := newLibvirtConnection(l.uri, l.user, l.pass)
+	if err != nil {
 		return err
 	}
+	l.Connect = virConn
 	l.alive = true
+
+	// Close the abandoned connection so event callbacks registered on it cannot keep
+	// delivering (for example duplicate job-completed events) after we switch.
+	if closeErr := closeLibvirtConnection(oldConnect); closeErr != nil {
+		log.Log.Reason(closeErr).V(3).Info("Error closing previous libvirt connection during reconnect")
+	}
 
 	log.Log.Info("Established new Libvirt Connection")
 
@@ -741,6 +750,18 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 
 	return lvConn, nil
 }
+
+// newLibvirtConnection and closeLibvirtConnection are indirection points for unit tests.
+var (
+	newLibvirtConnection   = newConnection
+	closeLibvirtConnection = func(c *libvirt.Connect) error {
+		if c == nil {
+			return nil
+		}
+		_, err := c.Close()
+		return err
+	}
+)
 
 // TODO: needs a functional test.
 func newConnection(uri string, user string, pass string) (*libvirt.Connect, error) {

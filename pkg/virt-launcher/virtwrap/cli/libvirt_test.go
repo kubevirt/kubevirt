@@ -97,4 +97,90 @@ var _ = Describe("Libvirt Suite", func() {
 			Expect(conn.domainRebootEventCallbacks).To(HaveLen(registrations))
 		})
 	})
+
+	Context("Upon reconnect", func() {
+		AfterEach(func() {
+			newLibvirtConnection = newConnection
+			closeLibvirtConnection = func(c *libvirt.Connect) error {
+				if c == nil {
+					return nil
+				}
+				_, err := c.Close()
+				return err
+			}
+		})
+
+		It("should close the previous connection so abandoned callbacks cannot keep delivering", func() {
+			oldConn := &libvirt.Connect{}
+			newConn := &libvirt.Connect{}
+			var closed *libvirt.Connect
+
+			newLibvirtConnection = func(string, string, string) (*libvirt.Connect, error) {
+				return newConn, nil
+			}
+			closeLibvirtConnection = func(c *libvirt.Connect) error {
+				closed = c
+				return nil
+			}
+
+			conn := &LibvirtConnection{
+				Connect:       oldConn,
+				alive:         false,
+				reconnectLock: &sync.Mutex{},
+				uri:           "test:///default",
+			}
+
+			Expect(conn.reconnectIfNecessaryLocked()).To(Succeed())
+			Expect(conn.Connect).To(BeIdenticalTo(newConn))
+			Expect(conn.alive).To(BeTrue())
+			Expect(closed).To(BeIdenticalTo(oldConn))
+		})
+
+		It("should not close a connection when reconnect is unnecessary", func() {
+			existing := &libvirt.Connect{}
+			closeCalled := false
+			closeLibvirtConnection = func(*libvirt.Connect) error {
+				closeCalled = true
+				return nil
+			}
+			newLibvirtConnection = func(string, string, string) (*libvirt.Connect, error) {
+				Fail("new connection should not be opened when already alive")
+				return nil, nil
+			}
+
+			conn := &LibvirtConnection{
+				Connect:       existing,
+				alive:         true,
+				reconnectLock: &sync.Mutex{},
+			}
+
+			Expect(conn.reconnectIfNecessaryLocked()).To(Succeed())
+			Expect(conn.Connect).To(BeIdenticalTo(existing))
+			Expect(closeCalled).To(BeFalse())
+		})
+
+		It("should leave the previous connection in place if opening a new one fails", func() {
+			oldConn := &libvirt.Connect{}
+			closeCalled := false
+			closeLibvirtConnection = func(*libvirt.Connect) error {
+				closeCalled = true
+				return nil
+			}
+			newLibvirtConnection = func(string, string, string) (*libvirt.Connect, error) {
+				return nil, fmt.Errorf("dial failed")
+			}
+
+			conn := &LibvirtConnection{
+				Connect:       oldConn,
+				alive:         false,
+				reconnectLock: &sync.Mutex{},
+				uri:           "test:///default",
+			}
+
+			Expect(conn.reconnectIfNecessaryLocked()).To(MatchError("dial failed"))
+			Expect(conn.Connect).To(BeIdenticalTo(oldConn))
+			Expect(conn.alive).To(BeFalse())
+			Expect(closeCalled).To(BeFalse())
+		})
+	})
 })
