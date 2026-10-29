@@ -585,4 +585,13 @@ var _ = Describe("CBT", func() {
 			Expect(cbt.PathForCBT(vmi)).To(Equal(filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)))
 		})
 	})
+
+	Context("overlay paths", func() {
+		// Guards the two overlay-path helpers from drifting apart, e.g. #19404's claim-UID
+		// re-key changing one but not the other.
+		It("keeps the PVC-relative overlay path a suffix of the launcher's absolute path", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			Expect(cbt.GetQCOW2OverlayPath(vmi, "rootdisk")).To(HaveSuffix(cbt.GetQCOW2OverlayPVCPath("rootdisk")))
+		})
+	})
 })

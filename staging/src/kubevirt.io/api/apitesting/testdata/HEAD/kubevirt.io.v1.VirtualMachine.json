@@ -1298,6 +1298,7 @@
   "status": {
     "snapshotInProgress": "snapshotInProgressValue",
     "restoreInProgress": "restoreInProgressValue",
+    "backupInProgress": "backupInProgressValue",
     "created": true,
     "ready": true,
     "printableStatus": "printableStatusValue",

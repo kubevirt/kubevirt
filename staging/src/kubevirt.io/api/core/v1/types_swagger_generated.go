@@ -482,6 +482,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"":                          "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
 		"snapshotInProgress":        "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
 		"restoreInProgress":         "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+		"backupInProgress":          "BackupInProgress is the name of the VirtualMachineBackup currently executing",
 		"created":                   "Created indicates if the virtual machine is created in the cluster",
 		"ready":                     "Ready indicates if the virtual machine is running and ready",
 		"printableStatus":           "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",

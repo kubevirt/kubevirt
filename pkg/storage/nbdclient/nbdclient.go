@@ -52,6 +52,12 @@ type Extent struct {
 	Description string
 }
 
+// IsDirty reports whether the extent changed since the base checkpoint, as merged from the
+// qemu:dirty-bitmap context by Map (see mergedContextMapper).
+func (e Extent) IsDirty() bool {
+	return e.Flags&uint64(libnbd.STATE_DIRTY) != 0
+}
+
 type descFn func(uint64) string
 
 // mapHandler consumes the extents of one BlockStatus64 call through

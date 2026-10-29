@@ -3465,6 +3465,22 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
+		Context("Backup in progress", func() {
+			It("should not start a VM while a backup holds it", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.BackupInProgress = new("backup")
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+				testutils.ExpectEvent(recorder, startHeldReason)
+			})
+		})
+
 		Context("Changed Block Tracking", func() {
 			createKubeVirtConfigWithCBT := func(enableFeatureGate bool) *v1.KubeVirt {
 				labelSelector := &metav1.LabelSelector{
@@ -7090,7 +7106,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Status.StateChangeRequests = stateChangeRequests
 				vm.Status.RunStrategy = statusRunStrategy
 
-				result := shouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
+				result := virtcontroller.ShouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
 				Expect(result).To(Equal(expected))
 			},
 				Entry("return true when VM was never started (empty status RunStrategy)",

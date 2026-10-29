@@ -175,6 +175,10 @@ type VirtualMachineBackup struct {
 	Status *VirtualMachineBackupStatus `json:"status,omitempty"`
 }
 
+func (b *VirtualMachineBackup) IsPushMode() bool {
+	return b.Spec.Mode == nil || *b.Spec.Mode == PushMode
+}
+
 // VirtualMachineBackupList is a list of VirtualMachineBackup resources
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineBackupList struct {

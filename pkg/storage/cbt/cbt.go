@@ -357,3 +357,9 @@ func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) stri
 	cbtPath := PathForCBT(vmi)
 	return filepath.Join(cbtPath, volumeName+".qcow2")
 }
+
+// GetQCOW2OverlayPVCPath is GetQCOW2OverlayPath relative to the PVC root. A unit test keeps the
+// two in lock-step.
+func GetQCOW2OverlayPVCPath(volumeName string) string {
+	return filepath.Join(CBTDirName, volumeName+".qcow2")
+}

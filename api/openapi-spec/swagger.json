@@ -20431,6 +20431,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "backupInProgress": {
+      "description": "BackupInProgress is the name of the VirtualMachineBackup currently executing",
+      "type": "string"
+     },
      "changedBlockTracking": {
       "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
       "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"

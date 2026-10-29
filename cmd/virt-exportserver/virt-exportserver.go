@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/service"
@@ -39,6 +41,17 @@ var defaultListenAddr = fmt.Sprintf(":%d", export.ExportServerPort)
 
 func main() {
 	log.InitializeLogging("virt-exportserver-" + os.Getenv("POD_NAME"))
+
+	if os.Getenv("OFFLINE_BACKUP_TYPE_PROBE") == "true" {
+		log.Log.Info("Probing offline backup volume types")
+		paths := export.CreateServerPaths(export.EnvironToMap())
+		if err := exportServer.RunOfflineVolumeTypeProbe(paths, getBackupStatePath(), os.Getenv("BACKUP_BASE_CHECKPOINT")); err != nil {
+			log.Log.Reason(err).Error("offline backup volume type probe failed")
+			os.Exit(1)
+		}
+		return
+	}
+
 	log.Log.Info("Starting export server")
 
 	certFile, keyFile := getCert()
@@ -54,8 +67,22 @@ func main() {
 		TLSCurvePreferences: getTLSCurvePreferences(),
 	}
 	if len(config.Paths.Backups) > 0 {
-		config.NBDSocket = getNBDSocket()
 		config.BackupCheckpoint = getBackupCheckpoint()
+		if os.Getenv("OFFLINE_BACKUP") == "true" {
+			config.OfflineBackup = true
+			config.BackupStatePath = getBackupStatePath()
+			config.SocketDir = getSocketDir()
+			config.BackupBaseCheckpoint = os.Getenv("BACKUP_BASE_CHECKPOINT")
+			config.BackupTracked = os.Getenv("BACKUP_TRACKED") == "true"
+			config.BackupKeepCheckpoints = getBackupKeepCheckpoints()
+			config.BackupMode = os.Getenv("BACKUP_MODE")
+			if config.BackupMode == string(backupv1.PushMode) {
+				config.BackupTargetDir = getBackupTargetDir()
+				config.BackupName = getBackupName()
+			}
+		} else {
+			config.NBDSocket = getNBDSocket()
+		}
 	}
 	server, err := exportServer.NewExportServer(config)
 	if err != nil {
@@ -113,6 +140,46 @@ func getNBDSocket() string {
 func getBackupCheckpoint() string {
 	checkpointName := os.Getenv("BACKUP_CHECKPOINT")
 	return checkpointName
+}
+
+func getBackupKeepCheckpoints() []string {
+	raw := os.Getenv("BACKUP_KEEP_CHECKPOINTS")
+	if raw == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
+}
+
+func getBackupStatePath() string {
+	path := os.Getenv("BACKUP_STATE_PATH")
+	if path == "" {
+		panic("offline backup but no backup state path provided")
+	}
+	return path
+}
+
+func getSocketDir() string {
+	dir := os.Getenv("SOCKET_DIR")
+	if dir == "" {
+		panic("offline backup but no socket dir provided")
+	}
+	return dir
+}
+
+func getBackupTargetDir() string {
+	dir := os.Getenv("BACKUP_TARGET_DIR")
+	if dir == "" {
+		panic("offline push backup but no backup target dir provided")
+	}
+	return dir
+}
+
+func getBackupName() string {
+	name := os.Getenv("BACKUP_NAME")
+	if name == "" {
+		panic("offline push backup but no backup name provided")
+	}
+	return name
 }
 
 func getTLSMinVersion() uint16 {

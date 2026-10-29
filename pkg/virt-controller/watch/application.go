@@ -1023,7 +1023,9 @@ func (vca *VirtControllerApp) initBackupController() {
 		vca.vmiInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.vmExportInformer,
+		vca.allPodInformer,
 		recorder,
+		vca.clusterConfig,
 	)
 	if err != nil {
 		panic(err)
