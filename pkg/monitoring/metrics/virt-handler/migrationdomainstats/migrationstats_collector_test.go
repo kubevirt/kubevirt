@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("migration metrics", func() {
 	BeforeEach(func() {
-		_ = SetupMigrationStatsCollector("", nil, nil, nil)
+		Expect(SetupMigrationStatsCollector("", nil, nil, nil)).To(Succeed())
 	})
 
 	It("should register the last downtime gauge", func() {

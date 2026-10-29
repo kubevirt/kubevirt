@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 )
 
+// DomainDirtyRateStatsCollector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
 var DomainDirtyRateStatsCollector operatormetrics.Collector
 
 func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {

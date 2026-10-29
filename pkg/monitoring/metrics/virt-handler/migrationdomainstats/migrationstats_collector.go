@@ -29,6 +29,7 @@ import (
 var (
 	migrationdomainstatsHandler *handler
 
+	// MigrationStatsCollector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
 	MigrationStatsCollector operatormetrics.Collector
 
 	migrateVMIDataTotal = operatormetrics.NewCounter(
