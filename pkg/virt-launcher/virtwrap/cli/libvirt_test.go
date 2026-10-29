@@ -109,5 +109,19 @@ var _ = Describe("Libvirt Suite", func() {
 			Expect(kept).To(Receive(Equal(libvirt.DOMAIN_EVENT_SUSPENDED)))
 			Expect(deregistered).To(BeEmpty())
 		})
+
+		It("should keep a connection that is still alive after a failed call", func() {
+			Expect(libvirt.EventRegisterDefaultImpl()).To(Succeed())
+
+			conn, err := NewConnection("test:///default", "", "", time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(conn.Close)
+
+			lvConn := conn.(*LibvirtConnection)
+			previous := lvConn.Connect
+			_, err = conn.LookupDomainByName("missing")
+			Expect(err).To(HaveOccurred())
+			Expect(lvConn.current()).To(BeIdenticalTo(previous))
+		})
 	})
 })
