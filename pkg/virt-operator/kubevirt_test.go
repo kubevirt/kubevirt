@@ -1489,9 +1489,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		all = append(all, secret)
 	}
 
-	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
+	userName := components.ServiceAccountUsername(config.GetNamespace(), components.HandlerServiceAccountName)
 	all = append(all, vap.NewHandlerV1ValidatingAdmissionPolicy(userName), vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
-	controllerUser := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.ControllerServiceAccountName)
+	controllerUser := components.ServiceAccountUsername(config.GetNamespace(), components.ControllerServiceAccountName)
 	all = append(all, vap.NewHostDevicesValidatingAdmissionPolicy(controllerUser), vap.NewHostDevicesValidatingAdmissionPolicyBinding(config.GetNamespace()))
 	if config.PluginsEnabled() {
 		all = append(all, vap.NewSidecarSubPathValidatingAdmissionPolicy(), vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())

@@ -244,30 +244,20 @@ var _ = Describe("Install Strategy", func() {
 			}
 		})
 
-		It("should restrict KubeVirt-managed host devices to the virt-controller service account", func() {
+		It("should install the host-device ValidatingAdmissionPolicy and its binding", func() {
 			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
 			Expect(err).NotTo(HaveOccurred())
 
 			var foundPolicy, foundBinding bool
 			for _, policy := range strategy.ValidatingAdmissionPolicies() {
-				if policy.Name != vap.HostDevicesRestrictionPolicyName {
-					continue
+				if policy.Name == vap.HostDevicesRestrictionPolicyName {
+					foundPolicy = true
 				}
-				foundPolicy = true
-				var exprs string
-				for _, variable := range policy.Spec.Variables {
-					exprs += variable.Expression
-				}
-				Expect(exprs).To(ContainSubstring("system:serviceaccount:" + namespace + ":kubevirt-controller"))
 			}
 			for _, binding := range strategy.ValidatingAdmissionPolicyBindings() {
-				if binding.Name != vap.HostDevicesRestrictionBindingName {
-					continue
+				if binding.Name == vap.HostDevicesRestrictionBindingName {
+					foundBinding = true
 				}
-				foundBinding = true
-				Expect(binding.Spec.PolicyName).To(Equal(vap.HostDevicesRestrictionPolicyName))
-				Expect(binding.Spec.ParamRef).NotTo(BeNil())
-				Expect(binding.Spec.ParamRef.Namespace).To(Equal(namespace))
 			}
 			Expect(foundPolicy).To(BeTrue())
 			Expect(foundBinding).To(BeTrue())

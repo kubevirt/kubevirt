@@ -64,6 +64,7 @@ func (in admissionInput) activation(vars map[string]interface{}) map[string]inte
 
 func evalCELValue(expression string, in admissionInput, vars map[string]interface{}) interface{} {
 	env, err := cel.NewEnv(
+		cel.OptionalTypes(),
 		cel.Variable("object", cel.DynType),
 		cel.Variable("oldObject", cel.DynType),
 		cel.Variable("params", cel.DynType),

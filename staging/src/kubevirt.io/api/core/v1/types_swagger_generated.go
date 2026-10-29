@@ -1180,7 +1180,7 @@ func (LogVerbosity) SwaggerDoc() map[string]string {
 
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "PermittedHostDevices holds information about devices allowed for passthrough",
+		"":                "PermittedHostDevices holds information about devices allowed for passthrough.\n\nvirt-handler exposes each entry as a device plugin. An entry that does not\nset externalResourceProvider can be allocated only by virt-controller.",
 		"pciHostDevices":  "+listType=atomic",
 		"mediatedDevices": "+listType=atomic",
 		"usb":             "+listType=atomic",

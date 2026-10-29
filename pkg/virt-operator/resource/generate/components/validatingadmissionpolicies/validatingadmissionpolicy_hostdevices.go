@@ -21,7 +21,6 @@ package validatingadmissionpolicies
 
 import (
 	"fmt"
-	"strings"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,6 +46,49 @@ const (
 	managedHostDeviceResourcesVar = "managedHostDeviceResources"
 )
 
+// managedHostDeviceNamesExpr lists the device-plugin resources virt-handler
+// registers from KubeVirt.spec.configuration.permittedHostDevices.
+//
+// Keep this in sync with every JSON field of v1.PermittedHostDevices. A new
+// device category that is missing here is still registered by virt-handler and
+// becomes allocatable by any pod. The element types differ, so each field is
+// mapped on its own before the lists are concatenated. The unit test walks the
+// struct and fails when a JSON name is absent from this expression.
+//
+// externalResourceProvider devices are excluded: another plugin owns them.
+// Feature-gated plugins that virt-handler registers outside permittedHostDevices
+// (sev, vhost-vsock, the TDX-QGS socket, iommufd, and the persistent-reservation
+// helper) are not listed here.
+const managedHostDeviceNamesExpr = `
+	params.spec.?configuration.?permittedHostDevices.?pciHostDevices.orValue([]).filter(d,
+		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)
+	+ params.spec.?configuration.?permittedHostDevices.?mediatedDevices.orValue([]).filter(d,
+		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)
+	+ params.spec.?configuration.?permittedHostDevices.?usb.orValue([]).filter(d,
+		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)`
+
+// podRequestsExtendedResourceExpr matches a pod whose container or init-container
+// limits name an extended resource. Pod.spec is required, so it is not guarded
+// with has(). Init containers are optional. Ephemeral containers cannot be set
+// on pod create and cannot carry resources, and this policy matches only CREATE.
+//
+// Only limits are checked. An extended resource must set a limit equal to its
+// request, and the apiserver copies limits into requests before validating
+// admission. A request without a limit is rejected by API validation.
+const podRequestsExtendedResourceExpr = `
+	object.spec.containers.exists(c, has(c.resources) && has(c.resources.limits) &&
+		c.resources.limits.exists(k, k.contains("/")))
+	|| object.spec.?initContainers.orValue([]).exists(c, has(c.resources) && has(c.resources.limits) &&
+		c.resources.limits.exists(k, k.contains("/")))`
+
+// podRequestsManagedHostDeviceExpr matches a pod whose container or init-container
+// limits name a resource from managedHostDeviceNamesExpr.
+const podRequestsManagedHostDeviceExpr = `
+	object.spec.containers.exists(c, has(c.resources) && has(c.resources.limits) &&
+		c.resources.limits.exists(k, k in variables.managedHostDeviceResources))
+	|| object.spec.?initContainers.orValue([]).exists(c, has(c.resources) && has(c.resources.limits) &&
+		c.resources.limits.exists(k, k in variables.managedHostDeviceResources))`
+
 // NewHostDevicesValidatingAdmissionPolicy denies pods that request a host device
 // virt-handler itself exposes, unless virt-controller is creating the pod.
 //
@@ -56,8 +98,9 @@ const (
 // created, so the check runs on CREATE only and does not interfere with later
 // annotation or label updates. Devices with externalResourceProvider are left
 // alone: KubeVirt does not own that device plugin, and other workloads may
-// legitimately request it. Containers, init containers, and ephemeral
-// containers are all checked.
+// legitimately request it. Container and init-container limits are checked.
+// Requests are already defaulted from those limits, and ephemeral containers
+// cannot be set on create or carry resources.
 //
 // virtControllerServiceAccount is the full username, for example
 // system:serviceaccount:kubevirt:kubevirt-controller.
@@ -84,17 +127,13 @@ func NewHostDevicesValidatingAdmissionPolicy(virtControllerServiceAccount string
 			MatchConditions: []admissionregistrationv1.MatchCondition{
 				{
 					Name:       "pod-requests-extended-resource",
-					Expression: podRequestsExtendedResourceExpr(),
+					Expression: podRequestsExtendedResourceExpr,
 				},
 			},
 			Variables: []admissionregistrationv1.Variable{
 				{
 					Name:       managedHostDeviceResourcesVar,
-					Expression: managedHostDeviceNamesExpr(),
-				},
-				{
-					Name:       "requestsManagedHostDevice",
-					Expression: podRequestsResourceExpr("variables." + managedHostDeviceResourcesVar),
+					Expression: managedHostDeviceNamesExpr,
 				},
 				{
 					Name:       "isVirtController",
@@ -103,7 +142,7 @@ func NewHostDevicesValidatingAdmissionPolicy(virtControllerServiceAccount string
 			},
 			Validations: []admissionregistrationv1.Validation{
 				{
-					Expression: `!variables.requestsManagedHostDevice || variables.isVirtController`,
+					Expression: "!(" + podRequestsManagedHostDeviceExpr + ") || variables.isVirtController",
 					Message:    HostDevicesRestrictionErr,
 					Reason:     pointer.P(metav1.StatusReasonForbidden),
 				},
@@ -162,50 +201,4 @@ func hostDevicePodRules() []admissionregistrationv1.NamedRuleWithOperations {
 			},
 		},
 	}
-}
-
-// managedHostDeviceNamesExpr is the resource names virt-handler registers from
-// v1.PermittedHostDevices. Every JSON field of that struct belongs in fields.
-// externalResourceProvider entries are excluded because another device plugin owns them.
-//
-// Feature-gated plugins that virt-handler registers outside permittedHostDevices
-// (sev, vhost-vsock, the TDX-QGS socket, iommufd, and the persistent-reservation
-// helper) are not listed here.
-func managedHostDeviceNamesExpr() string {
-	// Keep in sync with the JSON fields of v1.PermittedHostDevices.
-	fields := []string{"pciHostDevices", "mediatedDevices", "usb"}
-	parts := make([]string, 0, len(fields))
-	for _, field := range fields {
-		parts = append(parts, fmt.Sprintf(`(has(params.spec) && has(params.spec.configuration) && has(params.spec.configuration.permittedHostDevices) && has(params.spec.configuration.permittedHostDevices.%[1]s) ? params.spec.configuration.permittedHostDevices.%[1]s.filter(d, has(d.resourceName) && d.resourceName != "" && (!has(d.externalResourceProvider) || !d.externalResourceProvider)).map(d, d.resourceName) : [])`, field))
-	}
-	return "(" + strings.Join(parts, " + ") + ")"
-}
-
-func podRequestsExtendedResourceExpr() string {
-	return podRequestsKeyExpr(`k.contains("/")`)
-}
-
-func podRequestsResourceExpr(resourceNamesExpr string) string {
-	return podRequestsKeyExpr(fmt.Sprintf("k in (%s)", resourceNamesExpr))
-}
-
-func podRequestsKeyExpr(keyTest string) string {
-	fields := []string{"containers", "initContainers", "ephemeralContainers"}
-	parts := make([]string, 0, len(fields))
-	for _, field := range fields {
-		parts = append(parts, fmt.Sprintf(
-			`(has(object.spec.%[1]s) && object.spec.%[1]s.exists(c, %[2]s))`,
-			field,
-			containerUsesKey("c", keyTest),
-		))
-	}
-	return `(has(object.spec) && (` + strings.Join(parts, " || ") + `))`
-}
-
-func containerUsesKey(container, keyTest string) string {
-	return fmt.Sprintf(
-		`(has(%[1]s.resources) && ((has(%[1]s.resources.requests) && %[1]s.resources.requests.exists(k, %[2]s)) || (has(%[1]s.resources.limits) && %[1]s.resources.limits.exists(k, %[2]s))))`,
-		container,
-		keyTest,
-	)
 }

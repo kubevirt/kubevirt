@@ -153,15 +153,19 @@ var _ = Describe("Host device ValidatingAdmissionPolicy", func() {
 			permittedUSB,
 		),
 		Entry("hypervisor device plugin resources used by virt-launcher and virtctl guestfs",
-			podWithResources(resourceList(kvmResource, "1"), nil),
+			podWithResources(nil, resourceList(kvmResource, "1")),
 			permittedUSB,
 		),
 		Entry("a host-device resource that is not declared on the KubeVirt CR",
-			podWithResources(resourceList(usbResource, "1"), nil),
+			podWithResources(nil, resourceList(usbResource, "1")),
 			v1.KubeVirtConfiguration{},
 		),
+		Entry("an extended resource set only in requests, which API validation rejects before this policy runs",
+			podWithResources(resourceList(usbResource, "1"), nil),
+			permittedUSB,
+		),
 		Entry("a device left to an external device plugin",
-			podWithResources(resourceList(gpuResource, "1"), nil),
+			podWithResources(nil, resourceList(gpuResource, "1")),
 			v1.KubeVirtConfiguration{
 				PermittedHostDevices: &v1.PermittedHostDevices{
 					PciHostDevices: []v1.PciHostDevice{{
@@ -179,37 +183,25 @@ var _ = Describe("Host device ValidatingAdmissionPolicy", func() {
 			err := admitHostDevice(pod, permittedUSB, otherUser)
 			Expect(err).To(MatchError(ContainSubstring(vap.HostDevicesRestrictionErr)))
 		},
-		Entry("usb in requests", podWithResources(resourceList(usbResource, "1"), nil)),
-		Entry("pci device in requests", podWithResources(resourceList(gpuResource, "1"), nil)),
-		Entry("mediated device in requests", podWithResources(resourceList(mdevResource, "1"), nil)),
-		Entry("usb in limits only", podWithResources(nil, resourceList(usbResource, "1"))),
+		Entry("usb", podWithResources(nil, resourceList(usbResource, "1"))),
+		Entry("pci device", podWithResources(nil, resourceList(gpuResource, "1"))),
+		Entry("mediated device", podWithResources(nil, resourceList(mdevResource, "1"))),
 		Entry("usb in an init container", func() *corev1.Pod {
 			pod := podWithResources(nil, nil)
 			pod.Spec.InitContainers = []corev1.Container{{
 				Name:      "init",
 				Image:     "registry.k8s.io/pause:3.10",
-				Resources: corev1.ResourceRequirements{Requests: resourceList(usbResource, "1")},
-			}}
-			return pod
-		}()),
-		Entry("usb in an ephemeral container", func() *corev1.Pod {
-			pod := podWithResources(nil, nil)
-			pod.Spec.EphemeralContainers = []corev1.EphemeralContainer{{
-				EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-					Name:      "debug",
-					Image:     "registry.k8s.io/pause:3.10",
-					Resources: corev1.ResourceRequirements{Requests: resourceList(usbResource, "1")},
-				},
+				Resources: corev1.ResourceRequirements{Limits: resourceList(usbResource, "1")},
 			}}
 			return pod
 		}()),
 	)
 
 	It("should allow virt-controller to create a pod that requests the host device", func() {
-		pod := podWithResources(corev1.ResourceList{
+		pod := podWithResources(nil, corev1.ResourceList{
 			corev1.ResourceName(kvmResource): resource.MustParse("1"),
 			corev1.ResourceName(usbResource): resource.MustParse("1"),
-		}, nil)
+		})
 		Expect(admitHostDevice(pod, permittedUSB, controllerUser)).To(Succeed())
 	})
 
@@ -229,7 +221,7 @@ var _ = Describe("Host device ValidatingAdmissionPolicy", func() {
 			field := deviceType.Field(i)
 			jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
 			Expect(jsonName).NotTo(BeEmpty(), "PermittedHostDevices.%s needs a JSON name", field.Name)
-			Expect(expr).To(ContainSubstring("permittedHostDevices."+jsonName),
+			Expect(expr).To(ContainSubstring("permittedHostDevices.?"+jsonName),
 				"add %s to managedHostDeviceNamesExpr or this device category stays allocatable by any pod", field.Name)
 		}
 	})
@@ -254,7 +246,7 @@ var _ = Describe("Host device ValidatingAdmissionPolicy", func() {
 				}},
 			},
 		}
-		Expect(admitHostDevice(podWithResources(resourceList(usbResource, "1"), nil), cfg, otherUser)).To(Succeed())
-		Expect(admitHostDevice(podWithResources(resourceList("intel.com/qat", "1"), nil), cfg, otherUser)).NotTo(Succeed())
+		Expect(admitHostDevice(podWithResources(nil, resourceList(usbResource, "1")), cfg, otherUser)).To(Succeed())
+		Expect(admitHostDevice(podWithResources(nil, resourceList("intel.com/qat", "1")), cfg, otherUser)).NotTo(Succeed())
 	})
 })
