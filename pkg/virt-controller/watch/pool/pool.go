@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -217,6 +218,20 @@ func (c *Controller) addVMIHandler(obj interface{}) {
 }
 
 func (c *Controller) updateVMIHandler(old, cur interface{}) {
+	oldVMI := old.(*virtv1.VirtualMachineInstance)
+	curVMI := cur.(*virtv1.VirtualMachineInstance)
+	if oldVMI.ResourceVersion == curVMI.ResourceVersion {
+		return
+	}
+
+	if pool := c.getVMPoolFromVMI(curVMI); pool != "" {
+		if oldVMI.Status.Phase != virtv1.Running && curVMI.Status.Phase == virtv1.Running {
+			virtcontroller.RecordVMPoolVMStarted(pool, curVMI.Namespace)
+		} else if oldVMI.Status.Phase == virtv1.Running && curVMI.Status.Phase != virtv1.Running {
+			virtcontroller.RecordVMPoolVMStopped(pool, curVMI.Namespace)
+		}
+	}
+
 	c.addVMIHandler(cur)
 }
 
@@ -1981,7 +1996,16 @@ func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
 func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
 	vmsToCleanup := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
 
-	return c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup))
+	if len(vmsToCleanup) == 0 {
+		return nil
+	}
+
+	if err := c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup)); err != nil {
+		return err
+	}
+
+	virtcontroller.RecordVMPoolAutoHealingOperation(pool.Name, pool.Namespace)
+	return nil
 }
 
 func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) []*virtv1.VirtualMachine {
@@ -2104,4 +2128,18 @@ func preserveVMIdentityFields(originalVM, updatedVM *virtv1.VirtualMachine) {
 			updatedSpec.Domain.Firmware.Serial = originalSpec.Domain.Firmware.Serial
 		}
 	}
+}
+
+func (c *Controller) getVMPoolFromVMI(vmi *virtv1.VirtualMachineInstance) string {
+	vmRef := metav1.GetControllerOf(vmi)
+	if vmRef != nil {
+		if vm := c.resolveVMIControllerRef(vmi.Namespace, vmRef); vm != nil {
+			if poolRef := metav1.GetControllerOf(vm); poolRef != nil {
+				if pool := c.resolveControllerRef(vm.Namespace, poolRef); pool != nil {
+					return pool.Name
+				}
+			}
+		}
+	}
+	return ""
 }
