@@ -50,29 +50,28 @@ type requirementsChecker interface {
 	) (conflict.Conflicts, error)
 }
 
-type applyVMIHandler interface {
-	ApplyToVMI(
+type applyTemplateHandler interface {
+	ApplyToTemplate(
 		*k8sfield.Path,
 		*v1beta1.VirtualMachineInstancetypeSpec,
 		*v1beta1.VirtualMachinePreferenceSpec,
-		*virtv1.VirtualMachineInstanceSpec,
-		*metav1.ObjectMeta,
+		*virtv1.VirtualMachineInstanceTemplateSpec,
 	) conflict.Conflicts
 }
 
 type admitter struct {
 	instancetypeFinder
 	preferenceFinder
-	applyVMIHandler
+	applyTemplateHandler
 	requirementsChecker
 }
 
 func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
 	return &admitter{
-		instancetypeFinder:  find.NewSpecFinder(nil, nil, nil, virtClient),
-		preferenceFinder:    preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
-		requirementsChecker: requirements.New(),
-		applyVMIHandler:     apply.NewVMIApplier(),
+		instancetypeFinder:   find.NewSpecFinder(nil, nil, nil, virtClient),
+		preferenceFinder:     preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
+		requirementsChecker:  requirements.New(),
+		applyTemplateHandler: apply.NewVM(),
 	}
 }
 
@@ -101,12 +100,11 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		return nil, nil, spreadConflict.StatusCauses()
 	}
 
-	conflicts := a.ApplyToVMI(
+	conflicts := a.ApplyToTemplate(
 		k8sfield.NewPath("spec", "template", "spec"),
 		instancetypeSpec,
 		preferenceSpec,
-		&vm.Spec.Template.Spec,
-		&vm.Spec.Template.ObjectMeta,
+		vm.Spec.Template,
 	)
 
 	if len(conflicts) > 0 {

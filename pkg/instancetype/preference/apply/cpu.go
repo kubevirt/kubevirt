@@ -19,12 +19,20 @@
 package apply
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-func applyCPUPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
+type cpuPreferences struct{}
+
+func (cpuPreferences) Apply(
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
+) {
+	if preferenceSpec == nil || preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
 		return
 	}
 	// Only apply any preferred CPU features when the same feature has not been provided by a user already
