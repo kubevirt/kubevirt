@@ -46,7 +46,11 @@ type startPhase int
 
 const (
 	startIdle startPhase = iota
-	startRunning
+	// startWaiting is handed off but has not entered SyncVMI yet.
+	// A delete may cancel it.
+	startWaiting
+	// startExecuting is inside SyncVMI. A delete must wait for it.
+	startExecuting
 	startSucceeded
 	startFailed
 )
@@ -73,18 +77,59 @@ func (t *vmStartTracker) inProgress(uid string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	rec := t.byUID[uid]
-	return rec != nil && rec.phase == startRunning
+	return rec != nil && (rec.phase == startWaiting || rec.phase == startExecuting)
 }
 
-// begin marks uid as running. It returns false when a start for uid is already running.
+// begin marks uid as waiting for a pool slot. It returns false when a start
+// for uid is already waiting or executing.
 func (t *vmStartTracker) begin(uid string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if rec := t.byUID[uid]; rec != nil && rec.phase == startRunning {
+	if rec := t.byUID[uid]; rec != nil && (rec.phase == startWaiting || rec.phase == startExecuting) {
 		return false
 	}
-	t.byUID[uid] = &startRecord{phase: startRunning}
+	t.byUID[uid] = &startRecord{phase: startWaiting}
 	return true
+}
+
+// beginExecution promotes a waiting start to SyncVMI.
+// It returns false when the start was cancelled or is no longer waiting.
+func (t *vmStartTracker) beginExecution(uid string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	rec := t.byUID[uid]
+	if rec == nil || rec.phase != startWaiting {
+		return false
+	}
+	rec.phase = startExecuting
+	return true
+}
+
+// cancelWaiting drops a start that has not entered SyncVMI.
+// It returns false when SyncVMI is already running and the caller must wait.
+func (t *vmStartTracker) cancelWaiting(uid string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	rec := t.byUID[uid]
+	if rec == nil || (rec.phase != startWaiting && rec.phase != startExecuting) {
+		return true
+	}
+	if rec.phase == startExecuting {
+		return false
+	}
+	delete(t.byUID, uid)
+	return true
+}
+
+// drop forgets a start that took a slot and then found the VMI should not start.
+func (t *vmStartTracker) drop(uid string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	rec := t.byUID[uid]
+	if rec == nil || (rec.phase != startWaiting && rec.phase != startExecuting) {
+		return
+	}
+	delete(t.byUID, uid)
 }
 
 func (t *vmStartTracker) finish(uid string, err error, now time.Time) {

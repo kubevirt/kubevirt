@@ -1510,10 +1510,12 @@ func (c *VirtualMachineController) sync(key string,
 
 	var syncErr error
 
-	// A start running in the pool still owns the launcher client. Deleting or
-	// shutting the domain down from this worker would race that SyncVMI.
-	if vmi.UID != "" && c.vmStarts.inProgress(string(vmi.UID)) && (shouldShutdown || shouldDelete || forceShutdownIrrecoverable) {
-		c.logger.Object(vmi).V(3).Info("Deferring shutdown while VM start is still in progress")
+	// A start that is only waiting for a pool slot is cancelled so delete can
+	// proceed. A start already inside SyncVMI still owns the launcher client,
+	// so shutdown waits until that RPC returns.
+	if vmi.UID != "" && (shouldShutdown || shouldDelete || forceShutdownIrrecoverable) &&
+		!c.vmStarts.cancelWaiting(string(vmi.UID)) {
+		c.logger.Object(vmi).V(3).Info("Deferring shutdown while VM start is inside SyncVMI")
 		c.queue.AddAfter(key, vmStartShutdownRetry)
 		return nil
 	}
@@ -1573,7 +1575,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	c.logger.Object(vmi).Infof("Performing final local cleanup for vmi with uid %s", vmiId)
 	c.lastSeenPanicCount.Delete(vmiId)
-	if !c.vmStarts.inProgress(vmiId) {
+	if c.vmStarts.cancelWaiting(vmiId) {
 		c.vmStarts.clear(vmiId)
 	}
 
@@ -2275,7 +2277,6 @@ func (c *VirtualMachineController) handOffVMStart(vmi *v1.VirtualMachineInstance
 	}
 
 	key := controller.VirtualMachineInstanceKey(vmi)
-	vmiCopy := vmi.DeepCopy()
 	var domainCopy *api.Domain
 	if domain != nil {
 		domainCopy = domain.DeepCopy()
@@ -2283,11 +2284,24 @@ func (c *VirtualMachineController) handOffVMStart(vmi *v1.VirtualMachineInstance
 	requeue := c.startLauncher.Async()
 	c.logger.Object(vmi).V(3).Info("Handing VM start off the reconcile worker")
 	c.startLauncher.Run(func() {
-		err := c.runVMStart(vmiCopy, domainCopy, requeue)
-		c.vmStarts.finish(uid, err, c.now())
-		if requeue {
-			c.queue.Add(key)
+		defer func() {
+			if requeue {
+				c.queue.Add(key)
+			}
+		}()
+		// The slot may have been taken long after handoff. A delete in that
+		// window cancels the waiting record; a delete after this point is
+		// visible on the live VMI and must not SyncVMI the stale copy.
+		if !c.vmStarts.beginExecution(uid) {
+			return
 		}
+		live := c.currentStartVMI(key, uid)
+		if live == nil {
+			c.vmStarts.drop(uid)
+			return
+		}
+		err := c.runVMStart(live, domainCopy, requeue)
+		c.vmStarts.finish(uid, err, c.now())
 	})
 	if requeue {
 		return nil
@@ -2297,6 +2311,21 @@ func (c *VirtualMachineController) handOffVMStart(vmi *v1.VirtualMachineInstance
 	}
 	c.vmStarts.clear(uid)
 	return nil
+}
+
+// currentStartVMI returns a copy of the VMI when it still needs a cold start.
+// A deleted, final, running, or replaced VMI returns nil so a queued start
+// does not SyncVMI a stale copy.
+func (c *VirtualMachineController) currentStartVMI(key, uid string) *v1.VirtualMachineInstance {
+	obj, exists, err := c.vmiStore.GetByKey(key)
+	if err != nil || !exists {
+		return nil
+	}
+	live, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok || string(live.UID) != uid || !domainNeedsAsyncStart(live, nil) {
+		return nil
+	}
+	return live.DeepCopy()
 }
 
 func (c *VirtualMachineController) runVMStart(vmi *v1.VirtualMachineInstance, domain *api.Domain, recoverPanic bool) (err error) {

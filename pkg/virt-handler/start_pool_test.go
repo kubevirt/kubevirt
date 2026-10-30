@@ -39,6 +39,24 @@ var _ = Describe("vm start tracker", func() {
 		Expect(tracker.inProgress("uid")).To(BeTrue())
 	})
 
+	It("cancels a start that is still waiting for a pool slot", func() {
+		tracker := newVMStartTracker()
+		Expect(tracker.begin("uid")).To(BeTrue())
+
+		Expect(tracker.cancelWaiting("uid")).To(BeTrue())
+		Expect(tracker.inProgress("uid")).To(BeFalse())
+		Expect(tracker.beginExecution("uid")).To(BeFalse())
+	})
+
+	It("refuses to cancel a start that has entered SyncVMI", func() {
+		tracker := newVMStartTracker()
+		Expect(tracker.begin("uid")).To(BeTrue())
+		Expect(tracker.beginExecution("uid")).To(BeTrue())
+
+		Expect(tracker.cancelWaiting("uid")).To(BeFalse())
+		Expect(tracker.inProgress("uid")).To(BeTrue())
+	})
+
 	It("surfaces a start error once and then allows another begin", func() {
 		tracker := newVMStartTracker()
 		Expect(tracker.begin("uid")).To(BeTrue())
