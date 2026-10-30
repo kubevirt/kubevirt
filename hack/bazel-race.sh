@@ -11,7 +11,6 @@ bazel run \
     //pkg/...:* \
     //cmd/...:* \
     //tools/util/...:* \
-    //tools/cache/...:* \
     //tests/framework/...:*
 
 bazel run \
