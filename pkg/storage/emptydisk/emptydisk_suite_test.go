@@ -17,7 +17,7 @@
  *
  */
 
-package emptydisk
+package emptydisk_test
 
 import (
 	"testing"

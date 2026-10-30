@@ -17,7 +17,7 @@
  *
  */
 
-package emptydisk
+package emptydisk_test
 
 import (
 	"os"
@@ -28,21 +28,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/storage/emptydisk"
 )
 
 var _ = Describe("EmptyDisk", func() {
 
 	var emptyDiskBaseDir string
-	var creator *emptyDiskCreator
 
 	BeforeEach(func() {
 		var err error
 		emptyDiskBaseDir, err = os.MkdirTemp("", "emptydisk-dir")
 		Expect(err).ToNot(HaveOccurred())
-		creator = &emptyDiskCreator{
-			emptyDiskBaseDir: emptyDiskBaseDir,
-			discCreateFunc:   fakeCreatorFunc,
-		}
 	})
 	AfterEach(func() {
 		Expect(os.RemoveAll(emptyDiskBaseDir)).To(Succeed())
@@ -54,9 +50,10 @@ var _ = Describe("EmptyDisk", func() {
 				libvmi.WithEmptyDisk("testdisk", "", resource.MustParse("3Gi")),
 			)
 
+			creator := emptydisk.NewTestEmptyDiskCreator(emptyDiskBaseDir, fakeCreatorFunc)
 			err := creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
+			_, err = os.Stat(creator.FilePathForVolumeName("testdisk"))
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.Stat(path.Join(emptyDiskBaseDir, "testdisk.qcow2"))
 			Expect(err).ToNot(HaveOccurred())
@@ -66,26 +63,28 @@ var _ = Describe("EmptyDisk", func() {
 				libvmi.WithEmptyDisk("testdisk", "", resource.MustParse("3Gi")),
 			)
 
+			creator := emptydisk.NewTestEmptyDiskCreator(emptyDiskBaseDir, fakeCreatorFunc)
 			err := creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
+			_, err = os.Stat(creator.FilePathForVolumeName("testdisk"))
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.Stat(path.Join(emptyDiskBaseDir, "testdisk.qcow2"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should generate non-conflicting volume paths per disk", func() {
-			Expect(NewEmptyDiskCreator().FilePathForVolumeName("volume1")).ToNot(Equal(NewEmptyDiskCreator().FilePathForVolumeName("volume2")))
+			Expect(emptydisk.NewEmptyDiskCreator().FilePathForVolumeName("volume1")).ToNot(Equal(emptydisk.NewEmptyDiskCreator().FilePathForVolumeName("volume2")))
 		})
 		It("should leave pre-existing disks alone", func() {
 			vmi := libvmi.New(
 				libvmi.WithEmptyDisk("testdisk", "", resource.MustParse("3Gi")),
 			)
 
-			err := os.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
+			err := os.WriteFile(path.Join(emptyDiskBaseDir, "testdisk.qcow2"), []byte("test"), 0777)
 			Expect(err).ToNot(HaveOccurred())
+			creator := emptydisk.NewTestEmptyDiskCreator(emptyDiskBaseDir, fakeCreatorFunc)
 			err = creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			data, err := os.ReadFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"))
+			data, err := os.ReadFile(path.Join(emptyDiskBaseDir, "testdisk.qcow2"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(data)).To(Equal("test"))
 		})
