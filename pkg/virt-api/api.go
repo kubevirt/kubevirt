@@ -93,6 +93,11 @@ const (
 	defaultHandlerCertFilePath = "/etc/virt-handler/clientcertificates/tls.crt"
 	defaultHandlerKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 
+	// defaultReadHeaderTimeout sets the maximum duration for reading request headers.
+	// 10 seconds provides sufficient margin for network latency under load across
+	// Kubernetes clusters while mitigating Slowloris denial of service attacks (CWE-400 / G112).
+	defaultReadHeaderTimeout = 10 * time.Second
+
 	httpStatusNotFoundMessage     = "Not Found"
 	httpStatusBadRequestMessage   = "Bad Request"
 	httpStatusInternalServerError = "Internal Server Error"
@@ -1115,6 +1120,17 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirt
 	app.handlerTLSConfiguration = kvtls.SetupTLSForVirtHandlerClients(kubevirtCAManager, app.handlerCertManager, app.externallyManaged)
 }
 
+func (app *virtAPIApp) createHTTPServer() *http.Server {
+	return &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
+		TLSConfig:         app.tlsConfig,
+		ReadHeaderTimeout: defaultReadHeaderTimeout,
+		// Disable HTTP/2
+		// See CVE-2023-44487
+		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+	}
+}
+
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) error {
 
 	errors := make(chan error)
@@ -1137,13 +1153,7 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) 
 	app.Compose()
 
 	http.Handle("/metrics", promhttp.Handler())
-	server := &http.Server{
-		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
-		TLSConfig: app.tlsConfig,
-		// Disable HTTP/2
-		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
-	}
+	server := app.createHTTPServer()
 
 	// start TLS server
 	go func() {
