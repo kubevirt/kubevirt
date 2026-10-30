@@ -727,38 +727,44 @@ func (vca *VirtControllerApp) initCommon() {
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController, err = vmi.NewController(
-		workqueue.NewTypedRateLimitingQueueWithConfig(
+	vca.vmiController, err = vmi.NewController(vmi.ControllerConfig{
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
 		),
-		vca.templateService,
-		vca.vmiInformer,
-		vca.vmInformer,
-		vca.kvPodInformer,
-		vca.persistentVolumeClaimInformer,
-		vca.migrationInformer,
-		vca.storageClassInformer,
-		vca.vmiRecorder,
-		vca.clientSet,
-		vca.dataVolumeInformer,
-		vca.storageProfileInformer,
-		vca.cdiInformer,
-		vca.cdiConfigInformer,
-		vca.kubeVirtInformer,
-		vca.clusterConfig,
-		topologyHinter,
-		netAnnotationsGenerator,
-		storageAnnotationsGenerator,
-		netcontrollers.NewVMIStatusUpdater(vca.clusterConfig),
-		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
-			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
+		Client:          vca.clientSet,
+		Recorder:        vca.vmiRecorder,
+		ClusterConfig:   vca.clusterConfig,
+		TemplateService: vca.templateService,
+		Informers: vmi.Informers{
+			VMI:            vca.vmiInformer,
+			VM:             vca.vmInformer,
+			Pod:            vca.kvPodInformer,
+			PVC:            vca.persistentVolumeClaimInformer,
+			Migration:      vca.migrationInformer,
+			StorageClass:   vca.storageClassInformer,
+			DataVolume:     vca.dataVolumeInformer,
+			StorageProfile: vca.storageProfileInformer,
+			CDI:            vca.cdiInformer,
+			CDIConfig:      vca.cdiConfigInformer,
+			KubeVirt:       vca.kubeVirtInformer,
 		},
-		netmigration.NewEvaluator(),
-		vsock.NewCIDsMap(),
-		vca.additionalLauncherAnnotationsSync,
-		vca.additionalLauncherLabelsSync,
-	)
+		Network: vmi.NetworkDependencies{
+			AnnotationsGenerator: netAnnotationsGenerator,
+			StatusUpdater:        netcontrollers.NewVMIStatusUpdater(vca.clusterConfig),
+			SpecValidator: func(
+				field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig,
+			) []metav1.StatusCause {
+				return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
+			},
+			MigrationEvaluator: netmigration.NewEvaluator(),
+		},
+		StorageAnnotationsGenerator:       storageAnnotationsGenerator,
+		TopologyHinter:                    topologyHinter,
+		VsockAllocator:                    vsock.NewCIDsMap(),
+		AdditionalLauncherAnnotationsSync: vca.additionalLauncherAnnotationsSync,
+		AdditionalLauncherLabelsSync:      vca.additionalLauncherLabelsSync,
+	})
 	if err != nil {
 		panic(err)
 	}
