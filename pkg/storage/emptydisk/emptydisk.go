@@ -88,10 +88,16 @@ func createQCOW(file string, size string) error {
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 
+// NewEmptyDiskCreator uses the virt-launcher empty disk directory.
 func NewEmptyDiskCreator() *emptyDiskCreator {
+	return NewEmptyDiskCreatorWith(emptyDiskBaseDir, createQCOW)
+}
+
+// NewEmptyDiskCreatorWith uses a custom directory and disk creation function.
+func NewEmptyDiskCreatorWith(directory string, discCreateFunc func(filePath string, size string) error) *emptyDiskCreator {
 	return &emptyDiskCreator{
-		emptyDiskBaseDir: emptyDiskBaseDir,
-		discCreateFunc:   createQCOW,
+		emptyDiskBaseDir: directory,
+		discCreateFunc:   discCreateFunc,
 	}
 }
 
