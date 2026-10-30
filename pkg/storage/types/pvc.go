@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -249,6 +250,42 @@ func VolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolum
 		return false, false, PvcNotFoundError{Reason: fmt.Sprintf("didn't find PVC %v", name)}
 	}
 	return ready, wffc, nil
+}
+
+func HotplugVolumeReadyToAttachToNode(namespace string, volume virtv1.Volume, dataVolumes []*cdiv1.DataVolume, dataVolumeStore, pvcStore, storageClassStore cache.Store) (bool, bool, error) {
+	ready, wffc, err := VolumeReadyToAttachToNode(namespace, volume, dataVolumes, dataVolumeStore, pvcStore)
+	if err != nil || !ready {
+		return ready, wffc, err
+	}
+	pvc, err := GetPersistentVolumeClaimFromCache(namespace, PVCNameFromVirtVolume(&volume), pvcStore)
+	if err != nil || pvc == nil {
+		return false, false, err
+	}
+	if owner := metav1.GetControllerOf(pvc); owner != nil && owner.Kind == "DataVolume" {
+		return true, false, nil
+	}
+	// The shared attachment pod can't schedule with an unbound claim. WFFC is the exception,
+	// since the attachment pod is what binds it.
+	switch pvc.Status.Phase {
+	case k8sv1.ClaimBound:
+		return true, false, nil
+	case k8sv1.ClaimPending:
+		ready, err := isWFFC(pvc, storageClassStore)
+		return ready, false, err
+	}
+	return false, false, nil
+}
+
+func isWFFC(pvc *k8sv1.PersistentVolumeClaim, storageClassStore cache.Store) (bool, error) {
+	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
+		return false, nil
+	}
+	obj, exists, err := storageClassStore.GetByKey(*pvc.Spec.StorageClassName)
+	if err != nil || !exists {
+		return false, err
+	}
+	storageClass := obj.(*storagev1.StorageClass)
+	return storageClass.VolumeBindingMode != nil && *storageClass.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer, nil
 }
 
 func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string, blockVolume bool) *k8sv1.PersistentVolumeClaim {
