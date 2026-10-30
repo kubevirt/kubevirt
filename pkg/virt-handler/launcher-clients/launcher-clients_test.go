@@ -20,18 +20,25 @@
 package launcher_clients
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/grpcserver"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -191,3 +198,101 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 		})
 	})
 })
+
+var _ = Describe("GetLauncherClient concurrent calls", func() {
+	const callers = 5
+
+	var (
+		manager    *launcherClientsManager
+		vmi        *v1.VirtualMachineInstance
+		infoServer *blockingInfoServer
+	)
+
+	BeforeEach(func() {
+		const podUID = "test-pod-uid"
+		vmi = libvmi.New(
+			libvmi.WithName("test-vmi"),
+			libvmi.WithNamespace(k8sv1.NamespaceDefault),
+			libvmi.WithUID("test-vmi-uid"),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithActivePod(types.UID(podUID), "test-node"),
+			)),
+		)
+
+		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()))
+
+		// A unix socket path is limited to 108 bytes, keep the base short.
+		podsDir, err := os.MkdirTemp("", "lc")
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(os.RemoveAll, podsDir)
+		cmdclient.SetPodsBaseDir(podsDir)
+		socketPath := cmdclient.SocketFilePathOnHost(podUID)
+		Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
+
+		_ = os.Setenv("NODE_NAME", "test-node")
+		DeferCleanup(func() {
+			_ = os.Unsetenv("NODE_NAME")
+		})
+
+		// Every cmdclient.NewClient call issues exactly one Info RPC, so the
+		// number of Info calls is the number of connections opened.
+		infoServer = &blockingInfoServer{release: make(chan struct{})}
+		stop := make(chan struct{})
+		done, err := grpcserver.RunServer(stop, socketPath, func(s *grpc.Server) {
+			info.RegisterCmdInfoServer(s, infoServer)
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() {
+			infoServer.unblock()
+			close(stop)
+			<-done
+		})
+
+		// Failing the domain notify setup keeps the client out of the cache,
+		// so every caller has to go through connection setup.
+		manager = NewLauncherClientsManager(nil, failingNotifyManager{})
+	})
+
+	It("should open a single connection per VMI", func() {
+		var wg sync.WaitGroup
+		errs := make([]error, callers)
+		for i := range callers {
+			wg.Go(func() {
+				_, errs[i] = manager.GetLauncherClient(vmi)
+			})
+		}
+
+		Eventually(infoServer.calls.Load).Should(BeEquivalentTo(1))
+		Consistently(infoServer.calls.Load).WithTimeout(500 * time.Millisecond).Should(BeEquivalentTo(1))
+
+		infoServer.unblock()
+		wg.Wait()
+		for _, err := range errs {
+			Expect(err).To(MatchError(ContainSubstring("start domain notify failed")))
+		}
+	})
+})
+
+// blockingInfoServer answers the cmd version handshake only after unblock is
+// called, which keeps connection setup in flight while other callers arrive.
+type blockingInfoServer struct {
+	calls   atomic.Int32
+	release chan struct{}
+	once    sync.Once
+}
+
+func (s *blockingInfoServer) Info(_ context.Context, _ *info.CmdInfoRequest) (*info.CmdInfoResponse, error) {
+	s.calls.Add(1)
+	<-s.release
+	return &info.CmdInfoResponse{SupportedCmdVersions: []uint32{1}}, nil
+}
+
+func (s *blockingInfoServer) unblock() {
+	s.once.Do(func() { close(s.release) })
+}
+
+type failingNotifyManager struct{}
+
+func (failingNotifyManager) StartDomainNotify(<-chan struct{}, *v1.VirtualMachineInstance) error {
+	return fmt.Errorf("start domain notify failed")
+}
