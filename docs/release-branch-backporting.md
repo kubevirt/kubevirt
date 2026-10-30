@@ -70,3 +70,11 @@ Conflicts:
 Replace `$author` with your GitHub username. Include a brief explanation of how
 each conflict was resolved when the resolution is not obvious.
 
+# Security Fix Backports
+
+Security fixes developed during embargo periods follow a modified backporting
+workflow using GitHub Security Advisory private forks. See
+[security-release-process.md](security-release-process.md) for how the standard
+backporting policy is adapted for security releases (parallel branch
+preparation, local testing during embargo, and disclosure-day release cutting).
+
