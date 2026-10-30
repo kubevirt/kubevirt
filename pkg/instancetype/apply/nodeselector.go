@@ -40,6 +40,8 @@ func applyNodeSelector(
 		return conflict.Conflicts{baseConflict.NewChild("nodeSelector")}
 	}
 
+	// maps.Clone is a shallow copy, which is correct here: map[string]string
+	// values are immutable in Go, so there is no aliasing risk.
 	vmiSpec.NodeSelector = maps.Clone(instancetypeSpec.NodeSelector)
 
 	return nil

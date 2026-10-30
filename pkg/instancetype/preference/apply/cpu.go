@@ -52,6 +52,8 @@ const defaultSpreadRatio uint32 = 2
 
 func GetSpreadOptions(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) (uint32, v1beta1.SpreadAcross) {
 	ratio := defaultSpreadRatio
+	// Deprecated top-level field is applied first so that the structured
+	// SpreadOptions.Ratio can override it if both are set.
 	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
 		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
 	}
