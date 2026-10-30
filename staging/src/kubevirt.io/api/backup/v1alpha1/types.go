@@ -191,7 +191,6 @@ type VirtualMachineBackupList struct {
 
 // VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable after creation"
-// +kubebuilder:validation:XValidation:rule="has(self.pvcName) && self.pvcName != \"\"",message="pvcName is required"
 // +kubebuilder:validation:XValidation:rule="!has(self.mode) || self.mode != 'Pull' || (has(self.tokenSecretRef) && self.tokenSecretRef != \"\")",message="tokenSecretRef is required when mode is Pull"
 type VirtualMachineBackupSpec struct {
 	// Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
@@ -209,9 +208,16 @@ type VirtualMachineBackupSpec struct {
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
-	// PvcName required in push mode. Specifies the name of the PVC
-	// where the backup output will be stored
+	// PvcName specifies the name of the PVC where the backup output will be stored.
+	// When omitted, the controller creates a filesystem RWO PVC automatically and
+	// records the name in status.pvcName.
 	PvcName *string `json:"pvcName,omitempty"`
+	// +optional
+	// TargetPvcSizePercent sizes auto-provisioned target PVCs as a percentage of the
+	// summed CBT-eligible source volume sizes. Ignored when spec.pvcName is set.
+	// When unset, the controller defaults to 120.
+	// +kubebuilder:validation:XValidation:rule="self >= 1 && self <= 1000",message="targetPvcSizePercent must be between 1 and 1000"
+	TargetPvcSizePercent *int32 `json:"targetPvcSizePercent,omitempty"`
 	// +optional
 	// SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup
 	SkipQuiesce bool `json:"skipQuiesce,omitempty"`
@@ -255,6 +261,9 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// +optional
+	// PvcName is the name of the PVC used to store the backup output
+	PvcName *string `json:"pvcName,omitempty"`
 	// +optional
 	// +listType=atomic
 	// IncludedVolumes lists the volumes that were included in the backup
