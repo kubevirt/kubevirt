@@ -92,13 +92,13 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/": {
+   "/apis/backup.kubevirt.io/v1beta1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-backup.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-backup.kubevirt.io-v1beta1",
      "responses": {
       "200": {
        "description": "OK",
@@ -118,7 +118,7 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinebackups": {
     "get": {
      "description": "Get a list of VirtualMachineBackup objects.",
      "produces": [
@@ -160,7 +160,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackupList"
        }
       },
       "401": {
@@ -188,7 +188,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       {
@@ -199,19 +199,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -271,7 +271,7 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups/{name}": {
+   "/apis/backup.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinebackups/{name}": {
     "get": {
      "description": "Get a VirtualMachineBackup object.",
      "produces": [
@@ -292,7 +292,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -320,7 +320,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       }
      ],
@@ -328,13 +328,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -404,7 +404,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -429,7 +429,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/virtualmachinebackups": {
     "get": {
      "description": "Get a list of all VirtualMachineBackup objects.",
      "produces": [
@@ -442,7 +442,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackupList"
        }
       },
       "401": {
@@ -480,7 +480,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinebackups": {
     "get": {
      "description": "Watch a VirtualMachineBackup object.",
      "produces": [
@@ -532,7 +532,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/watch/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/watch/virtualmachinebackups": {
     "get": {
      "description": "Watch a VirtualMachineBackupList object.",
      "produces": [
@@ -8589,7 +8589,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupOptions"
+        "$ref": "#/definitions/v1beta1.BackupOptions"
        }
       }
      ],
@@ -10487,7 +10487,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupOptions"
+        "$ref": "#/definitions/v1beta1.BackupOptions"
        }
       }
      ],
@@ -20744,120 +20744,6 @@
      }
     }
    },
-   "v1alpha1.BackupLink": {
-    "description": "BackupLink contains a CA certificate and per-volume endpoints for one network path",
-    "type": "object",
-    "required": [
-     "cert"
-    ],
-    "properties": {
-     "cert": {
-      "description": "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
-      "type": "string",
-      "default": ""
-     },
-     "volumes": {
-      "description": "Volumes lists the data and map endpoints for each backed-up volume",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeLink"
-      },
-      "x-kubernetes-list-map-keys": [
-       "volumeName"
-      ],
-      "x-kubernetes-list-type": "map"
-     }
-    }
-   },
-   "v1alpha1.BackupLinks": {
-    "description": "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
-    "type": "object",
-    "properties": {
-     "external": {
-      "description": "External contains endpoints reachable from outside the cluster",
-      "$ref": "#/definitions/v1alpha1.BackupLink"
-     },
-     "internal": {
-      "description": "Internal contains endpoints reachable from within the cluster",
-      "$ref": "#/definitions/v1alpha1.BackupLink"
-     }
-    }
-   },
-   "v1alpha1.BackupOptions": {
-    "description": "BackupOptions are options used to configure virtual machine backup job",
-    "type": "object",
-    "properties": {
-     "backupName": {
-      "type": "string"
-     },
-     "backupStartTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "cmd": {
-      "type": "string"
-     },
-     "incremental": {
-      "type": "string"
-     },
-     "incrementalCreationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "mode": {
-      "type": "string"
-     },
-     "skipQuiesce": {
-      "type": "boolean"
-     },
-     "targetPath": {
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.BackupVolumeInfo": {
-    "description": "BackupVolumeInfo contains information about a volume included in a backup",
-    "type": "object",
-    "required": [
-     "volumeName"
-    ],
-    "properties": {
-     "type": {
-      "description": "Type is how the volume was backed up, either Full or Incremental",
-      "type": "string"
-     },
-     "volumeName": {
-      "description": "VolumeName is the volume name from VMI spec",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
-   "v1alpha1.BackupVolumeLink": {
-    "description": "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
-    "type": "object",
-    "required": [
-     "volumeName",
-     "dataEndpoint",
-     "mapEndpoint"
-    ],
-    "properties": {
-     "dataEndpoint": {
-      "description": "DataEndpoint is the URL for reading backup data",
-      "type": "string",
-      "default": ""
-     },
-     "mapEndpoint": {
-      "description": "MapEndpoint is the URL for reading the changed block map",
-      "type": "string",
-      "default": ""
-     },
-     "volumeName": {
-      "description": "VolumeName identifies the volume these endpoints belong to",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -20974,138 +20860,117 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineBackup": {
-    "description": "VirtualMachineBackup defines the operation of backing up a VM",
+   "v1beta1.BackupLink": {
+    "description": "BackupLink contains a CA certificate and per-volume endpoints for one network path",
     "type": "object",
     "required": [
-     "spec"
+     "cert"
     ],
     "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
+     "cert": {
+      "description": "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
+      "type": "string",
+      "default": ""
      },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineBackupList": {
-    "description": "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
-    "type": "object",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
+     "volumes": {
+      "description": "Volumes lists the data and map endpoints for each backed-up volume",
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       "$ref": "#/definitions/v1beta1.BackupVolumeLink"
       },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "x-kubernetes-list-map-keys": [
+       "volumeName"
+      ],
+      "x-kubernetes-list-type": "map"
      }
     }
    },
-   "v1alpha1.VirtualMachineBackupSpec": {
-    "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+   "v1beta1.BackupLinks": {
+    "description": "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
     "type": "object",
-    "required": [
-     "source"
-    ],
     "properties": {
-     "forceFullBackup": {
-      "description": "ForceFullBackup indicates that a full backup is desired",
-      "type": "boolean"
+     "external": {
+      "description": "External contains endpoints reachable from outside the cluster",
+      "$ref": "#/definitions/v1beta1.BackupLink"
      },
-     "mode": {
-      "description": "Mode specifies the way the backup output will be recieved",
+     "internal": {
+      "description": "Internal contains endpoints reachable from within the cluster",
+      "$ref": "#/definitions/v1beta1.BackupLink"
+     }
+    }
+   },
+   "v1beta1.BackupOptions": {
+    "description": "BackupOptions are options used to configure virtual machine backup job",
+    "type": "object",
+    "properties": {
+     "backupName": {
       "type": "string"
      },
-     "pvcName": {
-      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+     "backupStartTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "cmd": {
+      "type": "string"
+     },
+     "incremental": {
+      "type": "string"
+     },
+     "incrementalCreationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "mode": {
       "type": "string"
      },
      "skipQuiesce": {
-      "description": "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
       "type": "boolean"
      },
-     "source": {
-      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
-      "default": {},
-      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
-     },
-     "tokenSecretRef": {
-      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+     "targetPath": {
       "type": "string"
-     },
-     "ttlDuration": {
-      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
-   "v1alpha1.VirtualMachineBackupStatus": {
-    "description": "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+   "v1beta1.BackupVolumeInfo": {
+    "description": "BackupVolumeInfo contains information about a volume included in a backup",
     "type": "object",
-    "nullable": true,
+    "required": [
+     "volumeName"
+    ],
     "properties": {
-     "checkpointName": {
-      "description": "CheckpointName the name of the checkpoint created for the current backup",
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental",
       "type": "string"
      },
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Condition"
-      },
-      "x-kubernetes-list-map-keys": [
-       "type"
-      ],
-      "x-kubernetes-list-type": "map"
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1beta1.BackupVolumeLink": {
+    "description": "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "dataEndpoint",
+     "mapEndpoint"
+    ],
+    "properties": {
+     "dataEndpoint": {
+      "description": "DataEndpoint is the URL for reading backup data",
+      "type": "string",
+      "default": ""
      },
-     "includedVolumes": {
-      "description": "IncludedVolumes lists the volumes that were included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
+     "mapEndpoint": {
+      "description": "MapEndpoint is the URL for reading the changed block map",
+      "type": "string",
+      "default": ""
      },
-     "links": {
-      "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
-      "$ref": "#/definitions/v1alpha1.BackupLinks"
-     },
-     "startTimestamp": {
-      "description": "StartTimestamp is the timestamp when the backup started",
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     "volumeName": {
+      "description": "VolumeName identifies the volume these endpoints belong to",
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -21984,6 +21849,139 @@
       "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackup": {
+    "description": "VirtualMachineBackup defines the operation of backing up a VM",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineBackupSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1beta1.VirtualMachineBackupStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupList": {
+    "description": "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupSpec": {
+    "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "forceFullBackup": {
+      "description": "ForceFullBackup indicates that a full backup is desired",
+      "type": "boolean"
+     },
+     "mode": {
+      "description": "Mode specifies the way the backup output will be recieved",
+      "type": "string"
+     },
+     "pvcName": {
+      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+      "type": "string"
+     },
+     "skipQuiesce": {
+      "description": "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+      "type": "boolean"
+     },
+     "source": {
+      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
+     },
+     "tokenSecretRef": {
+      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+      "type": "string"
+     },
+     "ttlDuration": {
+      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupStatus": {
+    "description": "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "checkpointName": {
+      "description": "CheckpointName the name of the checkpoint created for the current backup",
+      "type": "string"
+     },
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Condition"
+      },
+      "x-kubernetes-list-map-keys": [
+       "type"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
+     "includedVolumes": {
+      "description": "IncludedVolumes lists the volumes that were included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "links": {
+      "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+      "$ref": "#/definitions/v1beta1.BackupLinks"
+     },
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },

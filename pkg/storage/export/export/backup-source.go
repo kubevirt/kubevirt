@@ -33,7 +33,7 @@ import (
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/log"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"

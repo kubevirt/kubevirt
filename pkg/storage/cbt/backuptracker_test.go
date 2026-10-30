@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
@@ -73,17 +73,17 @@ var _ = Describe("VMBackupController", func() {
 			tracker := createTracker("tracker1", "test-vmi")
 			tracker.DeletionTimestamp = new(metav1.Now())
 			tracker.Finalizers = []string{backupv1.VirtualMachineBackupTrackerFinalizer}
-			_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Create(
+			_, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Create(
 				context.Background(), tracker, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-				Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+				Return(kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
 
 			err = ctrl.handleTrackerDeletion(tracker)
 			Expect(err).ToNot(HaveOccurred())
 
-			updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
+			updated, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Get(
 				context.Background(), "tracker1", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updated.Finalizers).To(BeEmpty())
@@ -94,7 +94,7 @@ var _ = Describe("VMBackupController", func() {
 				tracker := createTracker("tracker1", "test-vmi")
 				tracker.DeletionTimestamp = new(metav1.Now())
 				tracker.Finalizers = []string{backupv1.VirtualMachineBackupTrackerFinalizer}
-				_, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Create(
+				_, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Create(
 					context.Background(), tracker, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -102,7 +102,7 @@ var _ = Describe("VMBackupController", func() {
 
 				if shouldRemove {
 					virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-						Return(kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+						Return(kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
 				}
 
 				err = ctrl.handleTrackerDeletion(tracker)
@@ -112,7 +112,7 @@ var _ = Describe("VMBackupController", func() {
 					Expect(err).To(HaveOccurred())
 				}
 
-				updated, err := kubevirtCli.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace).Get(
+				updated, err := kubevirtCli.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace).Get(
 					context.Background(), "tracker1", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 

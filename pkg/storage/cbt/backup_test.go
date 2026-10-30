@@ -41,7 +41,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -242,9 +242,9 @@ var _ = Describe("Backup Controller", func() {
 	addBackup := func(backup *backupv1.VirtualMachineBackup) {
 		backupSource.Add(backup)
 		backupInformer.GetStore().Add(backup)
-		_, err := kubevirtClient.BackupV1alpha1().VirtualMachineBackups(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+		_, err := kubevirtClient.BackupV1beta1().VirtualMachineBackups(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
 		if err != nil {
-			_, err = kubevirtClient.BackupV1alpha1().VirtualMachineBackups(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
+			_, err = kubevirtClient.BackupV1beta1().VirtualMachineBackups(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 		key := types.NamespacedName{Namespace: backup.Namespace, Name: backup.Name}.String()
@@ -355,7 +355,7 @@ var _ = Describe("Backup Controller", func() {
 
 		kubevirtClient = kubevirtfake.NewSimpleClientset()
 		virtClient.EXPECT().VirtualMachineBackup(testNamespace).
-			Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackups(testNamespace)).AnyTimes()
+			Return(kubevirtClient.BackupV1beta1().VirtualMachineBackups(testNamespace)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
 			Return(kubevirtClient.ExportV1().VirtualMachineExports(testNamespace)).AnyTimes()
 
@@ -1342,7 +1342,7 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-				Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace)).AnyTimes()
+				Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace)).AnyTimes()
 
 			vmiInterface.EXPECT().
 				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
@@ -1761,7 +1761,7 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-				Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+				Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
 
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
@@ -1810,7 +1810,7 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-			Return(kubevirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(testNamespace))
+			Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
 
 		// Expect VMI patch for detaching PVC (cleanup returns early)
 		vmiInterface.EXPECT().

@@ -52,7 +52,7 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
@@ -684,7 +684,7 @@ func GetVirtualMachineBackupInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineBackup() cache.SharedIndexInformer {
 	return f.getInformer("vmBackupInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackups", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().BackupV1beta1().RESTClient(), "virtualmachinebackups", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackup{}, f.defaultResync, GetVirtualMachineBackupInformerIndexers())
 	})
 }
@@ -712,7 +712,7 @@ func GetVirtualMachineBackupTrackerInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineBackupTracker() cache.SharedIndexInformer {
 	return f.getInformer("vmBackupTrackerInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackuptrackers", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.virtClient.GeneratedKubeVirtClient().BackupV1beta1().RESTClient(), "virtualmachinebackuptrackers", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackupTracker{}, f.defaultResync, GetVirtualMachineBackupTrackerInformerIndexers())
 	})
 }
