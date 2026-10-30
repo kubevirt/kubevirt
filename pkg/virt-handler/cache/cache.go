@@ -142,7 +142,7 @@ func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, boo
 	defer store.Unlock()
 
 	for _, record := range store.cache {
-		if filepath.Clean(record.SocketFile) == socketFile {
+		if filepath.Clean(record.SocketFile) == filepath.Clean(socketFile) {
 			return record, true
 		}
 	}
@@ -197,7 +197,7 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
 	}
 
-	if ok && filepath.Clean(record.SocketFile) != socketFile {
+	if ok && filepath.Clean(record.SocketFile) != filepath.Clean(socketFile) {
 		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
 	}
 
