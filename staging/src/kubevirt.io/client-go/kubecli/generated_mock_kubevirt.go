@@ -6,6 +6,8 @@
 //	mockgen -destination=generated_mock_kubevirt.go -package=kubecli kubevirt.io/client-go/kubecli KubevirtClient,VirtualMachineInstanceInterface,ReplicaSetInterface,VirtualMachineInstancePresetInterface,VirtualMachineInterface,VirtualMachineInstanceMigrationInterface,KubeVirtInterface,ServerVersionInterface,ExpandSpecInterface
 //
 
+//go:build kubevirt_mock
+
 // Package kubecli is a generated GoMock package.
 package kubecli
 
