@@ -280,6 +280,11 @@ var _ = Describe("LibvirtHelper", func() {
 		Expect(err).NotTo(HaveOccurred())
 		dom.Free()
 
+		// XMLName is applied during unmarshal but not in original domain
+		for i := range wantedSpec.Devices.Disks {
+			wantedSpec.Devices.Disks[i].XMLName.Local = ""
+		}
+
 		Expect(wantedSpec.Devices.Disks).To(Equal(mutatedSpec.Devices.Disks))
 	})
 

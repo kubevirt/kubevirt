@@ -1958,7 +1958,7 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("deleting CBT overlay")
 			return err
 		}
-		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+		err = dom.DetachDeviceFlags(string(detachBytes), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
 			return err
@@ -1987,7 +1987,7 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("marshalling attached disk failed")
 			return err
 		}
-		err = dom.AttachDeviceFlags(strings.ToLower(string(attachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+		err = dom.AttachDeviceFlags(string(attachBytes), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("attaching device")
 			return err
@@ -2015,7 +2015,7 @@ func (l *LibvirtDomainManager) syncDisks(
 			return err
 		}
 
-		err = dom.UpdateDeviceFlags(strings.ToLower(string(updateBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+		err = dom.UpdateDeviceFlags(string(updateBytes), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("updating device")
 			return err

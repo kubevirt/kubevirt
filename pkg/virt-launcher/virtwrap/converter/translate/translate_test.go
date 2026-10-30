@@ -481,6 +481,7 @@ func normalizeForComparison(spec *api.DomainSpec) {
 
 	// KubeVirt-only fields not present in libvirt XML are lost in round-trip
 	for i := range spec.Devices.Disks {
+		spec.Devices.Disks[i].XMLName.Local = ""
 		spec.Devices.Disks[i].FilesystemOverhead = nil
 		spec.Devices.Disks[i].Capacity = nil
 	}

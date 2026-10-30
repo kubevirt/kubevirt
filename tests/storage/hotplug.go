@@ -1090,7 +1090,12 @@ var _ = Describe(SIG("Hotplug", func() {
 				)
 
 				By(addingVolumeRunningVM)
-				addDVVolumeVM(vm.Name, vm.Namespace, "testvolume", dvBlock.Name, v1.DiskBusSCSI, false, "")
+				addVolumeOptions := getAddVolumeOptions("testvolume", v1.DiskBusSCSI, &v1.HotplugVolumeSource{
+					DataVolume: &v1.DataVolumeSource{Name: dvBlock.Name}}, false, false, "")
+
+				serial := "TestSerial123"
+				addVolumeOptions.Disk.Serial = serial
+				addVolumeVMWithSource(vm.Name, vm.Namespace, addVolumeOptions)
 				By(verifyingVolumeDiskInVM)
 				verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1101,7 +1106,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Verifying the volume is attached and usable")
 				getAlpineVmiConsoleAndLogin(vmi)
-				targets := verifyHotplugAttachedAndUsable(vmi, []string{"testvolume"})
+				targets := verifyHotplugAttachedAndUsable(vmi, []string{serial})
 				Expect(targets).To(HaveLen(1), "expected exactly one hotplug volume target")
 
 				By("stopping VM")
