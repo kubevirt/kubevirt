@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,6 +30,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/coveragemap"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -186,6 +190,30 @@ var _ = ReportAfterSuite("TestTests", func(report Report) {
 	for _, reporter := range afterSuiteReporters {
 		ginkgo_reporters.ReportViaDeprecatedReporter(reporter, report)
 	}
+})
+
+// E2E coverage: when --cov-report is set, flush coverage from all daemons,
+// pull the raw covdata from the collector, generate reports, then clean up
+// the MAP and collector. Runs on Ginkgo node 1 only (ReportAfterSuite).
+var _ = ReportAfterSuite("E2E coverage report", func(_ Report) {
+	if !flags.CovReport {
+		return
+	}
+	ctx := context.Background()
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "coverage: could not get kubevirt client: %v\n", err)
+		return
+	}
+
+	// 1. Flush remaining coverage from control-plane daemons via pod proxy.
+	testsuite.FlushDaemonCoverage(ctx, virtClient)
+
+	// 2. Pull merged covdata from the collector and write local artifacts.
+	testsuite.CollectCoverageArtifacts(ctx, flags.CovCollectorURL, flags.ArtifactsDir)
+
+	// 3. Clean up MAP and binding so the cluster is left in a clean state.
+	coveragemap.Uninstall(ctx, virtClient)
 })
 
 var _ = ReportBeforeSuite(func(report Report) {
