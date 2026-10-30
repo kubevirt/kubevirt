@@ -392,6 +392,27 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	return list, nil
 }
 
+type dirtyRateCalculator interface {
+	StartDirtyRateCalc(seconds int, flags libvirt.DomainDirtyRateCalcFlags) error
+}
+
+func startDirtyRateCalc(domain dirtyRateCalculator, calculationDuration int, flags libvirt.DomainDirtyRateCalcFlags) {
+	err := domain.StartDirtyRateCalc(calculationDuration, flags)
+	if err == nil {
+		return
+	}
+
+	if flags != libvirt.DOMAIN_DIRTYRATE_MODE_DIRTY_BITMAP {
+		log.Log.Reason(err).Warning("Can't start dirty rate calc")
+		return
+	}
+
+	log.Log.Reason(err).Warning("Can't start dirty rate calc in dirty-bitmap mode; trying page-sampling mode")
+	if err := domain.StartDirtyRateCalc(calculationDuration, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING); err != nil {
+		log.Log.Reason(err).Warning("Can't start dirty rate calc in page-sampling mode")
+	}
+}
+
 func (l *LibvirtConnection) GetDomainDirtyRate(calculationDuration time.Duration, flags libvirt.DomainDirtyRateCalcFlags) ([]*stats.DomainStatsDirtyRate, error) {
 	domStats, err := l.GetAllDomainStats(libvirt.DOMAIN_STATS_DIRTYRATE, libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING|libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED)
 	if err != nil {
@@ -409,10 +430,7 @@ func (l *LibvirtConnection) GetDomainDirtyRate(calculationDuration time.Duration
 	}()
 
 	for i := range domStats {
-		err := domStats[i].Domain.StartDirtyRateCalc(int(calculationDuration.Seconds()), flags)
-		if err != nil {
-			log.Log.Reason(err).Warning("Can't start dirty rate calc")
-		}
+		startDirtyRateCalc(domStats[i].Domain, int(calculationDuration.Seconds()), flags)
 	}
 
 	// Wait for the dirty rate calculation to finish
