@@ -30,6 +30,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
+const QGSTestSocketPath = "/test/qgs.socket"
+
 var _ = Describe("LaunchSecurity Domain Configurator", func() {
 	DescribeTable("Should not configure LaunchSecurity when unspecified in the VMI", func(architecture string) {
 		vmi := libvmi.New()
@@ -77,10 +79,26 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 			Spec: api.DomainSpec{
 				LaunchSecurity: &api.LaunchSecurity{
 					Type: "tdx",
+					QuoteGenerationService: &api.QGS{
+						Path: QGSTestSocketPath,
+					},
 				},
 			},
 		}
 		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("should use QGS path from annotation for TDX", func() {
+		vmi := libvmi.New(withTDX())
+		var domain api.Domain
+
+		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
+		Expect(domain.Spec.LaunchSecurity.Type).To(Equal("tdx"))
+		Expect(domain.Spec.LaunchSecurity.QuoteGenerationService).NotTo(BeNil())
+		Expect(domain.Spec.LaunchSecurity.QuoteGenerationService.Path).To(Equal(QGSTestSocketPath))
 	})
 })
 
@@ -89,5 +107,9 @@ func withTDX() libvmi.Option {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			TDX: &v1.TDX{},
 		}
+		if vmi.Annotations == nil {
+			vmi.Annotations = map[string]string{}
+		}
+		vmi.Annotations[v1.QGSSocketPathAnnotation] = QGSTestSocketPath
 	}
 }
