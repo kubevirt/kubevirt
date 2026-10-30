@@ -708,6 +708,28 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		It("mountFileSystemHotplugVolume should return os.ErrNotExist if disk.img is missing", func() {
+			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", tempDir)), nil
+			}
+
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(os.ErrNotExist), "expected os.ErrNotExist for missing disk.img")
+		})
+
+		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
+			isolationDetector = func() isolation.PodIsolationDetector {
+				return &mockIsolationDetector{
+					pid: 9999,
+				}
+			}
+
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ErrWaitingForHotplugMount), "expected error waiting for hotplug mount")
+		})
+
 		It("unmountFileSystemHotplugVolumes should return error if isMounted returns error", func() {
 			testPath, err := newFile(tempDir, "test")
 			Expect(err).ToNot(HaveOccurred())
