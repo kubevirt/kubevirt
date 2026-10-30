@@ -362,9 +362,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 60).Should(matcher.BeInPhase(v1.Scheduled))
 
-			By("Querying virsh nodesevinfo")
-			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
-			Expect(nodeSevInfo).ToNot(BeEmpty())
+			nodeSevInfo := queryNodeSEVInfo(vmi)
 			entries := parseVirshInfo(nodeSevInfo, []string{"pdh", "cert-chain"})
 			expectedSEVPlatformInfo.PDH = entries["pdh"]
 			expectedSEVPlatformInfo.CertChain = entries["cert-chain"]
@@ -429,3 +427,37 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		})
 	})
 })
+
+func queryNodeSEVInfo(vmi *v1.VirtualMachineInstance) string {
+	By("Waiting for virt-launcher pod to be running")
+	var vmiPod *k8sv1.Pod
+	Eventually(func() error {
+		var getErr error
+		vmiPod, getErr = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		if getErr != nil {
+			return getErr
+		}
+		if vmiPod.Status.Phase != k8sv1.PodRunning {
+			return fmt.Errorf("pod is in phase %s", vmiPod.Status.Phase)
+		}
+		return nil
+	}, 180*time.Second, 1*time.Second).Should(Succeed())
+
+	By("Waiting for SEV device to be accessible in virt-launcher pod")
+	Eventually(func() error {
+		_, execErr := exec.ExecuteCommandOnPod(vmiPod, "compute", []string{"test", "-r", "/dev/sev", "-a", "-w", "/dev/sev"})
+		return execErr
+	}, 180*time.Second, 1*time.Second).Should(Succeed())
+
+	By("Querying virsh nodesevinfo")
+	var nodeSevInfo string
+	Eventually(func() string {
+		output, execErr := exec.ExecuteCommandOnPod(vmiPod, "compute", []string{"virsh", "nodesevinfo"})
+		if execErr != nil {
+			return ""
+		}
+		nodeSevInfo = output
+		return nodeSevInfo
+	}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+	return nodeSevInfo
+}
