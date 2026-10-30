@@ -39,6 +39,12 @@ Integration tests require a running Kubevirt cluster.  Once you have a running
 Kubevirt cluster, you can use the `-master` and the `-kubeconfig` flags to
 point the tests to the cluster.
 
+Use `-require-cdi=true` when the test job is expected to install CDI. The suite
+checks the cluster-scoped CDI resource when it exists; without this flag, a
+missing CDI resource is allowed. When `-deploy-testing-infra=true`, pass the
+directory of rendered manifests with `-path-to-testing-infra-manifests`. The
+suite waits for workload resources declared there, regardless of namespace.
+
 ## Running networking tests for outside connectivity
 
 When running the tests with no internet connection,
