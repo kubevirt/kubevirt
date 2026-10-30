@@ -1099,6 +1099,7 @@ var _ = Describe("Backup Controller", func() {
 				Backup(gomock.Any(), vmName, gomock.Any()).
 				DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
 					Expect(options.Cmd).To(Equal(backupv1.Abort))
+					Expect(options.AbortReason).To(Equal(backupv1.BackupAbortCancel))
 					return nil
 				})
 
@@ -1111,13 +1112,21 @@ var _ = Describe("Backup Controller", func() {
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupAbortingEvent)))
 		})
 
-		It("should record warning event when aborting a push-mode backup", func() {
+		DescribeTable("should record the expected event severity when aborting a backup", func(mode backupv1.BackupMode, deletedAfterDeadline bool, expectAbortReason backupv1.BackupAbortReason, expectEventType string) {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, "new-checkpoint")
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
 
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
-			backup.Spec.Mode = pointer.P(backupv1.PushMode)
+			backup.Spec.Mode = pointer.P(mode)
+			backup.CreationTimestamp = metav1.Now()
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+			if deletedAfterDeadline {
+				// Creation and deletion both in the past relative to TTL, with
+				// DeletionTimestamp after the deadline.
+				backup.Spec.TTLDuration = &metav1.Duration{Duration: time.Hour}
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+				backup.DeletionTimestamp = &metav1.Time{Time: time.Now().Add(-90 * time.Minute)}
+			}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
@@ -1131,14 +1140,22 @@ var _ = Describe("Backup Controller", func() {
 
 			vmiInterface.EXPECT().
 				Backup(gomock.Any(), vmName, gomock.Any()).
-				Return(nil)
+				DoAndReturn(func(_ context.Context, _ string, opts *backupv1.BackupOptions) error {
+					Expect(opts.Cmd).To(Equal(backupv1.Abort))
+					Expect(opts.AbortReason).To(Equal(expectAbortReason))
+					return nil
+				})
 
 			syncBackup(backup)
 			var event string
 			Eventually(recorder.Events).Should(Receive(&event))
 			Expect(event).To(ContainSubstring(backupAbortingEvent))
-			Expect(event).To(ContainSubstring(string(corev1.EventTypeWarning)))
-		})
+			Expect(event).To(ContainSubstring(expectEventType))
+		},
+			Entry("push mode delete cancels with Warning", backupv1.PushMode, false, backupv1.BackupAbortCancel, string(corev1.EventTypeWarning)),
+			Entry("pull mode delete before TTL deadline finalizes with Normal", backupv1.PullMode, false, backupv1.BackupAbortFinalize, string(corev1.EventTypeNormal)),
+			Entry("pull mode delete after TTL deadline cancels with Warning", backupv1.PullMode, true, backupv1.BackupAbortCancel, string(corev1.EventTypeWarning)),
+		)
 
 		It("should re-send idempotent abort if backup is already marked as aborting", func() {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, "new-checkpoint")
@@ -1176,6 +1193,9 @@ var _ = Describe("Backup Controller", func() {
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
 			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				// Stale values copied during active reconcile before Cancel completed.
+				CheckpointName:  pointer.P(checkpointName),
+				IncludedVolumes: []backupv1.BackupVolumeInfo{{VolumeName: "rootdisk"}},
 				Conditions: []metav1.Condition{
 					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, backupv1.ReasonAborting, backupAborting),
 				},
@@ -1190,6 +1210,9 @@ var _ = Describe("Backup Controller", func() {
 			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Completed = true
 			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Failed = true
 			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = pointer.P("backup aborted")
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Volumes = []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: "rootdisk"},
+			}
 			controller.vmiStore.Add(vmiCanceled)
 
 			vmiInterface.EXPECT().
@@ -1208,6 +1231,8 @@ var _ = Describe("Backup Controller", func() {
 			Expect(failedCond.Reason).To(Equal(backupv1.ReasonFailed))
 			Expect(failedCond.Message).To(ContainSubstring("backup aborted"))
 			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+			Expect(backupCopy.Status.CheckpointName).To(BeNil(), "stale CheckpointName from active reconcile must be cleared on Failed")
+			Expect(backupCopy.Status.IncludedVolumes).To(HaveLen(1))
 			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
 		})
 
@@ -1877,6 +1902,33 @@ var _ = Describe("Backup Controller", func() {
 			Entry("when exactly at boundary is expired", 10*time.Minute, 10*time.Minute, true),
 		)
 
+		DescribeTable("shouldFinalizePullBackupOnDelete compares DeletionTimestamp to the TTL deadline",
+			func(creationAge, deletionAge, ttl time.Duration, expectFinalize bool) {
+				backup.Spec.Mode = pointer.P(backupv1.PullMode)
+				backup.Spec.TTLDuration = &metav1.Duration{Duration: ttl}
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-creationAge))
+				backup.DeletionTimestamp = &metav1.Time{Time: time.Now().Add(-deletionAge)}
+				Expect(shouldFinalizePullBackupOnDelete(backup)).To(Equal(expectFinalize))
+			},
+			// creationAge=3h, deletionAge=2.5h, ttl=2h → deleted 0.5h before deadline;
+			// wall clock is past expiry, so this also covers late reconcile.
+			Entry("client deleted before deadline (incl. late reconcile)", 3*time.Hour, 2*time.Hour+30*time.Minute, 2*time.Hour, true),
+			Entry("client deleted after deadline cancels", 3*time.Hour, 30*time.Minute, 2*time.Hour, false),
+			Entry("deletion exactly at deadline cancels", 2*time.Hour, time.Duration(0), 2*time.Hour, false),
+		)
+
+		It("shouldFinalizePullBackupOnDelete is false without a deletion timestamp", func() {
+			backup.Spec.Mode = pointer.P(backupv1.PullMode)
+			backup.DeletionTimestamp = nil
+			Expect(shouldFinalizePullBackupOnDelete(backup)).To(BeFalse())
+		})
+
+		It("shouldFinalizePullBackupOnDelete is false for push mode", func() {
+			backup.Spec.Mode = pointer.P(backupv1.PushMode)
+			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+			Expect(shouldFinalizePullBackupOnDelete(backup)).To(BeFalse())
+		})
+
 		It("should return zero when already expired", func() {
 			backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-5 * time.Hour))
 			Expect(getPullBackupRemainingTTL(backup).Duration).To(BeZero())
@@ -2202,6 +2254,7 @@ var _ = Describe("Backup Controller", func() {
 				Backup(gomock.Any(), vmName, gomock.Any()).
 				DoAndReturn(func(_ context.Context, _ string, opts *backupv1.BackupOptions) error {
 					Expect(opts.Cmd).To(Equal(backupv1.Abort))
+					Expect(opts.AbortReason).To(Equal(backupv1.BackupAbortCancel))
 					return nil
 				})
 
@@ -2212,6 +2265,164 @@ var _ = Describe("Backup Controller", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(backupv1.ReasonAborting))
 			Expect(cond.Message).To(ContainSubstring(backupTTLExpiredMsg))
+			var event string
+			Eventually(recorder.Events).Should(Receive(&event))
+			Expect(event).To(ContainSubstring(backupAbortingEvent))
+			Expect(event).To(ContainSubstring(string(corev1.EventTypeWarning)))
+		})
+
+		It("should finalize the backup as failed when the aborted job completes after TTL expiry", func() {
+			// Pin the Failed-path tracker/checkpoint guards: without Failed, reconcileCompleted
+			// would update the tracker and copy CheckpointName onto the backup status.
+			backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
+			controller.backupTrackerInformer.GetStore().Add(backupTracker)
+			backup.Spec.Source = corev1.TypedLocalObjectReference{
+				APIGroup: pointer.P("backup.kubevirt.io"),
+				Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+				Name:     backupTrackerName,
+			}
+
+			// Backup is already Aborting after TTL expiry triggered handleAbort.
+			// CheckpointName/IncludedVolumes may already be present from active reconcile.
+			backup.Status.CheckpointName = pointer.P(checkpointName)
+			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
+			backup.Status.Links = &backupv1.BackupLinks{
+				Internal: &backupv1.BackupLink{Cert: "test-cert"},
+			}
+			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
+				Reason: backupv1.ReasonAborting, Message: fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting),
+			})
+
+			vmiCanceled := createInitializedVMI()
+			vmiCanceled.Spec.UtilityVolumes = nil
+			vmiCanceled.Status.VolumeStatus = nil
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Completed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Failed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = pointer.P("backup aborted")
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.CheckpointName = pointer.P(checkpointName)
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Volumes = []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: pvcName},
+			}
+			controller.vmiStore.Update(vmiCanceled)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmiCanceled, nil)
+
+			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Fail("Backup was canceled and failed, should not update the tracker")
+				return true, nil, nil
+			})
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
+			failedCond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))
+			Expect(failedCond.Reason).To(Equal(backupv1.ReasonFailed))
+			Expect(failedCond.Message).To(ContainSubstring("backup aborted"))
+			Expect(meta.IsStatusConditionFalse(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))).To(BeTrue())
+			Expect(backupCopy.Status.CheckpointName).To(BeNil(), "checkpoint must not be recorded for a failed backup")
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
+		})
+
+		It("should fail a TTL-expired pull backup when deletion completes after Cancel", func() {
+			backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
+			controller.backupTrackerInformer.GetStore().Add(backupTracker)
+			backup.Spec.Source = corev1.TypedLocalObjectReference{
+				APIGroup: pointer.P("backup.kubevirt.io"),
+				Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+				Name:     backupTrackerName,
+			}
+			backup.Spec.TTLDuration = &metav1.Duration{Duration: time.Hour}
+			backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+			// DeletionTimestamp after the TTL deadline → Cancel, not Finalize.
+			backup.DeletionTimestamp = &metav1.Time{Time: metav1.Now().Time}
+			backup.Status.CheckpointName = pointer.P(checkpointName)
+			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
+			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
+				Reason: backupv1.ReasonAborting, Message: backupAborting,
+			})
+
+			vmiCanceled := createInitializedVMI()
+			vmiCanceled.Spec.UtilityVolumes = nil
+			vmiCanceled.Status.VolumeStatus = nil
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Completed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Failed = true
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.BackupMsg = pointer.P("backup aborted")
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.CheckpointName = pointer.P(checkpointName)
+			vmiCanceled.Status.ChangedBlockTracking.BackupStatus.Volumes = []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: pvcName},
+			}
+			controller.vmiStore.Update(vmiCanceled)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmiCanceled, nil)
+
+			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Fail("TTL-expired pull deletion must Cancel/Fail and must not update the tracker")
+				return true, nil, nil
+			})
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionFailed))).To(BeTrue())
+			Expect(backupCopy.Status.CheckpointName).To(BeNil())
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupFailedEvent)))
+		})
+
+		It("should Complete a pull backup when Finalize finishes after timely deletion", func() {
+			backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
+			controller.backupTrackerInformer.GetStore().Add(backupTracker)
+			backup.Spec.Source = corev1.TypedLocalObjectReference{
+				APIGroup: pointer.P("backup.kubevirt.io"),
+				Kind:     backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind,
+				Name:     backupTrackerName,
+			}
+			// Wall clock is past the TTL, but DeletionTimestamp is before the deadline:
+			// a late reconcile must still Finalize.
+			backup.Spec.TTLDuration = &metav1.Duration{Duration: 2 * time.Hour}
+			backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+			backup.DeletionTimestamp = &metav1.Time{Time: time.Now().Add(-2*time.Hour - 30*time.Minute)}
+			backup.Status.IncludedVolumes = []backupv1.BackupVolumeInfo{{VolumeName: pvcName}}
+			meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
+				Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
+				Reason: backupv1.ReasonAborting, Message: backupAborting,
+			})
+
+			vmiFinalized := createInitializedVMI()
+			vmiFinalized.Spec.UtilityVolumes = nil
+			vmiFinalized.Status.VolumeStatus = nil
+			vmiFinalized.Status.ChangedBlockTracking.BackupStatus.Completed = true
+			vmiFinalized.Status.ChangedBlockTracking.BackupStatus.Failed = false
+			vmiFinalized.Status.ChangedBlockTracking.BackupStatus.CheckpointName = pointer.P(checkpointName)
+			vmiFinalized.Status.ChangedBlockTracking.BackupStatus.Volumes = []v1.VirtualMachineInstanceBackupVolumeInfo{
+				{VolumeName: pvcName},
+			}
+			controller.vmiStore.Update(vmiFinalized)
+
+			vmiInterface.EXPECT().
+				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
+				Return(vmiFinalized, nil)
+
+			trackerPatched := false
+			kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				trackerPatched = true
+				tracker := backupTracker.DeepCopy()
+				tracker.Status.LatestCheckpoint = &backupv1.BackupCheckpoint{Name: checkpointName}
+				return true, tracker, nil
+			})
+			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
+				Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
+
+			backupCopy, err := syncBackup(backup)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(meta.IsStatusConditionTrue(backupCopy.Status.Conditions, string(backupv1.ConditionComplete))).To(BeTrue())
+			Expect(backupCopy.Status.CheckpointName).To(Equal(pointer.P(checkpointName)))
+			Expect(trackerPatched).To(BeTrue())
+			Eventually(recorder.Events).Should(Receive(ContainSubstring(backupCompletedEvent)))
 		})
 
 		It("should delete the export when the backup completed", func() {
