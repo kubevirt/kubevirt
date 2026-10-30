@@ -683,6 +683,7 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 func RegisterCmdServer(cmdServer cmdv1.CmdServer) func(grpcServer *grpc.Server) {
 	return func(server *grpc.Server) {
 		registerInfoServer(server)
+		registerAuthServer(server)
 		cmdv1.RegisterCmdServer(server, cmdServer)
 	}
 }
