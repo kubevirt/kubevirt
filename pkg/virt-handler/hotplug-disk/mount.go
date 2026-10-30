@@ -45,6 +45,7 @@ import (
 
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -140,8 +141,10 @@ var (
 		parent isolation.IsolationResult,
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
+		podUID string,
+		kubeletPodsDir string,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target, podUID, kubeletPodsDir)
 	}
 )
 
@@ -342,19 +345,32 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	if err != nil {
 		return err
 	}
+
+	specVolumes := sets.New[string]()
+	for i := range vmi.Spec.Volumes {
+		specVolumes.Insert(vmi.Spec.Volumes[i].Name)
+	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
 			continue
 		}
+
+		if !specVolumes.Has(volumeStatus.Name) {
+			log.Log.Object(vmi).V(3).Infof("Skipping mount for volume %s: no longer in VMI spec", volumeStatus.Name)
+			continue
+		}
+
 		mountDirectory := false
 		if volumeStatus.MemoryDumpVolume != nil {
 			mountDirectory = true
 		}
-		if sourceUID == "" {
-			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
+		volumeSourceUID := sourceUID
+		if volumeSourceUID == "" {
+			volumeSourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager); err != nil {
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, record, mountDirectory, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -600,7 +616,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, string(sourceUID), m.kubeletPodsDir)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
