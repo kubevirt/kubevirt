@@ -81,8 +81,6 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		volumeIndices[volume.Name] = i
 	}
 
-	var numBlkQueues *uint
-	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	vcpus := uint(cpuCount)
@@ -90,8 +88,11 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		vcpus = uint(1)
 	}
 
-	if virtioBlkMQRequested {
-		numBlkQueues = &vcpus
+	// Always configure queues explicitly, including for older VMIs without
+	// an admitted default. A false setting must not inherit QEMU defaults.
+	numBlkQueues := uint(1)
+	if multiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue; multiQueue == nil || *multiQueue {
+		numBlkQueues = vcpus
 	}
 
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
@@ -127,7 +128,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		newDisk := api.Disk{}
 		emptyCDRom := false
 
-		err := d.convert_v1_Disk_To_api_Disk(&disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
+		err := d.convert_v1_Disk_To_api_Disk(&disk, &newDisk, prefixMap, volumeStatusMap)
 		if err != nil {
 			return err
 		}
@@ -153,6 +154,12 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
+		// Volume conversion may replace the driver (for example DownwardMetrics).
+		// Set queues on the final driver so every virtio disk honors this setting.
+		if newDisk.Target.Bus == v1.DiskBusVirtio {
+			newDisk.Driver.Queues = &numBlkQueues
+		}
+
 		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
 		}
@@ -176,7 +183,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 	return nil
 }
 
-func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, volumeStatusMap map[string]v1.VolumeStatus) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -248,9 +255,6 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
 			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
 		}
-	}
-	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {
-		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = api.NewUserDefinedAlias(diskDevice.Name)
 	if diskDevice.BootOrder != nil {

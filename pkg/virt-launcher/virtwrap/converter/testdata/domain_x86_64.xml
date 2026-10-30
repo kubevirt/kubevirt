@@ -43,13 +43,13 @@
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="2" queues="1" discard="unmap"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
+      <driver error_policy="stop" name="qemu" type="raw" iothread="3" queues="1" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">

@@ -590,12 +590,11 @@ var _ = Describe("Converter", func() {
 				domain := &api.Domain{}
 				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domain.Spec.Devices.Controllers).To(ContainElement(
-					api.Controller{
-						Type:  expectedType,
-						Index: "0",
-						Model: expectedModel,
-					}))
+				expectedController := api.Controller{Type: expectedType, Index: "0", Model: expectedModel}
+				if expectedType == "scsi" {
+					expectedController.Driver = &api.ControllerDriver{Queues: new(uint(1))}
+				}
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(expectedController))
 				if !enabled {
 					for _, controller := range domain.Spec.Devices.Controllers {
 						Expect(controller.Type).ToNot(Equal("scsi"))
@@ -1154,9 +1153,10 @@ var _ = Describe("Converter", func() {
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
-				Type:  "scsi",
-				Index: "0",
-				Model: expectedModel,
+				Type:   "scsi",
+				Index:  "0",
+				Model:  expectedModel,
+				Driver: &api.ControllerDriver{Queues: new(uint(1))},
 			}))
 		},
 			Entry("on amd64", amd64, "virtio-non-transitional"),
@@ -2462,7 +2462,7 @@ var _ = Describe("Converter", func() {
 				Type:   "scsi",
 				Index:  "0",
 				Model:  getModelForArch(runtime.GOARCH),
-				Driver: nil,
+				Driver: &api.ControllerDriver{Queues: new(uint(1))},
 			}))
 		})
 

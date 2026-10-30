@@ -9,13 +9,16 @@ import (
 	"go.uber.org/mock/gomock"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
+	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
+	instancetypeapply "kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -24,6 +27,32 @@ import (
 )
 
 var _ = Describe("Defaults", func() {
+	DescribeTable("should default block multi-queue without overriding explicit settings",
+		func(setting, preferred *bool, expected bool) {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+			preference := &v1beta1.VirtualMachinePreferenceSpec{
+				Devices: &v1beta1.DevicePreferences{PreferredBlockMultiQueue: preferred},
+			}
+			Expect(instancetypeapply.NewVMIApplier().ApplyToVMI(
+				k8sfield.NewPath("spec"), nil, preference, &vmi.Spec, &vmi.ObjectMeta,
+			)).To(BeEmpty())
+
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec)).To(Succeed())
+			Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(HaveValue(Equal(expected)))
+			// Defaulting a second time must preserve the resolved setting.
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec)).To(Succeed())
+			Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(HaveValue(Equal(expected)))
+		},
+		Entry("omitted becomes true", nil, nil, true),
+		Entry("explicit true remains true", new(true), nil, true),
+		Entry("explicit false remains false", new(false), nil, false),
+		Entry("preference false overrides the default", nil, new(false), false),
+		Entry("explicit true overrides preference false", new(true), new(false), true),
+		Entry("explicit false overrides preference true", new(false), new(true), false),
+	)
+
 	Context("Architecture", func() {
 		Context("VirtualMachine", func() {
 			var (
