@@ -60,7 +60,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), c.controllerDriver.DeepCopy())
+		scsiControllerDriver := configureSCSIControllerDriver(vmi, c.autoThreads, c.controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -209,24 +209,27 @@ func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
 	})
 }
 
-func assignSCSIControllerIOThread(vmi *v1.VirtualMachineInstance, autoThreads uint, scsiControllerDriver *api.ControllerDriver) *api.ControllerDriver {
-	if autoThreads == 0 || !shouldConfigSCSIThread(vmi) {
-		return scsiControllerDriver
+func configureSCSIControllerDriver(vmi *v1.VirtualMachineInstance, autoThreads uint, driver *api.ControllerDriver) *api.ControllerDriver {
+	configureIOThread := autoThreads != 0 && shouldConfigSCSIThread(vmi)
+	blockMultiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue
+	multiQueueDisabled := blockMultiQueue != nil && !*blockMultiQueue
+	if !configureIOThread && !multiQueueDisabled {
+		return driver
 	}
 
-	if scsiControllerDriver == nil {
-		scsiControllerDriver = &api.ControllerDriver{}
+	numQueues := uint(1)
+	if !multiQueueDisabled {
+		numQueues = max(uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi))), 1)
+	}
+	if driver == nil {
+		driver = &api.ControllerDriver{}
+	}
+	driver.Queues = pointer.P(numQueues)
+	if configureIOThread {
+		driver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
 	}
 
-	vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
-	if vcpus == 0 {
-		vcpus = 1
-	}
-
-	scsiControllerDriver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
-	scsiControllerDriver.Queues = pointer.P(vcpus)
-
-	return scsiControllerDriver
+	return driver
 }
 
 func computeScsiControllerThread(autoThreads uint, disks []v1.Disk) *uint {

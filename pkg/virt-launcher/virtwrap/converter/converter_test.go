@@ -791,16 +791,10 @@ var _ = Describe("Converter", func() {
 				domain := &api.Domain{}
 				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domain.Spec.Devices.Controllers).To(ContainElement(
-					api.Controller{
-						Type:  expectedType,
-						Index: "0",
-						Model: expectedModel,
-					}))
+				expectedController := api.Controller{Type: expectedType, Index: "0", Model: expectedModel}
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(expectedController))
 				if !enabled {
-					for _, controller := range domain.Spec.Devices.Controllers {
-						Expect(controller.Type).ToNot(Equal("scsi"))
-					}
+					Expect(domain.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 				}
 			},
 				Entry("appear if enabled for amd64", true, "scsi", "virtio-non-transitional", amd64),
@@ -1377,11 +1371,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
-				Type:  "scsi",
-				Index: "0",
-				Model: "virtio-non-transitional",
-			}))
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 		})
 
 		It("passt network interface should enable shared memory", func() {
@@ -2858,7 +2848,7 @@ var _ = Describe("Converter", func() {
 		var context *convertertypes.ConverterContext
 
 		BeforeEach(func() {
-			context = &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), UseVirtioTransitional: false}
+			context = &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, UseVirtioTransitional: false}
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2895,6 +2885,59 @@ var _ = Describe("Converter", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
 			}
 		})
+
+		DescribeTable("should respect block multi-queue settings on disks",
+			func(setting *bool, bus v1.DiskBus, sockets uint32, expectedQueues *uint) {
+				const diskName = "mypvc"
+				vmi := libvmi.New(libvmi.WithPersistentVolumeClaim(diskName, "my-claim"), libvmi.WithCPUCount(2, 1, sockets))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = bus
+				context.Architecture = archconverter.NewConverter(amd64)
+
+				domain := &api.Domain{}
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, context)).To(Succeed())
+				expectedDisk := api.Disk{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{File: volumepath.Filesystem(diskName)},
+					Target: api.DiskTarget{Bus: bus, Device: "sda"},
+					Driver: &api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: expectedQueues,
+					},
+					Alias: api.NewUserDefinedAlias(diskName),
+				}
+				if bus == v1.DiskBusVirtio {
+					expectedDisk.Target.Device = "vda"
+					expectedDisk.Model = "virtio-non-transitional"
+				}
+				if bus == v1.DiskBusSCSI {
+					expectedDisk.Address = &api.Address{Type: "drive", Controller: "0", Bus: "0", Unit: "0"}
+				}
+				Expect(domain.Spec.Devices.Disks).To(ConsistOf(expectedDisk))
+			},
+			Entry("enabled with two vCPUs", pointer.P(true), v1.DiskBusVirtio, uint32(1), pointer.P(uint(2))),
+			Entry("omitted keeps queues unspecified", nil, v1.DiskBusVirtio, uint32(3), nil),
+			Entry("false requests one virtio-blk queue", pointer.P(false), v1.DiskBusVirtio, uint32(3), pointer.P(uint(1))),
+			Entry("true uses the complete CPU topology", pointer.P(true), v1.DiskBusVirtio, uint32(3), pointer.P(uint(6))),
+			Entry("false adds no queues to a SCSI disk", pointer.P(false), v1.DiskBusSCSI, uint32(3), nil),
+			Entry("true adds no queues to a SCSI disk", pointer.P(true), v1.DiskBusSCSI, uint32(3), nil),
+			Entry("false adds no queues to a SATA disk", pointer.P(false), v1.DiskBusSATA, uint32(3), nil),
+		)
+
+		DescribeTable("should respect an explicit block multi-queue opt-out after volume conversion",
+			func(setting *bool, expectedQueues *uint) {
+				vmi := libvmi.New(libvmi.WithDownwardMetricsVolume("metrics"), libvmi.WithCPUCount(2, 1, 1))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				context.Architecture = archconverter.NewConverter(amd64)
+
+				domain := vmiToDomain(vmi, context)
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues))
+			},
+			Entry("omitted keeps queues unspecified", nil, nil),
+			Entry("true keeps existing driver replacement behavior", pointer.P(true), nil),
+			Entry("false requests one queue", pointer.P(false), pointer.P(uint(1))),
+		)
 
 		It("should assign queues to a device if requested", func() {
 			expectedQueues := uint(2)
@@ -3996,15 +4039,10 @@ var _ = Describe("Converter", func() {
 				c.Architecture = archconverter.NewConverter(arch)
 				domain := vmiToDomain(vmi, c)
 				Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
-				foundScsiController := false
-				for _, controller := range domain.Spec.Devices.Controllers {
-					if controller.Type == "scsi" {
-						foundScsiController = true
-						Expect(controller.Model).To(Equal(expectedModel))
-
-					}
-				}
-				Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(And(
+					HaveField("Type", "scsi"),
+					HaveField("Model", expectedModel),
+				)))
 			},
 				Entry("on amd64", amd64, "virtio-non-transitional"),
 				Entry("on arm64", arm64, "virtio-non-transitional"),
