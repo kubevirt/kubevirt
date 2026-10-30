@@ -699,9 +699,8 @@ type GPU struct {
 	// DeviceName is the name of the device provisioned by device-plugins
 	DeviceName string `json:"deviceName,omitempty"`
 	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
-	// requestName from resourceClaim.spec.devices.requests[].name
-	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
-	// This feature is in alpha.
+	// requestName from resourceClaim.spec.devices.requests[].name.
+	// This field should only be configured if the GPUsWithDRA feature gate is enabled.
 	*ClaimRequest     `json:",inline"`
 	VirtualGPUOptions *VGPUOptions `json:"virtualGPUOptions,omitempty"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
@@ -749,10 +748,8 @@ type HostDevice struct {
 	// DeviceName is the name of the device provisioned by device-plugins
 	DeviceName string `json:"deviceName,omitempty"`
 	// ClaimRequest provides the ClaimName from vmi.spec.resourceClaims[].name and
-	// requestName from resourceClaim.spec.devices.requests[].name
-	// this fields requires DRA feature gate enabled
-	// This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
-	// This feature is in alpha.
+	// requestName from resourceClaim.spec.devices.requests[].name.
+	// Host devices provisioned through DRA do not require a feature gate.
 	*ClaimRequest `json:",inline"`
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional

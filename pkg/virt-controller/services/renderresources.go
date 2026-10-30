@@ -465,7 +465,7 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config cl
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
 		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate), supportedHostDevicesMap)...)
-		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate), supportedHostDevicesMap)...)
+		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, supportedHostDevicesMap)...)
 	}
 
 	if len(errors) != 0 {
@@ -488,10 +488,10 @@ func validateGPUs(gpus []v1.GPU, draEnabled bool, supportedHostDevicesMap map[st
 	return errors
 }
 
-func validateHostDevices(hostDevs []v1.HostDevice, draEnabled bool, supportedHostDevicesMap map[string]bool) (errors []string) {
+func validateHostDevices(hostDevs []v1.HostDevice, supportedHostDevicesMap map[string]bool) (errors []string) {
 	for _, hostDev := range hostDevs {
-		// skip host devices backed by DRA claims, since they are validated via DRA instead of the permittedHostDevices config
-		if draEnabled && hostDev.ClaimRequest != nil {
+		// DRA host devices are validated by the DRA admitter.
+		if hostDev.ClaimRequest != nil {
 			continue
 		}
 		if _, exist := supportedHostDevicesMap[hostDev.DeviceName]; !exist {

@@ -1693,9 +1693,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate) && isGPUVMIDRA(vmi)
 			}, WithGPUsDRA(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(isHostDevVMIDevicePlugins, WithHostDevicesDevicePlugins(vmi.Spec.Domain.Devices.HostDevices)),
-			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate) && isHostDevVMIDRA(vmi)
-			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
+			NewVMIResourceRule(isHostDevVMIDRA, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.IsFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate) && vmispec.HasDRANetwork(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
