@@ -160,7 +160,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
-		app = NewSubresourceAPIApp(virtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config, nil)
 	})
 
 	AfterEach(func() {
