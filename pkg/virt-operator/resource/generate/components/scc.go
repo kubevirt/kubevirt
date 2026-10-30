@@ -48,8 +48,6 @@ func NewKubeVirtHandlerSCC(namespace string) *secv1.SecurityContextConstraints {
 	scc.Name = "kubevirt-handler"
 	scc.AllowPrivilegedContainer = true
 	scc.AllowHostPID = true
-	scc.AllowHostPorts = true
-	scc.AllowHostIPC = true
 	scc.RunAsUser = secv1.RunAsUserStrategyOptions{
 		Type: secv1.RunAsUserStrategyRunAsAny,
 	}
@@ -76,7 +74,6 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 	}
 	scc.SeccompProfiles = []string{
 		"runtime/default",
-		"unconfined",
 		"localhost/kubevirt/kubevirt.json",
 	}
 	scc.AllowedCapabilities = []corev1.Capability{
@@ -85,7 +82,6 @@ func NewKubeVirtControllerSCC(namespace string) *secv1.SecurityContextConstraint
 		// add CAP_NET_BIND_SERVICE capability to allow dhcp and slirp operations
 		"NET_BIND_SERVICE",
 	}
-	scc.AllowHostDirVolumePlugin = true
 	scc.Users = []string{fmt.Sprintf("system:serviceaccount:%s:kubevirt-controller", namespace)}
 
 	return scc
