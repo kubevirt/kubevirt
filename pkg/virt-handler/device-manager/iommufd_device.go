@@ -290,9 +290,9 @@ func (dpi *IOMMUFDDevicePlugin) PreStartContainer(_ context.Context, _ *pluginap
 
 func (dpi *IOMMUFDDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newDeviceWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to create fsnotify watcher: %v", err)
+		return fmt.Errorf("failed to create a device watcher: %v", err)
 	}
 	defer func() { _ = watcher.Close() }()
 
