@@ -2976,7 +2976,7 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 		}
 
 		vmi := libvmifact.NewAlpine(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithSecretDisk(secretName, secretName),
@@ -3001,7 +3001,7 @@ func addSecondaryNetworkToLastVMI(vmis []*v1.VirtualMachineInstance, nadName, ne
 	lastVMIIndex := len(vmis) - 1
 	vmi := vmis[lastVMIIndex]
 
-	libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName))(vmi)
+	libvmi.WithInterface(libvmi.NewInterface(networkName, libvmi.WithBridgeBinding()))(vmi)
 	libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName))(vmi)
 }
 

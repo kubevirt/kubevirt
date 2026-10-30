@@ -6242,7 +6242,7 @@ var _ = Describe("Template", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithNetwork(libvmi.MultusNetwork("network1", "default/default")),
-				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: noDeviceInfoPlugin})),
+				libvmi.WithInterface(libvmi.NewInterface("network1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: noDeviceInfoPlugin}))),
 			)
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -6276,17 +6276,17 @@ var _ = Describe("Template", func() {
 					"should have single network-info annotation volume mount")
 			},
 			Entry("with SR-IOV interface",
-				[]v1.Interface{libvmi.InterfaceDeviceWithSRIOVBinding("network1")},
+				[]v1.Interface{libvmi.NewInterface("network1", libvmi.WithSRIOVBinding())},
 				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
 			),
 			Entry("with binding plugin device-info interface",
-				[]v1.Interface{libvmi.InterfaceWithBindingPlugin("network1", v1.PluginBinding{Name: deviceInfoPlugin})},
+				[]v1.Interface{libvmi.NewInterface("network1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: deviceInfoPlugin}))},
 				[]v1.Network{*libvmi.MultusNetwork("network1", "default/default")},
 			),
 			Entry("with binding plugin device-info and SR-IOV interfaces",
 				[]v1.Interface{
-					libvmi.InterfaceDeviceWithSRIOVBinding("network1"),
-					libvmi.InterfaceWithBindingPlugin("network2", v1.PluginBinding{Name: deviceInfoPlugin}),
+					libvmi.NewInterface("network1", libvmi.WithSRIOVBinding()),
+					libvmi.NewInterface("network2", libvmi.WithBindingPlugin(v1.PluginBinding{Name: deviceInfoPlugin})),
 				},
 				[]v1.Network{
 					*libvmi.MultusNetwork("network1", "default/default"),

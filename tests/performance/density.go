@@ -251,7 +251,7 @@ func createVMISpecWithResources() *kvv1.VirtualMachineInstance {
 	cpuLimit := "100m"
 	memLimit := "90Mi"
 	vmi := libvmifact.NewCirros(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(kvv1.DefaultPodNetwork()),
 		libvmi.WithMemoryRequest(memLimit),
 		libvmi.WithMemoryLimit(memLimit),

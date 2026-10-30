@@ -71,7 +71,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, decorat
 		BeforeEach(func() {
 			vmi = libvmifact.NewGuestless(
 				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 		})
@@ -233,7 +233,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, decorat
 
 		BeforeEach(func() {
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -721,7 +721,7 @@ func newVMIPreset(name, labelKey, labelValue string) *v1.VirtualMachineInstanceP
 
 func newVMIReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 	vmi := libvmifact.NewGuestless(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 
