@@ -14,7 +14,7 @@ import (
 	time "time"
 
 	gomock "go.uber.org/mock/gomock"
-	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	v1beta1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -48,7 +48,7 @@ func (m *MockDomainManager) EXPECT() *MockDomainManagerMockRecorder {
 }
 
 // BackupVirtualMachine mocks base method.
-func (m *MockDomainManager) BackupVirtualMachine(arg0 *v1.VirtualMachineInstance, arg1 *v1alpha1.BackupOptions) error {
+func (m *MockDomainManager) BackupVirtualMachine(arg0 *v1.VirtualMachineInstance, arg1 *v1beta1.BackupOptions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BackupVirtualMachine", arg0, arg1)
 	ret0, _ := ret[0].(error)

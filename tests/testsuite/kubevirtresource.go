@@ -111,7 +111,6 @@ func AdjustKubeVirtResource() {
 		featuregate.CPUManager,
 		featuregate.IgnitionGate,
 		featuregate.SidecarGate,
-		featuregate.IncrementalBackupGate,
 		featuregate.ExternalVMSnapshotGate,
 		featuregate.OfflineIncrementalBackupGate,
 		featuregate.HostDiskGate,

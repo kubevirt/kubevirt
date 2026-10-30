@@ -32,8 +32,9 @@ import (
 	common "k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
 	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	v1beta1 "kubevirt.io/api/backup/v1beta1"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
-	v1beta1 "kubevirt.io/api/clone/v1beta1"
+	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	corev1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
@@ -357,18 +358,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.VirtualMachineBackupTrackerList{}.OpenAPIModelName():                                     schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerList(ref),
 		v1alpha1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName():                                     schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerSpec(ref),
 		v1alpha1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName():                                   schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref),
+		v1beta1.BackupCheckpoint{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupCheckpoint(ref),
+		v1beta1.BackupLink{}.OpenAPIModelName():                                                           schema_kubevirtio_api_backup_v1beta1_BackupLink(ref),
+		v1beta1.BackupLinks{}.OpenAPIModelName():                                                          schema_kubevirtio_api_backup_v1beta1_BackupLinks(ref),
+		v1beta1.BackupOptions{}.OpenAPIModelName():                                                        schema_kubevirtio_api_backup_v1beta1_BackupOptions(ref),
+		v1beta1.BackupVolumeInfo{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupVolumeInfo(ref),
+		v1beta1.BackupVolumeLink{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupVolumeLink(ref),
+		v1beta1.VirtualMachineBackup{}.OpenAPIModelName():                                                 schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackup(ref),
+		v1beta1.VirtualMachineBackupList{}.OpenAPIModelName():                                             schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupList(ref),
+		v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName():                                             schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupSpec(ref),
+		v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName():                                           schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupStatus(ref),
+		v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName():                                          schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTracker(ref),
+		v1beta1.VirtualMachineBackupTrackerList{}.OpenAPIModelName():                                      schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerList(ref),
+		v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName():                                      schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerSpec(ref),
+		v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName():                                    schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerStatus(ref),
 		clonev1alpha1.Condition{}.OpenAPIModelName():                                                      schema_kubevirtio_api_clone_v1alpha1_Condition(ref),
 		clonev1alpha1.VirtualMachineClone{}.OpenAPIModelName():                                            schema_kubevirtio_api_clone_v1alpha1_VirtualMachineClone(ref),
 		clonev1alpha1.VirtualMachineCloneList{}.OpenAPIModelName():                                        schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneList(ref),
 		clonev1alpha1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                        schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref),
 		clonev1alpha1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                      schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneStatus(ref),
 		clonev1alpha1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                             schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneTemplateFilters(ref),
-		v1beta1.Condition{}.OpenAPIModelName():                                                            schema_kubevirtio_api_clone_v1beta1_Condition(ref),
-		v1beta1.VirtualMachineClone{}.OpenAPIModelName():                                                  schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref),
-		v1beta1.VirtualMachineCloneList{}.OpenAPIModelName():                                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref),
-		v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref),
-		v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                            schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref),
-		v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                                   schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneTemplateFilters(ref),
+		clonev1beta1.Condition{}.OpenAPIModelName():                                                       schema_kubevirtio_api_clone_v1beta1_Condition(ref),
+		clonev1beta1.VirtualMachineClone{}.OpenAPIModelName():                                             schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref),
+		clonev1beta1.VirtualMachineCloneList{}.OpenAPIModelName():                                         schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref),
+		clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                         schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref),
+		clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                       schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref),
+		clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneTemplateFilters(ref),
 		corev1.ACPI{}.OpenAPIModelName():                                                                  schema_kubevirtio_api_core_v1_ACPI(ref),
 		corev1.AccessCredential{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		corev1.AccessCredentialSecretSource{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
@@ -18154,6 +18169,605 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 	}
 }
 
+func schema_kubevirtio_api_backup_v1beta1_BackupCheckpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"creationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"volumeName",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes lists the data and map endpoints for each backed-up volume",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.BackupVolumeLink{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"cert"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupVolumeLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Internal contains endpoints reachable from within the cluster",
+							Ref:         ref(v1beta1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "External contains endpoints reachable from outside the cluster",
+							Ref:         ref(v1beta1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupOptions are options used to configure virtual machine backup job",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"backupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cmd": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"backupStartTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"incremental": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"incrementalCreationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"targetPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupVolumeInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeInfo contains information about a volume included in a backup",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the volume name from VMI spec",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupVolumeLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName identifies the volume these endpoints belong to",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataEndpoint is the URL for reading backup data",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mapEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MapEndpoint is the URL for reading the changed block map",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName", "dataEndpoint", "mapEndpoint"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackup defines the operation of backing up a VM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.VirtualMachineBackup{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackup{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1.TypedLocalObjectReference{}.OpenAPIModelName()),
+						},
+					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode specifies the way the backup output will be recieved",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pvcName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"forceFullBackup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ForceFullBackup indicates that a full backup is desired",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTimestamp is the timestamp when the backup started",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(metav1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"checkpointName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckpointName the name of the checkpoint created for the current backup",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"includedVolumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludedVolumes lists the volumes that were included in the backup",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.BackupVolumeInfo{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+							Ref:         ref(v1beta1.BackupLinks{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName(), v1beta1.BackupLinks{}.OpenAPIModelName(), v1beta1.BackupVolumeInfo{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTracker(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTracker defines the way to track the latest checkpoint of a backup solution for a vm",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source specifies the VM that this backupTracker is associated with",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1.TypedLocalObjectReference{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			v1.TypedLocalObjectReference{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"latestCheckpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LatestCheckpoint is the metadata of the checkpoint of the latest performed backup",
+							Ref:         ref(v1beta1.BackupCheckpoint{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupCheckpoint{}.OpenAPIModelName()},
+	}
+}
+
 func schema_kubevirtio_api_clone_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18600,13 +19214,13 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref common.Referenc
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName()),
+							Ref:     ref(clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()),
+							Ref:     ref(clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -18614,7 +19228,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()},
+			metav1.ObjectMeta{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -18657,7 +19271,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VirtualMachineClone{}.OpenAPIModelName()),
+										Ref:     ref(clonev1beta1.VirtualMachineClone{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -18668,7 +19282,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineClone{}.OpenAPIModelName()},
+			metav1.ListMeta{}.OpenAPIModelName(), clonev1beta1.VirtualMachineClone{}.OpenAPIModelName()},
 	}
 }
 
@@ -18734,7 +19348,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 						SchemaProps: spec.SchemaProps{
 							Description: "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()),
+							Ref:         ref(clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()),
 						},
 					},
 					"newMacAddresses": {
@@ -18792,7 +19406,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()},
 	}
 }
 
@@ -18825,7 +19439,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
+										Ref:     ref(clonev1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -18853,7 +19467,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), v1beta1.Condition{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), clonev1beta1.Condition{}.OpenAPIModelName()},
 	}
 }
 

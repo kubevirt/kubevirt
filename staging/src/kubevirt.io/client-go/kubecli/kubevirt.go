@@ -43,7 +43,7 @@ import (
 	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
 	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
 	generatedclient "kubevirt.io/client-go/kubevirt"
-	backupv1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	backupv1 "kubevirt.io/client-go/kubevirt/typed/backup/v1beta1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
@@ -175,11 +175,11 @@ func (k kubevirtClient) VirtualMachinePool(namespace string) poolv1.VirtualMachi
 }
 
 func (k kubevirtClient) VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface {
-	return k.generatedKubeVirtClient.BackupV1alpha1().VirtualMachineBackups(namespace)
+	return k.generatedKubeVirtClient.BackupV1beta1().VirtualMachineBackups(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface {
-	return k.generatedKubeVirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(namespace)
+	return k.generatedKubeVirtClient.BackupV1beta1().VirtualMachineBackupTrackers(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {

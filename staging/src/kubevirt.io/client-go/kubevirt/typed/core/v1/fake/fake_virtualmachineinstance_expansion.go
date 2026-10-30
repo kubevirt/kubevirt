@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/client-go/testing"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	fake2 "kubevirt.io/client-go/testing"

@@ -78,8 +78,9 @@ const (
 	// bind mounts in virt-handler.
 	ImageVolume = "ImageVolume"
 
-	// Owner: @shellyka13
+	// Owner: sig-storage / @ShellyKa13
 	// Alpha: v1.6.0
+	// Beta: v1.10.0
 	//
 	// IncrementalBackup feature gate enables creating full and incremental backups for virtual machines.
 	// These backups leverage libvirt's native backup capabilities, providing a storage-agnostic solution.
@@ -381,7 +382,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: OfflineIncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Beta})

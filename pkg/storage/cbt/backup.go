@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -36,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -338,13 +339,14 @@ func (ctrl *VMBackupController) handleUpdateVMExport(oldObj, newObj interface{})
 
 func getOwnerVMBackupKey(obj metav1.Object) string {
 	ownerRef := metav1.GetControllerOf(obj)
-	var key string
-	if ownerRef != nil {
-		if ownerRef.Kind == backupv1.VirtualMachineBackupGroupVersionKind.Kind && ownerRef.APIVersion == backupv1.VirtualMachineBackupGroupVersionKind.GroupVersion().String() {
-			key = types.NamespacedName{Namespace: obj.GetNamespace(), Name: ownerRef.Name}.String()
-		}
+	if ownerRef == nil || ownerRef.Kind != backupv1.VirtualMachineBackupGroupVersionKind.Kind {
+		return ""
 	}
-	return key
+	gv, err := schema.ParseGroupVersion(ownerRef.APIVersion)
+	if err != nil || gv.Group != backupv1.VirtualMachineBackupGroupVersionKind.Group {
+		return ""
+	}
+	return types.NamespacedName{Namespace: obj.GetNamespace(), Name: ownerRef.Name}.String()
 }
 
 func (ctrl *VMBackupController) Run(threadiness int, stopCh <-chan struct{}) error {
