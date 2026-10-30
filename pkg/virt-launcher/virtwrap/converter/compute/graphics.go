@@ -93,6 +93,8 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 		g.configureARM64VideoDevice(domain)
 	case "s390x":
 		g.configureS390XVideoDevice(domain)
+	case "ppc64le":
+		g.configurePPC64LEVideoDevice(domain)
 	}
 }
 
@@ -133,6 +135,16 @@ func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain
 }
 
 func (g GraphicsDomainConfigurator) configureS390XVideoDevice(domain *api.Domain) {
+	domain.Spec.Devices.Video = []api.Video{{
+		Model: api.VideoModel{
+			Type:  v1.VirtIO,
+			Heads: new(graphicsDeviceDefaultHeads),
+		},
+	}}
+}
+
+func (g GraphicsDomainConfigurator) configurePPC64LEVideoDevice(domain *api.Domain) {
+	// libvirt would otherwise add its implicit ppc64le default (vga), which is not admitted on ppc64le.
 	domain.Spec.Devices.Video = []api.Video{{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,

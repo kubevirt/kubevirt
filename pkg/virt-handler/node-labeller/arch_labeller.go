@@ -26,9 +26,10 @@ import (
 )
 
 const (
-	amd64 = "amd64"
-	arm64 = "arm64"
-	s390x = "s390x"
+	amd64   = "amd64"
+	arm64   = "arm64"
+	s390x   = "s390x"
+	ppc64le = "ppc64le"
 )
 
 // Ensure that there is a compile error should the struct not implement the archLabeller interface anymore.
@@ -51,6 +52,8 @@ func newArchLabeller(arch string) archLabeller {
 		return archLabellerARM64{}
 	case s390x:
 		return archLabellerS390X{}
+	case ppc64le:
+		return archLabellerPPC64LE{}
 	default:
 		return defaultArchLabeller{}
 	}

@@ -1002,9 +1002,7 @@ func (MultiIOThreadAutoPolicy) SwaggerDoc() map[string]string {
 }
 
 func (ArchConfiguration) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"ppc64le": "Deprecated: ppc64le architecture is no longer supported.",
-	}
+	return map[string]string{}
 }
 
 func (ArchSpecificConfiguration) SwaggerDoc() map[string]string {

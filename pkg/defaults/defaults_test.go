@@ -253,6 +253,57 @@ var _ = Describe("Defaults", func() {
 		)
 	})
 
+	Context("ppc64le disk bus", func() {
+		var clusterConfig *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		})
+
+		newVMI := func(arch string, disks ...v1.Disk) *v1.VirtualMachineInstance {
+			vmi := libvmi.New(libvmi.WithArchitecture(arch))
+			vmi.Spec.Domain.Devices.Disks = disks
+			return vmi
+		}
+
+		DescribeTable("should default an omitted bus on", func(device v1.DiskDevice, getBus func(v1.DiskDevice) v1.DiskBus) {
+			vmi := newVMI("ppc64le", v1.Disk{Name: "disk0", DiskDevice: device})
+
+			Expect(defaults.SetDefaultVirtualMachineInstance(clusterConfig, vmi)).To(Succeed())
+
+			Expect(getBus(vmi.Spec.Domain.Devices.Disks[0].DiskDevice)).To(Equal(v1.DiskBusVirtio))
+		},
+			Entry("a disk", v1.DiskDevice{Disk: &v1.DiskTarget{}},
+				func(d v1.DiskDevice) v1.DiskBus { return d.Disk.Bus }),
+			Entry("a cdrom", v1.DiskDevice{CDRom: &v1.CDRomTarget{}},
+				func(d v1.DiskDevice) v1.DiskBus { return d.CDRom.Bus }),
+			Entry("a lun", v1.DiskDevice{LUN: &v1.LunTarget{}},
+				func(d v1.DiskDevice) v1.DiskBus { return d.LUN.Bus }),
+		)
+
+		It("should keep a bus that was set explicitly", func() {
+			vmi := newVMI("ppc64le", v1.Disk{
+				Name:       "disk0",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI}},
+			})
+
+			Expect(defaults.SetDefaultVirtualMachineInstance(clusterConfig, vmi)).To(Succeed())
+
+			Expect(vmi.Spec.Domain.Devices.Disks[0].Disk.Bus).To(Equal(v1.DiskBusSCSI))
+		})
+
+		It("should not change the SATA default of other architectures", func() {
+			vmi := newVMI("amd64", v1.Disk{
+				Name:       "disk0",
+				DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}},
+			})
+
+			Expect(defaults.SetDefaultVirtualMachineInstance(clusterConfig, vmi)).To(Succeed())
+
+			Expect(vmi.Spec.Domain.Devices.Disks[0].Disk.Bus).To(Equal(v1.DiskBusSATA))
+		})
+	})
+
 	Context("SupportsPCIeHotplug", func() {
 		DescribeTable("should report PCIe hotplug support based on architecture and machine type",
 			func(arch string, machineType *string, expected bool) {
