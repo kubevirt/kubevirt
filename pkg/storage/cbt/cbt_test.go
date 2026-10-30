@@ -586,12 +586,30 @@ var _ = Describe("CBT", func() {
 		})
 	})
 
-	Context("overlay paths", func() {
-		// Guards the two overlay-path helpers from drifting apart, e.g. #19404's claim-UID
-		// re-key changing one but not the other.
-		It("keeps the PVC-relative overlay path a suffix of the launcher's absolute path", func() {
-			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			Expect(cbt.GetQCOW2OverlayPath(vmi, "rootdisk")).To(HaveSuffix(cbt.GetQCOW2OverlayPVCPath("rootdisk")))
+	Context("GetQCOW2OverlayPath", func() {
+		overlayPath := func(volumeName, claimName string, withVolume func(diskName, pvcName string, diskOpts ...libvmi.DiskOption) libvmi.Option) string {
+			vmi := libvmi.New(withVolume(volumeName, claimName))
+			return cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])
+		}
+
+		It("should give a volume pointed at another claim a different overlay", func() {
+			Expect(overlayPath("disk", "claim-a", libvmi.WithPersistentVolumeClaim)).
+				ToNot(Equal(overlayPath("disk", "claim-b", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should give each volume on a claim its own overlay", func() {
+			Expect(overlayPath("disk-a", "claim", libvmi.WithPersistentVolumeClaim)).
+				ToNot(Equal(overlayPath("disk-b", "claim", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should keep the overlay when a DataVolume volume is referenced by its PVC", func() {
+			Expect(overlayPath("disk", "claim", libvmi.WithDataVolume)).
+				To(Equal(overlayPath("disk", "claim", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should keep the backend-PVC-relative overlay path a suffix of the launcher's absolute path", func() {
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk", "claim"))
+			Expect(cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])).To(HaveSuffix(cbt.GetQCOW2OverlayBackendPath("disk", "claim")))
 		})
 	})
 })

@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -93,6 +94,11 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 	}
 	scratch := os.NewFile(uintptr(fd), "cbt-scratch")
 	defer scratch.Close()
+
+	// #nosec G301: qemu traverses the directory to reach the overlay.
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay directory for %s: %w", overlayPath, err)
+	}
 
 	tmpOverlay := overlayPath + ".tmp"
 	if err := os.Remove(tmpOverlay); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -174,7 +180,7 @@ func CleanupChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domainS
 // ReconcileChangedBlockTrackingOverlays is a GC pass for overlays whose volumes
 // are no longer on the VMI. Hot-unplug deletes the matching overlay via
 // DeleteQCOW2Overlay during syncDisks; this reconciler catches orphans that miss
-// that path (and removes leftover *.qcow2.tmp files). Must run after disk detach
+// that path (removes files and directories). Must run after disk detach
 // so QEMU is not still referencing a path that is about to be unlinked.
 //
 // The keep-set combines:
@@ -196,14 +202,14 @@ func ReconcileChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domai
 // buildCBTOverlayKeepPaths returns the CBT directory and the set of overlay
 // paths that must not be deleted: eligible VMI volumes plus any live-domain
 // disk sources still under that directory.
-func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (string, map[string]struct{}) {
+func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (string, sets.Set[string]) {
 	cbtDir := cbt.PathForCBT(vmi)
-	desiredPaths := make(map[string]struct{})
+	desiredPaths := sets.New[string]()
 	for _, volume := range vmi.Spec.Volumes {
 		if !cbt.IsCBTEligibleVolume(&volume) {
 			continue
 		}
-		desiredPaths[cbt.GetQCOW2OverlayPath(vmi, volume.Name)] = struct{}{}
+		desiredPaths.Insert(cbt.GetQCOW2OverlayPath(vmi, &volume))
 	}
 	addLiveDomainCBTOverlayPaths(desiredPaths, cbtDir, domainSpec)
 	return cbtDir, desiredPaths
@@ -211,8 +217,7 @@ func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.Do
 
 // addLiveDomainCBTOverlayPaths keeps any disk Source.File under cbtDir that the
 // live domain still references, so GC cannot unlink an overlay QEMU has open.
-func addLiveDomainCBTOverlayPaths(desiredPaths map[string]struct{}, cbtDir string, domainSpec *api.DomainSpec) {
-	// Writing to a nil map panics; callers always pass a non-nil map.
+func addLiveDomainCBTOverlayPaths(desiredPaths sets.Set[string], cbtDir string, domainSpec *api.DomainSpec) {
 	if domainSpec == nil || desiredPaths == nil {
 		return
 	}
@@ -221,7 +226,7 @@ func addLiveDomainCBTOverlayPaths(desiredPaths map[string]struct{}, cbtDir strin
 		if path == "" || !isPathUnderDir(path, cbtDir) {
 			continue
 		}
-		desiredPaths[path] = struct{}{}
+		desiredPaths.Insert(path)
 	}
 }
 
@@ -247,47 +252,39 @@ func isPathUnderDir(path, dir string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-func reconcileQCOW2OverlaysInDir(cbtDir string, desiredPaths map[string]struct{}) error {
-	err := filepath.WalkDir(cbtDir, func(path string, d fs.DirEntry, err error) error {
+func withAncestorsUnder(paths sets.Set[string], root string) sets.Set[string] {
+	result := sets.New[string]()
+	for path := range paths {
+		for path = filepath.Clean(path); path != root && isPathUnderDir(path, root); path = filepath.Dir(path) {
+			result.Insert(path)
+		}
+	}
+	return result
+}
+
+func reconcileQCOW2OverlaysInDir(cbtDir string, desiredPaths sets.Set[string]) error {
+	cbtDir = filepath.Clean(cbtDir)
+	keep := withAncestorsUnder(desiredPaths, cbtDir)
+	return filepath.WalkDir(cbtDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
 			return err
 		}
+		if path == cbtDir || keep.Has(path) {
+			return nil
+		}
+		// Safe after domain detach since guest data lives in the raw data_file, not this metadata overlay.
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("failed to delete orphaned CBT path %s: %w", path, err)
+		}
+		log.Log.Infof("CBT path %s deleted (volume no longer in CBT set)", path)
 		if d.IsDir() {
-			return nil
+			return filepath.SkipDir
 		}
-		name := d.Name()
-		if !strings.HasSuffix(name, ".qcow2") && !strings.HasSuffix(name, ".qcow2.tmp") {
-			return nil
-		}
-		// Only delete regular files — never follow or remove symlinks/devices.
-		info, infoErr := d.Info()
-		if infoErr != nil {
-			if errors.Is(infoErr, os.ErrNotExist) {
-				return nil
-			}
-			return infoErr
-		}
-		if !info.Mode().IsRegular() {
-			log.Log.Warningf("skipping non-regular CBT path %s (mode %s)", path, info.Mode())
-			return nil
-		}
-		if _, keep := desiredPaths[path]; keep {
-			return nil
-		}
-		// Safe after domain detach: guest data lives in the raw data_file, not this metadata overlay.
-		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-			return fmt.Errorf("failed to delete orphaned QCOW2 overlay %s: %w", path, removeErr)
-		}
-		log.Log.Infof("QCOW2 overlay %s deleted (volume no longer in CBT set)", path)
 		return nil
 	})
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
 }
 
 func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
@@ -303,7 +300,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 			continue
 		}
 
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, &volume)
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
 
 		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
@@ -323,17 +320,6 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		applyCBTMap[volumeName] = overlayPath
 	}
 
-	c.ApplyCBT = applyCBTMap
-	return nil
-}
-
-func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
-	applyCBTMap := make(map[string]string)
-	for _, volume := range vmi.Spec.Volumes {
-		if cbt.IsCBTEligibleVolume(&volume) {
-			applyCBTMap[volume.Name] = cbt.GetQCOW2OverlayPath(vmi, volume.Name)
-		}
-	}
 	c.ApplyCBT = applyCBTMap
 	return nil
 }

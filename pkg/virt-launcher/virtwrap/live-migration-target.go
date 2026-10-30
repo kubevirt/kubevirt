@@ -42,14 +42,12 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 const (
@@ -174,15 +172,8 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	}
 
 	domain := &api.Domain{}
-	// Must run before ApplyChangedBlockTrackingForMigration, which could otherwise wipe cbt/ after overlay creation.
 	if err := l.prepareVMStateLayout(vmi, domain); err != nil {
 		return fmt.Errorf("failed to prepare VMState layout: %v", err)
-	}
-
-	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-		if err := storage.ApplyChangedBlockTrackingForMigration(vmi, c); err != nil {
-			return fmt.Errorf("failed to apply CBT for migration: %v", err)
-		}
 	}
 
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
