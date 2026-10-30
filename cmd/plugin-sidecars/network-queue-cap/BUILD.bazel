@@ -1,0 +1,53 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "kubevirt_image")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "main.go",
+        "queues.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/plugin-sidecars/network-queue-cap",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/hooks/plugins/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "network-queue-cap",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "network-queue-cap-tar",
+    srcs = [":network-queue-cap"],
+    package_dir = "/usr/bin",
+)
+
+kubevirt_image(
+    name = "network-queue-cap-image",
+    base = "//:passwd-image",
+    entrypoint = ["/usr/bin/network-queue-cap"],
+    tars = [":network-queue-cap-tar"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "network_queue_cap_suite_test.go",
+        "queues_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)
