@@ -180,12 +180,12 @@ func (s *OfflineVMBackupSource) ConfigurePod(pod *corev1.Pod) {
 			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_MAP_URI", index), Value: backupMapURI(volume.VolumeName)},
 			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_TYPE", index), Value: string(volume.Type)},
 			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_DISK_PATH", index), Value: diskPath},
-			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayPVCPath(volume.VolumeName)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayBackendPath(volume.VolumeName, pvc.Name)},
 		)
 		probeContainer.Env = append(probeContainer.Env,
 			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_BACKUP_PATH", index), Value: volume.VolumeName},
 			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_TYPE", index), Value: string(volume.Type)},
-			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayPVCPath(volume.VolumeName)},
+			corev1.EnvVar{Name: fmt.Sprintf("BACKUP%d_OVERLAY_PATH", index), Value: cbt.GetQCOW2OverlayBackendPath(volume.VolumeName, pvc.Name)},
 		)
 	}
 

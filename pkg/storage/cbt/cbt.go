@@ -29,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
@@ -61,9 +62,12 @@ const (
 	NBDSocketName = "backup-nbd-sock"
 	// CBTDirName is the backend-storage subpath (and volume mount SubPath)
 	// that holds QCOW2 CBT metadata overlays.
-	CBTDirName       = "cbt"
+	CBTDirName       = util.VMStateDirCBT
 	BackupNBDSubPath = "cbt-nbd"
 	NBDSocketDir     = "sock"
+
+	overlayVolumesDir = "volumes"
+	overlayFile       = "overlay.qcow2"
 )
 
 func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingState {
@@ -353,13 +357,15 @@ func qemuStatePath(vmi *v1.VirtualMachineInstance) string {
 	return rootQEMUStateDir
 }
 
-func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	cbtPath := PathForCBT(vmi)
-	return filepath.Join(cbtPath, volumeName+".qcow2")
+func qcow2OverlaySubPath(volumeName, claimName string) string {
+	return filepath.Join(overlayVolumesDir, volumeName, claimName, overlayFile)
 }
 
-// GetQCOW2OverlayPVCPath is GetQCOW2OverlayPath relative to the PVC root. A unit test keeps the
-// two in lock-step.
-func GetQCOW2OverlayPVCPath(volumeName string) string {
-	return filepath.Join(CBTDirName, volumeName+".qcow2")
+func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) string {
+	return filepath.Join(PathForCBT(vmi), qcow2OverlaySubPath(volume.Name, storagetypes.PVCNameFromVirtVolume(volume)))
+}
+
+// GetQCOW2OverlayBackendPath returns the overlay path relative to the backend storage PVC root.
+func GetQCOW2OverlayBackendPath(volumeName, claimName string) string {
+	return filepath.Join(CBTDirName, qcow2OverlaySubPath(volumeName, claimName))
 }
