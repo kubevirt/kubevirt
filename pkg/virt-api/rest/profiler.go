@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"sync"
 	"time"
 
@@ -48,20 +47,50 @@ const (
 	defaultClusterProfilerResultsPageSize = 10
 )
 
+// clusterProfilerSelector returns the label selector used to list pods for cluster profiling.
+// The default control-plane selector is always applied; a non-empty requested selector
+// further narrows that set (logical AND).
+// A selector outside the control plane matches no pods, so dump returns no profiles (not an API error).
+func clusterProfilerSelector(requested string) (labels.Selector, error) {
+	selector, err := labels.Parse(v1.DefaultClusterProfilerLabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	if requested == "" {
+		return selector, nil
+	}
+
+	requestedSelector, err := labels.Parse(requested)
+	if err != nil {
+		return nil, err
+	}
+
+	requirements, _ := requestedSelector.Requirements()
+
+	return selector.Add(requirements...), nil
+}
+
 func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 	namespace, err := clientutil.GetNamespace()
 	if err != nil {
 		return nil, err
 	}
 
-	podList, err := app.k8sClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
+	selector, err := clusterProfilerSelector("")
+	if err != nil {
+		return nil, err
+	}
+
+	podList, err := app.k8sClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	pods := podList.Items[:0]
 	for _, pod := range podList.Items {
-		if podIsReadyComponent(&pod) {
+		if podIsReady(&pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -84,11 +113,11 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 		podList     *k8sv1.PodList
 	)
 
-	if selector, err := labels.Parse(cpRequest.LabelSelector); err != nil {
+	selector, err := clusterProfilerSelector(cpRequest.LabelSelector)
+	if err != nil {
 		return nil, "", err
-	} else {
-		listOptions.LabelSelector = selector.String()
 	}
+	listOptions.LabelSelector = selector.String()
 
 	listOptions.Continue = cpRequest.Continue
 	listOptions.Limit = cpRequest.PageSize
@@ -108,7 +137,7 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 
 	pods = podList.Items[:0]
 	for _, pod := range podList.Items {
-		if podIsReadyComponent(&pod) {
+		if podIsReady(&pod) {
 			pods = append(pods, pod)
 		}
 	}
@@ -116,15 +145,8 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 	return pods, podList.Continue, nil
 }
 
-func podIsReadyComponent(pod *k8sv1.Pod) bool {
+func podIsReady(pod *k8sv1.Pod) bool {
 	if pod == nil {
-		return false
-	}
-
-	re, _ := regexp.Compile("^(virt-api-|virt-operator-|virt-handler-|virt-controller-).*")
-	isComponentPod := re.MatchString(pod.Name)
-	// filter out any kubevirt related pod that doesn't have profiling capabilities
-	if !isComponentPod {
 		return false
 	}
 
@@ -245,7 +267,15 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	}
 
 	if len(pods) == 0 {
-		response.WriteHeaderAndJson(http.StatusNoContent, v1.ClusterProfilerResults{}, restful.MIME_JSON)
+		if cont == "" {
+			response.WriteHeader(http.StatusNoContent)
+			return
+		}
+		// Preserve Continue so clients can page past pods that are not profilable.
+		response.WriteHeaderAndJson(http.StatusOK, v1.ClusterProfilerResults{
+			ComponentResults: map[string]v1.ProfilerResult{},
+			Continue:         cont,
+		}, restful.MIME_JSON)
 		return
 	}
 
