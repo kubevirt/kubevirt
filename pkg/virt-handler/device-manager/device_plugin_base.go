@@ -80,7 +80,9 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
 		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
 	}
-	close(dpi.deregistered)
+	if !IsChanClosed(dpi.deregistered) {
+		close(dpi.deregistered)
+	}
 	return nil
 }
 
