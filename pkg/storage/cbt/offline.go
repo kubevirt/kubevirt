@@ -235,7 +235,7 @@ func (ctrl *VMBackupController) waitForExporterPodGone(backup *backupv1.VirtualM
 }
 
 func (ctrl *VMBackupController) reconcileOfflinePull(backup *backupv1.VirtualMachineBackup, backupTracker *backupv1.VirtualMachineBackupTracker) error {
-	if isPullBackupTTLExpired(backup) {
+	if isBackupTTLExpired(backup) {
 		if err := ctrl.cleanupBackupExportAndWait(backup); err != nil {
 			return err
 		}

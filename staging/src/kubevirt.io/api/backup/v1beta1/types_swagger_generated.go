@@ -93,7 +93,7 @@ func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
 		"skipQuiesce":     "+optional\nSkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
 		"forceFullBackup": "+optional\nForceFullBackup indicates that a full backup is desired",
 		"tokenSecretRef":  "+optional\nTokenSecretRef is the name of the secret that\nwill be used to pull the backup from an associated endpoint",
-		"ttlDuration":     "+optional\nTtlDuration limits the lifetime of a pull mode backup and its export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe backup is eligible to be automatically considered as complete.\nIf this field is omitted, a reasonable default is applied.\n+optional",
+		"ttlDuration":     "+optional\nTTLDuration limits the lifetime of an in-progress backup and its associated\nexport. It applies to both push and pull mode backups. When set, any\nin-progress backup past this duration (counting from CreationTimestamp) is\ncanceled; pull mode backups then end Complete and push mode backups end\nFailed. When omitted, a 2h default is applied to both modes.\n+optional",
 	}
 }
 

@@ -40,24 +40,27 @@ import (
 const (
 	failedExportCreate             = "failed to create backup export: %w"
 	exportExistsWithDifferentOwner = "VMExport %s already exists but is not owned by backup %s"
-	defaultPullModeDurationTTL     = 2 * time.Hour
-	backupTTLExpiredMsg            = "pull mode backup TTL has expired"
+	defaultBackupTTL               = 2 * time.Hour
+	backupTTLExpiredMsg            = "backup TTL has expired"
 )
 
 func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
 	return backup.Spec.Mode != nil && *backup.Spec.Mode == backupv1.PullMode
 }
 
-func getPullBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	ttl := &metav1.Duration{Duration: defaultPullModeDurationTTL}
+// getBackupTTL returns the expiration duration for a backup. Both pull and push
+// mode backups share a 2h default when Spec.TTLDuration is omitted.
+func getBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
+	ttl := &metav1.Duration{Duration: defaultBackupTTL}
 	if backup.Spec.TTLDuration != nil {
 		ttl = backup.Spec.TTLDuration
 	}
 	return ttl
 }
 
+// getPullBackupRemainingTTL returns the remaining export TTL for pull-mode backups.
 func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	totalTTL := getPullBackupTTL(backup)
+	totalTTL := getBackupTTL(backup)
 	creationTime := backup.CreationTimestamp.Time
 
 	if creationTime.IsZero() {
@@ -74,16 +77,18 @@ func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Du
 	return &metav1.Duration{Duration: remaining}
 }
 
-func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
-	ttl := getPullBackupTTL(backup)
+// isBackupTTLExpired reports whether a backup is past its expiration for either
+// pull or push mode. A zero CreationTimestamp is treated as not expired so it
+// matches getPullBackupRemainingTTL (full TTL remaining until creation is known).
+func isBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
+	if backup.CreationTimestamp.Time.IsZero() {
+		return false
+	}
+	ttl := getBackupTTL(backup)
 	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
 }
 
 func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
-	if isPullBackupTTLExpired(backup) {
-		return ctrl.handlePullModeTTLExpiry(backup, vmi)
-	}
-
 	vmExport, err := ctrl.getOrCreateBackupExport(backup)
 	if err != nil || vmExport == nil {
 		return err
@@ -203,7 +208,7 @@ func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink 
 	return bl
 }
 
-func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
+func (ctrl *VMBackupController) handleBackupTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if hasVMIBackupStatus(vmi) && !vmi.Status.ChangedBlockTracking.BackupStatus.Completed {
 		if err := ctrl.handleAbort(backup, vmi); err != nil {
 			return err

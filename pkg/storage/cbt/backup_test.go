@@ -109,6 +109,9 @@ var _ = Describe("Backup Controller", func() {
 				Name:      name,
 				Namespace: testNamespace,
 				UID:       backupUID,
+				// Use a realistic creation time so freshly-created backups are
+				// never treated as TTL-expired by tests that don't set their own.
+				CreationTimestamp: metav1.Now(),
 			},
 			Spec: backupv1.VirtualMachineBackupSpec{
 				Source: corev1.TypedLocalObjectReference{
@@ -1859,18 +1862,18 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		It("should return false for a new backup", func() {
-			Expect(isPullBackupTTLExpired(backup)).To(BeFalse())
+			Expect(isBackupTTLExpired(backup)).To(BeFalse())
 		})
 
 		It("should return true when creation time exceeds default TTL", func() {
 			backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
-			Expect(isPullBackupTTLExpired(backup)).To(BeTrue())
+			Expect(isBackupTTLExpired(backup)).To(BeTrue())
 		})
 
 		DescribeTable("should respect a custom TTL", func(age, ttl time.Duration, expectedExpired bool) {
 			backup.Spec.TTLDuration = &metav1.Duration{Duration: ttl}
 			backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-age))
-			Expect(isPullBackupTTLExpired(backup)).To(Equal(expectedExpired))
+			Expect(isBackupTTLExpired(backup)).To(Equal(expectedExpired))
 		},
 			Entry("when not yet expired", 5*time.Minute, 10*time.Minute, false),
 			Entry("when just expired", 15*time.Minute, 10*time.Minute, true),
@@ -1885,12 +1888,17 @@ var _ = Describe("Backup Controller", func() {
 		It("should return a positive duration for a new backup", func() {
 			remaining := getPullBackupRemainingTTL(backup)
 			Expect(remaining.Duration).To(BeNumerically(">", 0))
-			Expect(remaining.Duration).To(BeNumerically("<=", defaultPullModeDurationTTL))
+			Expect(remaining.Duration).To(BeNumerically("<=", defaultBackupTTL))
 		})
 
 		It("should return full TTL when CreationTimestamp is zero", func() {
 			backup.CreationTimestamp = metav1.Time{}
-			Expect(getPullBackupRemainingTTL(backup).Duration).To(Equal(defaultPullModeDurationTTL))
+			Expect(getPullBackupRemainingTTL(backup).Duration).To(Equal(defaultBackupTTL))
+		})
+
+		It("should not treat a zero CreationTimestamp as expired", func() {
+			backup.CreationTimestamp = metav1.Time{}
+			Expect(isBackupTTLExpired(backup)).To(BeFalse())
 		})
 
 		It("should account for elapsed time", func() {
@@ -2395,6 +2403,107 @@ var _ = Describe("Backup Controller", func() {
 			Expect(result).ToNot(BeNil())
 			Expect(result.Cert).To(Equal("some-cert"))
 			Expect(result.Volumes).To(BeEmpty())
+		})
+	})
+
+	Context("Push mode TTL", func() {
+		var (
+			backup *backupv1.VirtualMachineBackup
+			vmi    *v1.VirtualMachineInstance
+		)
+		BeforeEach(func() {
+			backup = createBackup(backupName, vmName, pvcName, backupv1.PushMode)
+			backup.CreationTimestamp = metav1.Now()
+			backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
+			backup.Status = &backupv1.VirtualMachineBackupStatus{
+				Conditions: []metav1.Condition{
+					newCondition(string(backupv1.ConditionProgressing), metav1.ConditionTrue, "Progressing", ""),
+				},
+			}
+			vmi = createInitializedVMI()
+			controller.vmiStore.Add(vmi)
+		})
+
+		Describe("getBackupTTL", func() {
+			It("should return the 2h default when ttlDuration is omitted", func() {
+				Expect(getBackupTTL(backup).Duration).To(Equal(defaultBackupTTL))
+			})
+			DescribeTable("should respect a custom TTL", func(ttl, expected time.Duration) {
+				backup.Spec.TTLDuration = &metav1.Duration{Duration: ttl}
+				Expect(getBackupTTL(backup).Duration).To(Equal(expected))
+			},
+				Entry("5 min TTL", 5*time.Minute, 5*time.Minute),
+				Entry("30 min TTL", 30*time.Minute, 30*time.Minute),
+			)
+		})
+
+		Describe("isBackupTTLExpired", func() {
+			It("should return true when ttlDuration is omitted and the backup exceeds the 2h default", func() {
+				backup.Spec.TTLDuration = nil
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+				Expect(isBackupTTLExpired(backup)).To(BeTrue())
+			})
+			It("should return false when ttlDuration is omitted and the backup is new", func() {
+				backup.Spec.TTLDuration = nil
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-10 * time.Minute))
+				Expect(isBackupTTLExpired(backup)).To(BeFalse())
+			})
+			It("should return true when a custom TTL has elapsed", func() {
+				backup.Spec.TTLDuration = &metav1.Duration{Duration: 10 * time.Minute}
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-15 * time.Minute))
+				Expect(isBackupTTLExpired(backup)).To(BeTrue())
+			})
+			It("should return false when CreationTimestamp is zero", func() {
+				backup.CreationTimestamp = metav1.Time{}
+				Expect(isBackupTTLExpired(backup)).To(BeFalse())
+			})
+		})
+
+		Describe("abort on TTL expiry", func() {
+			BeforeEach(func() {
+				backup.Spec.TTLDuration = &metav1.Duration{Duration: 5 * time.Minute}
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-5 * time.Minute))
+
+				vmiInterface.EXPECT().
+					Backup(gomock.Any(), vmName, gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ string, opts *backupv1.BackupOptions) error {
+						Expect(opts.Cmd).To(Equal(backupv1.Abort))
+						return nil
+					})
+			})
+
+			It("should abort when backup is still in progress at TTL expiry", func() {
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Reason).To(Equal(backupv1.ReasonAborting))
+				Expect(cond.Message).To(ContainSubstring(backupTTLExpiredMsg))
+			})
+		})
+
+		Describe("default 2h TTL applies when ttlDuration is omitted", func() {
+			BeforeEach(func() {
+				backup.Spec.TTLDuration = nil
+				backup.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+
+				vmiInterface.EXPECT().
+					Backup(gomock.Any(), vmName, gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ string, opts *backupv1.BackupOptions) error {
+						Expect(opts.Cmd).To(Equal(backupv1.Abort))
+						return nil
+					})
+			})
+
+			It("should abort a 3h old push backup (no ttlDuration) using the 2h default", func() {
+				backupCopy, err := syncBackup(backup)
+				Expect(err).ToNot(HaveOccurred())
+				cond := meta.FindStatusCondition(backupCopy.Status.Conditions, string(backupv1.ConditionProgressing))
+				Expect(cond).NotTo(BeNil())
+				Expect(cond.Reason).To(Equal(backupv1.ReasonAborting))
+				Expect(cond.Message).To(ContainSubstring(backupTTLExpiredMsg))
+			})
 		})
 	})
 })
