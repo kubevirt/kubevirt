@@ -42,6 +42,7 @@ var _ = Describe("EmptyDisk", func() {
 		creator = &emptyDiskCreator{
 			emptyDiskBaseDir: emptyDiskBaseDir,
 			discCreateFunc:   fakeCreatorFunc,
+			chownQemuFunc:    fakeChownQemuFunc,
 		}
 	})
 	AfterEach(func() {
@@ -99,4 +100,8 @@ func fakeCreatorFunc(filePath string, _ string) error {
 		return err
 	}
 	return f.Close()
+}
+
+func fakeChownQemuFunc(_ string) error {
+	return nil
 }

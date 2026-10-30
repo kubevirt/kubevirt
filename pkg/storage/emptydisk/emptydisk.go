@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -40,6 +39,7 @@ const emptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
 type emptyDiskCreator struct {
 	emptyDiskBaseDir string
 	discCreateFunc   func(filePath string, size string) error
+	chownQemuFunc    func(path string) error
 }
 
 func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
@@ -67,7 +67,7 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
+			if err := c.chownQemuFunc(file); err != nil {
 				return err
 			}
 		}
@@ -93,5 +93,14 @@ func NewEmptyDiskCreator() *emptyDiskCreator {
 	return &emptyDiskCreator{
 		emptyDiskBaseDir: emptyDiskBaseDir,
 		discCreateFunc:   createQCOW,
+		chownQemuFunc:    chownToQemu,
 	}
+}
+
+// chownToQemu is needed if virt-launcher runs as featuregate.Root
+func chownToQemu(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }
