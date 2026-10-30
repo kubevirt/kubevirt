@@ -4637,6 +4637,196 @@ var _ = Describe("getUpdatedDisks", func() {
 	)
 })
 
+var _ = Describe("countAutoIOThreads", func() {
+	permanentDisk := func(name string) api.Disk {
+		return api.Disk{
+			Alias:  api.NewUserDefinedAlias(name),
+			Source: api.DiskSource{File: "/var/run/kubevirt/container-disks/" + name},
+		}
+	}
+	hotplugDisk := func(name string) api.Disk {
+		return api.Disk{
+			Alias:  api.NewUserDefinedAlias(name),
+			Source: api.DiskSource{File: filepath.Join(v1.HotplugDiskDir, name+".img")},
+		}
+	}
+
+	It("should subtract permanent dedicated disks already present in the live domain", func() {
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("auto", "pvc1"),
+			libvmi.WithPersistentVolumeClaim("dedicated", "pvc2", libvmi.WithDedicatedIOThreads(true)),
+		)
+		liveSpec := &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: 2},
+			Devices: api.Devices{
+				Disks: []api.Disk{
+					permanentDisk("auto"),
+					permanentDisk("dedicated"),
+				},
+			},
+		}
+		Expect(countAutoIOThreads(vmi, liveSpec)).To(Equal(uint(1)))
+	})
+
+	It("should not shrink the auto pool for hotplugged dedicated disks", func() {
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("auto", "pvc1"),
+			libvmi.WithPersistentVolumeClaim("dedicated", "pvc2", libvmi.WithDedicatedIOThreads(true)),
+			libvmi.WithPersistentVolumeClaim("hotplug-dedicated", "pvc3", libvmi.WithDedicatedIOThreads(true)),
+		)
+		liveSpec := &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: 2},
+			Devices: api.Devices{
+				Disks: []api.Disk{
+					permanentDisk("auto"),
+					permanentDisk("dedicated"),
+					hotplugDisk("hotplug-dedicated"),
+				},
+			},
+		}
+		Expect(countAutoIOThreads(vmi, liveSpec)).To(Equal(uint(1)))
+	})
+
+	It("should return at least one auto thread when permanent dedicated disks meet or exceed the domain iothread count", func() {
+		vmi := libvmi.New(
+			libvmi.WithPersistentVolumeClaim("dedicated1", "pvc1", libvmi.WithDedicatedIOThreads(true)),
+			libvmi.WithPersistentVolumeClaim("dedicated2", "pvc2", libvmi.WithDedicatedIOThreads(true)),
+			libvmi.WithPersistentVolumeClaim("dedicated3", "pvc3", libvmi.WithDedicatedIOThreads(true)),
+		)
+		liveSpec := &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: 2},
+			Devices: api.Devices{
+				Disks: []api.Disk{
+					permanentDisk("dedicated1"),
+					permanentDisk("dedicated2"),
+					permanentDisk("dedicated3"),
+				},
+			},
+		}
+		Expect(countAutoIOThreads(vmi, liveSpec)).To(Equal(uint(1)))
+	})
+})
+
+var _ = Describe("validateIOThreads", func() {
+	makeSpec := func(iothreads uint) *api.DomainSpec {
+		return &api.DomainSpec{
+			IOThreads: &api.IOThreads{IOThreads: iothreads},
+		}
+	}
+
+	It("should wrap new id within the auto range", func() {
+		spec := makeSpec(2)
+		disk := api.Disk{
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(3))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 2, false)
+		Expect(*disk.Driver.IOThread).To(Equal(uint(1)))
+	})
+
+	It("should wrap new id only within auto range when domain contains dedicated disks", func() {
+		// spec defines iothreads that is larger than total auto threads
+		spec := makeSpec(3)
+
+		disk := api.Disk{
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(3))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+		validateIOThreads(&disk, spec, 2, false)
+		Expect(*disk.Driver.IOThread).To(Equal(uint(1)))
+
+		disk2 := api.Disk{
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(4))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+		validateIOThreads(&disk2, spec, 2, false)
+		Expect(*disk2.Driver.IOThread).To(Equal(uint(2)))
+	})
+
+	It("should not modify a thread when within the auto range", func() {
+		spec := makeSpec(4)
+		disk := api.Disk{
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(3))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 4, false)
+		Expect(*disk.Driver.IOThread).To(Equal(uint(3)))
+	})
+
+	It("should not remap a dedicated disk whose id exceeds the auto range but fits the domain", func() {
+		// Domain started with 2 auto + 1 dedicated slot; converter assigns the
+		// hotplugged dedicated disk id 3. Auto wrap would wrongly collapse it to 1.
+		spec := makeSpec(3)
+		disk := api.Disk{
+			Alias:  api.NewUserDefinedAlias("dedicated"),
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(3))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 2, true)
+		Expect(*disk.Driver.IOThread).To(Equal(uint(3)))
+	})
+
+	It("should wrap a dedicated disk that exceeds the live domain total", func() {
+		spec := makeSpec(2)
+		disk := api.Disk{
+			Alias:  api.NewUserDefinedAlias("dedicated"),
+			Driver: &api.DiskDriver{IOThread: virtpointer.P(uint(3))},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 1, true)
+		Expect(*disk.Driver.IOThread).To(Equal(uint(1)))
+	})
+
+	It("should normalize an oversized multi-IO pool to the live auto thread count", func() {
+		spec := makeSpec(3)
+		disk := api.Disk{
+			Driver: &api.DiskDriver{
+				IOThreads: &api.DiskIOThreads{
+					IOThread: []api.DiskIOThread{{Id: 1}, {Id: 2}, {Id: 3}, {Id: 4}, {Id: 5}},
+				},
+			},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 3, false)
+		Expect(disk.Driver.IOThreads.IOThread).To(Equal([]api.DiskIOThread{{Id: 1}, {Id: 2}, {Id: 3}}))
+	})
+
+	It("should not modify a multi-IO pool that matches the live auto thread count", func() {
+		spec := makeSpec(3)
+		pool := &api.DiskIOThreads{
+			IOThread: []api.DiskIOThread{{Id: 1}, {Id: 2}, {Id: 3}},
+		}
+		disk := api.Disk{
+			Driver: &api.DiskDriver{IOThreads: pool},
+			Target: api.DiskTarget{Bus: v1.DiskBusVirtio},
+		}
+
+		validateIOThreads(&disk, spec, 3, false)
+		Expect(disk.Driver.IOThreads).To(BeIdenticalTo(pool))
+	})
+
+	It("should clear iothreads when the live domain has none", func() {
+		spec := &api.DomainSpec{}
+		disk := api.Disk{
+			Driver: &api.DiskDriver{
+				IOThread: virtpointer.P(uint(1)),
+				IOThreads: &api.DiskIOThreads{
+					IOThread: []api.DiskIOThread{{Id: 1}},
+				},
+			},
+		}
+
+		validateIOThreads(&disk, spec, 0, false)
+		Expect(disk.Driver.IOThread).To(BeNil())
+		Expect(disk.Driver.IOThreads).To(BeNil())
+	})
+})
+
 var _ = Describe("Manager helper functions", func() {
 
 	Context("getVMIEphemeralDisksTotalSize", func() {
