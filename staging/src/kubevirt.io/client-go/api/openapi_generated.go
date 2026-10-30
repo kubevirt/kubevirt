@@ -25675,7 +25675,7 @@ func schema_kubevirtio_api_core_v1_PermittedHostDevices(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PermittedHostDevices holds information about devices allowed for passthrough",
+				Description: "PermittedHostDevices holds information about devices allowed for passthrough.\n\nvirt-handler registers a device plugin for each entry. The host-device ValidatingAdmissionPolicy (managedHostDeviceNamesExpr in pkg/virt-operator/resource/generate/components/validatingadmissionpolicies) must name every JSON field of this struct. A new device category that is missing from that expression is still registered by virt-handler and becomes allocatable by any pod.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pciHostDevices": {
