@@ -590,16 +590,10 @@ var _ = Describe("Converter", func() {
 				domain := &api.Domain{}
 				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(domain.Spec.Devices.Controllers).To(ContainElement(
-					api.Controller{
-						Type:  expectedType,
-						Index: "0",
-						Model: expectedModel,
-					}))
+				expectedController := api.Controller{Type: expectedType, Index: "0", Model: expectedModel}
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(expectedController))
 				if !enabled {
-					for _, controller := range domain.Spec.Devices.Controllers {
-						Expect(controller.Type).ToNot(Equal("scsi"))
-					}
+					Expect(domain.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 				}
 			},
 				Entry("appear if enabled for amd64", true, "scsi", "virtio-non-transitional", amd64),
@@ -1169,11 +1163,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
-				Type:  "scsi",
-				Index: "0",
-				Model: "virtio-non-transitional",
-			}))
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 		})
 
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
@@ -3818,15 +3808,10 @@ var _ = Describe("Converter", func() {
 				c.Architecture = archconverter.NewConverter(arch)
 				domain := vmiToDomain(vmi, c)
 				Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
-				foundScsiController := false
-				for _, controller := range domain.Spec.Devices.Controllers {
-					if controller.Type == "scsi" {
-						foundScsiController = true
-						Expect(controller.Model).To(Equal(expectedModel))
-
-					}
-				}
-				Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(And(
+					HaveField("Type", "scsi"),
+					HaveField("Model", expectedModel),
+				)))
 			},
 				Entry("on amd64", amd64, "virtio-non-transitional"),
 				Entry("on arm64", arm64, "virtio-non-transitional"),
