@@ -29,17 +29,8 @@ import (
 var (
 	migrationdomainstatsHandler *handler
 
-	MigrationStatsCollector = operatormetrics.Collector{
-		Metrics: []operatormetrics.Metric{
-			migrateVMIDataTotal,
-			migrateVMIDataRemaining,
-			migrateVMIDataProcessed,
-			migrateVmiDirtyMemoryRate,
-			migrateVmiMemoryTransferRate,
-			migrateVmiLastDowntime,
-		},
-		CollectCallback: migrationStatsCollectorCallback,
-	}
+	// MigrationStatsCollector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
+	MigrationStatsCollector operatormetrics.Collector
 
 	migrateVMIDataTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
@@ -89,6 +80,18 @@ func SetupMigrationStatsCollector(
 	sourceVMIInformer, globalVMIInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 ) error {
+	MigrationStatsCollector = operatormetrics.Collector{
+		Metrics: []operatormetrics.Metric{
+			migrateVMIDataTotal,
+			migrateVMIDataRemaining,
+			migrateVMIDataProcessed,
+			migrateVmiDirtyMemoryRate,
+			migrateVmiMemoryTransferRate,
+			migrateVmiLastDowntime,
+		},
+		CollectCallback: migrationStatsCollectorCallback,
+	}
+
 	if sourceVMIInformer == nil {
 		return nil
 	}
