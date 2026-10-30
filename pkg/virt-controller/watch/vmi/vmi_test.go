@@ -5971,6 +5971,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
 		)
 
+		It("should enqueue the VMI of a hotplug volume when its PVC gets bound", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+				libvmi.WithHotplugPersistentVolumeClaim("myvolume", "testpvc"),
+			)
+			indexVMI(vmi)
+
+			oldPVC := pvcWith("50Gi", "50Gi", "1")
+			oldPVC.Status.Phase = k8sv1.ClaimPending
+			newPVC := pvcWith("50Gi", "50Gi", "2")
+			newPVC.Status.Phase = k8sv1.ClaimBound
+
+			addDataVolumePVC(oldPVC)
+			controller.updatePVC(oldPVC, newPVC)
+
+			Eventually(func() int {
+				return mockQueue.Len()
+			}, time.Second, 100*time.Millisecond).Should(Equal(1))
+
+			item, _ := mockQueue.Get()
+			Expect(item).To(Equal("default/testvmi"))
+		})
+
 		It("should enqueue the VMI of a utility volume when its PVC is added", func() {
 			vmi := libvmi.New(
 				libvmi.WithName("testvmi"),
