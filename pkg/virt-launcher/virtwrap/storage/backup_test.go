@@ -20,7 +20,9 @@
 package storage
 
 import (
+	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,6 +42,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -78,7 +81,7 @@ var _ = Describe("Backup", func() {
 		tempDir, err = os.MkdirTemp("", "backup-test")
 		Expect(err).ToNot(HaveOccurred())
 
-		now := metav1.Now()
+		now := metav1.NewTime(metav1.Now().Truncate(time.Second))
 		backupOptions = &backupv1.BackupOptions{
 			BackupName:      backupName,
 			BackupStartTime: &now,
@@ -93,6 +96,347 @@ var _ = Describe("Backup", func() {
 		if tempDir != "" {
 			os.RemoveAll(tempDir)
 		}
+	})
+
+	Describe("CleanupBackupCheckpoints", func() {
+		const domainWithCBTDisk = `<domain><devices>
+			<disk type='file' device='disk'>
+				<source file='/path/to/vda.qcow2'>
+					<dataStore><source file='/path/to/vda.img'/></dataStore>
+				</source>
+				<target dev='vda' bus='virtio'/>
+				<alias name='ua-rootdisk'/>
+			</disk>
+		</devices></domain>`
+
+		BeforeEach(func() {
+			metadataCache.UID.Set(vmi.UID)
+			manager.checkpointCandidates["old"] = checkpointCandidate{}
+			metadataCache.Backup.Store(api.BackupMetadata{
+				Name: backupName, Completed: true, StartTimestamp: backupOptions.BackupStartTime,
+				EndTimestamp:   pointer.P(metav1.Now()),
+				CheckpointName: "new", CheckpointCleanupPending: true,
+			})
+		})
+
+		cleanup := func(names []string) error {
+			if len(names) == 0 {
+				delete(vmi.Annotations, storagetypes.BackupCheckpointReferenceAnnotation)
+			} else {
+				encoded, err := json.Marshal(storagetypes.BackupCheckpointReference{
+					VMIUID: vmi.UID, BackupName: backupOptions.BackupName,
+					StartTimestamp: backupOptions.BackupStartTime,
+					CheckpointName: names[0], ReferencedCheckpointNames: names,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				vmi.Annotations = map[string]string{storagetypes.BackupCheckpointReferenceAnnotation: string(encoded)}
+			}
+			return manager.CleanupBackupCheckpoints(vmi, mockDomain)
+		}
+
+		DescribeTable("should reject an invalid or stale checkpoint reference", func(modify func(*storagetypes.BackupCheckpointReference), invalid bool) {
+			reference := storagetypes.BackupCheckpointReference{
+				VMIUID: vmi.UID, BackupName: backupName, StartTimestamp: backupOptions.BackupStartTime,
+				CheckpointName: "new", ReferencedCheckpointNames: []string{"new"},
+			}
+			modify(&reference)
+			encoded, err := json.Marshal(reference)
+			Expect(err).ToNot(HaveOccurred())
+			vmi.Annotations = map[string]string{storagetypes.BackupCheckpointReferenceAnnotation: string(encoded)}
+			err = manager.CleanupBackupCheckpoints(vmi, mockDomain)
+			if invalid {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			Expect(manager.checkpointCandidates).To(HaveKey("old"))
+			Expect(manager.checkpointCandidates["old"].released).To(BeFalse())
+		},
+			Entry("copied from another VMI", func(r *storagetypes.BackupCheckpointReference) { r.VMIUID = "other-vmi" }, true),
+			Entry("another backup", func(r *storagetypes.BackupCheckpointReference) { r.BackupName = "previous-backup" }, false),
+			Entry("another execution of the same backup", func(r *storagetypes.BackupCheckpointReference) {
+				r.StartTimestamp = pointer.P(metav1.NewTime(r.StartTimestamp.Add(-time.Minute)))
+			}, false),
+			Entry("missing identity", func(r *storagetypes.BackupCheckpointReference) { r.StartTimestamp = nil }, true),
+			Entry("promoted head is missing", func(r *storagetypes.BackupCheckpointReference) { r.ReferencedCheckpointNames = []string{"old"} }, true),
+		)
+
+		It("should reject malformed checkpoint reference JSON", func() {
+			vmi.Annotations = map[string]string{storagetypes.BackupCheckpointReferenceAnnotation: "{"}
+			Expect(manager.CleanupBackupCheckpoints(vmi, mockDomain)).To(HaveOccurred())
+			Expect(manager.checkpointCandidates["old"].released).To(BeFalse())
+		})
+
+		failCheckpointDeletion := func() {
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(fmt.Errorf("checkpoint busy"))
+			Expect(cleanup([]string{"new"})).To(MatchError(ContainSubstring("checkpoint busy")))
+		}
+
+		DescribeTable("should retry released checkpoints after a later backup fails", func(failAtStart bool) {
+			failCheckpointDeletion()
+			backupOptions.BackupName = "later-backup"
+			backupOptions.Incremental = pointer.P("new")
+			if failAtStart {
+				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(nil, fmt.Errorf("disconnected"))
+			} else {
+				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainWithCBTDisk, nil)
+				mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), gomock.Any()).Return(nil, nil).Times(2)
+				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockDomain.EXPECT().Free().Return(nil)
+			}
+
+			err := manager.BackupVirtualMachine(vmi, backupOptions)
+			if failAtStart {
+				Expect(err).To(MatchError("disconnected"))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+				metadataCache.Backup.WithSafeBlock(func(b *api.BackupMetadata, _ bool) {
+					b.Completed = true
+					b.Failed = true
+					b.EndTimestamp = pointer.P(metav1.Now())
+				})
+			}
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeTrue())
+
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			Expect(manager.CleanupBackupCheckpoints(vmi, mockDomain)).To(Succeed())
+			Expect(manager.checkpointCandidates).ToNot(HaveKey("old"))
+			backup, _ = metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(Equal(!failAtStart))
+			if !failAtStart {
+				Expect(manager.checkpointCandidates).To(HaveKey("new"))
+				Expect(backup.Failed).To(BeTrue())
+			}
+		},
+			Entry("during the job", false),
+			Entry("during startup", true),
+		)
+
+		DescribeTable("should retry released checkpoints without releasing unconfirmed candidates", func(failed bool) {
+			failCheckpointDeletion()
+			manager.checkpointCandidates["unconfirmed"] = checkpointCandidate{}
+			metadataCache.Backup.WithSafeBlock(func(b *api.BackupMetadata, _ bool) {
+				b.Name = "later-backup"
+				b.CheckpointName = "unpromoted"
+				b.Failed = failed
+			})
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			Expect(manager.checkpointCandidates).ToNot(HaveKey("old"))
+			Expect(manager.checkpointCandidates).To(HaveKey("unconfirmed"))
+		},
+			Entry("latest backup failed", true),
+			Entry("latest checkpoint was not promoted", false),
+		)
+
+		It("should keep all released candidates eligible after a deletion fails", func() {
+			manager.checkpointCandidates["older"] = checkpointCandidate{}
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil).Times(2)
+			oldErr := fmt.Errorf("old checkpoint busy")
+			olderErr := fmt.Errorf("older checkpoint busy")
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(oldErr)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "older").Return(olderErr)
+			err := cleanup([]string{"new"})
+			Expect(errors.Is(err, oldErr)).To(BeTrue())
+			Expect(errors.Is(err, olderErr)).To(BeTrue())
+			metadataCache.Backup.WithSafeBlock(func(b *api.BackupMetadata, _ bool) {
+				b.Name = "later-backup"
+				b.CheckpointName = "unpromoted"
+				b.Failed = true
+			})
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "older").Return(nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+		})
+
+		DescribeTable("should finish other deletions and retry only the failed checkpoint", func(deleteErr error) {
+			manager.checkpointCandidates["older"] = checkpointCandidate{}
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil).Times(2)
+			var failedCheckpoint string
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", gomock.Any()).
+				DoAndReturn(func(_ string, name string) error {
+					if failedCheckpoint == "" {
+						failedCheckpoint = name
+						return deleteErr
+					}
+					return nil
+				}).Times(2)
+
+			err := cleanup([]string{"new"})
+			Expect(errors.Is(err, deleteErr)).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring(failedCheckpoint)))
+			Expect(manager.checkpointCandidates).To(HaveLen(1))
+			Expect(manager.checkpointCandidates).To(HaveKey(failedCheckpoint))
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeTrue())
+
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", failedCheckpoint).Return(nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+			backup, _ = metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeFalse())
+		},
+			Entry("checkpoint busy", fmt.Errorf("checkpoint busy")),
+			Entry("checkpoint missing", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN_CHECKPOINT, Message: "checkpoint missing"}),
+		)
+
+		It("should retry released checkpoints after the promoted checkpoint loses its tracker", func() {
+			failCheckpointDeletion()
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			Expect(cleanup([]string{"other-tracker-head"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+		})
+
+		DescribeTable("should still protect released checkpoints", func(names []string, modify func(), activeJob bool) {
+			failCheckpointDeletion()
+			if modify != nil {
+				modify()
+			}
+			jobType := libvirt.DOMAIN_JOB_NONE
+			if activeJob {
+				jobType = libvirt.DOMAIN_JOB_UNBOUNDED
+			}
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: jobType}, nil).AnyTimes()
+			Expect(cleanup(names)).To(Succeed())
+			Expect(manager.checkpointCandidates).To(HaveKey("old"))
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeTrue())
+		},
+			Entry("referenced by a tracker", []string{"new", "old"}, nil, false),
+			Entry("tracker information is missing", nil, nil, false),
+			Entry("libvirt has an active job", []string{"new"}, nil, true),
+			Entry("migration is active", []string{"new"}, func() {
+				metadataCache.Migration.Store(api.MigrationMetadata{StartTimestamp: pointer.P(metav1.Now())})
+			}, false),
+			Entry("VMI UID changed", []string{"new"}, func() { vmi.UID = "other-vmi" }, false),
+			Entry("controller is still processing the backup", []string{"new"}, func() {
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{BackupStatus: &v1.VirtualMachineInstanceBackupStatus{Completed: true}}
+			}, false),
+		)
+
+		DescribeTable("should preserve checkpoints when cleanup is unsafe",
+			func(modify func(*api.BackupMetadata), names []string) {
+				mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil).AnyTimes()
+				backup, _ := metadataCache.Backup.Load()
+				modify(&backup)
+				metadataCache.Backup.Store(backup)
+				Expect(cleanup(names)).To(Succeed())
+			},
+			Entry("backup is active", func(b *api.BackupMetadata) { b.Completed = false }, []string{"new"}),
+			Entry("backup failed", func(b *api.BackupMetadata) { b.Failed = true }, []string{"new"}),
+			Entry("no predecessor", func(*api.BackupMetadata) { clear(manager.checkpointCandidates) }, []string{"new"}),
+			Entry("not promoted or stale snapshot", func(*api.BackupMetadata) {}, []string{"old"}),
+			Entry("another tracker needs the predecessor", func(*api.BackupMetadata) {}, []string{"new", "old"}),
+			Entry("old handler or incomplete information", func(*api.BackupMetadata) {}, nil),
+			Entry("controller has not finished the backup", func(*api.BackupMetadata) {
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{BackupStatus: &v1.VirtualMachineInstanceBackupStatus{Completed: true}}
+			}, []string{"new"}),
+			Entry("migration is active", func(*api.BackupMetadata) {
+				metadataCache.Migration.Store(api.MigrationMetadata{StartTimestamp: pointer.P(metav1.Now())})
+			}, []string{"new"}),
+			Entry("request is for another VMI", func(*api.BackupMetadata) { vmi.UID = "other-vmi" }, []string{"new"}),
+		)
+
+		It("should reclaim the predecessor once after promotion", func() {
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeFalse())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+			Expect(backup.CheckpointName).To(Equal("new"))
+		})
+
+		It("should retain candidates across consecutive backups before cleanup", func() {
+			clear(manager.checkpointCandidates)
+			metadataCache.Backup.Store(api.BackupMetadata{})
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).Times(2)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainWithCBTDisk, nil).Times(2)
+			mockDomain.EXPECT().CreateCheckpointXML(gomock.Any(), gomock.Any()).Return(nil, nil).Times(4)
+			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(2)
+			mockDomain.EXPECT().Free().Return(nil).Times(2)
+			for i := range 2 {
+				backupOptions.BackupName = fmt.Sprintf("backup-%d", i)
+				backupOptions.Incremental = pointer.P(fmt.Sprintf("checkpoint-%d", i))
+				err := manager.BackupVirtualMachine(vmi, backupOptions)
+				Expect(err).ToNot(HaveOccurred())
+				metadataCache.Backup.WithSafeBlock(func(b *api.BackupMetadata, _ bool) {
+					b.Completed = true
+					b.EndTimestamp = pointer.P(metav1.Now())
+					b.CheckpointName = fmt.Sprintf("checkpoint-%d", i+1)
+				})
+			}
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "checkpoint-0").Return(nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "checkpoint-1").Return(nil)
+			Expect(cleanup([]string{"checkpoint-2"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+		})
+
+		It("should not register an unconfirmed base when starting the backup fails", func() {
+			metadataCache.Backup.Store(api.BackupMetadata{})
+			backupOptions.Incremental = pointer.P("unconfirmed")
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(nil, fmt.Errorf("disconnected"))
+			Expect(manager.BackupVirtualMachine(vmi, backupOptions)).To(MatchError("disconnected"))
+			Expect(manager.checkpointCandidates).ToNot(HaveKey("unconfirmed"))
+			Expect(manager.checkpointCandidates).To(HaveKey("old"))
+		})
+
+		It("should reclaim an older candidate while another tracker still needs the predecessor", func() {
+			manager.checkpointCandidates["older"] = checkpointCandidate{}
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "older").Return(nil)
+			Expect(cleanup([]string{"new", "old"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(HaveLen(1))
+			Expect(manager.checkpointCandidates).To(HaveKey("old"))
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeTrue())
+		})
+
+		It("should defer while libvirt has an active job", func() {
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_UNBOUNDED}, nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			backup, _ := metadataCache.Backup.Load()
+			Expect(backup.CheckpointCleanupPending).To(BeTrue())
+			Expect(manager.checkpointCandidates).To(HaveKey("old"))
+		})
+
+		It("should retry a released checkpoint after the job query fails", func() {
+			mockDomain.EXPECT().GetJobInfo().Return(nil, fmt.Errorf("disconnected"))
+			Expect(cleanup([]string{"new"})).To(MatchError("disconnected"))
+			metadataCache.Backup.WithSafeBlock(func(b *api.BackupMetadata, _ bool) {
+				b.Failed = true
+			})
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil)
+			Expect(cleanup([]string{"new"})).To(Succeed())
+			Expect(manager.checkpointCandidates).To(BeEmpty())
+		})
+
+		DescribeTable("should retain failed deletions for retry without redefining",
+			func(deleteErr error) {
+				mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil).Times(2)
+				gomock.InOrder(
+					mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(deleteErr),
+					mockConn.EXPECT().DeleteDomainCheckpoint("default_test-vmi", "old").Return(nil),
+				)
+				Expect(cleanup([]string{"new"})).To(MatchError(ContainSubstring(deleteErr.Error())))
+				backup, _ := metadataCache.Backup.Load()
+				Expect(backup.CheckpointCleanupPending).To(BeTrue())
+				Expect(manager.checkpointCandidates).To(HaveKey("old"))
+				Expect(cleanup([]string{"new"})).To(Succeed())
+			},
+			Entry("busy", fmt.Errorf("checkpoint busy")),
+			Entry("checkpoint missing", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN_CHECKPOINT, Message: "checkpoint missing"}),
+		)
 	})
 
 	Describe("BackupVirtualMachine", func() {
@@ -270,6 +614,8 @@ var _ = Describe("Backup", func() {
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
 				Expect(backupMetadata.CheckpointName).To(ContainSubstring(backupName))
+				Expect(backupMetadata.CheckpointCleanupPending).To(BeTrue())
+				Expect(manager.checkpointCandidates).To(HaveKey(baseCheckpoint))
 				Expect(backupMetadata.Volumes).To(MatchJSON(`[
 					{"volumeName":"rootdisk","type":"Incremental"},
 					{"volumeName":"datadisk","type":"Incremental"}
@@ -294,9 +640,14 @@ var _ = Describe("Backup", func() {
 					{"volumeName":"rootdisk","type":"Incremental"},
 					{"volumeName":"datadisk","type":"Full"}
 				]`))
+				Expect(manager.checkpointCandidates).To(HaveKey(baseCheckpoint))
+				Expect(backupMetadata.CheckpointCleanupPending).To(BeTrue())
 			})
 
-			It("should take a full backup when no disk kept the base bitmap", func() {
+			DescribeTable("should take a full backup when no disk kept the base bitmap", func(pendingCleanup bool) {
+				if pendingCleanup {
+					manager.checkpointCandidates["older"] = checkpointCandidate{released: true}
+				}
 				expectBaseRedefinition("vda", "vdb")
 				domainBackup := captureBackupXML()
 
@@ -304,6 +655,28 @@ var _ = Describe("Backup", func() {
 
 				Expect(domainBackup.Incremental).To(BeNil())
 				Expect(domainBackup.BackupDisks.Disks).To(HaveEach(HaveField("BackupMode", Equal("full"))))
+				Expect(manager.checkpointCandidates).ToNot(HaveKey(baseCheckpoint))
+				backupMetadata, _ := metadataCache.Backup.Load()
+				Expect(backupMetadata.CheckpointCleanupPending).To(Equal(pendingCleanup))
+				if pendingCleanup {
+					Expect(manager.checkpointCandidates).To(HaveKeyWithValue("older", checkpointCandidate{released: true}))
+				} else {
+					Expect(manager.checkpointCandidates).To(BeEmpty())
+				}
+			},
+				Entry("without pending cleanup", false),
+				Entry("with cleanup pending from an earlier backup", true),
+			)
+
+			It("should not register the base when libvirt rejects the backup", func() {
+				expectBaseRedefinition()
+				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("backup begin failed"))
+
+				Expect(manager.BackupVirtualMachine(vmi, backupOptions)).To(MatchError("backup begin failed"))
+
+				Expect(manager.checkpointCandidates).To(BeEmpty())
+				backupMetadata, _ := metadataCache.Backup.Load()
+				Expect(backupMetadata.CheckpointCleanupPending).To(BeFalse())
 			})
 
 			It("should fail without starting a backup when the base cannot be redefined", func() {

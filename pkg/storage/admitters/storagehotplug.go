@@ -82,9 +82,13 @@ func AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI *v1.VirtualMachineInstance
 	}})
 }
 
-// AdmitSnapshotOverlayAnnotationsUpdate rejects changes to the snapshot overlay annotations, which the commit and the recovery rely on.
-func AdmitSnapshotOverlayAnnotationsUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
-	for _, annotation := range []string{storagetypes.OverlaySnapshotReferenceAnnotation, storagetypes.PendingOverlayRecoveryAnnotation} {
+// AdmitStorageAnnotationsUpdate rejects changes to internal storage annotations.
+func AdmitStorageAnnotationsUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	for _, annotation := range []string{
+		storagetypes.OverlaySnapshotReferenceAnnotation,
+		storagetypes.PendingOverlayRecoveryAnnotation,
+		storagetypes.BackupCheckpointReferenceAnnotation,
+	} {
 		if oldVMI.Annotations[annotation] != newVMI.Annotations[annotation] {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,

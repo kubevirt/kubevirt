@@ -21,8 +21,11 @@ package cbt
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -641,15 +645,22 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 }
 
 func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
+	vmiForCleanup := vmi
 	if backupTracker != nil && backupStatus.CheckpointName != nil && !backupStatus.Failed {
 		if err := ctrl.updateBackupTracker(backup.Namespace, backupTracker, backupStatus); err != nil {
 			log.Log.Object(backup).Reason(err).Error("Failed to update BackupTracker")
 			return err
 		}
+		var err error
+		vmiForCleanup, err = ctrl.prepareVMIForCheckpointCleanup(vmi, backupTracker, backupStatus)
+		if err != nil {
+			log.Log.Object(backup).Reason(err).Error("Failed to prepare VMI for checkpoint cleanup")
+			return err
+		}
 	}
 
 	log.Log.Object(backup).Info("Backup completed, performing cleanup")
-	done, err := ctrl.cleanupVMIState(backup, vmi)
+	done, err := ctrl.cleanupVMIState(backup, vmiForCleanup)
 	if err != nil {
 		return err
 	}
@@ -669,6 +680,44 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 	}
 
 	return nil
+}
+
+// prepareVMIForCheckpointCleanup returns a copy of the VMI annotated with the
+// completed backup and the checkpoints still referenced by the VM's trackers.
+// It reads trackers from the API because the informer may have stale references.
+// The annotation is saved when the controller removes BackupStatus.
+func (ctrl *VMBackupController) prepareVMIForCheckpointCleanup(vmi *v1.VirtualMachineInstance, tracker *backupv1.VirtualMachineBackupTracker, status *v1.VirtualMachineInstanceBackupStatus) (*v1.VirtualMachineInstance, error) {
+	trackers, err := ctrl.client.VirtualMachineBackupTracker(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get backup tracker references: %w", err)
+	}
+	referencedCheckpointNames := []string{*status.CheckpointName}
+	for _, other := range trackers.Items {
+		if other.Spec.Source.Name != vmi.Name || other.Name == tracker.Name {
+			continue
+		}
+		if other.Status == nil || other.Status.LatestCheckpoint == nil || other.Status.LatestCheckpoint.Name == "" {
+			continue
+		}
+		referencedCheckpointNames = append(referencedCheckpointNames, other.Status.LatestCheckpoint.Name)
+	}
+	slices.Sort(referencedCheckpointNames)
+	reference := storagetypes.BackupCheckpointReference{
+		VMIUID:                    vmi.UID,
+		BackupName:                status.BackupName,
+		StartTimestamp:            status.StartTimestamp,
+		CheckpointName:            *status.CheckpointName,
+		ReferencedCheckpointNames: slices.Compact(referencedCheckpointNames),
+	}
+	encoded, err := json.Marshal(reference)
+	if err != nil {
+		return nil, err
+	}
+	result := vmi.DeepCopy()
+	result.Annotations = make(map[string]string, len(vmi.Annotations)+1)
+	maps.Copy(result.Annotations, vmi.Annotations)
+	result.Annotations[storagetypes.BackupCheckpointReferenceAnnotation] = string(encoded)
+	return result, nil
 }
 
 func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker) error {
@@ -942,9 +991,18 @@ func (ctrl *VMBackupController) removeSourceBackupInProgress(vmi *v1.VirtualMach
 		return nil
 	}
 
-	patchBytes, err := patch.New(
-		patch.WithRemove("/status/changedBlockTracking/backupStatus"),
-	).GeneratePayload()
+	patchSet := patch.New()
+	if vmi.Annotations[storagetypes.BackupCheckpointReferenceAnnotation] != "" {
+		patchSet.AddOption(patch.WithTest("/metadata/uid", vmi.UID))
+		if vmi.ResourceVersion != "" {
+			patchSet.AddOption(patch.WithTest("/metadata/resourceVersion", vmi.ResourceVersion))
+		}
+		patchSet.AddOption(patch.WithTest("/status/changedBlockTracking/backupStatus", getBackupStatus(vmi)))
+		// Publish the references only when the controller has finished processing the backup.
+		patchSet.AddOption(patch.WithAdd("/metadata/annotations", vmi.Annotations))
+	}
+	patchSet.AddOption(patch.WithRemove("/status/changedBlockTracking/backupStatus"))
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}

@@ -475,14 +475,14 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		),
 	)
 
-	DescribeTable("should let only KubeVirt change the snapshot overlay annotations", func(annotation, oldValue, newValue, username string, allowed bool) {
+	DescribeTable("should let only KubeVirt change storage references", func(key, oldReference, newReference, username string, allowed bool) {
 		vmi := api.NewMinimalVMI("testvmi")
 		updateVmi := vmi.DeepCopy()
-		if oldValue != "" {
-			vmi.Annotations = map[string]string{annotation: oldValue}
+		if oldReference != "" {
+			vmi.Annotations = map[string]string{key: oldReference}
 		}
-		if newValue != "" {
-			updateVmi.Annotations = map[string]string{annotation: newValue}
+		if newReference != "" {
+			updateVmi.Annotations = map[string]string{key: newReference}
 		}
 		newVMIBytes, _ := json.Marshal(&updateVmi)
 		oldVMIBytes, _ := json.Marshal(&vmi)
@@ -506,6 +506,11 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Entry("pending recovery removed by a user", storagetypes.PendingOverlayRecoveryAnnotation, "snap-scratch-c", "", "system:serviceaccount:someNamespace:someUser", false),
 		Entry("pending recovery added by a user", storagetypes.PendingOverlayRecoveryAnnotation, "", "snap-scratch-c", "system:serviceaccount:someNamespace:someUser", false),
 		Entry("pending recovery removed by the controller", storagetypes.PendingOverlayRecoveryAnnotation, "snap-scratch-c", "", "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
+		Entry("checkpoint reference added by a user", storagetypes.BackupCheckpointReferenceAnnotation, "", `{"checkpointName":"new"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("checkpoint reference changed by a user", storagetypes.BackupCheckpointReferenceAnnotation, `{"checkpointName":"old"}`, `{"checkpointName":"new"}`, "system:serviceaccount:someNamespace:someUser", false),
+		Entry("checkpoint reference removed by a user", storagetypes.BackupCheckpointReferenceAnnotation, `{"checkpointName":"old"}`, "", "system:serviceaccount:someNamespace:someUser", false),
+		Entry("checkpoint reference updated by the controller", storagetypes.BackupCheckpointReferenceAnnotation, `{"checkpointName":"old"}`, `{"checkpointName":"new"}`, "system:serviceaccount:kubevirt:"+components.ControllerServiceAccountName, true),
+		Entry("checkpoint reference kept by a user", storagetypes.BackupCheckpointReferenceAnnotation, `{"checkpointName":"new"}`, `{"checkpointName":"new"}`, "system:serviceaccount:someNamespace:someUser", true),
 	)
 
 	DescribeTable(

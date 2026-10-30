@@ -323,6 +323,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 	}
 
+	DescribeTable("checkpoint cleanup retry", func(backup api.BackupMetadata, expectedRetries int) {
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Spec.Metadata.KubeVirt.Backup = &backup
+
+		Expect(controller.updateVMIStatusFromDomain(vmi, domain)).To(Succeed())
+		Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(expectedRetries))
+	},
+		Entry("after a successful backup", api.BackupMetadata{Completed: true, CheckpointCleanupPending: true}, 1),
+		Entry("after a failed backup", api.BackupMetadata{Completed: true, Failed: true, CheckpointCleanupPending: true}, 1),
+		Entry("after a failed startup", api.BackupMetadata{CheckpointCleanupPending: true}, 1),
+		Entry("while another backup is running", api.BackupMetadata{Name: "running", CheckpointCleanupPending: true}, 1),
+		Entry("without pending cleanup", api.BackupMetadata{Completed: true}, 0),
+	)
+
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)

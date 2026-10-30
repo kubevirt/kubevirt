@@ -21,6 +21,7 @@ package cbt
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -48,6 +49,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -137,6 +139,7 @@ var _ = Describe("Backup Controller", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vmName,
 				Namespace: testNamespace,
+				UID:       "vmi-uid",
 			},
 			Spec: v1.VirtualMachineInstanceSpec{
 				Volumes: []v1.Volume{
@@ -1701,6 +1704,14 @@ var _ = Describe("Backup Controller", func() {
 		func(existingCheckpoint string, expectedOp string) {
 			backupTracker := createBackupTracker(backupTrackerName, vmName, existingCheckpoint)
 			controller.backupTrackerInformer.GetStore().Add(backupTracker)
+			other := createBackupTracker("other-tracker", vmName, "retained-head")
+			other.DeletionTimestamp = pointer.P(metav1.NewTime(metav1.Now().Truncate(time.Second)))
+			cachedOther := other.DeepCopy()
+			cachedOther.Status.LatestCheckpoint.Name = "stale-head"
+			controller.backupTrackerInformer.GetStore().Add(cachedOther)
+			Expect(kubevirtClient.Tracker().Add(other)).To(Succeed())
+			Expect(kubevirtClient.Tracker().Add(createBackupTracker("empty-tracker", vmName, ""))).To(Succeed())
+			Expect(kubevirtClient.Tracker().Add(createBackupTracker("another-vm", "other-vm", "unrelated-head"))).To(Succeed())
 
 			backup := createBackupWithTracker(backupName, vmName, pvcName)
 			backup.Finalizers = []string{backupv1.VirtualMachineBackupFinalizer}
@@ -1721,8 +1732,11 @@ var _ = Describe("Backup Controller", func() {
 				{VolumeName: "datadisk"},
 			}
 			vmi := createVMI()
+			vmi.ResourceVersion = "42"
+			vmi.Annotations = map[string]string{"other": "unchanged"}
 			vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
 				BackupName:     backupName,
+				StartTimestamp: pointer.P(metav1.NewTime(metav1.Now().Truncate(time.Second))),
 				Completed:      true,
 				CheckpointName: pointer.P(checkpointName),
 				Volumes:        volumesInfo,
@@ -1735,7 +1749,41 @@ var _ = Describe("Backup Controller", func() {
 			// Expect patch to remove backup status from VMI
 			vmiInterface.EXPECT().
 				Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).
-				Return(vmi, nil)
+				DoAndReturn(func(_ context.Context, _ string, _ types.PatchType, data []byte, _ metav1.PatchOptions, _ ...string) (*v1.VirtualMachineInstance, error) {
+					var operations []struct {
+						Op, Path string
+						Value    json.RawMessage
+					}
+					Expect(json.Unmarshal(data, &operations)).To(Succeed())
+					seenAnnotations, removedStatus := false, false
+					for _, operation := range operations {
+						if operation.Op == "test" && operation.Path == "/metadata/uid" {
+							Expect(string(operation.Value)).To(Equal(`"vmi-uid"`))
+						}
+						if operation.Op == "test" && operation.Path == "/metadata/resourceVersion" {
+							Expect(string(operation.Value)).To(Equal(`"42"`))
+						}
+						if operation.Op == "add" && operation.Path == "/metadata/annotations" {
+							var annotations map[string]string
+							Expect(json.Unmarshal(operation.Value, &annotations)).To(Succeed())
+							copy := vmi.DeepCopy()
+							copy.Annotations = annotations
+							reference, err := storagetypes.GetBackupCheckpointReference(copy)
+							Expect(err).ToNot(HaveOccurred())
+							Expect(reference.BackupName).To(Equal(backupName))
+							Expect(reference.StartTimestamp.Equal(vmi.Status.ChangedBlockTracking.BackupStatus.StartTimestamp)).To(BeTrue())
+							Expect(reference.ReferencedCheckpointNames).To(ConsistOf(checkpointName, "retained-head"))
+							Expect(annotations["other"]).To(Equal("unchanged"))
+							seenAnnotations = true
+						}
+						if operation.Op == "remove" && operation.Path == "/status/changedBlockTracking/backupStatus" {
+							removedStatus = true
+						}
+					}
+					Expect(seenAnnotations && removedStatus).To(BeTrue())
+					Expect(vmi.Annotations).To(Equal(map[string]string{"other": "unchanged"}))
+					return vmi, nil
+				})
 
 			// Expect patch to update backupTracker with the new checkpoint
 			trackerPatched := false
@@ -1761,7 +1809,7 @@ var _ = Describe("Backup Controller", func() {
 			})
 
 			virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-				Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
+				Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace)).AnyTimes()
 
 			backupCopy, err := syncBackup(backup)
 			Expect(err).ToNot(HaveOccurred())
@@ -1773,6 +1821,39 @@ var _ = Describe("Backup Controller", func() {
 		},
 		Entry("when tracker has no previous checkpoint", "", "\"op\":\"add\""),
 		Entry("when tracker already has a checkpoint", "old-checkpoint", "\"op\":\"replace\""),
+	)
+
+	DescribeTable("should preserve backup status when checkpoint publication fails", func(failure string) {
+		tracker := createBackupTracker(backupTrackerName, vmName, "old-checkpoint")
+		vmi := createVMI()
+		vmi.Annotations = map[string]string{storagetypes.BackupCheckpointReferenceAnnotation: "previous"}
+		vmi.Status.ChangedBlockTracking.BackupStatus = &v1.VirtualMachineInstanceBackupStatus{
+			BackupName: backupName, StartTimestamp: pointer.P(metav1.Now()), Completed: true, CheckpointName: pointer.P(checkpointName),
+		}
+		virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace)).AnyTimes()
+		kubevirtClient.Fake.PrependReactor("patch", "virtualmachinebackuptrackers", func(testing.Action) (bool, runtime.Object, error) {
+			if failure == "promotion rejected" {
+				return true, nil, fmt.Errorf("promotion rejected")
+			}
+			return true, tracker, nil
+		})
+		if failure == "tracker list" {
+			kubevirtClient.Fake.PrependReactor("list", "virtualmachinebackuptrackers", func(testing.Action) (bool, runtime.Object, error) {
+				return true, nil, fmt.Errorf("tracker list failed")
+			})
+		}
+		if failure == "VMI conflict" {
+			vmiInterface.EXPECT().Patch(gomock.Any(), vmName, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("VMI conflict"))
+		}
+		backup := createBackupWithTracker(backupName, vmName, pvcName)
+		err := controller.reconcileCompleted(backup, vmi, tracker, vmi.Status.ChangedBlockTracking.BackupStatus)
+		Expect(err).To(MatchError(ContainSubstring(failure)))
+		Expect(vmi.Annotations[storagetypes.BackupCheckpointReferenceAnnotation]).To(Equal("previous"))
+		Expect(vmi.Status.ChangedBlockTracking.BackupStatus).ToNot(BeNil())
+	},
+		Entry("tracker promotion fails", "promotion rejected"),
+		Entry("tracker lookup fails", "tracker list"),
+		Entry("VMI patch conflicts", "VMI conflict"),
 	)
 
 	It("should update backupTracker even when cleanup returns early", func() {
@@ -1810,7 +1891,7 @@ var _ = Describe("Backup Controller", func() {
 		})
 
 		virtClient.EXPECT().VirtualMachineBackupTracker(testNamespace).
-			Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace))
+			Return(kubevirtClient.BackupV1beta1().VirtualMachineBackupTrackers(testNamespace)).AnyTimes()
 
 		// Expect VMI patch for detaching PVC (cleanup returns early)
 		vmiInterface.EXPECT().

@@ -970,6 +970,14 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
 	updateBackupStatus(vmi, domain)
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Backup != nil {
+		backup := domain.Spec.Metadata.KubeVirt.Backup
+		if backup.CheckpointCleanupPending {
+			// Cleanup from an earlier backup may still be pending.
+			// Keep retrying even if the latest backup failed.
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), 5*time.Second)
+		}
+	}
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err

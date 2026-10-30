@@ -505,6 +505,8 @@ type BackupMetadata struct {
 	CheckpointName string       `xml:"checkpointName,omitempty"`
 	Volumes        string       `xml:"volumes,omitempty"`
 	QuiesceStatus  string       `xml:"quiesceStatus,omitempty"`
+
+	CheckpointCleanupPending bool `xml:"checkpointCleanupPending,omitempty"`
 }
 
 type GracePeriodMetadata struct {
