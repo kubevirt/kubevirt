@@ -540,7 +540,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(hasExpired).To(BeFalse())
 		})
 
-		It("should do nothing if vmi and domain do not match", func() {
+		It("should clean up stale domain if vmi and domain do not match", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = "other uuid"
 			oldVMI := clientgoapi.NewMinimalVMI("testvmi")
@@ -548,13 +548,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", oldVMI.UID)
 			domain.Status.Status = api.Running
 
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), gomock.Any()).Return(nil)
+
 			initGracePeriodHelper(1, vmi, domain)
 			addVMI(vmi, domain)
 
-			sanityExecute()
-			Expect(mockQueue.Len()).To(Equal(0))
-			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
-
+			sanityExecuteNoDomain()
 		})
 
 		It("should silently retry if the command socket is not yet ready", func() {
@@ -691,6 +690,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedVMI.Status.Phase).To(Equal(v1.Running))
 			})
+		})
+
+		It("should clean up stale domain when UID mismatches new VMI and old launcher is not yet unresponsive", func() {
+			staleDomainUID := uuid.NewUUID()
+
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", staleDomainUID)
+			domain.Status.Status = api.Running
+
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:  true,
+				UnResponsive: false,
+			}
+
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), gomock.Any()).Return(nil)
+
+			addVMI(vmi, domain)
+			sanityExecuteNoDomain()
 		})
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
