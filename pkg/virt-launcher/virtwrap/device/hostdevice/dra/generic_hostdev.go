@@ -106,6 +106,7 @@ func createHostDeviceForHostDevice(hd v1.HostDevice, basePath string, vmiSpecs v
 			Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}, nil
 	}
