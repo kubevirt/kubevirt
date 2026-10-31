@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
- *
  */
 
 package storage
@@ -69,10 +68,14 @@ func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, ho
 	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
 }
 
+// CreateQCOW2Overlay creates a qcow2 overlay with an optional explicit virtual size.
+// If size is <= 0, the size is taken from GetDiskInfo(imagePath).
+// An existing regular overlay is reused as-is (e.g. RWX shared backend during LM);
+// the source already created it with the correct size.
 var CreateQCOW2Overlay = createQCOW2Overlay
 
 // XXX: Use keep_data_file once QEMU 11 lands.
-func createQCOW2Overlay(overlayPath, imagePath string) error {
+func createQCOW2Overlay(overlayPath, imagePath string, size int64) error {
 	if fi, err := os.Lstat(overlayPath); err == nil {
 		if !fi.Mode().IsRegular() {
 			return fmt.Errorf("QCOW2 overlay %s is not a regular file", overlayPath)
@@ -83,9 +86,16 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 		return fmt.Errorf("failed to check QCOW2 overlay %s existence: %w", overlayPath, err)
 	}
 
-	info, err := osdisk.GetDiskInfo(imagePath)
-	if err != nil {
-		return fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
+	overlaySize := size
+	if overlaySize <= 0 {
+		info, err := osdisk.GetDiskInfo(imagePath)
+		if err != nil {
+			return fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
+		}
+		overlaySize = info.VirtualSize
+	}
+	if overlaySize <= 0 {
+		return fmt.Errorf("invalid overlay size %d for image %q", overlaySize, imagePath)
 	}
 
 	fd, err := unix.MemfdCreate("cbt-scratch", unix.MFD_CLOEXEC)
@@ -123,7 +133,7 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 
 	if _, err := osdisk.QEMUImg(ctx, extraFiles, "create", "-f", "qcow2",
 		"-o", fmt.Sprintf("data_file=%s,data_file_raw=on,cluster_size=%d", scratchPath, overlayClusterSize),
-		tmpPath, strconv.FormatInt(info.VirtualSize, 10)); err != nil {
+		tmpPath, strconv.FormatInt(overlaySize, 10)); err != nil {
 		return err
 	}
 	if _, err := osdisk.QEMUImg(ctx, extraFiles, "amend", "-f", "qcow2", "-o", "data_file="+imagePath, tmpPath); err != nil {
@@ -133,7 +143,7 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 		return fmt.Errorf("failed to move QCOW2 overlay into place at %s: %w", overlayPath, err)
 	}
 
-	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
+	log.Log.Infof("QCOW2 overlay %s created successfully with size %d", overlayPath, overlaySize)
 	return nil
 }
 
@@ -313,7 +323,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath)
+		err := CreateQCOW2Overlay(overlayPath, imagePath, 0)
 		if err != nil {
 			return err
 		}

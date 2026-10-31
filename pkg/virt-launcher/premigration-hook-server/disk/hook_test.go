@@ -28,16 +28,22 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/disk"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 var _ = Describe("Hook", func() {
-	It("should create CBT overlays against the rewritten disk paths", func() {
-		var dataPaths []string
+	It("should rewrite disk paths then create CBT overlays sized from DestXML metadata", func() {
+		const sourceSize = int64(2028994560)
+		var (
+			dataPaths []string
+			sizes     []int64
+		)
 		originalCreate := storage.CreateQCOW2Overlay
-		storage.CreateQCOW2Overlay = func(_, data string) error {
+		storage.CreateQCOW2Overlay = func(_, data string, size int64) error {
 			dataPaths = append(dataPaths, data)
+			sizes = append(sizes, size)
 			return nil
 		}
 		DeferCleanup(func() { storage.CreateQCOW2Overlay = originalCreate })
@@ -66,8 +72,12 @@ var _ = Describe("Hook", func() {
 				}},
 			},
 		}}}}
+		Expect(storage.SetMigrationDiskSizes(domain, map[string]int64{"disk0": sourceSize})).To(Succeed())
 
 		Expect(disk.Hook(nil, vmi, domain)).To(Succeed())
 		Expect(dataPaths).To(ConsistOf("/data/" + targetNamespace + "/disk.img"))
+		Expect(sizes).To(ConsistOf(sourceSize))
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])))
+		Expect(domain.Metadata).To(BeNil())
 	})
 })
