@@ -46,6 +46,10 @@ func parsePort(arg string) (forwardedPort, error) {
 		arg = protocol[1]
 	}
 
+	if strings.Count(arg, ":") > 1 {
+		return port, errors.New("invalid port, expected local[:remote] with at most two ports")
+	}
+
 	ports := strings.FieldsFunc(arg, func(r rune) bool {
 		return r == ':'
 	})
