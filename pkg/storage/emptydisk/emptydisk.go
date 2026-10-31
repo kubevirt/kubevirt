@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -39,7 +38,7 @@ const emptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
 
 type emptyDiskCreator struct {
 	emptyDiskBaseDir string
-	discCreateFunc   func(filePath string, size string) error
+	diskCreateFunc   func(filePath string, size string) error
 }
 
 func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
@@ -61,13 +60,13 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 				return err
 			}
 			if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
-				if err := c.discCreateFunc(file, size); err != nil {
+				if err := c.diskCreateFunc(file, size); err != nil {
 					return err
 				}
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
+			if err := chownToQEMU(file); err != nil {
 				return err
 			}
 		}
@@ -89,9 +88,26 @@ func createQCOW(file string, size string) error {
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 
+// NewEmptyDiskCreator uses the virt-launcher empty disk directory.
 func NewEmptyDiskCreator() *emptyDiskCreator {
 	return &emptyDiskCreator{
 		emptyDiskBaseDir: emptyDiskBaseDir,
-		discCreateFunc:   createQCOW,
+		diskCreateFunc:   createQCOW,
 	}
+}
+
+// NewTestEmptyDiskCreator uses a test directory and disk creation function.
+func NewTestEmptyDiskCreator(directory string, diskCreateFunc func(filePath string, size string) error) *emptyDiskCreator {
+	return &emptyDiskCreator{
+		emptyDiskBaseDir: directory,
+		diskCreateFunc:   diskCreateFunc,
+	}
+}
+
+// chownToQEMU is needed if virt-launcher runs as featuregate.Root
+func chownToQEMU(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }
