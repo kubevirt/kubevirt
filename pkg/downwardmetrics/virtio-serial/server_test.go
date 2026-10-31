@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net"
 	"net/textproto"
+	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,6 +38,54 @@ func newServer() downwardMetricsServer {
 }
 
 var _ = Describe("DownwardMetrics virtio-serial server", func() {
+	Context("server exit notification", func() {
+		var launcherSocketPath string
+		var ctx context.Context
+		var cancel context.CancelFunc
+		var exited chan struct{}
+
+		BeforeEach(func() {
+			launcherSocketPath = filepath.Join(GinkgoT().TempDir(), "launcher.sock")
+			Expect(os.WriteFile(launcherSocketPath, nil, 0600)).To(Succeed())
+			ctx, cancel = context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			exited = make(chan struct{})
+		})
+
+		It("should notify when connecting to the channel fails", func() {
+			// A regular file as the parent produces ENOTDIR without connection retries.
+			channelPath := filepath.Join(launcherSocketPath, "channel.sock")
+			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func() {
+				close(exited)
+			})
+			Eventually(exited).Should(BeClosed())
+		})
+
+		DescribeTable("should notify when a connected server exits", func(cancelServer bool) {
+			channelPath := filepath.Join(GinkgoT().TempDir(), "channel.sock")
+			listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: channelPath, Net: "unix"})
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(listener.Close)
+			Expect(listener.SetDeadline(time.Now().Add(5 * time.Second))).To(Succeed())
+
+			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func() {
+				close(exited)
+			})
+			conn, err := listener.Accept()
+			Expect(err).NotTo(HaveOccurred())
+			if cancelServer {
+				DeferCleanup(conn.Close)
+				cancel()
+			} else {
+				Expect(conn.Close()).To(Succeed())
+			}
+			Eventually(exited).Should(BeClosed())
+		},
+			Entry("after the peer closes the connection", false),
+			Entry("after cancellation", true),
+		)
+	})
+
 	DescribeTable("Parse request", func(request string, shouldFail bool) {
 		err := parseRequest(request)
 
