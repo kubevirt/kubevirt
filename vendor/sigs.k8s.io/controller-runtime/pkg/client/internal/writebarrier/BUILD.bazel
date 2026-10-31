@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["writebarrier.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg/client:__subpackages__"],
+    deps = ["//vendor/k8s.io/apimachinery/pkg/types:go_default_library"],
+)

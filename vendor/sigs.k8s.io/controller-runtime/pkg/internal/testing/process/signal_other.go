@@ -1,4 +1,4 @@
-//go:build !aix && !darwin && !dragonfly && !freebsd && !linux && !netbsd && !openbsd && !solaris && !zos
+//go:build !aix && !darwin && !dragonfly && !freebsd && !linux && !netbsd && !openbsd && !solaris && !windows && !zos
 
 /*
 Copyright 2026 The Kubernetes Authors.
@@ -23,6 +23,6 @@ import (
 	"syscall"
 )
 
-func signalProcess(process *os.Process, sig syscall.Signal) error {
+func signalProcessImpl(process *os.Process, sig syscall.Signal) error {
 	return process.Signal(sig)
 }

@@ -23,6 +23,6 @@ import (
 	"syscall"
 )
 
-func signalProcess(process *os.Process, sig syscall.Signal) error {
+func signalProcessImpl(process *os.Process, sig syscall.Signal) error {
 	return syscall.Kill(-process.Pid, sig)
 }

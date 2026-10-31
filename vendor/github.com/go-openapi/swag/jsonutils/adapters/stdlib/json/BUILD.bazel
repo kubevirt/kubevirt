@@ -6,6 +6,7 @@ go_library(
         "adapter.go",
         "doc.go",
         "lexer.go",
+        "options.go",
         "ordered_map.go",
         "pool.go",
         "register.go",
@@ -17,6 +18,7 @@ go_library(
     deps = [
         "//vendor/github.com/go-openapi/swag/conv:go_default_library",
         "//vendor/github.com/go-openapi/swag/jsonutils/adapters/ifaces:go_default_library",
+        "//vendor/github.com/go-openapi/swag/pools:go_default_library",
         "//vendor/github.com/go-openapi/swag/typeutils:go_default_library",
     ],
 )
