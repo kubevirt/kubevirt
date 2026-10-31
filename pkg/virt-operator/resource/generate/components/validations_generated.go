@@ -5441,9 +5441,11 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         failureStrategy:
           description: |-
-            FailureStrategy specifies the default behavior when the plugin itself is unhealthy
-            (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).
+            FailureStrategy specifies the default behavior when one of the plugin's launcher or node hooks fails
+            (e.g. its socket is unreachable, the call times out, or the hook returns an error).
             Individual hooks may override this with their own FailureStrategy.
+            Defaults to Fail.
+            Errors evaluating a plugin or hook Condition always fail the operation, regardless of FailureStrategy.
           type: string
           x-kubernetes-validations:
           - message: 'failureStrategy must be one of: Fail, Ignore'
@@ -5490,8 +5492,9 @@ var CRDsValidation map[string]string = map[string]string{
                   The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
-                description: FailureStrategy specifies how to handle hook failures
-                  (Fail or Ignore).
+                description: |-
+                  FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).
+                  Defaults to the plugin-level FailureStrategy, or Fail if neither is set.
                 type: string
                 x-kubernetes-validations:
                 - message: 'failureStrategy must be one of: Fail, Ignore'
@@ -5602,8 +5605,9 @@ var CRDsValidation map[string]string = map[string]string{
                   The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
-                description: FailureStrategy specifies how to handle hook failures
-                  (Fail or Ignore).
+                description: |-
+                  FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).
+                  Defaults to the plugin-level FailureStrategy, or Fail if neither is set.
                 type: string
                 x-kubernetes-validations:
                 - message: 'failureStrategy must be one of: Fail, Ignore'
