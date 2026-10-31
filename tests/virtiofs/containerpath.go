@@ -182,7 +182,11 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			vmiPod := waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
 			_ = waitForVirtiofsContainerInPod(vmi, tokenFilesystemName)
 			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running},
-				libwait.WithWarningsIgnoreList([]string{"failed calling webhook"}))
+				libwait.WithWarningsIgnoreList([]string{
+					"failed calling webhook",
+					fmt.Sprintf("virtiofs-containers/%s.sock: no such file or directory", containerPathFilesystemName),
+					fmt.Sprintf("virtiofs-containers/%s.sock: no such file or directory", tokenFilesystemName),
+				}))
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			By("Writing distinct data into the injected volume")
