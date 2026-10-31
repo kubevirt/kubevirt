@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -84,7 +85,9 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 	})
 
 	Describe("Density test", func() {
-		vmCount := 100
+		// KUBEVIRT_PERF_VMI_COUNT overrides the batch size for a one-node
+		// scaling curve. Unset, the periodic lane keeps creating 100 VMIs.
+		vmCount := perfDensityVMCount()
 		vmBatchStartupLimit := 5 * time.Minute
 
 		Context(fmt.Sprintf("[small] create a batch of %d VMIs", vmCount), func() {
@@ -125,6 +128,17 @@ var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 		})
 	})
 }))
+
+func perfDensityVMCount() int {
+	raw := os.Getenv("KUBEVIRT_PERF_VMI_COUNT")
+	if raw == "" {
+		return 100
+	}
+	count, err := strconv.Atoi(raw)
+	Expect(err).NotTo(HaveOccurred(), "KUBEVIRT_PERF_VMI_COUNT must be an integer")
+	Expect(count).To(BeNumerically(">", 0))
+	return count
+}
 
 func collectMetrics(startTime time.Time, filepath string) {
 	// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s

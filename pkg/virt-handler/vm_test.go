@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -214,6 +215,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		// Production hands cold starts to the pool. Keep unit tests synchronous so
+		// SyncVMI still happens inside execute.
+		controller.startLauncher = syncStartLauncher{}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -1496,6 +1500,174 @@ var _ = Describe("VirtualMachineInstance", func() {
 					"Status": Equal(k8sv1.ConditionTrue)},
 				),
 			))
+		})
+
+		It("should not hold the reconcile worker for the whole VM start", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			vmi = addActivePods(vmi, podTestUUID, host)
+			createVMI(vmi)
+
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
+
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ *v1.VirtualMachineInstance, _ *cmdv1.VirtualMachineOptions) error {
+					close(started)
+					<-release
+					return nil
+				},
+			).Times(1)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			controller.startLauncher = newBoundedStartLauncher(vmStartPoolSize)
+
+			sanityExecute()
+			Eventually(started).Should(BeClosed())
+
+			key, err := virtcontroller.KeyFunc(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			controller.queue.Add(key)
+			sanityExecute()
+
+			releaseOnce.Do(func() { close(release) })
+			Eventually(func() time.Duration {
+				return controller.vmStarts.cooldownRemaining(string(vmi.UID), time.Now())
+			}).Should(BeNumerically(">", 0))
+			testutils.ExpectEvent(recorder, VMIDefined)
+		})
+
+		It("should not start a VMI that is deleted while waiting for a pool slot", func() {
+			blocker := clientgoapi.NewMinimalVMI("blocker")
+			blocker.UID = "blocker-uid"
+			blocker.ObjectMeta.ResourceVersion = "1"
+			blocker.Status.Phase = v1.Scheduled
+			blocker = addActivePods(blocker, podTestUUID, host)
+
+			queued := clientgoapi.NewMinimalVMI("queued")
+			queued.UID = "queued-uid"
+			queued.ObjectMeta.ResourceVersion = "1"
+			queued.Status.Phase = v1.Scheduled
+			queued = addActivePods(queued, "queued-pod-uid", host)
+
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
+
+			var synced []string
+			var syncedMu sync.Mutex
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(vmi *v1.VirtualMachineInstance, _ *cmdv1.VirtualMachineOptions) error {
+					syncedMu.Lock()
+					synced = append(synced, string(vmi.UID))
+					syncedMu.Unlock()
+					if vmi.Name == blocker.Name {
+						close(started)
+						<-release
+					}
+					return nil
+				},
+			).AnyTimes()
+			client.EXPECT().DeleteDomain(gomock.Any()).Return(nil).AnyTimes()
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
+
+			controller.startLauncher = newBoundedStartLauncher(1)
+
+			createVMI(blocker)
+			sanityExecute()
+			Eventually(started).Should(BeClosed())
+
+			createVMI(queued)
+			sanityExecute()
+			Expect(controller.vmStarts.inProgress(string(queued.UID))).To(BeTrue())
+
+			now := metav1.Now()
+			queued.DeletionTimestamp = &now
+			Expect(controller.vmiStore.Update(queued)).To(Succeed())
+			key, err := virtcontroller.KeyFunc(queued)
+			Expect(err).NotTo(HaveOccurred())
+			// The handoff reconcile may have recorded a status-update expectation.
+			// Clear it so this delete is actually processed.
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			controller.queue.Add(key)
+			sanityExecute()
+
+			Expect(controller.vmStarts.inProgress(string(queued.UID))).To(BeFalse())
+			releaseOnce.Do(func() { close(release) })
+			Consistently(func() []string {
+				syncedMu.Lock()
+				defer syncedMu.Unlock()
+				out := append([]string(nil), synced...)
+				return out
+			}, time.Second, 50*time.Millisecond).Should(Equal([]string{string(blocker.UID)}))
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+			testutils.ExpectEvent(recorder, VMIDefined)
+		})
+
+		It("should not start a deleted VMI when a pool slot opens", func() {
+			blocker := clientgoapi.NewMinimalVMI("blocker")
+			blocker.UID = "blocker-uid"
+			blocker.ObjectMeta.ResourceVersion = "1"
+			blocker.Status.Phase = v1.Scheduled
+			blocker = addActivePods(blocker, podTestUUID, host)
+
+			queued := clientgoapi.NewMinimalVMI("queued")
+			queued.UID = "queued-uid"
+			queued.ObjectMeta.ResourceVersion = "1"
+			queued.Status.Phase = v1.Scheduled
+			queued = addActivePods(queued, "queued-pod-uid", host)
+
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
+
+			var synced []string
+			var syncedMu sync.Mutex
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(vmi *v1.VirtualMachineInstance, _ *cmdv1.VirtualMachineOptions) error {
+					syncedMu.Lock()
+					synced = append(synced, string(vmi.UID))
+					syncedMu.Unlock()
+					if vmi.Name == blocker.Name {
+						close(started)
+						<-release
+					}
+					return nil
+				},
+			).AnyTimes()
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
+
+			controller.startLauncher = newBoundedStartLauncher(1)
+
+			createVMI(blocker)
+			sanityExecute()
+			Eventually(started).Should(BeClosed())
+
+			createVMI(queued)
+			sanityExecute()
+			Expect(controller.vmStarts.inProgress(string(queued.UID))).To(BeTrue())
+
+			now := metav1.Now()
+			queued.DeletionTimestamp = &now
+			Expect(controller.vmiStore.Update(queued)).To(Succeed())
+
+			releaseOnce.Do(func() { close(release) })
+			Eventually(func() bool {
+				return controller.vmStarts.inProgress(string(queued.UID))
+			}).Should(BeFalse())
+			Expect(func() []string {
+				syncedMu.Lock()
+				defer syncedMu.Unlock()
+				return append([]string(nil), synced...)
+			}()).To(Equal([]string{string(blocker.UID)}))
+			testutils.ExpectEvent(recorder, VMIDefined)
 		})
 
 		It("should adjust an existing migration method if live migration condition previously existed", func() {
