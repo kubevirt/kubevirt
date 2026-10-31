@@ -34535,7 +34535,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref common.ReferenceCall
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore). Defaults to the plugin-level FailureStrategy, or Fail if neither is set.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},
@@ -34600,7 +34600,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore). Defaults to the plugin-level FailureStrategy, or Fail if neither is set.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},
@@ -34739,7 +34739,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies the default behavior when the plugin itself is unhealthy (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable). Individual hooks may override this with their own FailureStrategy.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies the default behavior when one of the plugin's launcher or node hooks fails (e.g. its socket is unreachable, the call times out, or the hook returns an error). Individual hooks may override this with their own FailureStrategy. Defaults to Fail. Errors evaluating a plugin or hook Condition always fail the operation, regardless of FailureStrategy.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},
