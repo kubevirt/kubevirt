@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -59,6 +60,21 @@ const (
 	testNodeMaxPods = "110"
 )
 
+var configureLoggingOnce sync.Once
+
+type Option func(*Framework)
+
+// WithKubeVirtConfig configures the VM and VMI controllers before startup.
+// A nil configuration leaves the current configuration unchanged.
+func WithKubeVirtConfig(config *v1.KubeVirtConfiguration) Option {
+	return func(f *Framework) {
+		if config == nil {
+			return
+		}
+		f.kvConfig = config.DeepCopy()
+	}
+}
+
 type Framework struct {
 	env           *envtest.Environment
 	virtClient    kubecli.KubevirtClient
@@ -69,22 +85,32 @@ type Framework struct {
 	vmiController *vmi.Controller
 
 	podSimulator *PodSimulator
+	kvConfig     *v1.KubeVirtConfiguration
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 }
 
-func New() *Framework {
+func New(opts ...Option) *Framework {
 	GinkgoHelper()
+	configureLoggingOnce.Do(func() {
+		// Envtest uses this logger for control plane startup and CRD installation diagnostics.
+		ctrllog.SetLogger(GinkgoLogr)
+	})
 	crds, err := loadCRDs()
 	Expect(err).NotTo(HaveOccurred(), "failed to load CRDs")
-	return &Framework{
+	f := &Framework{
 		env: &envtest.Environment{
 			CRDs:               crds,
 			UseExistingCluster: new(bool),
 		},
+		kvConfig: &v1.KubeVirtConfiguration{},
 	}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *Framework) Start(ctx context.Context) {
@@ -100,7 +126,7 @@ func (f *Framework) Start(ctx context.Context) {
 
 	factory := controller.NewKubeInformerFactory(f.virtClient.RestClient(), f.virtClient, f.k8sClient, nil, testNamespace)
 
-	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(f.kvConfig)
 	// A nil Events channel discards events, including during controller shutdown.
 	recorder := new(record.FakeRecorder)
 
