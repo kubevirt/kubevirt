@@ -20,20 +20,19 @@
 package compute
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/watchdog"
 )
 
 type WatchdogDomainConfigurator struct {
-	architecture string
+	watchdogDevice watchdog.DeviceConfigurator
 }
 
-func NewWatchdogDomainConfigurator(architecture string) WatchdogDomainConfigurator {
+func NewWatchdogDomainConfigurator(watchdogDevice watchdog.DeviceConfigurator) WatchdogDomainConfigurator {
 	return WatchdogDomainConfigurator{
-		architecture: architecture,
+		watchdogDevice: watchdogDevice,
 	}
 }
 
@@ -44,41 +43,15 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 	}
 
 	var newWatchdogDevice api.Watchdog
-
-	switch w.architecture {
-	case "amd64":
-		if vmiWatchdog.I6300ESB == nil {
-			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
+	if w.watchdogDevice != nil {
+		var err error
+		newWatchdogDevice, err = w.watchdogDevice.ConfigureWatchdogDevice(vmiWatchdog)
+		if err != nil {
+			return err
 		}
-
-		newWatchdogDevice = newWatchdog(
-			vmiWatchdog.Name,
-			"i6300esb",
-			string(vmiWatchdog.I6300ESB.Action),
-		)
-	case "arm64":
-		return fmt.Errorf("watchdog is not supported on architecture ARM64")
-	case "s390x":
-		if vmiWatchdog.Diag288 == nil {
-			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
-		}
-
-		newWatchdogDevice = newWatchdog(
-			vmiWatchdog.Name,
-			"diag288",
-			string(vmiWatchdog.Diag288.Action),
-		)
 	}
 
 	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, newWatchdogDevice)
 
 	return nil
-}
-
-func newWatchdog(name, model, action string) api.Watchdog {
-	return api.Watchdog{
-		Alias:  api.NewUserDefinedAlias(name),
-		Model:  model,
-		Action: action,
-	}
 }
