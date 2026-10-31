@@ -24,6 +24,23 @@ var _ = Describe("Deployments", func() {
 		Expect(service.Spec.ClusterIP).To(Equal(corev1.ClusterIPNone))
 	})
 
+	It("should probe virt-exportproxy readiness on /readyz and liveness on /healthz", func() {
+		config := &util.KubeVirtDeploymentConfig{
+			Namespace: "kubevirt",
+		}
+		deployment := NewExportProxyDeployment(config, "", "", "")
+		container := deployment.Spec.Template.Spec.Containers[0]
+
+		Expect(container.ReadinessProbe).NotTo(BeNil())
+		Expect(container.ReadinessProbe.HTTPGet.Path).To(Equal("/readyz"))
+		Expect(container.LivenessProbe).NotTo(BeNil())
+		Expect(container.LivenessProbe.HTTPGet.Path).To(Equal("/healthz"))
+		Expect(container.LivenessProbe.TimeoutSeconds).To(Equal(int32(5)))
+		Expect(container.LivenessProbe.FailureThreshold).To(Equal(int32(6)))
+		Expect(deployment.Spec.Template.Spec.TerminationGracePeriodSeconds).NotTo(BeNil())
+		Expect(*deployment.Spec.Template.Spec.TerminationGracePeriodSeconds).To(Equal(int64(600)))
+	})
+
 	Describe("NewSynchronizationControllerDeployment", func() {
 		const (
 			namespace = "kubevirt"

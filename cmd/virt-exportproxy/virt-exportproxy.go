@@ -23,13 +23,18 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"os"
+	"os/signal"
 	"regexp"
+	"strconv"
+	"syscall"
 	"time"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -47,6 +52,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	"kubevirt.io/kubevirt/pkg/service"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
@@ -65,6 +72,16 @@ const (
 	backendResponseHeaderTimeout = 30 * time.Second
 	serverIdleTimeout            = 60 * time.Second
 	serverReadHeaderTimeout      = 10 * time.Second
+
+	// drainPollInterval is how often to check for active transfers during shutdown.
+	drainPollInterval = 500 * time.Millisecond
+	// httpShutdownTimeout bounds Server.Shutdown after transfers have drained.
+	httpShutdownTimeout = 30 * time.Second
+	// transferDrainTimeout is how long to wait for active transfers before
+	// forcing HTTP shutdown. Keep below the pod terminationGracePeriodSeconds.
+	transferDrainTimeout = 9 * time.Minute
+
+	proxyRateLimitedBody = "rate limited"
 )
 
 type exportProxyApp struct {
@@ -107,11 +124,17 @@ func (app *exportProxyApp) Run() {
 
 	app.initReverseProxy()
 
+	if err := exportproxymetrics.SetupMetrics(); err != nil {
+		panic(err)
+	}
+	admission.StartUtilizationSampler()
+
 	appTLSConfig := kvtls.SetupExportProxyTLS(app.certManager, app.kubeVirtStore)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.proxyHandler)
-	mux.HandleFunc("/healthz", app.healthzHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/healthz", app.healthzHandler)
+	mux.HandleFunc("/readyz", app.readyzHandler)
+	mux.HandleFunc("/api/", app.proxyHandler)
 
 	server := &http.Server{
 		Addr:              app.Address(),
@@ -124,13 +147,49 @@ func (app *exportProxyApp) Run() {
 		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
 	}
 
-	if err := server.ListenAndServeTLS("", ""); err != nil {
-		panic(err)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- server.ListenAndServeTLS("", "")
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-errCh:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	case sig := <-sigCh:
+		log.Log.Infof("received signal %s, initiating graceful shutdown", sig.String())
+		app.gracefulShutdown(server)
+	}
+}
+
+func (app *exportProxyApp) gracefulShutdown(server *http.Server) {
+	exportproxymetrics.BeginDrain()
+
+	deadline := time.Now().Add(transferDrainTimeout)
+	for exportproxymetrics.ActiveTransferCount() > 0 && time.Now().Before(deadline) {
+		time.Sleep(drainPollInterval)
+	}
+	if remaining := exportproxymetrics.ActiveTransferCount(); remaining > 0 {
+		log.Log.Warningf("timed out waiting for %d active transfers to finish", remaining)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Log.Reason(err).Error("HTTP server shutdown error")
 	}
 }
 
 func (app *exportProxyApp) healthzHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "OK")
+}
+
+func (app *exportProxyApp) readyzHandler(w http.ResponseWriter, r *http.Request) {
+	exportproxymetrics.WriteReadyzResponse(w)
 }
 
 var proxyPathMatcher = regexp.MustCompile(`^/api/` + apiGroup + "/" + "(" + apiVersions + ")" + `/namespaces/([^/]+)/` + exportResourceName + `/([^/]+)/(.*)$`)
@@ -142,32 +201,43 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	key := fmt.Sprintf("%s/%s", match[2], match[3])
-	obj, exists, err := app.exportStore.GetByKey(key)
+	namespace := match[2]
+	exportName := match[3]
+	backendPath := "/" + match[4]
+
+	serviceName, ready, err := app.resolveServiceName(namespace, exportName)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	export := obj.(*exportv1.VirtualMachineExport)
-	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+	if !ready {
+		if serviceName == "" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return
 	}
 
-	backendHost, status := app.backendAddr(match[2], export.Status.ServiceName)
+	// Soft admission (transfer count + CPU/mem) before contacting the backend
+	// so rejected requests skip TLS dial and volume open. Connection: close is
+	// set on the client response so keep-alive clients rebalance to other pods.
+	transfer, ok := exportproxymetrics.TryRecordTransferStarted()
+	if !ok {
+		writeRateLimited(w)
+		return
+	}
+
+	backendHost, status := app.backendAddr(namespace, serviceName)
 	if status != 0 {
+		transfer.Cancel()
 		w.WriteHeader(status)
 		return
 	}
-	backendPath := "/" + match[4]
+
 	log.Log.V(4).Infof("Proxying to https://%s%s", backendHost, backendPath)
 	proxy := *app.reverseProxy
+	proxy.Transport = &admittingTransport{base: app.reverseProxy.Transport, transfer: transfer}
 	proxy.Rewrite = func(pr *httputil.ProxyRequest) {
 		// Route via Out (not SetURL) so the inbound path is not joined onto the target.
 		pr.Out.URL.Scheme = "https"
@@ -177,6 +247,13 @@ func (app *exportProxyApp) proxyHandler(w http.ResponseWriter, r *http.Request) 
 		pr.Out.Host = ""
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func writeRateLimited(w http.ResponseWriter) {
+	w.Header().Set("Retry-After", strconv.Itoa(admission.RetryAfterSeconds))
+	w.Header().Set("Connection", "close")
+	w.WriteHeader(http.StatusTooManyRequests)
+	io.WriteString(w, proxyRateLimitedBody)
 }
 
 func (app *exportProxyApp) backendAddr(namespace, serviceName string) (string, int) {
@@ -209,6 +286,46 @@ func (app *exportProxyApp) initReverseProxy() {
 		Transport:     transport,
 		FlushInterval: -1, // flush immediately; avoids proxy-side buffering of large export streams
 	}
+}
+
+// admittingTransport wraps the backend RoundTripper. The soft-admission slot is
+// reserved in proxyHandler before dialing; this transport Confirms on success
+// or Cancels on dial/auth failure so unauthenticated floods do not inflate
+// transfers_total or leave slots stuck.
+type admittingTransport struct {
+	base     http.RoundTripper
+	transfer *exportproxymetrics.ActiveTransfer
+}
+
+func (t *admittingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	resp, err := base.RoundTrip(req)
+	if err != nil {
+		if t.transfer != nil {
+			t.transfer.Cancel()
+		}
+		return nil, err
+	}
+	if isUnauthenticatedExportResponse(resp.StatusCode) {
+		// Auth failures must not consume soft-admission slots or HPA metrics.
+		if t.transfer != nil {
+			t.transfer.Cancel()
+		}
+		return resp, nil
+	}
+
+	if t.transfer != nil {
+		t.transfer.Confirm()
+		resp.Body = exportproxymetrics.NewAdmittedTransferBody(resp.Body, t.transfer.Finish)
+	}
+	return resp, nil
+}
+
+func isUnauthenticatedExportResponse(statusCode int) bool {
+	return statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden
 }
 
 func (app *exportProxyApp) dialBackendTLS(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -273,6 +390,26 @@ func (app *exportProxyApp) verifyBackendConnection(cs tls.ConnectionState) error
 		return fmt.Errorf("could not verify backend certificate: %w", err)
 	}
 	return nil
+}
+
+func (app *exportProxyApp) resolveServiceName(namespace, exportName string) (serviceName string, ready bool, err error) {
+	key := fmt.Sprintf("%s/%s", namespace, exportName)
+	obj, exists, err := app.exportStore.GetByKey(key)
+	if err != nil {
+		return "", false, err
+	}
+	if !exists {
+		return "", false, nil
+	}
+
+	export := obj.(*exportv1.VirtualMachineExport)
+	if export.Status == nil || export.Status.Phase != exportv1.Ready {
+		if export.Status == nil {
+			return "", false, nil
+		}
+		return export.Status.ServiceName, false, nil
+	}
+	return export.Status.ServiceName, true, nil
 }
 
 func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) error {

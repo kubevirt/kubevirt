@@ -243,6 +243,7 @@ func Execute() {
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
 		PodDisruptionBudget:      app.informerFactory.OperatorPodDisruptionBudget(),
+		HorizontalPodAutoscaler:  app.informerFactory.OperatorHorizontalPodAutoscaler(),
 		Namespace:                app.informerFactory.Namespace(),
 		Secrets:                  app.informerFactory.Secrets(),
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
