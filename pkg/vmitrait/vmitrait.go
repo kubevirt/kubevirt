@@ -62,6 +62,11 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
+func HasDirectKernelBoot(vmi *v1.VirtualMachineInstance) bool {
+	return HasKernelBootContainerImage(vmi) &&
+		vmi.Spec.Domain.Firmware.KernelBoot.Container.KernelPath != ""
+}
+
 func IsNonRoot(vmi *v1.VirtualMachineInstance) bool {
 	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
 	nonRoot := vmi.Status.RuntimeUser != 0
