@@ -22,6 +22,8 @@ EXCLUDE_PATTERN="./decorators/decorators.go|\
 ./tests_suite_test.go|\
 ./tests/virtctl|\
 ./tests/network|\
+./tests/reporter/vmlog_reporter.go|\
+./tests/reporter/vmlog_reporter_test.go|\
 ./tests/compute/guest_agent.go|\
 ./tests/vnc_test.go|\
 ./tests/infrastructure/prometheus.go|\

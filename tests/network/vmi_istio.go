@@ -21,7 +21,9 @@ package network
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -91,10 +93,8 @@ const (
 var istioTests = func(vmType VmType) {
 	var (
 		err        error
-		vmi        *v1.VirtualMachineInstance
 		namespace  string
 		virtClient kubecli.KubevirtClient
-		vmiPorts   []v1.Port
 		// Istio Envoy treats traffic differently for ports declared and undeclared in an associated k8s service.
 		// Having both, declared and undeclared ports specified for VMIs with explicit ports allows to test both cases.
 		explicitPorts = []v1.Port{
@@ -109,22 +109,26 @@ var istioTests = func(vmType VmType) {
 
 	Context("Virtual Machine with istio supported interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
-			By("Starting HTTP Server")
-			vmnetserver.StartPythonHTTPServer(vmi, targetPort)
+			By("Verifying the guest HTTP listener")
+			expectIstioHTTPServerReady(serverVMI, targetPort)
 
 			By("Getting back the VMI IP")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			serverVMI, err := virtClient.VirtualMachineInstance(serverVMI.Namespace).Get(context.Background(), serverVMI.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
+			vmiIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, k8sv1.IPv4Protocol)
 
 			By("Running job to send a request to the server")
+			check := fmt.Sprintf(
+				`if response=$(curl --fail --silent --show-error --max-time 5 http://%s:%d) && [ "$response" = 'Hello World!' ]; then exit 0; else exit 1; fi`,
+				libnet.FormatIPForURL(vmiIP), targetPort,
+			)
 			return virtClient.BatchV1().Jobs(namespace).Create(
 				context.Background(),
-				job.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
+				job.NewHelloWorldJob(check),
 				metav1.CreateOptions{},
 			)
 		}
-		BeforeEach(func() {
+		setupIstioResources := func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 
 			By("Create NetworkAttachmentDefinition")
@@ -139,8 +143,8 @@ var istioTests = func(vmType VmType) {
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
 			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-		})
-		JustBeforeEach(func() {
+		}
+		startIstioVMI := func(ports []v1.Port) *v1.VirtualMachineInstance {
 			// Enable sidecar injection by setting the namespace label
 			Expect(libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
@@ -148,15 +152,22 @@ var istioTests = func(vmType VmType) {
 			}()
 
 			By("Creating VMI")
-			vmi, err = newVMIWithIstioSidecar(vmiPorts, vmType)
+			istioVMI, err := newVMIWithIstioSidecar(ports, vmType)
 			Expect(err).ShouldNot(HaveOccurred())
-			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			istioVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), istioVMI, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-		})
+			libwait.WaitUntilVMIReady(istioVMI, console.LoginToAlpine)
+			return istioVMI
+		}
 		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(setupIstioResources)
+			JustBeforeEach(func() {
+				vmi = startIstioVMI(nil)
+			})
+
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -186,7 +197,8 @@ var istioTests = func(vmType VmType) {
 			})
 		})
 		Describe("SSH traffic", func() {
-			var bastionVMI *v1.VirtualMachineInstance
+			BeforeEach(setupIstioResources)
+			var vmi, bastionVMI *v1.VirtualMachineInstance
 			sshCommand := func(user, ipAddress string) string {
 				return fmt.Sprintf("ssh -y %s@%s\n", user, ipAddress)
 			}
@@ -214,8 +226,8 @@ var istioTests = func(vmType VmType) {
 				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
 			})
 			Context("With VMI having explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+				JustBeforeEach(func() {
+					vmi = startIstioVMI(explicitPorts)
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
@@ -229,8 +241,8 @@ var istioTests = func(vmType VmType) {
 				})
 			})
 			Context("With VMI having no explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
+				JustBeforeEach(func() {
+					vmi = startIstioVMI(nil)
 				})
 				It("should ssh to VMI with Istio proxy", func() {
 					By("Getting the VMI IP")
@@ -254,9 +266,21 @@ var istioTests = func(vmType VmType) {
 				return job.WaitForJobToSucceed(httpJob, 480*time.Second)
 			}
 
-			Context("With VMI having explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+			expectVMIUnreachable := func(vmi *v1.VirtualMachineInstance, targetPort int) {
+				httpJob, err := createJobCheckingVMIReachability(vmi, targetPort)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(job.WaitForJobToFail(httpJob, 480*time.Second)).To(Succeed())
+				expectIstioHTTPJobRejected(httpJob)
+			}
+
+			Context("With VMI having explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeAll(func() {
+					setupIstioResources()
+					vmi = startIstioVMI(explicitPorts)
+					vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
 					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
@@ -265,9 +289,15 @@ var istioTests = func(vmType VmType) {
 					Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
 				)
 			})
-			Context("With VMI having no explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
+			Context("With VMI having no explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeAll(func() {
+					setupIstioResources()
+					vmi = startIstioVMI([]v1.Port{})
+					vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, istioRestrictedPort)
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
 					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
@@ -276,34 +306,46 @@ var istioTests = func(vmType VmType) {
 					Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
 				)
 				It("Should not be able to reach service running on Istio restricted port", func() {
-					Expect(checkVMIReachability(vmi, istioRestrictedPort)).NotTo(Succeed())
+					expectVMIUnreachable(vmi, istioRestrictedPort)
 				})
 			})
 
 			Context("With PeerAuthentication enforcing mTLS", func() {
-				BeforeEach(func() {
+				createStrictPeerAuthentication := func() {
 					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
 					peerAuthentication := generateStrictPeerAuthentication()
 					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(namespace).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
-				})
-				Context("With VMI having explicit ports specified", func() {
-					BeforeEach(func() {
-						vmiPorts = explicitPorts
+				}
+				Context("With VMI having explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+					var vmi *v1.VirtualMachineInstance
+
+					BeforeAll(func() {
+						setupIstioResources()
+						createStrictPeerAuthentication()
+						vmi = startIstioVMI(explicitPorts)
+						vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+						vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
-						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+						expectVMIUnreachable(vmi, targetPort)
 					},
 						Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
 						Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
 					)
 				})
-				Context("With VMI having no explicit ports specified", func() {
-					BeforeEach(func() {
-						vmiPorts = []v1.Port{}
+				Context("With VMI having no explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+					var vmi *v1.VirtualMachineInstance
+
+					BeforeAll(func() {
+						setupIstioResources()
+						createStrictPeerAuthentication()
+						vmi = startIstioVMI([]v1.Port{})
+						vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+						vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
-						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+						expectVMIUnreachable(vmi, targetPort)
 					},
 						Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
 						Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
@@ -317,26 +359,14 @@ var istioTests = func(vmType VmType) {
 				externalServiceCheckInterval = 1 * time.Second
 				istioNamespace               = "istio-system"
 			)
-			var (
-				ingressGatewayServiceIP string
-				serverVMI               *v1.VirtualMachineInstance
-			)
-
-			curlCommand := func(ingressGatewayIP string) string {
-				return fmt.Sprintf("curl -sD - -o /dev/null -Hhost:%s.example.com http://%s | head -n 1\n", vmiServerHostName, ingressGatewayIP)
-			}
-
-			generateExpectedHTTPReturnCodeRegex := func(codeRegex string) string {
-				return fmt.Sprintf("HTTP\\/[123456789\\.]{1,3}\\s(%s)", codeRegex)
-			}
-
-			BeforeEach(func() {
+			startExternalService := func() (*v1.VirtualMachineInstance, string) {
 				networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
-				serverVMI = libvmifact.NewAlpineWithTestTooling(
+				serverVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.NewInterface(
 						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "false"),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
@@ -374,72 +404,83 @@ var istioTests = func(vmType VmType) {
 				By("Getting Istio ingressgateway IP")
 				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
-			})
-
-			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
-				return console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: ""},
-					&expect.BSnd{S: curlCommand(ingressGatewayAddress)},
-					&expect.BExp{R: returnCode},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
-				}, 60)
+				return serverVMI, ingressGatewayService.Spec.ClusterIP
 			}
 
-			Context("VMI with explicit ports", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+			checkHTTPServiceReturnCode := func(requestVMI *v1.VirtualMachineInstance, ingressGatewayAddress, returnCode string) error {
+				command := fmt.Sprintf(
+					`code=$(curl --silent --show-error --max-time 2 -o /dev/null -w '%%{http_code}' -Hhost:%s.example.com http://%s); result=$?; echo "HTTP status: $code"; test "$result" -eq 0 && echo "$code" | grep -Eq '^%s$'`,
+					vmiServerHostName, ingressGatewayAddress, returnCode,
+				)
+				return runIstioCommand(requestVMI, command, externalServiceCheckTimeout)
+			}
+
+			expectExternalServiceReachable := func(requestVMI, serverVMI *v1.VirtualMachineInstance, ingressGatewayServiceIP string) {
+				Expect(checkHTTPServiceReturnCode(serverVMI, ingressGatewayServiceIP, "200")).To(Succeed())
+				command := fmt.Sprintf(
+					`test "$(curl --fail --silent --show-error --max-time 2 http://%s.%s.svc.cluster.local:%d)" = 'Hello World!'`,
+					vmiServerHostName, namespace, vmiServerTestPort,
+				)
+				Expect(runIstioCommand(requestVMI, command, externalServiceCheckTimeout)).To(Succeed())
+			}
+
+			Context("With default outbound traffic policy", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var explicitPortsVMI, noExplicitPortsVMI *v1.VirtualMachineInstance
+				var ingressGatewayServiceIP string
+
+				BeforeAll(func() {
+					setupIstioResources()
+					_, ingressGatewayServiceIP = startExternalService()
+					explicitPortsVMI = startIstioVMI(explicitPorts)
+					noExplicitPortsVMI = startIstioVMI(nil)
 				})
-				It("Should be able to reach http server outside of mesh", func() {
-					Expect(
-						checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("200")),
-					).ToNot(HaveOccurred())
+
+				Context("VMI with explicit ports", func() {
+					It("Should be able to reach http server outside of mesh", func() {
+						Expect(checkHTTPServiceReturnCode(explicitPortsVMI, ingressGatewayServiceIP, "200")).To(Succeed())
+					})
 				})
-			})
-			Context("VMI with no explicit ports", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
-				})
-				It("Should be able to reach http server outside of mesh", func() {
-					Expect(
-						checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("200")),
-					).ToNot(HaveOccurred())
+				Context("VMI with no explicit ports", func() {
+					It("Should be able to reach http server outside of mesh", func() {
+						Expect(checkHTTPServiceReturnCode(noExplicitPortsVMI, ingressGatewayServiceIP, "200")).To(Succeed())
+					})
 				})
 			})
 
-			Context("With Sidecar allowing only registered external services", func() {
-				// Istio Envoy will intercept the request because of the OutboundTrafficPolicy set to REGISTRY_ONLY.
-				// Envoy responds with 502 Bad Gateway return code.
-				// After Sidecar with OutboundTrafficPolicy is created, it may take a while for the Envoy proxy
-				// to sync with the change, first request may still get through, hence the Eventually used for assertions.
+			Context("With Sidecar allowing only registered external services", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				var explicitPortsVMI, noExplicitPortsVMI, serverVMI *v1.VirtualMachineInstance
+				var ingressGatewayServiceIP string
 
-				BeforeEach(func() {
+				BeforeAll(func() {
+					setupIstioResources()
+					serverVMI, ingressGatewayServiceIP = startExternalService()
+
 					sidecarRes := schema.GroupVersionResource{Group: networkingIstioIO, Version: istioApiVersion, Resource: "sidecars"}
 					registryOnlySidecar := generateRegistryOnlySidecar()
 					_, err = virtClient.DynamicClient().Resource(sidecarRes).Namespace(namespace).Create(context.TODO(), registryOnlySidecar, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
+
+					explicitPortsVMI = startIstioVMI(explicitPorts)
+					noExplicitPortsVMI = startIstioVMI(nil)
 				})
 
 				Context("VMI with explicit ports", func() {
-					BeforeEach(func() {
-						vmiPorts = explicitPorts
-					})
 					It("Should not be able to reach http service outside of mesh", func() {
+						expectExternalServiceReachable(explicitPortsVMI, serverVMI, ingressGatewayServiceIP)
+						// Policy propagation can briefly allow a request after startup.
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("5.."))
+							return checkHTTPServiceReturnCode(explicitPortsVMI, ingressGatewayServiceIP, "5[0-9][0-9]")
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
+						expectExternalServiceReachable(explicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 					})
 				})
 				Context("VMI with no explicit ports", func() {
-					BeforeEach(func() {
-						vmiPorts = []v1.Port{}
-					})
 					It("Should not be able to reach http service outside of mesh", func() {
+						expectExternalServiceReachable(noExplicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 						Eventually(func() error {
-							return checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("5.."))
+							return checkHTTPServiceReturnCode(noExplicitPortsVMI, ingressGatewayServiceIP, "5[0-9][0-9]")
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
+						expectExternalServiceReachable(noExplicitPortsVMI, serverVMI, ingressGatewayServiceIP)
 					})
 				})
 			})
@@ -458,6 +499,54 @@ var istioTestsWithPasstBinding = func() {
 var _ = Describe(SIG(" Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding))
 
 var _ = Describe(SIG(" Istio with passt binding", decorators.Istio, Serial, istioTestsWithPasstBinding))
+
+func runIstioCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) error {
+	marker := "ISTIO_COMMAND_RESULT_" + rand.Text() + ":"
+	responses, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: command + "; printf '\\n" + marker + "%s\\n' \"$?\"\n"},
+		&expect.BExp{R: console.RetValue(marker + "[0-9]+")},
+	}, int(timeout/time.Second))
+	if err != nil {
+		return err
+	}
+
+	results := regexp.MustCompile(`(?m)^`+regexp.QuoteMeta(marker)+`([0-9]+)\r?$`).FindAllStringSubmatch(responses[0].Match[0], -1)
+	if len(results) == 0 || results[len(results)-1][1] != "0" {
+		return fmt.Errorf("command failed at VMI %s: %s", vmi.Name, responses[0].Match[0])
+	}
+	return nil
+}
+
+// The loopback request verifies the guest listener without passing through Envoy.
+func expectIstioHTTPServerReady(vmi *v1.VirtualMachineInstance, port int) {
+	command := fmt.Sprintf(`test "$(curl --fail --silent --show-error --max-time 2 http://127.0.0.1:%d)" = 'Hello World!'`, port)
+	Eventually(func() error {
+		return runIstioCommand(vmi, command, 5*time.Second)
+	}, 5*time.Second, time.Second).Should(Succeed())
+}
+
+func expectIstioHTTPJobRejected(httpJob *batchv1.Job) {
+	virtClient := kubevirt.Client()
+	failedJob, err := virtClient.BatchV1().Jobs(httpJob.Namespace).Get(context.Background(), httpJob.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(failedJob.Status.Conditions).To(ContainElement(SatisfyAll(
+		HaveField("Type", Equal(batchv1.JobFailed)),
+		HaveField("Status", Equal(k8sv1.ConditionTrue)),
+		HaveField("Reason", Equal(batchv1.JobReasonBackoffLimitExceeded)),
+	)))
+
+	pods, err := virtClient.CoreV1().Pods(httpJob.Namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", batchv1.ControllerUidLabel, httpJob.UID),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(pods.Items).ToNot(BeEmpty())
+	for _, pod := range pods.Items {
+		Expect(pod.Status.ContainerStatuses).To(ContainElement(SatisfyAll(
+			HaveField("Name", Equal("container")),
+			HaveField("State.Terminated.ExitCode", Equal(int32(1))),
+		)))
+	}
+}
 
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
