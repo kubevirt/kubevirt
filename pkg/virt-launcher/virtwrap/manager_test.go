@@ -108,7 +108,6 @@ var _ = BeforeSuite(func() {
 	Expect(cloudinit.SetLocalDirectory(tmpDir)).To(Succeed())
 
 	ephemeraldiskutils.MockDefaultOwnershipManager()
-	cloudinit.SetIsoCreationFunction(isoCreationFunc)
 })
 
 var _ = Describe("Manager", func() {
@@ -542,41 +541,6 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_START_PAUSED).Return(nil)
-			manager, _ := newLibvirtDomainManagerDefault()
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newspec).ToNot(BeNil())
-		})
-
-		It("should define and start a new VirtualMachineInstance with userData", func() {
-			vmi := newVMI(testNamespace, testVmName)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-
-			userData := "fake\nuser\ndata\n"
-			networkData := ""
-			addCloudInitDisk(vmi, userData, networkData)
-
-			setDomainExpectations(vmi)
-
-			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
-			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			manager, _ := newLibvirtDomainManagerDefault()
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newspec).ToNot(BeNil())
-		})
-
-		It("should define and start a new VirtualMachineInstance with userData and networkData", func() {
-			vmi := newVMI(testNamespace, testVmName)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			userData := "fake\nuser\ndata\n"
-			networkData := "FakeNetwork"
-			addCloudInitDisk(vmi, userData, networkData)
-
-			setDomainExpectations(vmi)
-
-			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
-			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
 			manager, _ := newLibvirtDomainManagerDefault()
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
@@ -5216,11 +5180,6 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 			},
 		},
 	})
-}
-
-func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
-	_, err := os.Create(isoOutFile)
-	return err
 }
 
 func getFsImagePath(name string) string {

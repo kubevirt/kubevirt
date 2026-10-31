@@ -26,29 +26,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	"kubevirt.io/client-go/precond"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
-const isoStagingFmt = "%s.staging"
-
-type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
-
-var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
-var cloudInitIsoFunc = defaultIsoFunc
+var cloudInitLocalDir = "/var/run/kubevirt-ephemeral-disks/cloud-init-data"
 
 // Locations of data source disk files
 const (
@@ -106,22 +96,9 @@ type DeviceData struct {
 	Tags        []string           `json:"tags"`
 }
 
-// IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
-func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
-	return cloudInitData != nil && cloudInitData.UserData != "" && (cloudInitData.NoCloudMetaData != nil || cloudInitData.ConfigDriveMetaData != nil)
-}
-
-func cloudInitUUIDFromVMI(vmi *v1.VirtualMachineInstance) string {
-	if vmi.Spec.Domain.Firmware == nil {
-		return uuid.NewString()
-	}
-	return string(vmi.Spec.Domain.Firmware.UUID)
-}
-
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
-	precond.MustNotBeNil(vmi)
 	// ClusterInstancetypeAnnotation will take precedence over a namespaced Instancetype
 	// for setting instance_type in the metadata
 	instancetype := vmi.Annotations[v1.ClusterInstancetypeAnnotation]
@@ -139,7 +116,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			}
 
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
-			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, cloudInitUUIDFromVMI(vmi), instancetype, keys)
+			cloudInitData.NoCloudMetaData = readCloudInitNoCloudMetaData(hostname, string(vmi.Spec.Domain.Firmware.UUID), instancetype, keys)
 			cloudInitData.VolumeName = volume.Name
 			return cloudInitData, err
 		}
@@ -150,7 +127,7 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 				return nil, err
 			}
 
-			uuid := cloudInitUUIDFromVMI(vmi)
+			uuid := string(vmi.Spec.Domain.Firmware.UUID)
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
 			cloudInitData.ConfigDriveMetaData = readCloudInitConfigDriveMetaData(vmi.Name, uuid, hostname, vmi.Namespace, keys, instancetype)
 			cloudInitData.VolumeName = volume.Name
@@ -419,7 +396,59 @@ func readCloudInitConfigDriveMetaData(name, uuid, hostname, namespace string, ke
 	}
 }
 
-func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
+// IsoFile is content at a relative path inside the ISO input root.
+type IsoFile struct {
+	Path string
+	Data []byte
+}
+
+// IsoPlan describes complete ISO contents, without absolute host paths.
+type IsoPlan struct {
+	VolumeID string
+	Files    []IsoFile
+}
+
+// BuildIsoPlan chooses the ISO layout and serializes metadata without IO.
+// Identity metadata comes from ReadCloudInitVolumeDataSource and may be
+// changed by hooks.
+// ConfigDrive devices are added to a local metadata copy; data is not modified.
+func BuildIsoPlan(data *CloudInitData) (*IsoPlan, error) {
+	plan := &IsoPlan{}
+	var metaFile, userFile, networkFile string
+	var metadata []byte
+	var err error
+	switch data.DataSource {
+	case DataSourceNoCloud:
+		plan.VolumeID = "cidata"
+		metaFile, userFile, networkFile = "meta-data", "user-data", "network-config"
+		metadata, err = json.Marshal(data.NoCloudMetaData)
+	case DataSourceConfigDrive:
+		plan.VolumeID = "config-2"
+		metaFile, userFile, networkFile = "openstack/latest/meta_data.json", "openstack/latest/user_data", "openstack/latest/network_data.json"
+		configDriveMetadata := data.ConfigDriveMetaData
+		if configDriveMetadata != nil {
+			withDevices := *configDriveMetadata
+			withDevices.Devices = data.DevicesData
+			configDriveMetadata = &withDevices
+		}
+		metadata, err = json.Marshal(configDriveMetadata)
+	default:
+		return nil, fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if data.UserData == "" && data.NetworkData == "" {
+		return nil, fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
+	}
+	plan.Files = []IsoFile{{Path: userFile, Data: []byte(data.UserData)}, {Path: metaFile, Data: metadata}}
+	if data.NetworkData != "" {
+		plan.Files = append(plan.Files, IsoFile{Path: networkFile, Data: []byte(data.NetworkData)})
+	}
+	return plan, nil
+}
+
+func dirToIso(inDir, isoOutFile, volumeID string) error {
 
 	var args []string
 
@@ -457,16 +486,11 @@ func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
 		case err := <-done:
 			if err != nil {
 				log.Log.Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
-				return err
+				return errors.Join(err, os.Remove(isoOutFile))
 			}
 			return nil
 		}
 	}
-}
-
-// The unit test suite uses this function
-func SetIsoCreationFunction(isoFunc IsoCreationFunc) {
-	cloudInitIsoFunc = isoFunc
 }
 
 func SetLocalDirectory(dir string) error {
@@ -475,14 +499,8 @@ func SetLocalDirectory(dir string) error {
 		return fmt.Errorf("unable to initialize cloudInit local cache directory (%s). %v", dir, err)
 	}
 
-	SetLocalDirectoryOnly(dir)
-	return nil
-}
-
-// XXX refactor this whole package
-// This is just a cheap workaround to make e2e tests pass
-func SetLocalDirectoryOnly(dir string) {
 	cloudInitLocalDir = dir
+	return nil
 }
 
 func getDomainBasePath(domain string, namespace string) string {
@@ -503,52 +521,28 @@ func PrepareLocalPath(vmiName string, namespace string) error {
 	return util.MkdirAllWithNosec(getDomainBasePath(vmiName, namespace))
 }
 
-func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, size int64) error {
-	precond.MustNotBeEmpty(vmiName)
-	precond.MustNotBeNil(data)
-
-	var err error
-	var isoStaging, iso string
-
+// GenerateIsoPlaceholder creates a zero-filled placeholder for a
+// cloud-init ISO during migration.
+func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitData, size int64) error {
+	var iso string
 	switch data.DataSource {
 	case DataSourceNoCloud, DataSourceConfigDrive:
 		iso = GetIsoFilePath(data.DataSource, vmiName, namespace)
 	default:
 		return fmt.Errorf("invalid cloud-init data source: '%v'", data.DataSource)
 	}
-	isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-
-	err = removeFilesIfExist(isoStaging)
-	if err != nil {
-		return err
-	}
-
-	err = util.MkdirAllWithNosec(path.Dir(isoStaging))
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", path.Dir(isoStaging))
-		return err
-	}
-
-	f, err := os.Create(isoStaging)
-	if err != nil {
-		return fmt.Errorf("failed to create empty iso: '%s'", isoStaging)
-	}
-
-	err = util.WriteBytes(f, 0, size)
-	if err != nil {
-		return err
-	}
-	util.CloseIOAndCheckErr(f, &err)
-	if err != nil {
-		return err
-	}
-
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
-		return err
-	}
-	err = os.Rename(isoStaging, iso)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
+	if err := writeIso(iso, func(staging string) error {
+		file, err := os.Create(staging)
+		if err != nil {
+			return fmt.Errorf("failed to create empty iso: '%s'", staging)
+		}
+		writeErr := util.WriteBytes(file, 0, size)
+		closeErr := file.Close()
+		if writeErr != nil || closeErr != nil {
+			return errors.Join(writeErr, closeErr, os.Remove(staging))
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -556,132 +550,74 @@ func GenerateEmptyIso(vmiName string, namespace string, data *CloudInitData, siz
 	return nil
 }
 
-func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data *CloudInitData) error {
-	precond.MustNotBeEmpty(vmi.Name)
-	precond.MustNotBeNil(data)
-
-	var metaData []byte
-	var err error
-
-	domainBasePath := getDomainBasePath(vmi.Name, vmi.Namespace)
-	dataBasePath := fmt.Sprintf("%s/data", domainBasePath)
-
-	var dataPath, metaFile, userFile, networkFile, iso, isoStaging string
-	switch data.DataSource {
-	case DataSourceNoCloud:
-		dataPath = dataBasePath
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
-		iso = GetIsoFilePath(DataSourceNoCloud, vmi.Name, vmi.Namespace)
-		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-		if data.NoCloudMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			data.NoCloudMetaData = &NoCloudMetadata{
-				InstanceID: cloudInitUUIDFromVMI(vmi),
-			}
-			data.NoCloudMetaData.InstanceType = instanceType
-		}
-		metaData, err = json.Marshal(data.NoCloudMetaData)
+// GenerateIso generates a cloud-init ISO for the VMI.
+func GenerateIso(vmi *v1.VirtualMachineInstance, data *CloudInitData) error {
+	plan, err := BuildIsoPlan(data)
+	if err != nil {
+		return err
+	}
+	domainRoot := getDomainBasePath(vmi.Name, vmi.Namespace)
+	iso := GetIsoFilePath(data.DataSource, vmi.Name, vmi.Namespace)
+	if err := writeIso(iso, func(staging string) error {
+		dataRoot, err := os.MkdirTemp(domainRoot, "cloud-init-data-")
 		if err != nil {
 			return err
 		}
-	case DataSourceConfigDrive:
-		dataPath = fmt.Sprintf("%s/openstack/latest", dataBasePath)
-		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
-		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
-		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
-		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
-		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
-		if data.ConfigDriveMetaData == nil {
-			log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
-			instanceId := fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace)
-			data.ConfigDriveMetaData = &ConfigDriveMetadata{
-				InstanceID: instanceId,
-				UUID:       cloudInitUUIDFromVMI(vmi),
-			}
-			data.ConfigDriveMetaData.InstanceType = instanceType
-		}
-		data.ConfigDriveMetaData.Devices = data.DevicesData
-		metaData, err = json.Marshal(data.ConfigDriveMetaData)
-		if err != nil {
+		defer os.RemoveAll(dataRoot)
+		if err := writeIsoPlan(dataRoot, plan); err != nil {
 			return err
 		}
-
-	default:
-		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)
-	}
-
-	err = util.MkdirAllWithNosec(dataPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
+		return dirToIso(dataRoot, staging, plan.VolumeID)
+	}); err != nil {
 		return err
 	}
-
-	if data.UserData == "" && data.NetworkData == "" {
-		return fmt.Errorf("UserData or NetworkData is required for cloud-init data source")
-	}
-	userData := []byte(data.UserData)
-
-	var networkData []byte
-	if data.NetworkData != "" {
-		networkData = []byte(data.NetworkData)
-	}
-
-	err = removeFilesIfExist(userFile, metaFile, networkFile, isoStaging)
-	if err != nil {
-		return err
-	}
-
-	err = os.WriteFile(userFile, userData, 0600)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(userFile)
-
-	err = os.WriteFile(metaFile, metaData, 0600)
-	if err != nil {
-		return err
-	}
-	defer os.Remove(metaFile)
-
-	if len(networkData) > 0 {
-		err = os.WriteFile(networkFile, networkData, 0600)
-		if err != nil {
-			return err
-		}
-		defer os.Remove(networkFile)
-	}
-
-	switch data.DataSource {
-	case DataSourceNoCloud:
-		err = cloudInitIsoFunc(isoStaging, "cidata", dataBasePath)
-	case DataSourceConfigDrive:
-		err = cloudInitIsoFunc(isoStaging, "config-2", dataBasePath)
-	}
-	if err != nil {
-		return err
-	}
-
-	if err := diskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(isoStaging); err != nil {
-		return err
-	}
-
-	err = os.Rename(isoStaging, iso)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", isoStaging, iso)
-		return err
-	}
-
-	log.Log.V(2).Infof("generated nocloud iso file %s", iso)
+	log.Log.V(2).Infof("generated cloud-init iso file %s", iso)
 	return nil
 }
 
-func removeFilesIfExist(paths ...string) error {
-	for _, path := range paths {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+// writeIsoPlan writes planned input files into a fresh directory.
+// Callers own the input directory and its eventual cleanup.
+func writeIsoPlan(dataRoot string, plan *IsoPlan) error {
+	for _, file := range plan.Files {
+		filePath := filepath.Join(dataRoot, file.Path)
+		if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filePath, file.Data, 0600); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// writeIso generates a staging file and publishes it with qemu ownership.
+// generate must remove any partial staging file on failure.
+func writeIso(iso string, generate func(staging string) error) error {
+	staging := iso + ".staging"
+	if err := os.Remove(staging); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	if err := util.MkdirAllWithNosec(filepath.Dir(iso)); err != nil {
+		return err
+	}
+	if err := generate(staging); err != nil {
+		return err
+	}
+	defer os.Remove(staging)
+	if err := chownToQEMU(staging); err != nil {
+		return err
+	}
+	if err := os.Rename(staging, iso); err != nil {
+		log.Log.Reason(err).Errorf("Cloud-init failed to rename file %s to %s", staging, iso)
+		return err
+	}
+	return nil
+}
+
+// chownToQEMU is needed if virt-launcher runs as featuregate.Root
+func chownToQEMU(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }
