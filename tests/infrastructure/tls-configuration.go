@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,6 +73,8 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		})
 
 	It("[QUARANTINE]should enforce TLS configuration on virt-template components", decorators.Quarantine, func() {
+		waitForVirtTemplateTLSRollout([]string{cipher.Name}, false)
+
 		podsToTest := listPods(
 			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
 			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
@@ -138,9 +141,7 @@ var _ = Describe(SIGSerial("tls group preferences", func() {
 			}
 			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
-			if len(groups) > 0 {
-				waitForVirtTemplateCurvePreferencesRollout()
-			}
+			waitForVirtTemplateTLSRollout(kvConfig.TLSConfiguration.Ciphers, len(groups) > 0)
 
 			podsToTest := listPods(
 				"app.kubernetes.io/name=virt-template,control-plane=apiserver",
@@ -300,16 +301,31 @@ func verifyTLSConnectionSucceeds(pods []k8sv1.Pod, containerPort int) {
 	}
 }
 
-func waitForVirtTemplateCurvePreferencesRollout() {
+// waitForVirtTemplateTLSRollout waits until virt-operator has applied the
+// expected TLS args to the virt-template deployments and their rollout has
+// finished. virt-template gets its TLS configuration as container args, so
+// any TLS change, including dropping --tls-curve-preferences, replaces its
+// pods, and the KubeVirt CR can still report Available from before the change.
+func waitForVirtTemplateTLSRollout(ciphers []string, withCurvePreferences bool) {
 	GinkgoHelper()
 	for _, name := range []string{"virt-template-apiserver", "virt-template-controller"} {
 		Eventually(func(g Gomega) {
 			dep, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
 				context.Background(), name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(
-				ContainElement("--tls-curve-preferences"),
-				"operator has not injected --tls-curve-preferences into %s yet", name)
+			args := dep.Spec.Template.Spec.Containers[0].Args
+			if len(ciphers) > 0 {
+				g.Expect(args).To(ContainElement(strings.Join(ciphers, ",")),
+					"operator has not injected the configured ciphers into %s yet", name)
+			}
+			if withCurvePreferences {
+				g.Expect(args).To(ContainElement("--tls-curve-preferences"),
+					"operator has not injected --tls-curve-preferences into %s yet", name)
+			} else {
+				g.Expect(args).ToNot(ContainElement("--tls-curve-preferences"),
+					"operator has not removed --tls-curve-preferences from %s yet", name)
+			}
+			g.Expect(dep.Status.ObservedGeneration).To(Equal(dep.Generation))
 			g.Expect(dep.Status.UpdatedReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.AvailableReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.Replicas).To(Equal(*dep.Spec.Replicas))
