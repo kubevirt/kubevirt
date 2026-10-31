@@ -15,6 +15,8 @@ reviews:
     - path: "tests/**"
       instructions: >
         See tests/README.md, docs/conformance.md, and docs/quarantine.md.
+    - path: "tests/network/**"
+      instructions: "See docs/tests/network-functional-test-guidelines.md."
     - path: "pkg/libvmi/**"
       instructions: "Follow the rules in pkg/libvmi/README.md."
     - path: "tests/libvmifact/**"
