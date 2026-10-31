@@ -29,6 +29,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
+const (
+	instancetypeStatusRefPath = "/status/instancetypeRef"
+	preferenceStatusRefPath   = "/status/preferenceRef"
+)
+
 func (h *revisionHandler) patchVM(
 	instancetypeStatusRef, preferenceStatusRef *virtv1.InstancetypeStatusRef,
 	vm *virtv1.VirtualMachine,
@@ -57,13 +62,13 @@ func GeneratePatch(instancetypeStatusRef, preferenceStatusRef *virtv1.Instancety
 	patchSet := patch.New()
 	if instancetypeStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithAdd("/status/instancetypeRef", instancetypeStatusRef),
+			patch.WithAdd(instancetypeStatusRefPath, instancetypeStatusRef),
 		)
 	}
 
 	if preferenceStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithAdd("/status/preferenceRef", preferenceStatusRef),
+			patch.WithAdd(preferenceStatusRefPath, preferenceStatusRef),
 		)
 	}
 
