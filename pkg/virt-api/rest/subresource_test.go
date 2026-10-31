@@ -43,7 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
@@ -53,6 +53,7 @@ import (
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -369,7 +370,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Entry("with dry-run option", pointer.P(int64(600)), &v1.RestartOptions{GracePeriodSeconds: gracePeriodZero, DryRun: withDryRun()}),
 			)
 
-			It("should return error when VMI terminationGracePeriod patch fails during ForceRestart", func() {
+			DescribeTable("should return error when VMI terminationGracePeriod patch fails during ForceRestart", func(patchErr error, expectedCode int) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -392,14 +393,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("optimistic locking conflict"))
+				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
 
 				app.RestartVMRequestHandler(request, response)
 
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
+				ExpectStatusErrorWithCode(recorder, expectedCode)
+			},
+				Entry("with a conflict when the VMI changed", newJSONPatchApplyError(), http.StatusConflict),
+				Entry("with an internal error otherwise", fmt.Errorf("optimistic locking conflict"), http.StatusInternalServerError),
+			)
 
-			It("should rollback VMI terminationGracePeriod when VM PatchStatus fails after successful VMI patch", func() {
+			DescribeTable("should rollback VMI terminationGracePeriod when VM PatchStatus fails after successful VMI patch", func(patchErr error, expectedCode int) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -424,7 +428,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				gomock.InOrder(
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(&vmi, nil),
-					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("status patch conflict")),
+					vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr),
 					vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 						func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 							patchSet := patch.New()
@@ -439,8 +443,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 				app.RestartVMRequestHandler(request, response)
 
-				ExpectStatusErrorWithCode(recorder, http.StatusInternalServerError)
-			})
+				ExpectStatusErrorWithCode(recorder, expectedCode)
+			},
+				Entry("with a conflict when the VM changed", newJSONPatchApplyError(), http.StatusConflict),
+				Entry("with an internal error otherwise", fmt.Errorf("status patch conflict"), http.StatusInternalServerError),
+			)
 
 			It("should restart VirtualMachine", func() {
 				request.PathParameters()["name"] = testVMName
@@ -462,6 +469,25 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).ToNot(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			})
+
+			DescribeTable("should return error when the VM status patch fails", func(patchErr error, expectedCode int) {
+				request.PathParameters()["name"] = testVMName
+				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
+				vmi := newVirtualMachineInstanceInPhase(v1.Running)
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(nil, patchErr)
+
+				app.RestartVMRequestHandler(request, response)
+
+				ExpectStatusErrorWithCode(recorder, expectedCode)
+			},
+				Entry("with a conflict when the VM changed", newJSONPatchApplyError(), http.StatusConflict),
+				Entry("with an internal error otherwise", fmt.Errorf("patch failed"), http.StatusInternalServerError),
+			)
 
 			It("should start VirtualMachine if VMI doesn't exist", func() {
 				request.PathParameters()["name"] = testVMName
@@ -679,6 +705,27 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
 
+		DescribeTable("should return error when the VM patch fails", func(runStrategy v1.VirtualMachineRunStrategy, statusPatch bool, patchErr error, expectedCode int) {
+			vm := newVirtualMachineWithRunStrategy(runStrategy)
+
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name))
+			if statusPatch {
+				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			} else {
+				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			}
+
+			app.StartVMRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, expectedCode)
+		},
+			Entry("with a conflict when the VM changed with RunStrategyHalted", v1.RunStrategyHalted, false, newJSONPatchApplyError(), http.StatusConflict),
+			Entry("with a conflict when the VM changed with RunStrategyManual", v1.RunStrategyManual, true, newJSONPatchApplyError(), http.StatusConflict),
+			Entry("with an internal error otherwise with RunStrategyHalted", v1.RunStrategyHalted, false, fmt.Errorf("patch failed"), http.StatusInternalServerError),
+			Entry("with an internal error otherwise with RunStrategyManual", v1.RunStrategyManual, true, fmt.Errorf("patch failed"), http.StatusInternalServerError),
+		)
+
 		DescribeTable("should refuse a start that manual recovery blocks", func(reason string) {
 			vmi := libvmi.New()
 			vm := libvmi.NewVirtualMachine(vmi)
@@ -764,6 +811,46 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("RunStrategyManual with dry-run option", v1.RunStrategyManual, "VM is not running", true, &v1.StopOptions{DryRun: withDryRun()}),
 			Entry("RunStrategyHalted with dry-run option", v1.RunStrategyHalted, "VM is not running", true, &v1.StopOptions{DryRun: withDryRun()}),
 		)
+
+		DescribeTable("should return error when the VM patch fails", func(runStrategy v1.VirtualMachineRunStrategy, statusPatch bool, patchErr error, expectedCode int) {
+			vm := newVirtualMachineWithRunStrategy(runStrategy)
+			vmi := newVirtualMachineInstanceInPhase(v1.Running)
+
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+			if statusPatch {
+				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			} else {
+				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, patchErr)
+			}
+
+			app.StopVMRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, expectedCode)
+		},
+			Entry("with a conflict when the VM changed with RunStrategyAlways", v1.RunStrategyAlways, false, newJSONPatchApplyError(), http.StatusConflict),
+			Entry("with a conflict when the VM changed with RunStrategyManual", v1.RunStrategyManual, true, newJSONPatchApplyError(), http.StatusConflict),
+			Entry("with an internal error otherwise with RunStrategyAlways", v1.RunStrategyAlways, false, fmt.Errorf("patch failed"), http.StatusInternalServerError),
+			Entry("with an internal error otherwise with RunStrategyManual", v1.RunStrategyManual, true, fmt.Errorf("patch failed"), http.StatusInternalServerError),
+		)
+
+		It("should return a conflict when the VMI changes before the grace period patch", func() {
+			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+			vmi := newVirtualMachineInstanceInPhase(v1.Running)
+
+			bytesRepresentation, err := json.Marshal(&v1.StopOptions{GracePeriod: gracePeriodZero})
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+			vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, newJSONPatchApplyError())
+
+			app.StopVMRequestHandler(request, response)
+
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			Expect(statusErr.Error()).To(ContainSubstring(apimachinery.OptimisticLockErrorMsg))
+		})
 
 		It("should fail on VM with VMI in Unknown Phase", func() {
 			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
@@ -1594,6 +1681,35 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backend.Close()
 	})
 })
+
+var _ = DescribeTable("isJSONPatchApplyError", func(err error, expected bool) {
+	Expect(isJSONPatchApplyError(err)).To(Equal(expected))
+},
+	Entry("matches a JSON patch that does not apply", newJSONPatchApplyError(), true),
+	Entry("matches a wrapped JSON patch that does not apply", fmt.Errorf("patching: %w", newJSONPatchApplyError()), true),
+	Entry("ignores a validation error that names the object", &errors.StatusError{ErrStatus: k8smetav1.Status{
+		Status:  k8smetav1.StatusFailure,
+		Code:    http.StatusUnprocessableEntity,
+		Reason:  k8smetav1.StatusReasonInvalid,
+		Message: `VirtualMachine.kubevirt.io "testvm" is invalid: spec: Invalid value`,
+		Details: &k8smetav1.StatusDetails{Name: testVMName, Kind: "VirtualMachine"},
+	}}, false),
+	Entry("ignores an admission webhook denial", &errors.StatusError{ErrStatus: k8smetav1.Status{
+		Status:  k8smetav1.StatusFailure,
+		Code:    http.StatusUnprocessableEntity,
+		Reason:  k8smetav1.StatusReasonInvalid,
+		Message: `admission webhook "virtualmachine-validator.kubevirt.io" denied the request`,
+	}}, false),
+	Entry("ignores a conflict", errors.NewConflict(v1.Resource("virtualmachine"), testVMName, fmt.Errorf("conflict")), false),
+	Entry("ignores an error that is not a status error", fmt.Errorf("%s", newJSONPatchApplyError().Error()), false),
+	Entry("ignores no error", nil, false),
+)
+
+// newJSONPatchApplyError returns the error the API server returns when a JSON
+// patch does not apply.
+func newJSONPatchApplyError() *errors.StatusError {
+	return errors.NewGenericServerResponse(http.StatusUnprocessableEntity, "", schema.GroupResource{}, "", "testing value /spec failed: test failed", 0, false)
+}
 
 func newVirtualMachineWithRunStrategy(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
 	return &v1.VirtualMachine{

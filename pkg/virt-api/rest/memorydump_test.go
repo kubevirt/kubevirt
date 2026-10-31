@@ -322,6 +322,21 @@ var _ = Describe("Memory dump Subresource api", func() {
 			}, http.StatusConflict),
 	)
 
+	It("should return a conflict when the VM changes before the patch", func() {
+		vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault)))
+		vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+			ClaimName: testPVCName,
+			Phase:     v1.MemoryDumpCompleted,
+		}
+
+		vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil)
+		vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).Return(nil, newJSONPatchApplyError())
+
+		app.RemoveMemoryDumpVMRequestHandler(request, response)
+
+		Expect(response.StatusCode()).To(Equal(http.StatusConflict))
+	})
+
 	DescribeTable("Should generate expected vm patch", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, existingMemDumpReq *v1.VirtualMachineMemoryDumpRequest, expectedPatchSet *patch.PatchSet, expectError bool, removeReq bool) {
 		vm := libvmi.NewVirtualMachine(libvmi.New())
 		vm.Name = request.PathParameter("name")

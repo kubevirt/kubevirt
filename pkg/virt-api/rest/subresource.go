@@ -22,6 +22,7 @@ package rest
 import (
 	"context"
 	"crypto/tls"
+	goerrors "errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
@@ -39,6 +41,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
@@ -51,7 +54,6 @@ const (
 	vmNotRunning                             = "VM is not running"
 	vmSnapshotInprogress                     = "VM snapshot is in progress"
 	patchingVMFmt                            = "Patching VM: %s"
-	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
 	patchingVMStatusFmt                      = "Patching VM status: %s"
 	vmiNotRunning                            = "VMI is not running"
 	vmiNotPaused                             = "VMI is not paused"
@@ -289,6 +291,34 @@ func (app *SubresourceAPIApp) FetchVirtualMachineInstanceForVM(namespace, name s
 	}
 
 	return nil, errors.NewInternalError(fmt.Errorf("unable to retrieve vmi [%s] for vm: %v", name, err))
+}
+
+// isJSONPatchApplyError reports whether err is the error the API server returns
+// when a JSON patch does not apply, for example when a test operation fails
+// because the object changed after it was read. The API server drops the
+// JSON patch error text, so its generic 422 message is all that identifies it.
+func isJSONPatchApplyError(err error) bool {
+	var status errors.APIStatus
+	if !goerrors.As(err, &status) || !errors.IsInvalid(err) {
+		return false
+	}
+	applyErr := errors.NewGenericServerResponse(http.StatusUnprocessableEntity, "", schema.GroupResource{}, "", "", 0, false)
+	return status.Status().Message == applyErr.ErrStatus.Message
+}
+
+// newObjectModifiedConflict returns the conflict for a JSON patch that no
+// longer applies, so the client can retry.
+func newObjectModifiedConflict(resource, name string) *errors.StatusError {
+	return errors.NewConflict(v1.Resource(resource), name, fmt.Errorf(apimachinery.OptimisticLockErrorMsg))
+}
+
+// newPatchError returns a conflict when err is a JSON patch that no longer
+// applies and an internal error otherwise.
+func newPatchError(resource, name string, err error) *errors.StatusError {
+	if isJSONPatchApplyError(err) {
+		return newObjectModifiedConflict(resource, name)
+	}
+	return errors.NewInternalError(err)
 }
 
 func writeError(error *errors.StatusError, response *restful.Response) {

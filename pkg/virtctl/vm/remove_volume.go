@@ -87,7 +87,7 @@ func (o *Command) removeVolumeRun(cmd *cobra.Command, args []string) error {
 			})
 		}
 
-		if err != nil && err.Error() != concurrentError {
+		if err != nil && !isConcurrentModification(err) {
 			return fmt.Errorf("error removing volume, %v", err)
 		}
 		if err == nil {
