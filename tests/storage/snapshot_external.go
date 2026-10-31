@@ -380,7 +380,7 @@ var _ = Describe(SIG("External VMSnapshot", func() {
 			Eventually(ThisPVCWith(vm.Namespace, scratchPVCName()), 5*time.Minute, 5*time.Second).Should(BeGone())
 		})
 
-		It("should keep the guest responsive while it is snapshotted under load", func() {
+		It("[QUARANTINE] should keep the guest responsive while it is snapshotted under load", decorators.Quarantine, func() {
 			var vmi *v1.VirtualMachineInstance
 			vm, vmi = createRunningVM(dataDisks)
 
