@@ -6,7 +6,10 @@ import (
 	gomegatypes "github.com/onsi/gomega/types"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -252,6 +255,42 @@ var _ = Describe("Deployments", func() {
 			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
 				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
 				return d.Spec.Template.Spec
+			}),
+		)
+	})
+
+	Context("PodAntiAffinity", func() {
+		DescribeTable("should prefer to spread its own pods across nodes on",
+			func(createDeployment func() *appsv1.Deployment) {
+				deployment := createDeployment()
+				Expect(deployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+				Expect(deployment.Spec.Template.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+
+				terms := deployment.Spec.Template.Spec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+				Expect(terms).To(HaveLen(1))
+				Expect(terms[0].PodAffinityTerm.TopologyKey).To(Equal(corev1.LabelHostname))
+
+				selector, err := metav1.LabelSelectorAsSelector(terms[0].PodAffinityTerm.LabelSelector)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(selector.Empty()).To(BeFalse(), "anti-affinity selector should not select every pod")
+				Expect(selector.Matches(labels.Set(deployment.Spec.Template.Labels))).To(BeTrue(),
+					"anti-affinity selector %q should match the deployment's own pod labels %v",
+					selector, deployment.Spec.Template.Labels)
+			},
+			Entry(VirtAPIName, func() *appsv1.Deployment {
+				return NewApiServerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+			}),
+			Entry(VirtControllerName, func() *appsv1.Deployment {
+				return NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+			}),
+			Entry(VirtOperatorName, func() *appsv1.Deployment {
+				return NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+			}),
+			Entry(VirtExportProxyName, func() *appsv1.Deployment {
+				return NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+			}),
+			Entry(VirtSynchronizationControllerName, func() *appsv1.Deployment {
+				return NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
 			}),
 		)
 	})
