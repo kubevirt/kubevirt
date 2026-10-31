@@ -23,6 +23,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,13 +52,14 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		ID:   tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 		Name: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
 	}
+	tlsConfig := &v1.TLSConfiguration{
+		MinTLSVersion: v1.VersionTLS12,
+		Ciphers:       []string{cipher.Name},
+	}
 
 	BeforeEach(func() {
 		kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
-		kvConfig.TLSConfiguration = &v1.TLSConfiguration{
-			MinTLSVersion: v1.VersionTLS12,
-			Ciphers:       []string{cipher.Name},
-		}
+		kvConfig.TLSConfiguration = tlsConfig.DeepCopy()
 		config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 		newKv := libkubevirt.GetCurrentKv(kubevirt.Client())
 		Expect(newKv.Spec.Configuration.TLSConfiguration.MinTLSVersion).To(BeEquivalentTo(v1.VersionTLS12))
@@ -72,6 +76,8 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		})
 
 	It("[QUARANTINE]should enforce TLS configuration on virt-template components", decorators.Quarantine, func() {
+		waitForVirtTemplateTLSRollout(tlsConfig)
+
 		podsToTest := listPods(
 			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
 			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
@@ -138,9 +144,7 @@ var _ = Describe(SIGSerial("tls group preferences", func() {
 			}
 			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 
-			if len(groups) > 0 {
-				waitForVirtTemplateCurvePreferencesRollout()
-			}
+			waitForVirtTemplateTLSRollout(kvConfig.TLSConfiguration)
 
 			podsToTest := listPods(
 				"app.kubernetes.io/name=virt-template,control-plane=apiserver",
@@ -300,19 +304,53 @@ func verifyTLSConnectionSucceeds(pods []k8sv1.Pod, containerPort int) {
 	}
 }
 
-func waitForVirtTemplateCurvePreferencesRollout() {
+// waitForVirtTemplateTLSRollout waits until virt-operator has applied
+// tlsConfig to the virt-template deployments and their rollout has finished.
+// virt-template gets its TLS configuration as container args, so any TLS
+// change, including dropping --tls-curve-preferences, replaces its pods, and
+// the KubeVirt CR can still report Available from before the change.
+// The expected curve preferences assume the TLSGroupPreferences feature gate
+// is enabled whenever tlsConfig.Groups is set.
+func waitForVirtTemplateTLSRollout(tlsConfig *v1.TLSConfiguration) {
 	GinkgoHelper()
+	var minVersion []string
+	if tlsConfig.MinTLSVersion != "" {
+		minVersion = []string{string(tlsConfig.MinTLSVersion)}
+	}
+	var curves []string
+	for _, id := range kvtls.CurvePreferenceIds(tlsConfig.Groups) {
+		curves = append(curves, strconv.FormatUint(uint64(id), 10))
+	}
+	expectedArgs := map[string][]string{
+		"--tls-cipher-suites":     tlsConfig.Ciphers,
+		"--tls-min-version":       minVersion,
+		"--tls-curve-preferences": curves,
+	}
+
 	for _, name := range []string{"virt-template-apiserver", "virt-template-controller"} {
 		Eventually(func(g Gomega) {
 			dep, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
 				context.Background(), name, metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(
-				ContainElement("--tls-curve-preferences"),
-				"operator has not injected --tls-curve-preferences into %s yet", name)
+			args := dep.Spec.Template.Spec.Containers[0].Args
+			for flag, values := range expectedArgs {
+				g.Expect(argValues(args, flag)).To(ConsistOf(values),
+					"operator has not applied the expected %s to %s yet", flag, name)
+			}
+			g.Expect(dep.Status.ObservedGeneration).To(Equal(dep.Generation))
 			g.Expect(dep.Status.UpdatedReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.AvailableReplicas).To(Equal(*dep.Spec.Replicas))
 			g.Expect(dep.Status.Replicas).To(Equal(*dep.Spec.Replicas))
 		}, 2*time.Minute, 5*time.Second).Should(Succeed())
 	}
+}
+
+// argValues returns the comma-separated values passed to flag in args, or
+// nil when the flag is not set.
+func argValues(args []string, flag string) []string {
+	i := slices.Index(args, flag)
+	if i == -1 || i+1 >= len(args) {
+		return nil
+	}
+	return strings.Split(args[i+1], ",")
 }
