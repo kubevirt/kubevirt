@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -85,7 +86,7 @@ func (c *BaseController) copyQEMUCapabilities(vmi *v1.VirtualMachineInstance) {
 func containerFileLabel(pid int) (string, error) {
 	raw, err := readProcAttr(pid)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
 		}
 		return "", err
@@ -129,7 +130,7 @@ func copyQEMUCapabilityFiles(sourceDir, mountRoot, label string) (int, error) {
 		if err == nil {
 			continue
 		}
-		if !os.IsNotExist(err) {
+		if !errors.Is(err, os.ErrNotExist) {
 			return 0, err
 		}
 		missing = append(missing, name)
@@ -168,7 +169,7 @@ func copyQEMUCapabilityFiles(sourceDir, mountRoot, label string) (int, error) {
 func qemuCapsXMLFiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, err
