@@ -87,9 +87,7 @@ var _ = Describe("Guest os info command", func() {
 
 	It("should return guest agent data", func() {
 		vm := kubecli.NewMinimalVM(vmName)
-		guestOSInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-			GAVersion: "3.1.0",
-		}
+		guestOSInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
 
 		kubecli.MockKubevirtClientInstance.
 			EXPECT().
