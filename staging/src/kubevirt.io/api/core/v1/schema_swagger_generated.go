@@ -279,7 +279,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"autoattachInputDevice":      "Whether to attach an Input Device.\nDefaults to false.\n+optional",
 		"autoattachVSOCK":            "Whether to attach the VSOCK CID to the VM or not.\nVSOCK access will be available if set to true. Defaults to false.",
 		"rng":                        "Whether to have random number generator from host\n+optional",
-		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices.\nDefaults to false.\n+optional",
+		"blockMultiQueue":            "Whether to enable virtio multi-queue for virtio-blk disks and virtio-scsi controllers.\nDefaults to true.\nWhen enabled, the number of queues matches the number of guest vCPUs at domain creation.\nWhen disabled, a single queue is explicitly configured.\n+optional",
 		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
 		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
 		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.\n+optional",

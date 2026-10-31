@@ -64,7 +64,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := c.assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
+		scsiControllerDriver := c.configureSCSIControllerDriver(vmi, c.totalThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -239,29 +239,31 @@ func (c ControllersDomainConfigurator) shouldConfigSCSIThread(vmi *v1.VirtualMac
 	}
 }
 
-func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
+func (c ControllersDomainConfigurator) configureSCSIControllerDriver(
 	vmi *v1.VirtualMachineInstance,
 	totalThreads uint,
 	scsiControllerDriver *api.ControllerDriver,
 ) *api.ControllerDriver {
+	numQueues := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+	if numQueues == 0 {
+		numQueues = 1
+	}
+	if multiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue; multiQueue != nil && !*multiQueue {
+		numQueues = 1
+	}
+	if scsiControllerDriver == nil {
+		scsiControllerDriver = &api.ControllerDriver{}
+	}
+	// virtio-scsi queues belong to the controller, not each SCSI disk.
+	scsiControllerDriver.Queues = new(numQueues)
+
 	if totalThreads == 0 || !c.shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
 
-	if scsiControllerDriver == nil {
-		scsiControllerDriver = &api.ControllerDriver{}
-	}
-
-	vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
-	if vcpus == 0 {
-		vcpus = 1
-	}
-
-	scsiControllerDriver.Queues = new(vcpus)
-
 	// we don't want to allocate more threads than the controller needs
-	// totalThreads should never exceed the number of created virtqueues (1 per vCPU)
-	totalThreads = min(totalThreads, vcpus)
+	// totalThreads should never exceed the number of created virtqueues.
+	totalThreads = min(totalThreads, numQueues)
 
 	// if we just have single thread, we don't need to populate thread list
 	if totalThreads == 1 {

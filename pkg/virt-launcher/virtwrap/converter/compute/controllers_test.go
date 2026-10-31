@@ -86,7 +86,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when USB is needed and disk hotplug is enabled",
@@ -95,7 +95,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "qemu-xhci"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when VMI has SCSI disk and disk hotplug is disabled",
@@ -104,7 +104,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when VMI has SCSI disk and disk hotplug is enabled",
@@ -113,7 +113,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when VMI has SCSI disk and USB is needed",
@@ -122,7 +122,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "qemu-xhci"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
 		Entry("when VMI has SCSI disk with auto iothread policy and Virtio disk, VMI has 4 IO threads",
@@ -180,9 +180,42 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			0,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
+	)
+
+	DescribeTable("should honor block multi-queue on the SCSI controller",
+		func(setting *bool, totalThreads uint, expectedDriver *api.ControllerDriver) {
+			vmi := libvmi.New(
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
+				libvmi.WithCPUCount(1, 2, 3),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+			)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+			var domain api.Domain
+			Expect(compute.NewControllersDomainConfigurator(
+				compute.ControllersWithSCSIModel("virtio-scsi"),
+				compute.ControllersWithSCSIIOThreads(totalThreads),
+			).Configure(vmi, &domain)).To(Succeed())
+
+			var scsiControllers []api.Controller
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "scsi" {
+					scsiControllers = append(scsiControllers, controller)
+				}
+			}
+			Expect(scsiControllers).To(HaveLen(1))
+			Expect(scsiControllers[0].Driver).To(Equal(expectedDriver))
+		},
+		Entry("omitted without IOThreads enables multi-queue", nil, uint(0), &api.ControllerDriver{Queues: new(uint(6))}),
+		Entry("false without IOThreads requests one queue", new(false), uint(0), &api.ControllerDriver{Queues: new(uint(1))}),
+		Entry("true without IOThreads uses the complete CPU topology", new(true), uint(0), &api.ControllerDriver{Queues: new(uint(6))}),
+		Entry("false caps IOThreads to a single queue", new(false), uint(4), &api.ControllerDriver{Queues: new(uint(1)), IOThread: new(uint(1))}),
+		Entry("true retains multiple IOThreads", new(true), uint(4), &api.ControllerDriver{
+			Queues:    new(uint(6)),
+			IOThreads: createIOThreadList(4),
+		}),
 	)
 
 	DescribeTable("should configure PCI controller based on arch support and annotation", func(
@@ -213,7 +246,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			!pciHole64DisablingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			},
 			nil),
@@ -222,7 +255,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			!pciHole64DisablingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			},
 			nil),
@@ -231,7 +264,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			pciHole64DisablingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			},
 			nil),
@@ -240,7 +273,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			pciHole64DisablingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			},
 			nil),
@@ -249,7 +282,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			pciHole64DisablingSupported,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{Queues: new(uint(1))}},
 				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			},
@@ -296,7 +329,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{
 					Type: "scsi", Index: "0", Model: "test-model",
-					Driver: &api.ControllerDriver{IOMMU: "on"},
+					Driver: &api.ControllerDriver{Queues: new(uint(1)), IOMMU: "on"},
 				},
 				{
 					Type: "virtio-serial", Index: "0", Model: "virtio-test-model",
@@ -311,7 +344,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{
 					Type: "scsi", Index: "0", Model: "test-model",
-					Driver: &api.ControllerDriver{IOMMU: "on"},
+					Driver: &api.ControllerDriver{Queues: new(uint(1)), IOMMU: "on"},
 				},
 				{
 					Type: "virtio-serial", Index: "0", Model: "virtio-test-model",
@@ -330,7 +363,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{
 					Type: "scsi", Index: "0", Model: "test-model",
 					Driver: &api.ControllerDriver{
-						IOMMU: "on",
+						IOMMU:  "on",
+						Queues: new(uint(1)),
 					},
 				},
 				{

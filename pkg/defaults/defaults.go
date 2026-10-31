@@ -220,6 +220,9 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig ClusterConfigProvider, s
 		return err
 	}
 	storagevmispec.SetDefaultVolumeDisk(spec)
+	if spec.Domain.Devices.BlockMultiQueue == nil {
+		spec.Domain.Devices.BlockMultiQueue = new(true)
+	}
 	return nil
 }
 

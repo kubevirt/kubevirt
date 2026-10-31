@@ -21272,7 +21272,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"blockMultiQueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
+							Description: "Whether to enable virtio multi-queue for virtio-blk disks and virtio-scsi controllers. Defaults to true. When enabled, the number of queues matches the number of guest vCPUs at domain creation. When disabled, a single queue is explicitly configured.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

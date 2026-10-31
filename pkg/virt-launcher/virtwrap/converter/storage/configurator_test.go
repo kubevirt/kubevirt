@@ -86,7 +86,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -111,7 +111,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("block"),
 				diskWithSource(api.DiskSource{Name: "mypvc", Dev: volumepath.BlockDevice("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -135,7 +135,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -160,7 +160,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("block"),
 				diskWithSource(api.DiskSource{Dev: volumepath.HotplugBlockDevice("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -184,7 +184,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -209,7 +209,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("block"),
 				diskWithSource(api.DiskSource{Dev: volumepath.HotplugBlockDevice("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -235,7 +235,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("perm-disk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -259,7 +259,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -284,7 +284,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -309,7 +309,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-pvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -334,7 +334,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.HotplugFilesystem("hotplug-dv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -358,7 +358,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mydv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -383,7 +383,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("block"),
 				diskWithSource(api.DiskSource{Name: "mydv", Dev: volumepath.BlockDevice("mydv")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -419,7 +419,7 @@ var _ = Describe("DiskConfigurator", func() {
 					},
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -457,7 +457,7 @@ var _ = Describe("DiskConfigurator", func() {
 					},
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -493,7 +493,7 @@ var _ = Describe("DiskConfigurator", func() {
 					},
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -530,7 +530,7 @@ var _ = Describe("DiskConfigurator", func() {
 					},
 				}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -554,7 +554,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: hostdisk.GetMountedHostDiskPath("myhostdisk", "/data/disk.img")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -602,7 +602,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, vmi.Name, vmi.Namespace)}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -626,7 +626,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: cloudinit.GetIsoFilePath(cloudinit.DataSourceConfigDrive, vmi.Name, vmi.Namespace)}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -650,7 +650,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: emptydisk.NewEmptyDiskCreator().FilePathForVolumeName("myemptydisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -677,7 +677,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: ephemeralCreator.GetFilePath("mycontainerdisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "qcow2", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithBackingStore(api.BackingStore{
 					Type: "file",
@@ -864,7 +864,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: config.DownwardMetricDisk}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithReadOnly(),
 			))
@@ -927,7 +927,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 					diskWithCapacity(expected),
 				))
@@ -988,6 +988,46 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
+		DescribeTable("should honor explicit block multi-queue settings",
+			func(setting *bool, bus v1.DiskBus, expectedQueues *uint) {
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskBus(bus)),
+					libvmi.WithCPUCount(1, 2, 3),
+				)
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				configurator := storage.NewDiskConfigurator(
+					storage.DiskWithArchitecture(amd64),
+					storage.DiskWithVirtioModel(virtioModel),
+				)
+				var domain api.Domain
+
+				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues))
+			},
+			Entry("omitted enables multi-queue", nil, v1.DiskBusVirtio, new(uint(6))),
+			Entry("false requests a single virtio-blk queue", new(false), v1.DiskBusVirtio, new(uint(1))),
+			Entry("true uses cores times sockets times threads", new(true), v1.DiskBusVirtio, new(uint(6))),
+			Entry("false does not add queues to a SCSI disk", new(false), v1.DiskBusSCSI, nil),
+			Entry("true does not add queues to a SCSI disk", new(true), v1.DiskBusSCSI, nil),
+			Entry("false does not add queues to a SATA disk", new(false), v1.DiskBusSATA, nil),
+		)
+
+		DescribeTable("should preserve queue settings after DownwardMetrics volume conversion",
+			func(setting *bool, expected uint) {
+				vmi := libvmi.New(libvmi.WithDownwardMetricsVolume("metrics"), libvmi.WithCPUCount(2, 1, 1))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				configurator := storage.NewDiskConfigurator(storage.DiskWithArchitecture(amd64))
+				var domain api.Domain
+				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(HaveValue(Equal(expected)))
+			},
+			Entry("omitted enables multi-queue", nil, uint(2)),
+			Entry("true enables multi-queue", new(true), uint(2)),
+			Entry("false requests one queue", new(false), uint(1)),
+		)
+
 		It("should set disk IO mode when requested", func() {
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskIO("native")),
@@ -1006,7 +1046,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", IO: "native", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", IO: "native", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -1031,7 +1071,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(expectedModel),
 					diskWithBlockIO(api.BlockIO{
 						LogicalBlockSize:   logical,
@@ -1092,7 +1132,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithBlockIO(api.BlockIO{LogicalBlockSize: 512, PhysicalBlockSize: 4096}),
 			))
@@ -1117,7 +1157,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "none", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "none", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithShareable(),
 			))
@@ -1142,7 +1182,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "directsync", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "directsync", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithShareable(),
 			))
@@ -1184,7 +1224,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOMMU: "on"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOMMU: "on", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
@@ -1208,7 +1248,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 				diskWithBootOrder(1),
 			))
@@ -1271,7 +1311,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: policy, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: policy, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				))
 				Expect(domain).To(Equal(expectedDomain))
@@ -1303,14 +1343,14 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1)), Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2)), Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 			)
@@ -1337,14 +1377,14 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1)), Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("dedicated-disk",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2)), Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 			)
@@ -1398,6 +1438,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 				diskWithDriver(api.DiskDriver{
 					Name:        "qemu",
+					Queues:      new(uint(1)),
 					Type:        "raw",
 					ErrorPolicy: v1.DiskErrorPolicyStop,
 					Discard:     "unmap",
@@ -1443,7 +1484,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
 					diskWithDriver(api.DiskDriver{
-						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(2)),
 						IOThreads: autoPool,
 					}),
 					diskWithModel(virtioModel),
@@ -1453,7 +1494,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
 					diskWithDriver(api.DiskDriver{
-						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(2)),
 						IOThreads: autoPool,
 					}),
 					diskWithModel(virtioModel),
@@ -1463,7 +1504,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdc"}),
 					diskWithDriver(api.DiskDriver{
-						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap",
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(2)),
 						IOThread: new(uint(3)),
 					}),
 					diskWithModel(virtioModel),
@@ -1494,7 +1535,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("virtio-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("scsi-lun",
@@ -1533,7 +1574,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
@@ -1541,7 +1582,7 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 					diskWithModel(virtioModel),
 				),
 			)
@@ -1569,7 +1610,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mydisk")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(1))}),
 				diskWithModel(virtioModel),
 			))
 			Expect(domain).To(Equal(expectedDomain))
