@@ -21,6 +21,7 @@ package server
 
 import (
 	"net"
+	"strings"
 
 	"github.com/krolaw/dhcp4"
 	"github.com/vishvananda/netlink"
@@ -142,12 +143,21 @@ var _ = Describe("DHCP Server", func() {
 			return b
 		}
 
+		createDomain := func(labelSizes ...int) string {
+			labels := make([]string, 0, len(labelSizes))
+			for _, size := range labelSizes {
+				labels = append(labels, string(createBytes(size)))
+			}
+			return strings.Join(labels, ".")
+		}
+
 		DescribeTable("should *REJECT* domains", func(domaintToTest string) {
 			Expect(isValidSearchDomain(domaintToTest)).To(BeFalse())
 		},
 			Entry("that start with '-'", "-foo.com"),
 			Entry("that end with '-'", "foo.com-"),
 			Entry("with full length greater than 253 chars", string(append(createBytes(250), []byte(".com")...))),
+			Entry("with full length of 254 chars made of valid labels", createDomain(63, 63, 63, 62)),
 			Entry("that have labels longer than 63 chars", string(append(createBytes(64), []byte(".com")...))),
 			Entry("with invalid characters", "foo\n.com"),
 		)
@@ -159,12 +169,8 @@ var _ = Describe("DHCP Server", func() {
 			Entry("with a valid domain name", "example.default.svc.cluster.local"),
 			Entry("with a valid FQDN", "example.default.svc.cluster.local."),
 			Entry("with a partial search domain", "local"),
+			Entry("with full length of 253 chars", createDomain(63, 63, 63, 61)),
 		)
-
-		XIt("should accept domains with full length of 253 chars", func() {
-			b := append(createBytes(249), []byte(".com")...)
-			Expect(isValidSearchDomain(string(b))).To(BeTrue())
-		})
 	})
 
 	Context("Options returned by prepareDHCPOptions", func() {
