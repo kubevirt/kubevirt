@@ -161,11 +161,16 @@ func (h *VMStatsHandler) GetVMStats(request *restful.Request, response *restful.
 	results := make(map[string]*VMStatsResult)
 	vmis := make([]*v1.VirtualMachineInstance, 0, len(requests))
 	for key := range requests {
-		if vmi, ok := onNode[key]; ok {
-			vmis = append(vmis, vmi)
-		} else {
+		vmi, ok := onNode[key]
+		if !ok {
 			results[key] = &VMStatsResult{Error: "VMI not found on node"}
+			continue
 		}
+		if reason := collector.VMIStatsSkipReason(vmi); reason != "" {
+			results[key] = &VMStatsResult{Error: reason}
+			continue
+		}
+		vmis = append(vmis, vmi)
 	}
 
 	scraper := NewVMStatsScraper(len(vmis), cmdclient.NewClient, requests)
