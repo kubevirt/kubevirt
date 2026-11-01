@@ -48,7 +48,7 @@ func (h *CBTHandler) HandleChangedBlockTracking(vmi *v1.VirtualMachineInstance, 
 
 func (h *CBTHandler) allDisksHaveDataStore(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	for _, volume := range vmi.Spec.Volumes {
-		if !cbt.IsCBTEligibleVolume(&volume) {
+		if !cbt.IsCBTEligibleVolume(&volume, vmi.Spec.Domain.Devices.Disks) {
 			continue
 		}
 		found := false

@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/vmispec"
 )
 
 const (
@@ -363,11 +364,18 @@ func offlineEligibleVolumes(vm *v1.VirtualMachine) []backupv1.BackupVolumeInfo {
 	if vm.Spec.Template == nil {
 		return nil
 	}
+	// The stored VM template is undefaulted, so judge the disks the way the VMI would see them.
+	spec := vm.Spec.Template.Spec.DeepCopy()
+	vmispec.SetDefaultVolumeDisk(spec)
+	for i := range spec.Domain.Devices.Disks {
+		v1.SetDefaults_DiskDevice(&spec.Domain.Devices.Disks[i].DiskDevice)
+	}
+
 	var volumes []backupv1.BackupVolumeInfo
-	for i := range vm.Spec.Template.Spec.Volumes {
-		volume := vm.Spec.Template.Spec.Volumes[i]
+	for i := range spec.Volumes {
+		volume := spec.Volumes[i]
 		// HostDisk has no PVC for the offline exporter pod to mount.
-		if IsCBTEligibleVolume(&volume) && storagetypes.PVCNameFromVirtVolume(&volume) != "" {
+		if IsCBTEligibleVolume(&volume, spec.Domain.Devices.Disks) && storagetypes.PVCNameFromVirtVolume(&volume) != "" {
 			volumes = append(volumes, backupv1.BackupVolumeInfo{VolumeName: volume.Name})
 		}
 	}
