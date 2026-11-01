@@ -727,6 +727,11 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return nil
 	}
+	if goerror.Is(err, hotplug_volume.ErrWaitingForHotplugMount) {
+		log.Log.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return nil
+	}
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to sync Volumes")
 		return err
