@@ -214,7 +214,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"events",
 				},
 				Verbs: []string{
-					"update", "create", "patch",
+					"get", "list", "update", "create", "patch",
 				},
 			},
 			{
