@@ -883,7 +883,7 @@ type IOMMUDriver struct {
 	Accel    string `xml:"accel,attr,omitempty"`
 	ATS      string `xml:"ats,attr,omitempty"`
 	RIL      string `xml:"ril,attr,omitempty"`
-	SSIDSize string `xml:"ssidSize,attr,omitempty"`
+	SSIDSize string `xml:"ssidsize,attr,omitempty"`
 	OAS      string `xml:"oas,attr,omitempty"`
 }
 
