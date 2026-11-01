@@ -55,40 +55,6 @@ var _ = Describe("Validate network source", func() {
 		Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
 	})
 
-	It("should reject when multiple types defined for a CNI network", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "default1"},
-					Pod:    &v1.PodNetwork{},
-				},
-			}),
-		)
-
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("should have only one network type"))
-	})
-
-	It("when network source is not configured", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("testnet1", libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "testnet1",
-				NetworkSource: v1.NetworkSource{},
-			}),
-		)
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("should have a network type"))
-	})
-
 	It("should accept resourceClaim network type", func() {
 		const draNetName = "dra-net"
 		vmi := libvmi.New(
@@ -104,29 +70,6 @@ var _ = Describe("Validate network source", func() {
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
-
-	DescribeTable("should reject when resourceClaim is combined with another network type",
-		func(networkSource v1.NetworkSource) {
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
-				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
-				libvmi.WithNetwork(&v1.Network{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						ResourceClaim: &v1.ClaimRequest{ClaimName: "claim1", RequestName: "request1"},
-						Pod:           networkSource.Pod,
-						Multus:        networkSource.Multus,
-					},
-				}),
-			)
-
-			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
-			causes := validator.Validate()
-			Expect(causes).To(ContainElement(HaveField("Message", "should have only one network type")))
-		},
-		Entry("pod network", v1.NetworkSource{Pod: &v1.PodNetwork{}}),
-		Entry("multus network", v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default1"}}),
-	)
 
 	It("should reject multus network source without networkName", func() {
 		vmi := libvmi.New(

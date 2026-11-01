@@ -9177,6 +9177,10 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: network source must have exactly one of pod, multus
+                        or resourceClaim
+                      rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                   maxItems: 256
                   type: array
                 nodeSelector:
@@ -15831,6 +15835,9 @@ var CRDsValidation map[string]string = map[string]string{
             required:
             - name
             type: object
+            x-kubernetes-validations:
+            - message: network source must have exactly one of pod, multus or resourceClaim
+              rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
           maxItems: 256
           type: array
         nodeSelector:
@@ -23056,6 +23063,10 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: network source must have exactly one of pod, multus
+                        or resourceClaim
+                      rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                   maxItems: 256
                   type: array
                 nodeSelector:
@@ -28516,6 +28527,10 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                            x-kubernetes-validations:
+                            - message: network source must have exactly one of pod,
+                                multus or resourceClaim
+                              rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                           maxItems: 256
                           type: array
                         nodeSelector:
@@ -34494,6 +34509,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - name
                                 type: object
+                                x-kubernetes-validations:
+                                - message: network source must have exactly one of
+                                    pod, multus or resourceClaim
+                                  rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                               maxItems: 256
                               type: array
                             nodeSelector:

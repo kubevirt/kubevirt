@@ -941,7 +941,7 @@ func (AccessCredential) SwaggerDoc() map[string]string {
 
 func (Network) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Network represents a network type and a resource that should be connected to the vm.",
+		"":     "Network represents a network type and a resource that should be connected to the vm.\n+kubebuilder:validation:XValidation:rule=\"(has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1\",message=\"network source must have exactly one of pod, multus or resourceClaim\"",
 		"name": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 	}
 }

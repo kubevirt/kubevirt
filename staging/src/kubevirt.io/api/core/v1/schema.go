@@ -1757,6 +1757,7 @@ type AccessCredential struct {
 }
 
 // Network represents a network type and a resource that should be connected to the vm.
+// +kubebuilder:validation:XValidation:rule="(has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1",message="network source must have exactly one of pod, multus or resourceClaim"
 type Network struct {
 	// Network name.
 	// Must be a DNS_LABEL and unique within the vm.
