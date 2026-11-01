@@ -4736,6 +4736,13 @@ var _ = Describe("VirtualMachine", func() {
 						Reason: virtcontroller.VirtualMachineStateInUseReason,
 					},
 				),
+				Entry("ErrorPodSandboxNotReady", v1.VirtualMachineStatusErrorPodSandbox,
+					v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtcontroller.FailedPodSandboxCreationReason,
+					},
+				),
 			)
 
 			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string, expectedStatus v1.VirtualMachinePrintableStatus) {
