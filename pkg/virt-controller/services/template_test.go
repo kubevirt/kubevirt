@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hyperv"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -1808,6 +1809,101 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.HypervLabel))))
+			})
+
+			Context("Hyperv host-model pod annotation", func() {
+				const vmiName = "testvmi"
+
+				newCandidateVMI := func(mutate func(vmi *v1.VirtualMachineInstance)) *v1.VirtualMachineInstance {
+					vmi := &v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      vmiName,
+							Namespace: "default",
+							UID:       "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Architecture: "amd64",
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{DisableHotplug: true},
+								Features: &v1.Features{
+									Hyperv: &v1.FeatureHyperv{},
+								},
+							},
+						},
+					}
+					if mutate != nil {
+						mutate(vmi)
+					}
+					return vmi
+				}
+
+				DescribeTable("should stamp the annotation only on launcher pods of host-model candidates", func(vmi *v1.VirtualMachineInstance, expectAnnotated bool) {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					if expectAnnotated {
+						Expect(pod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+					} else {
+						Expect(pod.Annotations).ToNot(HaveKey(hyperv.HypervModeAnnotation))
+					}
+				},
+					Entry("amd64 VMI with hyperv features", newCandidateVMI(nil), true),
+					Entry("VMI without hyperv features", newCandidateVMI(func(vmi *v1.VirtualMachineInstance) {
+						vmi.Spec.Domain.Features = nil
+					}), false),
+					Entry("VMI with a disabled hyperv feature", newCandidateVMI(func(vmi *v1.VirtualMachineInstance) {
+						vmi.Spec.Domain.Features.Hyperv.Relaxed = &v1.FeatureState{Enabled: new(false)}
+					}), false),
+				)
+
+				It("should not let VMI annotations forge or suppress the marker", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newCandidateVMI(nil)
+					vmi.Annotations = map[string]string{hyperv.HypervModeAnnotation: "custom"}
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+
+					vmi = newCandidateVMI(func(vmi *v1.VirtualMachineInstance) {
+						vmi.Spec.Domain.Features.Hyperv = nil
+					})
+					vmi.Annotations = map[string]string{hyperv.HypervModeAnnotation: hyperv.HypervModeHostModel}
+					pod, err = svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Annotations).ToNot(HaveKey(hyperv.HypervModeAnnotation))
+				})
+
+				DescribeTable("a migration target should inherit the marker from the source pod, not the VMI", func(sourcePodAnnotated, vmiIsCandidate bool) {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newCandidateVMI(func(vmi *v1.VirtualMachineInstance) {
+						if !vmiIsCandidate {
+							vmi.Spec.Domain.Features.Hyperv = nil
+						}
+					})
+					migration := &v1.VirtualMachineInstanceMigration{
+						ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+					}
+					sourcePod := &k8sv1.Pod{}
+					if sourcePodAnnotated {
+						sourcePod.Annotations = map[string]string{hyperv.HypervModeAnnotation: hyperv.HypervModeHostModel}
+					}
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+
+					if sourcePodAnnotated {
+						Expect(targetPod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+					} else {
+						Expect(targetPod.Annotations).ToNot(HaveKey(hyperv.HypervModeAnnotation))
+					}
+				},
+					Entry("annotated source pod of a non-candidate VMI", true, false),
+					Entry("unannotated source pod of a candidate VMI", false, true),
+				)
 			})
 
 			Context("TSC frequency label", func() {

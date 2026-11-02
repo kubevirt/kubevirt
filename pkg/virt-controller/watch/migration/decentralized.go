@@ -22,6 +22,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -33,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/util/hyperv"
 )
 
 func (c *Controller) initializeMigrateSourceState(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) {
@@ -143,6 +145,18 @@ func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *v1.VirtualMa
 	nodeSelectors, err := c.getNodeSelectorsFromNodeName(vmi.Status.NodeName)
 	if err != nil {
 		return err
+	}
+	// the hyperv selectors stand in for the marker in the target cluster
+	sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+	if err != nil {
+		return err
+	}
+	if controller.PodExists(sourcePod) && sourcePod.Annotations[hyperv.HypervModeAnnotation] == hyperv.HypervModeHostModel {
+		hypervSelectors, err := c.prepareNodeSelectorForHypervHostModel(vmi, sourcePod)
+		if err != nil {
+			return err
+		}
+		maps.Copy(nodeSelectors, hypervSelectors)
 	}
 	vmiCopy.Status.MigrationState.SourceState.NodeSelectors = nodeSelectors
 
