@@ -27,7 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
-	"kubevirt.io/kubevirt/pkg/os/disk"
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
@@ -50,7 +50,7 @@ type DiskConfigurator struct {
 	isBlockPVC                     map[string]bool
 	isBlockDV                      map[string]bool
 	applyCBT                       map[string]string
-	disksInfo                      map[string]*disk.DiskInfo
+	disksInfo                      map[string]*osdisk.DiskInfo
 	ephemeralDiskCreator           ephemeraldisk.EphemeralDiskCreatorInterface
 	detectOptimalBlockIO           OptimalBlockIODetectFunc
 	scsiMultiIOThreadEnabled       bool
@@ -169,7 +169,10 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, ioThreadPool, autoThreads, currentDedicatedThread, currentAutoThread, useSupplementalPool)
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(
+				&disk, &newDisk, ioThreadPool, autoThreads,
+				currentDedicatedThread, currentAutoThread, useSupplementalPool,
+			)
 		}
 	}
 
@@ -293,7 +296,13 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.Ephemeral != nil {
-		return convertV1EphemeralVolumeSourceToAPIDisk(source.Name, d.ephemeralDiskCreator.GetFilePath(source.Name), d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
+		return convertV1EphemeralVolumeSourceToAPIDisk(
+			source.Name,
+			d.ephemeralDiskCreator.GetFilePath(source.Name),
+			d.isBlockPVC[source.Name],
+			disk,
+			d.volumesDiscardIgnore,
+		)
 	}
 	if source.EmptyDisk != nil {
 		return convertV1EmptyDiskSourceToAPIDisk(source.Name, source.EmptyDisk, disk)
@@ -388,7 +397,7 @@ func DiskWithApplyCBT(applyCBT map[string]string) diskOption {
 	}
 }
 
-func DiskWithDisksInfo(disksInfo map[string]*disk.DiskInfo) diskOption {
+func DiskWithDisksInfo(disksInfo map[string]*osdisk.DiskInfo) diskOption {
 	return func(d *DiskConfigurator) {
 		d.disksInfo = disksInfo
 	}
