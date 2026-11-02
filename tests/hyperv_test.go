@@ -2,10 +2,13 @@ package tests_test
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"libvirt.org/go/libvirtxml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -20,10 +23,12 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -111,6 +116,52 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			Eventually(matcher.ThisVMI(vmi), 60*time.Second, 1*time.Second).Should(matcher.HaveConditionFalse(v1.VirtualMachineInstanceIsMigratable))
 		})
 	})
+
+	Context("VMI with an empty HyperV feature list", decorators.SigComputeMigrations, func() {
+		It("should expand to the host's enlightenments and keep them across migration", decorators.RequiresTwoSchedulableNodes, func() {
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), withEmptyHyperv())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Checking that libvirt expanded the hyperv features")
+			hypervBefore := liveHypervFeatures(vmi)
+			expectExpanded(hypervBefore)
+
+			sourceNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Migrating the VMI")
+			migration := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, libmigration.New(vmi.Name, vmi.Namespace))
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Checking that the target pod required the hyperv labels of the source node")
+			targetPod, err := libpod.GetTargetPodForMigration(migration)
+			Expect(err).ToNot(HaveOccurred())
+			sourceHypervLabels := hypervEntries(sourceNode.Labels)
+			Expect(sourceHypervLabels).ToNot(BeEmpty())
+			Expect(hypervEntries(targetPod.Spec.NodeSelector)).To(Equal(sourceHypervLabels))
+
+			By("Checking that the hyperv features did not change")
+			Expect(liveHypervFeatures(vmi)).To(Equal(hypervBefore))
+		})
+
+		It("should keep the expanded enlightenments across a dedicated-CPU migration", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+			vmi := libvmifact.NewAlpine(
+				libnet.WithMasqueradeNetworking(),
+				withEmptyHyperv(),
+				libvmi.WithCPUCount(2, 1, 1),
+				libvmi.WithDedicatedCPUPlacement(),
+			)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
+			hypervBefore := liveHypervFeatures(vmi)
+			expectExpanded(hypervBefore)
+
+			migration := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, libmigration.New(vmi.Name, vmi.Namespace))
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			Expect(liveHypervFeatures(vmi)).To(Equal(hypervBefore))
+		})
+	})
 })
 
 func withReEnlightenment() libvmi.Option {
@@ -136,4 +187,44 @@ func withHypervPassthrough() libvmi.Option {
 		}
 		vmi.Spec.Domain.Features.HypervPassthrough.Enabled = virtpointer.P(true)
 	}
+}
+
+func withEmptyHyperv() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.Hyperv = &v1.FeatureHyperv{}
+	}
+}
+
+// liveHypervFeatures uses the libvirt schema, which covers hyperv features
+// that the VMI API cannot express.
+func liveHypervFeatures(vmi *v1.VirtualMachineInstance) *libvirtxml.DomainFeatureHyperV {
+	domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(kubevirt.Client(), vmi)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	domain := &libvirtxml.Domain{}
+	ExpectWithOffset(1, domain.Unmarshal(domXML)).To(Succeed())
+	ExpectWithOffset(1, domain.Features).ToNot(BeNil())
+	ExpectWithOffset(1, domain.Features.HyperV).ToNot(BeNil())
+	return domain.Features.HyperV
+}
+
+// expectExpanded checks the live features of a host-model domain: libvirt
+// switched it to custom mode, enabled what the VMI left unset, and kept the
+// reenlightenment override.
+func expectExpanded(hyperv *libvirtxml.DomainFeatureHyperV) {
+	ExpectWithOffset(1, hyperv.Mode).To(Equal("custom"))
+	ExpectWithOffset(1, hyperv.Relaxed).To(Equal(&libvirtxml.DomainFeatureState{State: "on"}))
+	ExpectWithOffset(1, hyperv.ReEnlightenment).To(Equal(&libvirtxml.DomainFeatureState{State: "off"}))
+}
+
+func hypervEntries(labels map[string]string) map[string]string {
+	entries := map[string]string{}
+	for key, value := range labels {
+		if strings.HasPrefix(key, v1.HypervLabel) {
+			entries[key] = value
+		}
+	}
+	return entries
 }
