@@ -269,7 +269,7 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 		if info == nil {
 			return fmt.Errorf("no disk info provided for volume %s", source.Name)
 		}
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
+		return convertV1ContainerDiskSourceToAPIDisk(disk, d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
