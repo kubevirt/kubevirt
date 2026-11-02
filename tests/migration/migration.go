@@ -261,6 +261,59 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				return migrationDurationTotal
 			}
 
+			It("should enforce migration bandwidth limits", func() {
+				const (
+					tolerance = 0.10
+				)
+
+				memory := resource.MustParse("96Mi")
+				measureMigrationDuration := func(bandwidth resource.Quantity, description string) time.Duration {
+					vmi := libvmifact.NewAlpineWithTestTooling(
+						libnet.WithMasqueradeNetworking(),
+						libvmi.WithMemoryRequest(memory.String()),
+					)
+					policy := PreparePolicyAndVMIWithBandwidthLimitation(vmi, bandwidth)
+					policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1800))
+					policy.Spec.AllowPostCopy = pointer.P(false)
+					policy.Spec.AllowAutoConverge = pointer.P(false)
+					policy = CreateMigrationPolicy(virtClient, policy)
+
+					By(fmt.Sprintf("Starting the VM for %s migration", description))
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By(fmt.Sprintf("Timing migration with %s bandwidth limit", description))
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigration(virtClient, migration)
+					Eventually(matcher.ThisMigration(migration), 45*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationRunning))
+					libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPreCopy, 1*time.Second)
+
+					predictedDuration := time.Duration(float64(memory.Value()) / float64(bandwidth.Value()) * float64(time.Second))
+					migrationTimeout := int((2*predictedDuration + time.Second - 1) / time.Second)
+					started := time.Now()
+					libmigration.ExpectMigrationToSucceed(virtClient, migration, migrationTimeout)
+					elapsed := time.Since(started)
+					vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).To(Equal(pointer.P(policy.Name)))
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.BandwidthPerMigration).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.BandwidthPerMigration.Equal(bandwidth)).To(BeTrue())
+					log.DefaultLogger().Infof("Idle VM migration at %s: RAM=%s predicted=%s timeout=%ds elapsed=%s",
+						description, memory.String(), predictedDuration, migrationTimeout, elapsed)
+
+					return elapsed
+				}
+
+				duration1MiBps := measureMigrationDuration(resource.MustParse("1Mi"), "1 MiB/s")
+				duration2MiBps := measureMigrationDuration(resource.MustParse("2Mi"), "2 MiB/s")
+
+				expected2MiBpsDuration := duration1MiBps.Seconds() / 2
+				log.DefaultLogger().Infof("Idle VM migration comparison: 1MiB/s=%s 2MiB/s=%s expected2MiBps=%0.3fs tolerance=%.0f%%",
+					duration1MiBps, duration2MiBps, expected2MiBpsDuration, tolerance*100)
+				Expect(duration2MiBps.Seconds()).To(BeNumerically("~", expected2MiBpsDuration, expected2MiBpsDuration*tolerance),
+					"migration with a 2 MiB/s limit should take roughly half as long as migration with a 1 MiB/s limit")
+			})
+
 			It("[test_id:6968] should apply them and result in different migration durations", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				migrationPolicy := CreateMigrationPolicy(virtClient, GeneratePolicyAndAlignVMI(vmi))
