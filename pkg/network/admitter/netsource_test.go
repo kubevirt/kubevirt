@@ -32,29 +32,6 @@ import (
 )
 
 var _ = Describe("Validate network source", func() {
-	It("support only a single pod network", func() {
-		const net1Name = "default"
-		const net2Name = "default2"
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
-			libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          net1Name,
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          net2Name,
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-			}),
-		)
-
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
-	})
-
 	It("should accept resourceClaim network type", func() {
 		const draNetName = "dra-net"
 		vmi := libvmi.New(
@@ -81,76 +58,6 @@ var _ = Describe("Validate network source", func() {
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("CNI delegating plugin must have a networkName"))
-	})
-
-	It("should reject multiple multus networks with a multus default", func() {
-		const net1Name = "multus1"
-		const net2Name = "multus2"
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface(net1Name, libvmi.WithBridgeBinding())),
-			libvmi.WithInterface(libvmi.NewInterface(net2Name, libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name: net1Name,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name: net2Name,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
-				},
-			}),
-		)
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-		Expect(causes[0].Field).To(Equal("fake.networks"))
-		Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
-	})
-
-	It("should reject pod network with a multus default", func() {
-		const defaultMultusNetName = "defaultmultus"
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
-			libvmi.WithInterface(libvmi.NewInterface(defaultMultusNetName, libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "default",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name: defaultMultusNetName,
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
-			}),
-		)
-
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
-		Expect(causes[0].Field).To(Equal("fake.networks"))
-		Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
-	})
-
-	It("should allow single multus network with a multus default", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("multus1", libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(&v1.Network{
-				Name: "multus1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-				},
-			}),
-		)
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-		Expect(causes).To(BeEmpty())
 	})
 
 	It("should accept networks with a multus network source and bridge interface", func() {

@@ -49,7 +49,6 @@ func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, 
 func (v Validator) Validate() []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	causes = append(causes, validateSinglePodNetwork(v.field, v.vmiSpec)...)
 	causes = append(causes, validateMultusNetworkSource(v.field, v.vmiSpec)...)
 	causes = append(causes, validateInterfaceStateValue(v.field, v.vmiSpec)...)
 	causes = append(causes, validateInterfaceBinding(v.field, v.vmiSpec, v.configChecker)...)
