@@ -48,39 +48,26 @@ func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
 	return backup.Spec.Mode != nil && *backup.Spec.Mode == backupv1.PullMode
 }
 
-func getPullBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	ttl := &metav1.Duration{Duration: defaultPullModeDurationTTL}
+func pullBackupTTL(backup *backupv1.VirtualMachineBackup) time.Duration {
 	if backup.Spec.TTLDuration != nil {
-		ttl = backup.Spec.TTLDuration
+		return backup.Spec.TTLDuration.Duration
 	}
-	return ttl
-}
-
-func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	totalTTL := getPullBackupTTL(backup)
-	creationTime := backup.CreationTimestamp.Time
-
-	if creationTime.IsZero() {
-		return totalTTL
-	}
-
-	elapsed := time.Since(creationTime)
-	remaining := totalTTL.Duration - elapsed
-
-	if remaining <= 0 {
-		return &metav1.Duration{Duration: 0}
-	}
-
-	return &metav1.Duration{Duration: remaining}
-}
-
-func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
-	ttl := getPullBackupTTL(backup)
-	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
+	return defaultPullModeDurationTTL
 }
 
 func pullBackupTTLDeadline(backup *backupv1.VirtualMachineBackup) time.Time {
-	return backup.CreationTimestamp.Time.Add(getPullBackupTTL(backup).Duration)
+	return backup.CreationTimestamp.Add(pullBackupTTL(backup))
+}
+
+func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
+	return !time.Now().Before(pullBackupTTLDeadline(backup))
+}
+
+func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
+	if backup.CreationTimestamp.IsZero() {
+		return &metav1.Duration{Duration: pullBackupTTL(backup)}
+	}
+	return &metav1.Duration{Duration: max(time.Until(pullBackupTTLDeadline(backup)), 0)}
 }
 
 // shouldFinalizePullBackupOnDelete reports whether deleting a pull-mode backup
