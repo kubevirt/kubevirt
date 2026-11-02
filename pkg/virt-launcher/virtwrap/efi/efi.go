@@ -31,8 +31,6 @@ const (
 	EFIVarsAARCH64       = "AAVMF_VARS.fd"
 	EFICodeSecureBoot    = "OVMF_CODE.secboot.fd"
 	EFIVarsSecureBoot    = "OVMF_VARS.secboot.fd"
-	EFICodeSEV           = "OVMF_CODE.cc.fd"
-	EFIVarsSEV           = EFIVars
 	EFICodeSNP           = "OVMF.amdsev.fd"
 	EFICodeTDX           = "OVMF.inteltdx.fd"
 	EFICodeTDXSecureBoot = "OVMF.inteltdx.secboot.fd"
@@ -43,8 +41,6 @@ type EFIEnvironment struct {
 	vars              string
 	codeSecureBoot    string
 	varsSecureBoot    string
-	codeSEV           string
-	varsSEV           string
 	codeSNP           string
 	codeTDX           string
 	codeTDXSecureBoot string
@@ -54,23 +50,15 @@ type SecureVMType int
 
 const (
 	None SecureVMType = iota // Regular VM without confidential computing
-	SEV                      // AMD SEV/SEV-ES VM
-	SNP                      // AMD SNP VM
+	SNP                      // AMD SEV, SEV-ES and SEV-SNP VM: all boot the AmdSev firmware
 	TDX                      // Intel TDX VM
 )
 
 func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
 	switch vmType {
-	case SEV:
-		if secureBoot {
-			// secure boot cannot work with SEV
-			return false
-		} else {
-			return e.varsSEV != "" && e.codeSEV != ""
-		}
 	case SNP:
 		if secureBoot {
-			// secure boot not compatible with SNP
+			// secure boot not compatible with SEV/SEV-ES/SEV-SNP
 			return false
 		} else {
 			return e.codeSNP != ""
@@ -92,16 +80,9 @@ func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
 
 func (e *EFIEnvironment) EFICode(secureBoot bool, vmType SecureVMType) string {
 	switch vmType {
-	case SEV:
-		if secureBoot {
-			// secure boot cannot work with SEV
-			return ""
-		} else {
-			return e.codeSEV
-		}
 	case SNP:
 		if secureBoot {
-			// secure boot cannot work with SNP
+			// secure boot cannot work with SEV/SEV-ES/SEV-SNP
 			return ""
 		} else {
 			return e.codeSNP
@@ -123,15 +104,8 @@ func (e *EFIEnvironment) EFICode(secureBoot bool, vmType SecureVMType) string {
 
 func (e *EFIEnvironment) EFIVars(secureBoot bool, vmType SecureVMType) string {
 	switch vmType {
-	case SEV:
-		if secureBoot {
-			// secure boot cannot work with SEV
-			return ""
-		} else {
-			return e.varsSEV
-		}
 	case SNP, TDX:
-		// Both SNP and TDX use stateless firmware
+		// AMD SEV/SEV-ES/SEV-SNP and TDX all use stateless firmware
 		return ""
 	default:
 		if secureBoot {
@@ -167,9 +141,7 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	}
 	vars := getEFIBinaryIfExists(ovmfPath, EFIVars)
 
-	// detect EFI with SEV
-	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
-	varsWithSEV := getEFIBinaryIfExists(ovmfPath, EFIVarsSEV)
+	// detect EFI for AMD SEV, SEV-ES and SEV-SNP
 	codeWithSNP := getEFIBinaryIfExists(ovmfPath, EFICodeSNP)
 
 	// detect EFI with TDX
@@ -181,8 +153,6 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 		varsSecureBoot:    varsWithSB,
 		code:              code,
 		vars:              vars,
-		codeSEV:           codeWithSEV,
-		varsSEV:           varsWithSEV,
 		codeSNP:           codeWithSNP,
 		codeTDX:           codeWithTDX,
 		codeTDXSecureBoot: codeWithTDXSB,

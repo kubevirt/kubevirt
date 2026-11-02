@@ -1642,14 +1642,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		snp := kutil.IsSEVSNPVMI(vmi)
 		tdx := kutil.IsTDXVMI(vmi)
 
-		vmType := efi.None
-		if sev {
-			vmType = efi.SEV
-		} else if snp {
-			vmType = efi.SNP
-		} else if tdx {
-			vmType = efi.TDX
-		}
+		vmType := efiVMType(vmi)
 
 		if secureBoot && vmType == efi.None && l.firmwareAutoSelectionEnabled &&
 			(vmi.Spec.Architecture != "arm64" || l.arm64SecureBootEnabled) {
@@ -3218,7 +3211,10 @@ func (l *LibvirtDomainManager) GetLaunchMeasurement(vmi *v1.VirtualMachineInstan
 		sevMeasurementInfo.Policy = domainLaunchSecurityParameters.SEVPolicy
 	}
 
-	loader := l.efiEnvironment.EFICode(false, efi.SEV) // no secureBoot, with sev
+	// Must match the firmware the guest actually booted: LoaderSHA ends up as
+	// GCTX.LD in the launch measurement, so hashing the wrong binary silently
+	// invalidates attestation. SEV rules out secure boot.
+	loader := l.efiEnvironment.EFICode(false, efiVMType(vmi))
 	f, err := os.Open(loader)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Error opening loader binary %s", loader)
@@ -3500,6 +3496,21 @@ func isAgentCommandNotSupported(err error) bool {
 	return libvirtErr.Code == libvirt.ERR_ARGUMENT_UNSUPPORTED ||
 		libvirtErr.Code == libvirt.ERR_OPERATION_UNSUPPORTED ||
 		libvirtErr.Code == libvirt.ERR_NO_SUPPORT
+}
+
+// efiVMType reports which firmware flavor a VMI has to boot with.
+//
+// Every caller that needs the loader path must go through this, otherwise the
+// firmware a guest boots and the firmware KubeVirt reports can disagree.
+func efiVMType(vmi *v1.VirtualMachineInstance) efi.SecureVMType {
+	switch {
+	case kutil.IsSEVVMI(vmi):
+		return efi.SNP
+	case kutil.IsTDXVMI(vmi):
+		return efi.TDX
+	default:
+		return efi.None
+	}
 }
 
 func selectEFIEnvironment(hostEFI *efi.EFIEnvironment, ovmfPath string, allowCrossArchEmulation bool, guestArch string) *efi.EFIEnvironment {
