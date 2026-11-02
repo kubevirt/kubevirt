@@ -61,7 +61,7 @@ type passtRepairSourceHandler interface {
 }
 
 type proxyManager interface {
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path) error
+	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path, bandwidth resource.Quantity) error
 	StopSourceListener(key string)
 }
 
@@ -503,11 +503,16 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 		return errWaitingForTargetPorts
 	}
 
+	bandwidth := c.clusterConfig.GetMigrationConfiguration().BandwidthPerMigration
+	if options := vmi.Status.MigrationState.VMIMConfigurationOptions; options != nil && options.BandwidthPerMigration != nil {
+		bandwidth = options.BandwidthPerMigration
+	}
 	err = c.migrationProxy.StartSourceListener(
 		string(vmi.UID),
 		vmi.Status.MigrationState.TargetNodeAddress,
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
 		mountRoot,
+		*bandwidth,
 	)
 	if err != nil {
 		return err

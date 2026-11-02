@@ -301,6 +301,48 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			testutils.ExpectEvent(recorder, VMIMigrating)
 		})
 	})
+
+	DescribeTable("should pass migration bandwidth to the source proxy", func(clusterBandwidth, policyBandwidth, expectedBandwidth string) {
+		clusterBandwidthQuantity := resource.MustParse(clusterBandwidth)
+		controller.clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			MigrationConfiguration: &v1.MigrationConfiguration{
+				BandwidthPerMigration: &clusterBandwidthQuantity,
+			},
+		})
+		ctrl := gomock.NewController(GinkgoT())
+		proxy := NewMockproxyManager(ctrl)
+		controller.migrationProxy = proxy
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNodeAddress:              "127.0.0.1",
+			TargetDirectMigrationNodePorts: map[string]int{"12345": migrationproxy.LibvirtDirectMigrationPort},
+		}
+		if policyBandwidth != "" {
+			policyBandwidthQuantity := resource.MustParse(policyBandwidth)
+			vmi.Status.MigrationState.VMIMConfigurationOptions = &v1.VMIMConfigurationOptions{
+				BandwidthPerMigration: &policyBandwidthQuantity,
+			}
+		}
+
+		proxy.EXPECT().StartSourceListener(
+			string(vmi.UID),
+			"127.0.0.1",
+			map[string]int{"12345": migrationproxy.LibvirtDirectMigrationPort},
+			gomock.Any(),
+			gomock.Any(),
+		).DoAndReturn(func(_ string, _ string, _ map[string]int, _ *safepath.Path, bandwidth resource.Quantity) error {
+			Expect(bandwidth.Equal(resource.MustParse(expectedBandwidth))).To(BeTrue())
+			return nil
+		})
+
+		Expect(controller.handleSourceMigrationProxy(vmi)).To(Succeed())
+	},
+		Entry("using cluster config when no policy override is present", "5Mi", "", "5Mi"),
+		Entry("using policy override when present", "5Mi", "9Mi", "9Mi"),
+	)
+
 	Context("setMigrationProgressStatus", func() {
 		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, completed, failed bool, mode v1.MigrationMode) *api.Domain {
 			d := api.NewMinimalDomainWithUUID("test", "1234")
