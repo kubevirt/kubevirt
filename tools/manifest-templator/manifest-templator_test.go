@@ -37,6 +37,7 @@ var _ = Describe("infraReplicasToUint8", func() {
 	DescribeTable("should reject values above 255", func(replicas uint) {
 		_, err := infraReplicasToUint8(replicas)
 		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("255"))
 	},
 		Entry("with 256, which would wrap around to 0", uint(256)),
 		Entry("with 1000", uint(1000)),
