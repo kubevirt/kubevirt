@@ -153,7 +153,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
-		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
+		if err := convertV1BlockSizeToAPIBlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
 		}
 
