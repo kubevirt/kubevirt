@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
-var _ = Describe("Validate network source", func() {
+var _ = Describe("Validate network admission", func() {
 	It("should accept resourceClaim network type", func() {
 		const draNetName = "dra-net"
 		vmi := libvmi.New(
@@ -46,18 +46,6 @@ var _ = Describe("Validate network source", func() {
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
-	})
-
-	It("should reject multus network source without networkName", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
-			libvmi.WithNetwork(libvmi.MultusNetwork("default", "")),
-		)
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("CNI delegating plugin must have a networkName"))
 	})
 
 	It("should accept networks with a multus network source and bridge interface", func() {

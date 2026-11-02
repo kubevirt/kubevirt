@@ -9128,6 +9128,7 @@ var CRDsValidation map[string]string = map[string]string{
                               References to a NetworkAttachmentDefinition CRD object. Format:
                               <networkName>, <namespace>/<networkName>. If namespace is not
                               specified, VMI namespace is assumed.
+                            minLength: 1
                             type: string
                         required:
                         - networkName
@@ -15796,6 +15797,7 @@ var CRDsValidation map[string]string = map[string]string{
                       References to a NetworkAttachmentDefinition CRD object. Format:
                       <networkName>, <namespace>/<networkName>. If namespace is not
                       specified, VMI namespace is assumed.
+                    minLength: 1
                     type: string
                 required:
                 - networkName
@@ -23034,6 +23036,7 @@ var CRDsValidation map[string]string = map[string]string{
                               References to a NetworkAttachmentDefinition CRD object. Format:
                               <networkName>, <namespace>/<networkName>. If namespace is not
                               specified, VMI namespace is assumed.
+                            minLength: 1
                             type: string
                         required:
                         - networkName
@@ -28508,6 +28511,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       References to a NetworkAttachmentDefinition CRD object. Format:
                                       <networkName>, <namespace>/<networkName>. If namespace is not
                                       specified, VMI namespace is assumed.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - networkName
@@ -34500,6 +34504,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           References to a NetworkAttachmentDefinition CRD object. Format:
                                           <networkName>, <namespace>/<networkName>. If namespace is not
                                           specified, VMI namespace is assumed.
+                                        minLength: 1
                                         type: string
                                     required:
                                     - networkName

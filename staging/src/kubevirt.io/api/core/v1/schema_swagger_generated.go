@@ -970,7 +970,7 @@ func (Rng) SwaggerDoc() map[string]string {
 func (MultusNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "Represents the multus cni network.",
-		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.\n+kubebuilder:validation:MinLength:=1",
 		"default":     "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
 	}
 }

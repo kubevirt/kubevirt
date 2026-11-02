@@ -171,3 +171,29 @@ var _ = Describe("Pod/Multus default network CEL validation", func() {
 		Expect(err.Error()).To(ContainSubstring("Pod network cannot be defined when Multus default network is defined"))
 	})
 })
+
+// These specs exercise the CRD-native constraint on MultusNetwork.NetworkName
+// (staging/src/kubevirt.io/api/core/v1/schema.go) requiring it to be non-empty.
+var _ = Describe("Multus networkName validation", func() {
+	DescribeTable("should enforce that multus.networkName is non-empty",
+		func(ctx SpecContext, networkName, expectedErrSubstring string) {
+			ns := f.CreateNamespace(ctx)
+
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("128Mi"),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(libvmi.MultusNetwork("default", networkName)),
+			)
+
+			_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+			if expectedErrSubstring == "" {
+				Expect(err).NotTo(HaveOccurred())
+				return
+			}
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(expectedErrSubstring))
+		},
+		Entry("networkName set", "default-nad", ""),
+		Entry("networkName empty", "", "networkName"),
+	)
+})

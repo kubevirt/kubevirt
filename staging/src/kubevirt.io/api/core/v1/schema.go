@@ -1817,6 +1817,7 @@ type MultusNetwork struct {
 	// References to a NetworkAttachmentDefinition CRD object. Format:
 	// <networkName>, <namespace>/<networkName>. If namespace is not
 	// specified, VMI namespace is assumed.
+	// +kubebuilder:validation:MinLength:=1
 	NetworkName string `json:"networkName"`
 
 	// Select the default network and add it to the
