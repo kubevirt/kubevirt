@@ -142,7 +142,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 		hpStatus, hpOk := d.hotplugVolumes[disk.Name]
 		switch {
 		case emptyCDRom:
-			err = convert_v1_Missing_Volume_To_api_Disk(&newDisk)
+			err = convertV1MissingVolumeToAPIDisk(&newDisk)
 		case hpOk:
 			err = d.convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk)
 		default:
@@ -198,7 +198,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
 			disk.Model = d.virtioModel
 		}
-		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.ReadOnly = toAPIReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
@@ -219,7 +219,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		if diskDevice.LUN.Bus == "scsi" {
 			assignDiskToSCSIController(disk, unit)
 		}
-		disk.ReadOnly = toApiReadOnly(diskDevice.LUN.ReadOnly)
+		disk.ReadOnly = toAPIReadOnly(diskDevice.LUN.ReadOnly)
 		if diskDevice.LUN.Reservation {
 			setReservation(disk)
 		}
@@ -229,9 +229,9 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		disk.Target.Bus = diskDevice.CDRom.Bus
 		disk.Target.Device, _ = makeDeviceName(diskDevice.Name, diskDevice.CDRom.Bus, prefixMap)
 		if diskDevice.CDRom.ReadOnly != nil {
-			disk.ReadOnly = toApiReadOnly(*diskDevice.CDRom.ReadOnly)
+			disk.ReadOnly = toAPIReadOnly(*diskDevice.CDRom.ReadOnly)
 		} else {
-			disk.ReadOnly = toApiReadOnly(true)
+			disk.ReadOnly = toAPIReadOnly(true)
 		}
 	}
 	disk.Driver = &api.DiskDriver{
@@ -273,15 +273,15 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
-		return convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, vmiNamespace, vmiName)
+		return convertV1CloudInitSourceToAPIDisk(source.VolumeSource, disk, vmiNamespace, vmiName)
 	}
 
 	if source.Sysprep != nil {
-		return convert_v1_SysprepSource_To_api_Disk(source.Name, disk)
+		return convertV1SysprepSourceToAPIDisk(source.Name, disk)
 	}
 
 	if source.HostDisk != nil {
-		return convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
+		return convertV1HostDiskToAPIDisk(source.Name, source.HostDisk.Path, disk)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -293,25 +293,25 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.Ephemeral != nil {
-		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, d.ephemeralDiskCreator.GetFilePath(source.Name), d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
+		return convertV1EphemeralVolumeSourceToAPIDisk(source.Name, d.ephemeralDiskCreator.GetFilePath(source.Name), d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
 	}
 	if source.EmptyDisk != nil {
-		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
+		return convertV1EmptyDiskSourceToAPIDisk(source.Name, source.EmptyDisk, disk)
 	}
 	if source.ConfigMap != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
+		return convertV1ConfigToAPIDisk(source.Name, disk, config.ConfigMap)
 	}
 	if source.Secret != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
+		return convertV1ConfigToAPIDisk(source.Name, disk, config.Secret)
 	}
 	if source.DownwardAPI != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.DownwardAPI)
+		return convertV1ConfigToAPIDisk(source.Name, disk, config.DownwardAPI)
 	}
 	if source.ServiceAccount != nil {
-		return convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
+		return convertV1ConfigToAPIDisk(source.Name, disk, config.ServiceAccount)
 	}
 	if source.DownwardMetrics != nil {
-		return convert_v1_DownwardMetricSource_To_api_Disk(disk, d.virtioModel)
+		return convertV1DownwardMetricSourceToAPIDisk(disk, d.virtioModel)
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.GetName())
