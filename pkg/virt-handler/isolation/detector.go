@@ -40,9 +40,9 @@ import (
 type PodIsolationDetector interface {
 	// Detect takes a vm, looks up a socket based the VM and detects pid, cgroups and namespaces of the owner of that socket.
 	// It returns an IsolationResult containing all isolation information
-	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
+	Detect(vm *v1.VirtualMachineInstance) (*RealIsolationResult, error)
 
-	DetectForSocket(socket string) (IsolationResult, error)
+	DetectForSocket(socket string) (*RealIsolationResult, error)
 }
 
 const isolationDialTimeout = 5
@@ -56,7 +56,7 @@ func NewSocketBasedIsolationDetector() *SocketBasedIsolationDetector {
 	return &SocketBasedIsolationDetector{}
 }
 
-func (s *SocketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
+func (s *SocketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*RealIsolationResult, error) {
 	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
 	socket, err := cmdclient.FindSocket(vm)
 	if err != nil {
@@ -66,7 +66,7 @@ func (s *SocketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (Is
 	return s.DetectForSocket(socket)
 }
 
-func (s *SocketBasedIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
+func (s *SocketBasedIsolationDetector) DetectForSocket(socket string) (*RealIsolationResult, error) {
 	pid, err := s.getPid(socket)
 	if err != nil {
 		return nil, fmt.Errorf("Could not get owner Pid of socket %s: %w", socket, err)
@@ -77,7 +77,7 @@ func (s *SocketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 		return nil, fmt.Errorf("Could not get owner PPid of socket %s: %w", socket, err)
 	}
 
-	return NewIsolationResult(pid, ppid), nil
+	return NewIsolationResult(pid, ppid).(*RealIsolationResult), nil
 }
 
 func (s *SocketBasedIsolationDetector) getPid(socket string) (int, error) {
