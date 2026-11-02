@@ -399,6 +399,19 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 
 	factory.Start(stop)
+	if authClient != nil {
+		// Authenticating a socket requires checking its pod UID against the
+		// owning VMI's ActivePods, which reads the VMI store. Starting the
+		// domain informer concurrently was safe while List only needed ghost
+		// records, which are loaded from disk before either informer starts.
+		// An early List against an empty VMI store would now fail every
+		// socket, so wait for the VMI informer first.
+		logger.Info("LauncherSocketAuthentication enabled: waiting for VMI informer sync before domain list")
+		if !cache.WaitForCacheSync(stop, vmiInformer.HasSynced) {
+			logger.Criticalf("failed to sync VMI informer before starting the domain informer")
+			return
+		}
+	}
 	go domainSharedInformer.Run(stop)
 	go nodeInformer.Run(stop)
 	cache.WaitForCacheSync(
