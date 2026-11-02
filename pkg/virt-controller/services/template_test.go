@@ -5686,7 +5686,7 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue(), "Token automount is enabled")
 		})
 
-		It("Should not add service account if not present", func() {
+		It("Should default service account name for the cmd-auth token without automounting", func() {
 			config, kvStore, svc = configFactory(defaultArch)
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -5701,7 +5701,7 @@ var _ = Describe("Template", func() {
 
 			pod, err := svc.RenderLaunchManifest(&vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.Spec.ServiceAccountName).To(BeEmpty(), "ServiceAccount is empty")
+			Expect(pod.Spec.ServiceAccountName).To(Equal("default"), "ServiceAccount defaults for the cmd-auth token")
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
