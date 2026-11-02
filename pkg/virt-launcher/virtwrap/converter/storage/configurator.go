@@ -159,7 +159,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			newDisk.Driver.Queues = new(uint(1))
 		}
 
-		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
+		if err := convertV1BlockSizeToAPIBlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
 		}
 
