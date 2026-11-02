@@ -64,6 +64,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hyperv"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -2622,6 +2623,189 @@ var _ = Describe("Migration watcher", func() {
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulDeletePodReason)
 			expectPodDoesNotExist(vmi.Namespace, string(vmi.UID), string(migration.UID))
 		})
+	})
+
+	Context("Migration of hyperv host-model VMI", func() {
+		const nodeName = "testNode"
+
+		hypervLabels := func(features ...string) map[string]string {
+			labels := map[string]string{}
+			for _, feature := range features {
+				labels[v1.HypervLabel+feature] = "true"
+			}
+			return labels
+		}
+
+		hypervSelectorsOf := func(pod *k8sv1.Pod) map[string]string {
+			selectors := map[string]string{}
+			for key, value := range pod.Spec.NodeSelector {
+				if strings.HasPrefix(key, v1.HypervLabel) {
+					selectors[key] = value
+				}
+			}
+			return selectors
+		}
+
+		newHypervHostModelVMI := func() *v1.VirtualMachineInstance {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{}}
+			return vmi
+		}
+
+		newMarkedSourcePod := func(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+			pod := newSourcePodForVirtualMachine(vmi)
+			pod.Annotations[hyperv.HypervModeAnnotation] = hyperv.HypervModeHostModel
+			return pod
+		}
+
+		expectTargetPod := func(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) *k8sv1.Pod {
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s", v1.MigrationJobLabel, string(migration.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			return &pods.Items[0]
+		}
+
+		migrate := func(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, nodeLabels map[string]string) *k8sv1.Pod {
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			node := newNode(nodeName)
+			node.Labels = nodeLabels
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(sourcePod)
+			addNode(node)
+
+			sanityExecute()
+
+			return expectTargetPod(vmi, migration)
+		}
+
+		DescribeTable("should require all hyperv labels of the source node on the first migration", func(sourcePodSelectors map[string]string) {
+			vmi := newHypervHostModelVMI()
+			sourcePod := newMarkedSourcePod(vmi)
+			sourcePod.Spec.NodeSelector = sourcePodSelectors
+			nodeLabels := hypervLabels("relaxed", "avic", "evmcs")
+			nodeLabels["kubernetes.io/os"] = "linux"
+
+			targetPod := migrate(vmi, sourcePod, nodeLabels)
+
+			Expect(hypervSelectorsOf(targetPod)).To(Equal(hypervLabels("relaxed", "avic", "evmcs")))
+			Expect(targetPod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+		},
+			Entry("from a launcher pod without hyperv selectors", nil),
+			Entry("from a launcher pod with hyperv selectors derived from the VMI spec", hypervLabels("relaxed")),
+		)
+
+		DescribeTable("should pass the hyperv selectors of a previous migration target on verbatim", func(features []string) {
+			vmi := newHypervHostModelVMI()
+			sourcePod := newMarkedSourcePod(vmi)
+			sourcePod.Labels[v1.MigrationJobLabel] = "previous-migration"
+			sourcePod.Spec.NodeSelector = hypervLabels(features...)
+
+			targetPod := migrate(vmi, sourcePod, hypervLabels("relaxed", "avic", "evmcs"))
+
+			Expect(hypervSelectorsOf(targetPod)).To(Equal(hypervLabels(features...)))
+			Expect(targetPod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+		},
+			Entry("with selectors", []string{"relaxed", "avic"}),
+			Entry("without selectors", nil),
+		)
+
+		It("should not constrain the target pod when the source pod carries no marker", func() {
+			vmi := newHypervHostModelVMI()
+
+			targetPod := migrate(vmi, newSourcePodForVirtualMachine(vmi), hypervLabels("relaxed", "avic"))
+
+			Expect(hypervSelectorsOf(targetPod)).To(BeEmpty())
+			Expect(targetPod.Annotations).ToNot(HaveKey(hyperv.HypervModeAnnotation))
+		})
+
+		DescribeTable("should take the hyperv selectors of a decentralized target from the source state", func(sourceStateSelectors map[string]string, expectMarker bool) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{}}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:           "testnode",
+						SelinuxContext: "none",
+					},
+					NodeSelectors: sourceStateSelectors,
+				},
+			}
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			targetPod := expectTargetPod(vmi, migration)
+			Expect(hypervSelectorsOf(targetPod)).To(Equal(sourceStateSelectors))
+			if expectMarker {
+				Expect(targetPod.Annotations).To(HaveKeyWithValue(hyperv.HypervModeAnnotation, hyperv.HypervModeHostModel))
+			} else {
+				Expect(targetPod.Annotations).ToNot(HaveKey(hyperv.HypervModeAnnotation))
+			}
+		},
+			Entry("with hyperv selectors", hypervLabels("relaxed", "avic"), true),
+			Entry("without hyperv selectors", hypervLabels(), false),
+		)
+	})
+
+	Context("Decentralized migration source state", func() {
+		const nodeName = "testNode"
+
+		DescribeTable("should carry the hyperv labels of the source node only for a marked source pod", func(marked bool, expected map[string]string) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{}}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{},
+			}
+
+			sourcePod := newSourcePodForVirtualMachine(vmi)
+			if marked {
+				sourcePod.Annotations[hyperv.HypervModeAnnotation] = hyperv.HypervModeHostModel
+			}
+
+			node := newNode(nodeName)
+			node.Labels = map[string]string{
+				v1.HostModelCPULabel + "fake": "true",
+				v1.HypervLabel + "relaxed":    "true",
+			}
+
+			migration := newDecentralizedSenderMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourcePod: sourcePod.Name,
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(sourcePod)
+			addNode(node)
+
+			Expect(controller.updateVMIMigrationSourceWithPodInfo(migration, vmi)).To(Succeed())
+
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
+				"SourceState": PointTo(MatchFields(IgnoreExtras, Fields{
+					"NodeSelectors": Equal(expected),
+				})),
+			})))
+		},
+			Entry("marked", true, map[string]string{
+				v1.HostModelCPULabel + "fake": "true",
+				v1.HypervLabel + "relaxed":    "true",
+			}),
+			Entry("unmarked", false, map[string]string{
+				v1.HostModelCPULabel + "fake": "true",
+			}),
+		)
 	})
 
 	Context("CPU vendor label constraints", func() {

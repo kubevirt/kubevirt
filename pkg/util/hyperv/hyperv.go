@@ -29,6 +29,11 @@ import (
 // HypervModeHostModel is libvirt's hyperv host-model mode.
 const HypervModeHostModel = "host-model"
 
+// HypervModeAnnotation marks launcher pods of host-model candidates with
+// HypervModeHostModel. Migration targets inherit it from their source pod, so
+// domains that older launchers built in custom mode are never constrained.
+const HypervModeAnnotation = "kubevirt.io/hyperv-mode"
+
 // IsHostModelCandidate reports whether the VMI's Hyper-V features are rendered
 // as libvirt host-model. A VMI that explicitly disables any enlightenment keeps
 // its explicit feature list, since host-model could enable features that
