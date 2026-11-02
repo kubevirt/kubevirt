@@ -230,7 +230,12 @@ func convertV1EmptyDiskSourceToAPIDisk(volumeName string, _ *v1.EmptyDiskSource,
 	return nil
 }
 
-func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, ephemeralDiskPath string, diskIndex int, diskFormat string) error {
+func convertV1ContainerDiskSourceToAPIDisk(
+	disk *api.Disk,
+	ephemeralDiskPath string,
+	diskIndex int,
+	diskFormat string,
+) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
