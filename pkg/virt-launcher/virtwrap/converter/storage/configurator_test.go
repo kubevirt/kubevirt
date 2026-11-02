@@ -68,7 +68,7 @@ var _ = Describe("DiskConfigurator", func() {
 	})
 
 	Context("volume source conversion", func() {
-		It("should convert a PVC volume in filesystem mode", func() {
+		It("should convert a PVC volume in filesystem mode", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim"),
 			)
@@ -117,7 +117,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a hotplug PVC volume in filesystem mode", func() {
+		It("should convert a hotplug PVC volume in filesystem mode", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("hotplug-pvc", "my-claim"),
 			)
@@ -166,7 +166,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a hotplug DataVolume in filesystem mode", func() {
+		It("should convert a hotplug DataVolume in filesystem mode", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithDataVolume("hotplug-dv", "my-dv"),
 			)
@@ -241,7 +241,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should include hotplug volumes with VolumeReady phase", func() {
+		It("should include hotplug volumes with VolumeReady phase", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("hotplug-pvc", "my-claim"),
 			)
@@ -290,7 +290,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should omit discard for hotplug volumes in the discard-ignore list", func() {
+		It("should omit discard for hotplug volumes in the discard-ignore list", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("hotplug-pvc", "my-claim"),
 			)
@@ -315,7 +315,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should omit discard for hotplug DataVolumes in the discard-ignore list", func() {
+		It("should omit discard for hotplug DataVolumes in the discard-ignore list", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithDataVolume("hotplug-dv", "my-dv"),
 			)
@@ -340,7 +340,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a non-hotplug DataVolume in filesystem mode", func() {
+		It("should convert a non-hotplug DataVolume in filesystem mode", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithDataVolume("mydv", "my-dv"),
 			)
@@ -584,7 +584,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a CloudInitNoCloud volume", func() {
+		It("should convert a CloudInitNoCloud volume", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithCloudInitNoCloud(),
 			)
@@ -608,7 +608,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a CloudInitConfigDrive volume", func() {
+		It("should convert a CloudInitConfigDrive volume", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithCloudInitConfigDrive(),
 			)
@@ -762,7 +762,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a ConfigMap volume", func() {
+		It("should convert a ConfigMap volume", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithConfigMapDisk("my-config", "myconfigmap"),
 			)
@@ -783,7 +783,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should convert a Secret volume", func() {
+		It("should convert a Secret volume", func() { //nolint:dupl
 			vmi := libvmi.New(
 				libvmi.WithSecretDisk("my-secret", "mysecret"),
 			)
@@ -1298,19 +1298,31 @@ var _ = Describe("DiskConfigurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := newDomainWithDisks(
+			expectedDomain := newDomainWithDisks( //nolint:dupl
 				newDisk("disk1",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: v1.DiskErrorPolicyStop,
+						Discard:     "unmap",
+						IOThread:    new(uint(1)),
+					}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: v1.DiskErrorPolicyStop,
+						Discard:     "unmap",
+						IOThread:    new(uint(2)),
+					}),
 					diskWithModel(virtioModel),
 				),
 			)
@@ -1332,19 +1344,31 @@ var _ = Describe("DiskConfigurator", func() {
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := newDomainWithDisks(
+			expectedDomain := newDomainWithDisks( //nolint:dupl
 				newDisk("auto-disk",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: v1.DiskErrorPolicyStop,
+						Discard:     "unmap",
+						IOThread:    new(uint(1)),
+					}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("dedicated-disk",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: v1.DiskErrorPolicyStop,
+						Discard:     "unmap",
+						IOThread:    new(uint(2)),
+					}),
 					diskWithModel(virtioModel),
 				),
 			)
