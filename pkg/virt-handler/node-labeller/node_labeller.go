@@ -77,6 +77,7 @@ type NodeLabeller struct {
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
+	hypervDomCapsFeatures   supportedFeatures
 	hostCapabilities        supportedModels
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
@@ -267,6 +268,12 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	}
 
 	for _, key := range n.hypervFeatures.items {
+		newLabels[kubevirtv1.HypervLabel+key] = "true"
+	}
+
+	// The KVM-probed labels above only cover part of what hyperv host-model may
+	// enable; they are kept for compatibility.
+	for _, key := range n.hypervDomCapsFeatures.items {
 		newLabels[kubevirtv1.HypervLabel+key] = "true"
 	}
 
