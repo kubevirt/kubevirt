@@ -22,18 +22,21 @@ package compute
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	hypervutil "kubevirt.io/kubevirt/pkg/util/hyperv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type HypervisorFeaturesDomainConfigurator struct {
 	hasVMPort            bool
 	useLaunchSecurityTDX bool
+	allowHostModel       bool
 }
 
-func NewHypervisorFeaturesDomainConfigurator(hasVMPort, useLaunchSecurityTDX bool) HypervisorFeaturesDomainConfigurator {
+func NewHypervisorFeaturesDomainConfigurator(hasVMPort, useLaunchSecurityTDX, allowHostModel bool) HypervisorFeaturesDomainConfigurator {
 	return HypervisorFeaturesDomainConfigurator{
 		hasVMPort:            hasVMPort,
 		useLaunchSecurityTDX: useLaunchSecurityTDX,
+		allowHostModel:       allowHostModel,
 	}
 }
 
@@ -44,7 +47,7 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 		return nil
 	}
 
-	convertFeaturesToAPIFeatures(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+	convertFeaturesToAPIFeatures(vmi, domain.Spec.Features, h.useLaunchSecurityTDX, h.allowHostModel)
 
 	if h.hasVMPort {
 		domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
@@ -53,7 +56,9 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 	return nil
 }
 
-func convertFeaturesToAPIFeatures(source *v1.Features, features *api.Features, useLaunchSecurityTDX bool) {
+func convertFeaturesToAPIFeatures(vmi *v1.VirtualMachineInstance, features *api.Features, useLaunchSecurityTDX, allowHostModel bool) {
+	source := vmi.Spec.Domain.Features
+
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &api.FeatureEnabled{}
 	}
@@ -68,8 +73,7 @@ func convertFeaturesToAPIFeatures(source *v1.Features, features *api.Features, u
 		}
 	}
 	if source.Hyperv != nil {
-		features.Hyperv = &api.FeatureHyperv{}
-		convertFeatureHypervToAPIFeatureHyperv(source.Hyperv, features.Hyperv)
+		features.Hyperv = convertHyperv(vmi, allowHostModel)
 	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
 		features.Hyperv = &api.FeatureHyperv{
 			Mode: api.HypervModePassthrough,
@@ -93,6 +97,17 @@ func convertFeaturesToAPIFeatures(source *v1.Features, features *api.Features, u
 			State: "off",
 		}
 	}
+}
+
+func convertHyperv(vmi *v1.VirtualMachineInstance, allowHostModel bool) *api.FeatureHyperv {
+	hyperv := &api.FeatureHyperv{}
+	spec := vmi.Spec.Domain.Features.Hyperv
+	if allowHostModel && hypervutil.IsHostModelCandidate(vmi) {
+		hyperv.Mode = hypervutil.HypervModeHostModel
+		spec = hypervutil.HostModelOverrides(spec)
+	}
+	convertFeatureHypervToAPIFeatureHyperv(spec, hyperv)
+	return hyperv
 }
 
 func convertFeatureHypervToAPIFeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) {

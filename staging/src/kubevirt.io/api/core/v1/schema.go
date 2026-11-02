@@ -1269,7 +1269,9 @@ type Features struct {
 	// using it will be non-migratable.
 	// +optional
 	HypervPassthrough *HyperVPassthrough `json:"hypervPassthrough,omitempty"`
-	// Defaults to the machine type setting.
+	// Hyperv configures Hyper-V enlightenments. Unset features are enabled
+	// when the host supports them. If any feature is explicitly disabled,
+	// the explicit feature list is used instead.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
 	// SMM enables/disables System Management Mode.
@@ -1342,58 +1344,58 @@ type TLBFlush struct {
 // Hyperv specific features.
 type FeatureHyperv struct {
 	// Relaxed instructs the guest OS to disable watchdog timeouts.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	Relaxed *FeatureState `json:"relaxed,omitempty"`
 	// VAPIC improves the paravirtualized handling of interrupts.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	VAPIC *FeatureState `json:"vapic,omitempty"`
 	// Spinlocks allows to configure the spinlock retry attempts.
 	// +optional
 	Spinlocks *FeatureSpinlocks `json:"spinlocks,omitempty"`
 	// VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	VPIndex *FeatureState `json:"vpindex,omitempty"`
 	// Runtime improves the time accounting to improve scheduling in the guest.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	Runtime *FeatureState `json:"runtime,omitempty"`
 	// SyNIC enables the Synthetic Interrupt Controller.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	SyNIC *FeatureState `json:"synic,omitempty"`
 	// SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	SyNICTimer *SyNICTimer `json:"synictimer,omitempty"`
 	// Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	Reset *FeatureState `json:"reset,omitempty"`
 	// VendorID allows setting the hypervisor vendor id.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
 	// Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	Frequencies *FeatureState `json:"frequencies,omitempty"`
 	// Reenlightenment enables the notifications on TSC frequency changes.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	Reenlightenment *FeatureState `json:"reenlightenment,omitempty"`
 	// TLBFlush improves performances in overcommited environments. Requires vpindex.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	TLBFlush *TLBFlush `json:"tlbflush,omitempty"`
 	// IPI improves performances in overcommited environments. Requires vpindex.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	IPI *FeatureState `json:"ipi,omitempty"`
 	// EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-	// Defaults to the machine type setting.
+	// Defaults to enabling the feature when the host supports it.
 	// +optional
 	EVMCS *FeatureState `json:"evmcs,omitempty"`
 }
