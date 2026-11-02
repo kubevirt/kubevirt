@@ -8294,6 +8294,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: |-
                             Whether to log the auto-attached default serial console or not.
@@ -9179,6 +9182,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -14959,6 +14965,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: |-
                     Whether to log the auto-attached default serial console or not.
@@ -15833,6 +15842,9 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           maxItems: 256
           type: array
+          x-kubernetes-list-map-keys:
+          - name
+          x-kubernetes-list-type: map
         nodeSelector:
           additionalProperties:
             type: string
@@ -19573,6 +19585,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 logSerialConsole:
                   description: |-
                     Whether to log the auto-attached default serial console or not.
@@ -22173,6 +22188,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         logSerialConsole:
                           description: |-
                             Whether to log the auto-attached default serial console or not.
@@ -23058,6 +23076,9 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -27621,6 +27642,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                  x-kubernetes-list-map-keys:
+                                  - name
+                                  x-kubernetes-list-type: map
                                 logSerialConsole:
                                   description: |-
                                     Whether to log the auto-attached default serial console or not.
@@ -28518,6 +28542,9 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
                         nodeSelector:
                           additionalProperties:
                             type: string
@@ -33595,6 +33622,9 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                      x-kubernetes-list-map-keys:
+                                      - name
+                                      x-kubernetes-list-type: map
                                     logSerialConsole:
                                       description: |-
                                         Whether to log the auto-attached default serial console or not.
@@ -34496,6 +34526,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: object
                               maxItems: 256
                               type: array
+                              x-kubernetes-list-map-keys:
+                              - name
+                              x-kubernetes-list-type: map
                             nodeSelector:
                               additionalProperties:
                                 type: string

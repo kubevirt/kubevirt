@@ -544,6 +544,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType=map
+	// +listMapKey=name
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`

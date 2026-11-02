@@ -21188,6 +21188,14 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 						},
 					},
 					"interfaces": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Interfaces describe network interfaces which are added to the vmi.",
 							Type:        []string{"array"},
@@ -30500,6 +30508,14 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 						},
 					},
 					"networks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "List of networks that can be attached to a vm's virtual interface.",
 							Type:        []string{"array"},

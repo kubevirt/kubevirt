@@ -269,7 +269,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
 		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256\n+listType=map\n+listMapKey=name",
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
