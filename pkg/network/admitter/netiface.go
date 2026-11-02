@@ -113,7 +113,6 @@ func validateInterfacesFields(
 	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceNameFormat(field, idx, iface)...)
-		causes = append(causes, validateInterfaceModel(field, idx, iface)...)
 		causes = append(causes, validateMacAddress(field, idx, iface)...)
 		causes = append(causes, validatePciAddress(field, idx, iface)...)
 		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
@@ -132,33 +131,6 @@ func validateInterfaceNameFormat(field *k8sfield.Path, idx int, iface v1.Interfa
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		}}
-	}
-	return nil
-}
-
-var validInterfaceModels = map[string]struct{}{
-	"e1000":    {},
-	"e1000e":   {},
-	"igb":      {},
-	"ne2k_pci": {},
-	"pcnet":    {},
-	"rtl8139":  {},
-	v1.VirtIO:  {},
-}
-
-func validateInterfaceModel(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.Model != "" {
-		if _, exists := validInterfaceModels[iface.Model]; !exists {
-			return []metav1.StatusCause{{
-				Type: metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf(
-					"interface %s uses model %s that is not supported.",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.Model,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
-			}}
-		}
 	}
 	return nil
 }

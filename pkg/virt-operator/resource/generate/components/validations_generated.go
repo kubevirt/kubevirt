@@ -8182,6 +8182,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface uses a model that is not supported
+                                  rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -14848,6 +14851,9 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface uses a model that is not supported
+                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -19462,6 +19468,9 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface uses a model that is not supported
+                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -22061,6 +22070,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface uses a model that is not supported
+                                  rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -27505,6 +27517,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                           Defaults to virtio.
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface uses a model that is
+                                            not supported
+                                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                                       name:
                                         description: |-
                                           Logical name of the interface as well as a reference to the associated networks.
@@ -33478,6 +33494,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                               Defaults to virtio.
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface uses a model that
+                                                is not supported
+                                              rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                                           name:
                                             description: |-
                                               Logical name of the interface as well as a reference to the associated networks.

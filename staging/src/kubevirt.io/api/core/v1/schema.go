@@ -1456,7 +1456,7 @@ type Interface struct {
 	// Interface model.
 	// One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
 	// Defaults to virtio.
-	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	// +kubebuilder:validation:XValidation:rule="self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']",message="interface uses a model that is not supported"
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.

@@ -132,30 +132,6 @@ var _ = Describe("Validating VMI network spec", func() {
 		}))
 	})
 
-	It("should reject invalid interface model", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueNotSupported",
-			Message: "interface fake.domain.devices.interfaces[0].name uses model invalid_model that is not supported.",
-			Field:   "fake.domain.devices.interfaces[0].model",
-		}))
-	})
-
-	It("should accept valid interface model", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].Model = v1.VirtIO
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(BeEmpty())
-	})
-
 	DescribeTable("should reject invalid MAC addresses", func(macAddress, expectedMessage string) {
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
