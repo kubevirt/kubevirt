@@ -42,6 +42,7 @@ const (
 	exportExistsWithDifferentOwner = "VMExport %s already exists but is not owned by backup %s"
 	defaultPullModeDurationTTL     = 2 * time.Hour
 	backupTTLExpiredMsg            = "pull mode backup TTL has expired"
+	pullBackupAbortedMsg           = "pull mode backup was aborted before the client finished"
 )
 
 func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
@@ -70,23 +71,24 @@ func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Du
 	return &metav1.Duration{Duration: max(time.Until(pullBackupTTLDeadline(backup)), 0)}
 }
 
-// shouldFinalizePullBackupOnDelete reports whether deleting a pull-mode backup
-// should finalize as Complete rather than Cancel.
-//
-// Deletion of the VirtualMachineBackup is the authoritative pull-mode completion
-// signal from the client. Compare DeletionTimestamp to the TTL deadline (not
-// wall-clock now) so a late reconcile after expiry still Finalizes when the
-// client deleted on time.
-func shouldFinalizePullBackupOnDelete(backup *backupv1.VirtualMachineBackup) bool {
-	if !isPullMode(backup) || backup.DeletionTimestamp == nil || backup.DeletionTimestamp.IsZero() {
-		return false
+func isDeletedBeforeTTLDeadline(backup *backupv1.VirtualMachineBackup) bool {
+	return backup.DeletionTimestamp != nil && backup.DeletionTimestamp.Time.Before(pullBackupTTLDeadline(backup))
+}
+
+func setPullCompletionStatus(backup *backupv1.VirtualMachineBackup, status *v1.VirtualMachineInstanceBackupStatus) {
+	if status.Failed || isDeletedBeforeTTLDeadline(backup) {
+		return
 	}
-	return backup.DeletionTimestamp.Time.Before(pullBackupTTLDeadline(backup))
+	status.Failed = true
+	status.BackupMsg = new(backupTTLExpiredMsg)
+	if status.EndTimestamp != nil && status.EndTimestamp.Time.Before(pullBackupTTLDeadline(backup)) {
+		status.BackupMsg = new(pullBackupAbortedMsg)
+	}
 }
 
 func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if isPullBackupTTLExpired(backup) {
-		return ctrl.handlePullModeTTLExpiry(backup, vmi)
+		return ctrl.abort(backup, vmi)
 	}
 
 	vmExport, err := ctrl.getOrCreateBackupExport(backup)
@@ -206,16 +208,6 @@ func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink 
 		bl.Volumes = append(bl.Volumes, vl)
 	}
 	return bl
-}
-
-func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
-	if hasVMIBackupStatus(vmi) && !vmi.Status.ChangedBlockTracking.BackupStatus.Completed {
-		if err := ctrl.handleAbort(backup, vmi, backupv1.BackupAbortCancel); err != nil {
-			return err
-		}
-		ctrl.setAborting(backup, fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting), backupv1.BackupAbortCancel)
-	}
-	return nil
 }
 
 func (ctrl *VMBackupController) cleanupBackupExport(backup *backupv1.VirtualMachineBackup) error {
