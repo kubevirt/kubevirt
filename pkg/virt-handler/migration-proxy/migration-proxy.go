@@ -20,6 +20,7 @@
 package migrationproxy
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -31,15 +32,20 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 const (
+	copyBufferSize             = 32 * 1024
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
 )
@@ -67,6 +73,9 @@ type migrationProxy struct {
 	stopChan       chan struct{}
 	listenErrChan  chan error
 	fdChan         chan net.Conn
+
+	limiter        *rate.Limiter
+	bandwidthBytes int64
 
 	listener           net.Listener
 	serverTLSConfig    *tls.Config
@@ -243,7 +252,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	}
 }
 
-func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path) error {
+func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path, bandwidth resource.Quantity) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -251,6 +260,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		return fmt.Errorf("unable to process new migration connections during virt-handler shutdown")
 	}
 
+	bandwidthBytes := bandwidthBytesPerSecond(bandwidth)
 	isExistingProxy := func(curProxies []*migrationProxy, targetAddress string, destSrcPortMap map[string]int) bool {
 		if len(curProxies) != len(destSrcPortMap) {
 			return false
@@ -261,7 +271,8 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			destSrcLookup[addr] = src
 		}
 		for _, curProxy := range curProxies {
-			if _, ok := destSrcLookup[curProxy.targetAddress]; !ok {
+			_, ok := destSrcLookup[curProxy.targetAddress]
+			if !ok || curProxy.bandwidthBytes != bandwidthBytes {
 				return false
 			}
 		}
@@ -292,7 +303,18 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		targetFullAddr := net.JoinHostPort(targetAddress, destPort)
 		unixSocketPath := SourceUnixFile("/run/kubevirt", proxyKey)
 
-		proxy := NewSourceProxy(mountRoot, unixSocketPath, targetFullAddr, migrationTLSConfig, key)
+		// Limit only the direct migration socket. It carries multifd, and QEMU's
+		// max-bandwidth does not account for writes still in flight on those
+		// channels (https://gitlab.com/qemu-project/qemu/-/work_items/3364).
+		// The virtqemud socket is libvirt RPC. The block socket is disk
+		// blockdev-mirror traffic, which QEMU rate-limits itself from the
+		// bandwidth passed to libvirt, and which does not use multifd.
+		var limiter *rate.Limiter
+		if srcPort == LibvirtDirectMigrationPort {
+			limiter = newBandwidthLimiter(bandwidth)
+		}
+		proxy := NewSourceProxy(mountRoot, unixSocketPath, targetFullAddr, migrationTLSConfig, key, limiter)
+		proxy.bandwidthBytes = bandwidthBytes
 
 		err := proxy.Start()
 		if err != nil {
@@ -340,8 +362,10 @@ func NewSourceProxy(
 	unixSocketPath string,
 	tcpTargetAddress string,
 	migrationTLSConfig *tls.Config,
-	vmiUID string) *migrationProxy {
+	vmiUID string,
+	limiter *rate.Limiter) *migrationProxy {
 	return &migrationProxy{
+		limiter:            limiter,
 		mountRoot:          mountRoot,
 		unixSocketPath:     unixSocketPath,
 		targetAddress:      tcpTargetAddress,
@@ -470,6 +494,64 @@ func (m *migrationProxy) Stop() {
 	}
 }
 
+// bandwidthBytesPerSecond converts BandwidthPerMigration to bytes/s using
+// vcpu.QuantityToMebiByte, the same rounding libvirt's migration bandwidth
+// parameter uses.
+func bandwidthBytesPerSecond(bandwidth resource.Quantity) int64 {
+	mebiPerSecond, err := vcpu.QuantityToMebiByte(bandwidth)
+	if err != nil || mebiPerSecond == 0 {
+		return 0
+	}
+	return int64(mebiPerSecond) * 1024 * 1024 // to bytes
+}
+
+func newBandwidthLimiter(bandwidth resource.Quantity) *rate.Limiter {
+	bps := bandwidthBytesPerSecond(bandwidth)
+	if bps <= 0 {
+		return nil
+	}
+	burst := min(bps, int64(copyBufferSize))
+	return rate.NewLimiter(rate.Limit(bps), int(max(burst, 1)))
+}
+
+type throttledReader struct {
+	ctx     context.Context
+	src     io.Reader
+	limiter *rate.Limiter
+}
+
+func (r throttledReader) Read(p []byte) (int, error) {
+	if len(p) > r.limiter.Burst() {
+		p = p[:r.limiter.Burst()]
+	}
+	n, err := r.src.Read(p)
+	if n > 0 {
+		if waitErr := r.limiter.WaitN(r.ctx, n); waitErr != nil {
+			return 0, waitErr
+		}
+	}
+	return n, err
+}
+
+func copyRateLimited(ctx context.Context, dst io.Writer, src io.Reader, limiter *rate.Limiter) (int64, error) {
+	if limiter == nil {
+		return io.Copy(dst, src)
+	}
+	return io.Copy(dst, throttledReader{ctx: ctx, src: src, limiter: limiter})
+}
+
+func (m *migrationProxy) connectionContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-m.stopChan:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
 func (m *migrationProxy) handleConnection(fd net.Conn) {
 	defer fd.Close()
 
@@ -512,6 +594,10 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 		return
 	}
 
+	defer conn.Close()
+	ctx, cancel := m.connectionContext()
+	defer cancel()
+
 	go func() {
 		//from outbound connection to proxy
 		n, err := io.Copy(fd, conn)
@@ -520,7 +606,9 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 	}()
 	go func() {
 		//from proxy to outbound connection
-		n, err := io.Copy(conn, fd)
+		// todo: Once https://gitlab.com/qemu-project/qemu/-/work_items/3364 is patched, rate limit may be
+		//  enforced inside QEMU and `copyRateLimited` + associated code can be replaced with io.Copy.
+		n, err := copyRateLimited(ctx, conn, fd, m.limiter)
 		m.logger.Infof("%d bytes copied from inbound to outbound", n)
 		outBoundErr <- err
 	}()
