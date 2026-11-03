@@ -20,18 +20,24 @@
 package launcher_clients
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"sync"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -62,22 +68,14 @@ var _ = Describe("LauncherClientInfo Close", func() {
 			DomainPipeStopChan: stopChan,
 		}
 
-		done := make(chan bool, 5)
+		var wg sync.WaitGroup
 		for range 5 {
-			go func() {
-				defer func() {
-					if r := recover(); r != nil {
-						Fail(fmt.Sprintf("Panic occurred during concurrent Close: %v", r))
-					}
-					done <- true
-				}()
+			wg.Go(func() {
+				defer GinkgoRecover()
 				clientInfo.Close()
-			}()
+			})
 		}
-
-		for range 5 {
-			<-done
-		}
+		wg.Wait()
 	})
 })
 
@@ -171,6 +169,410 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 			Expect(err).To(MatchError(IrrecoverableError))
 			Expect(client).To(BeNil())
 		})
+
+		It("should return the FindSocket error as recoverable when it is not ErrNoSocketFound", func() {
+			// Two sockets on the same node make FindSocket ambiguous, which is a
+			// recoverable condition: one of the two pods is expected to go away.
+			vmi.Status.ActivePods[types.UID(otherPodUID)] = nodeName
+			createSocketFile(socketPath)
+			createSocketFile(cmdclient.SocketFilePathOnHost(otherPodUID))
+
+			mockClient := cmdclient.NewMockLauncherClient(gomock.NewController(GinkgoT()))
+			mockClient.EXPECT().Ping().Return(fmt.Errorf("connection refused"))
+
+			manager.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
+				Client:     mockClient,
+				SocketFile: socketPath,
+				Ready:      true,
+			})
+
+			client, err := manager.GetVerifiedLauncherClient(vmi)
+
+			Expect(err).To(MatchError(ContainSubstring("Found multiple sockets")))
+			Expect(err).ToNot(MatchError(IrrecoverableError))
+			Expect(client).To(BeNil())
+		})
+
+		It("should propagate the error of a failed client lookup", func() {
+			// Nothing is cached and no socket exists, so GetLauncherClient fails
+			// before Ping is ever attempted.
+			client, err := manager.GetVerifiedLauncherClient(vmi)
+
+			Expect(err).To(MatchError(IrrecoverableError))
+			Expect(client).To(BeNil())
+		})
+	})
+})
+
+var _ = Describe("GetLauncherClient", func() {
+	var (
+		manager          *launcherClientsManager
+		notify           *fakeNotifyManager
+		ghostRecordStore *virtcache.GhostRecordStore
+		vmi              *v1.VirtualMachineInstance
+	)
+
+	BeforeEach(func() {
+		vmi = newTestVMI()
+		setupPodsBaseDir()
+		ghostRecordStore = newGhostRecordStore()
+		notify = &fakeNotifyManager{}
+		manager = NewLauncherClientsManager(nil, notify, ghostRecordStore)
+	})
+
+	It("should return the cached client without creating a new one", func() {
+		mockClient := cmdclient.NewMockLauncherClient(gomock.NewController(GinkgoT()))
+		manager.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{Client: mockClient})
+
+		client, err := manager.GetLauncherClient(vmi)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(client).To(Equal(mockClient))
+		Expect(notify.callCount()).To(BeZero())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+
+	It("should return an irrecoverable error when no socket exists", func() {
+		client, err := manager.GetLauncherClient(vmi)
+
+		Expect(err).To(MatchError(IrrecoverableError))
+		Expect(err).To(MatchError(cmdclient.ErrNoSocketFound))
+		Expect(client).To(BeNil())
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+
+	It("should return a recoverable error when multiple sockets are found", func() {
+		vmi.Status.ActivePods[types.UID(otherPodUID)] = nodeName
+		createSocketFile(cmdclient.SocketFilePathOnHost(podUID))
+		createSocketFile(cmdclient.SocketFilePathOnHost(otherPodUID))
+
+		client, err := manager.GetLauncherClient(vmi)
+
+		Expect(err).To(MatchError(ContainSubstring("Found multiple sockets")))
+		Expect(err).ToNot(MatchError(IrrecoverableError))
+		Expect(client).To(BeNil())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+
+	It("should fail when a ghost record of a previous VMI incarnation exists", func() {
+		const staleUID types.UID = "stale-vmi-uid"
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, "/stale/socket", staleUID)).To(Succeed())
+		// A plain file would make the gRPC dial time out, so a quick ghost record
+		// error also proves the record is stored before connecting.
+		createSocketFile(cmdclient.SocketFilePathOnHost(podUID))
+
+		client, err := manager.GetLauncherClient(vmi)
+
+		Expect(err).To(MatchError(ContainSubstring("differing UID")))
+		Expect(client).To(BeNil())
+		Expect(notify.callCount()).To(BeZero())
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+		Expect(ghostRecordStore.LastKnownUID(ghostRecordKey(vmi))).To(Equal(staleUID))
+	})
+
+	It("should fail when the client can not be created", func() {
+		// A plain file instead of a listening socket makes the gRPC dial fail.
+		createSocketFile(cmdclient.SocketFilePathOnHost(podUID))
+
+		client, err := manager.GetLauncherClient(vmi)
+
+		Expect(err).To(MatchError("context deadline exceeded"))
+		Expect(client).To(BeNil())
+		Expect(notify.callCount()).To(BeZero())
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+		// The socket was found, so the record stays until CloseLauncherClient.
+		Expect(ghostRecordStore.LastKnownUID(ghostRecordKey(vmi))).To(Equal(vmi.UID))
+	})
+
+	When("a launcher is listening on the socket", func() {
+		var socketPath string
+
+		BeforeEach(func() {
+			socketPath = cmdclient.SocketFilePathOnHost(podUID)
+			startFakeLauncher(socketPath)
+			DeferCleanup(func() {
+				manager.GetLauncherClientInfo(vmi).Close()
+			})
+		})
+
+		It("should create, cache and start notifying for a new client", func() {
+			client, err := manager.GetLauncherClient(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(client).ToNot(BeNil())
+
+			clientInfo := manager.GetLauncherClientInfo(vmi)
+			Expect(clientInfo).ToNot(BeNil())
+			Expect(clientInfo.Client).To(Equal(client))
+			Expect(clientInfo.SocketFile).To(Equal(socketPath))
+			Expect(clientInfo.Ready).To(BeTrue())
+			Expect(clientInfo.DomainPipeStopChan).ToNot(BeClosed())
+
+			Expect(notify.callCount()).To(Equal(1))
+			Expect(notify.lastVMI()).To(Equal(vmi))
+			Expect(ghostRecordStore.LastKnownUID(ghostRecordKey(vmi))).To(Equal(vmi.UID))
+
+			By("returning the very same client on a subsequent call")
+			cachedClient, err := manager.GetLauncherClient(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cachedClient).To(Equal(client))
+			Expect(notify.callCount()).To(Equal(1))
+		})
+
+		It("should tear down the client when starting the domain notifier fails", func() {
+			notify.err = fmt.Errorf("pipe failed")
+
+			client, err := manager.GetLauncherClient(vmi)
+
+			Expect(err).To(MatchError("pipe failed"))
+			Expect(err).ToNot(MatchError(IrrecoverableError))
+			Expect(client).To(BeNil())
+			Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+			Expect(notify.lastStopChan()).To(BeClosed())
+			// The socket was found, so the record stays until CloseLauncherClient.
+			Expect(ghostRecordStore.LastKnownUID(ghostRecordKey(vmi))).To(Equal(vmi.UID))
+		})
+
+		It("should create a single client when called concurrently", func() {
+			const concurrency = 10
+
+			clients := make([]cmdclient.LauncherClient, concurrency)
+			errs := make([]error, concurrency)
+			start := make(chan struct{})
+
+			var wg sync.WaitGroup
+			for i := range concurrency {
+				wg.Go(
+					func() {
+						defer GinkgoRecover()
+						<-start
+						clients[i], errs[i] = manager.GetLauncherClient(vmi)
+					})
+			}
+			close(start)
+			wg.Wait()
+
+			for i := range concurrency {
+				Expect(errs[i]).ToNot(HaveOccurred())
+				Expect(clients[i]).To(Equal(clients[0]))
+			}
+			Expect(notify.callCount()).To(Equal(1))
+		})
+	})
+})
+
+var _ = Describe("GetLauncherClientInfo", func() {
+	var (
+		manager *launcherClientsManager
+		vmi     *v1.VirtualMachineInstance
+	)
+
+	BeforeEach(func() {
+		vmi = newTestVMI()
+		manager = NewLauncherClientsManager(nil, nil, nil)
+	})
+
+	It("should return nil for an unknown VMI", func() {
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+	})
+
+	It("should return the stored info for a known VMI", func() {
+		clientInfo := &virtcache.LauncherClientInfo{SocketFile: "/some/socket"}
+		manager.launcherClients.Store(vmi.UID, clientInfo)
+
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeIdenticalTo(clientInfo))
+	})
+})
+
+var _ = Describe("CloseLauncherClient", func() {
+	var (
+		manager          *launcherClientsManager
+		ghostRecordStore *virtcache.GhostRecordStore
+		vmi              *v1.VirtualMachineInstance
+	)
+
+	BeforeEach(func() {
+		vmi = newTestVMI()
+		setupPodsBaseDir()
+		ghostRecordStore = newGhostRecordStore()
+		manager = NewLauncherClientsManager(nil, nil, ghostRecordStore)
+	})
+
+	It("should do nothing for a VMI without UID", func() {
+		vmi.UID = ""
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, "/some/socket", "other-uid")).To(Succeed())
+
+		manager.CloseLauncherClient(vmi)
+
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+	})
+
+	It("should close the client and drop all of its records", func() {
+		mockClient := cmdclient.NewMockLauncherClient(gomock.NewController(GinkgoT()))
+		mockClient.EXPECT().Close()
+		stopChan := make(chan struct{})
+		manager.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
+			Client:             mockClient,
+			DomainPipeStopChan: stopChan,
+		})
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, "/some/socket", vmi.UID)).To(Succeed())
+
+		manager.CloseLauncherClient(vmi)
+
+		Expect(stopChan).To(BeClosed())
+		Expect(manager.GetLauncherClientInfo(vmi)).To(BeNil())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+
+	It("should drop the ghost record even if no client was ever created", func() {
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, "/some/socket", vmi.UID)).To(Succeed())
+
+		manager.CloseLauncherClient(vmi)
+
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+	})
+})
+
+var _ = Describe("IsLauncherClientUnresponsive", func() {
+	var (
+		manager    *launcherClientsManager
+		vmi        *v1.VirtualMachineInstance
+		socketPath string
+	)
+
+	BeforeEach(func() {
+		vmi = newTestVMI()
+		setupPodsBaseDir()
+		socketPath = cmdclient.SocketFilePathOnHost(podUID)
+		manager = NewLauncherClientsManager(nil, nil, nil)
+	})
+
+	Context("without a cached entry", func() {
+		It("should report an existing socket as responsive and cache it", func() {
+			createSocketFile(socketPath)
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeFalse())
+			Expect(initialized).To(BeTrue())
+
+			clientInfo := manager.GetLauncherClientInfo(vmi)
+			Expect(clientInfo).ToNot(BeNil())
+			Expect(clientInfo.Ready).To(BeTrue())
+			Expect(clientInfo.SocketFile).To(Equal(socketPath))
+		})
+
+		It("should report a socket marked unresponsive as unresponsive", func() {
+			createSocketFile(socketPath)
+			Expect(cmdclient.MarkSocketUnresponsive(socketPath)).To(Succeed())
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeTrue())
+			Expect(initialized).To(BeTrue())
+		})
+
+		It("should report unresponsive when neither socket nor pod dir exist", func() {
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeTrue())
+			Expect(initialized).To(BeTrue())
+		})
+
+		It("should report not initialized while the pod dir exists without a socket", func() {
+			createPodDir()
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeFalse())
+			Expect(initialized).To(BeFalse())
+			Expect(manager.GetLauncherClientInfo(vmi).Ready).To(BeFalse())
+		})
+	})
+
+	Context("with a cached ready entry", func() {
+		BeforeEach(func() {
+			manager.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
+				SocketFile: socketPath,
+				Ready:      true,
+			})
+		})
+
+		It("should use the cached socket and report it responsive", func() {
+			createSocketFile(socketPath)
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeFalse())
+			Expect(initialized).To(BeTrue())
+		})
+
+		It("should report unresponsive once the cached socket is gone", func() {
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeTrue())
+			Expect(initialized).To(BeTrue())
+		})
+	})
+
+	Context("with a cached entry that is not ready yet", func() {
+		var clientInfo *virtcache.LauncherClientInfo
+
+		BeforeEach(func() {
+			clientInfo = &virtcache.LauncherClientInfo{
+				NotInitializedSince: time.Now(),
+				Ready:               false,
+			}
+			manager.launcherClients.Store(vmi.UID, clientInfo)
+		})
+
+		It("should mark it ready once the socket shows up", func() {
+			createSocketFile(socketPath)
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeFalse())
+			Expect(initialized).To(BeTrue())
+			Expect(clientInfo.Ready).To(BeTrue())
+			Expect(clientInfo.SocketFile).To(Equal(socketPath))
+		})
+
+		It("should report unresponsive when the pod is gone", func() {
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeTrue())
+			Expect(initialized).To(BeTrue())
+		})
+
+		It("should keep waiting while the pod exists and the grace period did not pass", func() {
+			createPodDir()
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeFalse())
+			Expect(initialized).To(BeFalse())
+		})
+
+		It("should give up once the socket did not show up in time", func() {
+			createPodDir()
+			clientInfo.NotInitializedSince = time.Now().Add(-4 * time.Minute)
+
+			unresponsive, initialized, err := manager.IsLauncherClientUnresponsive(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unresponsive).To(BeTrue())
+			Expect(initialized).To(BeTrue())
+		})
 	})
 })
 
@@ -192,16 +594,22 @@ func newTestVMI() *v1.VirtualMachineInstance {
 }
 
 func setupPodsBaseDir() {
-	podsDir := GinkgoT().TempDir()
-	DeferCleanup(func() {
-		Expect(os.RemoveAll(podsDir)).To(Succeed())
-	})
+	cmdclient.SetPodsBaseDir(GinkgoT().TempDir())
+	GinkgoT().Setenv("NODE_NAME", nodeName)
+}
 
-	cmdclient.SetPodsBaseDir(podsDir)
-	Expect(os.Setenv("NODE_NAME", nodeName)).To(Succeed())
-	DeferCleanup(func() {
-		Expect(os.Unsetenv("NODE_NAME")).To(Succeed())
-	})
+func newGhostRecordStore() *virtcache.GhostRecordStore {
+	return virtcache.InitializeGhostRecordCache(
+		virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+	)
+}
+
+func ghostRecordKey(vmi *v1.VirtualMachineInstance) string {
+	return vmi.Namespace + "/" + vmi.Name
+}
+
+func createPodDir() {
+	Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(podUID), 0755)).To(Succeed())
 }
 
 func createSocketFile(socketPath string) {
@@ -209,4 +617,61 @@ func createSocketFile(socketPath string) {
 	f, err := os.Create(socketPath)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(f.Close()).To(Succeed())
+}
+
+// startFakeLauncher serves just enough of the launcher gRPC API on socketPath
+// for cmdclient.NewClient to negotiate a connection.
+func startFakeLauncher(socketPath string) {
+	Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
+	listener, err := net.Listen("unix", socketPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	server := grpc.NewServer()
+	info.RegisterCmdInfoServer(server, &fakeCmdInfoServer{})
+	go func() {
+		defer GinkgoRecover()
+		_ = server.Serve(listener)
+	}()
+	DeferCleanup(server.Stop)
+}
+
+type fakeCmdInfoServer struct{}
+
+func (*fakeCmdInfoServer) Info(context.Context, *info.CmdInfoRequest) (*info.CmdInfoResponse, error) {
+	return &info.CmdInfoResponse{SupportedCmdVersions: []uint32{1}}, nil
+}
+
+type fakeNotifyManager struct {
+	lock     sync.Mutex
+	err      error
+	calls    int
+	stopChan <-chan struct{}
+	vmi      *v1.VirtualMachineInstance
+}
+
+func (f *fakeNotifyManager) StartDomainNotify(stopChan <-chan struct{}, vmi *v1.VirtualMachineInstance) error {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	f.calls++
+	f.stopChan = stopChan
+	f.vmi = vmi
+	return f.err
+}
+
+func (f *fakeNotifyManager) callCount() int {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.calls
+}
+
+func (f *fakeNotifyManager) lastStopChan() <-chan struct{} {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.stopChan
+}
+
+func (f *fakeNotifyManager) lastVMI() *v1.VirtualMachineInstance {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.vmi
 }
