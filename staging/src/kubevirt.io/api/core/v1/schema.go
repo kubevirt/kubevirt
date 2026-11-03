@@ -1484,6 +1484,8 @@ type Interface struct {
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
+	// +kubebuilder:validation:MaxLength:=12
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\\\.[0-7]$')",message="interface has a malformed PCI address"
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional

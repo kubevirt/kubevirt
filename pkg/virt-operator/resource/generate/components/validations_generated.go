@@ -8204,7 +8204,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
+                                maxLength: 12
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed PCI address
+                                  rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
@@ -14873,7 +14877,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
+                        maxLength: 12
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed PCI address
+                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
@@ -19490,7 +19498,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
+                        maxLength: 12
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed PCI address
+                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
@@ -22092,7 +22104,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
+                                maxLength: 12
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed PCI address
+                                  rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
@@ -27542,7 +27558,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           interface will be placed on the guests pci
                                           address with the specified PCI address.
                                           For example: 0000:81:01.10'
+                                        maxLength: 12
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface has a malformed PCI address
+                                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                                       portRanges:
                                         description: |-
                                           List of port ranges to be forwarded to the virtual machine.
@@ -33519,7 +33539,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               network interface will be placed on
                                               the guests pci address with the specified
                                               PCI address. For example: 0000:81:01.10'
+                                            maxLength: 12
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface has a malformed PCI
+                                                address
+                                              rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                                           portRanges:
                                             description: |-
                                               List of port ranges to be forwarded to the virtual machine.

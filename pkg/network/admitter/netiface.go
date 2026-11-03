@@ -27,7 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -114,7 +113,6 @@ func validateInterfacesFields(
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceNameFormat(field, idx, iface)...)
 		causes = append(causes, validateMacAddress(field, idx, iface)...)
-		causes = append(causes, validatePciAddress(field, idx, iface)...)
 		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validatePortRangesConfiguration(field, idx, iface, networksByName[iface.Name], checker)...)
 		causes = append(causes, validateDHCPOptions(field, idx, iface)...)
@@ -146,24 +144,6 @@ func validateMacAddress(field *k8sfield.Path, idx int, iface v1.Interface) []met
 			),
 			Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 		}}
-	}
-	return nil
-}
-
-func validatePciAddress(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.PciAddress != "" {
-		_, err := hwutil.ParsePciAddress(iface.PciAddress)
-		if err != nil {
-			return []metav1.StatusCause{{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(
-					"interface %s has malformed PCI address (%s).",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.PciAddress,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
-			}}
-		}
 	}
 	return nil
 }

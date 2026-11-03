@@ -20,8 +20,6 @@
 package admitter_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -175,37 +173,6 @@ var _ = Describe("Validating VMI network spec", func() {
 		Entry("valid address in uppercase and colon separated", "DE:AD:00:00:BE:AF"),
 		Entry("valid address in lowercase and dash separated", "de-ad-00-00-be-af"),
 		Entry("valid address in uppercase and dash separated", "DE-AD-00-00-BE-AF"),
-	)
-
-	DescribeTable("should reject invalid PCI addresses", func(pciAddress string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
-			Message: fmt.Sprintf("interface fake.domain.devices.interfaces[0].name has malformed PCI address (%s).", pciAddress),
-			Field:   "fake.domain.devices.interfaces[0].pciAddress",
-		}))
-	},
-		Entry("too many dots", "0000:80.10.1"),
-		Entry("too many parts'-'", "0000:80:80:1.0"),
-		Entry("function out of range", "0000:80:11.15"),
-	)
-
-	DescribeTable("should accept valid PCI address", func(pciAddress string) {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-		spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(BeEmpty())
-	},
-		Entry("valid address A", "0000:81:11.1"),
-		Entry("valid address B", "0001:02:00.0"),
 	)
 
 	When("the interface port is specified", func() {
