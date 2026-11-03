@@ -1956,12 +1956,15 @@ var _ = Describe("KubeVirt Operator", func() {
 			queued := kvTestData.controller.queue.Len() > 0 || kvTestData.mockQueue.GetAddAfterEnqueueCount() > 0
 			Expect(queued).To(Equal(expected))
 		},
-			Entry("lease renewed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+			Entry("lease renewed with unchanged leader", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
 				l.Spec.RenewTime = pointer.P(metav1.NewMicroTime(time.Now()))
-			}, false),
+			}, true),
 			Entry("metadata changed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
 				l.Annotations = map[string]string{"test": "value"}
-			}, false),
+			}, true),
+			Entry("lease recreated with unchanged leader", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
+				l.UID = "new-lease"
+			}, true),
 			Entry("leader changed", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
 				l.Spec.HolderIdentity = pointer.P("new-leader")
 			}, true),
@@ -1976,6 +1979,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			}, true),
 			Entry("unrelated leader changed", "virt-controller", func(l *coordinationv1.Lease) {
 				l.Spec.HolderIdentity = pointer.P("new-leader")
+			}, false),
+			Entry("unrelated lease renewed", "virt-controller", func(l *coordinationv1.Lease) {
+				l.Spec.RenewTime = pointer.P(metav1.NewMicroTime(time.Now()))
 			}, false),
 			Entry("informer resync", components.VirtSynchronizationControllerName, func(l *coordinationv1.Lease) {
 				l.ResourceVersion = "1"

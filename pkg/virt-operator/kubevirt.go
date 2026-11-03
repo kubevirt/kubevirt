@@ -32,7 +32,6 @@ import (
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -619,13 +618,7 @@ func NewKubeVirtController(
 				c.genericDeleteHandler(obj, nil)
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				oldLease := oldObj.(*coordinationv1.Lease)
-				newLease := newObj.(*coordinationv1.Lease)
-				// Only leader changes affect the synchronization address. Ignore lease renewals.
-				if equality.Semantic.DeepEqual(oldLease.Spec.HolderIdentity, newLease.Spec.HolderIdentity) &&
-					equality.Semantic.DeepEqual(oldLease.DeletionTimestamp, newLease.DeletionTimestamp) {
-					return
-				}
+				// An unchanged holder does not guarantee the synchronization address is current.
 				c.genericUpdateHandler(oldObj, newObj, nil)
 			},
 		},
