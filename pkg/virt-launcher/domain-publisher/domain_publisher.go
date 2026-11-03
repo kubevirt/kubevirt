@@ -22,6 +22,7 @@ package domainpublisher
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +42,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
+
+// ioErrorReasonNoSpace is the libvirt I/O error event reason for ENOSPC.
+const ioErrorReasonNoSpace = "enospc"
 
 type domainNotifier interface {
 	SendDomainEvent(event watch.Event) error
@@ -110,6 +114,10 @@ func (p *DomainPublisher) OnJobCompleted(event *libvirt.DomainEventJobCompleted)
 }
 
 func (p *DomainPublisher) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecycle) {
+	p.queue.Add(event)
+}
+
+func (p *DomainPublisher) OnIOError(event *libvirt.DomainEventIOErrorReason) {
 	p.queue.Add(event)
 }
 
@@ -222,30 +230,6 @@ func (p *DomainPublisher) publish() {
 		domain.ObjectMeta.DeletionTimestamp = p.removedAt
 	}
 
-	switch domain.Status.Reason {
-	case api.ReasonPausedIOError:
-		domainDisksWithErrors, err := d.GetDiskErrors(0)
-		if err != nil {
-			log.Log.Reason(err).Error("Could not get disks with errors")
-		}
-		for _, disk := range domainDisksWithErrors {
-			volumeName := getVolumeNameByTarget(domain, disk.Disk)
-			var reasonError string
-			switch disk.Error {
-			case libvirt.DOMAIN_DISK_ERROR_NONE:
-				continue
-			case libvirt.DOMAIN_DISK_ERROR_UNSPEC:
-				reasonError = fmt.Sprintf("VM Paused due to IO error at the volume: %s", volumeName)
-			case libvirt.DOMAIN_DISK_ERROR_NO_SPACE:
-				reasonError = fmt.Sprintf("VM Paused due to not enough space on volume: %s", volumeName)
-			}
-			err = p.notifier.SendK8sEvent(p.vmi, "Warning", "IOerror", reasonError)
-			if err != nil {
-				log.Log.Reason(err).Error(fmt.Sprintf("Could not send k8s event"))
-			}
-		}
-	}
-
 	agentStore := p.agentPoller.Store()
 	if interfaces := agentStore.GetInterfaceStatus(); interfaces != nil {
 		domain.Status.Interfaces = interfaces
@@ -327,17 +311,6 @@ func applyCompletedMigrationStats(domain *api.Domain, metadataCache *metadata.Ca
 	domain.Status.CompletedMigrationStats = &completedMigration.Stats
 }
 
-// getVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
-// One should not rely on target (vda) as API, use disk serials instead.
-func getVolumeNameByTarget(domain *api.Domain, target string) string {
-	for _, d := range domain.Spec.Devices.Disks {
-		if d.Target.Device == target {
-			return d.Alias.GetName()
-		}
-	}
-	return ""
-}
-
 type resync struct{}
 
 // Run publishes domain notifications until ctx is cancelled.
@@ -378,6 +351,8 @@ func (p *DomainPublisher) handle(event any) {
 		p.onJobCompleted(e)
 	case *libvirt.DomainEventAgentLifecycle:
 		p.agentPoller.OnAgentLifecycle(e.State)
+	case *libvirt.DomainEventIOErrorReason:
+		p.onIOError(e)
 	}
 }
 
@@ -440,5 +415,19 @@ func (p *DomainPublisher) resyncOnSignals(ctx context.Context) {
 		case <-p.metadataCache.Listen():
 			p.Resync()
 		}
+	}
+}
+
+func (p *DomainPublisher) onIOError(event *libvirt.DomainEventIOErrorReason) {
+	if event.Action != libvirt.DOMAIN_EVENT_IO_ERROR_PAUSE {
+		return
+	}
+	volumeName := strings.TrimPrefix(event.DevAlias, api.UserAliasPrefix)
+	message := fmt.Sprintf("VM Paused due to IO error at the volume: %s", volumeName)
+	if event.Reason == ioErrorReasonNoSpace {
+		message = fmt.Sprintf("VM Paused due to not enough space on volume: %s", volumeName)
+	}
+	if err := p.notifier.SendK8sEvent(p.vmi, k8sv1.EventTypeWarning, "IOerror", message); err != nil {
+		log.Log.Reason(err).Error("Could not send k8s event")
 	}
 }

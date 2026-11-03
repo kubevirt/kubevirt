@@ -34,6 +34,7 @@ type EventHandler interface {
 	OnLifecycle(*libvirt.DomainEventLifecycle)
 	OnJobCompleted(*libvirt.DomainEventJobCompleted)
 	OnAgentLifecycle(*libvirt.DomainEventAgentLifecycle)
+	OnIOError(*libvirt.DomainEventIOErrorReason)
 	Resync()
 }
 
@@ -52,6 +53,7 @@ func RegisterLibvirtEvents(conn cli.Connection, handler EventHandler) error {
 		conn.DomainEventLifecycleRegister(deliver(handler.OnLifecycle)),
 		conn.DomainEventJobCompletedRegister(deliver(handler.OnJobCompleted)),
 		conn.AgentEventLifecycleRegister(deliver(handler.OnAgentLifecycle)),
+		conn.DomainEventIOErrorReasonRegister(deliver(handler.OnIOError)),
 		conn.DomainEventDeviceAddedRegister(deliver(resyncOn[*libvirt.DomainEventDeviceAdded](handler))),
 		conn.DomainEventDeviceRemovedRegister(deliver(resyncOn[*libvirt.DomainEventDeviceRemoved](handler))),
 		conn.DomainEventMemoryDeviceSizeChangeRegister(deliver(resyncOn[*libvirt.DomainEventMemoryDeviceSizeChange](handler))),

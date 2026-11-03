@@ -47,6 +47,7 @@ var _ = Describe("RegisterLibvirtEvents", func() {
 			lifecycle              libvirt.DomainEventLifecycleCallback
 			jobCompleted           libvirt.DomainEventJobCompletedCallback
 			agentLifecycle         libvirt.DomainEventAgentLifecycleCallback
+			ioError                libvirt.DomainEventIOErrorReasonCallback
 			deviceAdded            libvirt.DomainEventDeviceAddedCallback
 			deviceRemoved          libvirt.DomainEventDeviceRemovedCallback
 			memoryDeviceSizeChange libvirt.DomainEventMemoryDeviceSizeChangeCallback
@@ -57,6 +58,7 @@ var _ = Describe("RegisterLibvirtEvents", func() {
 		conn.DomainEventLifecycleRegister(gomock.Any()).Do(func(cb libvirt.DomainEventLifecycleCallback) { lifecycle = cb })
 		conn.DomainEventJobCompletedRegister(gomock.Any()).Do(func(cb libvirt.DomainEventJobCompletedCallback) { jobCompleted = cb })
 		conn.AgentEventLifecycleRegister(gomock.Any()).Do(func(cb libvirt.DomainEventAgentLifecycleCallback) { agentLifecycle = cb })
+		conn.DomainEventIOErrorReasonRegister(gomock.Any()).Do(func(cb libvirt.DomainEventIOErrorReasonCallback) { ioError = cb })
 		conn.DomainEventDeviceAddedRegister(gomock.Any()).Do(func(cb libvirt.DomainEventDeviceAddedCallback) { deviceAdded = cb })
 		conn.DomainEventDeviceRemovedRegister(gomock.Any()).Do(func(cb libvirt.DomainEventDeviceRemovedCallback) { deviceRemoved = cb })
 		conn.DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Do(func(cb libvirt.DomainEventMemoryDeviceSizeChangeCallback) {
@@ -76,6 +78,10 @@ var _ = Describe("RegisterLibvirtEvents", func() {
 		agentEvent := &libvirt.DomainEventAgentLifecycle{State: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED}
 		agentLifecycle(nil, nil, agentEvent)
 		Expect(handler.delivered).To(Receive(BeIdenticalTo(agentEvent)))
+
+		ioErrorEvent := &libvirt.DomainEventIOErrorReason{Action: libvirt.DOMAIN_EVENT_IO_ERROR_PAUSE}
+		ioError(nil, nil, ioErrorEvent)
+		Expect(handler.delivered).To(Receive(BeIdenticalTo(ioErrorEvent)))
 
 		deviceAdded(nil, nil, &libvirt.DomainEventDeviceAdded{})
 		Expect(handler.delivered).To(Receive(Equal(resync)))
@@ -97,6 +103,7 @@ var _ = Describe("RegisterLibvirtEvents", func() {
 		conn.DomainEventLifecycleRegister(gomock.Any()).Return(registerErr)
 		conn.DomainEventJobCompletedRegister(gomock.Any())
 		conn.AgentEventLifecycleRegister(gomock.Any())
+		conn.DomainEventIOErrorReasonRegister(gomock.Any())
 		conn.DomainEventDeviceAddedRegister(gomock.Any())
 		conn.DomainEventDeviceRemovedRegister(gomock.Any())
 		conn.DomainEventMemoryDeviceSizeChangeRegister(gomock.Any())
@@ -116,4 +123,5 @@ func (f *fakeHandler) OnJobCompleted(event *libvirt.DomainEventJobCompleted) { f
 func (f *fakeHandler) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecycle) {
 	f.delivered <- event
 }
-func (f *fakeHandler) Resync() { f.delivered <- resync }
+func (f *fakeHandler) OnIOError(event *libvirt.DomainEventIOErrorReason) { f.delivered <- event }
+func (f *fakeHandler) Resync()                                           { f.delivered <- resync }

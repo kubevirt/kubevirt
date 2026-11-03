@@ -54,6 +54,7 @@ type Connection interface {
 	DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
+	DomainEventIOErrorReasonRegister(callback libvirt.DomainEventIOErrorReasonCallback) error
 	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error)
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
@@ -99,6 +100,7 @@ type LibvirtConnection struct {
 	domainEventJobCompletedCallbacks            []libvirt.DomainEventJobCompletedCallback
 	domainDeviceAddedEventCallbacks             []libvirt.DomainEventDeviceAddedCallback
 	domainDeviceRemovedEventCallbacks           []libvirt.DomainEventDeviceRemovedCallback
+	domainIOErrorReasonEventCallbacks           []libvirt.DomainEventIOErrorReasonCallback
 	agentEventCallbacks                         []libvirt.DomainEventAgentLifecycleCallback
 	domainDeviceMemoryDeviceSizeChangeCallbacks []libvirt.DomainEventMemoryDeviceSizeChangeCallback
 }
@@ -200,6 +202,13 @@ func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.Do
 	return registerEventCallback(l, &l.domainDeviceRemovedEventCallbacks, callback,
 		func(cb libvirt.DomainEventDeviceRemovedCallback) (int, error) {
 			return l.Connect.DomainEventDeviceRemovedRegister(nil, cb)
+		})
+}
+
+func (l *LibvirtConnection) DomainEventIOErrorReasonRegister(callback libvirt.DomainEventIOErrorReasonCallback) error {
+	return registerEventCallback(l, &l.domainIOErrorReasonEventCallbacks, callback,
+		func(cb libvirt.DomainEventIOErrorReasonCallback) (int, error) {
+			return l.Connect.DomainEventIOErrorReasonRegister(nil, cb)
 		})
 }
 
@@ -610,6 +619,12 @@ func (l *LibvirtConnection) reconnectIfNecessaryLocked() (err error) {
 			return err
 		}
 	}
+	for _, callback := range l.domainIOErrorReasonEventCallbacks {
+		log.Log.Infof("Re-registered domain I/O error callback: %p", callback)
+		if _, err = l.Connect.DomainEventIOErrorReasonRegister(nil, callback); err != nil {
+			return err
+		}
+	}
 	for _, callback := range l.domainDeviceMemoryDeviceSizeChangeCallbacks {
 		log.Log.Infof("Re-registered domain memory device size change callback: %p", callback)
 		if _, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback); err != nil {
@@ -688,7 +703,6 @@ type VirDomain interface {
 	GetJobStats(flags libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error)
 	GetJobInfo() (*libvirt.DomainJobInfo, error)
 	GetGuestInfo(types libvirt.DomainGuestInfoTypes, flags uint32) (*libvirt.DomainGuestInfo, error)
-	GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
 	SetUserPassword(user string, password string, flags libvirt.DomainSetUserPasswordFlags) error
 	AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error

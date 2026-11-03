@@ -271,19 +271,27 @@ var _ = Describe("DomainPublisher", func() {
 	Context("with a domain paused on an I/O error", func() {
 		BeforeEach(func() {
 			domainExists(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR))
-			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return([]libvirt.DomainDiskError{
-				{Disk: "vda", Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE},
-			}, nil).AnyTimes()
 		})
 
-		It("should report the I/O error as a Kubernetes event", func() {
-
-			h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_SUSPENDED, Detail: int(libvirt.DOMAIN_EVENT_SUSPENDED_IOERROR)})
+		DescribeTable("should report an I/O error that pauses the VM as a Kubernetes event", func(reason, expectedMessage string) {
+			h.publisher.OnIOError(&libvirt.DomainEventIOErrorReason{
+				DevAlias: "ua-disk0", Action: libvirt.DOMAIN_EVENT_IO_ERROR_PAUSE, Reason: reason,
+			})
 
 			h.receive()
-			Eventually(h.notifier.k8sEvents).Should(Receive(Equal(k8sEvent{
-				severity: "Warning", reason: "IOerror", message: "VM Paused due to not enough space on volume: ",
-			})))
+			Expect(h.notifier.k8sEvents).To(Receive(Equal(k8sEvent{severity: "Warning", reason: "IOerror", message: expectedMessage})))
+		},
+			Entry("out of space", "enospc", "VM Paused due to not enough space on volume: disk0"),
+			Entry("any other error", "message", "VM Paused due to IO error at the volume: disk0"),
+		)
+
+		It("should not report an I/O error that does not pause the VM", func() {
+			h.publisher.OnIOError(&libvirt.DomainEventIOErrorReason{
+				DevAlias: "ua-disk0", Action: libvirt.DOMAIN_EVENT_IO_ERROR_REPORT, Reason: "message",
+			})
+
+			h.receive()
+			Expect(h.notifier.k8sEvents).ToNot(Receive())
 		})
 
 		It("should consolidate the I/O error state and agent data into one notification", func() {
