@@ -177,49 +177,13 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 }
 
 func (p *DomainPublisher) publish() {
-	domain := p.domainTemplate.DeepCopy()
-	d, err := p.connection.LookupDomainByName(p.domainName)
+	domain, err := p.readDomain()
 	if err != nil {
-		if !domainerrors.IsNotFound(err) {
-			log.Log.Reason(err).Error("Could not fetch the Domain.")
-			return
-		}
-		if !p.domainSeen {
-			log.Log.Object(p.vmi).V(3).Info("Domain is not defined yet, nothing to publish")
-			return
-		}
-		domain.SetState(api.NoState, api.ReasonNonExistent)
-	} else {
-		defer d.Free()
-		p.markSeen()
-
-		// No matter which event, try to fetch the domain xml
-		// and the state. If we get a IsNotFound error, that
-		// means that the VirtualMachineInstance was removed.
-		status, reason, err := d.GetState()
-		if err != nil {
-			if !domainerrors.IsNotFound(err) {
-				log.Log.Reason(err).Error("Could not fetch the Domain state.")
-				return
-			}
-			domain.SetState(api.NoState, api.ReasonNonExistent)
-		} else {
-			domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
-		}
-
-		spec, err := util.GetDomainSpecWithRuntimeInfo(d)
-		if err != nil {
-			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
-			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {
-				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
-				return
-			}
-		} else {
-			domain.Spec = *spec
-		}
-
-		p.printStatus(&domain.Status)
-		p.updateStatus(&domain.Status)
+		log.Log.Reason(err).Error("Could not read the domain")
+		return
+	}
+	if domain == nil {
+		return
 	}
 
 	if p.domainRemoved && domain.Status.Reason == api.ReasonNonExistent {
@@ -255,6 +219,49 @@ func (p *DomainPublisher) publish() {
 	if domain.DeletionTimestamp != nil {
 		closeOnce(p.finalNotificationSent)
 	}
+}
+
+func (p *DomainPublisher) readDomain() (*api.Domain, error) {
+	domain := p.domainTemplate.DeepCopy()
+
+	d, err := p.connection.LookupDomainByName(p.domainName)
+	if domainerrors.IsNotFound(err) {
+		if !p.domainSeen {
+			log.Log.Object(p.vmi).V(3).Info("Domain is not defined yet, nothing to publish")
+			return nil, nil
+		}
+		domain.SetState(api.NoState, api.ReasonNonExistent)
+		return domain, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up the domain: %w", err)
+	}
+	defer d.Free()
+	p.markSeen()
+
+	status, reason, err := d.GetState()
+	switch {
+	case domainerrors.IsNotFound(err):
+		domain.SetState(api.NoState, api.ReasonNonExistent)
+	case err != nil:
+		return nil, fmt.Errorf("failed to read the domain state: %w", err)
+	default:
+		domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
+	}
+
+	spec, err := util.GetDomainSpecWithRuntimeInfo(d)
+	switch {
+	case err == nil:
+		domain.Spec = *spec
+	case domainerrors.IsNotFound(err), domainerrors.IsInvalidOperation(err):
+		// The domain is gone, or it is migrating and its XML cannot be read.
+	default:
+		return nil, fmt.Errorf("failed to read the domain specification: %w", err)
+	}
+
+	p.printStatus(&domain.Status)
+	p.updateStatus(&domain.Status)
+	return domain, nil
 }
 
 // markSeen records that libvirt has defined the domain, either because a lookup
