@@ -8165,7 +8165,11 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example:
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                maxLength: 64
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed MAC address
+                                  rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                               macvtap:
                                 description: |-
                                   DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -14838,7 +14842,11 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af
                           or DE-AD-00-00-BE-AF.'
+                        maxLength: 64
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed MAC address
+                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                       macvtap:
                         description: |-
                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -19459,7 +19467,11 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af
                           or DE-AD-00-00-BE-AF.'
+                        maxLength: 64
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed MAC address
+                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                       macvtap:
                         description: |-
                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -22065,7 +22077,11 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example:
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                maxLength: 64
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed MAC address
+                                  rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                               macvtap:
                                 description: |-
                                   DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -27515,7 +27531,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       macAddress:
                                         description: 'Interface MAC address. For example:
                                           de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                        maxLength: 64
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface has a malformed MAC address
+                                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                                       macvtap:
                                         description: |-
                                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -33496,7 +33516,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           macAddress:
                                             description: 'Interface MAC address. For
                                               example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                            maxLength: 64
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface has a malformed MAC
+                                                address
+                                              rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                                           macvtap:
                                             description: |-
                                               DeprecatedMacvtap is an alias to the deprecated Macvtap interface,

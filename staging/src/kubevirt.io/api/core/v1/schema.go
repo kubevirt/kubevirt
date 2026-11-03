@@ -1475,6 +1475,8 @@ type Interface struct {
 	// +listType=atomic
 	PortRanges []PortRange `json:"portRanges,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
+	// +kubebuilder:validation:MaxLength:=64
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\\\.){2}[0-9a-fA-F]{4}$')",message="interface has a malformed MAC address"
 	MacAddress string `json:"macAddress,omitempty"`
 	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
 	// Lower values take precedence.

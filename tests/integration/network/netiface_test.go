@@ -132,3 +132,90 @@ var _ = Describe("Interface PCI address CRD validation", func() {
 		Entry("function out of range (12 chars)", "0000:80:11.9"),
 	)
 })
+
+// These specs exercise the +kubebuilder:validation:MaxLength and
+// +kubebuilder:validation:XValidation (CEL) constraints on Interface.MacAddress
+// (staging/src/kubevirt.io/api/core/v1/schema.go) restricting the MAC address
+// to a colon-, hyphen-, or dot-separated 6-byte hex address. No KubeVirt
+// webhook runs in this environment, so a rejection here can only come from
+// the CRD-embedded constraints.
+var _ = Describe("Interface MAC address CRD validation", func() {
+	It("should accept an interface with no MAC address set", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	DescribeTable("should accept a well-formed MAC address", func(ctx SpecContext, macAddress string) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding(), libvmi.WithMac(macAddress))),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	},
+		Entry("lowercase, colon separated", "de:ad:00:00:be:af"),
+		Entry("uppercase, colon separated", "DE:AD:00:00:BE:AF"),
+		Entry("lowercase, dash separated", "de-ad-00-00-be-af"),
+		Entry("uppercase, dash separated", "DE-AD-00-00-BE-AF"),
+		Entry("lowercase, dot separated", "dead.0000.beaf"),
+		Entry("uppercase, dot separated", "DEAD.0000.BEAF"),
+	)
+
+	// A MacAddress longer than 64 characters is rejected by the MaxLength
+	// constraint before the XValidation (CEL) rule is ever evaluated, reported
+	// as a distinct top-level failure from the CEL rule's own message. The
+	// bound is set well above any format this field currently accepts (see
+	// the "fits within the max length" table below for malformed-but-short
+	// values), to leave room for a future longer hardware-address format
+	// (e.g. InfiniBand's 59-character colon-separated form, RFC 4391)
+	// without needing to widen this published schema keyword again later.
+	DescribeTable("should reject a MAC address exceeding the max length", func(ctx SpecContext, macAddress string) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding(), libvmi.WithMac(macAddress))),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("spec.domain.devices.interfaces[0].macAddress"))
+		Expect(err.Error()).To(ContainSubstring("Too long: may not be more than 64 bytes"))
+	},
+		Entry("too many octets (71 chars)", "de:ad:00:00:be:af:de:ad:00:00:be:af:de:ad:00:00:be:af:de:ad:00:00:be:af"),
+		Entry("too many groups, dot form (74 chars)", "dead.0000.beaf.dead.0000.beaf.dead.0000.beaf.dead.0000.beaf.dead.0000.beaf"),
+		Entry("not a MAC address at all (67 chars)", "not-a-mac-address-value-that-is-definitely-too-long-to-fit-anywhere"),
+	)
+
+	// These values fit within the 64-character MaxLength, so rejection comes
+	// from the XValidation (CEL) regex rule instead.
+	DescribeTable("should reject a malformed MAC address that fits within the max length", func(ctx SpecContext, macAddress string) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding(), libvmi.WithMac(macAddress))),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("spec.domain.devices.interfaces[0].macAddress"))
+		Expect(err.Error()).To(ContainSubstring("interface has a malformed MAC address"))
+	},
+		Entry("too short, colon separated (14 chars)", "de:ad:00:00:be"),
+		Entry("too short, dash separated (14 chars)", "de-ad-00-00-be"),
+		Entry("single-digit octet (16 chars)", "de:ad:0:0:be:af"),
+		Entry("single-digit group, dot form (12 chars)", "dead.00.beaf"),
+		Entry("not a MAC address at all (9 chars)", "not-a-mac"),
+	)
+})

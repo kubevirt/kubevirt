@@ -25,7 +25,6 @@ import (
 	"regexp"
 	"sort"
 
-	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -112,7 +111,6 @@ func validateInterfacesFields(
 	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceNameFormat(field, idx, iface)...)
-		causes = append(causes, validateMacAddress(field, idx, iface)...)
 		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validatePortRangesConfiguration(field, idx, iface, networksByName[iface.Name], checker)...)
 		causes = append(causes, validateDHCPOptions(field, idx, iface)...)
@@ -128,21 +126,6 @@ func validateInterfaceNameFormat(field *k8sfield.Path, idx int, iface v1.Interfa
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-		}}
-	}
-	return nil
-}
-
-func validateMacAddress(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if err := link.ValidateMacAddress(iface.MacAddress); err != nil {
-		return []metav1.StatusCause{{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(
-				"interface %s has %s.",
-				field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				err.Error(),
-			),
-			Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
 		}}
 	}
 	return nil
