@@ -51,6 +51,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	domainpublisher "kubevirt.io/kubevirt/pkg/virt-launcher/domain-publisher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
@@ -138,21 +139,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(
-	notifier *notifyclient.Notifier,
-	domainConn virtcli.Connection,
-	deleteNotificationSent chan watch.Event,
-	vmi *v1.VirtualMachineInstance,
-	domainName string,
-	agentStore *agentpoller.AsyncAgentStore,
-	qemuAgentSysInterval time.Duration,
-	qemuAgentFileInterval time.Duration,
-	qemuAgentUserInterval time.Duration,
-	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
-	metadataCache *metadata.Cache,
-	nonRoot bool,
-) {
+func startDomainEventMonitoring(domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -162,8 +149,7 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval, metadataCache, nonRoot)
-	if err != nil {
+	if err := domainPublisher.Start(deleteNotificationSent); err != nil {
 		panic(err)
 	}
 }
@@ -510,7 +496,19 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval, metadataCache, *runWithNonRoot)
+	agentPoller := agentpoller.CreatePoller(
+		domainConn,
+		vmi.UID,
+		domainName,
+		&agentStore,
+		*qemuAgentSysInterval,
+		*qemuAgentFileInterval,
+		*qemuAgentUserInterval,
+		*qemuAgentVersionInterval,
+		*qemuAgentFSFreezeStatusInterval,
+	)
+	domainPublisher := domainpublisher.NewDomainPublisher(notifier, domainConn, vmi, agentPoller, metadataCache, *runWithNonRoot)
+	startDomainEventMonitoring(domainPublisher, events)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

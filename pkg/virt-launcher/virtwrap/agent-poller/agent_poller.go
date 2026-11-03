@@ -365,6 +365,11 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
+// Store returns the store this poller fills.
+func (p *AgentPoller) Store() *AsyncAgentStore {
+	return p.agentStore
+}
+
 func (p *AgentPoller) OnDomainLifecycle(event libvirt.DomainEventType) {
 	if event == libvirt.DOMAIN_EVENT_SUSPENDED {
 		log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
