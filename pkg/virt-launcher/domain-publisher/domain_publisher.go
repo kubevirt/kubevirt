@@ -20,7 +20,9 @@
 package domainpublisher
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -67,15 +69,15 @@ type DomainPublisher struct {
 	metadataCache  *metadata.Cache
 	nonRoot        bool
 
-	queue                    workqueue.TypedRateLimitingInterface[any]
-	domainSeen               bool
-	domainRemoved            bool
-	removedAt                *metav1.Time
-	incomingMigration        bool
-	domainDefined            chan struct{}
-	finalNotificationSent    chan struct{}
-	domainStatus             api.LifeCycle
-	domainStatusChangeReason api.StateChangeReason
+	queue                 workqueue.TypedRateLimitingInterface[any]
+	domainSeen            bool
+	domainRemoved         bool
+	removedAt             *metav1.Time
+	incomingMigration     bool
+	lastSent              *api.Domain
+	lastSentJSON          []byte
+	domainDefined         chan struct{}
+	finalNotificationSent chan struct{}
 }
 
 func NewDomainPublisher(
@@ -133,20 +135,6 @@ func (p *DomainPublisher) OnIOError(event *libvirt.DomainEventIOErrorReason) {
 // Resync publishes a fresh notification of the domain once libvirt has defined it.
 func (p *DomainPublisher) Resync() {
 	p.queue.Add(resync{})
-}
-
-func (p *DomainPublisher) printStatus(status *api.DomainStatus) {
-	v := 2
-	if status.Status == p.domainStatus && status.Reason == p.domainStatusChangeReason {
-		// Status hasn't changed so log only in higher verbosity.
-		v = 3
-	}
-	log.Log.V(v).Infof("kubevirt domain status: %v(%v) reason: %v(%v)", status.Status, p.domainStatus, status.Reason, p.domainStatusChangeReason)
-}
-
-func (p *DomainPublisher) updateStatus(status *api.DomainStatus) {
-	p.domainStatus = status.Status
-	p.domainStatusChangeReason = status.Reason
 }
 
 func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
@@ -216,11 +204,24 @@ func (p *DomainPublisher) publish(ctx context.Context) error {
 		domain.Status.PanicCount = guestPanic.Count
 	}
 
-	watchEvent := watch.Event{Type: watch.Modified, Object: domain}
+	domainJSON, err := json.Marshal(domain)
+	if err != nil {
+		return fmt.Errorf("failed to marshal the domain: %w", err)
+	}
+	if bytes.Equal(p.lastSentJSON, domainJSON) {
+		return nil
+	}
+	statusChanged := p.lastSent == nil || p.lastSent.Status.Status != domain.Status.Status || p.lastSent.Status.Reason != domain.Status.Reason
 
+	watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 	if err := p.notifier.SendDomainEvent(ctx, watchEvent); err != nil {
 		return fmt.Errorf("failed to send the domain notification: %w", err)
 	}
+	if statusChanged {
+		log.Log.Object(p.vmi).V(2).Infof("Domain status changed to %s (%s)", domain.Status.Status, domain.Status.Reason)
+	}
+	p.lastSent = domain
+	p.lastSentJSON = domainJSON
 	if domain.DeletionTimestamp != nil {
 		closeOnce(p.finalNotificationSent)
 	}
@@ -265,8 +266,6 @@ func (p *DomainPublisher) readDomain() (*api.Domain, error) {
 		return nil, fmt.Errorf("failed to read the domain specification: %w", err)
 	}
 
-	p.printStatus(&domain.Status)
-	p.updateStatus(&domain.Status)
 	return domain, nil
 }
 

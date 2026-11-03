@@ -104,8 +104,8 @@ var _ = Describe("DomainPublisher", func() {
 		domain := notification.Object.(*api.Domain)
 		Expect(domain.Status.Status).To(Equal(expectedState))
 		expectedSpec := api.NewMinimalDomain("test").Spec
+		expectedSpec.XMLName = domain.Spec.XMLName
 		expectedSpec.Metadata.KubeVirt.UID = "1234"
-		domain.Spec.XMLName = xml.Name{}
 		Expect(equality.Semantic.DeepEqual(expectedSpec, domain.Spec)).To(BeTrue())
 	},
 		Entry("crashed", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed),
@@ -155,17 +155,45 @@ var _ = Describe("DomainPublisher", func() {
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 	})
 
-	It("should notify every lifecycle event of a burst", func() {
+	It("should handle every event of a burst", func() {
 		const burst = 20
+		domainExists(libvirt.DOMAIN_CRASHED, int(libvirt.DOMAIN_CRASHED_PANICKED))
+
+		for range burst {
+			h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_CRASHED, Detail: int(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED)})
+		}
+
+		Eventually(h.latest).Should(HaveField("Status.PanicCount", burst))
+	})
+
+	It("should notify an unchanged domain only once", func() {
 		domainExists(libvirt.DOMAIN_RUNNING, -1)
+		resumed(h.publisher)
+		h.receive()
 
-		for range burst {
-			resumed(h.publisher)
-		}
+		resumed(h.publisher)
+		h.publisher.Resync()
 
-		for range burst {
-			h.receive()
-		}
+		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
+	})
+
+	It("should notify an unchanged domain with aliased devices only once", func() {
+		spec := api.NewMinimalDomain("test").Spec
+		spec.Devices.Interfaces = []api.Interface{{Type: "ethernet", Alias: api.NewUserDefinedAlias("default")}}
+		x, err := xml.Marshal(spec)
+		Expect(err).ToNot(HaveOccurred())
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName("default_test").Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil).AnyTimes()
+		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(x), nil).AnyTimes()
+		mockLibvirt.DomainEXPECT().Free().AnyTimes()
+
+		resumed(h.publisher)
+		notification := h.receive()
+		Expect(notification.Object.(*api.Domain).Spec.Devices.Interfaces[0].Alias.GetName()).To(Equal("default"))
+
+		h.publisher.Resync()
+
+		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 	})
 
 	It("should stop publishing once its context is cancelled", func() {
@@ -181,11 +209,12 @@ var _ = Describe("DomainPublisher", func() {
 		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STARTED})
 		h.receive()
 
+		metadataCache.GracePeriod.Set(api.GracePeriodMetadata{DeletionGracePeriodSeconds: 30})
 		h.publisher.Resync()
 
-		notification := h.receive()
-		Expect(notification.Type).To(Equal(watch.Modified))
-		Expect(notification.Object.(*api.Domain).Status.Status).To(Equal(api.Running))
+		domain := h.receive().Object.(*api.Domain)
+		Expect(domain.Status.Status).To(Equal(api.Running))
+		Expect(domain.Spec.Metadata.KubeVirt.GracePeriod).To(Equal(&api.GracePeriodMetadata{DeletionGracePeriodSeconds: 30}))
 	})
 
 	It("should send a final delete notification when the domain is undefined", func() {
@@ -235,6 +264,7 @@ var _ = Describe("DomainPublisher", func() {
 		removed := h.receive().Object.(*api.Domain)
 		Expect(removed.DeletionTimestamp).ToNot(BeNil())
 
+		metadataCache.GracePeriod.Set(api.GracePeriodMetadata{DeletionGracePeriodSeconds: 30})
 		h.publisher.Resync()
 
 		Expect(h.receive().Object.(*api.Domain).DeletionTimestamp).To(Equal(removed.DeletionTimestamp))
@@ -455,15 +485,13 @@ var _ = Describe("DomainPublisher", func() {
 			MigrationUID: "migration-1",
 		})
 
-		for range 2 {
-			fire(h.publisher)
+		fire(h.publisher)
 
-			domain := h.receive().Object.(*api.Domain)
-			Expect(domain.Spec.Metadata.KubeVirt.Migration).To(Equal(&expected))
-			Expect(string(domain.Spec.Metadata.KubeVirt.UID)).To(Equal("1234"))
-			Expect(domain.Spec.Metadata.KubeVirt.Backup).To(Equal(&backup))
-			Expect(domain.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
-		}
+		domain := h.receive().Object.(*api.Domain)
+		Expect(domain.Spec.Metadata.KubeVirt.Migration).To(Equal(&expected))
+		Expect(string(domain.Spec.Metadata.KubeVirt.UID)).To(Equal("1234"))
+		Expect(domain.Spec.Metadata.KubeVirt.Backup).To(Equal(&backup))
+		Expect(domain.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
 	},
 		Entry("with the domain present", false, nil, resumed, false),
 		Entry("after the domain disappeared", true, nil, resumed, false),
@@ -541,7 +569,7 @@ var _ = Describe("DomainPublisher", func() {
 			crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED)
 			h.receive()
 
-			h.publisher.Resync()
+			h.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, api.GuestOSInfo{Name: "fedora"})
 
 			domain := h.receive().Object.(*api.Domain)
 			Expect(domain.Status.GuestPanicInfo).To(Equal(&api.GuestPanicInfo{Type: "unknown"}))
