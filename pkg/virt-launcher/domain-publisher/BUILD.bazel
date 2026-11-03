@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["domain_publisher.go"],
+    srcs = [
+        "domain_publisher.go",
+        "events.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/domain-publisher",
     visibility = ["//visibility:public"],
     deps = [
@@ -28,6 +31,7 @@ go_test(
     srcs = [
         "domain_publisher_suite_test.go",
         "domain_publisher_test.go",
+        "events_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",

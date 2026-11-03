@@ -82,7 +82,7 @@ var _ = Describe("DomainPublisher", func() {
 				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
 				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, deleteNotificationSent, nil, nil, nil)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), &libvirt.DomainEventLifecycle{Event: event}, deleteNotificationSent, nil, nil, nil)
 
 				var eventReceived watch.Event
 				Eventually(notifier.domainEvents).Within(2 * time.Second).Should(Receive(&eventReceived))
@@ -99,29 +99,12 @@ var _ = Describe("DomainPublisher", func() {
 				Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 			)
 
-			It("should not send watch.Error event on libvirt reconnect", func() {
-				By("Starting the publisher with a mock connection")
-				ctrl := gomock.NewController(GinkgoT())
-				mockConn := testing.NewLibvirt(ctrl)
+			It("should not notify on a resync before the first libvirt event", func() {
+				publisher := newPublisher(mockLibvirt.VirtConnection, metadataCache())
+				publisher.Start(deleteNotificationSent)
 
-				var reconnectChan chan bool
-				mockConn.ConnectionEXPECT().SetReconnectChan(gomock.Any()).Do(func(ch chan bool) {
-					reconnectChan = ch
-				})
-				mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
+				publisher.Resync()
 
-				Expect(newPublisher(mockConn.VirtConnection, metadataCache()).Start(deleteNotificationSent)).To(Succeed())
-
-				By("Triggering a libvirt reconnect")
-				Expect(reconnectChan).ToNot(BeNil())
-				reconnectChan <- true
-
-				By("Verifying no watch.Error event is sent to virt-handler")
 				Consistently(notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 			})
 
@@ -136,7 +119,7 @@ var _ = Describe("DomainPublisher", func() {
 				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
 				// Exercises the reconnect handler's code path when domainCache is non-nil.
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{}, deleteNotificationSent, nil, nil, nil)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), nil, deleteNotificationSent, nil, nil, nil)
 
 				var event watch.Event
 				Eventually(notifier.domainEvents, 2*time.Second).Should(Receive(&event))
@@ -154,7 +137,7 @@ var _ = Describe("DomainPublisher", func() {
 				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
 
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, deleteNotificationSent, nil, nil, nil)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, deleteNotificationSent, nil, nil, nil)
 
 				var event watch.Event
 				Eventually(notifier.domainEvents).Within(2 * time.Second).Should(Receive(&event))
@@ -172,10 +155,10 @@ var _ = Describe("DomainPublisher", func() {
 			mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}).AnyTimes()
 
 			domain := util.NewDomainFromName("test", "1234")
-			newPublisher(mockLib.VirtConnection, metadataCache()).eventCallback(domain, libvirtEvent{Event: &libvirt.DomainEventLifecycle{
+			newPublisher(mockLib.VirtConnection, metadataCache()).eventCallback(domain, &libvirt.DomainEventLifecycle{
 				Event:  libvirt.DOMAIN_EVENT_STOPPED,
 				Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED),
-			}}, deleteNotificationSent, nil, nil, nil)
+			}, deleteNotificationSent, nil, nil, nil)
 
 			Expect(domain.Status.Reason).To(Equal(api.ReasonNonExistent))
 			Expect(domain.ObjectMeta.DeletionTimestamp).To(BeNil())
@@ -191,12 +174,10 @@ var _ = Describe("DomainPublisher", func() {
 			mc.Migration.Store(api.MigrationMetadata{UID: "test-migration-uid"})
 
 			domain := util.NewDomainFromName("test", "1234")
-			newPublisher(mockLib.VirtConnection, mc).eventCallback(domain, libvirtEvent{
-				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
-					Info: libvirt.DomainJobInfo{
-						Type:      libvirt.DOMAIN_JOB_COMPLETED,
-						Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
-					},
+			newPublisher(mockLib.VirtConnection, mc).eventCallback(domain, &libvirt.DomainEventJobCompleted{
+				Info: libvirt.DomainJobInfo{
+					Type:      libvirt.DOMAIN_JOB_COMPLETED,
+					Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
 				},
 			}, deleteNotificationSent, nil, nil, nil)
 
@@ -221,7 +202,7 @@ var _ = Describe("DomainPublisher", func() {
 					},
 				}
 
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{}, deleteNotificationSent, interfaceStatus, nil, nil)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), nil, deleteNotificationSent, interfaceStatus, nil, nil)
 
 				var event watch.Event
 				Eventually(notifier.domainEvents).Within(2 * time.Second).Should(Receive(&event))
@@ -246,7 +227,7 @@ var _ = Describe("DomainPublisher", func() {
 					Name: guestOsName,
 				}
 
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{}, deleteNotificationSent, nil, &osInfoStatus, nil)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), nil, deleteNotificationSent, nil, &osInfoStatus, nil)
 
 				var event watch.Event
 				Eventually(notifier.domainEvents).Within(2 * time.Second).Should(Receive(&event))
@@ -270,7 +251,7 @@ var _ = Describe("DomainPublisher", func() {
 					Status: fsFrozenStatus,
 				}
 
-				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{}, deleteNotificationSent, nil, nil, &fsFreezeStatus)
+				newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(util.NewDomainFromName("test", "1234"), nil, deleteNotificationSent, nil, nil, &fsFreezeStatus)
 
 				var event watch.Event
 				Eventually(notifier.domainEvents).Within(2 * time.Second).Should(Receive(&event))
@@ -301,7 +282,7 @@ var _ = Describe("DomainPublisher", func() {
 
 			metadataCache := metadata.NewCache()
 			interfaceStatus := []api.InterfaceStatus{{Ip: "10.0.0.1", InterfaceName: "eth0"}}
-			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(domain, libvirtEvent{}, deleteNotificationSent, interfaceStatus, nil, nil)
+			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(domain, nil, deleteNotificationSent, interfaceStatus, nil, nil)
 
 			var event watch.Event
 			Eventually(notifier.domainEvents, 2*time.Second).Should(Receive(&event))
@@ -340,13 +321,9 @@ var _ = Describe("DomainPublisher", func() {
 
 			metadataCache := metadata.NewCache()
 			metadataCache.Backup.Store(api.BackupMetadata{})
-			libvirtEvent := libvirtEvent{
-				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
-					Info: domainJobInfo,
-				},
-			}
+			jobCompleted := &libvirt.DomainEventJobCompleted{Info: domainJobInfo}
 
-			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(domain, libvirtEvent, deleteNotificationSent, nil, nil, nil)
+			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(domain, jobCompleted, deleteNotificationSent, nil, nil, nil)
 			backupMeta, ok := metadataCache.Backup.Load()
 			Expect(ok).To(BeTrue())
 			Expect(backupMeta.Completed).To(BeTrue())
@@ -472,7 +449,7 @@ var _ = Describe("DomainPublisher", func() {
 			mockLib := testing.NewLibvirt(ctrl)
 			mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
-			newPublisher(mockLib.VirtConnection, metadataCache).eventCallback(domain, libvirtEvent{}, deleteNotificationSent, nil, nil, nil)
+			newPublisher(mockLib.VirtConnection, metadataCache).eventCallback(domain, nil, deleteNotificationSent, nil, nil, nil)
 
 			var event watch.Event
 			Eventually(notifier.domainEvents, 2*time.Second).Should(Receive(&event))
@@ -504,7 +481,7 @@ var _ = Describe("DomainPublisher", func() {
 				return string(x), nil
 			})
 
-			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(util.NewDomainFromName("test", "1234"), libvirtEvent{}, deleteNotificationSent, nil, nil, nil)
+			newPublisher(mockLibvirt.VirtConnection, metadataCache).eventCallback(util.NewDomainFromName("test", "1234"), nil, deleteNotificationSent, nil, nil, nil)
 
 			var event watch.Event
 			Eventually(notifier.domainEvents, 2*time.Second).Should(Receive(&event))
@@ -518,7 +495,7 @@ var _ = Describe("DomainPublisher", func() {
 		})
 
 		DescribeTable("should preserve updated migration metadata in domain notify events", func(
-			domainMissing bool, xmlError error, notification libvirtEvent, failed bool,
+			domainMissing bool, xmlError error, notification any, failed bool,
 		) {
 			ctrl := gomock.NewController(GinkgoT())
 			mockLib := testing.NewLibvirt(ctrl)
@@ -574,7 +551,7 @@ var _ = Describe("DomainPublisher", func() {
 				current, _ := metadataCache.Migration.Load()
 				Expect(current).To(Equal(expected))
 			}
-			if notification.Event != nil && notification.Event.Event == libvirt.DOMAIN_EVENT_UNDEFINED {
+			if lifecycle, ok := notification.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_UNDEFINED {
 				Expect(domain.DeletionTimestamp).ToNot(BeNil())
 				Expect(deleteNotificationSent).To(HaveLen(1))
 			} else {
@@ -582,33 +559,27 @@ var _ = Describe("DomainPublisher", func() {
 				Expect(deleteNotificationSent).To(BeEmpty())
 			}
 		},
-			Entry("metadata notification with the domain present", false, nil, libvirtEvent{}, false),
-			Entry("metadata notification after the domain disappeared", true, nil, libvirtEvent{}, false),
-			Entry("XML temporarily unavailable", false, libvirt.Error{Code: libvirt.ERR_OPERATION_INVALID}, libvirtEvent{}, false),
-			Entry("domain disappears before XML is read", false, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}, libvirtEvent{}, false),
-			Entry("preserve failure result fields", false, nil, libvirtEvent{}, true),
-			Entry("delayed job-completed notification", true, nil, libvirtEvent{
-				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
-					Info: libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT},
-				},
+			Entry("metadata notification with the domain present", false, nil, nil, false),
+			Entry("metadata notification after the domain disappeared", true, nil, nil, false),
+			Entry("XML temporarily unavailable", false, libvirt.Error{Code: libvirt.ERR_OPERATION_INVALID}, nil, false),
+			Entry("domain disappears before XML is read", false, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}, nil, false),
+			Entry("preserve failure result fields", false, nil, nil, true),
+			Entry("delayed job-completed notification", true, nil, &libvirt.DomainEventJobCompleted{
+				Info: libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT},
 			}, false),
-			Entry("stopped-migrated notification", true, nil, libvirtEvent{
-				Event: &libvirt.DomainEventLifecycle{
-					Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED),
-				},
+			Entry("stopped-migrated notification", true, nil, &libvirt.DomainEventLifecycle{
+				Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED),
 			}, false),
-			Entry("final undefined notification", true, nil, libvirtEvent{
-				Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED},
-			}, false),
+			Entry("final undefined notification", true, nil, &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, false),
 		)
 
 		Context("guest panic", func() {
 			var publisher *DomainPublisher
 
-			crashed := func(detail libvirt.DomainEventCrashedDetailType) libvirtEvent {
-				return libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_CRASHED, Detail: int(detail)}}
+			crashed := func(detail libvirt.DomainEventCrashedDetailType) *libvirt.DomainEventLifecycle {
+				return &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_CRASHED, Detail: int(detail)}
 			}
-			notify := func(event libvirtEvent) *api.Domain {
+			notify := func(event any) *api.Domain {
 				publisher.eventCallback(api.NewMinimalDomain("test"), event, deleteNotificationSent, nil, nil, nil)
 				var sent watch.Event
 				Eventually(notifier.domainEvents).Should(Receive(&sent))
@@ -647,7 +618,7 @@ var _ = Describe("DomainPublisher", func() {
 			It("should keep panic details in later notifications", func() {
 				notify(crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED))
 
-				domain := notify(libvirtEvent{})
+				domain := notify(nil)
 				Expect(domain.Status.GuestPanicInfo).To(Equal(&api.GuestPanicInfo{Type: "unknown"}))
 				Expect(domain.Status.PanicCount).To(Equal(1))
 			})
@@ -673,7 +644,7 @@ var _ = Describe("DomainPublisher", func() {
 			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
 
-			newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(domain, libvirtEvent{}, deleteNotificationSent, nil, nil, nil)
+			newPublisher(mockLibvirt.VirtConnection, metadataCache()).eventCallback(domain, nil, deleteNotificationSent, nil, nil, nil)
 			Expect(notifier.k8sEvents).To(Receive(Equal(k8sEvent{severity: "Warning", reason: "IOerror", message: "VM Paused due to not enough space on volume: "})))
 		})
 	})

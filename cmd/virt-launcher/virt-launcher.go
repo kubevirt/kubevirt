@@ -139,7 +139,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
+func startDomainEventMonitoring(domainConn virtcli.Connection, domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -149,7 +149,8 @@ func startDomainEventMonitoring(domainPublisher *domainpublisher.DomainPublisher
 		}
 	}()
 
-	if err := domainPublisher.Start(deleteNotificationSent); err != nil {
+	domainPublisher.Start(deleteNotificationSent)
+	if err := domainpublisher.RegisterLibvirtEvents(domainConn, domainPublisher); err != nil {
 		panic(err)
 	}
 }
@@ -508,7 +509,7 @@ func main() {
 		*qemuAgentFSFreezeStatusInterval,
 	)
 	domainPublisher := domainpublisher.NewDomainPublisher(notifier, domainConn, vmi, agentPoller, metadataCache, *runWithNonRoot)
-	startDomainEventMonitoring(domainPublisher, events)
+	startDomainEventMonitoring(domainConn, domainPublisher, events)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

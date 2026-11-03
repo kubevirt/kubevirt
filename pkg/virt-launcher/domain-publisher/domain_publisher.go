@@ -41,18 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-const (
-	cantDetermineLibvirtDomainName = "Could not determine name of libvirt domain in event callback."
-	libvirtEventChannelFull        = "Libvirt event channel is full, dropping event."
-)
-
-type libvirtEvent struct {
-	Domain            string
-	Event             *libvirt.DomainEventLifecycle
-	AgentEvent        *libvirt.DomainEventAgentLifecycle
-	JobCompletedEvent *libvirt.DomainEventJobCompleted
-}
-
 type domainNotifier interface {
 	SendDomainEvent(event watch.Event) error
 	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
@@ -67,6 +55,8 @@ type DomainPublisher struct {
 	metadataCache *metadata.Cache
 	nonRoot       bool
 
+	events                   chan any
+	resync                   chan struct{}
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
 	firstAdd                 sync.Once
@@ -89,20 +79,44 @@ func NewDomainPublisher(
 		agentPoller:   agentPoller,
 		metadataCache: metadataCache,
 		nonRoot:       nonRoot,
+		events:        make(chan any, 10),
+		resync:        make(chan struct{}, 1),
 	}
 }
 
-func (p *DomainPublisher) Start(deleteNotificationSent chan watch.Event) error {
-	eventChan := make(chan libvirtEvent, 10)
+func (p *DomainPublisher) Start(deleteNotificationSent chan watch.Event) {
+	go p.worker(deleteNotificationSent)
+}
 
-	reconnectChan := make(chan bool, 10)
+func (p *DomainPublisher) OnLifecycle(event *libvirt.DomainEventLifecycle) {
+	p.enqueue(event)
+}
 
-	p.connection.SetReconnectChan(reconnectChan)
+func (p *DomainPublisher) OnJobCompleted(event *libvirt.DomainEventJobCompleted) {
+	if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
+		storeCompletedMigrationStats(&event.Info, p.metadataCache)
+	}
+	p.enqueue(event)
+}
 
-	// Run the event process logic in a separate go-routine to not block libvirt
-	go p.worker(eventChan, deleteNotificationSent, reconnectChan)
+func (p *DomainPublisher) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecycle) {
+	p.enqueue(event)
+}
 
-	return registerLibvirtCallbacks(eventChan, p.metadataCache, p.domainName, p.connection)
+// Resync publishes a fresh notification of the domain once one was published.
+func (p *DomainPublisher) Resync() {
+	select {
+	case p.resync <- struct{}{}:
+	default:
+	}
+}
+
+func (p *DomainPublisher) enqueue(event any) {
+	select {
+	case p.events <- event:
+	default:
+		log.Log.Info("Libvirt event channel is full, dropping event.")
+	}
 }
 
 func (p *DomainPublisher) updateEvents(event watch.Event, domain *api.Domain, events chan watch.Event) {
@@ -125,10 +139,6 @@ func (p *DomainPublisher) printStatus(status *api.DomainStatus) {
 func (p *DomainPublisher) updateStatus(status *api.DomainStatus) {
 	p.domainStatus = status.Status
 	p.domainStatusChangeReason = status.Reason
-}
-
-func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
-	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
 
 func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
@@ -167,11 +177,11 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) eventCallback(domain *api.Domain, libvirtEvent libvirtEvent, events chan watch.Event,
+func (p *DomainPublisher) eventCallback(domain *api.Domain, event any, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, fsFreezeStatus *api.FSFreeze) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
-	if isGuestPanicEvent(libvirtEvent.Event) {
-		p.recordGuestPanic(libvirtEvent.Event.Detail)
+	if lifecycle, ok := event.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_CRASHED {
+		p.recordGuestPanic(lifecycle.Detail)
 	}
 
 	d, err := p.connection.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
@@ -245,13 +255,13 @@ func (p *DomainPublisher) eventCallback(domain *api.Domain, libvirtEvent libvirt
 		}
 	}
 
-	switch {
-	case libvirtEvent.JobCompletedEvent != nil:
-		if shouldAdd := processJobCompletedEvent(domain, d, libvirtEvent.JobCompletedEvent, p.metadataCache); shouldAdd {
+	switch e := event.(type) {
+	case *libvirt.DomainEventJobCompleted:
+		if shouldAdd := processJobCompletedEvent(domain, d, e, p.metadataCache); shouldAdd {
 			eventType = watch.Added
 		}
-	case libvirtEvent.Event != nil:
-		if shouldAdd := processLifecycleEvent(domain, libvirtEvent.Event, p.metadataCache, p.connection, p.vmi); shouldAdd {
+	case *libvirt.DomainEventLifecycle:
+		if shouldAdd := processLifecycleEvent(domain, e, p.metadataCache, p.connection, p.vmi); shouldAdd {
 			eventType = watch.Added
 		}
 	}
@@ -278,129 +288,12 @@ func (p *DomainPublisher) eventCallback(domain *api.Domain, libvirtEvent libvirt
 		domain.Status.PanicCount = guestPanic.Count
 	}
 
-	event := watch.Event{Type: eventType, Object: domain}
+	watchEvent := watch.Event{Type: eventType, Object: domain}
 
-	if err := p.notifier.SendDomainEvent(event); err != nil {
+	if err := p.notifier.SendDomainEvent(watchEvent); err != nil {
 		log.Log.Reason(err).Error("Could not send domain notify event.")
 	}
-	p.updateEvents(event, domain, events)
-}
-
-func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) error {
-	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-
-		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
-		}
-		select {
-		case eventChan <- libvirtEvent{Event: event, Domain: name}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-
-	domainEventDeviceAddedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceAdded) {
-		log.Log.Infof("Domain Device Added event received")
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
-		}
-		select {
-		case eventChan <- libvirtEvent{Domain: name}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-
-	domainEventDeviceRemovedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
-		log.Log.Infof("Domain Device Removed event received")
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
-		}
-
-		select {
-		case eventChan <- libvirtEvent{Domain: name}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-
-	domainEventMemoryDeviceSizeChange := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventMemoryDeviceSizeChange) {
-		log.Log.Infof("Domain Memory Device size-change event received")
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
-		}
-
-		select {
-		case eventChan <- libvirtEvent{Domain: name}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-	domainEventJobCompletedCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventJobCompleted) {
-		log.Log.Infof("Domain Job Completed event type %v received. Job operation: %v, success reported: %t, succeeded: %t", event.Info.Type, event.Info.Operation, event.Info.JobSuccessSet, event.Info.JobSuccess)
-		if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
-			storeCompletedMigrationStats(&event.Info, metadataCache)
-		}
-		// The domain may already be gone when the terminal callback runs, so use the name captured when callbacks were registered.
-		select {
-		case eventChan <- libvirtEvent{JobCompletedEvent: event, Domain: domainName}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-
-	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
-		return err
-	}
-
-	err = domainConn.DomainEventDeviceAddedRegister(domainEventDeviceAddedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register device added event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register device removed event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register memory device size change event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventJobCompletedRegister(domainEventJobCompletedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event job completed callback with libvirt")
-		return err
-	}
-
-	agentEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventAgentLifecycle) {
-		log.Log.Infof("GuestAgentLifecycle event state %d with reason %d received", event.State, event.Reason)
-		name, err := d.GetName()
-		if err != nil {
-			log.Log.Reason(err).Info(cantDetermineLibvirtDomainName)
-		}
-		select {
-		case eventChan <- libvirtEvent{AgentEvent: event, Domain: name}:
-		default:
-			log.Log.Infof(libvirtEventChannelFull)
-		}
-	}
-	err = domainConn.AgentEventLifecycleRegister(agentEventLifecycleCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
-		return err
-	}
-
-	log.Log.Infof("Registered libvirt event notify callback")
-	return nil
+	p.updateEvents(watchEvent, domain, events)
 }
 
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
@@ -507,7 +400,7 @@ func getVolumeNameByTarget(domain *api.Domain, target string) string {
 	return ""
 }
 
-func (p *DomainPublisher) worker(eventChan chan libvirtEvent, deleteNotificationSent chan watch.Event, reconnectChan chan bool) {
+func (p *DomainPublisher) worker(deleteNotificationSent chan watch.Event) {
 	var interfaceStatuses []api.InterfaceStatus
 	var guestOsInfo *api.GuestOSInfo
 	var fsFreezeStatus *api.FSFreeze
@@ -515,16 +408,15 @@ func (p *DomainPublisher) worker(eventChan chan libvirtEvent, deleteNotification
 
 	for {
 		select {
-		case event := <-eventChan:
+		case event := <-p.events:
 			p.metadataCache.ResetNotification()
-			domainCache = util.NewDomainFromName(event.Domain, p.vmi.UID)
+			domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
 			p.eventCallback(domainCache, event, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
-			log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
-			switch {
-			case event.Event != nil:
-				p.agentPoller.OnDomainLifecycle(event.Event.Event)
-			case event.AgentEvent != nil:
-				p.agentPoller.OnAgentLifecycle(event.AgentEvent.State)
+			switch e := event.(type) {
+			case *libvirt.DomainEventLifecycle:
+				p.agentPoller.OnDomainLifecycle(e.Event)
+			case *libvirt.DomainEventAgentLifecycle:
+				p.agentPoller.OnAgentLifecycle(e.State)
 			}
 		case agentUpdate := <-p.agentPoller.Store().AgentUpdated:
 			p.metadataCache.ResetNotification()
@@ -532,21 +424,18 @@ func (p *DomainPublisher) worker(eventChan chan libvirtEvent, deleteNotification
 			guestOsInfo = agentUpdate.DomainInfo.OSInfo
 			fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
-			p.eventCallback(domainCache, libvirtEvent{}, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
-		case <-reconnectChan:
-			log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", p.domainName)
+			p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+		case <-p.resync:
 			if domainCache != nil {
-				p.eventCallback(domainCache, libvirtEvent{}, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
+				p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
 			}
 		case <-p.metadataCache.Listen():
 			// Metadata cache updates should be processed only *after* at least one
 			// libvirt event arrived (which creates the first domainCache).
 			if domainCache != nil {
-				domainCache = util.NewDomainFromName(
-					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
-					p.vmi.UID,
-				)
-				p.eventCallback(domainCache, libvirtEvent{}, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
+				p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
 			} else {
 				log.Log.Object(p.vmi).Warning("Dropping metadata cache notification")
 			}
