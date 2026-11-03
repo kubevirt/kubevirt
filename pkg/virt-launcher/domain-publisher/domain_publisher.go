@@ -71,6 +71,7 @@ type DomainPublisher struct {
 	domainSeen               bool
 	domainRemoved            bool
 	removedAt                *metav1.Time
+	incomingMigration        bool
 	domainDefined            chan struct{}
 	finalNotificationSent    chan struct{}
 	domainStatus             api.LifeCycle
@@ -393,9 +394,16 @@ func (p *DomainPublisher) onLifecycle(event *libvirt.DomainEventLifecycle) {
 		p.domainRemoved = true
 		return
 	}
-	if (event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
-		(event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
-		// This is a libvirt event that only the target can see, and it means that the migration has completed
+	if event.Event == libvirt.DOMAIN_EVENT_STARTED &&
+		libvirt.DomainEventStartedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
+		p.incomingMigration = true
+		return
+	}
+	if p.incomingMigration &&
+		((event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
+			(event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED)) {
+		p.incomingMigration = false
+		// On the target, these events mean that the incoming migration has completed
 		// we just set the EndTimestamp here so that the source can finalize the migration.
 		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
 		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this

@@ -479,6 +479,29 @@ var _ = Describe("DomainPublisher", func() {
 		}, false),
 	)
 
+	DescribeTable("should finalize an incoming migration only on the migration target", func(incoming bool) {
+		domainExists(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_USER))
+		mockLibvirt.DomainEXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil).AnyTimes()
+		endTimestamp := func() *metav1.Time {
+			migration, _ := metadataCache.Migration.Load()
+			return migration.EndTimestamp
+		}
+
+		if incoming {
+			h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STARTED, Detail: int(libvirt.DOMAIN_EVENT_STARTED_MIGRATED)})
+		}
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_SUSPENDED, Detail: int(libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED)})
+
+		if incoming {
+			Eventually(endTimestamp, 5*time.Second).ShouldNot(BeNil())
+		} else {
+			Consistently(endTimestamp, time.Second).Should(BeNil())
+		}
+	},
+		Entry("a paused VM migrated in", true),
+		Entry("a user pause", false),
+	)
+
 	Context("guest panic", func() {
 		crashed := func(detail libvirt.DomainEventCrashedDetailType) {
 			h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_CRASHED, Detail: int(detail)})
