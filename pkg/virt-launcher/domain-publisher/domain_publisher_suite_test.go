@@ -1,4 +1,4 @@
-package domainpublisher
+package domainpublisher_test
 
 import (
 	"testing"
