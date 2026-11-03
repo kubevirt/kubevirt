@@ -199,7 +199,6 @@ func (p *DomainPublisher) publish() {
 			domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		}
 
-		kubevirtMetadata := metadata.LoadKubevirtMetadata(p.metadataCache)
 		spec, err := util.GetDomainSpecWithRuntimeInfo(d)
 		if err != nil {
 			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
@@ -208,11 +207,6 @@ func (p *DomainPublisher) publish() {
 				return
 			}
 		} else {
-			domain.ObjectMeta.UID = kubevirtMetadata.UID
-		}
-
-		if spec != nil {
-			spec.Metadata.KubeVirt = kubevirtMetadata
 			domain.Spec = *spec
 		}
 
@@ -262,15 +256,7 @@ func (p *DomainPublisher) publish() {
 	if fsFreezeStatus := agentStore.GetFSFreezeStatus(); fsFreezeStatus != nil {
 		domain.Status.FSFreezeStatus = *fsFreezeStatus
 	}
-	// Lifecycle metadata can advance after JOB_COMPLETED and remains available
-	// even after the source domain is gone.
-	domain.Spec.Metadata.KubeVirt.Migration = nil
-	if migration, exists := p.metadataCache.Migration.Load(); exists {
-		domain.Spec.Metadata.KubeVirt.Migration = &migration
-	}
-	if backup, exists := p.metadataCache.Backup.Load(); exists {
-		domain.Spec.Metadata.KubeVirt.Backup = &backup
-	}
+	domain.Spec.Metadata.KubeVirt = metadata.LoadKubevirtMetadata(p.metadataCache)
 	applyCompletedMigrationStats(domain, p.metadataCache)
 	if guestPanic, exists := p.metadataCache.GuestPanic.Load(); exists {
 		domain.Status.GuestPanicInfo = guestPanic.Info

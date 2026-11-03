@@ -378,6 +378,7 @@ func main() {
 	defer notifier.Close()
 
 	metadataCache := metadata.NewCache()
+	metadataCache.UID.Set(vmi.UID)
 
 	signalStopChan := make(chan struct{})
 

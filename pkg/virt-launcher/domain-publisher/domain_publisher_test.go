@@ -54,6 +54,7 @@ var _ = Describe("DomainPublisher", func() {
 	BeforeEach(func() {
 		mockLibvirt = testing.NewLibvirt(gomock.NewController(GinkgoT()))
 		metadataCache = metadata.NewCache()
+		metadataCache.UID.Set("1234")
 		h = startPublisher(mockLibvirt, metadataCache)
 	})
 
@@ -102,6 +103,7 @@ var _ = Describe("DomainPublisher", func() {
 		domain := notification.Object.(*api.Domain)
 		Expect(domain.Status.Status).To(Equal(expectedState))
 		expectedSpec := api.NewMinimalDomain("test").Spec
+		expectedSpec.Metadata.KubeVirt.UID = "1234"
 		domain.Spec.XMLName = xml.Name{}
 		Expect(equality.Semantic.DeepEqual(expectedSpec, domain.Spec)).To(BeTrue())
 	},
@@ -385,7 +387,7 @@ var _ = Describe("DomainPublisher", func() {
 		Expect(domain.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
 	})
 
-	DescribeTable("should keep the tracked migration result in every notification", func(domainMissing bool, xmlError error, fire func(*domainpublisher.DomainPublisher), failed bool) {
+	DescribeTable("should keep the KubeVirt metadata in every notification", func(domainMissing bool, xmlError error, fire func(*domainpublisher.DomainPublisher), failed bool) {
 		if domainMissing {
 			domainRemoved()
 		} else {
@@ -394,7 +396,8 @@ var _ = Describe("DomainPublisher", func() {
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(domainXML(), xmlError).AnyTimes()
 			mockLibvirt.DomainEXPECT().Free().AnyTimes()
 		}
-		metadataCache.UID.Set("1234")
+		backup := api.BackupMetadata{Name: "backup", Completed: true}
+		metadataCache.Backup.Set(backup)
 		startTime := metav1.NewTime(time.Unix(100, 0))
 		end := metav1.NewTime(time.Unix(200, 0))
 		expected := api.MigrationMetadata{
@@ -420,6 +423,7 @@ var _ = Describe("DomainPublisher", func() {
 			domain := h.receive().Object.(*api.Domain)
 			Expect(domain.Spec.Metadata.KubeVirt.Migration).To(Equal(&expected))
 			Expect(string(domain.Spec.Metadata.KubeVirt.UID)).To(Equal("1234"))
+			Expect(domain.Spec.Metadata.KubeVirt.Backup).To(Equal(&backup))
 			Expect(domain.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
 		}
 	},
