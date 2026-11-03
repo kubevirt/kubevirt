@@ -1690,6 +1690,16 @@ func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnaps
 	return pvc, nil
 }
 
+func CreateRestorePVCDefForExport(restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup) (*corev1.PersistentVolumeClaim, error) {
+	pvc, err := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	if err != nil {
+		return nil, err
+	}
+
+	pvc.Labels = getFilteredLabels(pvc.Labels)
+	return pvc, nil
+}
+
 func getRestoreAnnotationValue(restore *snapshotv1.VirtualMachineRestore) string {
 	return fmt.Sprintf("%s-%s", restore.Name, restore.UID)
 }
