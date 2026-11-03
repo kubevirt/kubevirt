@@ -118,6 +118,16 @@ var _ = Describe("DomainPublisher", func() {
 		h.publisher.Resync()
 
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
+		Expect(h.publisher.DomainDefined()).ToNot(BeClosed())
+	})
+
+	It("should signal the domain definition once libvirt has defined it", func() {
+		domainExists(libvirt.DOMAIN_SHUTOFF, -1)
+
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_DEFINED})
+
+		h.receive()
+		Expect(h.publisher.DomainDefined()).To(BeClosed())
 	})
 
 	It("should publish the removal of a domain that was gone before its first lookup", func() {
@@ -130,6 +140,8 @@ var _ = Describe("DomainPublisher", func() {
 			HaveField("Status.Reason", api.ReasonNonExistent),
 			HaveField("DeletionTimestamp", Not(BeNil())),
 		))
+		Expect(h.publisher.DomainDefined()).To(BeClosed())
+		Eventually(h.publisher.FinalNotificationSent()).Should(BeClosed())
 	})
 
 	It("should not notify guest agent updates before the domain is defined", func() {
@@ -182,7 +194,7 @@ var _ = Describe("DomainPublisher", func() {
 		Expect(notification.Type).To(Equal(watch.Modified))
 		Expect(notification.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
 		Expect(notification.Object.(*api.Domain).DeletionTimestamp).ToNot(BeNil())
-		Eventually(h.deleteNotificationSent).Should(Receive())
+		Eventually(h.publisher.FinalNotificationSent()).Should(BeClosed())
 	})
 
 	DescribeTable("should not mark a gone domain deleted on", func(fire func(*domainpublisher.DomainPublisher)) {
@@ -194,7 +206,7 @@ var _ = Describe("DomainPublisher", func() {
 		domain := h.receive().Object.(*api.Domain)
 		Expect(domain.Status.Reason).To(Equal(api.ReasonNonExistent))
 		Expect(domain.DeletionTimestamp).To(BeNil())
-		Consistently(h.deleteNotificationSent, 200*time.Millisecond).ShouldNot(Receive())
+		Consistently(h.publisher.FinalNotificationSent(), 200*time.Millisecond).ShouldNot(BeClosed())
 	},
 		Entry("a stopped-migrated event", stoppedMigrated),
 		Entry("a migration job completion", func(p *domainpublisher.DomainPublisher) {
@@ -451,19 +463,17 @@ var _ = Describe("DomainPublisher", func() {
 })
 
 type harness struct {
-	publisher              *domainpublisher.DomainPublisher
-	notifier               *fakeNotifier
-	agentStore             *agentpoller.AsyncAgentStore
-	deleteNotificationSent chan watch.Event
-	stop                   func()
+	publisher  *domainpublisher.DomainPublisher
+	notifier   *fakeNotifier
+	agentStore *agentpoller.AsyncAgentStore
+	stop       func()
 }
 
 func startPublisher(lib *testing.Libvirt, metadataCache *metadata.Cache) *harness {
 	agentStore := agentpoller.NewAsyncAgentStore()
 	h := &harness{
-		notifier:               newFakeNotifier(),
-		agentStore:             &agentStore,
-		deleteNotificationSent: make(chan watch.Event, 100),
+		notifier:   newFakeNotifier(),
+		agentStore: &agentStore,
 	}
 	vmi := libvmi.New(libvmi.WithName("test"), libvmi.WithNamespace(k8sv1.NamespaceDefault), libvmi.WithUID("1234"))
 	agentPoller := agentpoller.CreatePoller(lib.VirtConnection, vmi.UID, "default_test", h.agentStore,
@@ -473,7 +483,7 @@ func startPublisher(lib *testing.Libvirt, metadataCache *metadata.Cache) *harnes
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		h.publisher.Run(ctx, h.deleteNotificationSent)
+		h.publisher.Run(ctx)
 		close(done)
 	}()
 	h.stop = func() {

@@ -22,7 +22,6 @@ package domainpublisher
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,10 +59,10 @@ type DomainPublisher struct {
 
 	queue                    workqueue.TypedInterface[any]
 	domainSeen               bool
+	domainDefined            chan struct{}
+	finalNotificationSent    chan struct{}
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
-	firstAdd                 sync.Once
-	firstDelete              sync.Once
 }
 
 func NewDomainPublisher(
@@ -76,16 +75,28 @@ func NewDomainPublisher(
 ) *DomainPublisher {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	return &DomainPublisher{
-		notifier:       notifier,
-		connection:     connection,
-		vmi:            vmi,
-		domainName:     domainName,
-		domainTemplate: util.NewDomainFromName(domainName, vmi.UID),
-		agentPoller:    agentPoller,
-		metadataCache:  metadataCache,
-		nonRoot:        nonRoot,
-		queue:          workqueue.NewTyped[any](),
+		notifier:              notifier,
+		connection:            connection,
+		vmi:                   vmi,
+		domainName:            domainName,
+		domainTemplate:        util.NewDomainFromName(domainName, vmi.UID),
+		agentPoller:           agentPoller,
+		metadataCache:         metadataCache,
+		nonRoot:               nonRoot,
+		queue:                 workqueue.NewTyped[any](),
+		domainDefined:         make(chan struct{}),
+		finalNotificationSent: make(chan struct{}),
 	}
+}
+
+// DomainDefined is closed once libvirt has defined the domain.
+func (p *DomainPublisher) DomainDefined() <-chan struct{} {
+	return p.domainDefined
+}
+
+// FinalNotificationSent is closed once the notification of the removed domain was sent.
+func (p *DomainPublisher) FinalNotificationSent() <-chan struct{} {
+	return p.finalNotificationSent
 }
 
 func (p *DomainPublisher) OnLifecycle(event *libvirt.DomainEventLifecycle) {
@@ -106,14 +117,6 @@ func (p *DomainPublisher) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecy
 // Resync publishes a fresh notification of the domain once libvirt has defined it.
 func (p *DomainPublisher) Resync() {
 	p.queue.Add(resync{})
-}
-
-func (p *DomainPublisher) updateEvents(event watch.Event, domain *api.Domain, events chan watch.Event) {
-	if event.Type == watch.Added {
-		p.firstAdd.Do(func() { events <- event })
-	} else if event.Type == watch.Modified && domain.ObjectMeta.DeletionTimestamp != nil {
-		p.firstDelete.Do(func() { events <- event })
-	}
 }
 
 func (p *DomainPublisher) printStatus(status *api.DomainStatus) {
@@ -166,14 +169,13 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) eventCallback(event any, events chan watch.Event) {
+func (p *DomainPublisher) eventCallback(event any) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if lifecycle, ok := event.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_CRASHED {
 		p.recordGuestPanic(lifecycle.Detail)
 	}
-	// libvirt emits lifecycle events only for a domain it has defined.
 	if _, ok := event.(*libvirt.DomainEventLifecycle); ok {
-		p.domainSeen = true
+		p.markSeen()
 	}
 
 	domain := p.domainTemplate.DeepCopy()
@@ -190,7 +192,7 @@ func (p *DomainPublisher) eventCallback(event any, events chan watch.Event) {
 		domain.SetState(api.NoState, api.ReasonNonExistent)
 	} else {
 		defer d.Free()
-		p.domainSeen = true
+		p.markSeen()
 
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
@@ -291,7 +293,26 @@ func (p *DomainPublisher) eventCallback(event any, events chan watch.Event) {
 	if err := p.notifier.SendDomainEvent(watchEvent); err != nil {
 		log.Log.Reason(err).Error("Could not send domain notify event.")
 	}
-	p.updateEvents(watchEvent, domain, events)
+	if domain.DeletionTimestamp != nil {
+		closeOnce(p.finalNotificationSent)
+	}
+}
+
+// markSeen records that libvirt has defined the domain, either because a lookup
+// found it or because libvirt emitted a lifecycle event for it.
+func (p *DomainPublisher) markSeen() {
+	if !p.domainSeen {
+		p.domainSeen = true
+		close(p.domainDefined)
+	}
+}
+
+func closeOnce(signal chan struct{}) {
+	select {
+	case <-signal:
+	default:
+		close(signal)
+	}
 }
 
 func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
@@ -401,7 +422,7 @@ func getVolumeNameByTarget(domain *api.Domain, target string) string {
 type resync struct{}
 
 // Run publishes domain notifications until ctx is cancelled.
-func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan watch.Event) {
+func (p *DomainPublisher) Run(ctx context.Context) {
 	defer p.agentPoller.Stop()
 
 	go p.resyncOnSignals(ctx)
@@ -410,18 +431,18 @@ func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan w
 		p.queue.ShutDown()
 	}()
 
-	for p.processNext(deleteNotificationSent) {
+	for p.processNext() {
 	}
 }
 
-func (p *DomainPublisher) processNext(deleteNotificationSent chan watch.Event) bool {
+func (p *DomainPublisher) processNext() bool {
 	item, quit := p.queue.Get()
 	if quit {
 		return false
 	}
 	defer p.queue.Done(item)
 
-	p.eventCallback(item, deleteNotificationSent)
+	p.eventCallback(item)
 
 	switch e := item.(type) {
 	case *libvirt.DomainEventLifecycle:

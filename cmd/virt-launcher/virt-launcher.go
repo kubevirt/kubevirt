@@ -31,7 +31,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
 
 	"libvirt.org/go/libvirt"
 
@@ -68,7 +67,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-const defaultStartTimeout = 3 * time.Minute
+const (
+	defaultStartTimeout               = 3 * time.Minute
+	earlyExitCheckInterval            = 2 * time.Second
+	finalNotificationTimeout          = 15 * time.Second
+	finalNotificationAfterKillTimeout = 30 * time.Second
+)
 
 func init() {
 	// must registry the event impl before doing anything else.
@@ -139,7 +143,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(ctx context.Context, domainConn virtcli.Connection, domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
+func startDomainEventMonitoring(ctx context.Context, domainConn virtcli.Connection, domainPublisher *domainpublisher.DomainPublisher) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -149,7 +153,7 @@ func startDomainEventMonitoring(ctx context.Context, domainConn virtcli.Connecti
 		}
 	}()
 
-	go domainPublisher.Run(ctx, deleteNotificationSent)
+	go domainPublisher.Run(ctx)
 	if err := domainpublisher.RegisterLibvirtEvents(domainConn, domainPublisher); err != nil {
 		panic(err)
 	}
@@ -225,111 +229,53 @@ func initializeDirs(ephemeralDiskDir string,
 	}
 }
 
-func detectDomainWithUUID(domainManager virtwrap.DomainManager) *api.Domain {
-	domains, err := domainManager.ListAllDomains()
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list domains when detecting UUID")
-		return nil
-	}
-	for _, domain := range domains {
-		if domain.Spec.UUID != "" {
-			return domain
-		}
-	}
-	return nil
-}
-
-func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
-
-	ticker := time.NewTicker(timeout)
-	defer ticker.Stop()
-	checkEarlyExit := time.NewTicker(time.Second * 2)
+func waitForDomainDefined(timeout time.Duration, domainDefined <-chan struct{}, stop chan struct{}) (bool, error) {
+	checkEarlyExit := time.NewTicker(earlyExitCheckInterval)
 	defer checkEarlyExit.Stop()
-	domainCheckTicker := time.NewTicker(time.Second * 10)
-	defer domainCheckTicker.Stop()
+	timedOut := time.After(timeout)
 
 	for {
 		select {
-		case <-ticker.C:
-			panic(fmt.Errorf("timed out waiting for domain to be defined"))
-		case <-domainCheckTicker.C:
-			log.Log.V(3).Infof("Periodically checking for domain with UUID")
-			domain := detectDomainWithUUID(domainManager)
-			if domain != nil {
-				return domain
-			}
-		case <-events:
-			log.Log.V(3).Infof("Checking for domain with UUID due to incoming libvirt event")
-			domain := detectDomainWithUUID(domainManager)
-			if domain != nil {
-				return domain
-			}
+		case <-domainDefined:
+			return true, nil
 		case <-stop:
-			return nil
+			return false, nil
+		case <-timedOut:
+			return false, fmt.Errorf("timed out waiting for domain to be defined")
 		case <-checkEarlyExit.C:
 			if cmdserver.ReceivedEarlyExitSignal() {
-				panic(fmt.Errorf("received early exit signal"))
+				return false, fmt.Errorf("received early exit signal")
 			}
 		}
 	}
 }
 
-func waitForFinalNotify(deleteNotificationSent chan watch.Event,
-	domainManager virtwrap.DomainManager,
-	vmi *v1.VirtualMachineInstance) {
-
-	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
-
-	// First attempt to wait for domain event to occur as a part of the normal shutdown flow.
-	// If that fails, call Kill on the domain and wait for the event again.
-	// If that that fails, exit. We did our best to shutdown the domain gracefully. We can't block
-	// the pod forever. Virt-handler will learn of the domain's exit through monitoring cmd server socket.
-
-	killTimeout := time.After(15 * time.Second)
-	timedOut := false
-	for timedOut == false {
-		select {
-		case e := <-deleteNotificationSent:
-			if e.Object != nil && e.Type == watch.Modified {
-				domain, ok := e.Object.(*api.Domain)
-				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-					log.Log.Info("Final Delete notification sent")
-					return
-				}
-			}
-		case <-killTimeout:
-			log.Log.Info("Timed out waiting for final delete notification. Attempting to kill domain")
-			timedOut = true
-		}
+func waitForFinalNotify(finalNotificationSent <-chan struct{}, domainManager virtwrap.DomainManager, vmi *v1.VirtualMachineInstance) {
+	log.Log.Info("Waiting for the final domain notification to be sent to virt-handler")
+	// QEMU exiting leaves a persistent domain defined, so the final notification,
+	// which carries the exit reason, waits for virt-handler to undefine it.
+	if closedWithin(finalNotificationSent, finalNotificationTimeout) {
+		return
 	}
 
-	// There are many conditions that can cause the qemu pid to exit that
-	// don't involve the VirtualMachineInstance's domain from being deleted from libvirt.
-	//
-	// KillVMI is idempotent. Making a call to KillVMI here ensures that the deletion
-	// occurs regardless if the VirtualMachineInstance crashed unexpectedly or if virt-handler requested
-	// a graceful shutdown.
-	domainManager.KillVMI(vmi)
+	// KillVMI only destroys the domain if libvirt still reports it running.
+	log.Log.Info("Timed out waiting for the final domain notification, killing the domain")
+	if err := domainManager.KillVMI(vmi); err != nil {
+		log.Log.Reason(err).Error("Failed to kill the domain")
+	}
+	// Bounded so libvirt cannot hold the pod; virt-handler then learns of the exit
+	// from the command socket closing, without the exit reason.
+	if !closedWithin(finalNotificationSent, finalNotificationAfterKillTimeout) {
+		log.Log.Info("Timed out waiting for the final domain notification after killing the domain")
+	}
+}
 
-	// We don't want to block here forever. If the delete does not occur, that could mean
-	// something is wrong with libvirt. In this situation, virt-handler will detect that
-	// the domain went away eventually, however the exit status will be unknown.
-	finalTimeout := time.After(30 * time.Second)
-	for {
-		select {
-		case e := <-deleteNotificationSent:
-			if e.Object != nil && e.Type == watch.Modified {
-				domain, ok := e.Object.(*api.Domain)
-				if ok && domain.ObjectMeta.DeletionTimestamp != nil {
-					log.Log.Info("Final Delete notification sent after calling kill.")
-					return
-				}
-			}
-			return
-		case <-finalTimeout:
-			log.Log.Info("Timed out waiting for final delete notification after calling kill.")
-			return
-		}
+func closedWithin(signal <-chan struct{}, timeout time.Duration) bool {
+	select {
+	case <-signal:
+		return true
+	case <-time.After(timeout):
+		return false
 	}
 }
 
@@ -471,6 +417,22 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	// Send domain notifications to virt-handler
+	agentPoller := agentpoller.CreatePoller(
+		domainConn,
+		vmi.UID,
+		domainName,
+		&agentStore,
+		*qemuAgentSysInterval,
+		*qemuAgentFileInterval,
+		*qemuAgentUserInterval,
+		*qemuAgentVersionInterval,
+		*qemuAgentFSFreezeStatusInterval,
+	)
+	domainPublisher := domainpublisher.NewDomainPublisher(notifier, domainConn, vmi, agentPoller, metadataCache, *runWithNonRoot)
+	publisherCtx, stopPublisher := context.WithCancel(context.Background())
+	startDomainEventMonitoring(publisherCtx, domainConn, domainPublisher)
+
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
@@ -495,23 +457,6 @@ func main() {
 		}
 	}
 
-	events := make(chan watch.Event, 2)
-	// Send domain notifications to virt-handler
-	agentPoller := agentpoller.CreatePoller(
-		domainConn,
-		vmi.UID,
-		domainName,
-		&agentStore,
-		*qemuAgentSysInterval,
-		*qemuAgentFileInterval,
-		*qemuAgentUserInterval,
-		*qemuAgentVersionInterval,
-		*qemuAgentFSFreezeStatusInterval,
-	)
-	domainPublisher := domainpublisher.NewDomainPublisher(notifier, domainConn, vmi, agentPoller, metadataCache, *runWithNonRoot)
-	publisherCtx, stopPublisher := context.WithCancel(context.Background())
-	startDomainEventMonitoring(publisherCtx, domainConn, domainPublisher, events)
-
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGHUP,
@@ -532,8 +477,11 @@ func main() {
 	markReady()
 
 	standalone.HandleStandaloneMode(domainManager)
-	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
-	if domain != nil {
+	defined, err := waitForDomainDefined(*qemuTimeout, domainPublisher.DomainDefined(), signalStopChan)
+	if err != nil {
+		panic(err)
+	}
+	if defined {
 		var pidDir string
 		if *runWithNonRoot {
 			pidDir = "/run/libvirt/qemu/run"
@@ -556,7 +504,7 @@ func main() {
 		// Now that the pid has exited, we wait for the final delete notification to be
 		// sent back to virt-handler. This delete notification contains the reason the
 		// domain exited.
-		waitForFinalNotify(events, domainManager, vmi)
+		waitForFinalNotify(domainPublisher.FinalNotificationSent(), domainManager, vmi)
 	}
 
 	stopPublisher()
