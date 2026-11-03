@@ -92,24 +92,24 @@ var _ = Describe("DomainPublisher", func() {
 		p.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED)})
 	}
 
-	DescribeTable("should notify the domain state on lifecycle events", func(state libvirt.DomainState, event libvirt.DomainEventType, expectedState api.LifeCycle, expectedType watch.EventType) {
+	DescribeTable("should notify the domain state on lifecycle events", func(state libvirt.DomainState, event libvirt.DomainEventType, expectedState api.LifeCycle) {
 		domainExists(state, -1)
 
 		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: event})
 
 		notification := h.receive()
-		Expect(notification.Type).To(Equal(expectedType))
+		Expect(notification.Type).To(Equal(watch.Modified))
 		domain := notification.Object.(*api.Domain)
 		Expect(domain.Status.Status).To(Equal(expectedState))
 		expectedSpec := api.NewMinimalDomain("test").Spec
 		domain.Spec.XMLName = xml.Name{}
 		Expect(equality.Semantic.DeepEqual(expectedSpec, domain.Spec)).To(BeTrue())
 	},
-		Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
-		Entry("modified for stopped VMIs with shutoff reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
-		Entry("modified for stopped VMIs with stopped reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff, watch.Modified),
-		Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
-		Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
+		Entry("crashed", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed),
+		Entry("shut down", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff),
+		Entry("stopped", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff),
+		Entry("started", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running),
+		Entry("defined", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff),
 	)
 
 	It("should not notify a resync before the domain is defined", func() {
@@ -195,6 +195,29 @@ var _ = Describe("DomainPublisher", func() {
 		Expect(notification.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
 		Expect(notification.Object.(*api.Domain).DeletionTimestamp).ToNot(BeNil())
 		Eventually(h.publisher.FinalNotificationSent()).Should(BeClosed())
+	})
+
+	It("should keep the deletion timestamp in later notifications", func() {
+		domainRemoved()
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED})
+		removed := h.receive().Object.(*api.Domain)
+		Expect(removed.DeletionTimestamp).ToNot(BeNil())
+
+		h.publisher.Resync()
+
+		Expect(h.receive().Object.(*api.Domain).DeletionTimestamp).To(Equal(removed.DeletionTimestamp))
+	})
+
+	It("should complete a backup job after the domain is gone", func() {
+		metadataCache.Backup.Set(api.BackupMetadata{Name: "backup"})
+		domainRemoved()
+
+		h.publisher.OnJobCompleted(&libvirt.DomainEventJobCompleted{Info: libvirt.DomainJobInfo{
+			Type:      libvirt.DOMAIN_JOB_COMPLETED,
+			Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+		}})
+
+		Expect(h.receive().Object.(*api.Domain).Spec.Metadata.KubeVirt.Backup.Completed).To(BeTrue())
 	})
 
 	DescribeTable("should not mark a gone domain deleted on", func(fire func(*domainpublisher.DomainPublisher)) {

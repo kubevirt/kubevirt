@@ -59,6 +59,8 @@ type DomainPublisher struct {
 
 	queue                    workqueue.TypedInterface[any]
 	domainSeen               bool
+	domainRemoved            bool
+	removedAt                *metav1.Time
 	domainDefined            chan struct{}
 	finalNotificationSent    chan struct{}
 	domainStatus             api.LifeCycle
@@ -104,9 +106,6 @@ func (p *DomainPublisher) OnLifecycle(event *libvirt.DomainEventLifecycle) {
 }
 
 func (p *DomainPublisher) OnJobCompleted(event *libvirt.DomainEventJobCompleted) {
-	if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
-		storeCompletedMigrationStats(&event.Info, p.metadataCache)
-	}
 	p.queue.Add(event)
 }
 
@@ -169,15 +168,7 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) eventCallback(event any) {
-	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
-	if lifecycle, ok := event.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_CRASHED {
-		p.recordGuestPanic(lifecycle.Detail)
-	}
-	if _, ok := event.(*libvirt.DomainEventLifecycle); ok {
-		p.markSeen()
-	}
-
+func (p *DomainPublisher) publish() {
 	domain := p.domainTemplate.DeepCopy()
 	d, err := p.connection.LookupDomainByName(p.domainName)
 	if err != nil {
@@ -229,7 +220,13 @@ func (p *DomainPublisher) eventCallback(event any) {
 		p.updateStatus(&domain.Status)
 	}
 
-	eventType := watch.Modified
+	if p.domainRemoved && domain.Status.Reason == api.ReasonNonExistent {
+		if p.removedAt == nil {
+			now := metav1.Now()
+			p.removedAt = &now
+		}
+		domain.ObjectMeta.DeletionTimestamp = p.removedAt
+	}
 
 	switch domain.Status.Reason {
 	case api.ReasonPausedIOError:
@@ -255,17 +252,6 @@ func (p *DomainPublisher) eventCallback(event any) {
 		}
 	}
 
-	switch e := event.(type) {
-	case *libvirt.DomainEventJobCompleted:
-		if shouldAdd := processJobCompletedEvent(domain, d, e, p.metadataCache); shouldAdd {
-			eventType = watch.Added
-		}
-	case *libvirt.DomainEventLifecycle:
-		if shouldAdd := processLifecycleEvent(domain, e, p.metadataCache, p.connection, p.vmi); shouldAdd {
-			eventType = watch.Added
-		}
-	}
-
 	agentStore := p.agentPoller.Store()
 	if interfaces := agentStore.GetInterfaceStatus(); interfaces != nil {
 		domain.Status.Interfaces = interfaces
@@ -282,13 +268,16 @@ func (p *DomainPublisher) eventCallback(event any) {
 	if migration, exists := p.metadataCache.Migration.Load(); exists {
 		domain.Spec.Metadata.KubeVirt.Migration = &migration
 	}
+	if backup, exists := p.metadataCache.Backup.Load(); exists {
+		domain.Spec.Metadata.KubeVirt.Backup = &backup
+	}
 	applyCompletedMigrationStats(domain, p.metadataCache)
 	if guestPanic, exists := p.metadataCache.GuestPanic.Load(); exists {
 		domain.Status.GuestPanicInfo = guestPanic.Info
 		domain.Status.PanicCount = guestPanic.Count
 	}
 
-	watchEvent := watch.Event{Type: eventType, Object: domain}
+	watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 
 	if err := p.notifier.SendDomainEvent(watchEvent); err != nil {
 		log.Log.Reason(err).Error("Could not send domain notify event.")
@@ -312,27 +301,6 @@ func closeOnce(signal chan struct{}) {
 	case <-signal:
 	default:
 		close(signal)
-	}
-}
-
-func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) bool {
-	switch jobCompletedEvent.Info.Operation {
-	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
-		if migration, exists := metadataCache.Migration.Load(); exists {
-			virtwrap.LogMigrationInfo(log.Log, migration.UID, &jobCompletedEvent.Info)
-		} else {
-			log.Log.Warning("Received migration completed event, but no migration is being tracked")
-		}
-		return false
-	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
-		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
-		if value, exists := metadataCache.Backup.Load(); exists {
-			domain.Spec.Metadata.KubeVirt.Backup = &value
-		}
-		return true
-	default:
-		log.Log.V(3).Infof("Received a job completion event for operation %v", jobCompletedEvent.Info.Operation)
-		return false
 	}
 }
 
@@ -373,41 +341,6 @@ func applyCompletedMigrationStats(domain *api.Domain, metadataCache *metadata.Ca
 	domain.Status.CompletedMigrationStats = &completedMigration.Stats
 }
 
-func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEventLifecycle, metadataCache *metadata.Cache, c cli.Connection, vmi *v1.VirtualMachineInstance) bool {
-	// Set DeletionTimestamp when the domain is truly gone from libvirt.
-	// Undefined is terminal for persistent domains (emitted by explicit undefine).
-	// Stopped is terminal for transient domains (e.g. migration target).
-	// Stopped(Migrated) is excluded because it only fires on the persistent source
-	// after a successful outbound migration, where Undefined follows.
-	if (lifecycleEvent.Event == libvirt.DOMAIN_EVENT_UNDEFINED) ||
-		(lifecycleEvent.Event == libvirt.DOMAIN_EVENT_STOPPED && libvirt.DomainEventStoppedDetailType(lifecycleEvent.Detail) != libvirt.DOMAIN_EVENT_STOPPED_MIGRATED) {
-		if domain.Status.Reason == api.ReasonNonExistent {
-			now := metav1.Now()
-			domain.ObjectMeta.DeletionTimestamp = &now
-		}
-		return false
-	}
-	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_DEFINED &&
-		libvirt.DomainEventDefinedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-		return true
-	}
-	if lifecycleEvent.Event == libvirt.DOMAIN_EVENT_STARTED &&
-		libvirt.DomainEventStartedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
-		return true
-	}
-	if (lifecycleEvent.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
-		(lifecycleEvent.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(lifecycleEvent.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
-		// This is a libvirt event that only the target can see, and it means that the migration has completed
-		// we just set the EndTimestamp here so that the source can finalize the migration.
-		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
-		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
-		// makes sure that migrations actually finish in those cases.
-		monitor := virtwrap.NewTargetMigrationMonitor(c, log.Log.Object(vmi), util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name), metadataCache)
-		monitor.StartMonitor()
-	}
-	return false
-}
-
 // getVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
 // One should not rely on target (vda) as API, use disk serials instead.
 func getVolumeNameByTarget(domain *api.Domain, target string) string {
@@ -442,15 +375,73 @@ func (p *DomainPublisher) processNext() bool {
 	}
 	defer p.queue.Done(item)
 
-	p.eventCallback(item)
+	if _, isResync := item.(resync); isResync {
+		p.publish()
+	} else {
+		p.handle(item)
+		p.queue.Add(resync{})
+	}
+	return true
+}
 
-	switch e := item.(type) {
+func (p *DomainPublisher) handle(event any) {
+	switch e := event.(type) {
 	case *libvirt.DomainEventLifecycle:
-		p.agentPoller.OnDomainLifecycle(e.Event)
+		p.onLifecycle(e)
+	case *libvirt.DomainEventJobCompleted:
+		p.onJobCompleted(e)
 	case *libvirt.DomainEventAgentLifecycle:
 		p.agentPoller.OnAgentLifecycle(e.State)
 	}
-	return true
+}
+
+func (p *DomainPublisher) onLifecycle(event *libvirt.DomainEventLifecycle) {
+	p.markSeen()
+	p.agentPoller.OnDomainLifecycle(event.Event)
+
+	if event.Event == libvirt.DOMAIN_EVENT_CRASHED {
+		p.recordGuestPanic(event.Detail)
+	}
+	// Undefined is terminal for persistent domains (emitted by explicit undefine).
+	// Stopped is terminal for transient domains (e.g. migration target).
+	// Stopped(Migrated) is excluded because it only fires on the persistent source
+	// after a successful outbound migration, where Undefined follows.
+	if (event.Event == libvirt.DOMAIN_EVENT_UNDEFINED) ||
+		(event.Event == libvirt.DOMAIN_EVENT_STOPPED && libvirt.DomainEventStoppedDetailType(event.Detail) != libvirt.DOMAIN_EVENT_STOPPED_MIGRATED) {
+		p.domainRemoved = true
+		return
+	}
+	if (event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
+		(event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
+		// This is a libvirt event that only the target can see, and it means that the migration has completed
+		// we just set the EndTimestamp here so that the source can finalize the migration.
+		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
+		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
+		// makes sure that migrations actually finish in those cases.
+		monitor := virtwrap.NewTargetMigrationMonitor(p.connection, log.Log.Object(p.vmi), p.domainName, p.metadataCache)
+		monitor.StartMonitor()
+	}
+}
+
+func (p *DomainPublisher) onJobCompleted(event *libvirt.DomainEventJobCompleted) {
+	switch event.Info.Operation {
+	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
+		storeCompletedMigrationStats(&event.Info, p.metadataCache)
+		if migration, exists := p.metadataCache.Migration.Load(); exists {
+			virtwrap.LogMigrationInfo(log.Log, migration.UID, &event.Info)
+		} else {
+			log.Log.Warning("Received migration completed event, but no migration is being tracked")
+		}
+	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
+		var dom cli.VirDomain
+		if d, err := p.connection.LookupDomainByName(p.domainName); err == nil {
+			defer d.Free()
+			dom = d
+		}
+		storage.HandleBackupJobCompletedEvent(dom, event, p.metadataCache)
+	default:
+		log.Log.V(3).Infof("Received a job completion event for operation %v", event.Info.Operation)
+	}
 }
 
 func (p *DomainPublisher) resyncOnSignals(ctx context.Context) {
