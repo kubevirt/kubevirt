@@ -1467,6 +1467,7 @@ type Interface struct {
 	Binding *PluginBinding `json:"binding,omitempty"`
 	// List of ports to be forwarded to the virtual machine.
 	// Mutually exclusive with portRanges.
+	// +kubebuilder:validation:MaxItems:=32
 	Ports []Port `json:"ports,omitempty"`
 	// List of port ranges to be forwarded to the virtual machine.
 	// Mutually exclusive with ports. Only supported on masquerade interfaces.
@@ -1621,13 +1622,18 @@ type Port struct {
 	// named port in a pod must have a unique name. Name for the port that can be
 	// referred to by services.
 	// +optional
+	// +kubebuilder:validation:MaxLength:=15
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')",message="port name must be a valid IANA_SVC_NAME"
 	Name string `json:"name,omitempty"`
 	// Protocol for port. Must be UDP or TCP.
 	// Defaults to "TCP".
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['', 'TCP', 'UDP']",message="port protocol must be TCP or UDP"
 	Protocol string `json:"protocol,omitempty"`
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
+	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=65535
 	Port int32 `json:"port"`
 }
 

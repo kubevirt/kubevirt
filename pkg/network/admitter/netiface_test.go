@@ -233,64 +233,22 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	When("the interface port is specified", func() {
-		DescribeTable("should reject interface port with", func(ports []v1.Port, expectedCauses []metav1.StatusCause) {
+		It("should reject two ports that have the same name", func() {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name:                   "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  ports,
+				Ports:                  []v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}},
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-			Expect(validator.Validate()).To(ConsistOf(expectedCauses))
-		},
-			Entry(
-				"only the port name",
-				[]v1.Port{{Name: "test"}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueRequired",
-					Message: "Port field is mandatory.",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].port",
-				}},
-			),
-			Entry(
-				"bad protocol type",
-				[]v1.Port{{Protocol: "bad", Port: 80}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "Unknown protocol, only TCP or UDP allowed",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].protocol",
-				}},
-			),
-			Entry(
-				"port out of range",
-				[]v1.Port{{Port: 80000}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "Port field must be in range 0 < x < 65536.",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].port",
-				}},
-			),
-			Entry(
-				"two ports that have the same name",
-				[]v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueDuplicate",
-					Message: "Duplicate name of the port: testport",
-					Field:   "fake.domain.devices.interfaces[0].ports[1].name",
-				}},
-			),
-			Entry(
-				"bad port name",
-				[]v1.Port{{Name: "Test", Port: 80}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "Invalid name of the port: Test",
-					Field:   "fake.domain.devices.interfaces[0].ports[0].name",
-				}},
-			),
-		)
+			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueDuplicate",
+				Message: "Duplicate name of the port: testport",
+				Field:   "fake.domain.devices.interfaces[0].ports[1].name",
+			}))
+		})
 
 		DescribeTable("should accept interface with", func(ports []v1.Port) {
 			spec := &v1.VirtualMachineInstanceSpec{}

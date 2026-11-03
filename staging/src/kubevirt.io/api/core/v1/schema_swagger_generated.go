@@ -748,7 +748,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
 		"model":       "Interface model.\nOne of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
-		"ports":       "List of ports to be forwarded to the virtual machine.\nMutually exclusive with portRanges.",
+		"ports":       "List of ports to be forwarded to the virtual machine.\nMutually exclusive with portRanges.\n+kubebuilder:validation:MaxItems:=32",
 		"portRanges":  "List of port ranges to be forwarded to the virtual machine.\nMutually exclusive with ports. Only supported on masquerade interfaces.\nThis feature is in Alpha.\n+optional\n+listType=atomic",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
@@ -839,9 +839,9 @@ func (PluginBinding) SwaggerDoc() map[string]string {
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
-		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
-		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
-		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional\n+kubebuilder:validation:MaxLength:=15\n+kubebuilder:validation:XValidation:rule=\"self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')\",message=\"port name must be a valid IANA_SVC_NAME\"",
+		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional\n+kubebuilder:validation:XValidation:rule=\"self in ['', 'TCP', 'UDP']\",message=\"port protocol must be TCP or UDP\"",
+		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.\n+kubebuilder:validation:Minimum:=1\n+kubebuilder:validation:Maximum:=65535",
 	}
 }
 

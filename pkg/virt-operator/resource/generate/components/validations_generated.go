@@ -8250,21 +8250,31 @@ var CRDsValidation map[string]string = map[string]string{
                                         If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                         named port in a pod must have a unique name. Name for the port that can be
                                         referred to by services.
+                                      maxLength: 15
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: port name must be a valid IANA_SVC_NAME
+                                        rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                                     port:
                                       description: |-
                                         Number of port to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: |-
                                         Protocol for port. Must be UDP or TCP.
                                         Defaults to "TCP".
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: port protocol must be TCP or UDP
+                                        rule: self in ['', 'TCP', 'UDP']
                                   required:
                                   - port
                                   type: object
+                                maxItems: 32
                                 type: array
                               slirp:
                                 description: |-
@@ -14916,21 +14926,31 @@ var CRDsValidation map[string]string = map[string]string{
                                 If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                 named port in a pod must have a unique name. Name for the port that can be
                                 referred to by services.
+                              maxLength: 15
                               type: string
+                              x-kubernetes-validations:
+                              - message: port name must be a valid IANA_SVC_NAME
+                                rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                             port:
                               description: |-
                                 Number of port to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: |-
                                 Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
                               type: string
+                              x-kubernetes-validations:
+                              - message: port protocol must be TCP or UDP
+                                rule: self in ['', 'TCP', 'UDP']
                           required:
                           - port
                           type: object
+                        maxItems: 32
                         type: array
                       slirp:
                         description: |-
@@ -19530,21 +19550,31 @@ var CRDsValidation map[string]string = map[string]string{
                                 If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                 named port in a pod must have a unique name. Name for the port that can be
                                 referred to by services.
+                              maxLength: 15
                               type: string
+                              x-kubernetes-validations:
+                              - message: port name must be a valid IANA_SVC_NAME
+                                rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                             port:
                               description: |-
                                 Number of port to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: |-
                                 Protocol for port. Must be UDP or TCP.
                                 Defaults to "TCP".
                               type: string
+                              x-kubernetes-validations:
+                              - message: port protocol must be TCP or UDP
+                                rule: self in ['', 'TCP', 'UDP']
                           required:
                           - port
                           type: object
+                        maxItems: 32
                         type: array
                       slirp:
                         description: |-
@@ -22129,21 +22159,31 @@ var CRDsValidation map[string]string = map[string]string{
                                         If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                         named port in a pod must have a unique name. Name for the port that can be
                                         referred to by services.
+                                      maxLength: 15
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: port name must be a valid IANA_SVC_NAME
+                                        rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                                     port:
                                       description: |-
                                         Number of port to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: |-
                                         Protocol for port. Must be UDP or TCP.
                                         Defaults to "TCP".
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: port protocol must be TCP or UDP
+                                        rule: self in ['', 'TCP', 'UDP']
                                   required:
                                   - port
                                   type: object
+                                maxItems: 32
                                 type: array
                               slirp:
                                 description: |-
@@ -27576,21 +27616,33 @@ var CRDsValidation map[string]string = map[string]string{
                                                 If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                                 named port in a pod must have a unique name. Name for the port that can be
                                                 referred to by services.
+                                              maxLength: 15
                                               type: string
+                                              x-kubernetes-validations:
+                                              - message: port name must be a valid
+                                                  IANA_SVC_NAME
+                                                rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                                             port:
                                               description: |-
                                                 Number of port to expose for the virtual machine.
                                                 This must be a valid port number, 0 < x < 65536.
                                               format: int32
+                                              maximum: 65535
+                                              minimum: 1
                                               type: integer
                                             protocol:
                                               description: |-
                                                 Protocol for port. Must be UDP or TCP.
                                                 Defaults to "TCP".
                                               type: string
+                                              x-kubernetes-validations:
+                                              - message: port protocol must be TCP
+                                                  or UDP
+                                                rule: self in ['', 'TCP', 'UDP']
                                           required:
                                           - port
                                           type: object
+                                        maxItems: 32
                                         type: array
                                       slirp:
                                         description: |-
@@ -33549,21 +33601,33 @@ var CRDsValidation map[string]string = map[string]string{
                                                     If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
                                                     named port in a pod must have a unique name. Name for the port that can be
                                                     referred to by services.
+                                                  maxLength: 15
                                                   type: string
+                                                  x-kubernetes-validations:
+                                                  - message: port name must be a valid
+                                                      IANA_SVC_NAME
+                                                    rule: self == '' || self.matches('^(?:[a-z0-9]+-)*[0-9]*[a-z][a-z0-9]*(?:-[a-z0-9]+)*$')
                                                 port:
                                                   description: |-
                                                     Number of port to expose for the virtual machine.
                                                     This must be a valid port number, 0 < x < 65536.
                                                   format: int32
+                                                  maximum: 65535
+                                                  minimum: 1
                                                   type: integer
                                                 protocol:
                                                   description: |-
                                                     Protocol for port. Must be UDP or TCP.
                                                     Defaults to "TCP".
                                                   type: string
+                                                  x-kubernetes-validations:
+                                                  - message: port protocol must be
+                                                      TCP or UDP
+                                                    rule: self in ['', 'TCP', 'UDP']
                                               required:
                                               - port
                                               type: object
+                                            maxItems: 32
                                             type: array
                                           slirp:
                                             description: |-
