@@ -538,7 +538,7 @@ func processLifecycleEvent(domain *api.Domain, lifecycleEvent *libvirt.DomainEve
 		// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
 		// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
 		// makes sure that migrations actually finish in those cases.
-		monitor := virtwrap.NewTargetMigrationMonitor(c, log.Log.Object(vmi), domain, metadataCache)
+		monitor := virtwrap.NewTargetMigrationMonitor(c, log.Log.Object(vmi), util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name), metadataCache)
 		monitor.StartMonitor()
 	}
 	return false
