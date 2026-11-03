@@ -591,6 +591,13 @@ OpenAPI schema constraint, so it stays easy to loosen. Document the bound's
 rationale and provisional nature in the field's API comment so it can be
 revisited as experience accumulates.
 
+A CEL rule that is otherwise correct and safe under §4.2.3–§4.2.4 can still be
+rejected at CRD-install time on cost-estimation grounds alone. See
+[cel-validation-cost-guide.md](cel-validation-cost-guide.md) for the
+apiserver's cost-estimation mechanics, a decision checklist for choosing
+between CEL, a native schema keyword, and `listType=map`, and worked examples
+from this project's own migrations.
+
 ---
 
 ## 5. Hypervisor Translation Layer
