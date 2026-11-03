@@ -114,74 +114,38 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agent).To(Equal(agentVersion))
 		})
 
-		It("should fire an event for new fsfreezestatus", func() {
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
+		DescribeTable("should signal an update for new data", func(key any, value func() any) {
+			agentStore.Store(key, value())
 
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     nil,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         nil,
-				},
-			})))
-		})
+			Expect(agentStore.AgentUpdated).To(Receive())
+		},
+			Entry("fsfreezestatus", GetFSFreezeStatus, func() any { return fakeFSFreezeStatus }),
+			Entry("sysinfo", libvirt.DOMAIN_GUEST_INFO_OS, func() any { return fakeInfo }),
+			Entry("interfaces", libvirt.DOMAIN_GUEST_INFO_INTERFACES, func() any { return fakeInterfaces }),
+		)
 
-		It("should not fire an event for the same fsfreezestatus", func() {
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
+		DescribeTable("should not signal an update for unchanged data", func(key any, value func() any) {
+			agentStore.Store(key, value())
+			Expect(agentStore.AgentUpdated).To(Receive())
 
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     nil,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         nil,
-				},
-			})))
+			agentStore.Store(key, value())
 
-			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
-		})
+		},
+			Entry("fsfreezestatus", GetFSFreezeStatus, func() any { return fakeFSFreezeStatus }),
+			Entry("sysinfo", libvirt.DOMAIN_GUEST_INFO_OS, func() any { return fakeInfo }),
+		)
 
-		It("should fire an event for new sysinfo data", func() {
-			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
-			})))
-		})
-
-		It("should not fire an event for the same sysinfo data", func() {
-			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
-			})))
-
-			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
-			Expect(agentStore.AgentUpdated).ToNot(Receive())
-		})
-
-		It("should fire an event with new updated key and old non updated keys", func() {
+		It("should not block when updates are not consumed", func() {
 			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, fakeInterfaces)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces: fakeInterfaces,
-				},
-			})))
-
 			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     fakeInterfaces,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-				},
-			})))
-
 			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
-			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{
-					Interfaces:     fakeInterfaces,
-					FSFreezeStatus: &fakeFSFreezeStatus,
-					OSInfo:         &fakeInfo,
-				},
-			})))
+
+			Expect(agentStore.AgentUpdated).To(Receive())
+			Expect(agentStore.AgentUpdated).ToNot(Receive())
+			Expect(agentStore.GetInterfaceStatus()).To(Equal(fakeInterfaces))
+			Expect(agentStore.GetFSFreezeStatus()).To(Equal(&fakeFSFreezeStatus))
+			Expect(agentStore.GetGuestOSInfo()).To(Equal(&fakeInfo))
 		})
 
 		It("should report nil slice when no interfaces exists", func() {
@@ -218,9 +182,7 @@ var _ = Describe("Qemu agent poller", func() {
 			}
 			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, fakeFileSystemInfo)
 
-			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
-				DomainInfo: api.DomainGuestInfo{},
-			})))
+			Expect(agentStore.AgentUpdated).NotTo(Receive())
 		})
 	})
 

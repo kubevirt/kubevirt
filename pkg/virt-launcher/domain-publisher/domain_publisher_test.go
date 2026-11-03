@@ -109,6 +109,12 @@ var _ = Describe("DomainPublisher", func() {
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 	})
 
+	It("should not notify guest agent updates before the first libvirt event", func() {
+		h.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, api.GuestOSInfo{Name: "fedora"})
+
+		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
+	})
+
 	It("should stop publishing once its context is cancelled", func() {
 		h.stop()
 

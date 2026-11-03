@@ -50,26 +50,21 @@ const (
 	repeatingLogLevel = 3
 )
 
-// AgentUpdatedEvent fire up when data is changes in the store
-type AgentUpdatedEvent struct {
-	DomainInfo api.DomainGuestInfo
-}
-
 // AsyncAgentStore stores the agent data converted to api domain objects
 // it offers methods to get the data and fire up an event when there
 // is a change of the data
 type AsyncAgentStore struct {
-	store        sync.Map
-	AgentUpdated chan AgentUpdatedEvent
+	store sync.Map
+	// AgentUpdated signals, without blocking, that the guest OS info,
+	// interfaces or filesystem freeze status changed.
+	AgentUpdated chan struct{}
 }
 
 // NewAsyncAgentStore creates new agent store
 func NewAsyncAgentStore() AsyncAgentStore {
-	const agentUpdatedChanBuffer = 10
-
 	return AsyncAgentStore{
 		store:        sync.Map{},
-		AgentUpdated: make(chan AgentUpdatedEvent, agentUpdatedChanBuffer),
+		AgentUpdated: make(chan struct{}, 1),
 	}
 }
 
@@ -80,19 +75,15 @@ func (s *AsyncAgentStore) Store(key, value any) {
 
 	s.store.Store(key, value)
 
-	domainInfo := api.DomainGuestInfo{}
 	switch key {
 	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
 		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 		if !updated {
 			return
 		}
-		domainInfo.OSInfo = s.GetGuestOSInfo()
-		domainInfo.Interfaces = s.GetInterfaceStatus()
-		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
-
-		s.AgentUpdated <- AgentUpdatedEvent{
-			DomainInfo: domainInfo,
+		select {
+		case s.AgentUpdated <- struct{}{}:
+		default:
 		}
 	}
 }

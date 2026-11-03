@@ -174,8 +174,7 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) eventCallback(domain *api.Domain, event any, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, fsFreezeStatus *api.FSFreeze) {
+func (p *DomainPublisher) eventCallback(domain *api.Domain, event any, events chan watch.Event) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if lifecycle, ok := event.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_CRASHED {
 		p.recordGuestPanic(lifecycle.Detail)
@@ -263,14 +262,14 @@ func (p *DomainPublisher) eventCallback(domain *api.Domain, event any, events ch
 		}
 	}
 
-	if interfaceStatus != nil {
-		domain.Status.Interfaces = interfaceStatus
+	agentStore := p.agentPoller.Store()
+	if interfaces := agentStore.GetInterfaceStatus(); interfaces != nil {
+		domain.Status.Interfaces = interfaces
 	}
-	if osInfo != nil {
+	if osInfo := agentStore.GetGuestOSInfo(); osInfo != nil {
 		domain.Status.OSInfo = *osInfo
 	}
-
-	if fsFreezeStatus != nil {
+	if fsFreezeStatus := agentStore.GetFSFreezeStatus(); fsFreezeStatus != nil {
 		domain.Status.FSFreezeStatus = *fsFreezeStatus
 	}
 	// Lifecycle metadata can advance after JOB_COMPLETED and remains available
@@ -401,9 +400,6 @@ func getVolumeNameByTarget(domain *api.Domain, target string) string {
 func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan watch.Event) {
 	defer p.agentPoller.Stop()
 
-	var interfaceStatuses []api.InterfaceStatus
-	var guestOsInfo *api.GuestOSInfo
-	var fsFreezeStatus *api.FSFreeze
 	var domainCache *api.Domain
 
 	for {
@@ -413,31 +409,29 @@ func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan w
 		case event := <-p.events:
 			p.metadataCache.ResetNotification()
 			domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-			p.eventCallback(domainCache, event, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+			p.eventCallback(domainCache, event, deleteNotificationSent)
 			switch e := event.(type) {
 			case *libvirt.DomainEventLifecycle:
 				p.agentPoller.OnDomainLifecycle(e.Event)
 			case *libvirt.DomainEventAgentLifecycle:
 				p.agentPoller.OnAgentLifecycle(e.State)
 			}
-		case agentUpdate := <-p.agentPoller.Store().AgentUpdated:
-			p.metadataCache.ResetNotification()
-			interfaceStatuses = agentUpdate.DomainInfo.Interfaces
-			guestOsInfo = agentUpdate.DomainInfo.OSInfo
-			fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
-
-			p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+		case <-p.agentPoller.Store().AgentUpdated:
+			if domainCache != nil {
+				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
+				p.eventCallback(domainCache, nil, deleteNotificationSent)
+			}
 		case <-p.resync:
 			if domainCache != nil {
 				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-				p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+				p.eventCallback(domainCache, nil, deleteNotificationSent)
 			}
 		case <-p.metadataCache.Listen():
 			// Metadata cache updates should be processed only *after* at least one
 			// libvirt event arrived (which creates the first domainCache).
 			if domainCache != nil {
 				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-				p.eventCallback(domainCache, nil, deleteNotificationSent, interfaceStatuses, guestOsInfo, fsFreezeStatus)
+				p.eventCallback(domainCache, nil, deleteNotificationSent)
 			} else {
 				log.Log.Object(p.vmi).Warning("Dropping metadata cache notification")
 			}
