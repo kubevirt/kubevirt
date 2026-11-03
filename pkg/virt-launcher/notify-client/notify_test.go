@@ -171,7 +171,7 @@ var _ = Describe("Notify", func() {
 				})
 
 				domain := api.NewMinimalDomain("test")
-				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+				err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 
 				Expect(err).To(MatchError(ContainSubstring("InvalidArgument")))
 				Expect(err).To(MatchError(ContainSubstring("invalid domain event")))
@@ -183,7 +183,7 @@ var _ = Describe("Notify", func() {
 				})
 
 				domain := api.NewMinimalDomain("test")
-				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+				err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 
 				Expect(err).To(MatchError(ContainSubstring("Internal")))
 				Expect(err).To(MatchError(ContainSubstring("server crashed")))
@@ -193,7 +193,7 @@ var _ = Describe("Notify", func() {
 				client := newTestNotifier(&fakeNotifyClient{})
 
 				domain := api.NewMinimalDomain("test")
-				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+				err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -204,7 +204,7 @@ var _ = Describe("Notify", func() {
 				})
 
 				domain := api.NewMinimalDomain("test")
-				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+				err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 
 				Expect(err).To(MatchError(ContainSubstring("legacy error")))
 			})
@@ -215,7 +215,7 @@ var _ = Describe("Notify", func() {
 				})
 
 				domain := api.NewMinimalDomain("test")
-				err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+				err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -323,7 +323,7 @@ var _ = Describe("Notify", func() {
 				}
 			})
 
-			It("SendDomainEvent should succeed after a transient error on retry", func() {
+			It("SendDomainEvent should fail a transient error once and succeed on the next send", func() {
 				var callCount atomic.Int32
 				server := &callbackNotifyServer{
 					onDomainEvent: func(_ context.Context, _ *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
@@ -334,12 +334,29 @@ var _ = Describe("Notify", func() {
 					},
 				}
 				startRetryServer(server)
-
 				domain := api.NewMinimalDomain("test")
-				err := retryClient.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(callCount.Load()).To(BeNumerically(">=", int32(2)))
+				Expect(retryClient.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})).
+					To(MatchError(ContainSubstring("Unavailable")))
+				Expect(retryClient.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})).
+					To(Succeed())
+				Expect(callCount.Load()).To(Equal(int32(2)))
+			})
+
+			It("SendDomainEvent should stop when its context is cancelled", func() {
+				server := &callbackNotifyServer{
+					onDomainEvent: func(ctx context.Context, _ *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+						<-ctx.Done()
+						return nil, ctx.Err()
+					},
+				}
+				startRetryServer(server)
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel()
+
+				err := retryClient.SendDomainEvent(ctx, watch.Event{Type: watch.Modified, Object: api.NewMinimalDomain("test")})
+
+				Expect(err).To(MatchError(ContainSubstring("Canceled")))
 			})
 
 			It("SendK8sEvent should succeed after a transient error on retry", func() {

@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,11 +44,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-// ioErrorReasonNoSpace is the libvirt I/O error event reason for ENOSPC.
-const ioErrorReasonNoSpace = "enospc"
+const (
+	// ioErrorReasonNoSpace is the libvirt I/O error event reason for ENOSPC.
+	ioErrorReasonNoSpace = "enospc"
+
+	retryBaseDelay = time.Second
+	retryMaxDelay  = 30 * time.Second
+)
 
 type domainNotifier interface {
-	SendDomainEvent(event watch.Event) error
+	SendDomainEvent(ctx context.Context, event watch.Event) error
 	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
 }
 
@@ -61,7 +67,7 @@ type DomainPublisher struct {
 	metadataCache  *metadata.Cache
 	nonRoot        bool
 
-	queue                    workqueue.TypedInterface[any]
+	queue                    workqueue.TypedRateLimitingInterface[any]
 	domainSeen               bool
 	domainRemoved            bool
 	removedAt                *metav1.Time
@@ -81,15 +87,17 @@ func NewDomainPublisher(
 ) *DomainPublisher {
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	return &DomainPublisher{
-		notifier:              notifier,
-		connection:            connection,
-		vmi:                   vmi,
-		domainName:            domainName,
-		domainTemplate:        util.NewDomainFromName(domainName, vmi.UID),
-		agentPoller:           agentPoller,
-		metadataCache:         metadataCache,
-		nonRoot:               nonRoot,
-		queue:                 workqueue.NewTyped[any](),
+		notifier:       notifier,
+		connection:     connection,
+		vmi:            vmi,
+		domainName:     domainName,
+		domainTemplate: util.NewDomainFromName(domainName, vmi.UID),
+		agentPoller:    agentPoller,
+		metadataCache:  metadataCache,
+		nonRoot:        nonRoot,
+		queue: workqueue.NewTypedRateLimitingQueue(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[any](retryBaseDelay, retryMaxDelay),
+		),
 		domainDefined:         make(chan struct{}),
 		finalNotificationSent: make(chan struct{}),
 	}
@@ -176,14 +184,10 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) publish() {
+func (p *DomainPublisher) publish(ctx context.Context) error {
 	domain, err := p.readDomain()
-	if err != nil {
-		log.Log.Reason(err).Error("Could not read the domain")
-		return
-	}
-	if domain == nil {
-		return
+	if err != nil || domain == nil {
+		return err
 	}
 
 	if p.domainRemoved && domain.Status.Reason == api.ReasonNonExistent {
@@ -213,12 +217,13 @@ func (p *DomainPublisher) publish() {
 
 	watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 
-	if err := p.notifier.SendDomainEvent(watchEvent); err != nil {
-		log.Log.Reason(err).Error("Could not send domain notify event.")
+	if err := p.notifier.SendDomainEvent(ctx, watchEvent); err != nil {
+		return fmt.Errorf("failed to send the domain notification: %w", err)
 	}
 	if domain.DeletionTimestamp != nil {
 		closeOnce(p.finalNotificationSent)
 	}
+	return nil
 }
 
 func (p *DomainPublisher) readDomain() (*api.Domain, error) {
@@ -330,11 +335,11 @@ func (p *DomainPublisher) Run(ctx context.Context) {
 		p.queue.ShutDown()
 	}()
 
-	for p.processNext() {
+	for p.processNext(ctx) {
 	}
 }
 
-func (p *DomainPublisher) processNext() bool {
+func (p *DomainPublisher) processNext(ctx context.Context) bool {
 	item, quit := p.queue.Get()
 	if quit {
 		return false
@@ -342,7 +347,7 @@ func (p *DomainPublisher) processNext() bool {
 	defer p.queue.Done(item)
 
 	if _, isResync := item.(resync); isResync {
-		p.publish()
+		p.sync(ctx)
 	} else {
 		p.handle(item)
 		p.queue.Add(resync{})
@@ -360,6 +365,15 @@ func (p *DomainPublisher) handle(event any) {
 		p.agentPoller.OnAgentLifecycle(e.State)
 	case *libvirt.DomainEventIOErrorReason:
 		p.onIOError(e)
+	}
+}
+
+func (p *DomainPublisher) sync(ctx context.Context) {
+	if err := p.publish(ctx); err != nil {
+		log.Log.Object(p.vmi).Reason(err).Info("Retrying the domain notification")
+		p.queue.AddRateLimited(resync{})
+	} else {
+		p.queue.Forget(resync{})
 	}
 }
 

@@ -1,6 +1,7 @@
 package eventsclient
 
 import (
+	"context"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -43,8 +44,8 @@ func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
 
 }
 
-func (n *Notifier) SendDomainEvent(event watch.Event) error {
-	return n.client.HandleDomainEvent(&event)
+func (n *Notifier) SendDomainEvent(ctx context.Context, event watch.Event) error {
+	return n.client.HandleDomainEvent(ctx, &event)
 }
 
 //nolint:dupl
@@ -69,7 +70,7 @@ func (n *Notifier) Close() {
 }
 
 type notifierClient interface {
-	HandleDomainEvent(*watch.Event) error
+	HandleDomainEvent(context.Context, *watch.Event) error
 	HandleK8SEvent(*k8sv1.Event) error
 	Close()
 }

@@ -22,6 +22,7 @@ package domainpublisher_test
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -196,6 +197,35 @@ var _ = Describe("DomainPublisher", func() {
 		Expect(notification.Type).To(Equal(watch.Modified))
 		Expect(notification.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
 		Expect(notification.Object.(*api.Domain).DeletionTimestamp).ToNot(BeNil())
+		Eventually(h.publisher.FinalNotificationSent()).Should(BeClosed())
+	})
+
+	It("should retry a notification that failed to send", func() {
+		domainExists(libvirt.DOMAIN_RUNNING, -1)
+		h.notifier.sendErrors <- errors.New("virt-handler unreachable")
+
+		resumed(h.publisher)
+
+		Expect(h.receive().Object.(*api.Domain).Status.Status).To(Equal(api.Running))
+	})
+
+	It("should retry a notification that failed to read the domain", func() {
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName("default_test").Return(nil, libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR})
+		domainExists(libvirt.DOMAIN_RUNNING, -1)
+
+		resumed(h.publisher)
+
+		Expect(h.receive().Object.(*api.Domain).Status.Status).To(Equal(api.Running))
+	})
+
+	It("should signal the final notification only once it was sent", func() {
+		domainRemoved()
+		h.notifier.sendErrors <- errors.New("virt-handler unreachable")
+
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED})
+
+		Consistently(h.publisher.FinalNotificationSent(), 500*time.Millisecond).ShouldNot(BeClosed())
+		Expect(h.receive().Object.(*api.Domain).DeletionTimestamp).ToNot(BeNil())
 		Eventually(h.publisher.FinalNotificationSent()).Should(BeClosed())
 	})
 
@@ -556,16 +586,23 @@ type k8sEvent struct {
 type fakeNotifier struct {
 	domainEvents chan watch.Event
 	k8sEvents    chan k8sEvent
+	sendErrors   chan error
 }
 
 func newFakeNotifier() *fakeNotifier {
 	return &fakeNotifier{
 		domainEvents: make(chan watch.Event, 100),
 		k8sEvents:    make(chan k8sEvent, 100),
+		sendErrors:   make(chan error, 10),
 	}
 }
 
-func (f *fakeNotifier) SendDomainEvent(event watch.Event) error {
+func (f *fakeNotifier) SendDomainEvent(_ context.Context, event watch.Event) error {
+	select {
+	case err := <-f.sendErrors:
+		return err
+	default:
+	}
 	f.domainEvents <- event
 	return nil
 }
