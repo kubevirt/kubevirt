@@ -24,7 +24,12 @@ reviews:
     - path: "pkg/monitoring/**"
       instructions: "See docs/observability/monitoring-guidelines.md."
     - path: "{staging/src/kubevirt.io/api,pkg/virt-api/webhooks}/**"
-      instructions: "Follow the rules in docs/api/design_guidelines.md."
+      instructions: >
+        Follow the rules in docs/api/design_guidelines.md. For any
+        +kubebuilder:validation:XValidation (CEL) rule, also check it against
+        docs/api/cel-validation-cost-guide.md, which covers the apiserver's
+        CEL cost-estimation budget and when to prefer a native schema keyword
+        or listType=map instead.
   tools:
     trufflehog:
       enabled: true
