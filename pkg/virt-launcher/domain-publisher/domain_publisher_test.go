@@ -115,6 +115,19 @@ var _ = Describe("DomainPublisher", func() {
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 	})
 
+	It("should notify every lifecycle event of a burst", func() {
+		const burst = 20
+		domainExists(libvirt.DOMAIN_RUNNING, -1)
+
+		for range burst {
+			resumed(h.publisher)
+		}
+
+		for range burst {
+			h.receive()
+		}
+	})
+
 	It("should stop publishing once its context is cancelled", func() {
 		h.stop()
 

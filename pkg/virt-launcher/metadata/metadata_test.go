@@ -97,14 +97,6 @@ var _ = Describe("Metadata", func() {
 		Expect(metadataCache.Listen()).ShouldNot(Receive())
 	})
 
-	It("Reset notification signal", func() {
-		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
-
-		metadataCache.ResetNotification()
-
-		Expect(metadataCache.Listen()).ShouldNot(Receive())
-	})
-
 	It("Notify multiple times and listen to a single cache data change", func() {
 		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test123"})
 		metadataCache.Migration.Store(api.MigrationMetadata{FailureReason: "test456"})

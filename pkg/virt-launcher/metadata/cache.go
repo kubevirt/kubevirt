@@ -73,11 +73,3 @@ func NewCache() *Cache {
 func (c *Cache) Listen() <-chan struct{} {
 	return c.notificationSignal
 }
-
-// ResetNotification clears the notification signal.
-func (c *Cache) ResetNotification() {
-	select {
-	case <-c.notificationSignal:
-	default:
-	}
-}

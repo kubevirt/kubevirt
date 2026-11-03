@@ -27,6 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/util/workqueue"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -56,8 +57,8 @@ type DomainPublisher struct {
 	metadataCache *metadata.Cache
 	nonRoot       bool
 
-	events                   chan any
-	resync                   chan struct{}
+	queue                    workqueue.TypedInterface[any]
+	eventSeen                bool
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
 	firstAdd                 sync.Once
@@ -80,40 +81,28 @@ func NewDomainPublisher(
 		agentPoller:   agentPoller,
 		metadataCache: metadataCache,
 		nonRoot:       nonRoot,
-		events:        make(chan any, 10),
-		resync:        make(chan struct{}, 1),
+		queue:         workqueue.NewTyped[any](),
 	}
 }
 
 func (p *DomainPublisher) OnLifecycle(event *libvirt.DomainEventLifecycle) {
-	p.enqueue(event)
+	p.queue.Add(event)
 }
 
 func (p *DomainPublisher) OnJobCompleted(event *libvirt.DomainEventJobCompleted) {
 	if event.Info.Operation == libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT {
 		storeCompletedMigrationStats(&event.Info, p.metadataCache)
 	}
-	p.enqueue(event)
+	p.queue.Add(event)
 }
 
 func (p *DomainPublisher) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecycle) {
-	p.enqueue(event)
+	p.queue.Add(event)
 }
 
 // Resync publishes a fresh notification of the domain once one was published.
 func (p *DomainPublisher) Resync() {
-	select {
-	case p.resync <- struct{}{}:
-	default:
-	}
-}
-
-func (p *DomainPublisher) enqueue(event any) {
-	select {
-	case p.events <- event:
-	default:
-		log.Log.Info("Libvirt event channel is full, dropping event.")
-	}
+	p.queue.Add(resync{})
 }
 
 func (p *DomainPublisher) updateEvents(event watch.Event, domain *api.Domain, events chan watch.Event) {
@@ -396,45 +385,58 @@ func getVolumeNameByTarget(domain *api.Domain, target string) string {
 	return ""
 }
 
+type resync struct{}
+
 // Run publishes domain notifications until ctx is cancelled.
 func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan watch.Event) {
 	defer p.agentPoller.Stop()
 
-	var domainCache *api.Domain
+	go p.resyncOnSignals(ctx)
+	go func() {
+		<-ctx.Done()
+		p.queue.ShutDown()
+	}()
 
+	for p.processNext(deleteNotificationSent) {
+	}
+}
+
+func (p *DomainPublisher) processNext(deleteNotificationSent chan watch.Event) bool {
+	item, quit := p.queue.Get()
+	if quit {
+		return false
+	}
+	defer p.queue.Done(item)
+
+	if _, isResync := item.(resync); isResync {
+		if !p.eventSeen {
+			log.Log.Object(p.vmi).V(3).Info("Ignoring resync before the first libvirt event")
+			return true
+		}
+		item = nil
+	}
+	p.eventSeen = true
+
+	p.eventCallback(util.NewDomainFromName(p.domainName, p.vmi.UID), item, deleteNotificationSent)
+
+	switch e := item.(type) {
+	case *libvirt.DomainEventLifecycle:
+		p.agentPoller.OnDomainLifecycle(e.Event)
+	case *libvirt.DomainEventAgentLifecycle:
+		p.agentPoller.OnAgentLifecycle(e.State)
+	}
+	return true
+}
+
+func (p *DomainPublisher) resyncOnSignals(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case event := <-p.events:
-			p.metadataCache.ResetNotification()
-			domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-			p.eventCallback(domainCache, event, deleteNotificationSent)
-			switch e := event.(type) {
-			case *libvirt.DomainEventLifecycle:
-				p.agentPoller.OnDomainLifecycle(e.Event)
-			case *libvirt.DomainEventAgentLifecycle:
-				p.agentPoller.OnAgentLifecycle(e.State)
-			}
 		case <-p.agentPoller.Store().AgentUpdated:
-			if domainCache != nil {
-				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-				p.eventCallback(domainCache, nil, deleteNotificationSent)
-			}
-		case <-p.resync:
-			if domainCache != nil {
-				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-				p.eventCallback(domainCache, nil, deleteNotificationSent)
-			}
+			p.Resync()
 		case <-p.metadataCache.Listen():
-			// Metadata cache updates should be processed only *after* at least one
-			// libvirt event arrived (which creates the first domainCache).
-			if domainCache != nil {
-				domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)
-				p.eventCallback(domainCache, nil, deleteNotificationSent)
-			} else {
-				log.Log.Object(p.vmi).Warning("Dropping metadata cache notification")
-			}
+			p.Resync()
 		}
 	}
 }
