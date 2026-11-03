@@ -21,6 +21,7 @@ package util
 import (
 	"encoding/json"
 	"io"
+	"regexp"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -28,6 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
+
+// goTemplateQuotedValueRe matches YAML single-quoted values that contain Go
+// text/template variables (e.g. '{{.Namespace}}' or '{{.Prefix}}/img:{{.Tag}}').
+// These need their quotes stripped so they remain raw template markers for
+// text/template processing. The pattern requires {{. (dot) immediately after the
+// opening braces, which distinguishes Go templates from Prometheus/Alertmanager
+// templates that use {{ $labels.x }} or {{ if ... }} (space after {{).
+var goTemplateQuotedValueRe = regexp.MustCompile(`'(\{\{\.[^']*\}\})'`)
 
 func MarshallObject(obj interface{}, writer io.Writer) error {
 	jsonBytes, err := json.Marshal(obj)
@@ -120,10 +129,11 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 		return err
 	}
 
-	// fix templates by removing unneeded single quotes...
+	// fix Go text/template variables by removing YAML single quotes around them.
+	// Only targets {{.FieldName}} patterns, leaving Prometheus/Alertmanager
+	// templates ({{ $labels.x }}, {{ if ... }}) properly quoted.
 	s := string(yamlBytes)
-	s = strings.Replace(s, "'{{", "{{", -1)
-	s = strings.Replace(s, "}}'", "}}", -1)
+	s = goTemplateQuotedValueRe.ReplaceAllString(s, "$1")
 
 	// fix double quoted strings by removing unneeded single quotes...
 	s = strings.Replace(s, " '\"", " \"", -1)
