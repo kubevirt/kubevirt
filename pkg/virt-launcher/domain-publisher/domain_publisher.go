@@ -49,16 +49,17 @@ type domainNotifier interface {
 }
 
 type DomainPublisher struct {
-	notifier      domainNotifier
-	connection    cli.Connection
-	vmi           *v1.VirtualMachineInstance
-	domainName    string
-	agentPoller   *agentpoller.AgentPoller
-	metadataCache *metadata.Cache
-	nonRoot       bool
+	notifier       domainNotifier
+	connection     cli.Connection
+	vmi            *v1.VirtualMachineInstance
+	domainName     string
+	domainTemplate *api.Domain
+	agentPoller    *agentpoller.AgentPoller
+	metadataCache  *metadata.Cache
+	nonRoot        bool
 
 	queue                    workqueue.TypedInterface[any]
-	eventSeen                bool
+	domainSeen               bool
 	domainStatus             api.LifeCycle
 	domainStatusChangeReason api.StateChangeReason
 	firstAdd                 sync.Once
@@ -73,15 +74,17 @@ func NewDomainPublisher(
 	metadataCache *metadata.Cache,
 	nonRoot bool,
 ) *DomainPublisher {
+	domainName := api.VMINamespaceKeyFunc(vmi)
 	return &DomainPublisher{
-		notifier:      notifier,
-		connection:    connection,
-		vmi:           vmi,
-		domainName:    api.VMINamespaceKeyFunc(vmi),
-		agentPoller:   agentPoller,
-		metadataCache: metadataCache,
-		nonRoot:       nonRoot,
-		queue:         workqueue.NewTyped[any](),
+		notifier:       notifier,
+		connection:     connection,
+		vmi:            vmi,
+		domainName:     domainName,
+		domainTemplate: util.NewDomainFromName(domainName, vmi.UID),
+		agentPoller:    agentPoller,
+		metadataCache:  metadataCache,
+		nonRoot:        nonRoot,
+		queue:          workqueue.NewTyped[any](),
 	}
 }
 
@@ -100,7 +103,7 @@ func (p *DomainPublisher) OnAgentLifecycle(event *libvirt.DomainEventAgentLifecy
 	p.queue.Add(event)
 }
 
-// Resync publishes a fresh notification of the domain once one was published.
+// Resync publishes a fresh notification of the domain once libvirt has defined it.
 func (p *DomainPublisher) Resync() {
 	p.queue.Add(resync{})
 }
@@ -163,21 +166,31 @@ func (p *DomainPublisher) recordGuestPanic(eventDetail int) {
 	}
 }
 
-func (p *DomainPublisher) eventCallback(domain *api.Domain, event any, events chan watch.Event) {
+func (p *DomainPublisher) eventCallback(event any, events chan watch.Event) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if lifecycle, ok := event.(*libvirt.DomainEventLifecycle); ok && lifecycle.Event == libvirt.DOMAIN_EVENT_CRASHED {
 		p.recordGuestPanic(lifecycle.Detail)
 	}
+	// libvirt emits lifecycle events only for a domain it has defined.
+	if _, ok := event.(*libvirt.DomainEventLifecycle); ok {
+		p.domainSeen = true
+	}
 
-	d, err := p.connection.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
+	domain := p.domainTemplate.DeepCopy()
+	d, err := p.connection.LookupDomainByName(p.domainName)
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
 			log.Log.Reason(err).Error("Could not fetch the Domain.")
 			return
 		}
+		if !p.domainSeen {
+			log.Log.Object(p.vmi).V(3).Info("Domain is not defined yet, nothing to publish")
+			return
+		}
 		domain.SetState(api.NoState, api.ReasonNonExistent)
 	} else {
 		defer d.Free()
+		p.domainSeen = true
 
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
@@ -408,16 +421,7 @@ func (p *DomainPublisher) processNext(deleteNotificationSent chan watch.Event) b
 	}
 	defer p.queue.Done(item)
 
-	if _, isResync := item.(resync); isResync {
-		if !p.eventSeen {
-			log.Log.Object(p.vmi).V(3).Info("Ignoring resync before the first libvirt event")
-			return true
-		}
-		item = nil
-	}
-	p.eventSeen = true
-
-	p.eventCallback(util.NewDomainFromName(p.domainName, p.vmi.UID), item, deleteNotificationSent)
+	p.eventCallback(item, deleteNotificationSent)
 
 	switch e := item.(type) {
 	case *libvirt.DomainEventLifecycle:

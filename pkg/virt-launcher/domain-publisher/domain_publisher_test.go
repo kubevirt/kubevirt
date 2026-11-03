@@ -78,6 +78,16 @@ var _ = Describe("DomainPublisher", func() {
 		p.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_RESUMED})
 	}
 
+	domainRemoved := func() {
+		mockLibvirt.ConnectionEXPECT().LookupDomainByName("default_test").Return(mockLibvirt.VirtDomain, nil)
+		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+		mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(domainXML(), nil)
+		mockLibvirt.DomainEXPECT().Free()
+		resumed(h.publisher)
+		h.receive()
+		domainGone()
+	}
+
 	stoppedMigrated := func(p *domainpublisher.DomainPublisher) {
 		p.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED)})
 	}
@@ -102,14 +112,29 @@ var _ = Describe("DomainPublisher", func() {
 		Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 	)
 
-	It("should not notify a resync before the first libvirt event", func() {
+	It("should not notify a resync before the domain is defined", func() {
+		domainGone()
 
 		h.publisher.Resync()
 
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 	})
 
-	It("should not notify guest agent updates before the first libvirt event", func() {
+	It("should publish the removal of a domain that was gone before its first lookup", func() {
+		domainGone()
+
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STARTED, Detail: int(libvirt.DOMAIN_EVENT_STARTED_MIGRATED)})
+		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_FAILED)})
+
+		Eventually(h.latest).Should(And(
+			HaveField("Status.Reason", api.ReasonNonExistent),
+			HaveField("DeletionTimestamp", Not(BeNil())),
+		))
+	})
+
+	It("should not notify guest agent updates before the domain is defined", func() {
+		domainGone()
+
 		h.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, api.GuestOSInfo{Name: "fedora"})
 
 		Consistently(h.notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
@@ -149,7 +174,7 @@ var _ = Describe("DomainPublisher", func() {
 	})
 
 	It("should send a final delete notification when the domain is undefined", func() {
-		domainGone()
+		domainRemoved()
 
 		h.publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED})
 
@@ -161,8 +186,8 @@ var _ = Describe("DomainPublisher", func() {
 	})
 
 	DescribeTable("should not mark a gone domain deleted on", func(fire func(*domainpublisher.DomainPublisher)) {
-		metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
-		domainGone()
+		metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1"})
+		domainRemoved()
 
 		fire(h.publisher)
 
@@ -238,7 +263,7 @@ var _ = Describe("DomainPublisher", func() {
 		It("should complete a backup job", func() {
 			jobInfo := libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_COMPLETED, Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP}
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&jobInfo, nil)
-			metadataCache.Backup.Store(api.BackupMetadata{})
+			metadataCache.Backup.Set(api.BackupMetadata{})
 
 			h.publisher.OnJobCompleted(&libvirt.DomainEventJobCompleted{Info: jobInfo})
 
@@ -253,11 +278,11 @@ var _ = Describe("DomainPublisher", func() {
 		}
 
 		BeforeEach(func() {
-			domainGone()
+			domainRemoved()
 		})
 
 		DescribeTable("should attach the downtime libvirt reports to its migration", func(info libvirt.DomainJobInfo, expected *api.CompletedMigrationStats) {
-			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+			metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1"})
 
 			migrationCompleted(info)
 
@@ -276,7 +301,7 @@ var _ = Describe("DomainPublisher", func() {
 		})
 
 		DescribeTable("should not attach downtime to another migration", func(next api.MigrationMetadata) {
-			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+			metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1"})
 			migrationCompleted(libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150})
 			h.receive()
 
@@ -292,7 +317,7 @@ var _ = Describe("DomainPublisher", func() {
 		)
 
 		It("should drop downtime once the completed migration is reset", func() {
-			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+			metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1"})
 			migrationCompleted(libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150})
 			Expect(h.receive().Object.(*api.Domain).Status.CompletedMigrationStats).ToNot(BeNil())
 
@@ -305,7 +330,7 @@ var _ = Describe("DomainPublisher", func() {
 	It("should include migration results updated while the domain XML is being read", func() {
 		startTime := metav1.NewTime(time.Unix(100, 0))
 		end := metav1.NewTime(time.Unix(200, 0))
-		metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1", StartTimestamp: &startTime})
+		metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1", StartTimestamp: &startTime})
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName("default_test").Return(mockLibvirt.VirtDomain, nil).AnyTimes()
 		mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil).AnyTimes()
 		mockLibvirt.DomainEXPECT().Free().AnyTimes()
@@ -327,7 +352,7 @@ var _ = Describe("DomainPublisher", func() {
 
 	DescribeTable("should keep the tracked migration result in every notification", func(domainMissing bool, xmlError error, fire func(*domainpublisher.DomainPublisher), failed bool) {
 		if domainMissing {
-			domainGone()
+			domainRemoved()
 		} else {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName("default_test").Return(mockLibvirt.VirtDomain, nil).AnyTimes()
 			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil).AnyTimes()
@@ -337,21 +362,22 @@ var _ = Describe("DomainPublisher", func() {
 		metadataCache.UID.Set("1234")
 		startTime := metav1.NewTime(time.Unix(100, 0))
 		end := metav1.NewTime(time.Unix(200, 0))
-		metadataCache.Migration.Set(api.MigrationMetadata{UID: "migration-1", StartTimestamp: &startTime, Mode: v1.MigrationPreCopy})
+		expected := api.MigrationMetadata{
+			UID:            "migration-1",
+			StartTimestamp: &startTime,
+			EndTimestamp:   &end,
+			Mode:           v1.MigrationPostCopy,
+			AbortStatus:    string(v1.MigrationAbortFailed),
+			Failed:         failed,
+		}
+		if failed {
+			expected.FailureReason = "migration failed"
+		}
+		metadataCache.Migration.Set(expected)
 		metadataCache.CompletedMigration.Set(metadata.CompletedMigrationData{
 			Stats:        api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
 			MigrationUID: "migration-1",
 		})
-		metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
-			migration.EndTimestamp = &end
-			migration.Mode = v1.MigrationPostCopy
-			migration.AbortStatus = string(v1.MigrationAbortFailed)
-			migration.Failed = failed
-			if failed {
-				migration.FailureReason = "migration failed"
-			}
-		})
-		expected, _ := metadataCache.Migration.Load()
 
 		for range 2 {
 			fire(h.publisher)
