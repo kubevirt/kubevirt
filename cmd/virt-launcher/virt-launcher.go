@@ -139,7 +139,7 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(domainConn virtcli.Connection, domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
+func startDomainEventMonitoring(ctx context.Context, domainConn virtcli.Connection, domainPublisher *domainpublisher.DomainPublisher, deleteNotificationSent chan watch.Event) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -149,7 +149,7 @@ func startDomainEventMonitoring(domainConn virtcli.Connection, domainPublisher *
 		}
 	}()
 
-	domainPublisher.Start(deleteNotificationSent)
+	go domainPublisher.Run(ctx, deleteNotificationSent)
 	if err := domainpublisher.RegisterLibvirtEvents(domainConn, domainPublisher); err != nil {
 		panic(err)
 	}
@@ -509,7 +509,8 @@ func main() {
 		*qemuAgentFSFreezeStatusInterval,
 	)
 	domainPublisher := domainpublisher.NewDomainPublisher(notifier, domainConn, vmi, agentPoller, metadataCache, *runWithNonRoot)
-	startDomainEventMonitoring(domainConn, domainPublisher, events)
+	publisherCtx, stopPublisher := context.WithCancel(context.Background())
+	startDomainEventMonitoring(publisherCtx, domainConn, domainPublisher, events)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
@@ -558,6 +559,7 @@ func main() {
 		waitForFinalNotify(events, domainManager, vmi)
 	}
 
+	stopPublisher()
 	close(stopChan)
 	<-cmdServerDone
 	<-preMigrationHookServer.Done()

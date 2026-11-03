@@ -20,6 +20,7 @@
 package domainpublisher
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -82,10 +83,6 @@ func NewDomainPublisher(
 		events:        make(chan any, 10),
 		resync:        make(chan struct{}, 1),
 	}
-}
-
-func (p *DomainPublisher) Start(deleteNotificationSent chan watch.Event) {
-	go p.worker(deleteNotificationSent)
 }
 
 func (p *DomainPublisher) OnLifecycle(event *libvirt.DomainEventLifecycle) {
@@ -400,7 +397,10 @@ func getVolumeNameByTarget(domain *api.Domain, target string) string {
 	return ""
 }
 
-func (p *DomainPublisher) worker(deleteNotificationSent chan watch.Event) {
+// Run publishes domain notifications until ctx is cancelled.
+func (p *DomainPublisher) Run(ctx context.Context, deleteNotificationSent chan watch.Event) {
+	defer p.agentPoller.Stop()
+
 	var interfaceStatuses []api.InterfaceStatus
 	var guestOsInfo *api.GuestOSInfo
 	var fsFreezeStatus *api.FSFreeze
@@ -408,6 +408,8 @@ func (p *DomainPublisher) worker(deleteNotificationSent chan watch.Event) {
 
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case event := <-p.events:
 			p.metadataCache.ResetNotification()
 			domainCache = util.NewDomainFromName(p.domainName, p.vmi.UID)

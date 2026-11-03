@@ -20,6 +20,7 @@
 package domainpublisher
 
 import (
+	"context"
 	"encoding/xml"
 	"time"
 
@@ -99,11 +100,35 @@ var _ = Describe("DomainPublisher", func() {
 				Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
 			)
 
+			run := func(publisher *DomainPublisher) (stop func()) {
+				ctx, cancel := context.WithCancel(context.Background())
+				done := make(chan struct{})
+				go func() {
+					publisher.Run(ctx, deleteNotificationSent)
+					close(done)
+				}()
+				stop = func() {
+					cancel()
+					Eventually(done).Should(BeClosed())
+				}
+				DeferCleanup(stop)
+				return stop
+			}
+
 			It("should not notify on a resync before the first libvirt event", func() {
 				publisher := newPublisher(mockLibvirt.VirtConnection, metadataCache())
-				publisher.Start(deleteNotificationSent)
+				run(publisher)
 
 				publisher.Resync()
+
+				Consistently(notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
+			})
+
+			It("should stop publishing once its context is cancelled", func() {
+				publisher := newPublisher(mockLibvirt.VirtConnection, metadataCache())
+				run(publisher)()
+
+				publisher.OnLifecycle(&libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STARTED})
 
 				Consistently(notifier.domainEvents, 500*time.Millisecond).ShouldNot(Receive())
 			})
