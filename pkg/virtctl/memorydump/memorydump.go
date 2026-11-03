@@ -37,6 +37,7 @@ import (
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
@@ -301,7 +302,7 @@ func getMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) 
 	return nil
 }
 
-func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) error {
+func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtClient) (err error) {
 	if outputFile == "" {
 		return fmt.Errorf("missing outputFile to download the memory dump")
 	}
@@ -350,6 +351,7 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	if err != nil {
 		return err
 	}
+	defer util.CloseIOAndCheckErr(output, &err)
 	vmExportInfo.OutputWriter = output
 	return vmexport.DownloadVirtualMachineExport(virtClient, vmExportInfo)
 }
