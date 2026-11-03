@@ -85,30 +85,15 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 	var (
 		manager    *launcherClientsManager
 		vmi        *v1.VirtualMachineInstance
-		podUID     = "test-pod-uid"
 		socketPath string
 	)
 
 	BeforeEach(func() {
-		vmi = libvmi.New(
-			libvmi.WithName("test-vmi"),
-			libvmi.WithNamespace(k8sv1.NamespaceDefault),
-			libvmi.WithUID("test-vmi-uid"),
-			libvmistatus.WithStatus(libvmistatus.New(
-				libvmistatus.WithActivePod(types.UID(podUID), "test-node"),
-			)),
-		)
+		vmi = newTestVMI()
 
-		// Set up socket directory
-		podsDir := GinkgoT().TempDir()
-		cmdclient.SetPodsBaseDir(podsDir)
+		// Set up socket directory and make FindSocket look at this node
+		setupPodsBaseDir()
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
-
-		// Set environment for FindSocket to find the correct path
-		_ = os.Setenv("NODE_NAME", "test-node")
-		DeferCleanup(func() {
-			_ = os.Unsetenv("NODE_NAME")
-		})
 
 		manager = NewLauncherClientsManager(nil, nil)
 	})
@@ -139,10 +124,7 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 	When("Ping fails", func() {
 		It("should check FindSocket and return the Ping(non irrecoverable) error if it succeeds", func() {
 			// Create the socket file structure
-			Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
-			f, err := os.Create(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(f.Close()).To(Succeed())
+			createSocketFile(socketPath)
 
 			// Create mock client that fails on Ping
 			ctrl := gomock.NewController(GinkgoT())
@@ -191,3 +173,40 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 		})
 	})
 })
+
+const (
+	podUID      = "test-pod-uid"
+	otherPodUID = "other-pod-uid"
+	nodeName    = "test-node"
+)
+
+func newTestVMI() *v1.VirtualMachineInstance {
+	return libvmi.New(
+		libvmi.WithName("test-vmi"),
+		libvmi.WithNamespace(k8sv1.NamespaceDefault),
+		libvmi.WithUID("test-vmi-uid"),
+		libvmistatus.WithStatus(libvmistatus.New(
+			libvmistatus.WithActivePod(types.UID(podUID), nodeName),
+		)),
+	)
+}
+
+func setupPodsBaseDir() {
+	podsDir := GinkgoT().TempDir()
+	DeferCleanup(func() {
+		Expect(os.RemoveAll(podsDir)).To(Succeed())
+	})
+
+	cmdclient.SetPodsBaseDir(podsDir)
+	Expect(os.Setenv("NODE_NAME", nodeName)).To(Succeed())
+	DeferCleanup(func() {
+		Expect(os.Unsetenv("NODE_NAME")).To(Succeed())
+	})
+}
+
+func createSocketFile(socketPath string) {
+	Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
+	f, err := os.Create(socketPath)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(f.Close()).To(Succeed())
+}
