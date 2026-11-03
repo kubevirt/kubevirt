@@ -670,6 +670,65 @@ var _ = Describe("Notify", func() {
 				Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED},
 			}, false),
 		)
+
+		Context("guest panic", func() {
+			var vmi *v1.VirtualMachineInstance
+			var mc *metadata.Cache
+
+			crashed := func(detail libvirt.DomainEventCrashedDetailType) libvirtEvent {
+				return libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_CRASHED, Detail: int(detail)}}
+			}
+			notify := func(vmi *v1.VirtualMachineInstance, event libvirtEvent) *api.Domain {
+				e.eventCallback(mockLibvirt.VirtConnection, api.NewMinimalDomain("test"), event, client, deleteNotificationSent, nil, nil, vmi, nil, mc, false)
+				var sent watch.Event
+				Eventually(eventChan).Should(Receive(&sent))
+				return sent.Object.(*api.Domain)
+			}
+
+			BeforeEach(func() {
+				x, err := xml.Marshal(api.NewMinimalDomain("test").Spec)
+				Expect(err).ToNot(HaveOccurred())
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_CRASHED, int(libvirt.DOMAIN_CRASHED_PANICKED), nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().Free().AnyTimes()
+				vmi = api2.NewMinimalVMI("test")
+				vmi.UID = "1234"
+				Expect(vmiStore.Add(vmi)).To(Succeed())
+				mc = metadataCache()
+			})
+
+			It("should report unknown panic details when the QEMU log is missing", func() {
+				domain := notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED))
+
+				Expect(domain.Status.GuestPanicInfo).To(Equal(&api.GuestPanicInfo{Type: "unknown"}))
+				Expect(domain.Status.PanicCount).To(Equal(1))
+				Eventually(recorder.Events).Should(Receive(HavePrefix("Warning GuestPanicked GuestPanicked (details unavailable)")))
+			})
+
+			It("should count a PANICKED panic once", func() {
+				notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED))
+
+				Expect(notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED)).Status.PanicCount).To(Equal(1))
+			})
+
+			It("should count every CRASHLOADED panic", func() {
+				notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED))
+
+				Expect(notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED)).Status.PanicCount).To(Equal(2))
+			})
+
+			It("should keep panic details in later notifications", func() {
+				notify(vmi, crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED))
+
+				domain := notify(vmi, libvirtEvent{})
+				Expect(domain.Status.GuestPanicInfo).To(Equal(&api.GuestPanicInfo{Type: "unknown"}))
+				Expect(domain.Status.PanicCount).To(Equal(1))
+			})
+
+			It("should not record a panic without a VMI", func() {
+				Expect(notify(nil, crashed(libvirt.DOMAIN_EVENT_CRASHED_PANICKED)).Status.PanicCount).To(BeZero())
+			})
+		})
 	})
 
 	Describe("K8s Events", func() {
@@ -755,71 +814,6 @@ var _ = Describe("Notify", func() {
 			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache, false)
 			Expect(recorder.Events).To(Receive(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage))))
 		})
-
-		Context("handleGuestPanicEvent", func() {
-			It("should return GuestPanicInfo with type unknown when log file is missing", func() {
-				vmi := api2.NewMinimalVMI("test-vmi")
-				vmi.Namespace = "test-ns"
-				vmi.UID = "1234"
-				vmiStore.Add(vmi)
-
-				cache := metadata.NewCache()
-
-				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
-
-				Expect(panicInfo).ToNot(BeNil())
-				Expect(panicInfo.Type).To(Equal("unknown"))
-			})
-
-			It("should mark panic as handled for PANICKED events", func() {
-				vmi := api2.NewMinimalVMI("test-vmi")
-				vmi.Namespace = "test-ns"
-				vmi.UID = "1234"
-				vmiStore.Add(vmi)
-
-				cache := metadata.NewCache()
-
-				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
-
-				handled, exists := cache.GuestPanicHandled.Load()
-				Expect(exists).To(BeTrue())
-				Expect(handled).To(BeTrue())
-			})
-
-			It("should not mark panic as handled for CRASHLOADED events", func() {
-				vmi := api2.NewMinimalVMI("test-vmi")
-				vmi.Namespace = "test-ns"
-				vmi.UID = "1234"
-				vmiStore.Add(vmi)
-
-				cache := metadata.NewCache()
-
-				e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_CRASHLOADED), false)
-
-				_, exists := cache.GuestPanicHandled.Load()
-				Expect(exists).To(BeFalse())
-			})
-
-			It("should return nil when VMI is nil", func() {
-				cache := metadata.NewCache()
-				panicInfo := e.handleGuestPanicEvent(client, nil, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
-				Expect(panicInfo).To(BeNil())
-			})
-
-			It("should skip already handled panic events", func() {
-				vmi := api2.NewMinimalVMI("test-vmi")
-				vmi.Namespace = "test-ns"
-				vmi.UID = "1234"
-				vmiStore.Add(vmi)
-
-				cache := metadata.NewCache()
-				cache.GuestPanicHandled.Set(true)
-
-				panicInfo := e.handleGuestPanicEvent(client, vmi, cache, int(libvirt.DOMAIN_EVENT_CRASHED_PANICKED), false)
-				Expect(panicInfo).To(BeNil())
-			})
-		})
-
 	})
 
 	Describe("Version mismatch", func() {

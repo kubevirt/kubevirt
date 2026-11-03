@@ -113,16 +113,15 @@ func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
 	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
 }
 
-func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int, nonRoot bool) *api.GuestPanicInfo {
+func (e *eventCaller) recordGuestPanic(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int, nonRoot bool) {
 	if vmi == nil {
 		log.Log.Warning("Guest panic detected but VMI is nil, cannot emit K8s event")
-		return nil
+		return
 	}
 
-	// Check if we already handled this panic event
-	if handled, exists := metadataCache.GuestPanicHandled.Load(); exists && handled {
+	if guestPanic, exists := metadataCache.GuestPanic.Load(); exists && guestPanic.Handled {
 		log.Log.V(3).Info("Guest panic event already handled, skipping")
-		return nil
+		return
 	}
 
 	domainName := util.DomainFromNamespaceName(vmi.Namespace, vmi.Name)
@@ -144,16 +143,16 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 
 	// Only mark as handled for PANICKED events. CRASHLOADED indicates kdump-based
 	// recovery where the guest reboots, so subsequent panic events should still fire.
-	if libvirt.DomainEventCrashedDetailType(eventDetail) == libvirt.DOMAIN_EVENT_CRASHED_PANICKED {
-		metadataCache.GuestPanicHandled.Set(true)
-	}
+	metadataCache.GuestPanic.WithSafeBlock(func(guestPanic *metadata.GuestPanicData, _ bool) {
+		guestPanic.Handled = libvirt.DomainEventCrashedDetailType(eventDetail) == libvirt.DOMAIN_EVENT_CRASHED_PANICKED
+		guestPanic.Count++
+		guestPanic.Info = panicInfo
+	})
 
 	if err := client.SendK8sEvent(vmi, k8sv1.EventTypeWarning, "GuestPanicked",
 		eventMessage); err != nil {
 		log.Log.Reason(err).Warningf("Failed to send guest panic event")
 	}
-
-	return panicInfo
 }
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
@@ -161,10 +160,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	metadataCache *metadata.Cache, nonRoot bool) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
-		if panicInfo := e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot); panicInfo != nil {
-			domain.Status.GuestPanicInfo = panicInfo
-			domain.Status.PanicCount++
-		}
+		e.recordGuestPanic(client, vmi, metadataCache, libvirtEvent.Event.Detail, nonRoot)
 	}
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
@@ -266,6 +262,10 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		domain.Spec.Metadata.KubeVirt.Migration = &migration
 	}
 	applyCompletedMigrationStats(domain, metadataCache)
+	if guestPanic, exists := metadataCache.GuestPanic.Load(); exists {
+		domain.Status.GuestPanicInfo = guestPanic.Info
+		domain.Status.PanicCount = guestPanic.Count
+	}
 
 	event := watch.Event{Type: eventType, Object: domain}
 
@@ -569,15 +569,7 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 		select {
 		case event := <-eventChan:
 			metadataCache.ResetNotification()
-			prevPanicInfo := (*api.GuestPanicInfo)(nil)
-			var prevPanicCount int
-			if domainCache != nil {
-				prevPanicInfo = domainCache.Status.GuestPanicInfo
-				prevPanicCount = domainCache.Status.PanicCount
-			}
 			domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-			domainCache.Status.GuestPanicInfo = prevPanicInfo
-			domainCache.Status.PanicCount = prevPanicCount
 			eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 			log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 			switch {
@@ -604,14 +596,10 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 			// Metadata cache updates should be processed only *after* at least one
 			// libvirt event arrived (which creates the first domainCache).
 			if domainCache != nil {
-				prevPanicInfo := domainCache.Status.GuestPanicInfo
-				prevPanicCount := domainCache.Status.PanicCount
 				domainCache = util.NewDomainFromName(
 					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
 					vmi.UID,
 				)
-				domainCache.Status.GuestPanicInfo = prevPanicInfo
-				domainCache.Status.PanicCount = prevPanicCount
 				eventCaller.eventCallback(
 					domainConn,
 					domainCache,

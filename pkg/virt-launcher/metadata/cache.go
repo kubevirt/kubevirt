@@ -25,6 +25,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+// GuestPanicData tracks guest panics, which libvirt cannot report after the fact.
+type GuestPanicData struct {
+	Handled bool
+	Count   int
+	Info    *api.GuestPanicInfo
+}
+
 // CompletedMigrationData binds completed downtime to the migration that produced it.
 type CompletedMigrationData struct {
 	Stats        api.CompletedMigrationStats
@@ -39,7 +46,7 @@ type Cache struct {
 	MemoryDump         SafeData[api.MemoryDumpMetadata]
 	Backup             SafeData[api.BackupMetadata]
 	SnapshotOverlay    SafeData[api.SnapshotOverlayMetadata]
-	GuestPanicHandled  SafeData[bool]
+	GuestPanic         SafeData[GuestPanicData]
 	CompletedMigration SafeData[CompletedMigrationData]
 
 	notificationSignal chan struct{}
@@ -56,7 +63,7 @@ func NewCache() *Cache {
 	cache.MemoryDump.dirtyChannel = cache.notificationSignal
 	cache.Backup.dirtyChannel = cache.notificationSignal
 	cache.SnapshotOverlay.dirtyChannel = cache.notificationSignal
-	cache.GuestPanicHandled.dirtyChannel = cache.notificationSignal
+	cache.GuestPanic.dirtyChannel = cache.notificationSignal
 	cache.CompletedMigration.dirtyChannel = cache.notificationSignal
 	return cache
 }
