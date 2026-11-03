@@ -58,3 +58,26 @@ func WarnPortsOnNonPodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInsta
 	}
 	return warnings
 }
+
+// maxRecommendedPorts matches the +kubebuilder:validation:MaxItems limit
+// planned for Interface.Ports. It is not yet enforced: Ports has never had a
+// count limit before, so enforcing one retroactively could reject an
+// existing object with more entries. This warning starts a deprecation
+// runway ahead of any future enforcement.
+const maxRecommendedPorts = 32
+
+// WarnTooManyPorts warns when an interface's ports list exceeds the number
+// of entries a future KubeVirt release may enforce as a hard limit.
+func WarnTooManyPorts(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []string {
+	var warnings []string
+	for idx, iface := range spec.Domain.Devices.Interfaces {
+		if len(iface.Ports) > maxRecommendedPorts {
+			warnings = append(warnings, fmt.Sprintf(
+				"%s: has more than %d ports and may be rejected by a future KubeVirt release",
+				field.Child("domain", "devices", "interfaces").Index(idx).String(),
+				maxRecommendedPorts,
+			))
+		}
+	}
+	return warnings
+}

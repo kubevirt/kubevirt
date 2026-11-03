@@ -94,3 +94,27 @@ var _ = Describe("WarnPortsOnNonPodNetwork", func() {
 		))
 	})
 })
+
+var _ = Describe("WarnTooManyPorts", func() {
+	It("should not warn when the number of ports is within the limit", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:  "default",
+			Ports: make([]v1.Port, 32),
+		}}
+
+		Expect(admitter.WarnTooManyPorts(k8sfield.NewPath("spec"), spec)).To(BeEmpty())
+	})
+
+	It("should warn when the number of ports exceeds the limit", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:  "default",
+			Ports: make([]v1.Port, 33),
+		}}
+
+		Expect(admitter.WarnTooManyPorts(k8sfield.NewPath("spec"), spec)).To(ConsistOf(
+			ContainSubstring("spec.domain.devices.interfaces[0]"),
+		))
+	})
+})
