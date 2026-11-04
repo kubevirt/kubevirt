@@ -411,11 +411,8 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-	clientVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithCloudInitNoCloud(
-			libvmifact.WithDummyCloudForFastBoot(),
-			libvmici.WithNoCloudNetworkData(networkData),
-		),
+	clientVMI := libvmifact.NewFedora(
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 		libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
@@ -424,17 +421,14 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 		return nil, err
 	}
 
-	clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
+	clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 	return clientVMI, nil
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
-	serverVMI := libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithCloudInitNoCloud(
-			libvmifact.WithDummyCloudForFastBoot(),
-			libvmici.WithNoCloudNetworkData(networkData),
-		),
+	serverVMI := libvmifact.NewFedora(
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 		libvmi.WithInterface(libnet.ConformancePodNetworkInterface(
 			v1.Port{Name: "http80", Port: 80, Protocol: "TCP"},
 			v1.Port{Name: "http81", Port: 81, Protocol: "TCP"},
@@ -446,7 +440,7 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 	if err != nil {
 		return nil, err
 	}
-	serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
+	serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	vmnetserver.HTTPServer.Start(serverVMI, 80)
