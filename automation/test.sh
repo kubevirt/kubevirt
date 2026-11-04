@@ -149,6 +149,12 @@ case "$TARGET" in
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+    if [[ $TARGET == k8s-1.37-sig-compute-parallel ]]; then
+      export KUBEVIRT_NUM_NODES=3
+      export KUBEVIRT_E2E_PARALLEL=false
+      export KUBEVIRT_WITH_VGPU_SRIOV=true
+      export KUBEVIRT_E2E_FOCUS="Should successfully passthrough an SR-IOV vGPU"
+    fi
     ;;
   *sig-compute-conformance*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}

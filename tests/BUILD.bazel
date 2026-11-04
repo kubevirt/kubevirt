@@ -53,6 +53,7 @@ go_test(
         "portforward_test.go",
         "replicaset_test.go",
         "security_features_test.go",
+        "sriov_vgpu_test.go",
         "stability_test.go",
         "sysprep_test.go",
         "tests_suite_test.go",
