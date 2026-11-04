@@ -58,7 +58,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -1039,14 +1038,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		const componentName = "virt-handler"
 		var nodeName string
 
+		var blackhole *libpod.KubernetesAPIBlackhole
+		BeforeEach(func() {
+			blackhole = nil
+			nodeName = ""
+		})
 		AfterEach(func() {
-			libpod.DeleteKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
-			Eventually(func(g Gomega) {
-				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
-			}, 120*time.Second, time.Second).Should(Succeed())
-
-			config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
-				config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 120*time.Second)
+			recoverKubernetesAPIBlackhole(blackhole)
 		})
 
 		It(" the VMs running in that node should be respawned", func() {
@@ -1059,7 +1057,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			oldUID := vmi.UID
 
 			By("Blocking virt-handler from reconciling the VMI")
-			libpod.AddKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			blackhole = libpod.NewKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			Expect(blackhole.Add(context.Background())).To(Succeed())
 			Eventually(func(g Gomega) {
 				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())

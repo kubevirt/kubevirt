@@ -22,6 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -33,10 +34,12 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -221,6 +224,10 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 			// virt-handler is the only component that has the tools to add blackhole routes for testing healthz. Ideally we would test all component healthz endpoints.
 			componentName := "virt-handler"
 
+			var blackhole *libpod.KubernetesAPIBlackhole
+			BeforeEach(func() { blackhole = nil })
+			AfterEach(func() { recoverKubernetesAPIBlackhole(blackhole) })
+
 			getVirtHandler := func() *appsv1.DaemonSet {
 				daemonSet, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), componentName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -244,13 +251,14 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically(">", 0))
 
 				By("blocking connection to API on pods")
-				libpod.AddKubernetesAPIBlackhole(getHandlerPods(), componentName)
+				blackhole = libpod.NewKubernetesAPIBlackhole(getHandlerPods(), componentName)
+				Expect(blackhole.Add(context.Background())).To(Succeed())
 
 				By("ensuring we no longer have a ready pod")
 				Eventually(readyFunc, 120*time.Second, time.Second).Should(BeNumerically("==", 0))
 
 				By("removing blockage to API")
-				libpod.DeleteKubernetesAPIBlackhole(getHandlerPods(), componentName)
+				Expect(blackhole.Remove(context.Background())).To(Succeed())
 
 				By("ensuring we now have a ready virt-handler daemonset")
 				Eventually(readyFunc, 30*time.Second, time.Second).Should(BeNumerically("==", desiredDeamonsSetCount))
@@ -269,3 +277,66 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 	})
 
 })
+
+// Keep recovery in nested AfterEach hooks: DeferCleanup runs after the global
+// configuration reset, which cannot complete while handlers are disconnected.
+func recoverKubernetesAPIBlackhole(blackhole *libpod.KubernetesAPIBlackhole) {
+	if !blackhole.NeedsRecovery() {
+		return
+	}
+	if err := blackhole.Recover(context.Background()); err != nil {
+		AbortSuite(fmt.Sprintf("API blackhole recovery failed; refusing to run further specs: %v", err))
+	}
+	// Return errors from the gates: AbortSuite cannot change the outcome of a
+	// cleanup node after an assertion in that same node has already failed.
+	if err := waitForBlackholeReadiness(); err != nil {
+		AbortSuite(fmt.Sprintf("API blackhole routes restored, but cluster readiness did not recover: %v", err))
+	}
+}
+
+func waitForBlackholeReadiness() error {
+	client := kubevirt.Client()
+	var lastErr error
+	err := wait.PollUntilContextTimeout(context.Background(), time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		lastErr = func() error {
+			kvs, err := client.KubeVirt(metav1.NamespaceAll).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				return err
+			}
+			if len(kvs.Items) != 1 {
+				return fmt.Errorf("expected one KubeVirt resource, found %d", len(kvs.Items))
+			}
+			kv := &kvs.Items[0]
+			ready, err := SatisfyAll(
+				matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+				matcher.HaveConditionFalse(v1.KubeVirtConditionProgressing),
+				matcher.HaveConditionFalse(v1.KubeVirtConditionDegraded),
+				matcher.HaveConditionTrue(v1.KubeVirtConditionCreated),
+			).Match(kv)
+			if err != nil {
+				return err
+			}
+			if !ready || kv.Status.ObservedGeneration == nil || kv.Generation != *kv.Status.ObservedGeneration {
+				return fmt.Errorf("KubeVirt is not ready: %+v", kv.Status.Conditions)
+			}
+			if kv.Spec.Configuration.DeveloperConfiguration != nil && slices.Contains(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.DecentralizedLiveMigration) && len(kv.Status.SynchronizationAddresses) == 0 {
+				return fmt.Errorf("KubeVirt migration synchronization addresses are not ready")
+			}
+			deployment, err := client.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(ctx, "virt-operator", metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if deployment.Status.ReadyReplicas == 0 {
+				return fmt.Errorf("virt-operator is not ready")
+			}
+			return config.CheckConfigPropagation(ctx, "kubevirt.io=virt-handler", kv.ResourceVersion, config.ExpectResourceVersionToBeLessEqualThanConfigVersion)
+		}()
+		return lastErr == nil, nil
+	})
+	if err != nil {
+		return fmt.Errorf("%w; last observation: %v", err, lastErr)
+	}
+	return nil
+}

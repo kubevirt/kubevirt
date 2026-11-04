@@ -21,6 +21,7 @@ package exec
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -34,10 +35,15 @@ import (
 )
 
 func ExecuteCommandOnPod(pod *k8sv1.Pod, containerName string, command []string) (string, error) {
-	stdout, stderr, err := ExecuteCommandOnPodWithResults(pod, containerName, command)
+	return ExecuteCommandOnPodWithContext(context.Background(), pod, containerName, command)
+}
+
+// ExecuteCommandOnPodWithContext bounds both websocket and SPDY execution by ctx.
+func ExecuteCommandOnPodWithContext(ctx context.Context, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
+	stdout, stderr, err := executeCommandOnPodWithResults(ctx, pod, containerName, command)
 
 	if err != nil {
-		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
+		return "", fmt.Errorf("failed executing command on pod: %w: stderr %v: stdout: %v", err, stderr, stdout)
 	}
 
 	if len(stderr) > 0 {
@@ -48,6 +54,10 @@ func ExecuteCommandOnPod(pod *k8sv1.Pod, containerName string, command []string)
 }
 
 func ExecuteCommandOnPodWithResults(pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
+	return executeCommandOnPodWithResults(context.Background(), pod, containerName, command)
+}
+
+func executeCommandOnPodWithResults(ctx context.Context, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
 	var (
 		stdoutBuf bytes.Buffer
 		stderrBuf bytes.Buffer
@@ -57,11 +67,18 @@ func ExecuteCommandOnPodWithResults(pod *k8sv1.Pod, containerName string, comman
 		Stderr: &stderrBuf,
 		Tty:    false,
 	}
-	err = ExecuteCommandOnPodWithOptions(pod, containerName, command, options)
+	err = executeCommandOnPodWithOptions(ctx, pod, containerName, command, options)
 	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
 func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
+	return executeCommandOnPodWithOptions(context.Background(), pod, containerName, command, options)
+}
+
+func executeCommandOnPodWithOptions(ctx context.Context, pod *k8sv1.Pod, containerName string, command []string, options remotecommand.StreamOptions) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	req := kubevirt.Client().CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(pod.Name).
@@ -83,7 +100,12 @@ func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, comman
 		return err
 	}
 
-	spdyExecutor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
+	var spdyExecutor remotecommand.Executor
+	if ctx.Done() == nil {
+		spdyExecutor, err = remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
+	} else {
+		spdyExecutor, err = newCancellableSPDYExecutor(virtConfig, "POST", req.URL())
+	}
 	if err != nil {
 		return err
 	}
@@ -96,5 +118,9 @@ func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, comman
 		return err
 	}
 
-	return executor.Stream(options)
+	err = executor.StreamWithContext(ctx, options)
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("%w: %v", ctx.Err(), err)
+	}
+	return err
 }

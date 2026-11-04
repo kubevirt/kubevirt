@@ -145,43 +145,47 @@ func waitForConfigToBePropagated(resourceVersion string) {
 }
 
 func WaitForConfigToBePropagatedToComponent(podLabel, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
-	virtClient := kubevirt.Client()
-
-	errComponentInfo := fmt.Sprintf("component: %q", strings.TrimPrefix(podLabel, "kubevirt.io="))
-
 	EventuallyWithOffset(3, func() error {
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
-			context.Background(), metav1.ListOptions{LabelSelector: podLabel})
-		if err != nil {
-			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
-		}
-		for i := range pods.Items {
-			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: %q", pods.Items[i].Name)
-
-			if pods.Items[i].DeletionTimestamp != nil {
-				continue
-			}
-
-			body, err := callURLOnPod(&pods.Items[i], "8443", "/healthz")
-			if err != nil {
-				return fmt.Errorf("failed to call healthz endpoint: %v, %s", err, errAdditionalInfo)
-			}
-			result := map[string]interface{}{}
-			err = json.Unmarshal(body, &result)
-			if err != nil {
-				return fmt.Errorf("failed to parse response from healthz endpoint: %v, %s", err, errAdditionalInfo)
-			}
-
-			if configVersion := result["config-resource-version"].(string); !compareResourceVersions(resourceVersion, configVersion) {
-				return fmt.Errorf("resource & config versions (%s and %s respectively) are not as expected. %s ",
-					resourceVersion, configVersion, errAdditionalInfo)
-			}
-		}
-		return nil
-	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
+		return CheckConfigPropagation(context.Background(), podLabel, resourceVersion, compareResourceVersions)
+	}, duration, time.Second).ShouldNot(HaveOccurred())
 }
 
-func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
+// CheckConfigPropagation returns errors rather than failing a spec, allowing
+// disruptive-test cleanup to abort the suite when recovery cannot be verified.
+func CheckConfigPropagation(ctx context.Context, podLabel, resourceVersion string, compareResourceVersions compare) error {
+	virtClient := kubevirt.Client()
+	errComponentInfo := fmt.Sprintf("component: %q", strings.TrimPrefix(podLabel, "kubevirt.io="))
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(ctx, metav1.ListOptions{LabelSelector: podLabel})
+	if err != nil {
+		return fmt.Errorf("failed to fetch pods: %w, %s", err, errComponentInfo)
+	}
+	checked := 0
+	for i := range pods.Items {
+		if pods.Items[i].DeletionTimestamp != nil {
+			continue
+		}
+		checked++
+		errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: %q", pods.Items[i].Name)
+		body, err := callURLOnPod(ctx, &pods.Items[i], "8443", "/healthz")
+		if err != nil {
+			return fmt.Errorf("failed to call healthz endpoint: %w, %s", err, errAdditionalInfo)
+		}
+		result := map[string]interface{}{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return fmt.Errorf("failed to parse response from healthz endpoint: %w, %s", err, errAdditionalInfo)
+		}
+		configVersion, ok := result["config-resource-version"].(string)
+		if !ok || !compareResourceVersions(resourceVersion, configVersion) {
+			return fmt.Errorf("resource & config versions (%s and %s respectively) are not as expected. %s", resourceVersion, configVersion, errAdditionalInfo)
+		}
+	}
+	if checked == 0 {
+		return fmt.Errorf("no active pods to check, %s", errComponentInfo)
+	}
+	return nil
+}
+
+func callURLOnPod(ctx context.Context, pod *k8sv1.Pod, port, url string) ([]byte, error) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 	readyTimeout := 5 * time.Second
@@ -195,9 +199,9 @@ func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
 			return nil
 		}},
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 	req, err := http.NewRequestWithContext(
-		context.Background(), "GET",
+		ctx, "GET",
 		fmt.Sprintf("https://localhost:%d/%s", localPort, strings.TrimSuffix(url, "/")), http.NoBody)
 	if err != nil {
 		return nil, err
@@ -207,5 +211,8 @@ func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("health endpoint returned %s", resp.Status)
+	}
 	return io.ReadAll(resp.Body)
 }
