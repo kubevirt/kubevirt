@@ -21,6 +21,8 @@ reviews:
       instructions: "Follow the rules in tests/libvmifact/README.md."
     - path: "pkg/network/**"
       instructions: "See docs/network/network-binding-mechanisms.md."
+    - path: "pkg/virt-launcher/virtwrap/converter/**"
+      instructions: "Follow the rules in pkg/virt-launcher/virtwrap/converter/README.md."
     - path: "pkg/monitoring/**"
       instructions: "See docs/observability/monitoring-guidelines.md."
     - path: "{staging/src/kubevirt.io/api,pkg/virt-api/webhooks}/**"
