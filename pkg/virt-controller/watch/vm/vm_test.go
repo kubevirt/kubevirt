@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
 
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
+				"vm": func(obj any) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
 						if ref.Kind == "VirtualMachine" {
@@ -208,9 +209,7 @@ var _ = Describe("VirtualMachine", func() {
 			allAnnotations := map[string]string{
 				"cdi.kubevirt.io/allowClaimAdoption": "true",
 			}
-			for k, v := range annotations {
-				allAnnotations[k] = v
-			}
+			maps.Copy(allAnnotations, annotations)
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -285,12 +284,12 @@ var _ = Describe("VirtualMachine", func() {
 			vmBytes, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			var raw map[string]interface{}
+			var raw map[string]any
 			err = json.Unmarshal(vmBytes, &raw)
 			Expect(err).ToNot(HaveOccurred())
 
-			objCopy := make(map[string]interface{})
-			spec := raw["spec"].(map[string]interface{})
+			objCopy := make(map[string]any)
+			spec := raw["spec"].(map[string]any)
 			objCopy["spec"] = spec
 			patch, err := json.Marshal(objCopy)
 			Expect(err).ToNot(HaveOccurred())
@@ -1182,7 +1181,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 
-			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, pointer.P(0))
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, new(0))
 
 			addVirtualMachine(vm)
 			sanityExecute(vm)
@@ -1662,7 +1661,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
 
-				for i := 0; i < 1000; i++ {
+				for range 1000 {
 					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelaySeconds)
 
 					// check that minExpectedDelay <= delay <= maxExpectedDelay
@@ -2055,8 +2054,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Equal(desiredErr))
 				}
 			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, pointer.P("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, pointer.P("5"), nil),
+				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, new("6"), nil),
+				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, new("5"), nil),
 				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
 				Entry("with empty annotations map", map[string]string{}, nil, nil),
 			)
@@ -2070,8 +2069,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), pointer.P(int64(3))),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), pointer.P(int64(5))),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), new(int64(3))),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), new(int64(5))),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -2484,7 +2483,7 @@ var _ = Describe("VirtualMachine", func() {
 							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
 							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
 							revisionVmSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2500,7 +2499,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 							},
 							newVMSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2681,7 +2680,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2702,7 +2701,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
 			//watchtesting.DefaultVirtualMachine already set finalizer
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2740,7 +2739,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(false)
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -4878,7 +4877,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							DeprecatedPreferredUseEfi: pointer.P(true),
+							DeprecatedPreferredUseEfi: new(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -5007,7 +5006,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1beta1.FirmwarePreferences{
-								DeprecatedPreferredUseEfi: pointer.P(true),
+								DeprecatedPreferredUseEfi: new(true),
 							},
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -5064,7 +5063,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachPodInterface: pointer.P(false),
+								PreferredAutoattachPodInterface: new(false),
 							},
 						},
 					}
@@ -5159,7 +5158,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = new(true)
 
 					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
@@ -5193,7 +5192,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(true),
+								PreferredAutoattachInputDevice: new(true),
 								PreferredInputBus:              v1.InputBusVirtio,
 								PreferredInputType:             v1.InputTypeTablet,
 							},
@@ -5239,7 +5238,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(false),
+								PreferredAutoattachInputDevice: new(false),
 							},
 						},
 					}
@@ -5315,7 +5314,7 @@ var _ = Describe("VirtualMachine", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
 							NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-							DeprecatedPermitSlirpInterface: pointer.P(true),
+							DeprecatedPermitSlirpInterface: new(true),
 						},
 					},
 				},
@@ -5448,15 +5447,15 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs).To(matcher)
 
 		},
-			Entry("add default input device when enabled in VirtualMachine", pointer.P(true), []v1.Input{},
+			Entry("add default input device when enabled in VirtualMachine", new(true), []v1.Input{},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("default-0"),
 				}))),
-			Entry("not add default input device when disabled by VirtualMachine", pointer.P(false), []v1.Input{},
+			Entry("not add default input device when disabled by VirtualMachine", new(false), []v1.Input{},
 				BeEmpty()),
 			Entry("not add default input device by default", nil, []v1.Input{},
 				BeEmpty()),
-			Entry("not add default input device when devices already present in VirtualMachine", pointer.P(true), []v1.Input{{Name: "existing-0"}},
+			Entry("not add default input device when devices already present in VirtualMachine", new(true), []v1.Input{{Name: "existing-0"}},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("existing-0"),
 				}))),
@@ -6442,7 +6441,7 @@ var _ = Describe("VirtualMachine", func() {
 					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
 
 					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
-					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = new(true)
 
 					updatedRevision, err := revision.CreateControllerRevision(originalVM, updatedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
@@ -6521,7 +6520,7 @@ var _ = Describe("VirtualMachine", func() {
 				var maxSockets uint32 = 8
 
 				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(maxSockets)
+				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = new(maxSockets)
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
@@ -6713,7 +6712,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("for hotplugged volumes", func() {
 				BeforeEach(func() {
-					kv.Spec.Configuration.VMRolloutStrategy = pointer.P(stage)
+					kv.Spec.Configuration.VMRolloutStrategy = new(stage)
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				})
@@ -7071,7 +7070,7 @@ var _ = Describe("VirtualMachine", func() {
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(runStrategy)
+				vm.Spec.RunStrategy = new(runStrategy)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -7491,7 +7490,7 @@ var _ = Describe("VirtualMachine", func() {
 				scratch = newPVC(scratchName, scratchUID)
 				scratch.Finalizers = []string{storagetypes.OverlayProtectionFinalizer}
 				scratch.Annotations = map[string]string{storagetypes.OverlayOwnerVMIUIDAnnotation: "crashed-vmi-uid"}
-				scratch.OwnerReferences = []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: contentUID, Controller: pointer.P(true)}}
+				scratch.OwnerReferences = []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: contentUID, Controller: new(true)}}
 				addPVC(newPVC("data-pvc", dataUID))
 
 				virtFakeClient.PrependReactor("create", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
@@ -7589,7 +7588,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(controller.pvcStore.Update(newPVC("data-pvc", "recreated-uid"))).To(Succeed())
 				}),
 				Entry("when the scratch volume is being deleted", func() {
-					scratch.DeletionTimestamp = pointer.P(metav1.Now())
+					scratch.DeletionTimestamp = new(metav1.Now())
 					addPVC(scratch)
 				}),
 				Entry("when two scratch volumes hold overlays of the VM", func() {
@@ -7702,7 +7701,7 @@ var _ = Describe("VirtualMachine", func() {
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
 						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 							MigrationUID: "123",
-							SyncAddress:  pointer.P("127.0.0.1:5900"),
+							SyncAddress:  new("127.0.0.1:5900"),
 						},
 					},
 				}
