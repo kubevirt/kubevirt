@@ -11,10 +11,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-// These specs exercise the +kubebuilder:validation:items:MaxLength bound on
-// DHCPOptions.NTPServers (staging/src/kubevirt.io/api/core/v1/schema.go). At
-// this point in the migration, the admission webhook still enforces the
-// actual IPv4 format - only the length bound is schema-enforced.
+// These specs exercise the +kubebuilder:validation:items:MaxLength and
+// +kubebuilder:validation:MaxItems bounds on DHCPOptions.NTPServers
+// (staging/src/kubevirt.io/api/core/v1/schema.go). At this point in the
+// migration, the admission webhook still enforces the actual IPv4 format -
+// only the length and count bounds are schema-enforced.
 var _ = Describe("DHCP NTP servers CRD validation", func() {
 	It("should accept a well-formed list of IPv4 NTP servers", func(ctx SpecContext) {
 		ns := f.CreateNamespace(ctx)
@@ -60,5 +61,24 @@ var _ = Describe("DHCP NTP servers CRD validation", func() {
 		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("Too long"))
+	})
+
+	It("should reject more than 32 NTP servers on an interface", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		ntpServers := make([]string, 33)
+		for i := range ntpServers {
+			ntpServers[i] = "127.0.0.1"
+		}
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(),
+				libvmi.WithDHCPOptions(v1.DHCPOptions{NTPServers: ntpServers}))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("spec.domain.devices.interfaces[0].dhcpOptions.ntpServers"))
 	})
 })

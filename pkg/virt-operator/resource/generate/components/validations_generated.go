@@ -8135,6 +8135,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       maxLength: 15
                                       type: string
+                                    maxItems: 32
                                     type: array
                                   privateOptions:
                                     description: 'If specified will pass extra DHCP
@@ -14802,6 +14803,7 @@ var CRDsValidation map[string]string = map[string]string{
                             items:
                               maxLength: 15
                               type: string
+                            maxItems: 32
                             type: array
                           privateOptions:
                             description: 'If specified will pass extra DHCP options
@@ -19417,6 +19419,7 @@ var CRDsValidation map[string]string = map[string]string{
                             items:
                               maxLength: 15
                               type: string
+                            maxItems: 32
                             type: array
                           privateOptions:
                             description: 'If specified will pass extra DHCP options
@@ -22017,6 +22020,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     items:
                                       maxLength: 15
                                       type: string
+                                    maxItems: 32
                                     type: array
                                   privateOptions:
                                     description: 'If specified will pass extra DHCP
@@ -27460,6 +27464,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             items:
                                               maxLength: 15
                                               type: string
+                                            maxItems: 32
                                             type: array
                                           privateOptions:
                                             description: 'If specified will pass extra
@@ -33434,6 +33439,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                 items:
                                                   maxLength: 15
                                                   type: string
+                                                maxItems: 32
                                                 type: array
                                               privateOptions:
                                                 description: 'If specified will pass
