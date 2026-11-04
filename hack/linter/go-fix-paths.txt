@@ -1,5 +1,6 @@
 pkg/libvmi
 pkg/network
+pkg/virt-controller/watch/clone
 pkg/virt-controller/watch/migration
 pkg/virt-controller/watch/vm
 pkg/virt-controller/watch/vmi
