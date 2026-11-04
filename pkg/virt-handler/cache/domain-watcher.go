@@ -165,9 +165,11 @@ func (d *domainWatcher) handleResync(ctx context.Context) {
 			// end listening.
 			continue
 		}
-		defer client.Close()
 
 		domain, exists, err := client.GetDomain()
+		// Close right away rather than deferring: a deferred Close would keep
+		// every launcher connection of this resync open until the loop ends.
+		client.Close()
 		if err != nil {
 			// this resync is best effort only.
 			log.Log.Reason(err).Errorf("unable to retrieve domain at socket %s during resync", socket)
