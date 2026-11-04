@@ -53,7 +53,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -346,7 +345,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		// record the moment we detected the domain is running.
 		// This is used as a trigger to help coordinate when CNI drivers
 		// fail over the IP to the new pod.
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = pointer.P(metav1.Now())
+		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = new(metav1.Now())
 		if vmi.Status.MigrationState.TargetState != nil {
 			vmi.Status.MigrationState.TargetState.DomainReadyTimestamp = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp
 		}
@@ -409,7 +408,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.MigrationState.TargetNodeAddress = c.migrationIpAddress
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		if vmi.Status.MigrationState.TargetState != nil {
-			vmi.Status.MigrationState.TargetState.NodeAddress = pointer.P(c.migrationIpAddress)
+			vmi.Status.MigrationState.TargetState.NodeAddress = new(c.migrationIpAddress)
 			vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts = destSrcPortsMap
 		}
 	}
@@ -454,7 +453,7 @@ func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -989,7 +988,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	return nil, false
 }
 
-func (c *MigrationTargetController) addFunc(obj interface{}) {
+func (c *MigrationTargetController) addFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -997,7 +996,7 @@ func (c *MigrationTargetController) addFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) deleteFunc(obj interface{}) {
+func (c *MigrationTargetController) deleteFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -1005,7 +1004,7 @@ func (c *MigrationTargetController) deleteFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) updateFunc(_, new interface{}) {
+func (c *MigrationTargetController) updateFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -1013,14 +1012,14 @@ func (c *MigrationTargetController) updateFunc(_, new interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) addDomainFunc(obj interface{}) {
+func (c *MigrationTargetController) addDomainFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
 
-func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
+func (c *MigrationTargetController) deleteDomainFunc(obj any) {
 	domain, ok := obj.(*api.Domain)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -1041,7 +1040,7 @@ func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
+func (c *MigrationTargetController) updateDomainFunc(old, new any) {
 	newDomain := new.(*api.Domain)
 	oldDomain := old.(*api.Domain)
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
