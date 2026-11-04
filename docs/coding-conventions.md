@@ -157,6 +157,46 @@ func (p *Programmer) isProfessional () bool {
 }
 ```
 
+# Declare variables and constants close to their point of use
+
+- Declare a variable or constant in the narrowest scope that makes sense, as
+  close as possible to where it is used.
+- This keeps the context needed to understand a value visible, avoids forcing
+  the reader to jump back and forth to find where it came from, and prevents
+  it from being accidentally used or modified somewhere it was not meant to.
+- Only widen the scope (e.g. to the top of a function, or to package level)
+  when the variable or constant is genuinely needed in multiple places.
+
+### Bad example
+
+```go
+func syncVMI(vmi *v1.VirtualMachineInstance) error {
+    var podName string
+    const retryInterval = 5 * time.Second
+
+    if err := validateVMI(vmi); err != nil {
+        return err
+    }
+
+    podName = podNameFromVMI(vmi)
+    return waitForPod(podName, retryInterval)
+}
+```
+
+### Good example
+
+```go
+func syncVMI(vmi *v1.VirtualMachineInstance) error {
+    if err := validateVMI(vmi); err != nil {
+        return err
+    }
+
+    podName := podNameFromVMI(vmi)
+    const retryInterval = 5 * time.Second
+    return waitForPod(podName, retryInterval)
+}
+```
+
 # Uniform import order and naming
 
 - Use the following import order with one block per item:
@@ -219,6 +259,7 @@ coding conventions](#detailed-coding-conventions).
 - [Avoid nesting and complexity by using early returns](#avoid-nesting-and-complexity-by-using-early-returns)
 - [Use the same coding style throughout a file](#use-the-same-coding-style-throughout-a-file)
 - [Document values meaning through constants or variable names](#document-values-meaning-through-constants-or-variable-names)
+- [Declare variables and constants close to their point of use](#declare-variables-and-constants-close-to-their-point-of-use)
 - [Uniform import order and naming](#uniform-import-order-and-naming)
 - Be cautious when adding new dependencies.
     - New dependencies should be authored by a trusted and well established
