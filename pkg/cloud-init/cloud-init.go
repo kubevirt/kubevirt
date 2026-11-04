@@ -556,7 +556,7 @@ func GenerateIsoPlaceholder(vmiName string, namespace string, data *CloudInitDat
 	if err := writeIso(iso, func(staging string) error {
 		file, err := os.Create(staging)
 		if err != nil {
-			return fmt.Errorf("failed to create empty iso: '%s'", staging)
+			return fmt.Errorf("failed to create empty iso: '%s': %w", staging, err)
 		}
 		writeErr := util.WriteBytes(file, 0, size)
 		closeErr := file.Close()
