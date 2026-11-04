@@ -25,12 +25,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	libvmi "kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -410,9 +408,8 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	clientVMI := libvmifact.NewFedora(
-		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+		libnet.WithConformancePodNetworkCloudInit(),
 		libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
@@ -426,9 +423,8 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
-	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	serverVMI := libvmifact.NewFedora(
-		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+		libnet.WithConformancePodNetworkCloudInit(),
 		libvmi.WithInterface(libnet.ConformancePodNetworkInterface(
 			v1.Port{Name: "http80", Port: 80, Protocol: "TCP"},
 			v1.Port{Name: "http81", Port: 81, Protocol: "TCP"},
