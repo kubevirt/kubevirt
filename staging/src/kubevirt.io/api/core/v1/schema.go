@@ -1524,6 +1524,7 @@ type DHCPOptions struct {
 	TFTPServerName string `json:"tftpServerName,omitempty"`
 	// If specified will pass the configured NTP server to the VM via DHCP option 042.
 	// +optional
+	// +kubebuilder:validation:items:MaxLength:=15
 	NTPServers []string `json:"ntpServers,omitempty"`
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional

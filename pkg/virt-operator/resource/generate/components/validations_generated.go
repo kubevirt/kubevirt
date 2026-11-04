@@ -8133,6 +8133,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
                                     items:
+                                      maxLength: 15
                                       type: string
                                     type: array
                                   privateOptions:
@@ -14799,6 +14800,7 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
                             items:
+                              maxLength: 15
                               type: string
                             type: array
                           privateOptions:
@@ -19413,6 +19415,7 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
                             items:
+                              maxLength: 15
                               type: string
                             type: array
                           privateOptions:
@@ -22012,6 +22015,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
                                     items:
+                                      maxLength: 15
                                       type: string
                                     type: array
                                   privateOptions:
@@ -27454,6 +27458,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               configured NTP server to the VM via
                                               DHCP option 042.
                                             items:
+                                              maxLength: 15
                                               type: string
                                             type: array
                                           privateOptions:
@@ -33427,6 +33432,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   the configured NTP server to the
                                                   VM via DHCP option 042.
                                                 items:
+                                                  maxLength: 15
                                                   type: string
                                                 type: array
                                               privateOptions:
