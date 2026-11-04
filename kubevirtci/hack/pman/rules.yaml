@@ -7,6 +7,7 @@ all:
   - cluster-provision
   - cluster-up
   - cluster-up/cluster
+  - cluster-up/cluster/vgpu-mdev/*
   - cluster-up/hack
   - hack
   - publish.sh
