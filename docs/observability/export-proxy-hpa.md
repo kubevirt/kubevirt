@@ -88,6 +88,8 @@ worker nodes. The previous default control-plane preference
 (`RequireControlPlanePreferNonWorker`) is no longer applied, and
 `spec.infra.replicas` is no longer applied to the export-proxy Deployment
 (replicas come from the HPA, or from a `CustomizeComponents` replicas patch).
+CPU requests stay modest (100m) so worker allocatable headroom remains for
+dedicated-CPU workloads; burst capacity comes from the 1 CPU limit.
 
 Node selectors / tolerations:
 

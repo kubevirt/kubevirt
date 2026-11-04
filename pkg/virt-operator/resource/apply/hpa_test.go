@@ -109,7 +109,7 @@ var _ = Describe("Apply HPAs", func() {
 				Expect(createdHPA.Spec.Metrics).To(HaveLen(1))
 				Expect(createdHPA.Spec.Metrics[0].Type).To(Equal(autoscalingv2.ResourceMetricSourceType))
 				Expect(createdHPA.Spec.Metrics[0].Resource.Name).To(Equal(corev1.ResourceCPU))
-				Expect(*createdHPA.Spec.Metrics[0].Resource.Target.AverageUtilization).To(Equal(int32(200)))
+				Expect(*createdHPA.Spec.Metrics[0].Resource.Target.AverageUtilization).To(Equal(int32(700)))
 				Expect(createdHPA.Spec.Behavior).NotTo(BeNil())
 				Expect(createdHPA.Spec.Behavior.ScaleDown).NotTo(BeNil())
 				return true, createdHPA, nil

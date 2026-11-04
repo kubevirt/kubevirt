@@ -756,13 +756,14 @@ func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, pro
 	const exportProxyTerminationGracePeriodSeconds int64 = 600
 	pod.TerminationGracePeriodSeconds = pointer.P(exportProxyTerminationGracePeriodSeconds)
 
-	// Burstable on purpose: low requests avoid reserving storm capacity while
-	// idle; higher limits contain transfer bursts. Soft CPU admission and the
-	// resource HPA CPU target align with ~70% of the CPU limit. Memory is not
-	// used as an HPA or soft-admission signal (RSS lags load after bursts).
+	// Burstable on purpose: keep CPU requests low so worker nodes retain
+	// allocatable headroom for dedicated-CPU VMs (HPA still scales on
+	// utilization vs request and soft admission near ~70% of the limit).
+	// Memory is not used as an HPA or soft-admission signal (RSS lags load
+	// after bursts).
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("350m"),
+			corev1.ResourceCPU:    resource.MustParse("100m"),
 			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 		Limits: corev1.ResourceList{

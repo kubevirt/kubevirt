@@ -69,8 +69,8 @@ const (
 	// Resource HPA AverageUtilization is vs requests (not limits). Export-proxy
 	// is Burstable with requests below limits, so the CPU target is >100% of
 	// request to scale near soft admission (~70% of limit):
-	// CPU 200% of 350m ~= 700m ~= 70% of 1 limit.
-	exportProxyHPATargetCPUUtilization int32 = 200
+	// CPU 700% of 100m ~= 700m ~= 70% of 1 limit.
+	exportProxyHPATargetCPUUtilization int32 = 700
 
 	// Conservative scale-down: wait before removing pods, and remove at most
 	// one pod or 10% per minute so in-flight transfers are less likely to be
