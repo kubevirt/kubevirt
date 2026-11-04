@@ -1889,12 +1889,24 @@ tests:
   - interval: 1m
     input_series:
       # time:   0   1   2   3
-      - series: 'kubevirt_vmi_guest_load_1m{namespace="testns",name="vm1"}'
+      - series: 'kubevirt_vmi_guest_load_1m{namespace="testns",name="vm1",node="node1",pod="virt-handler-node1",container="virt-handler",kubernetes_vmi_label_kubevirt_io_domain="vm1"}'
         values: '0  12  25  5'
-      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="0"}'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",node="node1",pod="virt-handler-node1",container="virt-handler",kubernetes_vmi_label_kubevirt_io_domain="vm1",id="0",state="running"}'
         values: '0  0   0   0'
-      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",id="1"}'
+      - series: 'kubevirt_vmi_vcpu_seconds_total{namespace="testns",name="vm1",node="node1",pod="virt-handler-node1",container="virt-handler",kubernetes_vmi_label_kubevirt_io_domain="vm1",id="1",state="running"}'
         values: '0  0   0   0'   # values irrelevant. only series presence counts
+
+    promql_expr_test:
+      - expr: 'vmi:kubevirt_vmi_guest_queue_length:sum'
+        eval_time: 1m
+        exp_samples:
+          - labels: 'vmi:kubevirt_vmi_guest_queue_length:sum{name="vm1",namespace="testns"}'
+            value: 10
+      - expr: 'vmi:kubevirt_vmi_guest_queue_length:sum'
+        eval_time: 2m
+        exp_samples:
+          - labels: 'vmi:kubevirt_vmi_guest_queue_length:sum{name="vm1",namespace="testns"}'
+            value: 23
 
     alert_rule_test:
       # at 1m: queue = 12 – 2 = 10  -> Warning threshold (>10), below Critical (>20)
