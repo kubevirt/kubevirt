@@ -40,14 +40,12 @@ var _ = Describe("Console handler", func() {
 	var (
 		ctrl                  *gomock.Controller
 		mockIsolationDetector *isolation.MockPodIsolationDetector
-		mockIsolationResult   *isolation.MockIsolationResult
 		handler               *ConsoleHandler
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		handler = NewConsoleHandler(mockIsolationDetector, nil, nil)
 	})
 
@@ -67,11 +65,16 @@ var _ = Describe("Console handler", func() {
 
 			root, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 			Expect(err).ToNot(HaveOccurred())
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().MountRoot().Return(root, nil)
+			mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(1, 0).(*isolation.RealIsolationResult), nil)
+			mountRootCalled := false
+			handler.mountRoot = func(_ *isolation.RealIsolationResult) (*safepath.Path, error) {
+				mountRootCalled = true
+				return root, nil
+			}
 
 			p, err := handler.getUnixSocketPath(vmi, "virt-serial0")
 			Expect(err).ToNot(HaveOccurred())
+			Expect(mountRootCalled).To(BeTrue())
 			Expect(unsafepath.UnsafeAbsolute(p.Raw())).To(Equal(filepath.Join(tmpDir, "run", "kubevirt-private", string(vmi.UID), "virt-serial0")))
 		})
 
@@ -85,11 +88,16 @@ var _ = Describe("Console handler", func() {
 
 		It("should fail when MountRoot returns an error", func() {
 			vmi := api.NewMinimalVMI("testvmi")
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().MountRoot().Return(nil, fmt.Errorf("mountroot failed"))
+			mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(1, 0).(*isolation.RealIsolationResult), nil)
+			mountRootCalled := false
+			handler.mountRoot = func(_ *isolation.RealIsolationResult) (*safepath.Path, error) {
+				mountRootCalled = true
+				return nil, fmt.Errorf("mountroot failed")
+			}
 
 			_, err := handler.getUnixSocketPath(vmi, "virt-serial0")
 			Expect(err).To(MatchError("mountroot failed"))
+			Expect(mountRootCalled).To(BeTrue())
 		})
 
 		It("should fail when the socket does not exist", func() {
@@ -99,8 +107,8 @@ var _ = Describe("Console handler", func() {
 
 			root, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 			Expect(err).ToNot(HaveOccurred())
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().MountRoot().Return(root, nil)
+			mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(1, 0).(*isolation.RealIsolationResult), nil)
+			handler.mountRoot = func(_ *isolation.RealIsolationResult) (*safepath.Path, error) { return root, nil }
 
 			_, err = handler.getUnixSocketPath(vmi, "virt-serial0")
 			Expect(err).To(HaveOccurred())
@@ -124,8 +132,8 @@ var _ = Describe("Console handler", func() {
 
 			root, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 			Expect(err).ToNot(HaveOccurred())
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().MountRoot().Return(root, nil)
+			mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(1, 0).(*isolation.RealIsolationResult), nil)
+			handler.mountRoot = func(_ *isolation.RealIsolationResult) (*safepath.Path, error) { return root, nil }
 
 			_, err = handler.getUnixSocketPath(vmi, "virt-serial0")
 			Expect(err).To(HaveOccurred())

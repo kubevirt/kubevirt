@@ -49,7 +49,6 @@ var _ = Describe("AdjustResources", func() {
 	var (
 		ctrl                  *gomock.Controller
 		mockIsolationDetector *isolation.MockPodIsolationDetector
-		mockIsolationResult   *isolation.MockIsolationResult
 		runtime               *mshv.MshvVirtRuntime
 		config                *v1.KubeVirtConfiguration
 	)
@@ -59,7 +58,6 @@ var _ = Describe("AdjustResources", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
 		runtime = mshv.NewMshvVirtRuntime(mockIsolationDetector, nil)
 		config = &v1.KubeVirtConfiguration{}
 	})
@@ -76,8 +74,7 @@ var _ = Describe("AdjustResources", func() {
 
 		DescribeTable("should call Detect when memlock is required",
 			func(vmi *v1.VirtualMachineInstance) {
-				mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-				mockIsolationResult.EXPECT().Pid().Return(launcherPid)
+				mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(launcherPid, 0).(*isolation.RealIsolationResult), nil)
 
 				origListProcesses := mshv.ListProcesses
 				mshv.ListProcesses = func() ([]ps.Process, error) {
@@ -127,8 +124,7 @@ var _ = Describe("AdjustResources", func() {
 				libvmi.WithGPU(v1.GPU{Name: "gpu1"}),
 			)
 
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().Pid().Return(launcherPid)
+			mockIsolationDetector.EXPECT().Detect(vmi).Return(isolation.NewIsolationResult(launcherPid, 0).(*isolation.RealIsolationResult), nil)
 
 			virtqemudPid := 1001
 			origListProcesses := mshv.ListProcesses

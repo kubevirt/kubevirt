@@ -152,14 +152,17 @@ func GetNspid(vmpid int) (int, error) {
 			continue
 		}
 		s := strings.Fields(line)
-		if len(s) < 2 {
+		if len(s) < 3 {
 			continue
 		}
 		val, err := strconv.Atoi(s[2])
 		return val, err
 	}
 
-	return -1, nil
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("error scanning NSpid: %v", err)
+	}
+	return 0, fmt.Errorf("NSpid not found")
 }
 
 func NodeIsolationResult() *RealIsolationResult {
