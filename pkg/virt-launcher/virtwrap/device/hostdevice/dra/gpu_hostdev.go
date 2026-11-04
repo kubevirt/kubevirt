@@ -125,6 +125,7 @@ func createHostDeviceForGPU(gpu v1.GPU, basePath string, resourceClaims []v1.Vir
 			Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 			Source:  api.HostDeviceSource{Address: hostAddr},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}, nil
 	}
