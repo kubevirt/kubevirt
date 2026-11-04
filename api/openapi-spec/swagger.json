@@ -14527,7 +14527,11 @@
       "items": {
        "default": {},
        "$ref": "#/definitions/v1.DHCPPrivateOptions"
-      }
+      },
+      "x-kubernetes-list-map-keys": [
+       "option"
+      ],
+      "x-kubernetes-list-type": "map"
      },
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server",

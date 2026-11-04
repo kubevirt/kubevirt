@@ -20847,6 +20847,14 @@ func schema_kubevirtio_api_core_v1_DHCPOptions(ref common.ReferenceCallback) com
 						},
 					},
 					"privateOptions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"option",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified will pass extra DHCP options for private use, range: 224-254",
 							Type:        []string{"array"},

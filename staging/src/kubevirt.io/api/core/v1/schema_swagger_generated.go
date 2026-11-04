@@ -766,14 +766,14 @@ func (DHCPOptions) SwaggerDoc() map[string]string {
 		"bootFileName":   "If specified will pass option 67 to interface's DHCP server\n+optional",
 		"tftpServerName": "If specified will pass option 66 to interface's DHCP server\n+optional",
 		"ntpServers":     "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
-		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
+		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional\n+listType=map\n+listMapKey=option",
 	}
 }
 
 func (DHCPPrivateOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "DHCPExtraOptions defines Extra DHCP options for a VM.",
-		"option": "Option is an Integer value from 224-254\nRequired.",
+		"option": "Option is an Integer value from 224-254\nRequired.\n+kubebuilder:validation:XValidation:rule=\"self >= 224 && self <= 254\",message=\"provided DHCPPrivateOptions are out of range, must be in range 224 to 254\"",
 		"value":  "Value is a String value for the Option provided\nRequired.",
 	}
 }

@@ -8147,6 +8147,11 @@ var CRDsValidation map[string]string = map[string]string{
                                             Option is an Integer value from 224-254
                                             Required.
                                           type: integer
+                                          x-kubernetes-validations:
+                                          - message: provided DHCPPrivateOptions are
+                                              out of range, must be in range 224 to
+                                              254
+                                            rule: self >= 224 && self <= 254
                                         value:
                                           description: |-
                                             Value is a String value for the Option provided
@@ -8157,6 +8162,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       - value
                                       type: object
                                     type: array
+                                    x-kubernetes-list-map-keys:
+                                    - option
+                                    x-kubernetes-list-type: map
                                   tftpServerName:
                                     description: If specified will pass option 66
                                       to interface's DHCP server
@@ -14819,6 +14827,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     Option is an Integer value from 224-254
                                     Required.
                                   type: integer
+                                  x-kubernetes-validations:
+                                  - message: provided DHCPPrivateOptions are out of
+                                      range, must be in range 224 to 254
+                                    rule: self >= 224 && self <= 254
                                 value:
                                   description: |-
                                     Value is a String value for the Option provided
@@ -14829,6 +14841,9 @@ var CRDsValidation map[string]string = map[string]string{
                               - value
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - option
+                            x-kubernetes-list-type: map
                           tftpServerName:
                             description: If specified will pass option 66 to interface's
                               DHCP server
@@ -19439,6 +19454,10 @@ var CRDsValidation map[string]string = map[string]string{
                                     Option is an Integer value from 224-254
                                     Required.
                                   type: integer
+                                  x-kubernetes-validations:
+                                  - message: provided DHCPPrivateOptions are out of
+                                      range, must be in range 224 to 254
+                                    rule: self >= 224 && self <= 254
                                 value:
                                   description: |-
                                     Value is a String value for the Option provided
@@ -19449,6 +19468,9 @@ var CRDsValidation map[string]string = map[string]string{
                               - value
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - option
+                            x-kubernetes-list-type: map
                           tftpServerName:
                             description: If specified will pass option 66 to interface's
                               DHCP server
@@ -22041,6 +22063,11 @@ var CRDsValidation map[string]string = map[string]string{
                                             Option is an Integer value from 224-254
                                             Required.
                                           type: integer
+                                          x-kubernetes-validations:
+                                          - message: provided DHCPPrivateOptions are
+                                              out of range, must be in range 224 to
+                                              254
+                                            rule: self >= 224 && self <= 254
                                         value:
                                           description: |-
                                             Value is a String value for the Option provided
@@ -22051,6 +22078,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       - value
                                       type: object
                                     type: array
+                                    x-kubernetes-list-map-keys:
+                                    - option
+                                    x-kubernetes-list-type: map
                                   tftpServerName:
                                     description: If specified will pass option 66
                                       to interface's DHCP server
@@ -27490,6 +27520,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                     Option is an Integer value from 224-254
                                                     Required.
                                                   type: integer
+                                                  x-kubernetes-validations:
+                                                  - message: provided DHCPPrivateOptions
+                                                      are out of range, must be in
+                                                      range 224 to 254
+                                                    rule: self >= 224 && self <= 254
                                                 value:
                                                   description: |-
                                                     Value is a String value for the Option provided
@@ -27500,6 +27535,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               - value
                                               type: object
                                             type: array
+                                            x-kubernetes-list-map-keys:
+                                            - option
+                                            x-kubernetes-list-type: map
                                           tftpServerName:
                                             description: If specified will pass option
                                               66 to interface's DHCP server
@@ -33469,6 +33507,12 @@ var CRDsValidation map[string]string = map[string]string{
                                                         Option is an Integer value from 224-254
                                                         Required.
                                                       type: integer
+                                                      x-kubernetes-validations:
+                                                      - message: provided DHCPPrivateOptions
+                                                          are out of range, must be
+                                                          in range 224 to 254
+                                                        rule: self >= 224 && self
+                                                          <= 254
                                                     value:
                                                       description: |-
                                                         Value is a String value for the Option provided
@@ -33479,6 +33523,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                   - value
                                                   type: object
                                                 type: array
+                                                x-kubernetes-list-map-keys:
+                                                - option
+                                                x-kubernetes-list-type: map
                                               tftpServerName:
                                                 description: If specified will pass
                                                   option 66 to interface's DHCP server
