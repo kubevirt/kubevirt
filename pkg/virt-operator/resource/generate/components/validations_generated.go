@@ -8218,21 +8218,34 @@ var CRDsValidation map[string]string = map[string]string{
                                         This must be a valid port number, 0 < x < 65536.
                                         Must be greater than or equal to start.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: Required. Must be UDP or TCP.
+                                      maxLength: 16
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: Unknown protocol, only TCP or UDP
+                                          allowed
+                                        rule: self in ['TCP', 'UDP']
                                     start:
                                       description: |-
                                         First port of the range to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                   required:
                                   - end
                                   - protocol
                                   - start
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: start must be less than or equal to end
+                                    rule: self.start <= self.end
+                                maxItems: 10
                                 type: array
                                 x-kubernetes-list-type: atomic
                               ports:
@@ -8302,6 +8315,17 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                            x-kubernetes-validations:
+                            - message: Cannot define both ports and portRanges on
+                                interface
+                              rule: '!(has(self.ports) && has(self.portRanges))'
+                            - message: portRanges are only supported on masquerade
+                                interfaces
+                              rule: '!has(self.portRanges) || has(self.masquerade)'
+                            - message: portRanges must not overlap for the same protocol
+                              rule: '!has(self.portRanges) || self.portRanges.all(x,
+                                self.portRanges.exists_one(y, y.protocol == x.protocol
+                                && y.start <= x.end && x.start <= y.end))'
                           maxItems: 256
                           type: array
                         logSerialConsole:
@@ -14894,21 +14918,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 This must be a valid port number, 0 < x < 65536.
                                 Must be greater than or equal to start.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: Required. Must be UDP or TCP.
+                              maxLength: 16
                               type: string
+                              x-kubernetes-validations:
+                              - message: Unknown protocol, only TCP or UDP allowed
+                                rule: self in ['TCP', 'UDP']
                             start:
                               description: |-
                                 First port of the range to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                           required:
                           - end
                           - protocol
                           - start
                           type: object
+                          x-kubernetes-validations:
+                          - message: start must be less than or equal to end
+                            rule: self.start <= self.end
+                        maxItems: 10
                         type: array
                         x-kubernetes-list-type: atomic
                       ports:
@@ -14977,6 +15013,15 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: Cannot define both ports and portRanges on interface
+                      rule: '!(has(self.ports) && has(self.portRanges))'
+                    - message: portRanges are only supported on masquerade interfaces
+                      rule: '!has(self.portRanges) || has(self.masquerade)'
+                    - message: portRanges must not overlap for the same protocol
+                      rule: '!has(self.portRanges) || self.portRanges.all(x, self.portRanges.exists_one(y,
+                        y.protocol == x.protocol && y.start <= x.end && x.start <=
+                        y.end))'
                   maxItems: 256
                   type: array
                 logSerialConsole:
@@ -19518,21 +19563,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 This must be a valid port number, 0 < x < 65536.
                                 Must be greater than or equal to start.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: Required. Must be UDP or TCP.
+                              maxLength: 16
                               type: string
+                              x-kubernetes-validations:
+                              - message: Unknown protocol, only TCP or UDP allowed
+                                rule: self in ['TCP', 'UDP']
                             start:
                               description: |-
                                 First port of the range to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                           required:
                           - end
                           - protocol
                           - start
                           type: object
+                          x-kubernetes-validations:
+                          - message: start must be less than or equal to end
+                            rule: self.start <= self.end
+                        maxItems: 10
                         type: array
                         x-kubernetes-list-type: atomic
                       ports:
@@ -19601,6 +19658,15 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: Cannot define both ports and portRanges on interface
+                      rule: '!(has(self.ports) && has(self.portRanges))'
+                    - message: portRanges are only supported on masquerade interfaces
+                      rule: '!has(self.portRanges) || has(self.masquerade)'
+                    - message: portRanges must not overlap for the same protocol
+                      rule: '!has(self.portRanges) || self.portRanges.all(x, self.portRanges.exists_one(y,
+                        y.protocol == x.protocol && y.start <= x.end && x.start <=
+                        y.end))'
                   maxItems: 256
                   type: array
                 logSerialConsole:
@@ -22127,21 +22193,34 @@ var CRDsValidation map[string]string = map[string]string{
                                         This must be a valid port number, 0 < x < 65536.
                                         Must be greater than or equal to start.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: Required. Must be UDP or TCP.
+                                      maxLength: 16
                                       type: string
+                                      x-kubernetes-validations:
+                                      - message: Unknown protocol, only TCP or UDP
+                                          allowed
+                                        rule: self in ['TCP', 'UDP']
                                     start:
                                       description: |-
                                         First port of the range to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                   required:
                                   - end
                                   - protocol
                                   - start
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: start must be less than or equal to end
+                                    rule: self.start <= self.end
+                                maxItems: 10
                                 type: array
                                 x-kubernetes-list-type: atomic
                               ports:
@@ -22211,6 +22290,17 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                            x-kubernetes-validations:
+                            - message: Cannot define both ports and portRanges on
+                                interface
+                              rule: '!(has(self.ports) && has(self.portRanges))'
+                            - message: portRanges are only supported on masquerade
+                                interfaces
+                              rule: '!has(self.portRanges) || has(self.masquerade)'
+                            - message: portRanges must not overlap for the same protocol
+                              rule: '!has(self.portRanges) || self.portRanges.all(x,
+                                self.portRanges.exists_one(y, y.protocol == x.protocol
+                                && y.start <= x.end && x.start <= y.end))'
                           maxItems: 256
                           type: array
                         logSerialConsole:
@@ -27583,22 +27673,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                 This must be a valid port number, 0 < x < 65536.
                                                 Must be greater than or equal to start.
                                               format: int32
+                                              maximum: 65535
+                                              minimum: 1
                                               type: integer
                                             protocol:
                                               description: Required. Must be UDP or
                                                 TCP.
+                                              maxLength: 16
                                               type: string
+                                              x-kubernetes-validations:
+                                              - message: Unknown protocol, only TCP
+                                                  or UDP allowed
+                                                rule: self in ['TCP', 'UDP']
                                             start:
                                               description: |-
                                                 First port of the range to expose for the virtual machine.
                                                 This must be a valid port number, 0 < x < 65536.
                                               format: int32
+                                              maximum: 65535
+                                              minimum: 1
                                               type: integer
                                           required:
                                           - end
                                           - protocol
                                           - start
                                           type: object
+                                          x-kubernetes-validations:
+                                          - message: start must be less than or equal
+                                              to end
+                                            rule: self.start <= self.end
+                                        maxItems: 10
                                         type: array
                                         x-kubernetes-list-type: atomic
                                       ports:
@@ -27671,6 +27775,19 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - name
                                     type: object
+                                    x-kubernetes-validations:
+                                    - message: Cannot define both ports and portRanges
+                                        on interface
+                                      rule: '!(has(self.ports) && has(self.portRanges))'
+                                    - message: portRanges are only supported on masquerade
+                                        interfaces
+                                      rule: '!has(self.portRanges) || has(self.masquerade)'
+                                    - message: portRanges must not overlap for the
+                                        same protocol
+                                      rule: '!has(self.portRanges) || self.portRanges.all(x,
+                                        self.portRanges.exists_one(y, y.protocol ==
+                                        x.protocol && y.start <= x.end && x.start
+                                        <= y.end))'
                                   maxItems: 256
                                   type: array
                                 logSerialConsole:
@@ -33568,22 +33685,36 @@ var CRDsValidation map[string]string = map[string]string{
                                                     This must be a valid port number, 0 < x < 65536.
                                                     Must be greater than or equal to start.
                                                   format: int32
+                                                  maximum: 65535
+                                                  minimum: 1
                                                   type: integer
                                                 protocol:
                                                   description: Required. Must be UDP
                                                     or TCP.
+                                                  maxLength: 16
                                                   type: string
+                                                  x-kubernetes-validations:
+                                                  - message: Unknown protocol, only
+                                                      TCP or UDP allowed
+                                                    rule: self in ['TCP', 'UDP']
                                                 start:
                                                   description: |-
                                                     First port of the range to expose for the virtual machine.
                                                     This must be a valid port number, 0 < x < 65536.
                                                   format: int32
+                                                  maximum: 65535
+                                                  minimum: 1
                                                   type: integer
                                               required:
                                               - end
                                               - protocol
                                               - start
                                               type: object
+                                              x-kubernetes-validations:
+                                              - message: start must be less than or
+                                                  equal to end
+                                                rule: self.start <= self.end
+                                            maxItems: 10
                                             type: array
                                             x-kubernetes-list-type: atomic
                                           ports:
@@ -33657,6 +33788,19 @@ var CRDsValidation map[string]string = map[string]string{
                                         required:
                                         - name
                                         type: object
+                                        x-kubernetes-validations:
+                                        - message: Cannot define both ports and portRanges
+                                            on interface
+                                          rule: '!(has(self.ports) && has(self.portRanges))'
+                                        - message: portRanges are only supported on
+                                            masquerade interfaces
+                                          rule: '!has(self.portRanges) || has(self.masquerade)'
+                                        - message: portRanges must not overlap for
+                                            the same protocol
+                                          rule: '!has(self.portRanges) || self.portRanges.all(x,
+                                            self.portRanges.exists_one(y, y.protocol
+                                            == x.protocol && y.start <= x.end && x.start
+                                            <= y.end))'
                                       maxItems: 256
                                       type: array
                                     logSerialConsole:

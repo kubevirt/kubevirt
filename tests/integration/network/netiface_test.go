@@ -194,3 +194,140 @@ var _ = Describe("Ports list size CRD validation", func() {
 		Expect(err.Error()).To(ContainSubstring("spec.domain.devices.interfaces[0].ports"))
 	})
 })
+
+// These specs exercise the Interface-level +kubebuilder:validation:XValidation (CEL)
+// rules guarding portRanges' structural shape (mutual exclusivity with ports, the
+// masquerade-only requirement, and overlap detection), plus the native
+// Minimum/Maximum/MaxItems/enum constraints on PortRange and Interface.PortRanges.
+// The feature-gate check (PortRangesSpec) stays webhook-enforced and out of scope
+// here (tracked separately in kubevirt/kubevirt#19701 as Tier 2a/Phase 1b); no
+// KubeVirt webhook runs in this environment, so none of these specs exercise it.
+// Like the port-forwarding structural rules above, these are now enforced
+// unconditionally regardless of network type - a deliberate, acknowledged
+// tightening of configuration that was previously silently ignored on non-pod
+// networks (see the commit message for why).
+var _ = Describe("PortRanges structural CRD validation (unconditional)", func() {
+	It("should accept a well-formed portRange on a masquerade pod-network interface", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(),
+				libvmi.WithPortRanges(v1.PortRange{Protocol: "TCP", Start: 80, End: 90}))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should reject both ports and portRanges set on the same interface, even on a non-pod network", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithSRIOVBinding(),
+				libvmi.WithPorts(v1.Port{Port: 22}),
+				libvmi.WithPortRanges(v1.PortRange{Protocol: "TCP", Start: 80, End: 90}))),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "default-nad")),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should reject portRanges on a non-masquerade interface on a non-pod network (previously silently accepted)", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithSRIOVBinding(),
+				libvmi.WithPortRanges(v1.PortRange{Protocol: "TCP", Start: 80, End: 90}))),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "default-nad")),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+	})
+
+	DescribeTable("should reject a malformed portRange on a masquerade pod-network interface",
+		func(ctx SpecContext, portRange v1.PortRange) {
+			ns := f.CreateNamespace(ctx)
+
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("128Mi"),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(),
+					libvmi.WithPortRanges(portRange))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("unsupported protocol", v1.PortRange{Protocol: "SCTP", Start: 80, End: 90}),
+		Entry("empty protocol", v1.PortRange{Protocol: "", Start: 80, End: 90}),
+		Entry("start below range", v1.PortRange{Protocol: "TCP", Start: 0, End: 90}),
+		Entry("end above range", v1.PortRange{Protocol: "TCP", Start: 80, End: 65536}),
+		Entry("start greater than end", v1.PortRange{Protocol: "TCP", Start: 100, End: 80}),
+	)
+
+	It("should reject more than 10 portRanges on an interface", func(ctx SpecContext) {
+		ns := f.CreateNamespace(ctx)
+
+		portRanges := make([]v1.PortRange, 11)
+		for i := range portRanges {
+			portRanges[i] = v1.PortRange{Protocol: "TCP", Start: int32(1000 + i*10), End: int32(1005 + i*10)}
+		}
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPortRanges(portRanges...))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("spec.domain.devices.interfaces[0].portRanges"))
+	})
+
+	DescribeTable("should accept non-overlapping portRanges",
+		func(ctx SpecContext, portRanges []v1.PortRange) {
+			ns := f.CreateNamespace(ctx)
+
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("128Mi"),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPortRanges(portRanges...))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		},
+		Entry("single range", []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}}),
+		Entry("single port (start == end)", []v1.PortRange{{Protocol: "TCP", Start: 22, End: 22}}),
+		Entry("two non-overlapping TCP ranges",
+			[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 100}, {Protocol: "TCP", Start: 200, End: 300}}),
+		Entry("TCP and UDP ranges that overlap numerically (allowed, different protocols)",
+			[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 200}, {Protocol: "UDP", Start: 150, End: 300}}),
+	)
+
+	DescribeTable("should reject overlapping portRanges of the same protocol",
+		func(ctx SpecContext, portRanges []v1.PortRange) {
+			ns := f.CreateNamespace(ctx)
+
+			vmi := libvmi.New(
+				libvmi.WithMemoryRequest("128Mi"),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPortRanges(portRanges...))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, vmi, metav1.CreateOptions{})
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("two overlapping TCP ranges",
+			[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 200}, {Protocol: "TCP", Start: 150, End: 300}}),
+		Entry("two exactly-duplicate TCP ranges",
+			[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}, {Protocol: "TCP", Start: 80, End: 90}}),
+		Entry("two TCP ranges touching at a single port (end of one equals start of the other)",
+			[]v1.PortRange{{Protocol: "TCP", Start: 80, End: 100}, {Protocol: "TCP", Start: 100, End: 150}}),
+	)
+})

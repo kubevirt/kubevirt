@@ -1449,6 +1449,9 @@ type Diag288Watchdog struct {
 	Action WatchdogAction `json:"action,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!(has(self.ports) && has(self.portRanges))",message="Cannot define both ports and portRanges on interface"
+// +kubebuilder:validation:XValidation:rule="!has(self.portRanges) || has(self.masquerade)",message="portRanges are only supported on masquerade interfaces"
+// +kubebuilder:validation:XValidation:rule="!has(self.portRanges) || self.portRanges.all(x, self.portRanges.exists_one(y, y.protocol == x.protocol && y.start <= x.end && x.start <= y.end))",message="portRanges must not overlap for the same protocol"
 type Interface struct {
 	// Logical name of the interface as well as a reference to the associated networks.
 	// Must match the Name of a Network.
@@ -1474,6 +1477,7 @@ type Interface struct {
 	// This feature is in Alpha.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems:=10
 	PortRanges []PortRange `json:"portRanges,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
@@ -1639,15 +1643,22 @@ type Port struct {
 
 // PortRange represents a range of ports to be forwarded to the virtual machine.
 // All fields are mandatory.
+// +kubebuilder:validation:XValidation:rule="self.start <= self.end",message="start must be less than or equal to end"
 type PortRange struct {
 	// Required. Must be UDP or TCP.
+	// +kubebuilder:validation:MaxLength:=16
+	// +kubebuilder:validation:XValidation:rule="self in ['TCP', 'UDP']",message="Unknown protocol, only TCP or UDP allowed"
 	Protocol string `json:"protocol"`
 	// First port of the range to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
+	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=65535
 	Start int32 `json:"start"`
 	// Last port of the range to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
 	// Must be greater than or equal to start.
+	// +kubebuilder:validation:Minimum:=1
+	// +kubebuilder:validation:Maximum:=65535
 	End int32 `json:"end"`
 }
 
