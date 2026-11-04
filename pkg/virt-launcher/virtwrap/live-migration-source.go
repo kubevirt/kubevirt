@@ -1059,20 +1059,16 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 		downtimeInfo = fmt.Sprintf("Downtime:%dms DowntimeNet:%dms", info.Downtime, info.DowntimeNet)
 	}
 
-	compressionInfo := ""
-	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
-		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
-		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
-	}
-
+	// Normal bytes and processed data are not paired compression counters,
+	// particularly with multifd migration. Report the raw counters only.
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
-		`DiskMbps:%d%s`,
+		`DiskMbps:%d`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
-		bpsToMbps(info.DiskBps), compressionInfo,
+		bpsToMbps(info.DiskBps),
 	))
 }
 
