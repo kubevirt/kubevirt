@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -220,6 +221,259 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateCrossClusterMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateCrossClusterMigrationNetwork(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrations.crossClusterNetwork"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when CrossClusterNetwork is set without CrossClusterMigrationProxy feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should reject when CrossClusterNetwork is set with Direct datapath",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathDirect),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should reject when CrossClusterNetwork is set without datapath (defaults to Direct)",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						CrossClusterNetwork: pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when CrossClusterNetwork is set with Proxy datapath and feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						CrossClusterNetwork:                pointer.P("cross-cluster-nad"),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when MigrationConfiguration is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should allow when CrossClusterNetwork is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{},
+				},
+			},
+			false,
+		),
+	)
+
+	DescribeTable("validateDecentralizedLiveMigrationDatapath", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateDecentralizedLiveMigrationDatapath(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Field).To(Equal("spec.configuration.migrations.decentralizedLiveMigrationDatapath"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should allow unset datapath",
+			v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{}},
+			false,
+		),
+		Entry("should allow Direct without feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathDirect),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should reject Proxy without feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow Proxy with feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should reject unknown value",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapath("foo")),
+					},
+				},
+			},
+			true,
+		),
+	)
+
+	DescribeTable("validateEmulationPolicy", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateEmulationPolicy(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Field).To(Equal("spec.configuration.emulationPolicy"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should do nothing when not set",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should reject when FeatureGate is not enabled",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					EmulationPolicy: pointer.P(v1.EmulationPolicySoftware),
+				},
+			},
+			true,
+		),
+		Entry("should reject unkown value",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicy("foo")),
+				},
+			},
+			true,
+		),
+		Entry("should accept value 'None'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicyNone),
+				},
+			},
+			false,
+		),
+		Entry("should accept value 'Software'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicySoftware),
+				},
+			},
+			false,
+		),
+		Entry("should reject value 'Hardware'",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+					},
+					EmulationPolicy: pointer.P(v1.EmulationPolicyHardware),
+				},
+			},
+			true,
+		),
+	)
+
+	DescribeTable("warnProxyMigrationNetwork", func(kvSpec v1.KubeVirtSpec, expectWarning bool) {
+		warnings := warnProxyMigrationNetwork(&kvSpec.Configuration)
+		if expectWarning {
+			Expect(warnings).ToNot(BeEmpty())
+			Expect(warnings[0]).To(ContainSubstring("migration0"))
+		} else {
+			Expect(warnings).To(BeEmpty())
+		}
+	},
+		Entry("should not warn when network unset",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should not warn when Direct with network",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						Network: pointer.P("migration-nad"),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should warn when Proxy with network",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.CrossClusterMigrationProxy},
+					},
+					MigrationConfiguration: &v1.MigrationConfiguration{
+						DecentralizedLiveMigrationDatapath: pointer.P(v1.DecentralizedLiveMigrationDatapathProxy),
+						Network:                            pointer.P("migration-nad"),
+					},
+				},
+			},
+			true,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))
@@ -277,6 +531,76 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			},
 		}, 0),
+	)
+
+	DescribeTable("validateCertificates", func(certConfig *v1.KubeVirtSelfSignConfiguration, expectedCauses ...metav1.StatusCause) {
+		causes := validateCertificates(certConfig)
+		Expect(causes).To(ConsistOf(expectedCauses))
+	},
+		Entry("nil config accepted", nil),
+		Entry("valid cert rotation parameters accepted", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}),
+		Entry("combining deprecated and new cert rotation parameters rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+			CAOverlapInterval: &metav1.Duration{Duration: 8 * time.Hour},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: "caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters",
+		}),
+		Entry("CA expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 14 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 12 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)",
+		}),
+		Entry("Cert expires before rotation rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 8 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 10 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)",
+		}),
+		Entry("Cert rotates after CA expires rejected", &v1.KubeVirtSelfSignConfiguration{
+			CA: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 24 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 16 * time.Hour},
+			},
+			Server: &v1.CertConfig{
+				Duration:    &metav1.Duration{Duration: 48 * time.Hour},
+				RenewBefore: &metav1.Duration{Duration: 36 * time.Hour},
+			},
+		}, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)",
+		}),
 	)
 
 	Context("with TLSConfiguration", func() {

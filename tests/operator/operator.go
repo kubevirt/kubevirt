@@ -1835,31 +1835,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			patches := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy))
 			patchKV(kv.Name, patches)
 		})
-
-		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6259]should reject CA expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6260]should reject Cert expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
-			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
 	})
 
 	Context("with ContainerPathVolumes feature gate toggled", func() {
@@ -2433,20 +2408,22 @@ func serviceMonitorEnabled() bool {
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
 // This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
 func verifyOperatorWebhookCertificate() {
-	caBundle, _ := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(caBundle)
-	// ensure that the state is fully restored before each test
-	Eventually(func() error {
+	Eventually(func(g Gomega) {
+		caBundle, _, err := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+		g.Expect(err).ToNot(HaveOccurred())
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(caBundle)
+
 		currentCert, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(currentCert).ToNot(BeEmpty())
 		crt, err := x509.ParseCertificate(currentCert[0])
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 		_, err = crt.Verify(x509.VerifyOptions{
 			Roots: certPool,
 		})
-		return err
-	}, 90*time.Second, 1*time.Second).Should(Not(HaveOccurred()), "bundle and certificate are still not in sync after 90 seconds")
+		g.Expect(err).ToNot(HaveOccurred())
+	}, 90*time.Second, 1*time.Second).Should(Succeed(), "bundle and certificate are still not in sync after 90 seconds")
 	// we got the first pod with the new certificate, now let's wait until every pod sees it
 	// this can take additional time since nodes are not synchronizing at the same moment
 	libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
@@ -2671,7 +2648,7 @@ func parseImage(image string) (registry, imageName, version string) {
 
 func installOperator(manifestPath string) {
 	// namespace is already hardcoded within the manifests
-	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath)
+	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath, "--server-side")
 	Expect(err).ToNot(HaveOccurred(), stderr)
 
 	By("Waiting for KubeVirt CRD to be created")
@@ -2727,18 +2704,6 @@ func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConf
 
 	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
 
-	return err
-}
-
-func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration) error {
-	certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
-		SelfSigned: certConfig,
-	}
-
-	data, err := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy)).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
 }
 

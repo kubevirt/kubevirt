@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -447,11 +448,15 @@ var _ = Describe(SIG("Export", func() {
 			if volume.Name == pvcName {
 				for _, format := range volume.Formats {
 					if format.Format == expectedFormat {
-						i := strings.Index(format.Url, ".svc/")
+						// Internal URLs may be ".svc/path" or ".svc:PORT/path".
+						i := strings.Index(format.Url, ".svc")
 						if i >= 0 {
-							uri := fmt.Sprintf(template, format.Url[i+4:], token)
-							downloadUrl = fmt.Sprintf(proxyUrlBase, flags.KubeVirtInstallNamespace, export.Namespace, export.Name, uri)
-							fileName = filepath.Base(format.Url)
+							pathIdx := strings.Index(format.Url[i:], "/")
+							if pathIdx >= 0 {
+								uri := fmt.Sprintf(template, format.Url[i+pathIdx:], token)
+								downloadUrl = fmt.Sprintf(proxyUrlBase, flags.KubeVirtInstallNamespace, export.Namespace, export.Name, uri)
+								fileName = filepath.Base(format.Url)
+							}
 						}
 					}
 				}
@@ -1416,11 +1421,11 @@ var _ = Describe(SIG("Export", func() {
 			volumeFormats = append(volumeFormats,
 				exportv1.VirtualMachineExportVolumeFormat{
 					Format: exportv1.KubeVirtRaw,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+					Url:    fmt.Sprintf("https://%s.%s.svc:%d/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, storagetypes.ExportServerPort, volumeName),
 				},
 				exportv1.VirtualMachineExportVolumeFormat{
 					Format: exportv1.KubeVirtGz,
-					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+					Url:    fmt.Sprintf("https://%s.%s.svc:%d/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, storagetypes.ExportServerPort, volumeName),
 				},
 			)
 		}
@@ -1432,11 +1437,11 @@ var _ = Describe(SIG("Export", func() {
 		verifyLinksInternal(vmExport,
 			exportv1.VirtualMachineExportVolumeFormat{
 				Format: exportv1.KubeVirtRaw,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+				Url:    fmt.Sprintf("https://%s.%s.svc:%d/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, storagetypes.ExportServerPort, volumeName),
 			},
 			exportv1.VirtualMachineExportVolumeFormat{
 				Format: exportv1.KubeVirtGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+				Url:    fmt.Sprintf("https://%s.%s.svc:%d/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, storagetypes.ExportServerPort, volumeName),
 			})
 	}
 
@@ -2018,8 +2023,8 @@ var _ = Describe(SIG("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace, storagetypes.ExportServerPort)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace, storagetypes.ExportServerPort)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
@@ -2063,8 +2068,8 @@ var _ = Describe(SIG("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace, storagetypes.ExportServerPort)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), export.Namespace, storagetypes.ExportServerPort)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
@@ -2158,8 +2163,8 @@ var _ = Describe(SIG("Export", func() {
 		Expect(export.Status).ToNot(BeNil())
 		Expect(export.Status.Links).ToNot(BeNil())
 		Expect(export.Status.Links.Internal).ToNot(BeNil())
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
-		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/all", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace, storagetypes.ExportServerPort)))
+		Expect(getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader)).To(Equal(fmt.Sprintf("https://%s.%s.svc:%d/internal/manifests/secret", fmt.Sprintf("virt-export-%s", export.Name), vm.Namespace, storagetypes.ExportServerPort)))
 		Expect(err).ToNot(HaveOccurred())
 		caConfigMap := createCaConfigMapInternal("export-cacerts", vm.Namespace, export)
 		Expect(caConfigMap).ToNot(BeNil())
@@ -2360,32 +2365,20 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("OCI export", Serial, Ordered, decorators.OncePerOrderedCleanup, func() {
+	Context("OCI export", decorators.RequiresOCIExport, func() {
 		const (
 			reasonDigestsComputed = "DigestsComputed"
 		)
 
-		var (
-			fgDisabled bool
-			sc         string
-		)
+		var sc string
 
-		BeforeAll(func() {
+		BeforeEach(func() {
+			checks.FailTestIfNoFeatureGate(featuregate.OCIExport)
+
 			var exists bool
 			sc, exists = libstorage.GetRWOBlockStorageClass()
 			if !exists {
 				Fail("Fail test when RWO Block storage is not present")
-			}
-
-			fgDisabled = !checks.HasFeature(featuregate.OCIExport)
-			if fgDisabled {
-				kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-		})
-
-		AfterAll(func() {
-			if fgDisabled {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
 			}
 		})
 
@@ -2464,33 +2457,15 @@ var _ = Describe(SIG("Export", func() {
 			By("Verifying OCI manifest link in export status")
 			ociUrl := getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.OCI)
 			Expect(ociUrl).ToNot(BeEmpty(), "OCI manifest URL should be present")
-			expectedUrl := fmt.Sprintf("https://%s-%s.%s.svc/export.oci.tar",
-				exportPrefix, export.Name, export.Namespace)
+			expectedUrl := fmt.Sprintf("https://%s-%s.%s.svc:%d/export.oci.tar",
+				exportPrefix, export.Name, export.Namespace, storagetypes.ExportServerPort)
 			Expect(ociUrl).To(Equal(expectedUrl))
 
 			By("Downloading OCI TAR and verifying structure")
 			verifyOCITarDownload(export, token, vm.Namespace)
 		})
 
-		It("should not include OCI manifest link when feature gate is disabled", func() {
-			if checks.HasFeature(featuregate.OCIExport) {
-				kvconfig.DisableFeatureGate(featuregate.OCIExport)
-				defer kvconfig.EnableFeatureGate(featuregate.OCIExport)
-			}
-
-			vm := createStoppedVM()
-			export, _ := createReadyVMExport(vm)
-
-			ociUrl := getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.OCI)
-			Expect(ociUrl).To(BeEmpty(), "OCI manifest URL should not be present when feature gate is disabled")
-		})
-
 		It("should export VirtualMachineTemplate as OCI artifact", func() {
-			if !checks.HasFeature(featuregate.Template) {
-				kvconfig.EnableFeatureGate(featuregate.Template)
-				defer kvconfig.DisableFeatureGate(featuregate.Template)
-			}
-
 			By("Creating a stopped VM with DataVolume")
 			vm := createStoppedVM()
 

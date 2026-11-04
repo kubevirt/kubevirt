@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
@@ -65,7 +66,6 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
@@ -75,6 +75,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -271,7 +272,6 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
-	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
@@ -389,7 +389,7 @@ func (app *virtHandlerApp) Run() {
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
-	netStat := netsetup.NewNetStat()
+	netStat := netsetup.NewNetStat(app.clusterConfig)
 	passtRepairHandler := passt.NewRepairManager()
 
 	// Bootstrapping. From here on the startup order matters
@@ -406,7 +406,6 @@ func (app *virtHandlerApp) Run() {
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
-		backupTrackerInformer.HasSynced,
 		pluginInformer.HasSynced,
 	)
 
@@ -479,20 +478,24 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		netConf,
 		netStat,
-		netresources.MemoryCalculator{},
 		passtRepairHandler,
 		pluginInformer.GetStore(),
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
+		netresources.NewMemoryCalculator(app.clusterConfig),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	cbtHandler := virthandler.NewCBTHandler(app.virtClient, backupTrackerInformer)
+	cbtHandler := virthandler.NewCBTHandler()
 
 	vmController, err := virthandler.NewVirtualMachineController(
+		workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
+		),
 		recorder,
 		app.virtClient,
 		app.k8sClient,
@@ -574,7 +577,7 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, vmiInformer, domainSharedInformer, machines); err != nil {
 		panic(err)
 	}
 
@@ -698,7 +701,7 @@ func (app *virtHandlerApp) runVMStatsServer(vmStatsHandler *rest.VMStatsHandler)
 	mux := restful.NewContainer()
 	webService := new(restful.WebService)
 	webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-	webService.Route(webService.GET("/v1/vmstats").
+	webService.Route(webService.POST("/v1/vmstats").
 		To(vmStatsHandler.GetVMStats).
 		Produces(restful.MIME_JSON).
 		Consumes(restful.MIME_JSON).
@@ -723,11 +726,12 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot").To(lifecycleHandler.ScreenshotRequestHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir").To(consoleHandler.USBRedirHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/backup").To(lifecycleHandler.BackupHandler))
-	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint").To(lifecycleHandler.RedefineCheckpointHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze").To(lifecycleHandler.UnfreezeHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot").To(lifecycleHandler.ExternalSnapshotHandler).Reads(v1.SnapshotOverlayOptions{}))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot").To(lifecycleHandler.CommitSnapshotHandler).Reads(v1.SnapshotOverlayOptions{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot").To(lifecycleHandler.SoftRebootHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset").To(lifecycleHandler.ResetHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo").To(lifecycleHandler.GetGuestInfo).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
@@ -794,7 +798,7 @@ func (app *virtHandlerApp) AddFlags() {
 		"Allow intermediate certificates to be used in building up the chain of trust when certificates are externally managed")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
-		"Watchdog file timeout")
+		"Watchdog timeout, the time it takes for unresponsive launcher to be declared as failed")
 
 	// TODO: the Device Plugin API does not allow for infinitely available (shared) devices
 	// so the current approach is to register an arbitrary number.

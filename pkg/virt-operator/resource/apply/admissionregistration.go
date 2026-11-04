@@ -270,20 +270,8 @@ func (r *Reconciler) createOrDeleteContainerPathVolumesWebhook(caBundle []byte) 
 		return r.createOrUpdateMutatingWebhookConfiguration(webhook, caBundle)
 	}
 
-	// Feature gate is disabled, delete the webhook if it exists
+	// Feature gate is disabled, delete the webhook if it exists.
 	_, exists, _ := r.stores.MutatingWebhookCache.Get(webhook)
-	if !exists {
-		// Also check directly in case cache is not populated
-		_, err := r.k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
-			context.Background(), webhook.Name, metav1.GetOptions{})
-		if errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-		exists = true
-	}
-
 	if exists {
 		if key, err := controller.KeyFunc(webhook); err == nil {
 			r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)

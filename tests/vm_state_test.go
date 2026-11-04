@@ -98,21 +98,6 @@ var _ = Describe("[sig-compute]VM state", func() {
 			}, 300)).To(Succeed(), "the state of the TPM did not persist")
 		}
 
-		addDataToEFI := func(vmi *v1.VirtualMachineInstance) {
-			By("Creating an efivar")
-			cmd := `printf "\x07\x00\x00\x00\x42" > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc`
-			err := console.RunCommand(vmi, cmd, 10*time.Second)
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		checkEFI := func(vmi *v1.VirtualMachineInstance) {
-			By("Ensuring the efivar is present")
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "hexdump /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
-				&expect.BExp{R: "0042"},
-			}, 10)).To(Succeed(), "expected efivar is missing")
-		}
-
 		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI, shouldBeRWX bool, ops ...string) {
 			By("Creating a migratable Fedora VM with UEFI")
 			vmi := libvmifact.NewFedora(
@@ -151,7 +136,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 				addDataToTPM(vmi)
 			}
 			if withEFI {
-				addDataToEFI(vmi)
+				libvmops.WriteEFITestVariable(vmi)
 			}
 
 			By("Ensuring we're testing what we think we're testing")
@@ -180,7 +165,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 					checkTPM(vmi)
 				}
 				if withEFI {
-					checkEFI(vmi)
+					libvmops.CheckEFITestVariable(vmi)
 				}
 			}
 

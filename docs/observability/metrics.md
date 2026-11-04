@@ -4,6 +4,11 @@
 |------|------|------|-------------|
 | kubevirt_configuration_emulation_enabled | Metric | Gauge | Indicates whether the Software Emulation is enabled in the configuration. |
 | kubevirt_console_active_connections | Metric | Gauge | Amount of active Console connections, broken down by namespace and vmi name. |
+| kubevirt_decentralized_migration_proxy_active_connections | Metric | Gauge | Number of active connections through the migration proxy |
+| kubevirt_decentralized_migration_proxy_bytes_transferred_total | Metric | Counter | Total state/disk bytes transferred through the migration proxy across all migrations |
+| kubevirt_decentralized_migration_proxy_errors_total | Metric | Counter | Total number of migration proxy errors |
+| kubevirt_decentralized_migration_proxy_migration_bytes | Metric | Gauge | State/disk bytes transferred for an active migration through the proxy |
+| kubevirt_decentralized_migration_proxy_throughput_bytes_per_second | Metric | Gauge | Approximate state/disk proxy throughput in bytes per second over a short window |
 | kubevirt_info | Metric | Gauge | Version information. |
 | kubevirt_node_deprecated_machine_types | Metric | Gauge | List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. |
 | kubevirt_portforward_active_tunnels | Metric | Gauge | Amount of active portforward tunnels, broken down by namespace and vmi name. |
@@ -61,6 +66,7 @@
 | kubevirt_vmi_migration_dirty_memory_rate_bytes | Metric | Gauge | The rate of memory being dirty in the Guest OS. |
 | kubevirt_vmi_migration_end_time_seconds | Metric | Gauge | The time at which the migration ended. |
 | kubevirt_vmi_migration_failed | Metric | Gauge | Indicates if the VMI migration failed. |
+| kubevirt_vmi_migration_last_downtime_duration_seconds | Metric | Gauge | Time, in seconds, the guest was paused during the cut-over of its last successful live migration, reported by the source node. |
 | kubevirt_vmi_migration_memory_transfer_rate_bytes | Metric | Gauge | The rate at which the memory is being transferred. |
 | kubevirt_vmi_migration_phase_transition_time_from_creation_seconds | Metric | Histogram | Histogram of VM migration phase transitions duration from creation time in seconds. |
 | kubevirt_vmi_migration_start_time_seconds | Metric | Gauge | The time at which the migration started. |
@@ -156,6 +162,11 @@
 | pvc:kubevirt_vmsnapshot_labels:info | Recording rule | Gauge | Returns the labels of the persistent volume claims that are used for restoring virtual machines. |
 | vm:kubevirt_vmsnapshot_disks_restored:sum | Recording rule | Gauge | Returns the total number of virtual machine disks restored from the source virtual machine. |
 | vm:kubevirt_vmsnapshot_restored_bytes:sum | Recording rule | Gauge | Returns the amount of space in bytes restored from the source virtual machine. |
+| vmi:kubevirt_vmi_gpu_fb_free:sum | Recording rule | Gauge | Framebuffer memory free (in bytes) of the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_fb_used:sum | Recording rule | Gauge | Framebuffer memory used (in bytes) of the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_gr_engine_active_ratio:sum | Recording rule | Gauge | Ratio (0-1) of the time the graphics engine was active on the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_mem_copy_utilization_ratio:sum | Recording rule | Gauge | Memory utilization (0-1) of the GPU passed through to a virtual machine instance. |
+| vmi:kubevirt_vmi_gpu_utilization_ratio:sum | Recording rule | Gauge | Utilization (0-1) of the time the GPU passed through to a virtual machine instance was busy. |
 | vmi:kubevirt_vmi_guest_queue_length:sum | Recording rule | Gauge | Guest queue length. |
 | vmi:kubevirt_vmi_memory_available_bytes:sum | Recording rule | Gauge | Sum of available memory bytes per VMI (aggregated by name, namespace). |
 | vmi:kubevirt_vmi_memory_headroom_ratio:sum | Recording rule | Gauge | Usable memory to available memory ratio per VMI (aggregated by name, namespace). |

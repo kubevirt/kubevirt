@@ -91,7 +91,7 @@ func (v *ClusterProfiler) Stop() error {
 
 // Dump returns at most cpRequest.PageSize profiler results. To fetch results from all kubevirt pods
 // Dump should be called with Continue fields set to Continue field value from the response to a previous request.
-// This should be repeated until Continue or ComponentsResult field in ClusterProfilerResponse is empty.
+// This should be repeated until Continue is empty.
 func (v *ClusterProfiler) Dump(cpRequest *v1.ClusterProfilerRequest) (*v1.ClusterProfilerResults, error) {
 	preferredVersion, err := v.preferredVersion()
 	if err != nil {

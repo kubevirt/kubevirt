@@ -32,8 +32,9 @@ import (
 	common "k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
 	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	v1beta1 "kubevirt.io/api/backup/v1beta1"
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
-	v1beta1 "kubevirt.io/api/clone/v1beta1"
+	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	corev1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
@@ -344,8 +345,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		runtime.Unknown{}.OpenAPIModelName():                                                              schema_k8sio_apimachinery_pkg_runtime_Unknown(ref),
 		intstr.IntOrString{}.OpenAPIModelName():                                                           schema_apimachinery_pkg_util_intstr_IntOrString(ref),
 		v1alpha1.BackupCheckpoint{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref),
+		v1alpha1.BackupLink{}.OpenAPIModelName():                                                          schema_kubevirtio_api_backup_v1alpha1_BackupLink(ref),
+		v1alpha1.BackupLinks{}.OpenAPIModelName():                                                         schema_kubevirtio_api_backup_v1alpha1_BackupLinks(ref),
 		v1alpha1.BackupOptions{}.OpenAPIModelName():                                                       schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref),
 		v1alpha1.BackupVolumeInfo{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref),
+		v1alpha1.BackupVolumeLink{}.OpenAPIModelName():                                                    schema_kubevirtio_api_backup_v1alpha1_BackupVolumeLink(ref),
 		v1alpha1.VirtualMachineBackup{}.OpenAPIModelName():                                                schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackup(ref),
 		v1alpha1.VirtualMachineBackupList{}.OpenAPIModelName():                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupList(ref),
 		v1alpha1.VirtualMachineBackupSpec{}.OpenAPIModelName():                                            schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref),
@@ -354,18 +358,32 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.VirtualMachineBackupTrackerList{}.OpenAPIModelName():                                     schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerList(ref),
 		v1alpha1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName():                                     schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerSpec(ref),
 		v1alpha1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName():                                   schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref),
+		v1beta1.BackupCheckpoint{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupCheckpoint(ref),
+		v1beta1.BackupLink{}.OpenAPIModelName():                                                           schema_kubevirtio_api_backup_v1beta1_BackupLink(ref),
+		v1beta1.BackupLinks{}.OpenAPIModelName():                                                          schema_kubevirtio_api_backup_v1beta1_BackupLinks(ref),
+		v1beta1.BackupOptions{}.OpenAPIModelName():                                                        schema_kubevirtio_api_backup_v1beta1_BackupOptions(ref),
+		v1beta1.BackupVolumeInfo{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupVolumeInfo(ref),
+		v1beta1.BackupVolumeLink{}.OpenAPIModelName():                                                     schema_kubevirtio_api_backup_v1beta1_BackupVolumeLink(ref),
+		v1beta1.VirtualMachineBackup{}.OpenAPIModelName():                                                 schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackup(ref),
+		v1beta1.VirtualMachineBackupList{}.OpenAPIModelName():                                             schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupList(ref),
+		v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName():                                             schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupSpec(ref),
+		v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName():                                           schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupStatus(ref),
+		v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName():                                          schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTracker(ref),
+		v1beta1.VirtualMachineBackupTrackerList{}.OpenAPIModelName():                                      schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerList(ref),
+		v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName():                                      schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerSpec(ref),
+		v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName():                                    schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerStatus(ref),
 		clonev1alpha1.Condition{}.OpenAPIModelName():                                                      schema_kubevirtio_api_clone_v1alpha1_Condition(ref),
 		clonev1alpha1.VirtualMachineClone{}.OpenAPIModelName():                                            schema_kubevirtio_api_clone_v1alpha1_VirtualMachineClone(ref),
 		clonev1alpha1.VirtualMachineCloneList{}.OpenAPIModelName():                                        schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneList(ref),
 		clonev1alpha1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                        schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneSpec(ref),
 		clonev1alpha1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                      schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneStatus(ref),
 		clonev1alpha1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                             schema_kubevirtio_api_clone_v1alpha1_VirtualMachineCloneTemplateFilters(ref),
-		v1beta1.Condition{}.OpenAPIModelName():                                                            schema_kubevirtio_api_clone_v1beta1_Condition(ref),
-		v1beta1.VirtualMachineClone{}.OpenAPIModelName():                                                  schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref),
-		v1beta1.VirtualMachineCloneList{}.OpenAPIModelName():                                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref),
-		v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref),
-		v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                            schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref),
-		v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                                   schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneTemplateFilters(ref),
+		clonev1beta1.Condition{}.OpenAPIModelName():                                                       schema_kubevirtio_api_clone_v1beta1_Condition(ref),
+		clonev1beta1.VirtualMachineClone{}.OpenAPIModelName():                                             schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref),
+		clonev1beta1.VirtualMachineCloneList{}.OpenAPIModelName():                                         schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref),
+		clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName():                                         schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref),
+		clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName():                                       schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref),
+		clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName():                              schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneTemplateFilters(ref),
 		corev1.ACPI{}.OpenAPIModelName():                                                                  schema_kubevirtio_api_core_v1_ACPI(ref),
 		corev1.AccessCredential{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		corev1.AccessCredentialSecretSource{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
@@ -502,6 +520,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.MemoryStatus{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		corev1.MigrateOptions{}.OpenAPIModelName():                                                        schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		corev1.MigrationConfiguration{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
+		corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName():                                               schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref),
 		corev1.MultusNetwork{}.OpenAPIModelName():                                                         schema_kubevirtio_api_core_v1_MultusNetwork(ref),
 		corev1.NUMA{}.OpenAPIModelName():                                                                  schema_kubevirtio_api_core_v1_NUMA(ref),
 		corev1.NUMAGuestMappingPassthrough{}.OpenAPIModelName():                                           schema_kubevirtio_api_core_v1_NUMAGuestMappingPassthrough(ref),
@@ -557,6 +576,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.SeccompConfiguration{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		corev1.SecretVolumeSource{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
 		corev1.ServiceAccountVolumeSource{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref),
+		corev1.SnapshotOverlayOptions{}.OpenAPIModelName():                                                schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref),
 		corev1.SoundDevice{}.OpenAPIModelName():                                                           schema_kubevirtio_api_core_v1_SoundDevice(ref),
 		corev1.StallDetectorOptions{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_StallDetectorOptions(ref),
 		corev1.StartOptions{}.OpenAPIModelName():                                                          schema_kubevirtio_api_core_v1_StartOptions(ref),
@@ -636,6 +656,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.VirtualMachineSpec{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
 		corev1.VirtualMachineStartFailure{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_VirtualMachineStartFailure(ref),
 		corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName():                                      schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref),
+		corev1.VirtualMachineStateSource{}.OpenAPIModelName():                                             schema_kubevirtio_api_core_v1_VirtualMachineStateSource(ref),
+		corev1.VirtualMachineStateSpec{}.OpenAPIModelName():                                               schema_kubevirtio_api_core_v1_VirtualMachineStateSpec(ref),
 		corev1.VirtualMachineStatus{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref),
 		corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName():                                           schema_kubevirtio_api_core_v1_VirtualMachineVolumeRequest(ref),
 		corev1.Volume{}.OpenAPIModelName():                                                                schema_kubevirtio_api_core_v1_Volume(ref),
@@ -699,14 +721,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		migrationsv1alpha1.MigrationPolicyStatus{}.OpenAPIModelName():                                     schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicyStatus(ref),
 		migrationsv1alpha1.Selectors{}.OpenAPIModelName():                                                 schema_kubevirtio_api_migrations_v1alpha1_Selectors(ref),
 		pluginv1alpha1.AdmissionReference{}.OpenAPIModelName():                                            schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref),
-		pluginv1alpha1.CELDomainHook{}.OpenAPIModelName():                                                 schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref),
-		pluginv1alpha1.DomainHook{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref),
+		pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName():                                               schema_kubevirtio_api_plugin_v1alpha1_CELLauncherHook(ref),
+		pluginv1alpha1.LauncherHook{}.OpenAPIModelName():                                                  schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref),
 		pluginv1alpha1.NodeHook{}.OpenAPIModelName():                                                      schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref),
 		pluginv1alpha1.Plugin{}.OpenAPIModelName():                                                        schema_kubevirtio_api_plugin_v1alpha1_Plugin(ref),
 		pluginv1alpha1.PluginList{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_PluginList(ref),
 		pluginv1alpha1.PluginSpec{}.OpenAPIModelName():                                                    schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref),
 		pluginv1alpha1.PluginStatus{}.OpenAPIModelName():                                                  schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref),
-		pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName():                                             schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref),
+		pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName():                                           schema_kubevirtio_api_plugin_v1alpha1_SidecarLauncherHook(ref),
 		poolv1alpha1.VirtualMachineOpportunisticUpdateStrategy{}.OpenAPIModelName():                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachineOpportunisticUpdateStrategy(ref),
 		poolv1alpha1.VirtualMachinePool{}.OpenAPIModelName():                                              schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
 		poolv1alpha1.VirtualMachinePoolAutohealingStrategy{}.OpenAPIModelName():                           schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolAutohealingStrategy(ref),
@@ -17555,30 +17577,84 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupCheckpoint(ref common.Reference
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1alpha1_BackupLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"volumes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "atomic",
+								"x-kubernetes-list-map-keys": []interface{}{
+									"volumeName",
+								},
+								"x-kubernetes-list-type": "map",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Volumes lists volumes included in the backup",
+							Description: "Volumes lists the data and map endpoints for each backed-up volume",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()),
+										Ref:     ref(v1alpha1.BackupVolumeLink{}.OpenAPIModelName()),
 									},
 								},
 							},
 						},
 					},
 				},
+				Required: []string{"cert"},
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
+			v1alpha1.BackupVolumeLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1alpha1_BackupLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Internal contains endpoints reachable from within the cluster",
+							Ref:         ref(v1alpha1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "External contains endpoints reachable from outside the cluster",
+							Ref:         ref(v1alpha1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.BackupLink{}.OpenAPIModelName()},
 	}
 }
 
@@ -17618,6 +17694,11 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"incrementalCreationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
 					"targetPath": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17630,34 +17711,11 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"exportServerAddr": {
+					"abortReason": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"exportServerName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"backupKey": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"backupCert": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"caCert": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "AbortReason is set when Cmd is Abort. Cancel marks the backup Failed (TTL expiry, or deleting a push-mode backup). Finalize marks a pull-mode backup Complete after the client finished pulling.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -17683,22 +17741,53 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 							Format:      "",
 						},
 					},
-					"dataEndpoint": {
+					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DataEndpoint is the URL of the endpoint for read for pull mode",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"mapEndpoint": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MapEndpoint is the URL of the endpoint for map for pull mode",
+							Description: "Type is how the volume was backed up, either Full or Incremental",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
 				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName identifies the volume these endpoints belong to",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataEndpoint is the URL for reading backup data",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mapEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MapEndpoint is the URL for reading the changed block map",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName", "dataEndpoint", "mapEndpoint"},
 			},
 		},
 	}
@@ -17821,7 +17910,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref common.R
 					},
 					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Mode specifies the way the backup output will be recieved",
+							Description: "Mode specifies the way the backup output will be received. Deleting an in-progress Pull backup finalizes it as Complete (client finished pulling). TTL expiry, or deleting an in-progress Push backup, cancels the job and marks the backup Failed.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17856,7 +17945,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref common.R
 					},
 					"ttlDuration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+							Description: "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a reasonable default is applied.",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
@@ -17876,11 +17965,10 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 				Description: "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
+					"startTimestamp": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type indicates if the backup was full or incremental",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "StartTimestamp is the timestamp when the backup started",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
 					"conditions": {
@@ -17911,13 +17999,6 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							Format:      "",
 						},
 					},
-					"endpointCert": {
-						SchemaProps: spec.SchemaProps{
-							Description: "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"includedVolumes": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -17937,18 +18018,17 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 							},
 						},
 					},
-					"exportUID": {
+					"links": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ExportUID tracks the UID of the associated VMExport for pull-mode backups used to detect VMExport recreation and re-initiate the export handshake",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+							Ref:         ref(v1alpha1.BackupLinks{}.OpenAPIModelName()),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Condition{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
+			metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName(), v1alpha1.BackupLinks{}.OpenAPIModelName(), v1alpha1.BackupVolumeInfo{}.OpenAPIModelName()},
 	}
 }
 
@@ -18088,10 +18168,169 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 							Ref:         ref(v1alpha1.BackupCheckpoint{}.OpenAPIModelName()),
 						},
 					},
-					"checkpointRedefinitionRequired": {
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.BackupCheckpoint{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupCheckpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CheckpointRedefinitionRequired is set to true by virt-handler when the VM restarts and has a checkpoint that needs to be redefined in libvirt. virt-controller will process this flag, attempt redefinition, and clear it.",
-							Type:        []string{"boolean"},
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"creationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLink contains a CA certificate and per-volume endpoints for one network path",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"volumeName",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes lists the data and map endpoints for each backed-up volume",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.BackupVolumeLink{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"cert"},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupVolumeLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"internal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Internal contains endpoints reachable from within the cluster",
+							Ref:         ref(v1beta1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "External contains endpoints reachable from outside the cluster",
+							Ref:         ref(v1beta1.BackupLink{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupLink{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupOptions are options used to configure virtual machine backup job",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"backupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"cmd": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"backupStartTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"incremental": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"incrementalCreationTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"targetPath": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"abortReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AbortReason is set when Cmd is Abort. Cancel marks the backup Failed (TTL expiry, or deleting a push-mode backup). Finalize marks a pull-mode backup Complete after the client finished pulling.",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -18099,7 +18338,447 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 			},
 		},
 		Dependencies: []string{
-			v1alpha1.BackupCheckpoint{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupVolumeInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeInfo contains information about a volume included in a backup",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the volume name from VMI spec",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_BackupVolumeLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName identifies the volume these endpoints belong to",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataEndpoint is the URL for reading backup data",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mapEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MapEndpoint is the URL for reading the changed block map",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"volumeName", "dataEndpoint", "mapEndpoint"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackup defines the operation of backing up a VM",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupStatus{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.VirtualMachineBackup{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackup{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1.TypedLocalObjectReference{}.OpenAPIModelName()),
+						},
+					},
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode specifies the way the backup output will be received. Deleting an in-progress Pull backup finalizes it as Complete (client finished pulling). TTL expiry, or deleting an in-progress Push backup, cancels the job and marks the backup Failed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pvcName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"skipQuiesce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"forceFullBackup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ForceFullBackup indicates that a full backup is desired",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a reasonable default is applied.",
+							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTimestamp is the timestamp when the backup started",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(metav1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"checkpointName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckpointName the name of the checkpoint created for the current backup",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"includedVolumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "IncludedVolumes lists the volumes that were included in the backup",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.BackupVolumeInfo{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+							Ref:         ref(v1beta1.BackupLinks{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Condition{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName(), v1beta1.BackupLinks{}.OpenAPIModelName(), v1beta1.BackupVolumeInfo{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTracker(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTracker defines the way to track the latest checkpoint of a backup solution for a vm",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTrackerSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTrackerStatus{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineBackupTracker{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source specifies the VM that this backupTracker is associated with",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1.TypedLocalObjectReference{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"source"},
+			},
+		},
+		Dependencies: []string{
+			v1.TypedLocalObjectReference{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupTrackerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"latestCheckpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LatestCheckpoint is the metadata of the checkpoint of the latest performed backup",
+							Ref:         ref(v1beta1.BackupCheckpoint{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1beta1.BackupCheckpoint{}.OpenAPIModelName()},
 	}
 }
 
@@ -18549,13 +19228,13 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref common.Referenc
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName()),
+							Ref:     ref(clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()),
+							Ref:     ref(clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -18563,7 +19242,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineClone(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			metav1.ObjectMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()},
+			metav1.ObjectMeta{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneSpec{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -18606,7 +19285,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.VirtualMachineClone{}.OpenAPIModelName()),
+										Ref:     ref(clonev1beta1.VirtualMachineClone{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -18617,7 +19296,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			metav1.ListMeta{}.OpenAPIModelName(), v1beta1.VirtualMachineClone{}.OpenAPIModelName()},
+			metav1.ListMeta{}.OpenAPIModelName(), clonev1beta1.VirtualMachineClone{}.OpenAPIModelName()},
 	}
 }
 
@@ -18683,7 +19362,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 						SchemaProps: spec.SchemaProps{
 							Description: "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
 							Default:     map[string]interface{}{},
-							Ref:         ref(v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()),
+							Ref:         ref(clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()),
 						},
 					},
 					"newMacAddresses": {
@@ -18741,7 +19420,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName(), v1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), clonev1beta1.VirtualMachineCloneTemplateFilters{}.OpenAPIModelName()},
 	}
 }
 
@@ -18774,7 +19453,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref common.Re
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(v1beta1.Condition{}.OpenAPIModelName()),
+										Ref:     ref(clonev1beta1.Condition{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -18802,7 +19481,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneStatus(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName(), v1beta1.Condition{}.OpenAPIModelName()},
+			metav1.Time{}.OpenAPIModelName(), clonev1beta1.Condition{}.OpenAPIModelName()},
 	}
 }
 
@@ -20809,7 +21488,7 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 					},
 					"cache": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
+							Description: "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -23310,6 +23989,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref(corev1.VirtTemplateDeployment{}.OpenAPIModelName()),
 						},
 					},
+					"multiIOThreadAutoPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk. This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.",
+							Ref:         ref(corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName()),
+						},
+					},
 					"instancetype": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Instancetype configuration",
@@ -23360,11 +24045,18 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EmulationPolicy is the default emulation policy for VMs that do not set spec.emulationPolicy. A VM may set a more permissive policy.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), metav1.LabelSelector{}.OpenAPIModelName(), corev1.ArchConfiguration{}.OpenAPIModelName(), corev1.ChangedBlockTrackingSelectors{}.OpenAPIModelName(), corev1.CommonInstancetypesDeployment{}.OpenAPIModelName(), corev1.ConfidentialComputeConfiguration{}.OpenAPIModelName(), corev1.DeveloperConfiguration{}.OpenAPIModelName(), corev1.HypervisorConfiguration{}.OpenAPIModelName(), corev1.InstancetypeConfiguration{}.OpenAPIModelName(), corev1.KSMConfiguration{}.OpenAPIModelName(), corev1.LiveUpdateConfiguration{}.OpenAPIModelName(), corev1.MediatedDevicesConfiguration{}.OpenAPIModelName(), corev1.MigrationConfiguration{}.OpenAPIModelName(), corev1.MultiIOThreadAutoPolicy{}.OpenAPIModelName(), corev1.NetworkConfiguration{}.OpenAPIModelName(), corev1.PermittedHostDevices{}.OpenAPIModelName(), corev1.PersistentReservationConfiguration{}.OpenAPIModelName(), corev1.ReloadableComponentConfiguration{}.OpenAPIModelName(), corev1.SMBiosConfiguration{}.OpenAPIModelName(), corev1.SeccompConfiguration{}.OpenAPIModelName(), corev1.SupportContainerResources{}.OpenAPIModelName(), corev1.TLSConfiguration{}.OpenAPIModelName(), corev1.VirtTemplateDeployment{}.OpenAPIModelName(), corev1.VirtualMachineOptions{}.OpenAPIModelName()},
 	}
 }
 
@@ -23593,6 +24285,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 					"workloads": {
 						SchemaProps: spec.SchemaProps{
 							Description: "selectors and tolerations that should apply to KubeVirt workloads",
+							Ref:         ref(corev1.ComponentConfig{}.OpenAPIModelName()),
+						},
+					},
+					"synchronizationPlacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
 							Ref:         ref(corev1.ComponentConfig{}.OpenAPIModelName()),
 						},
 					},
@@ -23871,48 +24569,54 @@ func schema_kubevirtio_api_core_v1_LogVerbosity(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LogVerbosity sets log verbosity level of  various components",
+				Description: "LogVerbosity sets log verbosity level of various components",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"virtAPI": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtAPI specifies the log verbosity level for the virt-api deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"virtController": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtController specifies the log verbosity level for the virt-controller deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"virtHandler": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtHandler specifies the log verbosity level for the virt-handler DaemonSet. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"virtLauncher": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtLauncher specifies the log verbosity level for virt-launcher pods managing VMI workloads. A higher value increases the amount of logged information. Changes apply to newly created virt-launcher pods. Existing pods retain their original verbosity. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"virtOperator": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtOperator specifies the log verbosity level for the virt-operator deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"virtSynchronizationController": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "VirtSynchronizationController specifies the log verbosity level for the virt-synchronization-controller component. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 					"nodeVerbosity": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NodeVerbosity represents a map of nodes with a specific verbosity level",
+							Description: "NodeVerbosity represents a map of node names to specific log verbosity levels. Allows overriding verbosity on specific nodes without altering cluster-wide settings. Changes take effect on the fly without triggering a pod restart.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -24141,7 +24845,8 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI. Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
@@ -24372,7 +25077,7 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 					},
 					"network": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24384,11 +25089,44 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"crossClusterNetwork": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CrossClusterNetwork is the name of the CNI network used for synchronization-controller peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers attach to this network as crosscluster0 and bind the sync gRPC port only there. When omitted with Proxy, peer traffic uses the pod network. Must not be set when decentralizedLiveMigrationDatapath is Direct (or unset).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"decentralizedLiveMigrationDatapath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for decentralized live migrations (cross-namespace or cross-cluster). Direct (default when unset): no synchronization-controller migration-data proxy. Proxy: sync controllers proxy migration traffic on a single gRPC port. Requires the CrossClusterMigrationProxy feature gate while Alpha.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
 			resource.Quantity{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MultiIOThreadAutoPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false. Requires SCSIMultiIOThread feature gate to be enabled.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -24429,7 +25167,7 @@ func schema_kubevirtio_api_core_v1_NUMA(ref common.ReferenceCallback) common.Ope
 				Properties: map[string]spec.Schema{
 					"guestMappingPassthrough": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod. The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.",
+							Description: "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod. The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes. It is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the host CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.",
 							Ref:         ref(corev1.NUMAGuestMappingPassthrough{}.OpenAPIModelName()),
 						},
 					},
@@ -26268,6 +27006,48 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 	}
 }
 
+func schema_kubevirtio_api_core_v1_SnapshotOverlayOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SnapshotOverlayOptions names the utility volume the copy-on-write overlays of an External mode VirtualMachineSnapshot are written to",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeName is the utility volume attached to the VirtualMachineInstance",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumes": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Volumes are the volumes the snapshot captures, the only ones put on overlays. Not used to commit the overlays.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"volumeName"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_SoundDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26700,6 +27480,26 @@ func schema_kubevirtio_api_core_v1_TLSConfiguration(ref common.ReferenceCallback
 						},
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"groups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Groups defines the set of allowed TLS supported groups (elliptic curves) on all TLS server endpoints. Group names follow the IANA TLS Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised names are silently ignored at TLS setup time, so an older component tolerates group names added in a newer release. When empty or when the TLSGroupPreferences feature gate is disabled, Go's default curve preferences apply. MaxItems bounds the CEL cost estimate for the exists() validation rule on TLSConfiguration; without it the CRD is rejected at creation time.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -27578,6 +28378,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupVolumeInfo(ref co
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeName is the volume name from VMI spec",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type is how the volume was backed up, either Full or Incremental.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -29069,7 +29876,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 					},
 					"infoSource": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+							Description: "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -29756,7 +30563,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA, or NetworkDevicesWithDRA is enabled. This feature is in alpha.",
+							Description: "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA, or NetworkDevicesWithDRA is enabled.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -29790,12 +30597,25 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							},
 						},
 					},
+					"emulationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The most permissive emulation backend this VM may use. Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtualMachineState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineState references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). When set, it takes precedence over the implicit VirtualMachineState PVC creation that happens when persistent TPM/EFI or CBT is enabled, and any enabled TPM or EFI feature is treated as persistent unless explicitly opted out via Persistent: false.",
+							Ref:         ref(corev1.VirtualMachineStateSpec{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"domain"},
 			},
 		},
 		Dependencies: []string{
-			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
+			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.VirtualMachineStateSpec{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
 	}
 }
 
@@ -29958,6 +30778,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							},
 						},
 					},
+					"snapshotOverlayPVCUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotOverlayPVCUID identifies the scratch PVC verified for the OverlaySnapshotActive condition. Updated together with that condition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"kernelBootStatus": {
 						SchemaProps: spec.SchemaProps{
 							Description: "KernelBootStatus contains info about the kernelBootContainer",
@@ -30046,6 +30873,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Description: "ChangedBlockTracking represents the status of the changedBlockTracking",
 							Ref:         ref(corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName()),
+						},
+					},
+					"virtualMachineStateVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+							Ref:         ref(corev1.VolumeStatus{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -30368,6 +31201,55 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref common.R
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineStateSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineStateSource references an existing PVC to adopt as the starting VirtualMachineState.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the source PVC.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineStateSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineStateSpec references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). At least one of VolumeClaimTemplate or Source must be set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"volumeClaimTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeClaimTemplate is the template the controller uses to create PVCs it owns. It is used for the initial PVC when Source is unset, and for every new PVC the controller creates later for operations like live migration. The controller owns the PVC name via GenerateName, so volumeClaimTemplate.metadata.name must not be set. The referenced volume mode must be Filesystem.",
+							Ref:         ref(v1.PersistentVolumeClaimTemplate{}.OpenAPIModelName()),
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is an existing PVC to adopt as the starting VirtualMachineState. The controller does not take ownership of a PVC referenced this way.",
+							Ref:         ref(corev1.VirtualMachineStateSource{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.PersistentVolumeClaimTemplate{}.OpenAPIModelName(), corev1.VirtualMachineStateSource{}.OpenAPIModelName()},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30385,6 +31267,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 					"restoreInProgress": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"backupInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BackupInProgress is the name of the VirtualMachineBackup currently executing",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -30528,11 +31417,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref(corev1.InstancetypeStatusRef{}.OpenAPIModelName()),
 						},
 					},
+					"virtualMachineStateVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+							Ref:         ref(corev1.VolumeStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
+			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
 	}
 }
 
@@ -30609,7 +31504,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"containerDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
 							Ref:         ref(corev1.ContainerDiskSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30621,7 +31516,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"emptyDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+							Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk",
 							Ref:         ref(corev1.EmptyDiskSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30663,7 +31558,7 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
 							Ref:         ref(corev1.MemoryDumpVolumeSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30790,7 +31685,7 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"containerDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
 							Ref:         ref(corev1.ContainerDiskSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30802,7 +31697,7 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"emptyDisk": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+							Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk",
 							Ref:         ref(corev1.EmptyDiskSource{}.OpenAPIModelName()),
 						},
 					},
@@ -30844,7 +31739,7 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 					},
 					"memoryDump": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+							Description: "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
 							Ref:         ref(corev1.MemoryDumpVolumeSource{}.OpenAPIModelName()),
 						},
 					},
@@ -33596,49 +34491,58 @@ func schema_kubevirtio_api_plugin_v1alpha1_AdmissionReference(ref common.Referen
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_CELDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_CELLauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"hookPoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HookPoint specifies which launcher hook point this CEL expression applies to. GuestDefinition is the only currently supported launcher hook point for CEL.\n\nPossible enum values:\n - `\"GuestDefinition\"`\n - `\"PreBoot\"`\n - `\"PreMigrationSource\"`",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"GuestDefinition", "PreBoot", "PreMigrationSource"},
+						},
+					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Expression is the CEL expression applied to the domain XML.",
+							Description: "Expression is the CEL expression applied at the specified hook point.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"expression"},
+				Required: []string{"hookPoint", "expression"},
 			},
 		},
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DomainHook defines a hook that modifies the libvirt domain XML. Exactly one of cel or sidecar must be specified.",
+				Description: "LauncherHook defines a hook that runs inside the virt-launcher pod at a specific point in the VM lifecycle. Exactly one of cel or sidecar must be specified.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"cel": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CEL defines a CEL expression that transforms the domain XML.",
-							Ref:         ref(pluginv1alpha1.CELDomainHook{}.OpenAPIModelName()),
+							Description: "CEL defines a CEL expression hook.",
+							Ref:         ref(pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName()),
 						},
 					},
 					"sidecar": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Sidecar defines a sidecar-based hook that transforms the domain XML via a Unix socket.",
-							Ref:         ref(pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName()),
+							Description: "Sidecar defines a sidecar-based hook that communicates via a Unix socket.",
+							Ref:         ref(pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName()),
 						},
 					},
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33661,7 +34565,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_DomainHook(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			metav1.Duration{}.OpenAPIModelName(), pluginv1alpha1.CELDomainHook{}.OpenAPIModelName(), pluginv1alpha1.SidecarDomainHook{}.OpenAPIModelName()},
+			metav1.Duration{}.OpenAPIModelName(), pluginv1alpha1.CELLauncherHook{}.OpenAPIModelName(), pluginv1alpha1.SidecarLauncherHook{}.OpenAPIModelName()},
 	}
 }
 
@@ -33669,12 +34573,12 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike DomainHooks which modify the libvirt domain XML, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management. Hooks may fire multiple times for the same lifecycle event due to reconciliation retries. Implementations must be idempotent.",
+				Description: "NodeHook defines a hook that runs an executable on the hosting node during VM lifecycle events. Unlike LauncherHooks which run inside the virt-launcher pod, NodeHooks perform node-level operations such as configuring networking, storage preparation, or device management. Hooks may fire multiple times for the same lifecycle event due to reconciliation retries. Implementations must be idempotent.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"socket": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Socket is the path to the Unix socket for hook communication.",
+							Description: "Socket is the path to the Unix socket for hook communication. The CEL rule enforces the 108-byte sun_path limit; this MaxLength marker bounds the cost estimate.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -33687,7 +34591,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "PermittedHooks lists the VM lifecycle events this hook handles.",
+							Description: "PermittedHooks lists the VM lifecycle events this hook handles. The bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -33695,7 +34599,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 										Default: "",
 										Type:    []string{"string"},
 										Format:  "",
-										Enum:    []interface{}{"PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart", "PreVMStop"},
+										Enum:    []interface{}{"OnVMStop", "PostMigrationTarget", "PostVMStart", "PostVMStop", "PreMigrationSource", "PreMigrationTarget", "PreVMStart"},
 									},
 								},
 							},
@@ -33703,7 +34607,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 					},
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM.",
+							Description: "Condition is a CEL expression that determines whether this hook applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33842,7 +34746,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"condition": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields.",
+							Description: "Condition is a CEL expression that determines whether this plugin applies to a given VM. The expression may reference only `vmi` and must evaluate to a bool. When set, this acts as a baseline filter for all hooks in the plugin. Individual hooks may further narrow the scope with their own Condition fields. An empty condition always matches.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -33855,20 +34759,20 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 							Enum:        []interface{}{"Fail", "Ignore"},
 						},
 					},
-					"domainHooks": {
+					"launcherHooks": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
 								"x-kubernetes-list-type": "atomic",
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "DomainHooks defines hooks that modify the libvirt domain XML. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
+							Description: "LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined points in the VM lifecycle. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name. The bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref(pluginv1alpha1.DomainHook{}.OpenAPIModelName()),
+										Ref:     ref(pluginv1alpha1.LauncherHook{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -33881,7 +34785,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "NodeHooks defines hooks that execute during VM lifecycle events. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name.",
+							Description: "NodeHooks defines hooks that execute during VM lifecycle events. Hooks are applied in declaration order within each plugin. Across plugins, hooks are applied in alphabetical order by plugin name. The bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -33973,7 +34877,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			pluginv1alpha1.AdmissionReference{}.OpenAPIModelName(), pluginv1alpha1.DomainHook{}.OpenAPIModelName(), pluginv1alpha1.NodeHook{}.OpenAPIModelName()},
+			pluginv1alpha1.AdmissionReference{}.OpenAPIModelName(), pluginv1alpha1.LauncherHook{}.OpenAPIModelName(), pluginv1alpha1.NodeHook{}.OpenAPIModelName()},
 	}
 }
 
@@ -33987,7 +34891,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginStatus(ref common.ReferenceCall
 	}
 }
 
-func schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_plugin_v1alpha1_SidecarLauncherHook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -33995,14 +34899,35 @@ func schema_kubevirtio_api_plugin_v1alpha1_SidecarDomainHook(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"socketPath": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SocketPath is the path to the Unix socket used to communicate with the sidecar.",
+							Description: "SocketPath is the path to the Unix socket used to communicate with the sidecar. The CEL rule enforces the 108-byte sun_path limit; this MaxLength marker bounds the cost estimate.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"permittedHooks": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "PermittedHooks lists the launcher hook points this sidecar handles. The bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+										Enum:    []interface{}{"GuestDefinition", "PreBoot", "PreMigrationSource"},
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"socketPath"},
+				Required: []string{"socketPath", "permittedHooks"},
 			},
 		},
 	}
@@ -36859,6 +37784,13 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotContentStatus(
 							},
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode is the actual mode the snapshot is taken with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -36941,12 +37873,25 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotSpec(ref commo
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
+					"snapshotMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overlayScratchSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			v1.TypedLocalObjectReference{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
+			v1.TypedLocalObjectReference{}.OpenAPIModelName(), resource.Quantity{}.OpenAPIModelName(), metav1.Duration{}.OpenAPIModelName()},
 	}
 }
 

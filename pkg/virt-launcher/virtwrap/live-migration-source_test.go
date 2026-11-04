@@ -20,8 +20,10 @@
 package virtwrap
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +43,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
@@ -52,6 +55,8 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -98,14 +103,50 @@ var _ = Describe("Live migration source", func() {
 			false, // image volume enabled
 			nil,
 			v1.KvmHypervisorName,
-			nil,
 			"", false,
 			false, // firmware auto-selection
+			false, // arm64 secure boot
 			false,
 			nil,
 		)
 		libvirtDomainManager = manager.(*LibvirtDomainManager)
 		libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	})
+
+	Context("Migration metadata initialization", func() {
+		It("should clear completed data before publishing a new migration", func() {
+			libvirtDomainManager.metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
+				Stats:        api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150},
+				MigrationUID: "previous-migration",
+			})
+			libvirtDomainManager.metadataCache.ResetNotification()
+			vmi.Status.MigrationState.MigrationUID = "next-migration"
+
+			inProgress, err := libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(inProgress).To(BeFalse())
+			completedData, exists := libvirtDomainManager.metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedData).To(Equal(metadata.CompletedMigrationData{}))
+			migrationData, exists := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(migrationData.UID).To(Equal(types.UID("next-migration")))
+		})
+	})
+
+	Context("Migration monitor lifecycle", func() {
+		It("should clear active job stats when the monitor exits", func() {
+			libvirtDomainManager.domainInfoStats = &stats.DomainJobInfo{DataTotalSet: true, DataTotal: 100}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, fmt.Errorf("domain unavailable"))
+			monitor := &migrationMonitor{l: libvirtDomainManager, vmi: vmi}
+			ready := make(chan error, 1)
+
+			monitor.startMonitor(ready)
+
+			Expect(<-ready).To(HaveOccurred())
+			Expect(*libvirtDomainManager.domainInfoStats).To(Equal(stats.DomainJobInfo{}))
+		})
 	})
 
 	Context("Migration result", func() {
@@ -204,9 +245,9 @@ var _ = Describe("Live migration source", func() {
 				false, // image volume enabled
 				nil,
 				v1.KvmHypervisorName,
-				nil,
 				"", false,
 				false, // firmware auto-selection
+				false, // arm64 secure boot
 				false,
 				nil,
 			)
@@ -280,10 +321,11 @@ var _ = Describe("Live migration source", func() {
 	})
 
 	Context("classifyVolumesForMigration", func() {
-		It("should classify shared volumes to migrated when they are part of the migrated volumes set", func() {
-			const vol = "vol"
+		const vol = "vol"
+
+		DescribeTable("should classify volumes in the migrated volumes set as local to migrate", func(volume libvmi.Option) {
 			vmi := libvmi.New(
-				libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true)), libvmistatus.WithStatus(
+				volume, libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
 							VolumeName: vol,
@@ -296,7 +338,24 @@ var _ = Describe("Live migration source", func() {
 					generated:      map[string]bool{},
 					localToMigrate: map[string]bool{vol: true},
 				})))
-		})
+		},
+			Entry("PVC", libvmi.WithPersistentVolumeClaim(vol, "claim")),
+			Entry("DV", libvmi.WithDataVolume(vol, "dv")),
+			Entry("HostDisk", libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true))),
+		)
+
+		DescribeTable("should classify volumes outside the migrated volumes set as shared", func(volume libvmi.Option) {
+			Expect(classifyVolumesForMigration(libvmi.New(volume))).To(PointTo(Equal(
+				migrationDisks{
+					shared:         map[string]bool{vol: true},
+					generated:      map[string]bool{},
+					localToMigrate: map[string]bool{},
+				})))
+		},
+			Entry("PVC", libvmi.WithPersistentVolumeClaim(vol, "claim")),
+			Entry("DV", libvmi.WithDataVolume(vol, "dv")),
+			Entry("shared HostDisk", libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true))),
+		)
 	})
 
 	Context("getDiskPathFromSource", func() {
@@ -423,14 +482,6 @@ var _ = Describe("Live migration source", func() {
 				},
 			},
 		}
-		volHostDisk := v1.Volume{
-			Name: testvol,
-			VolumeSource: v1.VolumeSource{
-				HostDisk: &v1.HostDisk{
-					Path: getFsImagePath(testvol),
-				},
-			},
-		}
 
 		DescribeTable("replace filesystem and block migrated volumes", func(isSrcBlock, isDstBlock bool, vol v1.Volume) {
 			retDiskSize := func(disk *libvirtxml.DomainDisk) (int64, error) {
@@ -491,8 +542,6 @@ var _ = Describe("Live migration source", func() {
 			Entry("block source and destination", true, true, volPVC),
 			Entry("filesystem source and block destination with DV", false, true, volDV),
 			Entry("block source and filesystem destination with DV", true, false, volDV),
-			Entry("filesystem source and block destination with hostdisks", false, true, volHostDisk),
-			Entry("block source and filesystem destination with hostdisks", true, false, volHostDisk),
 		)
 
 		DescribeTable("replace filesystem and block migrated volumes with CBT overlay", func(isSrcBlock, isDstBlock bool) {
@@ -1388,6 +1437,31 @@ var _ = Describe("Live migration source", func() {
 
 			It("should start post-copy when AllowPostCopy is true and migration can finish by deadline", func() {
 				monitor.options.AllowPostCopy = true
+				monitor.allowPostCopy = true
+				sd.ewmaBandwidthBps = 1000
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(nil)
+
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
+				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
+				Expect(sd.switchoverInitiated).To(BeTrue())
+			})
+
+			It("does not start post-copy when a hook removed it", func() {
+				monitor.options.AllowPostCopy = true
+				monitor.allowPostCopy = false
+				sd.ewmaBandwidthBps = 1000
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("starts post-copy when a hook enabled it", func() {
+				monitor.options.AllowPostCopy = false
+				monitor.allowPostCopy = true
 				sd.ewmaBandwidthBps = 1000
 
 				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(1).Return(nil)
@@ -1424,7 +1498,7 @@ var _ = Describe("Live migration source", func() {
 			})
 
 			It("should trigger abort when AllowPostCopy is true but migration cannot finish by deadline", func() {
-				monitor.options.AllowPostCopy = true
+				monitor.allowPostCopy = true
 				sd.ewmaBandwidthBps = 100
 
 				setupSuccessfulAbortContext(mockDomain)
@@ -1441,7 +1515,7 @@ var _ = Describe("Live migration source", func() {
 			})
 
 			It("should trigger abort directly when switchover was already initiated", func() {
-				monitor.options.AllowPostCopy = true
+				monitor.allowPostCopy = true
 				sd.ewmaBandwidthBps = 1000
 				sd.switchoverInitiated = true
 
@@ -1486,6 +1560,7 @@ var _ = Describe("Live migration source", func() {
 		It("newMigrationMonitor should pass StallDetectorOptions to the stall detector", func() {
 			customOptions := &cmdclient.MigrationOptions{
 				MaxDowntimeMs: testMaxDowntimeMs,
+				AllowPostCopy: true,
 				StallDetectorOptions: &cmdclient.StallDetectorOptions{
 					StallMargin:             8,
 					StallProgressTimeout:    10,
@@ -1496,9 +1571,11 @@ var _ = Describe("Live migration source", func() {
 					CompletionTimeoutFactor: resource.MustParse("2"),
 				},
 			}
-			m := newMigrationMonitor(vmi, libvirtDomainManager, customOptions, make(chan struct{}, 1))
+			m := newMigrationMonitor(vmi, libvirtDomainManager, customOptions, make(chan struct{}, 1), customOptions.AllowPostCopy)
 			Expect(equality.Semantic.DeepEqual(m.stallDetector.stallDetectorOptions, *customOptions.StallDetectorOptions)).To(BeTrue())
 			Expect(m.stallDetector.maxDowntimeMs).To(Equal(customOptions.MaxDowntimeMs))
+			Expect(m.stallDetector.allowPostCopy).To(Equal(m.allowPostCopy), "the stall detector gets the monitor's post-copy flag")
+			Expect(m.allowPostCopy).To(BeTrue())
 		})
 	})
 })
@@ -1718,16 +1795,21 @@ var _ = Describe("tuneDowntime", func() {
 		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(nil)
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+		Expect(monitor.nextTuneIteration).To(Equal(uint64(cfg.StartAfterIteration)))
 	})
 
 	It("does nothing when stats is nil after initial call", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now()
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
 	})
 
 	It("does nothing before StartAfterIteration", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now().Add(-time.Hour) // cooldown expired; only iteration gate should block
 		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 1}
 		monitor.tuneDowntime(mockDomain, stats, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
@@ -1735,12 +1817,13 @@ var _ = Describe("tuneDowntime", func() {
 
 	It("steps up and respects ceiling", func() {
 		monitor.currentDowntimeMs = 100
-		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
 
 		mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), uint32(0)).Times(3).Return(nil)
 
-		for i := 0; i < 5; i++ {
-			monitor.lastTunedAt = time.Time{}
+		for i := uint64(0); i < 5; i++ {
+			monitor.lastTunedAt = time.Now().Add(-time.Hour)
+			stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5 + i}
 			monitor.tuneDowntime(mockDomain, stats, logger)
 		}
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(1000)))
@@ -1748,10 +1831,38 @@ var _ = Describe("tuneDowntime", func() {
 
 	It("respects cooldown", func() {
 		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
 		monitor.lastTunedAt = time.Now()
 		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
 		monitor.tuneDowntime(mockDomain, stats, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+	})
+
+	It("does not step twice on the same MemIteration", func() {
+		monitor.currentDowntimeMs = 100
+		monitor.nextTuneIteration = uint64(cfg.StartAfterIteration)
+		monitor.lastTunedAt = time.Now().Add(-time.Hour)
+		stats := &libvirt.DomainJobInfo{MemIterationSet: true, MemIteration: 5}
+
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(400), uint32(0)).Return(nil)
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(400)))
+		Expect(monitor.nextTuneIteration).To(Equal(uint64(6)))
+
+		monitor.lastTunedAt = time.Now().Add(-time.Hour)
+		monitor.tuneDowntime(mockDomain, stats, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(400)))
+	})
+
+	It("retries initial on failure", func() {
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(fmt.Errorf("fail"))
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.lastTunedAt.IsZero()).To(BeTrue())
+
+		mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(100), uint32(0)).Return(nil)
+		monitor.tuneDowntime(mockDomain, nil, logger)
+		Expect(monitor.currentDowntimeMs).To(Equal(uint64(100)))
+		Expect(monitor.lastTunedAt.IsZero()).To(BeFalse())
 	})
 
 	It("does nothing when tuning is nil", func() {
@@ -1759,4 +1870,279 @@ var _ = Describe("tuneDowntime", func() {
 		monitor.tuneDowntime(mockDomain, nil, logger)
 		Expect(monitor.currentDowntimeMs).To(Equal(uint64(0)))
 	})
+})
+
+var _ = Describe("Migration preparation cancellation", func() {
+	var manager *LibvirtDomainManager
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		manager = &LibvirtDomainManager{}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"}}
+		manager.metadataCache = metadata.NewCache()
+		manager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	})
+
+	It("aborts an in-flight preparation when cancelMigration runs during preparation", func() {
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		manager.activeMigrationPreparation.Store(prep)
+
+		manager.CancelVMIMigration(vmi)
+
+		Expect(prep.abort()).To(BeFalse(), "the abort was already claimed by cancelMigration")
+		Expect(prep.ctx.Err()).To(Equal(context.Canceled))
+		migration, exists := manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)))
+	})
+
+	It("routes cancels to the async abort path when no PreMigrationSource hooks are selected", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		connection := cli.NewMockConnection(ctrl)
+		domain := cli.NewMockVirDomain(ctrl)
+		manager := &LibvirtDomainManager{virConn: connection, metadataCache: metadata.NewCache()}
+		manager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+
+		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil)
+		domain.EXPECT().Free().Return(nil)
+		domain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{}, nil)
+
+		manager.CancelVMIMigration(vmi)
+
+		migration, exists := manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)), "cancelMigration must not report success before the abort ran")
+		Eventually(func() string {
+			migration, _ := manager.metadataCache.Migration.Load()
+			return migration.AbortStatus
+		}).WithTimeout(5*time.Second).Should(Equal(string(v1.MigrationAbortFailed)), "the async path found no libvirt job to abort")
+	})
+
+	Context("migrationPreparation", func() {
+		It("lets exactly one abort claim win and cancel the context", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.abort()).To(BeTrue())
+			Expect(prep.abort()).To(BeFalse())
+			Expect(prep.ctx.Err()).To(Equal(context.Canceled))
+		})
+
+		It("reports an abort at handoff only when one was claimed", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.abort()).To(BeTrue())
+			Expect(prep.handoff()).To(BeTrue())
+			Expect(prep.handoff()).To(BeTrue(), "handoff is idempotent")
+		})
+
+		It("cannot abort a preparation that was already handed off", func() {
+			prep := newMigrationPreparation()
+			DeferCleanup(prep.cancel)
+			Expect(prep.handoff()).To(BeFalse())
+			Expect(prep.handoff()).To(BeFalse(), "handoff is idempotent")
+			Expect(prep.abort()).To(BeFalse(), "handoff consumed the claim, so a later cancelMigration falls through to the active-migration abort path")
+		})
+	})
+
+})
+
+var _ = Describe("PreMigrationSource launcher hook", func() {
+	const domainXML = "<domain type='kvm'><name>default_test</name><devices/></domain>"
+	var manager *LibvirtDomainManager
+	var domain *cli.MockVirDomain
+	var connection *cli.MockConnection
+	var vmi *v1.VirtualMachineInstance
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		domain = cli.NewMockVirDomain(ctrl)
+		connection = cli.NewMockConnection(ctrl)
+		ephemeralDir := GinkgoT().TempDir()
+		manager = &LibvirtDomainManager{virConn: connection, ephemeralDiskDir: ephemeralDir, virtShareDir: ephemeralDir}
+		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: "test-uid"}}
+	})
+
+	migrationTestSidecarPlugin := func(name string) pluginv1alpha1.Plugin {
+		return pluginv1alpha1.Plugin{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: pluginv1alpha1.PluginSpec{
+				LauncherHooks: []pluginv1alpha1.LauncherHook{{
+					Sidecar:         &pluginv1alpha1.SidecarLauncherHook{SocketPath: fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", name), PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}},
+					FailureStrategy: pluginv1alpha1.FailureStrategyFail,
+				}},
+			},
+		}
+	}
+
+	It("fails with an aborted-before-libvirt error when preparation was already cancelled before the hooks ran", func() {
+		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil).Times(2)
+		domain.EXPECT().Free().Return(nil).Times(2)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
+		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
+
+		migrationDone := make(chan struct{})
+		DeferCleanup(func() { close(migrationDone) })
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		// Simulate a concurrent CancelVMIMigration that claimed the preparation while migrateHelper runs.
+		Expect(prep.abort()).To(BeTrue())
+
+		err := manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")}, migrationDone)
+		Expect(err).To(MatchError(ContainSubstring("aborted before it was handed off to libvirt")))
+	})
+
+	It("starts the migration monitor after the hook phase, before MigrateToURI3", func() {
+		var lookups atomic.Int32
+		connection.EXPECT().LookupDomainByName("default_test").DoAndReturn(func(_ string) (cli.VirDomain, error) {
+			lookups.Add(1)
+			return domain, nil
+		}).Times(2)
+		domain.EXPECT().Free().Return(nil).Times(2)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
+		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
+		domain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, _ *libvirt.DomainMigrateParameters, _ libvirt.DomainMigrateFlags) error {
+			Expect(lookups.Load()).To(Equal(int32(2)), "the monitor must be running before MigrateToURI3")
+			return nil
+		})
+
+		migrationDone := make(chan struct{})
+		DeferCleanup(func() { close(migrationDone) })
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		Expect(manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")}, migrationDone)).To(Succeed())
+	})
+
+	It("returns without starting the migration monitor when the hook phase fails", func() {
+		previous := plugins.GetPlugins()
+		DeferCleanup(plugins.SetPlugins, previous)
+		plugins.SetPlugins([]pluginv1alpha1.Plugin{{
+			ObjectMeta: metav1.ObjectMeta{Name: "broken-condition"},
+			Spec: pluginv1alpha1.PluginSpec{
+				LauncherHooks: []pluginv1alpha1.LauncherHook{{
+					Sidecar:         &pluginv1alpha1.SidecarLauncherHook{SocketPath: "/var/run/kubevirt-plugin/broken-condition/hook.sock", PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}},
+					Condition:       "invalid [",
+					FailureStrategy: pluginv1alpha1.FailureStrategyFail,
+				}},
+			},
+		}})
+
+		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil).Times(1)
+		domain.EXPECT().Free().Return(nil).Times(1)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
+		domain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		migrationDone := make(chan struct{})
+		DeferCleanup(func() { close(migrationDone) })
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		err := manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")}, migrationDone)
+		Expect(err).To(MatchError(ContainSubstring("condition evaluation failed")))
+	})
+
+	It("reports a claimed abort as succeeded only once the migration unwinds", func() {
+		previous := plugins.GetPlugins()
+		DeferCleanup(plugins.SetPlugins, previous)
+		// The fast abort path is armed only when PreMigrationSource hooks are selected;
+		// the canceled preparation context keeps the hook phase from dialing the socket.
+		plugins.SetPlugins([]pluginv1alpha1.Plugin{migrationTestSidecarPlugin("armed-plugin")})
+
+		manager := &LibvirtDomainManager{
+			virConn:          connection,
+			ephemeralDiskDir: GinkgoT().TempDir(),
+			virtShareDir:     GinkgoT().TempDir(),
+			metadataCache:    metadata.NewCache(),
+		}
+		manager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+
+		releaseLookup := make(chan struct{})
+		var lookups atomic.Int32
+		connection.EXPECT().LookupDomainByName("default_test").DoAndReturn(func(_ string) (cli.VirDomain, error) {
+			if lookups.Add(1) == 1 {
+				<-releaseLookup // hold the migration in preparation
+			}
+			return domain, nil
+		}).Times(1)
+		domain.EXPECT().Free().Return(nil).Times(1)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
+		domain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		migrated := make(chan struct{})
+		go func() {
+			defer close(migrated)
+			manager.migrate(vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")})
+		}()
+		Eventually(func() int32 { return lookups.Load() }).WithTimeout(5 * time.Second).Should(Equal(int32(1)))
+
+		manager.CancelVMIMigration(vmi)
+
+		migration, exists := manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)), "the claimed abort must not run ahead of the migration")
+		Expect(migration.EndTimestamp).To(BeNil())
+		Expect(migration.Failed).To(BeFalse())
+
+		close(releaseLookup)
+		Eventually(migrated).WithTimeout(5 * time.Second).Should(BeClosed())
+
+		migration, exists = manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
+		Expect(migration.Failed).To(BeTrue())
+		Expect(migration.FailureReason).To(Equal("Live migration has been aborted"))
+		Expect(migration.EndTimestamp).ToNot(BeNil())
+	})
+
+	It("reports a claimed abort as succeeded when the migration fails before the hooks run", func() {
+		previous := plugins.GetPlugins()
+		DeferCleanup(plugins.SetPlugins, previous)
+		// The fast abort path is armed only when PreMigrationSource hooks are selected.
+		plugins.SetPlugins([]pluginv1alpha1.Plugin{migrationTestSidecarPlugin("armed-plugin")})
+
+		manager := &LibvirtDomainManager{
+			virConn:          connection,
+			ephemeralDiskDir: GinkgoT().TempDir(),
+			virtShareDir:     GinkgoT().TempDir(),
+			metadataCache:    metadata.NewCache(),
+		}
+		manager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+
+		releaseLookup := make(chan struct{})
+		var lookups atomic.Int32
+		connection.EXPECT().LookupDomainByName("default_test").DoAndReturn(func(_ string) (cli.VirDomain, error) {
+			lookups.Add(1)
+			<-releaseLookup // hold the migration in preparation
+			return nil, fmt.Errorf("domain unavailable")
+		}).Times(1)
+		domain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		migrated := make(chan struct{})
+		go func() {
+			defer close(migrated)
+			manager.migrate(vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")})
+		}()
+		Eventually(func() int32 { return lookups.Load() }).WithTimeout(5 * time.Second).Should(Equal(int32(1)))
+
+		manager.CancelVMIMigration(vmi)
+
+		migration, exists := manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)), "the claimed abort must not run ahead of the migration")
+		Expect(migration.EndTimestamp).To(BeNil())
+		Expect(migration.Failed).To(BeFalse())
+
+		close(releaseLookup)
+		Eventually(migrated).WithTimeout(5 * time.Second).Should(BeClosed())
+
+		migration, exists = manager.metadataCache.Migration.Load()
+		Expect(exists).To(BeTrue())
+		Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
+		Expect(migration.Failed).To(BeTrue())
+		Expect(migration.FailureReason).To(Equal("Live migration has been aborted"))
+		Expect(migration.EndTimestamp).ToNot(BeNil())
+	})
+
 })

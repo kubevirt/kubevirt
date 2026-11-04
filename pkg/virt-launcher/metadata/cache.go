@@ -25,14 +25,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+// CompletedMigrationData binds completed downtime to the migration that produced it.
+type CompletedMigrationData struct {
+	Stats        api.CompletedMigrationStats
+	MigrationUID types.UID
+}
+
 type Cache struct {
-	UID               SafeData[types.UID]
-	Migration         SafeData[api.MigrationMetadata]
-	GracePeriod       SafeData[api.GracePeriodMetadata]
-	AccessCredential  SafeData[api.AccessCredentialMetadata]
-	MemoryDump        SafeData[api.MemoryDumpMetadata]
-	Backup            SafeData[api.BackupMetadata]
-	GuestPanicHandled SafeData[bool]
+	UID                SafeData[types.UID]
+	Migration          SafeData[api.MigrationMetadata]
+	GracePeriod        SafeData[api.GracePeriodMetadata]
+	AccessCredential   SafeData[api.AccessCredentialMetadata]
+	MemoryDump         SafeData[api.MemoryDumpMetadata]
+	Backup             SafeData[api.BackupMetadata]
+	SnapshotOverlay    SafeData[api.SnapshotOverlayMetadata]
+	GuestPanicHandled  SafeData[bool]
+	CompletedMigration SafeData[CompletedMigrationData]
 
 	notificationSignal chan struct{}
 }
@@ -41,13 +49,15 @@ func NewCache() *Cache {
 	cache := &Cache{
 		notificationSignal: make(chan struct{}, 1),
 	}
-	cache.UID.dirtyChanel = cache.notificationSignal
-	cache.Migration.dirtyChanel = cache.notificationSignal
-	cache.GracePeriod.dirtyChanel = cache.notificationSignal
-	cache.AccessCredential.dirtyChanel = cache.notificationSignal
-	cache.MemoryDump.dirtyChanel = cache.notificationSignal
-	cache.Backup.dirtyChanel = cache.notificationSignal
-	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
+	cache.UID.dirtyChannel = cache.notificationSignal
+	cache.Migration.dirtyChannel = cache.notificationSignal
+	cache.GracePeriod.dirtyChannel = cache.notificationSignal
+	cache.AccessCredential.dirtyChannel = cache.notificationSignal
+	cache.MemoryDump.dirtyChannel = cache.notificationSignal
+	cache.Backup.dirtyChannel = cache.notificationSignal
+	cache.SnapshotOverlay.dirtyChannel = cache.notificationSignal
+	cache.GuestPanicHandled.dirtyChannel = cache.notificationSignal
+	cache.CompletedMigration.dirtyChannel = cache.notificationSignal
 	return cache
 }
 

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
@@ -67,6 +68,7 @@ const (
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:01.1/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.942000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:01.3/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.944000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:02.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.948000Z"}
+{"component":"test","level":"info","msg":"2018-10-04 09:error:33.948+0000: 43: error : virPCIDeviceConfigOpen:312 : Failed to open config space file '/sys/bus/pci/devices/0000:00:02.0/config': Read-only file system","subcomponent":"libvirt","timestamp":"<generated>"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:03.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:04.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:05.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
@@ -155,7 +157,6 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
@@ -165,11 +166,18 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
 
+		Expect(loggedLines).To(HaveLen(len(expectedLines)))
+		for i, expected := range expectedLines {
+			if expected["timestamp"] == "<generated>" {
+				_, err := time.Parse(time.RFC3339Nano, loggedLines[i]["timestamp"])
+				Expect(err).ToNot(HaveOccurred())
+				loggedLines[i]["timestamp"] = "<generated>"
+			}
+		}
 		Expect(loggedLines).To(Equal(expectedLines))
 	})
 

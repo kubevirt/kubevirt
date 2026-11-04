@@ -22,6 +22,7 @@ package export
 import (
 	"context"
 	"crypto/ecdsa"
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -63,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -86,11 +86,13 @@ const (
 	podPendingReason          = "PodPending"
 	podReadyReason            = "PodReady"
 	podCompletedReason        = "PodCompleted"
+	podFailedReason           = "PodFailed"
 	vmNotFoundReason          = "VMNotFound"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
 	noVolumeVMReason          = "VMNoVolumes"
 	noVolumeSnapshotReason    = "VMSnapshotNoVolumes"
 	notAllPVCsCreatedReason   = "NotAllPVCsCreated"
+	duplicatePVCReason        = "DuplicatePVC"
 	VMSnapshotNotFoundReason  = "VMSnapshotNotFound"
 	ociDigestsComputedReason  = "DigestsComputed"
 	ociDigestsPendingReason   = "DigestsPending"
@@ -98,6 +100,9 @@ const (
 	exportServiceLabel = "kubevirt.io.virt-export-service"
 
 	exportPrefix = "virt-export"
+
+	// ExportServerPort is the port the export server listens on inside the pod.
+	ExportServerPort = types.ExportServerPort
 
 	blockVolumeMountPath = "/dev/export-volumes"
 	fileSystemMountPath  = "/export-volumes"
@@ -191,125 +196,6 @@ type exportSource interface {
 	UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error)
 }
 
-type sourceVolumes struct {
-	volumes         []sourceVolume
-	inUse           bool
-	isPopulated     bool
-	readyCondition  exportv1.Condition
-	sourceCondition exportv1.Condition
-}
-
-type sourceVolume struct {
-	pvc                 *corev1.PersistentVolumeClaim
-	kubevirtContentType bool
-}
-
-func (sv *sourceVolumes) isSourceAvailable() bool {
-	return !sv.inUse && sv.isPopulated
-}
-
-func (sv *sourceVolumes) hasContent() bool {
-	return len(sv.volumes) > 0
-}
-
-func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
-	for i, volume := range sv.volumes {
-		var mountPoint string
-		pvc := volume.pvc
-		volumeName := getExportPodVolumeName(pvc)
-		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
-			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
-				Name:       volumeName,
-				DevicePath: mountPoint,
-			})
-		} else {
-			mountPoint = fmt.Sprintf("%s/%s", fileSystemMountPath, volumeName)
-			podManifest.Spec.Containers[0].VolumeMounts = append(podManifest.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-				Name:      volumeName,
-				ReadOnly:  true,
-				MountPath: mountPoint,
-			})
-		}
-		podManifest.Spec.Volumes = append(podManifest.Spec.Volumes, corev1.Volume{
-			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvc.Name,
-				},
-			},
-		})
-		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint, volume.kubevirtContentType)
-	}
-}
-
-type volumeNamer func(pvcName string) string
-
-func defaultVolumeNamer(pvcName string) string {
-	return pvcName
-}
-
-func (sv *sourceVolumes) populateLink(
-	exportLink *exportv1.VirtualMachineExportLink,
-	paths *ServerPaths,
-	pod *corev1.Pod,
-	hostAndBase, scheme string,
-	namer volumeNamer,
-) {
-	if pod.Status.Phase != corev1.PodRunning {
-		return
-	}
-
-	for _, volume := range sv.volumes {
-		pvc := volume.pvc
-		if pvc == nil {
-			continue
-		}
-
-		volumeInfo := paths.GetVolumeInfo(pvc.Name)
-		if volumeInfo == nil {
-			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
-			continue
-		}
-
-		ev := exportv1.VirtualMachineExportVolume{
-			Name: namer(pvc.Name),
-		}
-
-		if volumeInfo.RawURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawURI),
-			})
-		}
-		if volumeInfo.RawGzURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawGzURI),
-			})
-		}
-		if volumeInfo.DirURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Dir,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.DirURI),
-			})
-		}
-		if volumeInfo.ArchiveURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.ArchiveGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.ArchiveURI),
-			})
-		}
-
-		if len(ev.Formats) == 0 {
-			log.Log.Warningf("No formats found for volume %s", pvc.Name)
-			continue
-		}
-
-		exportLink.Volumes = append(exportLink.Volumes, ev)
-	}
-}
-
 type manifestRenderer interface {
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *corev1.Pod
 }
@@ -348,7 +234,6 @@ type VMExportController struct {
 	ControllerRevisionInformer  cache.SharedIndexInformer
 	VMBackupInformer            cache.SharedIndexInformer
 	VMBackupTrackerInformer     cache.SharedIndexInformer
-	BackupCAConfigMapInformer   cache.SharedIndexInformer
 	VMTemplateInformer          cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
@@ -729,25 +614,30 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if vmBackup == nil {
 			return 0, fmt.Errorf("unexpected nil VirtualMachineBackup")
 		}
-		if vmBackup.Status == nil || vmBackup.Status.Type == "" {
-			return 0, fmt.Errorf("backup status empty")
+		if vmBackup.Status == nil || vmBackup.Status.StartTimestamp == nil {
+			return 0, fmt.Errorf("backup has not started")
 		}
-		caCert, exists, err := ctrl.backupCA()
-		if err != nil || !exists {
-			return 0, fmt.Errorf("could not obtain VirtualMachineBackup tunnel CA: %w", err)
+		if offline, err := ctrl.isOfflineBackup(vmBackup); err != nil {
+			return 0, err
+		} else if offline {
+			source, err := ctrl.getOfflineBackupSource(vmExport, vmBackup)
+			if err != nil {
+				return 0, err
+			}
+			return ctrl.handleSource(vmExport, source)
 		}
-		vmiID, err := ctrl.getBackupSourceVMIID(vmBackup)
+		vmi, err := ctrl.getBackupSourceVMI(vmBackup)
 		if err != nil {
 			return 0, err
 		}
-		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert, vmiID))
+		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, vmi))
 	}
 
 	return 0, nil
 }
 
 func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineExport, source exportSource) (time.Duration, error) {
-	service, err := ctrl.getOrCreateExportService(vmExport, source)
+	service, err := ctrl.getOrCreateExportService(vmExport)
 	if err != nil {
 		return 0, err
 	}
@@ -785,7 +675,7 @@ func (ctrl *VMExportController) manageExporterPod(vmExport *exportv1.VirtualMach
 		}
 
 		if source.IsSourceAvailable() {
-			if err := ctrl.checkPod(vmExport, pod); err != nil {
+			if err := ctrl.checkPod(vmExport, pod, source); err != nil {
 				return nil, err
 			}
 		} else {
@@ -807,21 +697,33 @@ func (ctrl *VMExportController) deleteExporterPod(vmExport *exportv1.VirtualMach
 	return nil
 }
 
-func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod) error {
+func (ctrl *VMExportController) checkPod(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, source exportSource) error {
 	if pod.DeletionTimestamp != nil {
 		return nil
 	}
 
-	if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
-		if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
-			return err
+	if !isOfflinePushSource(source) {
+		if ttlExpiration := getExpirationTime(vmExport); !time.Now().Before(ttlExpiration) {
+			if err := ctrl.Client.VirtualMachineExport(vmExport.Namespace).Delete(context.Background(), vmExport.Name, metav1.DeleteOptions{}); err != nil {
+				return err
+			}
+			return nil
 		}
-		return nil
 	}
 
 	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		// Keep a terminal offline pod so the backup controller can observe the outcome. A Succeeded
+		// pull pod is the exception: it exited on certificate rotation and must be recreated to keep serving.
+		if os, ok := source.(*OfflineVMBackupSource); ok && (os.isPush() || pod.Status.Phase == corev1.PodFailed) {
+			return nil
+		}
 		// The server died or completed, delete the pod.
 		return ctrl.deleteExporterPod(vmExport, pod, exporterPodFailedOrCompletedEvent, fmt.Sprintf("Exporter pod %s/%s is in phase %s", pod.Namespace, pod.Name, pod.Status.Phase))
+	}
+
+	// Offline push serves no TLS, so recreating it on cert rotation would only restart a long convert from zero.
+	if isOfflinePushSource(source) {
+		return nil
 	}
 
 	certParams, err := ctrl.getCertParams()
@@ -937,10 +839,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		vmExport.Status.TokenSecretRef = &generatedSecretName
 	}
 
-	token, err := kutil.GenerateVMExportToken()
-	if err != nil {
-		return err
-	}
+	token := cryptorand.Text()
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -960,7 +859,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		},
 	}
 
-	secret, err = ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err := ctrl.Client.CoreV1().Secrets(vmExport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil {
 		if errors.IsAlreadyExists(err) {
 			return nil
@@ -1006,11 +905,7 @@ func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
 	return getExportPodVolumeNameFromStr(pvc.Name)
 }
 
-// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name to match the volume name used in the Pod.
-//
-// CRITICAL: This logic must stay strictly in sync with the volume naming logic used in 'createExportPod'.
-// If the logic in createExportPod changes (e.g. prefix or hashing algorithm), this function MUST be updated
-// to match, otherwise the export server will fail to locate the mounted volumes.
+// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name into the volume name used in the Pod.
 func getExportPodVolumeNameFromStr(claimName string) string {
 	pvcName := strings.ReplaceAll(claimName, ".", "-")
 	// Using the formatted PVC name if it's under the max length.
@@ -1031,24 +926,30 @@ func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMa
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
-func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport, source exportSource) (*corev1.Service, error) {
+func (ctrl *VMExportController) getOrCreateExportService(vmExport *exportv1.VirtualMachineExport) (*corev1.Service, error) {
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportServiceName(vmExport))
-	if service, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key); err != nil {
+	obj, exists, err := ctrl.ServiceInformer.GetStore().GetByKey(key)
+	if err != nil {
 		return nil, err
-	} else if !exists {
-		service := ctrl.createServiceManifest(vmExport, source)
-		log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
-		service, err := ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
-		if err == nil {
-			ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
-		}
-		return service, err
-	} else {
-		return service.(*corev1.Service), nil
 	}
+	if exists {
+		// Leave existing Services in place so in-flight ClusterIP exports
+		// (443 → targetPort 8443) keep working across upgrade. ClusterIP to
+		// headless is immutable; only newly created Services are headless.
+		return obj.(*corev1.Service), nil
+	}
+
+	service := ctrl.createServiceManifest(vmExport)
+	log.Log.V(3).Infof("Creating new exporter service %s/%s", service.Namespace, service.Name)
+	service, err = ctrl.Client.CoreV1().Services(vmExport.Namespace).Create(context.Background(), service, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	ctrl.Recorder.Eventf(vmExport, corev1.EventTypeNormal, serviceCreatedEvent, "Created service %s/%s", service.Namespace, service.Name)
+	return service, nil
 }
 
-func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport, source exportSource) *corev1.Service {
+func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.VirtualMachineExport) *corev1.Service {
 	labels := map[string]string{virtv1.AppLabel: exportv1.App}
 	for key, value := range vmExport.Labels {
 		labels[key] = value
@@ -1069,19 +970,12 @@ func (ctrl *VMExportController) createServiceManifest(vmExport *exportv1.Virtual
 			Annotations: vmExport.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{exportPort()},
+			ClusterIP: corev1.ClusterIPNone,
+			Ports:     []corev1.ServicePort{exportPort()},
 			Selector: map[string]string{
 				exportServiceLabel: ctrl.getExportLabelValue(vmExport),
 			},
 		},
-	}
-
-	// The backup tunnel is established by virt-launcher dialing this service,
-	// but the export server only reports ready once the tunnel is up. The
-	// endpoint must be routable while the pod is still unready, otherwise the
-	// tunnel can never connect and readiness deadlocks.
-	if _, isBackup := source.(*VMBackupSource); isBackup {
-		service.Spec.PublishNotReadyAddresses = true
 	}
 
 	return service
@@ -1091,10 +985,10 @@ func exportPort() corev1.ServicePort {
 	return corev1.ServicePort{
 		Name:     "export",
 		Protocol: "TCP",
-		Port:     443,
+		Port:     ExportServerPort,
 		TargetPort: intstr.IntOrString{
 			Type:   intstr.Int,
-			IntVal: 8443,
+			IntVal: ExportServerPort,
 		},
 	}
 }
@@ -1176,7 +1070,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		Value: "/token/token",
 	}, corev1.EnvVar{
 		Name:  "DEADLINE",
-		Value: getDeadlineValue(deadline, vmExport).Format(time.RFC3339),
+		Value: deadlineEnvValue(deadline, vmExport, source),
 	}, corev1.EnvVar{
 		Name:  "EXPORT_SECRET_DEF_URI",
 		Value: secretManifestPath,
@@ -1221,7 +1115,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 				Path:   ReadinessPath,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: 8443,
+					IntVal: ExportServerPort,
 				},
 			},
 		},
@@ -1347,7 +1241,9 @@ func (ctrl *VMExportController) reconcileManifestAndAddToPod(vmExport *exportv1.
 func (ctrl *VMExportController) createManifestConfigMap(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, service *corev1.Service, extraData map[string]string) (*corev1.ConfigMap, error) {
 	data := make(map[string]string)
 
-	data[internalHostKey] = fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
+	// ClusterIP Services remap 443 → 8443; headless Services do not remap, so
+	// clone DV HTTP URLs must use the dial port for this Service.
+	data[internalHostKey] = types.ExportServiceHost(service)
 	cert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err
@@ -1444,40 +1340,6 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 	return nil, nil
 }
 
-func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string, isKubevirt bool) {
-	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
-		Value: mountPoint,
-	})
-	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
-		exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-			Value: rawURI(pvc),
-		}, corev1.EnvVar{
-			Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-			Value: rawGzipURI(pvc),
-		})
-	} else {
-		if isKubevirt {
-			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
-				Value: rawURI(pvc),
-			}, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_GZIP_URI", index),
-				Value: rawGzipURI(pvc),
-			})
-		} else {
-			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_ARCHIVE_URI", index),
-				Value: archiveURI(pvc),
-			}, corev1.EnvVar{
-				Name:  fmt.Sprintf("VOLUME%d_EXPORT_DIR_URI", index),
-				Value: dirURI(pvc),
-			})
-		}
-	}
-}
-
 func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolumeClaim) bool {
 	// Block volumes are assumed always KubevirtContentType
 	if types.IsPVCBlock(pvc.Spec.VolumeMode) {
@@ -1548,6 +1410,10 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		} else if exporterPod.Status.Phase == corev1.PodSucceeded {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podCompletedReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Terminated
+		} else if _, ok := source.(*OfflineVMBackupSource); ok && exporterPod.Status.Phase == corev1.PodFailed {
+			// No Failed phase exists in the export API, so this surfaces via the Ready reason instead.
+			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podFailedReason, ""))
+			vmExportCopy.Status.Phase = exportv1.Pending
 		} else if exporterPod.Status.Phase == corev1.PodPending {
 			vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, podPendingReason, ""))
 			vmExportCopy.Status.Phase = exportv1.Pending
@@ -1603,15 +1469,27 @@ func populateInitialVMExportStatus(vmExport *exportv1.VirtualMachineExport) {
 	}
 }
 
+// An empty value leaves offline push with no deadline, so a long convert isn't cut off at cert rotation.
+func deadlineEnvValue(deadline time.Duration, vmExport *exportv1.VirtualMachineExport, source exportSource) string {
+	if isOfflinePushSource(source) {
+		return ""
+	}
+	return getDeadlineValue(deadline, vmExport).Format(time.RFC3339)
+}
+
 func getDeadlineValue(deadline time.Duration, vmExport *exportv1.VirtualMachineExport) time.Time {
 	// Pod needs to shutdown to either cert rotate or because export TTL expired altogether
 	rotate := currentTime().Add(deadline)
 	ttlExpiration := getExpirationTime(vmExport)
-
 	if ttlExpiration.After(rotate) {
 		return rotate
 	}
 	return ttlExpiration
+}
+
+func isOfflinePushSource(source exportSource) bool {
+	offline, ok := source.(*OfflineVMBackupSource)
+	return ok && offline.isPush()
 }
 
 func getExpirationTime(vmExport *exportv1.VirtualMachineExport) time.Time {
@@ -1844,20 +1722,6 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 	}, nil
 }
 
-func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVolumeClaim) []sourceVolume {
-	if len(pvcs) == 0 {
-		return nil
-	}
-	volumes := make([]sourceVolume, 0, len(pvcs))
-	for _, pvc := range pvcs {
-		volumes = append(volumes, sourceVolume{
-			pvc:                 pvc,
-			kubevirtContentType: ctrl.isKubevirtContentType(pvc),
-		})
-	}
-	return volumes
-}
-
 func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
 	kv := ctrl.clusterConfig.GetConfigFromKubeVirtCR()
 	if kv == nil || kv.Spec.Configuration.TLSConfiguration == nil {
@@ -1879,6 +1743,20 @@ func (ctrl *VMExportController) appendTLSEnvVars(podManifest *corev1.Pod) {
 				Name:  "TLS_CIPHER_SUITES",
 				Value: string(cipherJSON),
 			})
+		}
+	}
+	if ctrl.clusterConfig.TLSGroupPreferencesEnabled() && len(tlsConfig.Groups) > 0 {
+		curveIDs := kvtls.CurvePreferenceIds(tlsConfig.Groups)
+		if len(curveIDs) > 0 {
+			curveJSON, err := json.Marshal(curveIDs)
+			if err != nil {
+				log.Log.Warningf("Failed to marshal TLS curve preference IDs: %v", err)
+			} else {
+				podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
+					Name:  "TLS_CURVE_PREFERENCES",
+					Value: string(curveJSON),
+				})
+			}
 		}
 	}
 }

@@ -20,18 +20,18 @@
 package storage
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
+	"io/fs"
 	"os"
-	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -44,6 +44,7 @@ import (
 
 const (
 	overlayClusterSize = 1 << 18 // 256KiB
+	stdioFdCount       = 3
 )
 
 func DiskHasDataStore(disk *api.Disk) bool {
@@ -68,196 +69,222 @@ func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, ho
 	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
 }
 
-var CreateQCOW2Overlay = createQCOW2OverlayFunc
+var CreateQCOW2Overlay = createQCOW2Overlay
 
-func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error {
-	if _, err := os.Stat(overlayPath); err == nil {
+// XXX: Use keep_data_file once QEMU 11 lands.
+func createQCOW2Overlay(overlayPath, imagePath string) error {
+	if fi, err := os.Lstat(overlayPath); err == nil {
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("QCOW2 overlay %s is not a regular file", overlayPath)
+		}
 		log.Log.V(3).Infof("overlay %s already exists", overlayPath)
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		log.Log.Reason(err).Errorf("Error checking QCOW2 overlay %s existence", overlayPath)
-		return err
+		return fmt.Errorf("failed to check QCOW2 overlay %s existence: %w", overlayPath, err)
 	}
-
-	_, err := os.Create(overlayPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Error creating file QCOW2 overlay %s", overlayPath)
-		return err
-	}
-
-	defer func(path string) {
-		if err != nil {
-			log.Log.Errorf("Deleting QCOW2 overlay %s due to failure %s", path, err)
-			os.Remove(path)
-		}
-	}(overlayPath)
 
 	info, err := osdisk.GetDiskInfo(imagePath)
 	if err != nil {
-		err = fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
-		return err
-	}
-	overlaySize := info.VirtualSize
-
-	args := append([]string{},
-		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
-		"--blockdev", fmt.Sprintf("file,node-name=file,filename=%s", overlayPath))
-
-	if blockDev {
-		args = append(args, "--blockdev", fmt.Sprintf("host_device,node-name=data-file,filename=%s", imagePath))
-	} else {
-		args = append(args, "--blockdev", fmt.Sprintf("file,node-name=data-file,filename=%s", imagePath))
+		return fmt.Errorf("failed to get image info for image %q: %w", imagePath, err)
 	}
 
-	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
+	fd, err := unix.MemfdCreate("cbt-scratch", unix.MFD_CLOEXEC)
+	if err != nil {
+		return fmt.Errorf("failed to create scratch data file: %w", err)
+	}
+	scratch := os.NewFile(uintptr(fd), "cbt-scratch")
+	defer scratch.Close()
+
+	// #nosec G301: qemu traverses the directory to reach the overlay.
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay directory for %s: %w", overlayPath, err)
+	}
+
+	tmpOverlay := overlayPath + ".tmp"
+	if err := os.Remove(tmpOverlay); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove stale QCOW2 overlay %s: %w", tmpOverlay, err)
+	}
+	// #nosec G302: the overlay is shared between virt-launcher and qemu.
+	tmp, err := os.OpenFile(tmpOverlay, os.O_RDWR|os.O_CREATE|os.O_EXCL|unix.O_NOFOLLOW, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay %s: %w", tmpOverlay, err)
+	}
+	defer os.Remove(tmpOverlay)
+	defer tmp.Close()
+
+	var extraFiles []*os.File
+	extraFiles = append(extraFiles, scratch)
+	scratchPath := fmt.Sprintf("/proc/self/fd/%d", stdioFdCount+len(extraFiles)-1)
+	extraFiles = append(extraFiles, tmp)
+	tmpPath := fmt.Sprintf("/proc/self/fd/%d", stdioFdCount+len(extraFiles)-1)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "qemu-storage-daemon", args...)
 
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		err = fmt.Errorf("failed to create stdin pipe for qemu-storage-daemon: %w", err)
+	if _, err := osdisk.QEMUImg(ctx, extraFiles, "create", "-f", "qcow2",
+		"-o", fmt.Sprintf("data_file=%s,data_file_raw=on,cluster_size=%d", scratchPath, overlayClusterSize),
+		tmpPath, strconv.FormatInt(info.VirtualSize, 10)); err != nil {
 		return err
 	}
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		err = fmt.Errorf("failed to create stdout pipe for qemu-storage-daemon: %w", err)
+	if _, err := osdisk.QEMUImg(ctx, extraFiles, "amend", "-f", "qcow2", "-o", "data_file="+imagePath, tmpPath); err != nil {
 		return err
 	}
-
-	var stderrBuf bytes.Buffer
-	cmd.Stderr = &stderrBuf
-
-	if err = cmd.Start(); err != nil {
-		err = fmt.Errorf("failed to start qemu-storage-daemon: %w", err)
-		return err
-	}
-
-	output, sessionErr := runOverlayQMPSession(ctx, stdin, stdout, overlaySize, overlayPath)
-	waitErr := cmd.Wait()
-	if sessionErr != nil || waitErr != nil {
-		err = fmt.Errorf("failed to create QCOW2 overlay %s: %w, output: %s%s",
-			overlayPath, errors.Join(sessionErr, waitErr), output, stderrBuf.String())
-		return err
+	if err := os.Rename(tmpOverlay, overlayPath); err != nil {
+		return fmt.Errorf("failed to move QCOW2 overlay into place at %s: %w", overlayPath, err)
 	}
 
 	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
 	return nil
 }
 
-func runOverlayQMPSession(ctx context.Context, stdin io.WriteCloser, stdout io.Reader,
-	overlaySize int64, overlayPath string) (string, error) {
-
-	qmpCapabilities := `{"execute": "qmp_capabilities"}`
-	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d, "cluster-size": %d}}}`, overlaySize, overlayClusterSize)
-	queryJobs := `{"execute": "query-jobs"}`
-	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
-	quit := `{"execute": "quit"}`
-
-	var outputBuf bytes.Buffer
-	concludedChan := make(chan struct{})
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.Go(func() error {
-		scanner := bufio.NewScanner(stdout)
-		concluded := false
-		var jobErr error
-		for scanner.Scan() {
-			line := scanner.Text()
-			outputBuf.WriteString(line + "\n")
-			resp := parseQMPResponse(line)
-			if !concluded && resp.isJobConcluded() {
-				close(concludedChan)
-				concluded = true
-				continue
-			}
-			if concluded && jobErr == nil {
-				jobErr = resp.jobError()
-			}
-		}
-
-		var errs []error
-		if scanner.Err() != nil {
-			errs = append(errs, fmt.Errorf("error reading qemu-storage-daemon output for overlay %s: %w", overlayPath, scanner.Err()))
-		}
-		if !concluded {
-			errs = append(errs, fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath))
-		}
-		if jobErr != nil {
-			errs = append(errs, fmt.Errorf("blockdev-create job failed for overlay %s: %w", overlayPath, jobErr))
-		}
-		return errors.Join(errs...)
-	})
-
-	fmt.Fprintf(stdin, "%s\n%s\n", qmpCapabilities, blockdevCreate)
-
-	select {
-	case <-concludedChan:
-		fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
-	case <-egCtx.Done():
-		select {
-		case <-concludedChan:
-			fmt.Fprintf(stdin, "%s\n%s\n%s\n", queryJobs, jobDismiss, quit)
-		default:
-		}
-	}
-
-	stdin.Close()
-	egErr := eg.Wait()
-
-	if ctx.Err() != nil {
-		return outputBuf.String(), fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
-	}
-	return outputBuf.String(), egErr
-}
-
-type jobInfo struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
-	Error  string `json:"error"`
-}
-
-type qmpResponse struct {
-	Event  string    `json:"event"`
-	Data   jobInfo   `json:"data"`
-	Return []jobInfo `json:"return"`
-}
-
-func parseQMPResponse(line string) qmpResponse {
-	var resp qmpResponse
-	json.Unmarshal([]byte(line), &resp)
-	return resp
-}
-
-func (r qmpResponse) isJobConcluded() bool {
-	return r.Event == "JOB_STATUS_CHANGE" && r.Data.Status == "concluded"
-}
-
-func (r qmpResponse) jobError() error {
-	for _, job := range r.Return {
-		if job.ID == "create" && job.Error != "" {
-			return errors.New(job.Error)
-		}
-	}
-	return nil
-}
-
-func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error {
-	if !cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+func DeleteQCOW2Overlay(disk api.Disk) error {
+	if !DiskHasDataStore(&disk) || disk.Source.File == "" {
 		return nil
 	}
-
-	overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-	if err := os.Remove(overlayPath); err != nil {
+	target := disk.Source.File
+	if err := os.Remove(target); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("failed to delete QCOW2 overlay %s for volume %s: %w", overlayPath, volumeName, err)
+		return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
 	}
-	log.Log.Infof("QCOW2 overlay %s deleted for unplugged volume %s", overlayPath, volumeName)
+	log.Log.Infof("QCOW2 overlay %s deleted", target)
 	return nil
+}
+
+// CleanupChangedBlockTrackingOverlays removes all QCOW2 overlays under the CBT
+// directory when CBT is not active on the VMI. Used after CBT disable when the
+// backend PVC is retained (e.g. TPM/EFI). Disabled is the common case and may
+// run on every SyncVMI until the directory is empty; nil/Undefined are effectively
+// no-ops when no overlays exist.
+//
+// domainSpec is the live domain after syncDisks. If any disk source under the
+// CBT dir is still referenced, wipe is skipped (not an error) so SyncVMI cannot
+// wedge on a state-machine bug that cleared VMI CBT status while QEMU still has
+// overlays open. Orphans are retried on a later SyncVMI once the domain no
+// longer references them.
+func CleanupChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) error {
+	// Defensive: callers already gate on !HasCBTStateEnabled; keep the guard so
+	// this helper stays safe if invoked alone.
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		return nil
+	}
+	cbtDir := cbt.PathForCBT(vmi)
+	if liveDomainReferencesCBTOverlays(domainSpec, cbtDir) {
+		log.Log.Object(vmi).Warningf("skipping CBT overlay cleanup: live domain still references paths under %s", cbtDir)
+		return nil
+	}
+	return reconcileQCOW2OverlaysInDir(cbtDir, nil)
+}
+
+// ReconcileChangedBlockTrackingOverlays is a GC pass for overlays whose volumes
+// are no longer on the VMI. Hot-unplug deletes the matching overlay via
+// DeleteQCOW2Overlay during syncDisks; this reconciler catches orphans that miss
+// that path (removes files and directories). Must run after disk detach
+// so QEMU is not still referencing a path that is about to be unlinked.
+//
+// The keep-set combines:
+//  1. Paths from GetQCOW2OverlayPath for each eligible volume (whatever layout
+//     that helper currently uses), and
+//  2. Disk source paths under the CBT dir still referenced by the live domain.
+//
+// The live-domain set matters across launcher upgrades / migrations: the running
+// domain may still use an older overlay layout than this launcher would compute
+// (see #19404 / #19409). Never unlink a file QEMU still has open.
+//
+// domainSpec must reflect the domain after syncDisks (re-read), not the pre-detach
+// snapshot — otherwise GC would keep overlays for disks that were just detached.
+func ReconcileChangedBlockTrackingOverlays(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) error {
+	cbtDir, desiredPaths := buildCBTOverlayKeepPaths(vmi, domainSpec)
+	return reconcileQCOW2OverlaysInDir(cbtDir, desiredPaths)
+}
+
+// buildCBTOverlayKeepPaths returns the CBT directory and the set of overlay
+// paths that must not be deleted: eligible VMI volumes plus any live-domain
+// disk sources still under that directory.
+func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (string, sets.Set[string]) {
+	cbtDir := cbt.PathForCBT(vmi)
+	desiredPaths := sets.New[string]()
+	for _, volume := range vmi.Spec.Volumes {
+		if !cbt.IsCBTEligibleVolume(&volume) {
+			continue
+		}
+		desiredPaths.Insert(cbt.GetQCOW2OverlayPath(vmi, &volume))
+	}
+	addLiveDomainCBTOverlayPaths(desiredPaths, cbtDir, domainSpec)
+	return cbtDir, desiredPaths
+}
+
+// addLiveDomainCBTOverlayPaths keeps any disk Source.File under cbtDir that the
+// live domain still references, so GC cannot unlink an overlay QEMU has open.
+func addLiveDomainCBTOverlayPaths(desiredPaths sets.Set[string], cbtDir string, domainSpec *api.DomainSpec) {
+	if domainSpec == nil || desiredPaths == nil {
+		return
+	}
+	for _, disk := range domainSpec.Devices.Disks {
+		path := disk.Source.File
+		if path == "" || !isPathUnderDir(path, cbtDir) {
+			continue
+		}
+		desiredPaths.Insert(path)
+	}
+}
+
+func liveDomainReferencesCBTOverlays(domainSpec *api.DomainSpec, cbtDir string) bool {
+	if domainSpec == nil {
+		return false
+	}
+	for _, disk := range domainSpec.Devices.Disks {
+		if path := disk.Source.File; path != "" && isPathUnderDir(path, cbtDir) {
+			return true
+		}
+	}
+	return false
+}
+
+func isPathUnderDir(path, dir string) bool {
+	cleanPath := filepath.Clean(path)
+	cleanDir := filepath.Clean(dir)
+	rel, err := filepath.Rel(cleanDir, cleanPath)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+func withAncestorsUnder(paths sets.Set[string], root string) sets.Set[string] {
+	result := sets.New[string]()
+	for path := range paths {
+		for path = filepath.Clean(path); path != root && isPathUnderDir(path, root); path = filepath.Dir(path) {
+			result.Insert(path)
+		}
+	}
+	return result
+}
+
+func reconcileQCOW2OverlaysInDir(cbtDir string, desiredPaths sets.Set[string]) error {
+	cbtDir = filepath.Clean(cbtDir)
+	keep := withAncestorsUnder(desiredPaths, cbtDir)
+	return filepath.WalkDir(cbtDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+		if path == cbtDir || keep.Has(path) {
+			return nil
+		}
+		// Safe after domain detach since guest data lives in the raw data_file, not this metadata overlay.
+		if err := os.RemoveAll(path); err != nil {
+			return fmt.Errorf("failed to delete orphaned CBT path %s: %w", path, err)
+		}
+		log.Log.Infof("CBT path %s deleted (volume no longer in CBT set)", path)
+		if d.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	})
 }
 
 func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
@@ -273,7 +300,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 			continue
 		}
 
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, &volume)
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
 
 		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
@@ -286,51 +313,10 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 		imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock)
+		err := CreateQCOW2Overlay(overlayPath, imagePath)
 		if err != nil {
 			return err
 		}
-		applyCBTMap[volumeName] = overlayPath
-	}
-
-	c.ApplyCBT = applyCBTMap
-	return nil
-}
-
-func isMigrationNewBackendStorage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Status.MigrationState == nil {
-		return false
-	}
-	sourcePVC := vmi.Status.MigrationState.SourcePersistentStatePVCName
-	targetPVC := vmi.Status.MigrationState.TargetPersistentStatePVCName
-	return sourcePVC != "" && targetPVC != "" && sourcePVC != targetPVC
-}
-
-func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
-	logger := log.Log.Object(vmi)
-	applyCBTMap := make(map[string]string)
-
-	for _, volume := range vmi.Spec.Volumes {
-		if !cbt.IsCBTEligibleVolume(&volume) {
-			continue
-		}
-
-		volumeName := volume.Name
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-
-		if isMigrationNewBackendStorage(vmi) {
-			_, isHotplug := c.HotplugVolumes[volumeName]
-			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
-			imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
-
-			logger.V(3).Infof("Creating CBT overlay for migration: %s -> %s (block=%v, hotplug=%v)", overlayPath, imagePath, isBlock, isHotplug)
-			if err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock); err != nil {
-				return fmt.Errorf("failed to create CBT overlay for volume %s: %v", volumeName, err)
-			}
-		} else {
-			logger.V(3).Infof("Using existing CBT overlay for migration (RWX backend): %s", overlayPath)
-		}
-
 		applyCBTMap[volumeName] = overlayPath
 	}
 

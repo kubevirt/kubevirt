@@ -95,12 +95,10 @@ var _ = Describe("Device Controller", func() {
 	var wg *sync.WaitGroup
 
 	runDeviceController := func(deviceController *DeviceController) {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			defer GinkgoRecover()
 			deviceController.Run(stop)
-			wg.Done()
-		}()
+		})
 	}
 
 	BeforeEach(func() {

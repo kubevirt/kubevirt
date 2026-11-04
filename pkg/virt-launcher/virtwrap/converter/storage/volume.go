@@ -27,9 +27,9 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
-	"kubevirt.io/kubevirt/pkg/emptydisk"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
+	"kubevirt.io/kubevirt/pkg/storage/emptydisk"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -164,25 +164,11 @@ func convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 	return nil
 }
 
-func convert_v1_HostDisk_To_api_Disk(volumeName, path, cbtPath string, disk *api.Disk) error {
+func convert_v1_HostDisk_To_api_Disk(volumeName, path string, disk *api.Disk) error {
 	disk.Type = "file"
-	if cbtPath != "" {
-		disk.Driver.Type = "qcow2"
-		disk.Source.File = cbtPath
-		disk.Source.DataStore = &api.DataStore{
-			Type: "file",
-			Format: &api.DataStoreFormat{
-				Type: "raw",
-			},
-			Source: &api.DiskSource{
-				File: hostdisk.GetMountedHostDiskPath(volumeName, path),
-			},
-		}
-	} else {
-		disk.Driver.Type = "raw"
-		disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
-	}
+	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
 

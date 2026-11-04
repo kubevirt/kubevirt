@@ -134,16 +134,8 @@ func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {
 }
 
 func newMasqueradeAdapter(vmi *v1.VirtualMachineInstance, portRangesSpecGateEnabled bool) masquerade.MasqPod {
-	if vmi.Status.MigrationTransport == v1.MigrationTransportUnix {
-		return masquerade.New(
-			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
-			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
-		)
-	} else {
-		return masquerade.New(
-			masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
-			masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
-			masquerade.WithLegacyMigrationPorts(),
-		)
-	}
+	return masquerade.New(
+		masquerade.WithIstio(istio.ProxyInjectionEnabled(vmi)),
+		masquerade.WithPortRangesSpecGateEnabled(portRangesSpecGateEnabled),
+	)
 }

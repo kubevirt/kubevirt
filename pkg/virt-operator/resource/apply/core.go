@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"net"
-	"strconv"
 	"time"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -25,13 +23,9 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -309,7 +303,8 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateL
 
 		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
 		switch secret.Name {
-		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.KubeVirtBackupCASecretName:
+		// TODO drop "kubevirt-backup-ca" after v1.10, once the previous release no longer ships it
+		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, "kubevirt-backup-ca":
 			continue
 		}
 
@@ -400,12 +395,10 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certDuration := GetCertDuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	certRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
-	caBackupRenewBefore := GetCertRenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 
 	// create/update CA Certificate secret
 	caCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtCASecretName, caDuration, caRenewBefore)
@@ -415,12 +408,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 
 	// create/update export CA Certificate secret
 	caExportCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtExportCASecretName, caExportDuration, caExportRenewBefore)
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA Certificate secret
-	caBackupCert, err := r.createOrUpdateCACertificateSecret(queue, components.KubeVirtBackupCASecretName, caBackupDuration, caBackupRenewBefore)
 	if err != nil {
 		return err
 	}
@@ -446,12 +433,6 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 
 	// create/update export CA config map
 	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
-	if err != nil {
-		return err
-	}
-
-	// create/update backup CA config map
-	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caBackupCert, nil, caBackupRenewBefore, findRequiredCAConfigMap(components.KubeVirtBackupCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
 	}
@@ -806,82 +787,4 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 		caCert = cert
 	}
 	return caCert, nil
-}
-
-func (r *Reconciler) updateSynchronizationAddress() (err error) {
-	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-	// Find the lease associated with the virt-synchronization controller
-	lease, err := r.k8sClient.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.kv.Status.SynchronizationAddresses = nil
-			return nil
-		}
-		return err
-	}
-	podName := ""
-	if lease.Spec.HolderIdentity != nil {
-		podName = *lease.Spec.HolderIdentity
-	}
-	if podName == "" {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-	pod, err := r.k8sClient.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
-	if err != nil {
-		if errors.IsNotFound(err) {
-			r.kv.Status.SynchronizationAddresses = nil
-			return nil
-		}
-		return err
-	}
-	if pod.DeletionTimestamp != nil {
-		r.kv.Status.SynchronizationAddresses = nil
-		return nil
-	}
-
-	// Check for the migration network address in the pod annotations.
-	ips := r.getIpsFromAnnotations(pod)
-	if len(ips) == 0 && pod.Status.PodIPs != nil {
-		// Did not find annotations, use the pod ip address instead
-		ips = make([]string, len(pod.Status.PodIPs))
-		for i, podIP := range pod.Status.PodIPs {
-			ips[i] = podIP.IP
-		}
-	}
-	if len(ips) == 0 {
-		return nil
-	}
-	port := util.DefaultSynchronizationPort
-	if r.kv.Spec.SynchronizationPort != "" {
-		p, err := strconv.Atoi(r.kv.Spec.SynchronizationPort)
-		if err != nil {
-			return err
-		}
-		port = int32(p)
-	}
-	addresses := make([]string, len(ips))
-	for i, ip := range ips {
-		addresses[i] = net.JoinHostPort(ip, strconv.Itoa(int(port)))
-	}
-	r.kv.Status.SynchronizationAddresses = addresses
-	return nil
-}
-
-func (r *Reconciler) getIpsFromAnnotations(pod *corev1.Pod) []string {
-	networkStatuses := multus.NetworkStatusesFromPod(pod)
-	for _, networkStatus := range networkStatuses {
-		if networkStatus.Interface == v1.MigrationInterfaceName {
-			if len(networkStatus.IPs) == 0 {
-				break
-			}
-			log.Log.Object(pod).V(4).Infof("found migration network ip addresses %v", networkStatus.IPs)
-			return networkStatus.IPs
-		}
-	}
-	log.Log.Object(pod).V(4).Infof("didn't find migration network ip in annotations %v", pod.Annotations)
-	return nil
 }

@@ -1,8 +1,16 @@
 # See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - sig-compute-reviewers
-approvers:
-  - sig-compute-approvers
-labels:
-  - area/handler
-  - sig/compute
+
+filters:
+  ".*":
+    reviewers:
+      - sig-compute-reviewers
+    approvers:
+      - sig-compute-approvers
+    labels:
+      - area/handler
+      - sig/compute
+  "cgroup.*":
+    approvers:
+      - sig-compute-cgroup-approvers
+    labels:
+      - sig/compute

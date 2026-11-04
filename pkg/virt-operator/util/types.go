@@ -64,6 +64,9 @@ type Stores struct {
 	ValidatingAdmissionPolicyCache        cache.Store
 	ClusterInstancetype                   cache.Store
 	ClusterPreference                     cache.Store
+	SynchronizationServiceCache           cache.Store
+	SynchronizationIngressCache           cache.Store
+	SynchronizationRouteCache             cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -91,6 +94,11 @@ func (s *Stores) AllEmpty() bool {
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
+	//
+	// Don't add SynchronizationServiceCache, SynchronizationIngressCache,
+	// or SynchronizationRouteCache to this list. These caches hold
+	// admin-managed resources (not operator-managed) that may legitimately
+	// be empty when no synchronization endpoint is configured.
 }
 
 func IsStoreEmpty(store cache.Store) bool {
@@ -171,6 +179,9 @@ type Informers struct {
 	ClusterInstancetype              cache.SharedIndexInformer
 	ClusterPreference                cache.SharedIndexInformer
 	Leases                           cache.SharedIndexInformer
+	SynchronizationService           cache.SharedIndexInformer
+	SynchronizationIngress           cache.SharedIndexInformer
+	SynchronizationRoute             cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

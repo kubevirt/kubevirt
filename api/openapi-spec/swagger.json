@@ -92,13 +92,13 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/": {
+   "/apis/backup.kubevirt.io/v1beta1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-backup.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-backup.kubevirt.io-v1beta1",
      "responses": {
       "200": {
        "description": "OK",
@@ -118,7 +118,7 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinebackups": {
     "get": {
      "description": "Get a list of VirtualMachineBackup objects.",
      "produces": [
@@ -160,7 +160,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackupList"
        }
       },
       "401": {
@@ -188,7 +188,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       {
@@ -199,19 +199,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -271,7 +271,7 @@
      }
     }
    },
-   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups/{name}": {
+   "/apis/backup.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinebackups/{name}": {
     "get": {
      "description": "Get a VirtualMachineBackup object.",
      "produces": [
@@ -292,7 +292,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -320,7 +320,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       }
      ],
@@ -328,13 +328,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -404,7 +404,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
        }
       },
       "401": {
@@ -429,7 +429,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/virtualmachinebackups": {
     "get": {
      "description": "Get a list of all VirtualMachineBackup objects.",
      "produces": [
@@ -442,7 +442,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineBackupList"
        }
       },
       "401": {
@@ -480,7 +480,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinebackups": {
     "get": {
      "description": "Watch a VirtualMachineBackup object.",
      "produces": [
@@ -532,7 +532,7 @@
      }
     ]
    },
-   "/apis/backup.kubevirt.io/v1alpha1/watch/virtualmachinebackups": {
+   "/apis/backup.kubevirt.io/v1beta1/watch/virtualmachinebackups": {
     "get": {
      "description": "Watch a VirtualMachineBackupList object.",
      "produces": [
@@ -8589,7 +8589,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupOptions"
+        "$ref": "#/definitions/v1beta1.BackupOptions"
        }
       }
      ],
@@ -8611,6 +8611,67 @@
       },
       "404": {
        "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot": {
+    "put": {
+     "description": "Commit the copy-on-write overlays of a VirtualMachineInstance back into their base images.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1CommitSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
        "schema": {
         "type": "string"
        }
@@ -8669,6 +8730,67 @@
        "required": true,
        "schema": {
         "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot": {
+    "put": {
+     "description": "Redirect the disks of a VirtualMachineInstance to copy-on-write overlays.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1ExternalSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
        }
       }
      ],
@@ -8992,61 +9114,6 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
-    "put": {
-     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
-     "consumes": [
-      "*/*"
-     ],
-     "operationId": "v1RedefineCheckpoint",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -10420,7 +10487,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupOptions"
+        "$ref": "#/definitions/v1beta1.BackupOptions"
        }
       }
      ],
@@ -10442,6 +10509,67 @@
       },
       "404": {
        "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/commitsnapshot": {
+    "put": {
+     "description": "Commit the copy-on-write overlays of a VirtualMachineInstance back into their base images.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3CommitSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
        "schema": {
         "type": "string"
        }
@@ -10500,6 +10628,67 @@
        "required": true,
        "schema": {
         "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/externalsnapshot": {
+    "put": {
+     "description": "Redirect the disks of a VirtualMachineInstance to copy-on-write overlays.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3ExternalSnapshot",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.SnapshotOverlayOptions"
        }
       }
      ],
@@ -10823,61 +11012,6 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
-     }
-    ]
-   },
-   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
-    "put": {
-     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
-     "consumes": [
-      "*/*"
-     ],
-     "operationId": "v1alpha3RedefineCheckpoint",
-     "parameters": [
-      {
-       "name": "body",
-       "in": "body",
-       "required": true,
-       "schema": {
-        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
-       }
-      }
-     ],
-     "responses": {
-      "200": {
-       "description": "OK",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "400": {
-       "description": "Bad Request",
-       "schema": {
-        "type": "string"
-       }
-      },
-      "401": {
-       "description": "Unauthorized"
-      },
-      "404": {
-       "description": "Not Found",
-       "schema": {
-        "type": "string"
-       }
-      }
-     }
-    },
-    "parameters": [
-     {
-      "uniqueItems": true,
-      "type": "string",
-      "description": "Name of the resource",
-      "name": "name",
-      "in": "path",
-      "required": true
-     },
-     {
-      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -12492,6 +12626,25 @@
      "volumeName": {
       "description": "volumeName is the binding reference to the PersistentVolume backing this claim.",
       "type": "string"
+     }
+    }
+   },
+   "io.k8s.api.core.v1.PersistentVolumeClaimTemplate": {
+    "description": "PersistentVolumeClaimTemplate is used to produce PersistentVolumeClaim objects as part of an EphemeralVolumeSource.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "metadata": {
+      "description": "May contain labels and annotations that will be copied into the PVC when creating it. No other fields are allowed and will be rejected during validation.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "The specification for the PersistentVolumeClaim. The entire content is copied unchanged into the PVC that gets created from this template. The same fields as in a PersistentVolumeClaim are also valid here.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimSpec"
      }
     }
    },
@@ -14704,7 +14857,7 @@
       "format": "int32"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
+      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. directsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
       "type": "string"
      },
      "cdrom": {
@@ -15947,6 +16100,10 @@
        "default": ""
       }
      },
+     "emulationPolicy": {
+      "description": "EmulationPolicy is the default emulation policy for VMs that do not set spec.emulationPolicy. A VM may set a more permissive policy.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+      "type": "string"
+     },
      "evictionStrategy": {
       "description": "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific field is set it overrides the cluster level one.",
       "type": "string"
@@ -16001,6 +16158,10 @@
      "minCPUModel": {
       "description": "deprecated",
       "type": "string"
+     },
+     "multiIOThreadAutoPolicy": {
+      "description": "MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk. This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.",
+      "$ref": "#/definitions/v1.MultiIOThreadAutoPolicy"
      },
      "network": {
       "$ref": "#/definitions/v1.NetworkConfiguration"
@@ -16206,6 +16367,10 @@
       "description": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
       "type": "string"
      },
+     "synchronizationPlacement": {
+      "description": "SynchronizationPlacement allows customization of node placement for synchronization controllers. This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to the cross-cluster migration network). By default, sync controllers use control-plane placement.",
+      "$ref": "#/definitions/v1.ComponentConfig"
+     },
      "synchronizationPort": {
       "description": "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
       "type": "string"
@@ -16357,11 +16522,11 @@
     }
    },
    "v1.LogVerbosity": {
-    "description": "LogVerbosity sets log verbosity level of  various components",
+    "description": "LogVerbosity sets log verbosity level of various components",
     "type": "object",
     "properties": {
      "nodeVerbosity": {
-      "description": "NodeVerbosity represents a map of nodes with a specific verbosity level",
+      "description": "NodeVerbosity represents a map of node names to specific log verbosity levels. Allows overriding verbosity on specific nodes without altering cluster-wide settings. Changes take effect on the fly without triggering a pod restart.",
       "type": "object",
       "additionalProperties": {
        "type": "integer",
@@ -16370,26 +16535,32 @@
       }
      },
      "virtAPI": {
+      "description": "VirtAPI specifies the log verbosity level for the virt-api deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      },
      "virtController": {
+      "description": "VirtController specifies the log verbosity level for the virt-controller deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      },
      "virtHandler": {
+      "description": "VirtHandler specifies the log verbosity level for the virt-handler DaemonSet. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      },
      "virtLauncher": {
+      "description": "VirtLauncher specifies the log verbosity level for virt-launcher pods managing VMI workloads. A higher value increases the amount of logged information. Changes apply to newly created virt-launcher pods. Existing pods retain their original verbosity. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      },
      "virtOperator": {
+      "description": "VirtOperator specifies the log verbosity level for the virt-operator deployment. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      },
      "virtSynchronizationController": {
+      "description": "VirtSynchronizationController specifies the log verbosity level for the virt-synchronization-controller component. A higher value increases the amount of logged information. Changes take effect on the fly without triggering a pod restart. Default: 2. Levels up to 9 produce progressively more detailed logs.",
       "type": "integer",
       "format": "int32"
      }
@@ -16501,6 +16672,7 @@
     }
    },
    "v1.MemoryDumpVolumeSource": {
+    "description": "MemoryDumpVolumeSource represents a memory dump PVC in the volumes of a VMI. Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
     "type": "object",
     "required": [
      "claimName"
@@ -16598,6 +16770,14 @@
       "type": "integer",
       "format": "int64"
      },
+     "crossClusterNetwork": {
+      "description": "CrossClusterNetwork is the name of the CNI network used for synchronization-controller peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers attach to this network as crosscluster0 and bind the sync gRPC port only there. When omitted with Proxy, peer traffic uses the pod network. Must not be set when decentralizedLiveMigrationDatapath is Direct (or unset).",
+      "type": "string"
+     },
+     "decentralizedLiveMigrationDatapath": {
+      "description": "DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for decentralized live migrations (cross-namespace or cross-cluster). Direct (default when unset): no synchronization-controller migration-data proxy. Proxy: sync controllers proxy migration traffic on a single gRPC port. Requires the CrossClusterMigrationProxy feature gate while Alpha.",
+      "type": "string"
+     },
      "disableTLS": {
       "description": "DisableTLS disables both TLS encryption and mutual TLS authentication on the migration proxy when set to true. This removes all cryptographic protection from the migration data stream. When disabled, implement network-level access controls to restrict migration traffic to trusted sources only. Defaults to false.",
       "type": "boolean"
@@ -16612,7 +16792,7 @@
       "format": "int64"
      },
      "network": {
-      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network.",
+      "description": "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
       "type": "string"
      },
      "nodeDrainTaintKey": {
@@ -16645,6 +16825,15 @@
      }
     }
    },
+   "v1.MultiIOThreadAutoPolicy": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false. Requires SCSIMultiIOThread feature gate to be enabled.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.MultusNetwork": {
     "description": "Represents the multus cni network.",
     "type": "object",
@@ -16667,7 +16856,7 @@
     "type": "object",
     "properties": {
      "guestMappingPassthrough": {
-      "description": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod. The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.",
+      "description": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod. The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes. It is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the host CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.",
       "$ref": "#/definitions/v1.NUMAGuestMappingPassthrough"
      }
     }
@@ -17597,6 +17786,29 @@
      }
     }
    },
+   "v1.SnapshotOverlayOptions": {
+    "description": "SnapshotOverlayOptions names the utility volume the copy-on-write overlays of an External mode VirtualMachineSnapshot are written to",
+    "type": "object",
+    "required": [
+     "volumeName"
+    ],
+    "properties": {
+     "volumeName": {
+      "description": "VolumeName is the utility volume attached to the VirtualMachineInstance",
+      "type": "string",
+      "default": ""
+     },
+     "volumes": {
+      "description": "Volumes are the volumes the snapshot captures, the only ones put on overlays. Not used to commit the overlays.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
    "v1.SoundDevice": {
     "description": "Represents the user's configuration to emulate sound cards in the VMI.",
     "type": "object",
@@ -17829,6 +18041,15 @@
        "default": ""
       },
       "x-kubernetes-list-type": "set"
+     },
+     "groups": {
+      "description": "Groups defines the set of allowed TLS supported groups (elliptic curves) on all TLS server endpoints. Group names follow the IANA TLS Supported Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised names are silently ignored at TLS setup time, so an older component tolerates group names added in a newer release. When empty or when the TLSGroupPreferences feature gate is disabled, Go's default curve preferences apply. MaxItems bounds the CEL cost estimate for the exists() validation rule on TLSConfiguration; without it the CRD is rejected at creation time.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "minTLSVersion": {
       "description": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections. Protocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE",
@@ -18591,6 +18812,10 @@
      "volumeName"
     ],
     "properties": {
+     "type": {
+      "description": "Type is how the volume was backed up, either Full or Incremental.",
+      "type": "string"
+     },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
       "type": "string",
@@ -19372,7 +19597,7 @@
     "type": "object",
     "properties": {
      "infoSource": {
-      "description": "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+      "description": "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.",
       "type": "string"
      },
      "interfaceName": {
@@ -19716,6 +19941,10 @@
       "default": {},
       "$ref": "#/definitions/v1.DomainSpec"
      },
+     "emulationPolicy": {
+      "description": "The most permissive emulation backend this VM may use. Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.\n\nValid Options from least to most permissive are: - None: Only native-kvm - Hardware: Not yet implemented - Software: Qemu TCG cross-architecture emulation Default policy is 'None'\n\nThis is an alpha field and should only be configured if the feature-gate CrossArchitectureVirtualization is enabled. This feature is in alpha.",
+      "type": "string"
+     },
      "evictionStrategy": {
       "description": "EvictionStrategy describes the strategy to follow when a node drain occurs. The possible options are: - \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown. - \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown. - \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\". - \"External\": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.",
       "type": "string"
@@ -19753,7 +19982,7 @@
       "$ref": "#/definitions/v1.Probe"
      },
      "resourceClaims": {
-      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA, or NetworkDevicesWithDRA is enabled. This feature is in alpha.",
+      "description": "ResourceClaims define which ResourceClaims must be allocated and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources will be made available to the domain which consumes them by name.\n\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA, or NetworkDevicesWithDRA is enabled.",
       "type": "array",
       "items": {
        "default": {},
@@ -19819,6 +20048,10 @@
        "name"
       ],
       "x-kubernetes-list-type": "map"
+     },
+     "virtualMachineState": {
+      "description": "VirtualMachineState references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). When set, it takes precedence over the implicit VirtualMachineState PVC creation that happens when persistent TPM/EFI or CBT is enabled, and any enabled TPM or EFI feature is treated as persistent unless explicitly opted out via Persistent: false.",
+      "$ref": "#/definitions/v1.VirtualMachineStateSpec"
      },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",
@@ -19962,12 +20195,20 @@
       "description": "SELinuxContext is the actual SELinux context of the virt-launcher pod",
       "type": "string"
      },
+     "snapshotOverlayPVCUID": {
+      "description": "SnapshotOverlayPVCUID identifies the scratch PVC verified for the OverlaySnapshotActive condition. Updated together with that condition.",
+      "type": "string"
+     },
      "topologyHints": {
       "$ref": "#/definitions/v1.TopologyHints"
      },
      "virtualMachineRevisionName": {
       "description": "VirtualMachineRevisionName is used to get the vm revision of the vmi when doing an online vm snapshot",
       "type": "string"
+     },
+     "virtualMachineStateVolume": {
+      "description": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+      "$ref": "#/definitions/v1.VolumeStatus"
      },
      "volumeStatus": {
       "description": "VolumeStatus contains the statuses of all the volumes",
@@ -20157,11 +20398,43 @@
      }
     }
    },
+   "v1.VirtualMachineStateSource": {
+    "description": "VirtualMachineStateSource references an existing PVC to adopt as the starting VirtualMachineState.",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name of the source PVC.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.VirtualMachineStateSpec": {
+    "description": "VirtualMachineStateSpec references or templates the PVC that backs the VirtualMachineState (persistent UEFI, TPM and CBT state). At least one of VolumeClaimTemplate or Source must be set.",
+    "type": "object",
+    "properties": {
+     "source": {
+      "description": "Source is an existing PVC to adopt as the starting VirtualMachineState. The controller does not take ownership of a PVC referenced this way.",
+      "$ref": "#/definitions/v1.VirtualMachineStateSource"
+     },
+     "volumeClaimTemplate": {
+      "description": "VolumeClaimTemplate is the template the controller uses to create PVCs it owns. It is used for the initial PVC when Source is unset, and for every new PVC the controller creates later for operations like live migration. The controller owns the PVC name via GenerateName, so volumeClaimTemplate.metadata.name must not be set. The referenced volume mode must be Filesystem.",
+      "$ref": "#/definitions/io.k8s.api.core.v1.PersistentVolumeClaimTemplate"
+     }
+    }
+   },
    "v1.VirtualMachineStatus": {
     "description": "VirtualMachineStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
     "type": "object",
     "nullable": true,
     "properties": {
+     "backupInProgress": {
+      "description": "BackupInProgress is the name of the VirtualMachineBackup currently executing",
+      "type": "string"
+     },
      "changedBlockTracking": {
       "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
       "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
@@ -20232,6 +20505,10 @@
        "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
       }
      },
+     "virtualMachineStateVolume": {
+      "description": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
+      "$ref": "#/definitions/v1.VolumeStatus"
+     },
      "volumeRequests": {
       "description": "VolumeRequests indicates a list of volumes add or remove from the VMI template and hotplug on an active running VMI.",
       "type": "array",
@@ -20288,7 +20565,7 @@
       "$ref": "#/definitions/v1.ConfigMapVolumeSource"
      },
      "containerDisk": {
-      "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
+      "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
       "$ref": "#/definitions/v1.ContainerDiskSource"
      },
      "containerPath": {
@@ -20308,7 +20585,7 @@
       "$ref": "#/definitions/v1.DownwardMetricsVolumeSource"
      },
      "emptyDisk": {
-      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html",
+      "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle. More info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk",
       "$ref": "#/definitions/v1.EmptyDiskSource"
      },
      "ephemeral": {
@@ -20320,7 +20597,7 @@
       "$ref": "#/definitions/v1.HostDisk"
      },
      "memoryDump": {
-      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+      "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi Deprecated: memory dumps are attached as utility volumes of type MemoryDump.",
       "$ref": "#/definitions/v1.MemoryDumpVolumeSource"
      },
      "name": {
@@ -20467,90 +20744,6 @@
      }
     }
    },
-   "v1alpha1.BackupCheckpoint": {
-    "type": "object",
-    "properties": {
-     "creationTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "name": {
-      "type": "string"
-     },
-     "volumes": {
-      "description": "Volumes lists volumes included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
-     }
-    }
-   },
-   "v1alpha1.BackupOptions": {
-    "description": "BackupOptions are options used to configure virtual machine backup job",
-    "type": "object",
-    "properties": {
-     "backupCert": {
-      "type": "string"
-     },
-     "backupKey": {
-      "type": "string"
-     },
-     "backupName": {
-      "type": "string"
-     },
-     "backupStartTime": {
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "caCert": {
-      "type": "string"
-     },
-     "cmd": {
-      "type": "string"
-     },
-     "exportServerAddr": {
-      "type": "string"
-     },
-     "exportServerName": {
-      "type": "string"
-     },
-     "incremental": {
-      "type": "string"
-     },
-     "mode": {
-      "type": "string"
-     },
-     "skipQuiesce": {
-      "type": "boolean"
-     },
-     "targetPath": {
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.BackupVolumeInfo": {
-    "description": "BackupVolumeInfo contains information about a volume included in a backup",
-    "type": "object",
-    "required": [
-     "volumeName"
-    ],
-    "properties": {
-     "dataEndpoint": {
-      "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
-      "type": "string"
-     },
-     "mapEndpoint": {
-      "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
-      "type": "string"
-     },
-     "volumeName": {
-      "description": "VolumeName is the volume name from VMI spec",
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -20667,142 +20860,121 @@
      }
     }
    },
-   "v1alpha1.VirtualMachineBackup": {
-    "description": "VirtualMachineBackup defines the operation of backing up a VM",
+   "v1beta1.BackupLink": {
+    "description": "BackupLink contains a CA certificate and per-volume endpoints for one network path",
     "type": "object",
     "required": [
-     "spec"
+     "cert"
     ],
     "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
+     "cert": {
+      "description": "Cert is the CA certificate bundle for TLS verification. It may be empty for external links.",
+      "type": "string",
+      "default": ""
      },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupSpec"
-     },
-     "status": {
-      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineBackupList": {
-    "description": "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
-    "type": "object",
-    "required": [
-     "metadata",
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
+     "volumes": {
+      "description": "Volumes lists the data and map endpoints for each backed-up volume",
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       "$ref": "#/definitions/v1beta1.BackupVolumeLink"
       },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+      "x-kubernetes-list-map-keys": [
+       "volumeName"
+      ],
+      "x-kubernetes-list-type": "map"
      }
     }
    },
-   "v1alpha1.VirtualMachineBackupSpec": {
-    "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+   "v1beta1.BackupLinks": {
+    "description": "BackupLinks contains internal and external links for accessing backup data in pull mode Internal links use in-cluster service DNS (ClusterIP), while external links use a Route or Ingress hostname via virt-exportproxy",
     "type": "object",
-    "required": [
-     "source"
-    ],
     "properties": {
-     "forceFullBackup": {
-      "description": "ForceFullBackup indicates that a full backup is desired",
-      "type": "boolean"
+     "external": {
+      "description": "External contains endpoints reachable from outside the cluster",
+      "$ref": "#/definitions/v1beta1.BackupLink"
      },
-     "mode": {
-      "description": "Mode specifies the way the backup output will be recieved",
+     "internal": {
+      "description": "Internal contains endpoints reachable from within the cluster",
+      "$ref": "#/definitions/v1beta1.BackupLink"
+     }
+    }
+   },
+   "v1beta1.BackupOptions": {
+    "description": "BackupOptions are options used to configure virtual machine backup job",
+    "type": "object",
+    "properties": {
+     "abortReason": {
+      "description": "AbortReason is set when Cmd is Abort. Cancel marks the backup Failed (TTL expiry, or deleting a push-mode backup). Finalize marks a pull-mode backup Complete after the client finished pulling.",
       "type": "string"
      },
-     "pvcName": {
-      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+     "backupName": {
+      "type": "string"
+     },
+     "backupStartTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "cmd": {
+      "type": "string"
+     },
+     "incremental": {
+      "type": "string"
+     },
+     "incrementalCreationTime": {
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "mode": {
       "type": "string"
      },
      "skipQuiesce": {
-      "description": "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
       "type": "boolean"
      },
-     "source": {
-      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
-      "default": {},
-      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
-     },
-     "tokenSecretRef": {
-      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+     "targetPath": {
       "type": "string"
-     },
-     "ttlDuration": {
-      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
-      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
-   "v1alpha1.VirtualMachineBackupStatus": {
-    "description": "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+   "v1beta1.BackupVolumeInfo": {
+    "description": "BackupVolumeInfo contains information about a volume included in a backup",
     "type": "object",
-    "nullable": true,
+    "required": [
+     "volumeName"
+    ],
     "properties": {
-     "checkpointName": {
-      "description": "CheckpointName the name of the checkpoint created for the current backup",
-      "type": "string"
-     },
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Condition"
-      },
-      "x-kubernetes-list-map-keys": [
-       "type"
-      ],
-      "x-kubernetes-list-type": "map"
-     },
-     "endpointCert": {
-      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
-      "type": "string"
-     },
-     "exportUID": {
-      "description": "ExportUID tracks the UID of the associated VMExport for pull-mode backups used to detect VMExport recreation and re-initiate the export handshake",
-      "type": "string"
-     },
-     "includedVolumes": {
-      "description": "IncludedVolumes lists the volumes that were included in the backup",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
      "type": {
-      "description": "Type indicates if the backup was full or incremental",
+      "description": "Type is how the volume was backed up, either Full or Incremental",
       "type": "string"
+     },
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1beta1.BackupVolumeLink": {
+    "description": "BackupVolumeLink contains the data and map endpoint URLs for a single volume",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "dataEndpoint",
+     "mapEndpoint"
+    ],
+    "properties": {
+     "dataEndpoint": {
+      "description": "DataEndpoint is the URL for reading backup data",
+      "type": "string",
+      "default": ""
+     },
+     "mapEndpoint": {
+      "description": "MapEndpoint is the URL for reading the changed block map",
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "description": "VolumeName identifies the volume these endpoints belong to",
+      "type": "string",
+      "default": ""
      }
     }
    },
@@ -21681,6 +21853,139 @@
       "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackup": {
+    "description": "VirtualMachineBackup defines the operation of backing up a VM",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineBackupSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1beta1.VirtualMachineBackupStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupList": {
+    "description": "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineBackup"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupSpec": {
+    "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "forceFullBackup": {
+      "description": "ForceFullBackup indicates that a full backup is desired",
+      "type": "boolean"
+     },
+     "mode": {
+      "description": "Mode specifies the way the backup output will be received. Deleting an in-progress Pull backup finalizes it as Complete (client finished pulling). TTL expiry, or deleting an in-progress Push backup, cancels the job and marks the backup Failed.",
+      "type": "string"
+     },
+     "pvcName": {
+      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+      "type": "string"
+     },
+     "skipQuiesce": {
+      "description": "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+      "type": "boolean"
+     },
+     "source": {
+      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+      "default": {},
+      "$ref": "#/definitions/io.k8s.api.core.v1.TypedLocalObjectReference"
+     },
+     "tokenSecretRef": {
+      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+      "type": "string"
+     },
+     "ttlDuration": {
+      "description": "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a reasonable default is applied.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineBackupStatus": {
+    "description": "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "checkpointName": {
+      "description": "CheckpointName the name of the checkpoint created for the current backup",
+      "type": "string"
+     },
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Condition"
+      },
+      "x-kubernetes-list-map-keys": [
+       "type"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
+     "includedVolumes": {
+      "description": "IncludedVolumes lists the volumes that were included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "links": {
+      "description": "Links exposes internal (in-cluster) and external (Ingress/Route) endpoints for pull-mode backups, each with a CA certificate and per-volume URLs. Contains per-volume data and map endpoint URLs for each network path.",
+      "$ref": "#/definitions/v1beta1.BackupLinks"
+     },
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
      }
     }
    },
@@ -22774,6 +23079,10 @@
      "readyToUse": {
       "type": "boolean"
      },
+     "snapshotMode": {
+      "description": "SnapshotMode is the actual mode the snapshot is taken with",
+      "type": "string"
+     },
      "volumeSnapshotStatus": {
       "type": "array",
       "items": {
@@ -22826,6 +23135,14 @@
      "failureDeadline": {
       "description": "This time represents the number of seconds we permit the vm snapshot to take. In case we pass this deadline we mark this snapshot as failed. Defaults to DefaultFailureDeadline - 5min",
       "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "overlayScratchSize": {
+      "description": "OverlayScratchSize overrides the size of the scratch volume holding the copy-on-write overlays for the duration of an External mode snapshot. When not set, the size is derived from FailureDeadline, capped by the size of the snapshotted disks. This field can only be set when SnapshotMode is External",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.api.resource.Quantity"
+     },
+     "snapshotMode": {
+      "description": "SnapshotMode selects the flow used to snapshot a running VM. Only meaningful for online snapshots; offline snapshots are unaffected. External requires the ExternalVMSnapshot feature gate. Defaults to Direct",
+      "type": "string"
      },
      "source": {
       "default": {},

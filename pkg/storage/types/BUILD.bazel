@@ -5,7 +5,9 @@ go_library(
     srcs = [
         "cdi.go",
         "dv.go",
+        "export.go",
         "pvc.go",
+        "snapshotoverlay.go",
         "volume.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/types",
@@ -18,6 +20,7 @@ go_library(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
@@ -28,6 +31,7 @@ go_test(
     srcs = [
         "cdi_test.go",
         "dv_test.go",
+        "export_test.go",
         "pvc_test.go",
         "types_suite_test.go",
         "volume_test.go",

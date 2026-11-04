@@ -41,13 +41,13 @@ import (
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -85,8 +85,12 @@ func markReady() {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) chan struct{} {
-	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	options *cmdserver.ServerOptions) <-chan struct{} {
+
+	done, err := grpcserver.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(
+			cmdserver.NewLauncher(domainManager, options),
+		))
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
@@ -359,6 +363,7 @@ func main() {
 	vGPUDedicatedHookEnabled := pflag.Bool("vgpu-dedicated-hook", false, "Enable target mdev UUID mutation for vGPU live migration")
 	vmStatsCollectorEnabled := pflag.Bool("vm-stats-collector", false, "Enable additional guest agent polling workers for VMStats monitoring data collection")
 	firmwareAutoSelectionEnabled := pflag.Bool("firmware-auto-selection", false, "Use libvirt firmware auto-selection for EFI Secure Boot")
+	arm64SecureBootEnabled := pflag.Bool("arm64-secure-boot", false, "Enable ARM64 UEFI Secure Boot via firmware auto-selection and uefi-vars")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", virtconfig.DefaultARCHOVMFPath, "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -445,11 +450,11 @@ func main() {
 
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
-		disk.DiskSourcePathHook,
+		disk.Hook,
 		network.UpgradeOrdinalNamingScheme,
 	}
 	if *vGPUDedicatedHookEnabled {
-		hookFuncs = append(hookFuncs, vgpuhook.VGPULiveMigration)
+		hookFuncs = append(hookFuncs, vgpuhook.MDevVGPULiveMigration)
 	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
@@ -470,10 +475,10 @@ func main() {
 		*imageVolumeEnabled,
 		preMigrationHookServer,
 		*hypervisor,
-		nbdclient.RegisterNBDServer,
 		domainName,
 		*vmStatsCollectorEnabled,
 		*firmwareAutoSelectionEnabled,
+		*arm64SecureBootEnabled,
 		*allowCrossArchEmulation,
 		notifier)
 	if err != nil {

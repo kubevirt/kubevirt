@@ -17,13 +17,16 @@ environment.
   resources to prepare them to be used inside a pod / VMI. Executed in root
   network namespace context. Uses netlink and other commands to configure and
   move SR-IOV VF / PF resources into pod namespaces.
+* [Network Resources Injector](https://github.com/k8snetworkplumbingwg/network-resources-injector)
+  is a Kubernetes mutating admission webhook. Before the `virt-launcher` pod is admitted, it inspects the
+  `k8s.v1.cni.cncf.io/resourceName` annotations on the `NetworkAttachmentDefinition` objects the pod references,
+  then patches the pod `requests` and `limits` to assist the scheduler in placing the pod on a node
+  with the requested device resources.
 * [Multus]( https://github.com/k8snetworkplumbingwg/multus-cni) is a meta-plugin. It will call
   the SR-IOV CNI plugin when VMI is attached to an SR-IOV interface. It is
   configured through `NetworkAttachmentDefinition` CRD objects. For SR-IOV, the
   object annotations should refer to the resource name configured inside the device
-  plugin `config.json` configuration file. This reference is used by KubeVirt
-  to automatically fill in `requests` and `limits` sections of `virt-launcher`
-  pods. (The same mechanism is used by other plugins, for example, `bridge`.)
+  plugin `config.json` configuration file.
   If used alone, SR-IOV CNI plugin would need the PCI address of the device we
   want to use inside the pod (and then, inside the VM). By using it in
   combination with the device plugin and Multus, thanks to the `k8s.v1.cni.cncf.io/resourceName`
@@ -37,8 +40,7 @@ environment.
   host.
 * KubeVirt, based on values of environment variables set by SR-IOV device
   plugin, configures libvirt domain for SR-IOV attached VMIs to use the right
-  PCI IDs. Also, fills in `requests` and `limits` sections of `virt-launcher`
-  pod spec as per attached NetworkAttachmentDefinition CRD.
+  PCI IDs.
 
 # Configuration
 
@@ -149,6 +151,7 @@ Once the cluster is deployed, we can move to SR-IOV specific components.
 The following components must be deployed to support SR-IOV:
 
 * [Multus](https://github.com/k8snetworkplumbingwg/multus-cni)
+* [Network Resources Injector](https://github.com/k8snetworkplumbingwg/network-resources-injector)
 * [SR-IOV device plugin](https://github.com/k8snetworkplumbingwg/sriov-network-device-plugin)
 * [SR-IOV CNI plugin](https://github.com/k8snetworkplumbingwg/sriov-cni)
 

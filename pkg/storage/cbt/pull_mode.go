@@ -21,7 +21,6 @@ package cbt
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"time"
 
@@ -31,12 +30,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 
-	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -49,10 +46,6 @@ const (
 
 func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
 	return backup.Spec.Mode != nil && *backup.Spec.Mode == backupv1.PullMode
-}
-
-func isExportSentForVMExport(backup *backupv1.VirtualMachineBackup, vmExport *exportv1.VirtualMachineExport) bool {
-	return backup.Status.ExportUID != nil && *backup.Status.ExportUID == vmExport.UID
 }
 
 func getPullBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
@@ -86,59 +79,35 @@ func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
 	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
 }
 
+func pullBackupTTLDeadline(backup *backupv1.VirtualMachineBackup) time.Time {
+	return backup.CreationTimestamp.Time.Add(getPullBackupTTL(backup).Duration)
+}
+
+// shouldFinalizePullBackupOnDelete reports whether deleting a pull-mode backup
+// should finalize as Complete rather than Cancel.
+//
+// Deletion of the VirtualMachineBackup is the authoritative pull-mode completion
+// signal from the client. Compare DeletionTimestamp to the TTL deadline (not
+// wall-clock now) so a late reconcile after expiry still Finalizes when the
+// client deleted on time.
+func shouldFinalizePullBackupOnDelete(backup *backupv1.VirtualMachineBackup) bool {
+	if !isPullMode(backup) || backup.DeletionTimestamp == nil || backup.DeletionTimestamp.IsZero() {
+		return false
+	}
+	return backup.DeletionTimestamp.Time.Before(pullBackupTTLDeadline(backup))
+}
+
 func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if isPullBackupTTLExpired(backup) {
 		return ctrl.handlePullModeTTLExpiry(backup, vmi)
 	}
 
 	vmExport, err := ctrl.getOrCreateBackupExport(backup)
-	if err != nil {
+	if err != nil || vmExport == nil {
 		return err
-	}
-	if vmExport == nil {
-		return nil
-	}
-
-	if !isExportSentForVMExport(backup, vmExport) {
-		if vmExport.Status == nil || vmExport.Status.ServiceName == "" {
-			return nil
-		}
-		if err := ctrl.handlePrepareBackupExport(backup, vmi, vmExport); err != nil {
-			return err
-		}
-		backup.Status.ExportUID = &vmExport.UID
-		return nil
 	}
 
 	return ctrl.populateExportLinks(backup, vmExport)
-}
-
-func (ctrl *VMBackupController) handlePrepareBackupExport(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmExport *exportv1.VirtualMachineExport) error {
-	ca, err := ctrl.exportCaManager.GetCurrentRaw()
-	if err != nil {
-		return err
-	}
-	keyPair, err := ctrl.generateBackupTunnelCert(backup)
-	if err != nil {
-		return err
-	}
-	exportAddr := fmt.Sprintf("%s.%s.svc", vmExport.Status.ServiceName, vmExport.Namespace)
-	serverName := fmt.Sprintf("%s.cluster.local", exportAddr)
-	backupOptions := &backupv1.BackupOptions{
-		BackupName:       backup.Name,
-		Cmd:              backupv1.Export,
-		BackupStartTime:  &backup.CreationTimestamp,
-		Mode:             *backup.Spec.Mode,
-		ExportServerAddr: &exportAddr,
-		ExportServerName: &serverName,
-		BackupKey:        pointer.P(string(cert.EncodePrivateKeyPEM(keyPair.Key))),
-		BackupCert:       pointer.P(string(cert.EncodeCertPEM(keyPair.Cert))),
-		CACert:           pointer.P(string(ca)),
-	}
-	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (ctrl *VMBackupController) getOrCreateBackupExport(backup *backupv1.VirtualMachineBackup) (*exportv1.VirtualMachineExport, error) {
@@ -168,8 +137,6 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 			},
 		},
 		Spec: exportv1.VirtualMachineExportSpec{
-			TokenSecretRef: &backup.Spec.TokenSecretRef,
-			TTLDuration:    getPullBackupRemainingTTL(backup),
 			Source: corev1.TypedLocalObjectReference{
 				APIGroup: pointer.P(backupv1.VirtualMachineBackupGroupVersionKind.Group),
 				Kind:     backupv1.VirtualMachineBackupGroupVersionKind.Kind,
@@ -178,13 +145,23 @@ func (ctrl *VMBackupController) createBackupExport(backup *backupv1.VirtualMachi
 		},
 	}
 
+	// TTL only makes sense for pull mode. Push has no client waiting on a window.
+	if isPullMode(backup) {
+		vmExport.Spec.TTLDuration = getPullBackupRemainingTTL(backup)
+	}
+
+	// Keep it nil when there's no token, so the export controller generates one.
+	if backup.Spec.TokenSecretRef != "" {
+		vmExport.Spec.TokenSecretRef = &backup.Spec.TokenSecretRef
+	}
+
 	_, err := ctrl.client.VirtualMachineExport(backup.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf(failedExportCreate, err)
 	}
 
 	setPreparingExport(backup)
-	backup.Status.EndpointCert = nil
+	backup.Status.Links = nil
 	return nil
 }
 
@@ -197,72 +174,59 @@ func (ctrl *VMBackupController) populateExportLinks(backup *backupv1.VirtualMach
 		return nil
 	}
 
-	links := vmExport.Status.Links
-	hasInternalLinks := links != nil && links.Internal != nil && len(links.Internal.Backups) > 0
-	hasExternalLinks := links != nil && links.External != nil && len(links.External.Backups) > 0
-
-	if !hasInternalLinks && !hasExternalLinks {
-		return fmt.Errorf("associated export ready but has no backup links")
+	backupLinks, err := buildBackupLinks(vmExport.Status.Links)
+	if err != nil {
+		return err
 	}
 
-	iterableLinks := links.External
-	if !hasExternalLinks {
-		iterableLinks = links.Internal
-	}
-
-	if iterableLinks.Cert == "" {
-		return fmt.Errorf("associated export ready but has no cert exposed")
-	}
-
-	var volumes []backupv1.BackupVolumeInfo
-	endpointMap := make(map[string][]exportv1.VirtualMachineExportBackupEndpoint)
-	for _, backupEndpoint := range iterableLinks.Backups {
-		endpointMap[backupEndpoint.Name] = backupEndpoint.Endpoints
-	}
-	for _, volume := range backup.Status.IncludedVolumes {
-		if endpoints, ok := endpointMap[volume.VolumeName]; ok {
-			for _, link := range endpoints {
-				switch link.Endpoint {
-				case exportv1.Data:
-					volume.DataEndpoint = link.Url
-				case exportv1.Map:
-					volume.MapEndpoint = link.Url
-				}
-			}
-		}
-		volumes = append(volumes, volume)
-	}
-
+	backup.Status.Links = backupLinks
 	setExportReady(backup)
-	backup.Status.EndpointCert = &iterableLinks.Cert
-	backup.Status.IncludedVolumes = volumes
+
 	return nil
 }
 
-func (ctrl *VMBackupController) generateBackupTunnelCert(backup *backupv1.VirtualMachineBackup) (*triple.KeyPair, error) {
-	caCert := ctrl.caCertManager.Current()
-	if caCert == nil {
-		return nil, fmt.Errorf("CA certificate not yet available")
+func buildBackupLinks(links *exportv1.VirtualMachineExportLinks) (*backupv1.BackupLinks, error) {
+	if links == nil || (links.Internal == nil && links.External == nil) {
+		return nil, fmt.Errorf("associated export ready but has no backup links")
 	}
-	caKeyPair := &triple.KeyPair{
-		Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
-		Cert: caCert.Leaf,
+
+	result := &backupv1.BackupLinks{}
+	if links.Internal != nil {
+		if links.Internal.Cert == "" {
+			return nil, fmt.Errorf("associated export ready but internal link has no cert exposed")
+		}
+		result.Internal = toBackupLink(links.Internal)
 	}
-	keyPair, err := triple.NewClientKeyPair(
-		caKeyPair,
-		fmt.Sprintf("kubevirt.io:system:client:%s", backup.UID),
-		nil,
-		getPullBackupRemainingTTL(backup).Duration,
-	)
-	return keyPair, err
+	if links.External != nil {
+		result.External = toBackupLink(links.External)
+	}
+
+	return result, nil
+}
+
+func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink {
+	bl := &backupv1.BackupLink{Cert: link.Cert}
+	for _, b := range link.Backups {
+		vl := backupv1.BackupVolumeLink{VolumeName: b.Name}
+		for _, ep := range b.Endpoints {
+			switch ep.Endpoint {
+			case exportv1.Data:
+				vl.DataEndpoint = ep.Url
+			case exportv1.Map:
+				vl.MapEndpoint = ep.Url
+			}
+		}
+		bl.Volumes = append(bl.Volumes, vl)
+	}
+	return bl
 }
 
 func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if hasVMIBackupStatus(vmi) && !vmi.Status.ChangedBlockTracking.BackupStatus.Completed {
-		if err := ctrl.handleAbort(backup, vmi); err != nil {
+		if err := ctrl.handleAbort(backup, vmi, backupv1.BackupAbortCancel); err != nil {
 			return err
 		}
-		ctrl.setAborting(backup, fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting))
+		ctrl.setAborting(backup, fmt.Sprintf("%s: %s", backupTTLExpiredMsg, backupAborting), backupv1.BackupAbortCancel)
 	}
 	return nil
 }

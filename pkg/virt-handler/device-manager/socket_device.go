@@ -73,6 +73,8 @@ type SocketDevicePlugin struct {
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
@@ -187,7 +189,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		healthChecks: true,
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		deviceId := dpi.socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,

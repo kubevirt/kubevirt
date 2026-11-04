@@ -29,6 +29,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	handlerimage "kubevirt.io/kubevirt/pkg/util"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -46,6 +48,52 @@ var _ = Describe("Operator Config", func() {
 			KubeVirtVersion: version,
 		}
 	}
+
+	Context("product relationship labels", func() {
+		var deploymentConfig *KubeVirtDeploymentConfig
+
+		BeforeEach(func() {
+			deploymentConfig = getConfig("registry", "v9.9.9")
+		})
+
+		DescribeTable("should validate the configured product values", func(productProperties map[string]string, expectedProductName, expectedProductVersion, expectedProductComponent string) {
+			deploymentConfig.AdditionalProperties = productProperties
+			productName, productVersion, productComponent := deploymentConfig.GetProductLabels()
+			Expect(productName).To(Equal(expectedProductName))
+			Expect(productVersion).To(Equal(expectedProductVersion))
+			Expect(productComponent).To(Equal(expectedProductComponent))
+		},
+			Entry("when all product values are set", map[string]string{
+				ProductNameKey:      "test-product",
+				ProductVersionKey:   "test-version",
+				ProductComponentKey: "test-component",
+			}, "test-product", "test-version", "test-component"),
+			Entry("when product values are unset", nil, "", "", v1.AppComponent),
+			Entry("when product values are empty", map[string]string{
+				ProductNameKey:      "",
+				ProductVersionKey:   "",
+				ProductComponentKey: "",
+			}, "", "", v1.AppComponent),
+			Entry("when product values contain invalid characters", map[string]string{
+				ProductNameKey:      "invalid/name",
+				ProductVersionKey:   "invalid/version",
+				ProductComponentKey: "invalid/component",
+			}, "", "", v1.AppComponent),
+			Entry("when product values exceed the label length limit", map[string]string{
+				ProductNameKey:      strings.Repeat("n", 64),
+				ProductVersionKey:   strings.Repeat("v", 64),
+				ProductComponentKey: strings.Repeat("c", 64),
+			}, "", "", v1.AppComponent),
+			Entry("when only the product name is set", map[string]string{
+				ProductNameKey: "test-product",
+			}, "test-product", "", v1.AppComponent),
+			Entry("when only the component is invalid", map[string]string{
+				ProductNameKey:      "test-product",
+				ProductVersionKey:   "test-version",
+				ProductComponentKey: "invalid/component",
+			}, "test-product", "test-version", v1.AppComponent),
+		)
+	})
 
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
@@ -150,6 +198,38 @@ var _ = Describe("Operator Config", func() {
 			Expect(cfgWith.VMStatsCollectorEnabled()).To(BeTrue())
 
 			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
+		})
+
+		It("should change deployment ID when switching Direct/Proxy without crossClusterNetwork", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"CrossClusterMigrationProxy"},
+						},
+						MigrationConfiguration: &v1.MigrationConfiguration{},
+					},
+				},
+			}
+			cfgDirect := GetTargetConfigFromKV(kv)
+
+			proxy := v1.DecentralizedLiveMigrationDatapathProxy
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath = &proxy
+			cfgProxy := GetTargetConfigFromKV(kv)
+
+			Expect(cfgDirect.ID).ToNot(BeEmpty())
+			Expect(cfgProxy.ID).ToNot(BeEmpty())
+			Expect(cfgProxy.ID).ToNot(Equal(cfgDirect.ID))
+			Expect(cfgProxy.AdditionalProperties).To(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
+			Expect(cfgDirect.AdditionalProperties).NotTo(HaveKey(AdditionalPropertiesDecentralizedLiveMigrationProxy))
+			Expect(cfgProxy.DecentralizedLiveMigrationProxyEnabled()).To(BeTrue())
+			Expect(cfgDirect.DecentralizedLiveMigrationProxyEnabled()).To(BeFalse())
+
+			direct := v1.DecentralizedLiveMigrationDatapathDirect
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath = &direct
+			cfgBackToDirect := GetTargetConfigFromKV(kv)
+			Expect(cfgBackToDirect.ID).To(Equal(cfgDirect.ID))
+			Expect(cfgBackToDirect.DecentralizedLiveMigrationProxyEnabled()).To(BeFalse())
 		})
 
 		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
@@ -423,5 +503,215 @@ var _ = Describe("Operator Config", func() {
 					imageName: "blablabla",
 					version:   "latest",
 				}))
+	})
+
+	DescribeTable("GetCrossClusterMigrationNetwork()",
+		func(setupKV func() *KubeVirtDeploymentConfig, expectedNil bool, expectedValue string) {
+			By("Setting up KubeVirt configuration")
+			cfg := setupKV()
+
+			By("Getting cross-cluster migration network")
+			result := cfg.GetCrossClusterMigrationNetwork()
+
+			By("Verifying result")
+			if expectedNil {
+				Expect(result).To(BeNil())
+			} else {
+				Expect(result).ToNot(BeNil())
+				Expect(*result).To(Equal(expectedValue))
+			}
+		},
+		Entry("when config is nil",
+			func() *KubeVirtDeploymentConfig {
+				return &KubeVirtDeploymentConfig{}
+			},
+			true, "",
+		),
+		Entry("when MigrationConfiguration is nil",
+			func() *KubeVirtDeploymentConfig {
+				kv := &v1.KubeVirt{}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is not set",
+			func() *KubeVirtDeploymentConfig {
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							MigrationConfiguration: &v1.MigrationConfiguration{},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set but feature gate is disabled",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set and feature gate is enabled but datapath is Direct",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{"CrossClusterMigrationProxy"},
+							},
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								CrossClusterNetwork: &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			true, "",
+		),
+		Entry("when CrossClusterNetwork is set with Proxy datapath and feature gate",
+			func() *KubeVirtDeploymentConfig {
+				networkName := "test-crosscluster-network"
+				datapath := v1.DecentralizedLiveMigrationDatapathProxy
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							DeveloperConfiguration: &v1.DeveloperConfiguration{
+								FeatureGates: []string{"CrossClusterMigrationProxy"},
+							},
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								DecentralizedLiveMigrationDatapath: &datapath,
+								CrossClusterNetwork:                &networkName,
+							},
+						},
+					},
+				}
+				return GetTargetConfigFromKV(kv)
+			},
+			false, "test-crosscluster-network",
+		),
+	)
+
+	DescribeTable("GetSynchronizationPlacement()",
+		func(setupKV func() *v1.KubeVirt, verifyPlacement func(*v1.ComponentConfig)) {
+			By("Setting up KubeVirt configuration")
+			kv := setupKV()
+
+			By("Getting target config from KubeVirt")
+			cfg := GetTargetConfigFromKV(kv)
+
+			By("Getting synchronization placement")
+			placement := cfg.GetSynchronizationPlacement()
+
+			By("Verifying placement")
+			verifyPlacement(placement)
+		},
+		Entry("when config is nil",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).To(BeNil())
+			},
+		),
+		Entry("when SynchronizationPlacement is not set",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).To(BeNil())
+			},
+		),
+		Entry("when set with nodeSelector",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						SynchronizationPlacement: &v1.ComponentConfig{
+							NodePlacement: &v1.NodePlacement{
+								NodeSelector: map[string]string{
+									"kubevirt.io/crosscluster-access": "true",
+								},
+							},
+						},
+					},
+				}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).ToNot(BeNil())
+				Expect(placement.NodePlacement).ToNot(BeNil())
+				Expect(placement.NodePlacement.NodeSelector).To(HaveKeyWithValue("kubevirt.io/crosscluster-access", "true"))
+			},
+		),
+		Entry("when set with tolerations",
+			func() *v1.KubeVirt {
+				return &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						SynchronizationPlacement: &v1.ComponentConfig{
+							NodePlacement: &v1.NodePlacement{
+								Tolerations: []k8sv1.Toleration{
+									{
+										Key:      "dedicated",
+										Operator: k8sv1.TolerationOpEqual,
+										Value:    "kubevirt",
+										Effect:   k8sv1.TaintEffectNoSchedule,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			func(placement *v1.ComponentConfig) {
+				Expect(placement).ToNot(BeNil())
+				Expect(placement.NodePlacement).ToNot(BeNil())
+				Expect(placement.NodePlacement.Tolerations).To(HaveLen(1))
+				Expect(placement.NodePlacement.Tolerations[0].Key).To(Equal("dedicated"))
+			},
+		),
+	)
+
+	It("should generate a deployment ID when SynchronizationPlacement has maps and slices", func() {
+		kv := &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				SynchronizationPlacement: &v1.ComponentConfig{
+					NodePlacement: &v1.NodePlacement{
+						NodeSelector: map[string]string{
+							"kubevirt.io/crosscluster-access": "true",
+						},
+						Tolerations: []k8sv1.Toleration{
+							{
+								Key:      "dedicated",
+								Operator: k8sv1.TolerationOpEqual,
+								Value:    "kubevirt",
+								Effect:   k8sv1.TaintEffectNoSchedule,
+							},
+						},
+					},
+				},
+			},
+		}
+		cfg := GetTargetConfigFromKV(kv)
+		Expect(func() { cfg.generateInstallStrategyID() }).ToNot(Panic())
+		Expect(cfg.GetDeploymentID()).ToNot(BeEmpty())
+	})
+
+	It("should keep VirtHandlerImageEnvName in sync with pkg/util's copy", func() {
+		Expect(VirtHandlerImageEnvName).To(Equal(handlerimage.VirtHandlerImageEnvName),
+			"pkg/virt-operator/util.VirtHandlerImageEnvName (%q) and pkg/util.VirtHandlerImageEnvName (%q) "+
+				"have drifted apart; virt-handler would silently stop learning its own image via this env var. "+
+				"Update both constants to match.", VirtHandlerImageEnvName, handlerimage.VirtHandlerImageEnvName)
 	})
 })

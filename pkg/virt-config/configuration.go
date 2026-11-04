@@ -396,6 +396,15 @@ func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	}
 }
 
+func (c *ClusterConfig) EmulatorThreadCompleteToEvenParity() bool {
+	kv := c.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return false
+	}
+	_, exists := kv.Annotations[v1.EmulatorThreadCompleteToEvenParity]
+	return exists
+}
+
 func (c *ClusterConfig) HasDataSourceAPI() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -462,6 +471,18 @@ func (c *ClusterConfig) VirtTemplateDeploymentEnabled() bool {
 	}
 	vtd := c.GetConfig().VirtTemplateDeployment
 	return vtd == nil || vtd.Enabled == nil || *vtd.Enabled
+}
+
+func (c *ClusterConfig) MultiIOThreadAutoPolicyEnabled() bool {
+	if !c.SCSIMultiIOThreadEnabled() {
+		return false
+	}
+	autoPolicy := c.GetConfig().MultiIOThreadAutoPolicy
+
+	if autoPolicy == nil || autoPolicy.Enabled == nil {
+		return false
+	}
+	return *autoPolicy.Enabled
 }
 
 func parseNodeSelectors(str string) (map[string]string, error) {

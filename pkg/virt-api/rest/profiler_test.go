@@ -40,6 +40,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -123,9 +124,15 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		podList.Items = []k8sv1.Pod{}
 		podList.Items = append(podList.Items, *pod)
 
+		selector, err := clusterProfilerSelector("")
+		Expect(err).ToNot(HaveOccurred())
+
 		server.AppendHandlers(
 			ghttp.CombineHandlers(
 				ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
+				func(_ http.ResponseWriter, req *http.Request) {
+					Expect(req.URL.Query().Get("labelSelector")).To(Equal(selector.String()))
+				},
 				ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
 			),
 		)
@@ -189,10 +196,123 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		)
 	})
 
-	DescribeTable(", podIsReadyComponent function should return", func(name string, deletionTimestamp *k8smetav1.Time, phase k8sv1.PodPhase, isReady k8sv1.ConditionStatus, matcher types.GomegaMatcher) {
+	Context("dump pagination", func() {
+		dumpWithRequest := func(cpRequest *v1.ClusterProfilerRequest) {
+			b, err := json.Marshal(cpRequest)
+			Expect(err).ToNot(HaveOccurred())
+			request.Request.Body = io.NopCloser(bytes.NewBuffer(b))
+		}
+
+		expectPodListResponse := func(podList k8sv1.PodList, verify func(*http.Request)) {
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/pods"),
+					func(_ http.ResponseWriter, req *http.Request) {
+						if verify != nil {
+							verify(req)
+						}
+					},
+					ghttp.RespondWithJSONEncoded(http.StatusOK, podList),
+				),
+			)
+		}
+
+		It("should list pods with the default control-plane selector when none is provided", func() {
+			enableClusterProfiler()
+			dumpWithRequest(&v1.ClusterProfilerRequest{})
+			selector, err := clusterProfilerSelector("")
+			Expect(err).ToNot(HaveOccurred())
+
+			expectPodListResponse(k8sv1.PodList{}, func(req *http.Request) {
+				Expect(req.URL.Query().Get("labelSelector")).To(Equal(selector.String()))
+			})
+
+			app.DumpClusterProfilerHandler(request, response)
+			Expect(recorder.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("should intersect an explicit label selector with the default control-plane selector", func() {
+			enableClusterProfiler()
+			dumpWithRequest(&v1.ClusterProfilerRequest{LabelSelector: "kubevirt.io=virt-api"})
+			selector, err := clusterProfilerSelector("kubevirt.io=virt-api")
+			Expect(err).ToNot(HaveOccurred())
+
+			expectPodListResponse(k8sv1.PodList{}, func(req *http.Request) {
+				Expect(req.URL.Query().Get("labelSelector")).To(Equal(selector.String()))
+			})
+
+			app.DumpClusterProfilerHandler(request, response)
+			Expect(recorder.Code).To(Equal(http.StatusNoContent))
+		})
+
+		It("should return continue when a page has no ready component pods", func() {
+			enableClusterProfiler()
+			dumpWithRequest(&v1.ClusterProfilerRequest{LabelSelector: "kubevirt.io"})
+			selector, err := clusterProfilerSelector("kubevirt.io")
+			Expect(err).ToNot(HaveOccurred())
+
+			podList := k8sv1.PodList{
+				ListMeta: k8smetav1.ListMeta{Continue: "next-page"},
+				Items: []k8sv1.Pod{
+					{
+						ObjectMeta: k8smetav1.ObjectMeta{Name: "virt-api-8xxfgt"},
+						Status: k8sv1.PodStatus{
+							Phase: k8sv1.PodRunning,
+							Conditions: []k8sv1.PodCondition{
+								{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse},
+							},
+						},
+					},
+				},
+			}
+			expectPodListResponse(podList, func(req *http.Request) {
+				Expect(req.URL.Query().Get("labelSelector")).To(Equal(selector.String()))
+			})
+
+			app.DumpClusterProfilerHandler(request, response)
+			Expect(recorder.Code).To(Equal(http.StatusOK))
+
+			var results v1.ClusterProfilerResults
+			Expect(json.Unmarshal(recorder.Body.Bytes(), &results)).To(Succeed())
+			Expect(results.Continue).To(Equal("next-page"))
+			Expect(results.ComponentResults).To(BeEmpty())
+		})
+	})
+
+	DescribeTable("clusterProfilerSelector", func(requested string, expectErr bool, expectedSelector string) {
+		selector, err := clusterProfilerSelector(requested)
+		if expectErr {
+			Expect(err).To(HaveOccurred())
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+		if expectedSelector == "" {
+			defaultSelector, parseErr := labels.Parse(v1.DefaultClusterProfilerLabelSelector)
+			Expect(parseErr).NotTo(HaveOccurred())
+			expectedSelector = defaultSelector.String()
+		}
+		Expect(selector.String()).To(Equal(expectedSelector))
+	},
+		Entry("returns the default control-plane selector when requested is empty", "", false, ""),
+		Entry(
+			"intersects an explicit selector with the default control-plane selector",
+			"kubevirt.io=virt-api",
+			false,
+			"kubevirt.io in (virt-api,virt-controller,virt-handler,virt-operator),kubevirt.io=virt-api",
+		),
+		Entry("returns an error for an invalid requested selector", "!!!not-a-selector!!!", true, ""),
+		Entry(
+			"returns without error for a non-control-plane selector that matches no pods",
+			"kubevirt.io=virt-exportproxy",
+			false,
+			"kubevirt.io in (virt-api,virt-controller,virt-handler,virt-operator),kubevirt.io=virt-exportproxy",
+		),
+	)
+
+	DescribeTable("podIsReady function should return", func(deletionTimestamp *k8smetav1.Time, phase k8sv1.PodPhase, isReady k8sv1.ConditionStatus, matcher types.GomegaMatcher) {
 		pod := &k8sv1.Pod{
 			ObjectMeta: k8smetav1.ObjectMeta{
-				Name:              name,
+				Name:              "test-pod",
 				DeletionTimestamp: deletionTimestamp,
 			},
 			Status: k8sv1.PodStatus{
@@ -205,23 +325,23 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				},
 			},
 		}
-		isReadyComponentPod := podIsReadyComponent(pod)
-		Expect(isReadyComponentPod).To(matcher)
+		Expect(podIsReady(pod)).To(matcher)
 	},
-		Entry("true with running and ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
-		Entry("true with running and ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
-		Entry("true with running and ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
-		Entry("true with running and ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
-		Entry("false with non running virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
-		Entry("false with non running virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
-		Entry("false with non running virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
-		Entry("false with non running virt-api", "virt-api-8xxfgt", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
-		Entry("false with running but non-ready virt-handler", "virt-handler-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
-		Entry("false with running but non-ready virt-controller", "virt-controller-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
-		Entry("false with running but non-ready virt-operator", "virt-operator-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
-		Entry("false with running but non-ready virt-api", "virt-api-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
-		Entry("false with deletionTimestamp valued", "virt-handler-8xxfgt", &k8smetav1.Time{Time: time.Now()}, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
-		Entry("false with other component", "kubevirt-apiproxy-8xxfgt", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+		Entry("true with running and ready", nil, k8sv1.PodRunning, k8sv1.ConditionTrue, BeTrue()),
+		Entry("false with non running", nil, k8sv1.PodPending, k8sv1.ConditionTrue, BeFalse()),
+		Entry("false with running but non-ready", nil, k8sv1.PodRunning, k8sv1.ConditionFalse, BeFalse()),
+		Entry("false with deletionTimestamp valued", &k8smetav1.Time{Time: time.Now()}, k8sv1.PodRunning, k8sv1.ConditionTrue, BeFalse()),
+	)
+
+	DescribeTable("clusterProfilerSelector matches pod labels", func(requested string, podLabels map[string]string, expectMatch bool) {
+		selector, err := clusterProfilerSelector(requested)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(selector.Matches(labels.Set(podLabels))).To(Equal(expectMatch))
+	},
+		Entry("default selector matches a control-plane pod", "", map[string]string{v1.AppLabel: "virt-api"}, true),
+		Entry("default selector does not match a non-control-plane label value", "", map[string]string{v1.AppLabel: "virt-exportproxy"}, false),
+		Entry("intersected selector matches the requested control-plane value", "kubevirt.io=virt-handler", map[string]string{v1.AppLabel: "virt-handler"}, true),
+		Entry("user cannot widen past control plane with a non-control-plane value", "kubevirt.io=virt-exportproxy", map[string]string{v1.AppLabel: "virt-exportproxy"}, false),
 	)
 
 	AfterEach(func() {

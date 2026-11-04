@@ -364,7 +364,7 @@ func GetControlPlaneNodes(virtCli kubecli.KubevirtClient) *k8sv1.NodeList {
 func GetWorkerNodesWithCPUManagerEnabled(virtClient kubecli.KubevirtClient) []k8sv1.Node {
 	ginkgo.By("getting the list of worker nodes that have cpumanager enabled")
 	nodeList, err := virtClient.CoreV1().Nodes().List(context.TODO(), k8smetav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "cpumanager", "true"),
+		LabelSelector: fmt.Sprintf("%s=,%s=%s", workerLabel, "kubevirt.io/cpumanager", "true"),
 	})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(nodeList).ToNot(BeNil())

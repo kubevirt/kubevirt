@@ -139,6 +139,66 @@ var _ = Describe("Validating VM Admitter", func() {
 		}
 	})
 
+	DescribeTable("ContainerPath feature gate on VM admission", func(operation admissionv1.Operation, enabled, previouslyUsed, useContainerPath, addAnother, allowed bool) {
+		disableFeatureGates()
+		DeferCleanup(disableFeatureGates)
+		if enabled {
+			enableFeatureGate(featuregate.ContainerPathVolumesGate)
+		} else {
+			disableFeatureGate(featuregate.ContainerPathVolumesGate)
+		}
+		vm := &v1.VirtualMachine{Spec: v1.VirtualMachineSpec{
+			RunStrategy: pointer.P(v1.RunStrategyHalted),
+			Template:    &v1.VirtualMachineInstanceTemplateSpec{Spec: newBaseVmi().Spec},
+		}}
+		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
+			ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"},
+		}}
+		filesystem := v1.Filesystem{Name: "containerpath", Virtiofs: &v1.FilesystemVirtiofs{}}
+		oldVM := vm.DeepCopy()
+		if previouslyUsed {
+			oldVM.Spec.Template.Spec.Volumes = append(oldVM.Spec.Template.Spec.Volumes, volume)
+			oldVM.Spec.Template.Spec.Domain.Devices.Filesystems = append(oldVM.Spec.Template.Spec.Domain.Devices.Filesystems, filesystem)
+		}
+		if useContainerPath {
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
+			vm.Spec.Template.Spec.Domain.Devices.Filesystems = append(vm.Spec.Template.Spec.Domain.Devices.Filesystems, filesystem)
+		}
+		if addAnother {
+			additionalVolume := volume
+			additionalVolume.Name = "another-containerpath"
+			additionalFilesystem := filesystem
+			additionalFilesystem.Name = additionalVolume.Name
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, additionalVolume)
+			vm.Spec.Template.Spec.Domain.Devices.Filesystems = append(vm.Spec.Template.Spec.Domain.Devices.Filesystems, additionalFilesystem)
+		}
+		newBytes, err := json.Marshal(vm)
+		Expect(err).ToNot(HaveOccurred())
+		oldBytes, err := json.Marshal(oldVM)
+		Expect(err).ToNot(HaveOccurred())
+		resp := vmsAdmitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+			Resource:  webhooks.VirtualMachineGroupVersionResource,
+			Operation: operation,
+			Object:    runtime.RawExtension{Raw: newBytes},
+			OldObject: runtime.RawExtension{Raw: oldBytes},
+		}})
+		Expect(resp.Allowed).To(Equal(allowed), "%+v", resp.Result)
+		if !allowed {
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.volumes[0].containerPath"))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("ContainerPathVolumes feature gate"))
+		}
+	},
+		Entry("rejects creation when disabled", admissionv1.Create, false, false, true, false, false),
+		Entry("allows creation when enabled", admissionv1.Create, true, false, true, false, true),
+		Entry("rejects introducing usage when disabled", admissionv1.Update, false, false, true, false, false),
+		Entry("allows introducing usage when enabled", admissionv1.Update, true, false, true, false, true),
+		Entry("allows existing usage after disabling", admissionv1.Update, false, true, true, false, true),
+		Entry("allows removing usage after disabling", admissionv1.Update, false, true, false, false, true),
+		Entry("allows unrelated updates when disabled", admissionv1.Update, false, false, false, false, true),
+		Entry("allows adding another volume to an existing user after disabling", admissionv1.Update, false, true, true, true, true),
+	)
+
 	Context("with an invalid VM", func() {
 		It("should reject the request with unrecognized field", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -1591,6 +1651,48 @@ var _ = Describe("Validating VM Admitter", func() {
 			HavePrefix("spec.running is deprecated, please use spec.runStrategy instead.")))
 	})
 
+	DescribeTable("should warn about disabling ACPI on amd64 through the VM admitter", func(spec v1.VirtualMachineInstanceSpec, expectWarning bool) {
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				RunStrategy: pointer.P(v1.RunStrategyHalted),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeTrue())
+		if expectWarning {
+			Expect(resp.Warnings).To(ContainElement(ContainSubstring("disabling ACPI")))
+		} else {
+			Expect(resp.Warnings).NotTo(ContainElement(ContainSubstring("disabling ACPI")))
+		}
+	},
+		Entry("amd64 with ACPI explicitly disabled on BIOS boot", v1.VirtualMachineInstanceSpec{
+			Architecture: "amd64",
+			Domain:       v1.DomainSpec{Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}}},
+		}, true),
+		Entry("amd64 with ACPI explicitly enabled", v1.VirtualMachineInstanceSpec{
+			Architecture: "amd64",
+			Domain:       v1.DomainSpec{Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(true)}}},
+		}, false),
+		Entry("amd64 with ACPI unset (defaults enabled)", v1.VirtualMachineInstanceSpec{
+			Architecture: "amd64",
+		}, false),
+		Entry("amd64 with ACPI explicitly disabled on EFI boot", v1.VirtualMachineInstanceSpec{
+			Architecture: "amd64",
+			Domain: v1.DomainSpec{
+				Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}},
+				Firmware: &v1.Firmware{Bootloader: &v1.Bootloader{EFI: &v1.EFI{SecureBoot: pointer.P(false)}}},
+			},
+		}, false),
+		Entry("arm64 with ACPI explicitly disabled", v1.VirtualMachineInstanceSpec{
+			Architecture: "arm64",
+			Domain:       v1.DomainSpec{Features: &v1.Features{ACPI: v1.FeatureState{Enabled: new(false)}}},
+		}, false),
+	)
+
 	It("should reject request when Discontinued feature is used", func() {
 		const fgName = "test-discontinued"
 		const fgMessage = "FG is discontinued"
@@ -1637,9 +1739,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					},
 				},
 			}
-			if featureGate != "" {
-				disableFeatureGate(featureGate)
-			}
+			enableFeatureGate(featureGate)
 			resp := admitVm(vmsAdmitter, vm)
 			Expect(resp.Allowed).To(Equal(accepted))
 		},
@@ -1648,10 +1748,94 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("allow runstrategy always", v1.RunStrategyAlways, "", true),
 			Entry("allow runstrategy rerun on failure", v1.RunStrategyRerunOnFailure, "", true),
 			Entry("allow runstrategy once", v1.RunStrategyOnce, "", true),
-			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, "", true),
-			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, false),
+			Entry("allow runstrategy wait as receiver", v1.RunStrategyWaitAsReceiver, featuregate.DecentralizedLiveMigration, true),
+			Entry("reject runstrategy wait as receiver, if feature gate not enabled", v1.RunStrategyWaitAsReceiver, "", false),
 			Entry("reject invalid runstrategy", v1.VirtualMachineRunStrategy("invalid"), "", false),
 		)
+	})
+})
+
+var _ = Describe("Validating virtualMachineState immutability", func() {
+	field := k8sfield.NewPath("spec", "template", "spec")
+
+	vmWithState := func(state *v1.VirtualMachineStateSpec) *v1.VirtualMachine {
+		return &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						VirtualMachineState: state,
+					},
+				},
+			},
+		}
+	}
+
+	templateWithCapacity := func(class string, capacity string) *k8sv1.PersistentVolumeClaimTemplate {
+		return &k8sv1.PersistentVolumeClaimTemplate{
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				StorageClassName: pointer.P(class),
+				Resources: k8sv1.VolumeResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse(capacity),
+					},
+				},
+			},
+		}
+	}
+
+	It("should allow when neither old nor new have a virtualMachineState", func() {
+		causes := validateVirtualMachineStateImmutability(field, vmWithState(nil), vmWithState(nil))
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject adding a virtualMachineState where the old VM had none", func() {
+		oldVM := vmWithState(nil)
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(causes[0].Field).To(Equal("spec.template.spec.virtualMachineState"))
+	})
+
+	It("should allow a source-adopted VM to add a volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{
+			Source:              &v1.VirtualMachineStateSource{Name: "x"},
+			VolumeClaimTemplate: templateWithCapacity("class", "1Gi"),
+		})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should allow changing only the storageClassName and storage capacity of the volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class-a", "1Gi")})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class-b", "2Gi")})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject changing the source", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "y"}})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+	})
+
+	It("should reject removing the volumeClaimTemplate", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{VolumeClaimTemplate: templateWithCapacity("class", "1Gi")})
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+	})
+
+	It("should allow an otherwise-forbidden change while a restore is in progress", func() {
+		oldVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+		oldVM.Status.RestoreInProgress = pointer.P("my-vmrestore")
+		newVM := vmWithState(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "y"}})
+		causes := validateVirtualMachineStateImmutability(field, oldVM, newVM)
+		Expect(causes).To(BeEmpty())
 	})
 })
 

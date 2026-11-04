@@ -23,6 +23,7 @@ import "github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 func Register(registry *operatorrules.Registry, namespace string) error {
 	return registry.RegisterRecordingRules(
 		apiRecordingRules,
+		gpuRecordingRules,
 		nodesRecordingRules,
 		operatorRecordingRules,
 		virtRecordingRules(namespace),

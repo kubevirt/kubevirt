@@ -21,15 +21,22 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net"
+	"slices"
 	"time"
 
 	expect "github.com/google/goexpect"
+	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -44,10 +51,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -60,6 +71,11 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	crossClusterNetworkCIDR   = "172.22.42.0/24"
+	crossClusterNetworkPrefix = "172.22.42"
 )
 
 var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDecentralizedLiveMigration, func() {
@@ -457,14 +473,6 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				}, 300)).To(Succeed(), "the state of the TPM did not persist")
 			}
 
-			checkEFI := func(vmi *v1.VirtualMachineInstance) {
-				By("Ensuring the efivar is present")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "hexdump /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
-					&expect.BExp{R: "0042"},
-				}, 10)).To(Succeed(), "expected efivar is missing")
-			}
-
 			addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
 				By("Storing a secret into the TPM")
 				// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
@@ -480,14 +488,6 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 					&expect.BExp{R: ""},
 				}, 300)).To(Succeed(), "failed to store secret into the TPM")
 				checkTPM(vmi)
-			}
-
-			addDataToEFI := func(vmi *v1.VirtualMachineInstance) {
-				By("Creating an efivar")
-				cmd := `printf "\x07\x00\x00\x00\x42" > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc`
-				err := console.RunCommand(vmi, cmd, 10*time.Second)
-				Expect(err).NotTo(HaveOccurred())
-				checkEFI(vmi)
 			}
 
 			var currentBackendStorageClass string
@@ -517,7 +517,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				Expect(console.LoginToFedora(targetVMI)).To(Succeed())
 				By("Ensuring the TPM and EFI vars contain the same data after stop and start")
 				checkTPM(targetVMI)
-				checkEFI(targetVMI)
+				libvmops.CheckEFITestVariable(targetVMI)
 			}
 
 			verifyComputeLiveMigrate := func(vmi *v1.VirtualMachineInstance) {
@@ -558,7 +558,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				sourceVMI = libwait.WaitUntilVMIReady(sourceVMI, console.LoginToFedora)
 
 				addDataToTPM(sourceVMI)
-				addDataToEFI(sourceVMI)
+				libvmops.WriteEFITestVariable(sourceVMI)
+				libvmops.CheckEFITestVariable(sourceVMI)
 
 				By("Migrating the VMI")
 				targetVM := createReceiverVMFromVMISpec(targetVMI)
@@ -856,7 +857,388 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}
 		})
 	})
+
+	Context("with cross-cluster migration network proxy", Serial, decorators.Multus, decorators.RequiresCrossClusterMigrationProxy, func() {
+		// Enabling DLM + proxy gates and Proxy datapath rolls virt-handler, sync-controller, and other components.
+		const kubevirtConfigRolloutTimeout = 10 * time.Minute
+
+		var (
+			originalKubeVirt *v1.KubeVirt
+			crossClusterNAD  *k8snetworkplumbingwgv1.NetworkAttachmentDefinition
+		)
+
+		BeforeEach(func() {
+			By("Saving original KubeVirt configuration")
+			originalKubeVirt = libkubevirt.GetCurrentKv(virtClient)
+
+			By("Creating cross-cluster network attachment definition")
+			crossClusterNAD = generateCrossClusterNetworkAttachmentDefinition()
+			var err error
+			crossClusterNAD, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(crossClusterNAD.Namespace).Create(
+				context.Background(),
+				crossClusterNAD,
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Enabling DecentralizedLiveMigration and CrossClusterMigrationProxy feature gates")
+			config := originalKubeVirt.Spec.Configuration.DeepCopy()
+			if config.DeveloperConfiguration == nil {
+				config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+			config.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
+				config.DeveloperConfiguration.DisabledFeatureGates,
+				func(fg string) bool {
+					return fg == "DecentralizedLiveMigration" || fg == "CrossClusterMigrationProxy"
+				},
+			)
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration")
+			}
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy")
+			}
+			if config.MigrationConfiguration == nil {
+				config.MigrationConfiguration = &v1.MigrationConfiguration{}
+			}
+			config.MigrationConfiguration.DecentralizedLiveMigrationDatapath = pointer.P(v1.DecentralizedLiveMigrationDatapathProxy)
+			config.MigrationConfiguration.CrossClusterNetwork = pointer.P(crossClusterNAD.Name)
+			kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(*config, kubevirtConfigRolloutTimeout)
+			By("Ensuring that synchronization address is properly propagated to the KubeVirt CR")
+			Eventually(func() []string {
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				return kv.Status.SynchronizationAddresses
+			}, 120*time.Second, 2*time.Second).Should(ContainElement(HavePrefix(crossClusterNetworkPrefix)), "Synchronization address should be properly propagated to the KubeVirt CR")
+
+			By("Verifying connectionURL is in crosscluster network range")
+			connectionURL, err = getKubevirtSynchronizationSyncAddress(virtClient)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(connectionURL).To(HavePrefix(crossClusterNetworkPrefix), "connectionURL should be in crosscluster network range (%s), got %s", crossClusterNetworkCIDR, connectionURL)
+		})
+
+		AfterEach(func() {
+			By("Restoring original KubeVirt configuration")
+			if originalKubeVirt != nil {
+				kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(originalKubeVirt.Spec.Configuration, kubevirtConfigRolloutTimeout)
+			}
+
+			By("Deleting cross-cluster network attachment definition")
+			if crossClusterNAD != nil {
+				err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(crossClusterNAD.Namespace).Delete(
+					context.Background(),
+					crossClusterNAD.Name,
+					metav1.DeleteOptions{},
+				)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+		})
+
+		It("should successfully migrate using proxy", func() {
+			By("Creating source VM")
+			sourceVMI := libvmifact.NewAlpine(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+
+			By("Creating target VM in different namespace")
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+			createReceiverVMFromVMISpec(targetVMI)
+
+			By("Verifying synchronization controllers have cross-cluster network attached")
+			Eventually(func() []string {
+				return getSyncControllerNetworkInterfaces(virtClient)
+			}, 120*time.Second, 2*time.Second).Should(ContainElement("crosscluster0"), "Sync controllers should have cross-cluster network attached")
+
+			By("Starting cross-namespace migration")
+			migrationID := fmt.Sprintf("mig-proxy-%s", rand.String(5))
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+
+			By("Running migration and waiting for completion")
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+
+			By("Verifying migration completed successfully")
+			libmigration.ConfirmVMIPostMigration(virtClient, targetVMI, targetMigration)
+
+			By("Verifying VM is functional after migration")
+			Expect(console.LoginToAlpine(targetVMI)).To(Succeed())
+
+			By("Cleaning up migration resources")
+			deleteMigration(sourceMigration)
+			deleteMigration(targetMigration)
+
+			By("Cleaning up VMs")
+			deleteVM(sourceVM)
+		})
+	})
+
+	Context("with synchronization endpoint discovery via labeled resources", Serial, func() {
+		// Enabling DLM + proxy gates and Proxy datapath rolls virt-handler, sync-controller, and other components.
+		const kubevirtConfigRolloutTimeout = 10 * time.Minute
+
+		const (
+			syncEndpointResourceName         = "sync-endpoint-e2e"
+			syncEndpointRouteHost            = "sync-endpoint-route.example.com"
+			syncEndpointIngressHost          = "sync-endpoint.example.com"
+			syncEndpointServicePort          = int32(9185)
+			syncEndpointConditionFoundReason = "SynchronizationEndpointFound"
+		)
+
+		var originalKubeVirt *v1.KubeVirt
+
+		BeforeEach(func() {
+			By("Saving original KubeVirt configuration")
+			originalKubeVirt = libkubevirt.GetCurrentKv(virtClient)
+
+			By("Enabling DecentralizedLiveMigration proxy datapath without crossClusterNetwork")
+			config := originalKubeVirt.Spec.Configuration.DeepCopy()
+			if config.DeveloperConfiguration == nil {
+				config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+			}
+			config.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
+				config.DeveloperConfiguration.DisabledFeatureGates,
+				func(fg string) bool {
+					return fg == "DecentralizedLiveMigration" || fg == "CrossClusterMigrationProxy"
+				},
+			)
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "DecentralizedLiveMigration")
+			}
+			if !slices.Contains(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy") {
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, "CrossClusterMigrationProxy")
+			}
+			if config.MigrationConfiguration == nil {
+				config.MigrationConfiguration = &v1.MigrationConfiguration{}
+			}
+			config.MigrationConfiguration.DecentralizedLiveMigrationDatapath = pointer.P(v1.DecentralizedLiveMigrationDatapathProxy)
+			config.MigrationConfiguration.CrossClusterNetwork = nil
+			kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(*config, kubevirtConfigRolloutTimeout)
+		})
+
+		AfterEach(func() {
+			By("Cleaning up labeled synchronization endpoint resources")
+			if checks.IsOpenShift() {
+				err := virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Delete(
+					context.Background(), syncEndpointResourceName, metav1.DeleteOptions{})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			err := virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), syncEndpointResourceName, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			err = virtClient.CoreV1().Services(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), syncEndpointResourceName, metav1.DeleteOptions{})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			By("Restoring original KubeVirt configuration")
+			if originalKubeVirt != nil {
+				kvconfig.UpdateKubeVirtConfigValueAndWaitWithTimeout(originalKubeVirt.Spec.Configuration, kubevirtConfigRolloutTimeout)
+			}
+		})
+
+		expectSynchronizationEndpoint := func(expectedAddress string) {
+			Eventually(func(g Gomega) {
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				g.Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{expectedAddress}))
+
+				var cond *v1.KubeVirtCondition
+				for i := range kv.Status.Conditions {
+					if kv.Status.Conditions[i].Type == v1.KubeVirtConditionSynchronizationEndpoint {
+						cond = &kv.Status.Conditions[i]
+						break
+					}
+				}
+				g.Expect(cond).ToNot(BeNil(), "SynchronizationEndpoint condition should be set")
+				g.Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				g.Expect(cond.Reason).To(Equal(syncEndpointConditionFoundReason))
+			}, 2*time.Minute, 2*time.Second).Should(Succeed())
+		}
+
+		It("should discover labeled Service, Ingress and Route endpoints by priority", func() {
+			By("Creating a labeled Service synchronization endpoint")
+			_, err := virtClient.CoreV1().Services(flags.KubeVirtInstallNamespace).Create(
+				context.Background(),
+				&k8sv1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      syncEndpointResourceName,
+						Namespace: flags.KubeVirtInstallNamespace,
+						Labels: map[string]string{
+							v1.SynchronizationEndpointLabel: "true",
+						},
+					},
+					Spec: k8sv1.ServiceSpec{
+						Ports: []k8sv1.ServicePort{
+							{
+								Name:     "grpc",
+								Port:     syncEndpointServicePort,
+								Protocol: k8sv1.ProtocolTCP,
+							},
+						},
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the operator to advertise the Service DNS name")
+			expectedService := net.JoinHostPort(
+				fmt.Sprintf("%s.%s.svc", syncEndpointResourceName, flags.KubeVirtInstallNamespace),
+				fmt.Sprintf("%d", syncEndpointServicePort),
+			)
+			expectSynchronizationEndpoint(expectedService)
+
+			By("Creating a labeled Ingress that should take priority over the Service")
+			_, err = virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Create(
+				context.Background(),
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      syncEndpointResourceName,
+						Namespace: flags.KubeVirtInstallNamespace,
+						Labels: map[string]string{
+							v1.SynchronizationEndpointLabel: "true",
+						},
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{
+							{Host: syncEndpointIngressHost},
+						},
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the operator to advertise the Ingress host")
+			expectSynchronizationEndpoint(net.JoinHostPort(syncEndpointIngressHost, "443"))
+
+			if !checks.IsOpenShift() {
+				return
+			}
+
+			By("Creating a labeled Route that should take priority over the Ingress")
+			_, err = virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Create(
+				context.Background(),
+				&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      syncEndpointResourceName,
+						Namespace: flags.KubeVirtInstallNamespace,
+						Labels: map[string]string{
+							v1.SynchronizationEndpointLabel: "true",
+						},
+					},
+					Spec: routev1.RouteSpec{
+						Host: syncEndpointRouteHost,
+						To: routev1.RouteTargetReference{
+							Kind: "Service",
+							Name: components.VirtSynchronizationControllerServiceName,
+						},
+						Port: &routev1.RoutePort{
+							TargetPort: intstr.FromString("sync"),
+						},
+						TLS: &routev1.TLSConfig{
+							Termination:                   routev1.TLSTerminationPassthrough,
+							InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyNone,
+						},
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Resolving the Route host")
+			var host string
+			Eventually(func() string {
+				route, err := virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Get(
+					context.Background(), syncEndpointResourceName, metav1.GetOptions{})
+				if err != nil {
+					return ""
+				}
+				host = route.Spec.Host
+				for i := range route.Status.Ingress {
+					if route.Status.Ingress[i].Host != "" {
+						host = route.Status.Ingress[i].Host
+						break
+					}
+				}
+				return host
+			}, 2*time.Minute, 2*time.Second).ShouldNot(BeEmpty())
+
+			By("Waiting for the operator to advertise the Route host")
+			expectSynchronizationEndpoint(net.JoinHostPort(host, "443"))
+		})
+	})
 }))
+
+func generateCrossClusterNetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
+	config := map[string]interface{}{
+		"cniVersion": "0.3.1",
+		"name":       "crosscluster-bridge",
+		"type":       "bridge",
+		"bridge":     "br-crosscluster",
+		"ipam": map[string]string{
+			"type":  "whereabouts",
+			"range": crossClusterNetworkCIDR,
+		},
+	}
+
+	configJSON, err := json.Marshal(config)
+	Expect(err).ToNot(HaveOccurred())
+
+	return &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "crosscluster-cni",
+			Namespace: flags.KubeVirtInstallNamespace,
+		},
+		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{
+			Config: string(configJSON),
+		},
+	}
+}
+
+func getSyncControllerNetworkInterfaces(virtClient kubecli.KubevirtClient) []string {
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		context.Background(),
+		metav1.ListOptions{LabelSelector: "kubevirt.io=virt-synchronization-controller"},
+	)
+	if err != nil || len(pods.Items) == 0 {
+		return nil
+	}
+
+	// Prefer a pod that already has crosscluster0 attached. Returning on the first
+	// pod with any interface can miss the cross-cluster NIC during rollout.
+	var fallback []string
+	for i := range pods.Items {
+		var ifaces []string
+		hasCrossCluster := false
+		for _, network := range multus.NetworkStatusesFromPod(&pods.Items[i]) {
+			if network.Interface == "" {
+				continue
+			}
+			ifaces = append(ifaces, network.Interface)
+			if network.Interface == virtv1.CrossClusterMigrationInterfaceName {
+				hasCrossCluster = true
+			}
+		}
+		if hasCrossCluster {
+			return ifaces
+		}
+		if len(fallback) == 0 && len(ifaces) > 0 {
+			fallback = ifaces
+		}
+	}
+
+	return fallback
+}
 
 func getKubevirtSynchronizationSyncAddress(virtClient kubecli.KubevirtClient) (string, error) {
 	kv := libkubevirt.GetCurrentKv(virtClient)

@@ -58,6 +58,7 @@ function up() {
         echo -e "$params"
         exit 1
     fi
+    "${KUBEVIRTCI_PATH}/check.sh"
     eval ${_cli:?} run $params
 
     cli_scp_command "${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf" ".kubeconfig"
@@ -105,6 +106,10 @@ function up() {
 
     if [[ "${KUBEVIRT_USE_FAKE_VFIO}" == "true" ]]; then
         "${KUBEVIRTCI_PATH}/cluster/${KUBEVIRT_PROVIDER}/config_vfio_cluster.sh"
+    fi
+
+    if [[ "${KUBEVIRT_USE_DRA_CPU}" == "true" ]]; then
+        "${KUBEVIRTCI_PATH}/cluster/dra-cpu/install_dra_driver_cpu.sh"
     fi
 }
 

@@ -25,10 +25,10 @@ import (
 )
 
 type SafeData[T comparable] struct {
-	m           sync.Mutex
-	initialized bool
-	dirtyChanel chan<- struct{}
-	data        T
+	m            sync.Mutex
+	initialized  bool
+	dirtyChannel chan<- struct{}
+	data         T
 }
 
 // Load reads and returns safely the data and a flag.
@@ -80,11 +80,11 @@ func (d *SafeData[T]) WithSafeBlock(f func(data *T, initialized bool)) {
 // notify sends a signal to notify listeners of a change in the data.
 // The operation is non-blocking.
 func (d *SafeData[T]) notify() {
-	if d.dirtyChanel == nil {
+	if d.dirtyChannel == nil {
 		return
 	}
 	select {
-	case d.dirtyChanel <- struct{}{}:
+	case d.dirtyChannel <- struct{}{}:
 	default:
 	}
 }

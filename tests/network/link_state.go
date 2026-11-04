@@ -64,10 +64,8 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 	It("status and guest should show correct iface state", func() {
 		testNamespace := testsuite.GetTestNamespace(nil)
-		mac1, err := libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
-		mac2, err := libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
+		mac1 := libnet.GenerateRandomMac()
+		mac2 := libnet.GenerateRandomMac()
 
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(v1.Interface{
@@ -91,7 +89,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		)
 
 		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		vm, err = kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).
@@ -148,10 +146,8 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 	It("status and guest should show iface is down when vm with ifaces down is migrated", func() {
 		testNamespace := testsuite.GetTestNamespace(nil)
-		mac1, err := libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
-		mac2, err := libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
+		mac1 := libnet.GenerateRandomMac()
+		mac2 := libnet.GenerateRandomMac()
 
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(v1.Interface{
@@ -175,7 +171,7 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 		)
 
 		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-		vm, err = kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(matcher.ThisVM(vm)).

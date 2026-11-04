@@ -41,6 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = Describe("Virt remote commands", func() {
@@ -91,6 +92,19 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("client", func() {
+		It("should preserve migration gRPC status errors when the response is nil", func() {
+			mockCmdClient := cmdv1.NewMockCmdClient(gomock.NewController(GinkgoT()))
+			client := newV1Client(mockCmdClient, nil)
+			grpcErr := status.Error(codes.InvalidArgument, "invalid migration request")
+			mockCmdClient.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Return(nil, grpcErr)
+
+			err := client.MigrateVirtualMachine(vmi, &MigrationOptions{})
+
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+			Expect(errors.Is(err, grpcErr)).To(BeTrue())
+		})
+
 		It("socket from UID", func() {
 			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -301,39 +315,144 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).To(MatchError(ContainSubstring("no display")))
 			})
 
-			It("RedefineCheckpoint should succeed", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					&cmdv1.RedefineCheckpointResponse{
-						Response: &cmdv1.Response{Success: true},
+			It("GetVMStats should succeed", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response:          &cmdv1.Response{Success: true},
+						GuestAgentVersion: &cmdv1.Response{Success: true, Message: "5.2"},
+						GuestGetLoad:      &cmdv1.Response{Success: true, Message: "load-data"},
 					}, nil,
 				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{GuestGetLoad: &cmdv1.AgentLoadRequest{}})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(checkpointInvalid).To(BeFalse())
+				Expect(vmStats.GuestAgentVersion).To(Equal("5.2"))
+				Expect(vmStats.GuestGetLoad).To(Equal("load-data"))
+				Expect(vmStats.Errors).To(BeEmpty())
 			})
 
-			It("RedefineCheckpoint should propagate gRPC status errors", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					nil, status.Errorf(codes.Internal, "checkpoint error"),
+			It("GetVMStats should propagate gRPC status errors", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					nil, status.Errorf(codes.Internal, "vm stats failed"),
 				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
+				_, err := client.GetVMStats(&cmdv1.VMStatsRequest{GuestGetLoad: &cmdv1.AgentLoadRequest{}})
 				Expect(err).To(MatchError(ContainSubstring("Internal")))
-				Expect(checkpointInvalid).To(BeFalse())
 			})
 
-			It("RedefineCheckpoint should return legacy error with CheckpointInvalid", func() {
-				mockCmdClient.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(
-					&cmdv1.RedefineCheckpointResponse{
-						Response:          &cmdv1.Response{Success: false, Message: "invalid checkpoint"},
-						CheckpointInvalid: true,
+			It("GetVMStats should report a failed guest agent command without dropping the other data", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response:          &cmdv1.Response{Success: false, Message: "agent data guest-get-devices: not found"},
+						GuestAgentVersion: &cmdv1.Response{Success: true, Message: "5.2"},
+						GuestGetLoad:      &cmdv1.Response{Success: true, Message: "load-data"},
+						GuestGetDevices:   &cmdv1.Response{Success: false, Message: "guest agent command failed: not found"},
+						DomainStats: &cmdv1.DomainStatsResponse{
+							Response:    &cmdv1.Response{Success: true},
+							DomainStats: `{"Name":"test-domain"}`,
+						},
 					}, nil,
 				)
-				vmi := api.NewMinimalVMI("test")
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, nil)
-				Expect(err).To(MatchError(ContainSubstring("invalid checkpoint")))
-				Expect(checkpointInvalid).To(BeTrue())
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+					DomainStats:     &cmdv1.DomainStatsRequest{},
+					GuestGetLoad:    &cmdv1.AgentLoadRequest{},
+					GuestGetDevices: &cmdv1.AgentDevicesRequest{},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmStats.GuestAgentVersion).To(Equal("5.2"))
+				Expect(vmStats.GuestGetLoad).To(Equal("load-data"))
+				Expect(vmStats.DomainStats.Name).To(Equal("test-domain"))
+				Expect(vmStats.GuestGetDevices).To(BeEmpty())
+				Expect(vmStats.Errors).To(HaveKeyWithValue("guest-get-devices", ContainSubstring("not found")))
+			})
+
+			It("GetVMStats should report a failed domain stats collection without dropping the other data", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response: &cmdv1.Response{Success: false, Message: "domain stats: libvirt error"},
+						DomainStats: &cmdv1.DomainStatsResponse{
+							Response: &cmdv1.Response{Success: false, Message: "libvirt error"},
+						},
+						DirtyRateStats: &cmdv1.DirtyRateStatsResponse{
+							Response:     &cmdv1.Response{Success: true},
+							DirtyRateMbs: 42,
+						},
+					}, nil,
+				)
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+					DomainStats: &cmdv1.DomainStatsRequest{},
+					DirtyRate:   &cmdv1.DirtyRateRequest{},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmStats.Errors).To(HaveKeyWithValue("domain-stats", ContainSubstring("libvirt error")))
+				Expect(vmStats.DirtyRateMbps).To(HaveValue(Equal(int64(42))))
+			})
+
+			It("GetVMStats should report a failed dirty rate collection without dropping the other data", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response: &cmdv1.Response{Success: true},
+						DomainStats: &cmdv1.DomainStatsResponse{
+							Response:    &cmdv1.Response{Success: true},
+							DomainStats: `{"Name":"test-domain"}`,
+						},
+						DirtyRateStats: &cmdv1.DirtyRateStatsResponse{
+							Response:     &cmdv1.Response{Success: false, Message: "Dirty rate MegabytesPerSecondSet is false"},
+							DirtyRateMbs: 42,
+						},
+						GuestGetLoad: &cmdv1.Response{Success: true, Message: "load-data"},
+					}, nil,
+				)
+
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+					DomainStats:  &cmdv1.DomainStatsRequest{},
+					DirtyRate:    &cmdv1.DirtyRateRequest{},
+					GuestGetLoad: &cmdv1.AgentLoadRequest{},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmStats.DirtyRateMbps).To(BeNil())
+				Expect(vmStats.Errors).To(HaveKeyWithValue("dirty-rate", ContainSubstring("MegabytesPerSecondSet is false")))
+				Expect(vmStats.DomainStats.Name).To(Equal("test-domain"))
+				Expect(vmStats.GuestGetLoad).To(Equal("load-data"))
+			})
+
+			It("GetVMStats should report malformed domain stats without dropping the other data", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response: &cmdv1.Response{Success: true},
+						DomainStats: &cmdv1.DomainStatsResponse{
+							Response:    &cmdv1.Response{Success: true},
+							DomainStats: "not-json",
+						},
+						GuestGetLoad: &cmdv1.Response{Success: true, Message: "load-data"},
+					}, nil,
+				)
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+					DomainStats:  &cmdv1.DomainStatsRequest{},
+					GuestGetLoad: &cmdv1.AgentLoadRequest{},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmStats.Errors).To(HaveKey("domain-stats"))
+				Expect(vmStats.GuestGetLoad).To(Equal("load-data"))
+			})
+
+			It("GetVMStats should not keep partially decoded domain stats", func() {
+				mockCmdClient.EXPECT().GetVMStats(gomock.Any(), gomock.Any()).Return(
+					&cmdv1.VMStatsResponse{
+						Response: &cmdv1.Response{Success: true},
+						DomainStats: &cmdv1.DomainStatsResponse{
+							Response:    &cmdv1.Response{Success: true},
+							DomainStats: `{"Name":"test-domain","Cpu":"not-an-object"}`,
+						},
+						GuestGetLoad: &cmdv1.Response{Success: true, Message: "load-data"},
+					}, nil,
+				)
+				vmStats, err := client.GetVMStats(&cmdv1.VMStatsRequest{
+					DomainStats:  &cmdv1.DomainStatsRequest{},
+					GuestGetLoad: &cmdv1.AgentLoadRequest{},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmStats.Errors).To(HaveKey("domain-stats"))
+				Expect(vmStats.DomainStats).To(Equal(stats.DomainStats{}))
+				Expect(vmStats.GuestGetLoad).To(Equal("load-data"))
 			})
 		})
 	})

@@ -52,6 +52,7 @@ func ValidateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		causes = append(causes, validatePciAddress(field, idx, disk)...)
 		causes = append(causes, validateBootOrderValue(field, idx, disk)...)
 		causes = append(causes, validateBusSupport(field, idx, disk)...)
+		causes = append(causes, validateReservationBus(field, idx, disk)...)
 		causes = append(causes, validateSerialNumValue(field, idx, disk)...)
 		causes = append(causes, validateSerialNumLength(field, idx, disk)...)
 		causes = append(causes, validateCacheMode(field, idx, disk)...)
@@ -223,8 +224,20 @@ func validateBusSupport(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.St
 	if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread && bus != v1.DiskBusVirtio {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus),
+			Message: fmt.Sprintf("DedicatedIOThreads are not supported for disks on a %s bus", bus),
 			Field:   field.Child("domain", "devices", "disks").Index(idx).String(),
+		})
+	}
+	return causes
+}
+
+func validateReservationBus(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if disk.LUN != nil && disk.LUN.Reservation && disk.LUN.Bus != v1.DiskBusSCSI {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Persistent reservation requires a SCSI bus, but %s was specified", disk.LUN.Bus),
+			Field:   field.Index(idx).Child("lun", "bus").String(),
 		})
 	}
 	return causes
@@ -256,7 +269,7 @@ func validateSerialNumLength(field *k8sfield.Path, idx int, disk v1.Disk) []meta
 
 func validateCacheMode(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack {
+	if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack && disk.Cache != v1.CacheDirectSync {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),

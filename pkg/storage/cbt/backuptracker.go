@@ -20,27 +20,17 @@
 package cbt
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-func trackerNeedsCheckpointRedefinition(tracker *backupv1.VirtualMachineBackupTracker) bool {
-	return tracker != nil &&
-		tracker.Status != nil &&
-		tracker.Status.CheckpointRedefinitionRequired != nil &&
-		*tracker.Status.CheckpointRedefinitionRequired &&
-		tracker.Status.LatestCheckpoint != nil &&
-		tracker.Status.LatestCheckpoint.Name != ""
+func isTrackerDeleting(tracker *backupv1.VirtualMachineBackupTracker) bool {
+	return tracker != nil && tracker.DeletionTimestamp != nil
 }
 
 func (ctrl *VMBackupController) runTrackerWorker() {
@@ -57,10 +47,14 @@ func (ctrl *VMBackupController) ExecuteTracker() bool {
 
 	err := ctrl.executeTracker(key)
 	if err != nil {
-		log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackupTracker %v for redefinition", key)
+		if errors.Is(err, errActiveBackups) {
+			log.Log.V(4).Infof("reenqueuing VirtualMachineBackupTracker %v: %v", key, err)
+		} else {
+			log.Log.Reason(err).Infof("reenqueuing VirtualMachineBackupTracker %v", key)
+		}
 		ctrl.trackerQueue.AddRateLimited(key)
 	} else {
-		log.Log.V(4).Infof("processed VirtualMachineBackupTracker redefinition %v", key)
+		log.Log.V(4).Infof("processed VirtualMachineBackupTracker %v", key)
 		ctrl.trackerQueue.Forget(key)
 	}
 	return true
@@ -68,7 +62,7 @@ func (ctrl *VMBackupController) ExecuteTracker() bool {
 
 func (ctrl *VMBackupController) executeTracker(key string) error {
 	logger := log.Log.With("VirtualMachineBackupTracker", key)
-	logger.V(3).Infof("Processing tracker checkpoint redefinition %s", key)
+	logger.V(3).Infof("Processing tracker %s", key)
 
 	storeObj, exists, err := ctrl.backupTrackerInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -86,84 +80,51 @@ func (ctrl *VMBackupController) executeTracker(key string) error {
 		return fmt.Errorf("unexpected resource %+v", storeObj)
 	}
 
-	if !trackerNeedsCheckpointRedefinition(tracker) {
-		return nil
+	if isTrackerDeleting(tracker) && controller.HasFinalizer(tracker, backupv1.VirtualMachineBackupTrackerFinalizer) {
+		return ctrl.handleTrackerDeletion(tracker)
 	}
 
-	return ctrl.handleCheckpointRedefinition(tracker)
+	return nil
 }
 
-func (ctrl *VMBackupController) handleCheckpointRedefinition(tracker *backupv1.VirtualMachineBackupTracker) error {
+func (ctrl *VMBackupController) handleTrackerDeletion(tracker *backupv1.VirtualMachineBackupTracker) error {
 	logger := log.Log.With("VirtualMachineBackupTracker", tracker.Name)
-	logger.Infof("Handling checkpoint redefinition for tracker %s/%s", tracker.Namespace, tracker.Name)
+	logger.Infof("Handling deletion for tracker %s/%s", tracker.Namespace, tracker.Name)
 
-	vmiName := tracker.Spec.Source.Name
-	vmi, exists, err := ctrl.getVMI(tracker.Namespace, vmiName)
+	hasActiveBackups, err := ctrl.trackerHasActiveBackups(tracker)
 	if err != nil {
-		return fmt.Errorf("failed to get VMI %s/%s: %w", tracker.Namespace, vmiName, err)
+		return fmt.Errorf("failed to check active backups for tracker %s/%s: %w", tracker.Namespace, tracker.Name, err)
 	}
-	if !exists || vmi == nil {
-		return fmt.Errorf("VMI %s/%s not found", tracker.Namespace, vmiName)
+	if hasActiveBackups {
+		return fmt.Errorf("tracker %s/%s has active backups, cannot remove finalizer: %w", tracker.Namespace, tracker.Name, errActiveBackups)
 	}
 
-	checkpoint := tracker.Status.LatestCheckpoint
-	logger.Infof("Calling RedefineCheckpoint for VMI %s with checkpoint %s", vmiName, checkpoint.Name)
+	return ctrl.removeTrackerFinalizer(tracker)
+}
 
-	err = ctrl.client.VirtualMachineInstance(tracker.Namespace).RedefineCheckpoint(context.Background(), vmiName, checkpoint)
+func (ctrl *VMBackupController) trackerHasActiveBackups(tracker *backupv1.VirtualMachineBackupTracker) (bool, error) {
+	trackerKey := fmt.Sprintf("%s/%s", tracker.Namespace, tracker.Name)
+	backupKeys, err := ctrl.backupInformer.GetIndexer().IndexKeys("backupTracker", trackerKey)
 	if err != nil {
-		return ctrl.handleRedefinitionError(tracker, err)
+		return false, err
 	}
 
-	logger.Infof("Checkpoint redefinition successful for tracker %s/%s", tracker.Namespace, tracker.Name)
-	return ctrl.clearRedefinitionFlag(tracker)
-}
-
-func (ctrl *VMBackupController) handleRedefinitionError(tracker *backupv1.VirtualMachineBackupTracker, err error) error {
-	logger := log.Log.With("VirtualMachineBackupTracker", tracker.Name)
-
-	if isCheckpointInvalidError(err) {
-		logger.Warningf("Checkpoint invalid, clearing latestcheckpoint: %v", err)
-		ctrl.recorder.Eventf(tracker, corev1.EventTypeWarning, "CheckpointRedefinitionFailed",
-			"Failed to redefine checkpoint %s: %v. Checkpoint cleared, next backup will be full.",
-			tracker.Status.LatestCheckpoint.Name, err)
-		return ctrl.clearCheckpointAndFlag(tracker)
+	for _, key := range backupKeys {
+		obj, exists, err := ctrl.backupInformer.GetStore().GetByKey(key)
+		if err != nil {
+			return false, fmt.Errorf("failed to get backup %s from store: %w", key, err)
+		}
+		if !exists {
+			continue
+		}
+		backup, ok := obj.(*backupv1.VirtualMachineBackup)
+		if !ok {
+			continue
+		}
+		if !IsBackupTerminal(backup) {
+			return true, nil
+		}
 	}
 
-	logger.Errorf("Checkpoint redefinition failed: %v", err)
-	return err
-}
-
-func isCheckpointInvalidError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := err.Error()
-	return strings.Contains(errStr, "422") && strings.Contains(errStr, "Unprocessable Entity")
-}
-
-func (ctrl *VMBackupController) clearRedefinitionFlag(tracker *backupv1.VirtualMachineBackupTracker) error {
-	return ctrl.patchTrackerStatus(tracker, patch.WithRemove("/status/checkpointRedefinitionRequired"))
-}
-
-func (ctrl *VMBackupController) clearCheckpointAndFlag(tracker *backupv1.VirtualMachineBackupTracker) error {
-	return ctrl.patchTrackerStatus(tracker,
-		patch.WithRemove("/status/checkpointRedefinitionRequired"),
-		patch.WithRemove("/status/latestCheckpoint"),
-	)
-}
-
-func (ctrl *VMBackupController) patchTrackerStatus(tracker *backupv1.VirtualMachineBackupTracker, opts ...patch.PatchOption) error {
-	patchBytes, err := patch.New(opts...).GeneratePayload()
-	if err != nil {
-		return err
-	}
-	_, err = ctrl.client.VirtualMachineBackupTracker(tracker.Namespace).Patch(
-		context.Background(),
-		tracker.Name,
-		types.JSONPatchType,
-		patchBytes,
-		metav1.PatchOptions{},
-		"status",
-	)
-	return err
+	return false, nil
 }

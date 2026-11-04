@@ -26,7 +26,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -99,19 +98,19 @@ var _ = Describe("Input Device Configurator", func() {
 				Expect(domain).To(Equal(expectedDomain))
 			},
 			Entry("amd64 adds no input devices when nil", "amd64", nil, nil),
-			Entry("amd64 adds no input devices when true", "amd64", pointer.P(true), nil),
+			Entry("amd64 adds no input devices when true", "amd64", new(true), nil),
 			Entry("arm64 adds tablet and keyboard when nil", "arm64", nil, []api.Input{
 				{Type: "tablet", Bus: "usb"},
 				{Type: "keyboard", Bus: "usb"},
 			}),
-			Entry("arm64 adds tablet and keyboard when true", "arm64", pointer.P(true), []api.Input{
+			Entry("arm64 adds tablet and keyboard when true", "arm64", new(true), []api.Input{
 				{Type: "tablet", Bus: "usb"},
 				{Type: "keyboard", Bus: "usb"},
 			}),
 			Entry("s390x adds virtio keyboard when nil", "s390x", nil, []api.Input{
 				{Type: "keyboard", Bus: "virtio"},
 			}),
-			Entry("s390x adds virtio keyboard when true", "s390x", pointer.P(true), []api.Input{
+			Entry("s390x adds virtio keyboard when true", "s390x", new(true), []api.Input{
 				{Type: "keyboard", Bus: "virtio"},
 			}),
 		)
@@ -119,7 +118,7 @@ var _ = Describe("Input Device Configurator", func() {
 		DescribeTable("should not add architecture-specific input devices when AutoattachGraphicsDevice is false",
 			func(arch string) {
 				vmi := libvmi.New()
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = new(false)
 				var domain api.Domain
 
 				configurator := compute.NewInputDeviceDomainConfigurator(arch)

@@ -90,6 +90,18 @@ func (t *TimeDefinedCache[T]) Set(value T) {
 	t.setWithoutLock(value)
 }
 
+// Reset drops the cached value, forcing the next Get() to recalculate it.
+func (t *TimeDefinedCache[T]) Reset() {
+	if t.valueLock != nil {
+		t.valueLock.Lock()
+		defer t.valueLock.Unlock()
+	}
+
+	var zero T
+	t.value = zero
+	t.lastRefresh = nil
+}
+
 // KeepValueUpdated will keep the value updated in the cache by calling the re-calculation function every minRefreshDuration
 // until the stopChannel is closed.
 func (t *TimeDefinedCache[T]) KeepValueUpdated(stopChannel chan struct{}) error {

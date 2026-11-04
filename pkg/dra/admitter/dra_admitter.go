@@ -30,6 +30,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -123,6 +124,14 @@ func validateResourceClaims(field *k8sfield.Path, resourceClaims []v1.VirtualMac
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("%s is a required field", claimField.Child("name")),
+				Field:   claimField.Child("name").String(),
+			})
+		} else if claim.Name == dra.CPUClaimRefName {
+			// PodCPUsFromDRA treats this pod-local name as the generated CPU claim,
+			// so a user claim must not take it.
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s %q is reserved", claimField.Child("name"), claim.Name),
 				Field:   claimField.Child("name").String(),
 			})
 		} else if claimNames.Has(claim.Name) {

@@ -380,8 +380,21 @@ var _ = Describe("VirtTemplate", func() {
 			container := dep.Spec.Template.Spec.Containers[0]
 			length := len(container.Args)
 			Expect(length).To(BeNumerically(">=", 2))
-			Expect(container.Args[length-2]).To(Equal("-v"))
+			flag := "-v"
+			if dep.Name == VirtTemplateControllerDeploymentName {
+				flag = "--zap-log-level"
+			}
+			Expect(container.Args[length-2]).To(Equal(flag))
 			Expect(container.Args[length-1]).To(Equal("2"))
 		}
 	})
+
+	DescribeTable("should map verbosity to deployment specific args", func(deploymentName, verbosity string, expected []string) {
+		Expect(verbosityArgs(deploymentName, verbosity)).To(Equal(expected))
+	},
+		Entry("apiserver", VirtTemplateApiserverDeploymentName, "2", []string{"-v", "2"}),
+		Entry("apiserver with 0", VirtTemplateApiserverDeploymentName, "0", []string{"-v", "0"}),
+		Entry("controller", VirtTemplateControllerDeploymentName, "4", []string{"--zap-log-level", "4"}),
+		Entry("controller with 0", VirtTemplateControllerDeploymentName, "0", []string{"--zap-log-level", "info"}),
+	)
 })

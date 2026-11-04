@@ -95,6 +95,9 @@ go-test-cache-save:
 
 test: bazel-test
 
+test-integration:
+	hack/dockerized "go test -race ./tests/integration/... -count=1 -v"
+
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
 
@@ -104,7 +107,7 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+dump:
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
@@ -156,7 +159,6 @@ rpm-deps-cs10:
 rpm-deps-all:
 	$(MAKE) rpm-deps-cs9
 	$(MAKE) rpm-deps-cs10
-	hack/rpm-deps-aliases.sh
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
@@ -312,4 +314,5 @@ vmlog-checker:
 	rpm-deps-all \
 	feature-gate-report \
 	vmlog-checker \
+	test-integration \
 	$(NULL)

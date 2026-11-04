@@ -33,6 +33,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -88,7 +89,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
-		Expect(node.Labels).To(HaveKeyWithValue(virtv1.DeprecatedCPUManager, cpumanager))
+		Expect(node.Labels).ToNot(HaveKey("cpumanager"))
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.CPUManager, cpumanager))
 	},
 		Entry("not schedulable and no cpu manager with no cpu manager file and device plugins are not initialized",
@@ -123,7 +124,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
-		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.DeprecatedCPUManager, false))
+		Expect(node.Labels).ToNot(HaveKey("cpumanager"))
 		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.CPUManager, false))
 	},
 		Entry("not schedulable with no cpumanager label present",
@@ -186,6 +187,39 @@ var _ = Describe("Heartbeat", func() {
 			"true",
 		),
 	)
+
+	Context("virt-handler image fingerprint label", func() {
+		const image = "registry.example.com/kubevirt/virt-handler@sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+
+		It("should label the node once VIRT_HANDLER_IMAGE is set", func() {
+			GinkgoT().Setenv(virtutil.VirtHandlerImageEnvName, image)
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", "/var/lib/kubelet")
+			heartbeat.do()
+
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(virtv1.VirtHandlerImageHashLabel, virtutil.ImageHashLabelValue(image)))
+		})
+
+		It("should not label the node when VIRT_HANDLER_IMAGE is unset", func() {
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", "/var/lib/kubelet")
+			heartbeat.do()
+
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).ToNot(HaveKey(virtv1.VirtHandlerImageHashLabel))
+		})
+
+		It("should also apply the label when marking the node unschedulable", func() {
+			GinkgoT().Setenv(virtutil.VirtHandlerImageEnvName, image)
+			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(), "mynode", "/var/lib/kubelet")
+			heartbeat.labelNodeUnschedulable()
+
+			node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(node.Labels).To(HaveKeyWithValue(virtv1.VirtHandlerImageHashLabel, virtutil.ImageHashLabelValue(image)))
+		})
+	})
 })
 
 type fakeDeviceController struct {

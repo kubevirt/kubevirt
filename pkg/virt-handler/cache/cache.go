@@ -241,7 +241,7 @@ type domainListWatch struct {
 
 func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
+func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
@@ -249,7 +249,7 @@ func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record
 	lw := domainListWatch{&cache.ListWatch{
 		ListWithContextFunc: List,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
+			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails), nil
 		},
 	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)

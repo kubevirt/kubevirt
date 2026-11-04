@@ -166,8 +166,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verify VM will run")
 			libvmops.StartVirtualMachine(vm)
 		},
-			Entry("int type", "2", "2222222"),
-			Entry("float type", "2.2", "2222222.2"),
+			Entry("int type", "2", "22222222"),
+			Entry("float type", "2.2", "22222222.2"),
 		)
 
 		It("[test_id:3161]should carry vm.template.spec.annotations to VMI and ignore vm ones", decorators.Conformance, func() {
@@ -531,6 +531,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			// Timeout is set to 660 seconds to allow for states to toggle twice, i.e.,
 			// 2 worst-case backoff grace periods (5 mins each), and 2 image pull attempts (30 secs each).
 			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
+		})
+
+		It("should report an error status when containerDisks image name is invalid", decorators.WgS390x, func() {
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "http://quay.io/containerdisks/fedora:latest"),
+				libvmi.WithMemoryRequest("128Mi"),
+			)
+
+			vm := createRunningVM(virtClient, vmi)
+
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
+
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.InvalidImageNameReason),
+			)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", decorators.WgS390x, func() {
@@ -1020,7 +1035,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context(" when node becomes unhealthy", decorators.WgS390x, Serial, func() {
+	Context("[QUARANTINE] when node becomes unhealthy", decorators.Quarantine, decorators.Disruptive, decorators.WgS390x, Serial, func() {
 		const componentName = "virt-handler"
 		var nodeName string
 

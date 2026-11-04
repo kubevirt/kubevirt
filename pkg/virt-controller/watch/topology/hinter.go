@@ -1,6 +1,6 @@
 package topology
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE -exclude_interfaces=clusterConfigurer
 
 import (
 	"fmt"
@@ -8,8 +8,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 )
@@ -21,8 +19,12 @@ type Hinter interface {
 	LowestTSCFrequencyOnCluster() (int64, error)
 }
 
+type clusterConfigurer interface {
+	GetMinimumClusterTSCFrequency() *int64
+}
+
 type topologyHinter struct {
-	clusterConfig *virtconfig.ClusterConfig
+	clusterConfig clusterConfigurer
 	nodeStore     cache.Store
 	vmiStore      cache.Store
 }
@@ -81,6 +83,6 @@ func (t *topologyHinter) TSCFrequenciesInUse() []int64 {
 	return frequencies
 }
 
-func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *topologyHinter {
+func NewTopologyHinter(nodeStore cache.Store, vmiStore cache.Store, clusterConfig clusterConfigurer) *topologyHinter {
 	return &topologyHinter{nodeStore: nodeStore, vmiStore: vmiStore, clusterConfig: clusterConfig}
 }

@@ -27,10 +27,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -121,15 +122,17 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 			},
 		}
 		domain.Spec.OS.BootLoader = nil
-		// ARM64 Secure Boot uses uefi-vars firmware descriptors ("device": "memory")
-		// which are incompatible with the pflash <nvram> element. Libvirt manages
-		// variable storage via <varstore> for these descriptors automatically.
-		// For x86_64 pflash firmware, we must keep the explicit <nvram> to preserve
-		// KubeVirt's NVRAM filename convention and prevent format mismatches.
-		if vmi.Spec.Architecture != "arm64" {
+		switch vmi.Spec.Architecture {
+		case "amd64":
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
-				NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+				NVRam:  nvramPath(vmi),
+			}
+		case "arm64":
+			// Use the existing EFI backend-storage mount instead of libvirt's
+			// default varstore directory so ARM64 firmware state persists.
+			domain.Spec.OS.VarStore = &api.VarStore{
+				Path: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.json"),
 			}
 		}
 		return
@@ -149,9 +152,16 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.BootLoader.Type = "pflash"
 		domain.Spec.OS.NVRam = &api.NVRam{
 			Template: o.efiConfiguration.EFIVars,
-			NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			NVRam:    nvramPath(vmi),
 		}
 	}
+}
+
+func nvramPath(vmi *v1.VirtualMachineInstance) string {
+	if util.HasDeclarativeVMState(vmi) {
+		return util.VMStateCanonicalEFIVarsPath()
+	}
+	return filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd")
 }
 
 func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
@@ -167,7 +177,7 @@ func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
 }
 
 func configureKernelBoot(vmi *v1.VirtualMachineInstance, firmware *v1.Firmware, domain *api.Domain) {
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmitrait.HasKernelBootContainerImage(vmi) {
 		configureKernelBootContainer(vmi, firmware.KernelBoot, domain)
 	}
 

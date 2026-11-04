@@ -94,6 +94,10 @@ github.com/davecgh/go-spew/spew
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
 github.com/emicklei/go-restful/v3/log
+# github.com/evanphx/json-patch/v5 v5.9.11
+## explicit; go 1.18
+github.com/evanphx/json-patch/v5
+github.com/evanphx/json-patch/v5/internal/json
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
 github.com/fatih/color
@@ -208,9 +212,6 @@ github.com/gogo/protobuf/sortkeys
 # github.com/golang/protobuf v1.5.4
 ## explicit; go 1.17
 github.com/golang/protobuf/proto
-# github.com/google/btree v1.1.3
-## explicit; go 1.18
-github.com/google/btree
 # github.com/google/cel-go v0.26.0
 ## explicit; go 1.22.0
 github.com/google/cel-go/cel
@@ -384,13 +385,6 @@ github.com/nunnatsa/ginkgolinter/gomegahandler
 github.com/nunnatsa/ginkgolinter/reverseassertion
 github.com/nunnatsa/ginkgolinter/types
 github.com/nunnatsa/ginkgolinter/version
-# github.com/nxadm/tail v1.4.8 => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
-## explicit; go 1.13
-github.com/nxadm/tail
-github.com/nxadm/tail/ratelimiter
-github.com/nxadm/tail/util
-github.com/nxadm/tail/watch
-github.com/nxadm/tail/winfile
 # github.com/oklog/ulid v1.3.1
 ## explicit
 github.com/oklog/ulid
@@ -588,6 +582,10 @@ github.com/wadey/gocovmerge
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
+# go.etcd.io/etcd/client/pkg/v3 v3.6.8
+## explicit; go 1.24.0
+go.etcd.io/etcd/client/pkg/v3/fileutil
+go.etcd.io/etcd/client/pkg/v3/verify
 # go.mongodb.org/mongo-driver v1.14.0
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
@@ -600,6 +598,20 @@ go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/mock v0.5.1
 ## explicit; go 1.22
 go.uber.org/mock/gomock
+# go.uber.org/multierr v1.11.0
+## explicit; go 1.19
+go.uber.org/multierr
+# go.uber.org/zap v1.27.1
+## explicit; go 1.19
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/internal/pool
+go.uber.org/zap/internal/stacktrace
+go.uber.org/zap/zapcore
 # go.yaml.in/yaml/v2 v2.4.3
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
@@ -840,9 +852,6 @@ gopkg.in/evanphx/json-patch.v4
 # gopkg.in/inf.v0 v0.9.1
 ## explicit
 gopkg.in/inf.v0
-# gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
-## explicit
-gopkg.in/tomb.v1
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 # k8s.io/api v0.36.4 => k8s.io/api v0.36.4
@@ -934,6 +943,7 @@ k8s.io/apimachinery/pkg/api/validate/constraints
 k8s.io/apimachinery/pkg/api/validate/content
 k8s.io/apimachinery/pkg/api/validation
 k8s.io/apimachinery/pkg/apis/meta/internalversion
+k8s.io/apimachinery/pkg/apis/meta/internalversion/scheme
 k8s.io/apimachinery/pkg/apis/meta/internalversion/validation
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
@@ -1277,6 +1287,7 @@ k8s.io/client-go/listers/storage/v1
 k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
 k8s.io/client-go/listers/storagemigration/v1beta1
+k8s.io/client-go/metadata
 k8s.io/client-go/openapi
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
@@ -1291,6 +1302,7 @@ k8s.io/client-go/plugin/pkg/client/auth/oidc
 k8s.io/client-go/rest
 k8s.io/client-go/rest/fake
 k8s.io/client-go/rest/watch
+k8s.io/client-go/restmapper
 k8s.io/client-go/testing
 k8s.io/client-go/third_party/forked/golang/template
 k8s.io/client-go/tools/auth
@@ -1329,6 +1341,18 @@ k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/watchlist
 k8s.io/client-go/util/workqueue
+# k8s.io/dynamic-resource-allocation v0.0.0-00010101000000-000000000000 => k8s.io/dynamic-resource-allocation v0.36.4
+## explicit; go 1.26.0
+k8s.io/dynamic-resource-allocation/api/metadata
+k8s.io/dynamic-resource-allocation/api/metadata/install
+k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1
+k8s.io/dynamic-resource-allocation/api/v1beta1
+k8s.io/dynamic-resource-allocation/api/v1beta2
+k8s.io/dynamic-resource-allocation/client
+k8s.io/dynamic-resource-allocation/devicemetadata
+k8s.io/dynamic-resource-allocation/kubeletplugin
+k8s.io/dynamic-resource-allocation/resourceclaim
+k8s.io/dynamic-resource-allocation/resourceslice
 # k8s.io/klog/v2 v2.140.0
 ## explicit; go 1.21
 k8s.io/klog/v2
@@ -1376,6 +1400,12 @@ k8s.io/kube-openapi/pkg/validation/spec
 ## explicit; go 1.26.0
 k8s.io/kubectl/pkg/cmd/util/podcmd
 k8s.io/kubectl/pkg/util
+# k8s.io/kubelet v0.36.4 => k8s.io/kubelet v0.36.4
+## explicit; go 1.26.0
+k8s.io/kubelet/pkg/apis/dra-health/v1alpha1
+k8s.io/kubelet/pkg/apis/dra/v1
+k8s.io/kubelet/pkg/apis/dra/v1beta1
+k8s.io/kubelet/pkg/apis/pluginregistration/v1
 # k8s.io/streaming v0.36.4
 ## explicit; go 1.26.0
 k8s.io/streaming/pkg/httpstream
@@ -1394,6 +1424,7 @@ k8s.io/utils/lru
 k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/ptr
+k8s.io/utils/third_party/forked/golang/btree
 k8s.io/utils/trace
 # kubevirt.io/api v0.0.0-00010101000000-000000000000 => ./staging/src/kubevirt.io/api
 ## explicit; go 1.26.0
@@ -1452,12 +1483,26 @@ mvdan.cc/sh/v3/cmd/shfmt
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/syntax
 mvdan.cc/sh/v3/syntax/typedjson
-# sigs.k8s.io/controller-runtime v0.22.5
-## explicit; go 1.24.0
+# sigs.k8s.io/controller-runtime v0.24.1
+## explicit; go 1.26.0
+sigs.k8s.io/controller-runtime/pkg/client
+sigs.k8s.io/controller-runtime/pkg/client/apiutil
+sigs.k8s.io/controller-runtime/pkg/client/config
 sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue
+sigs.k8s.io/controller-runtime/pkg/conversion
+sigs.k8s.io/controller-runtime/pkg/envtest
+sigs.k8s.io/controller-runtime/pkg/internal/flock
+sigs.k8s.io/controller-runtime/pkg/internal/log
 sigs.k8s.io/controller-runtime/pkg/internal/metrics
+sigs.k8s.io/controller-runtime/pkg/internal/testing/addr
+sigs.k8s.io/controller-runtime/pkg/internal/testing/certs
+sigs.k8s.io/controller-runtime/pkg/internal/testing/controlplane
+sigs.k8s.io/controller-runtime/pkg/internal/testing/process
+sigs.k8s.io/controller-runtime/pkg/log
 sigs.k8s.io/controller-runtime/pkg/metrics
 sigs.k8s.io/controller-runtime/pkg/scheme
+sigs.k8s.io/controller-runtime/pkg/webhook/conversion
+sigs.k8s.io/controller-runtime/pkg/webhook/conversion/metrics
 # sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
 ## explicit; go 1.23
 sigs.k8s.io/json
@@ -1476,6 +1521,9 @@ sigs.k8s.io/structured-merge-diff/v6/value
 # sigs.k8s.io/yaml v1.6.0
 ## explicit; go 1.22
 sigs.k8s.io/yaml
+# tags.cncf.io/container-device-interface/specs-go v1.1.0
+## explicit; go 1.19
+tags.cncf.io/container-device-interface/specs-go
 # k8s.io/api => k8s.io/api v0.36.4
 # k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.36.4
 # k8s.io/apimachinery => k8s.io/apimachinery v0.36.4
@@ -1500,8 +1548,8 @@ sigs.k8s.io/yaml
 # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.36.4
 # k8s.io/sample-controller => k8s.io/sample-controller v0.36.4
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a
-# github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20210105115604-44119421ec6b
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 # github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
+# k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.36.4
 # k8s.io/klog => k8s.io/klog v0.4.0

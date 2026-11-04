@@ -28,6 +28,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	backupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	backupv1beta1 "kubevirt.io/client-go/kubevirt/typed/backup/v1beta1"
 	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 	clonev1beta1 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 	kubevirtv1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
@@ -45,6 +46,7 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	BackupV1alpha1() backupv1alpha1.BackupV1alpha1Interface
+	BackupV1beta1() backupv1beta1.BackupV1beta1Interface
 	CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface
 	CloneV1beta1() clonev1beta1.CloneV1beta1Interface
 	KubevirtV1() kubevirtv1.KubevirtV1Interface
@@ -63,6 +65,7 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	backupV1alpha1      *backupv1alpha1.BackupV1alpha1Client
+	backupV1beta1       *backupv1beta1.BackupV1beta1Client
 	cloneV1alpha1       *clonev1alpha1.CloneV1alpha1Client
 	cloneV1beta1        *clonev1beta1.CloneV1beta1Client
 	kubevirtV1          *kubevirtv1.KubevirtV1Client
@@ -80,6 +83,11 @@ type Clientset struct {
 // BackupV1alpha1 retrieves the BackupV1alpha1Client
 func (c *Clientset) BackupV1alpha1() backupv1alpha1.BackupV1alpha1Interface {
 	return c.backupV1alpha1
+}
+
+// BackupV1beta1 retrieves the BackupV1beta1Client
+func (c *Clientset) BackupV1beta1() backupv1beta1.BackupV1beta1Interface {
+	return c.backupV1beta1
 }
 
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
@@ -190,6 +198,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.backupV1beta1, err = backupv1beta1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.cloneV1alpha1, err = clonev1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -260,6 +272,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.backupV1alpha1 = backupv1alpha1.New(c)
+	cs.backupV1beta1 = backupv1beta1.New(c)
 	cs.cloneV1alpha1 = clonev1alpha1.New(c)
 	cs.cloneV1beta1 = clonev1beta1.New(c)
 	cs.kubevirtV1 = kubevirtv1.New(c)

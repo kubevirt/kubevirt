@@ -20,83 +20,256 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
-	"github.com/nxadm/tail"
+	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/pflag"
-	"golang.org/x/sync/errgroup"
 
 	"kubevirt.io/client-go/log"
 )
+
+var errFileGone = errors.New("file removed or renamed")
+
+// directoryPollInterval is how often to look for the per-VMI log directory.
+// guest-console-log is a native sidecar and starts before compute creates it.
+const directoryPollInterval = 100 * time.Millisecond
+
+var printLine = func(s string) { fmt.Println(s) }
 
 type VirtTail struct {
 	ctx     context.Context
 	logFile string
 }
 
-func (v *VirtTail) tailLogsWrapper() error {
-	location := &tail.SeekInfo{Offset: 0}
+func (v *VirtTail) run() error {
 	for {
-		var err error
-		location, err = v.tailLogs(*location)
+		err := v.tailFile()
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+			// A missing path is normal at startup and whenever the file is
+			// recreated. Exiting makes kubelet back this sidecar off, which
+			// blocks every later container in the launcher pod.
+			if errors.Is(err, errFileGone) || errors.Is(err, os.ErrNotExist) {
+				if errors.Is(err, errFileGone) {
+					log.Log.V(4).Infof("file gone, waiting for re-creation")
+				} else {
+					log.Log.V(4).Infof("log path %s does not exist yet, waiting", v.logFile)
+				}
+				select {
+				case <-v.ctx.Done():
+					return nil
+				case <-time.After(directoryPollInterval):
+				}
+				continue
+			}
 			return err
 		}
-		if location == nil {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
 	}
 }
 
-func (v *VirtTail) tailLogs(location tail.SeekInfo) (*tail.SeekInfo, error) {
-	t, err := tail.TailFile(v.logFile, tail.Config{
-		Location:      &location,
-		Follow:        true,
-		CompleteLines: true,
-		MustExist:     false,
-		ReOpen:        true,
-		Logger:        tail.DiscardingLogger,
-	})
-	if err != nil {
+func (v *VirtTail) waitForFile() (*os.File, error) {
+	f, err := os.Open(v.logFile)
+	if err == nil {
+		return f, nil
+	}
+	if !os.IsNotExist(err) {
 		return nil, err
 	}
-	cleanup := true
-	defer func() {
-		serr := t.Stop()
-		if serr != nil {
-			log.Log.V(3).Infof("tail error: %v", serr)
-		}
-		if cleanup {
-			t.Cleanup()
-		}
-	}()
+
+	dir := filepath.Dir(v.logFile)
+	// compute creates this directory after the sidecar has started. Wait for
+	// it instead of failing watcher.Add with ENOENT.
+	if err := v.waitForDirectory(dir); err != nil {
+		return nil, err
+	}
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("creating watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	if err := watchDirectory(watcher, dir); err != nil {
+		return nil, err
+	}
+
+	// Re-check after watch is established to avoid race
+	f, err = os.Open(v.logFile)
+	if err == nil {
+		return f, nil
+	}
 
 	for {
 		select {
-		case line, ok := <-t.Lines:
-			if !ok {
-				log.Log.V(4).Info("tail error: chan closed")
-				cleanup = false
-				return &location, nil
-			} else if line != nil {
-				location = line.SeekInfo
-				if line.Err != nil {
-					log.Log.V(3).Infof("tail error: %v", line.Err)
-				} else {
-					fmt.Println(line.Text)
-				}
-			}
 		case <-v.ctx.Done():
 			return nil, v.ctx.Err()
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return nil, fmt.Errorf("watcher closed")
+			}
+			if event.Name == v.logFile && event.Has(fsnotify.Create) {
+				f, err := os.Open(v.logFile)
+				if err == nil {
+					return f, nil
+				}
+				log.Log.V(3).Infof("file appeared but open failed: %v", err)
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return nil, fmt.Errorf("watcher error channel closed")
+			}
+			log.Log.V(3).Infof("watcher error: %v", err)
+		case <-time.After(5 * time.Second):
+			// Polling fallback
+			f, err = os.Open(v.logFile)
+			if err == nil {
+				return f, nil
+			}
 		}
+	}
+}
+
+func (v *VirtTail) tailFile() error {
+	f, err := v.waitForFile()
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	dir := filepath.Dir(v.logFile)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return fmt.Errorf("creating watcher: %w", err)
+	}
+	defer watcher.Close()
+
+	if err := watchDirectory(watcher, dir); err != nil {
+		return err
+	}
+
+	var lineBuf strings.Builder
+	defer func() {
+		if lineBuf.Len() > 0 {
+			printLine(lineBuf.String())
+		}
+	}()
+	const readBufSize = 32 * 1024 // 32 KiB read buffer
+	buf := make([]byte, readBufSize)
+
+	for {
+		n, readErr := f.Read(buf)
+		if n > 0 {
+			processData(&lineBuf, buf[:n])
+		}
+
+		if readErr != nil && readErr != io.EOF {
+			return fmt.Errorf("read error: %w", readErr)
+		}
+
+		if readErr == io.EOF {
+			if err := v.waitForChange(watcher); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// waitForDirectory blocks until dir exists. The launcher pod runs this
+// sidecar before compute creates /var/run/kubevirt-private/<vmi-uid>.
+func (v *VirtTail) waitForDirectory(dir string) error {
+	logged := false
+	ticker := time.NewTicker(directoryPollInterval)
+	defer ticker.Stop()
+
+	for {
+		info, err := os.Stat(dir)
+		if err == nil {
+			if !info.IsDir() {
+				return fmt.Errorf("log directory %s is not a directory", dir)
+			}
+			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if !logged {
+			log.Log.V(3).Infof("waiting for directory %s to be created", dir)
+			logged = true
+		}
+
+		select {
+		case <-v.ctx.Done():
+			return v.ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+// watchDirectory adds dir to watcher. A missing directory is reported as
+// errFileGone so run retries instead of exiting.
+func watchDirectory(watcher *fsnotify.Watcher, dir string) error {
+	if err := watcher.Add(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return errFileGone
+		}
+		return fmt.Errorf("watching directory %s: %w", dir, err)
+	}
+	return nil
+}
+
+func (v *VirtTail) waitForChange(watcher *fsnotify.Watcher) error {
+	for {
+		select {
+		case <-v.ctx.Done():
+			return v.ctx.Err()
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return fmt.Errorf("watcher closed")
+			}
+			if event.Name != v.logFile {
+				continue
+			}
+			if event.Has(fsnotify.Write) {
+				return nil
+			}
+			if event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
+				return errFileGone
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return fmt.Errorf("watcher error channel closed")
+			}
+			log.Log.V(3).Infof("watcher error: %v", err)
+		case <-time.After(2 * time.Second):
+			return nil
+		}
+	}
+}
+
+func processData(lineBuf *strings.Builder, data []byte) {
+	for len(data) > 0 {
+		idx := bytes.IndexByte(data, '\n')
+		if idx < 0 {
+			lineBuf.Write(data)
+			return
+		}
+		lineBuf.Write(data[:idx])
+		printLine(lineBuf.String())
+		lineBuf.Reset()
+		data = data[idx+1:]
 	}
 }
 
@@ -114,31 +287,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create context that listens for the interrupt signal from the container runtime.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	g, gctx := errgroup.WithContext(ctx)
-
 	v := &VirtTail{
-		ctx:     gctx,
+		ctx:     ctx,
 		logFile: *logFile,
 	}
 
-	g.Go(v.tailLogsWrapper)
-
-	// wait for all errgroup goroutines
-	if err := g.Wait(); err != nil {
+	if err := v.run(); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.Log.V(3).Infof("received error: %v", err)
 			os.Exit(1)
 		}
-		// Exit cleanly on clean termination errors
 	}
 }
 
 func setTailLogverbosity() {
-	// check if virt-launcher verbosity should be changed
 	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
 		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
 			log.Log.SetVerbosityLevel(verbosity)

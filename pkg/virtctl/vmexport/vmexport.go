@@ -22,6 +22,7 @@ package vmexport
 import (
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -54,6 +55,7 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -849,11 +851,8 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
 func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
-	// Securely randomize a 20 char string to be used as a token
-	token, err := util.GenerateVMExportToken()
-	if err != nil {
-		return nil, err
-	}
+	// Securely randomize a string to be used as a token
+	token := rand.Text()
 
 	ownerRef := metav1.NewControllerRef(vmexport, schema.GroupVersionKind{
 		Group:   exportv1.SchemeGroupVersion.Group,
@@ -876,7 +875,7 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		},
 	}
 
-	secret, err = client.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	secret, err := client.CoreV1().Secrets(vmexport.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
@@ -1170,8 +1169,9 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
-	// Set up the port forwarding ports
-	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, "443", *service, podList.Items[0])
+	// Set up the port forwarding ports. ClusterIP export Services expose 443
+	// (kube-proxy remaps to 8443); headless Services expose 8443 directly.
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, strconv.Itoa(int(storagetypes.ExportServiceDialPort(service))), *service, podList.Items[0])
 	if err != nil {
 		return nil, err
 	}

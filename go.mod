@@ -37,7 +37,6 @@ require (
 	github.com/mitchellh/go-vnc v0.0.0-20150629162542-723ed9867aed
 	github.com/moby/sys/mountinfo v0.7.2
 	github.com/nunnatsa/ginkgolinter v0.14.0
-	github.com/nxadm/tail v1.4.8
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/opencontainers/cgroups v0.0.6
@@ -71,6 +70,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.36.4
 	k8s.io/apimachinery v0.36.4
 	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/dynamic-resource-allocation v0.0.0-00010101000000-000000000000
 	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.31.0
 	k8s.io/kubectl v0.0.0-00010101000000-000000000000
@@ -86,9 +86,10 @@ require (
 	libguestfs.org/libnbd v1.25.2-5-g48df7c4d2b
 	libvirt.org/go/libvirt v1.12003.0
 	libvirt.org/go/libvirtxml v1.12002.0
-	sigs.k8s.io/controller-runtime v0.22.5
+	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
+	tags.cncf.io/container-device-interface/specs-go v1.1.0
 )
 
 require (
@@ -103,6 +104,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
@@ -127,7 +129,6 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/go-toolsmith/astcopy v1.1.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
@@ -160,7 +161,10 @@ require (
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	github.com/x448/float16 v0.8.4 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.8 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.1 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect
@@ -172,9 +176,9 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/apiserver v0.36.4 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
+	k8s.io/kubelet v0.36.4 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	mvdan.cc/sh/v3 v3.8.0 // indirect
@@ -185,7 +189,6 @@ require (
 require github.com/google/goterm v0.0.0-20190311235235-ce302be1d114 // indirect; indirect github.com/gophercloud/gophercloud v0.4.0 // indirect
 
 replace (
-	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20210105115604-44119421ec6b
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
@@ -201,6 +204,7 @@ replace (
 	k8s.io/component-base => k8s.io/component-base v0.36.4
 	k8s.io/cri-api => k8s.io/cri-api v0.36.4
 	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.36.4
+	k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.36.4
 	k8s.io/klog => k8s.io/klog v0.4.0
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.36.4
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.36.4

@@ -135,6 +135,10 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 	if vm == nil {
 		return fmt.Errorf("cannot validate the migrated volumes for an empty VM")
 	}
+	if controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue) {
+		return fmt.Errorf("cannot migrate the volumes of %s/%s, its disks are on snapshot overlays", vmi.Namespace, vmi.Name)
+	}
 	updatedVols := updatedVolumesMapping(vmi, vm)
 	valid := true
 	disks := storagetypes.GetDisksByName(&vmi.Spec)
@@ -464,6 +468,26 @@ func PatchVMIVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachin
 		return nil, err
 	}
 	return clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+}
+
+// MigratedVolumesMatchVMSpec is a helper to determine if the destination in the migrated volumes match VM spec
+func MigratedVolumesMatchVMSpec(migratedVols []virtv1.StorageMigratedVolumeInfo, vmSpec *virtv1.VirtualMachineInstanceSpec) bool {
+	vmVols := make(map[string]string)
+	for _, v := range vmSpec.Volumes {
+		if claim := storagetypes.PVCNameFromVirtVolume(&v); claim != "" {
+			vmVols[v.Name] = claim
+		}
+	}
+	for _, mv := range migratedVols {
+		if mv.DestinationPVCInfo == nil {
+			return false
+		}
+		vmClaim, ok := vmVols[mv.VolumeName]
+		if !ok || vmClaim != mv.DestinationPVCInfo.ClaimName {
+			return false
+		}
+	}
+	return true
 }
 
 // ValidateVolumesUpdateMigration checks if the VMI can be update with the volume migration. For example, for certain VMs, the migration is not allowed for other reasons then the storage

@@ -679,12 +679,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
 
-		It("should fail when the volume migration in ongoing", func() {
+		DescribeTable("should refuse a start that manual recovery blocks", func(reason string) {
 			vmi := libvmi.New()
 			vm := libvmi.NewVirtualMachine(vmi)
 			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
 				Type:   v1.VirtualMachineManualRecoveryRequired,
 				Status: k8sv1.ConditionTrue,
+				Reason: reason,
 			})
 			request.PathParameters()["name"] = vm.Name
 			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -694,6 +695,25 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
+		},
+			Entry("volume migration", ""),
+			Entry("another recovery reason", "OtherRecovery"),
+		)
+
+		It("should accept a start that recovers uncommitted snapshot overlays", func() {
+			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
+			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+				Type:   v1.VirtualMachineManualRecoveryRequired,
+				Status: k8sv1.ConditionTrue,
+				Reason: "UncommittedOverlays",
+			})
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(nil, nil)
+			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), k8smetav1.PatchOptions{}).Return(vm, nil)
+
+			app.StartVMRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 		})
 	})
 
@@ -1224,6 +1244,54 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnfreezeVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+	})
+
+	Context("Snapshot overlays", func() {
+		It("Should start an external snapshot of a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/externalsnapshot"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(Running, UnPaused)
+
+			app.ExternalSnapshotVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail starting an external snapshot of a not running VMI", func() {
+			expectVMI(NotRunning, UnPaused)
+
+			app.ExternalSnapshotVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should commit the overlays of a running VMI", func() {
+			backend.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/commitsnapshot"),
+					ghttp.RespondWith(http.StatusOK, ""),
+				),
+			)
+
+			expectVMI(Running, UnPaused)
+
+			app.CommitSnapshotVMIRequestHandler(request, response)
+
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+		})
+
+		It("Should fail committing the overlays of a not running VMI", func() {
+			expectVMI(NotRunning, UnPaused)
+
+			app.CommitSnapshotVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 	})
 

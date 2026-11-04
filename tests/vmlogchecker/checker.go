@@ -250,33 +250,28 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	},
 	{
 		ID:    47,
-		Regex: regexp.MustCompile(`"level":"error","msg":"dirty virt-launcher shutdown: exit-code 2","pos":"virt-launcher-monitor.go`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"dirty virt-launcher shutdown: exit-code 2"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    48,
-		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read qemu log directory","pos":"virt-launcher-monitor.go`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"failed to read qemu log directory`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    49,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"client.go.*"reason":".*context deadline exceeded"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to connect to notify server|Could not send domain notify event\.)","pos":"(client|grpcclient)\.go.*"reason":".*context deadline exceeded"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    50,
-		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to send domain notify event|failed to notify domain event)\. closing connection\.","pos":"client.go.*"reason":"rpc error: code = [^"]+"`),
+		Regex: regexp.MustCompile(`"level":"error","msg":"(Failed to send domain notify event|failed to notify domain event)\. closing connection\.","pos":"(client|grpcclient)\.go.*"reason":"rpc error: code = [^"]+"`),
 		SIGs:  SIGCompute | SIGPerformance | SIGStorage,
 	},
 	{
 		ID:    51,
 		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to run backup job",".*"reason":"backup .* already executed, finished at .*, completed: [^"]+"`),
 		SIGs:  SIGCompute | SIGStorage,
-	},
-	{
-		ID:    52,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Failed to redefine checkpoint .*",".*"reason":"no disks found with checkpoint bitmap .*"`),
-		SIGs:  SIGStorage,
 	},
 	{
 		ID:    53,
@@ -317,11 +312,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		ID:    61,
 		Regex: regexp.MustCompile(`"level":"error","msg":"(Guest agent is not responding|guest agent command timed out): guest agent didn't respond to [^"]+","pos":"qemuAgentSend`),
 		SIGs:  SIGCompute,
-	},
-	{
-		ID:    62,
-		Regex: regexp.MustCompile(`"level":"error","msg":"backup tunnel stopped with terminal error","pos":"backup_tunnel\.go`),
-		SIGs:  SIGStorage,
 	},
 	{
 		ID:    63,
@@ -516,6 +506,16 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	{
 		ID:    109,
 		Regex: regexp.MustCompile(`"level":"error","msg":"(pre start setup for VirtualMachineInstance failed\.|Failed to sync vmi)".*"reason":"preparing ephemeral container disk images failed: no supported file disk found for volume found in: /var/run/kubevirt/container-disks/disk_\d+\.img"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    110,
+		Regex: regexp.MustCompile(`"level":"error","msg":"checkpoint inconsistent: missing or broken bitmap '[^']+' for disk '[^']+'","pos":"qemuCheckpointRedefineValidateBitmaps`),
+		SIGs:  SIGStorage,
+	},
+	{
+		ID:    111,
+		Regex: regexp.MustCompile(`"level":"error","msg":"failed to sync guest time"`),
 		SIGs:  SIGCompute,
 	},
 }

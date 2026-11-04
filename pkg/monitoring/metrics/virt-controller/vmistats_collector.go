@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	none      = "" // Empty values will be ignored by operator-observability and label will not be created
+	none      = "" // Empty variable labels are exposed; empty constant labels are omitted.
 	other     = "<other>"
 	modelNone = "<none>"
 
@@ -84,6 +84,8 @@ var (
 			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
 			"evictable", "outdated",
+			// Device info
+			"has_panic_device",
 			// Pod info
 			"vmi_pod",
 		},
@@ -184,7 +186,9 @@ func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operato
 		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between
 		// different hypervisors
 		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
-		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
+		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig,
+			vmi, launcherHypervisorResources,
+			netresources.NewMemoryCalculator(clusterConfig))
 		memoryOverheadValue = memoryOverhead.Value()
 	}
 
@@ -202,6 +206,10 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
 	guestOSMachineType := getVMIMachine(vmi)
 	vmiPod := getVMIPod(vmi)
+	var relatedVMLabels map[string]string
+	if vmName := relatedVirtualMachineName(vmi); vmName != none {
+		relatedVMLabels = map[string]string{"vm": vmName}
+	}
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiInfo,
@@ -211,10 +219,20 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 			strconv.FormatBool(isVMEvictable(vmi)),
 			strconv.FormatBool(isVMIOutdated(vmi)),
+			strconv.FormatBool(hasPanicDevice(vmi)),
 			vmiPod,
 		},
-		Value: 1.0,
+		ConstLabels: relatedVMLabels,
+		Value:       1.0,
 	}
+}
+
+func relatedVirtualMachineName(vmi *k6tv1.VirtualMachineInstance) string {
+	owner := v1.GetControllerOf(vmi)
+	if owner == nil || owner.Kind != k6tv1.VirtualMachineGroupVersionKind.Kind {
+		return none
+	}
+	return owner.Name
 }
 
 func getVMIPhase(vmi *k6tv1.VirtualMachineInstance) string {
@@ -376,6 +394,10 @@ func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 func isVMIOutdated(vmi *k6tv1.VirtualMachineInstance) bool {
 	_, hasOutdatedLabel := vmi.Labels[k6tv1.OutdatedLauncherImageLabel]
 	return hasOutdatedLabel
+}
+
+func hasPanicDevice(vmi *k6tv1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.PanicDevices) > 0
 }
 
 func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {

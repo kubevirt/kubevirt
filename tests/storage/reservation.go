@@ -178,7 +178,7 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 
 		})
 
-		It("[QUARANTINE] Should successfully start a VM with persistent reservation", decorators.Quarantine, Serial, func() {
+		It("Should successfully start a VM with persistent reservation", Serial, func() {
 			By("Create VMI with the SCSI disk")
 			vmi := libvmifact.NewFedora(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
@@ -258,7 +258,7 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 			}
 		})
 
-		It("[QUARANTINE] ensure multipath socket is bind mounted and available to the pr-helper daemon", decorators.Quarantine, func() {
+		It("ensure multipath socket is bind mounted and available to the pr-helper daemon", func() {
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			for _, node := range nodes.Items {
 				Eventually(func(g Gomega) {

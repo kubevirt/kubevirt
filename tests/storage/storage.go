@@ -42,10 +42,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/diskimg"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -857,7 +858,7 @@ var _ = Describe(SIG("Storage", func() {
 					objectEventWatcher.SetWarningsPolicy(wp)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					objectEventWatcher.WaitFor(ctx, watcher.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+					objectEventWatcher.WaitFor(ctx, watcher.EventType(diskimg.EventTypeToleratedSmallPV), diskimg.EventReasonToleratedSmallPV)
 				})
 			})
 		})
@@ -1092,6 +1093,7 @@ var _ = Describe(SIG("Storage", func() {
 				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
+
 		Context("write and read data from a shared disk", func() {
 			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"

@@ -38,9 +38,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/utils/ptr"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -66,6 +65,8 @@ var (
 const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+
+var ErrNoSocketFound = errors.New("no sockets found for VMI")
 
 type StallDetectorOptions struct {
 	StallMargin               int64
@@ -129,8 +130,9 @@ type LauncherClient interface {
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
-	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 	GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error)
+	ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error
+	CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error
 }
 
 type VirtLauncherClient struct {
@@ -247,7 +249,7 @@ func findSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 		return "", fmt.Errorf("Found multiple sockets for vmi %s/%s. waiting for only one to exist", vmi.Namespace, vmi.Name)
 	}
 
-	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+	return "", fmt.Errorf("%w %s.", ErrNoSocketFound, vmi.UID)
 }
 
 // Finds exactly one socket on a host based on the NODE_NAME env. Returns error otherwise.
@@ -270,7 +272,13 @@ func NewClient(socketPath string) (LauncherClient, error) {
 
 	// create info client and find cmd version to use
 	infoClient := info.NewCmdInfoClient(conn)
-	return newClientWithInfoClient(infoClient, conn)
+	client, err := newClientWithInfoClient(infoClient, conn)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
@@ -365,7 +373,25 @@ func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance
 }
 
 func (c *VirtLauncherClient) UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	return c.genericSendVMICmd("Unfreeze", c.v1client.UnfreezeVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: &cmdv1.VirtualMachineOptions{},
+	}
+
+	// Use extended timeout as Windows VSS can take up to 60 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), extendedTimeout)
+	defer cancel()
+	response, err := c.v1client.UnfreezeVirtualMachine(ctx, request)
+
+	err = handleError(err, "Unfreeze", response)
+	return err
 }
 
 func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
@@ -508,48 +534,64 @@ func (c *VirtLauncherClient) GetDomainDirtyRateStats() (dirtyRateMbps int64, err
 }
 
 func (c *VirtLauncherClient) GetVMStats(request *cmdv1.VMStatsRequest) (*stats.VMStats, error) {
-	result := &stats.VMStats{}
+	result := &stats.VMStats{Errors: map[string]string{}}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 
 	vmstatsResponse, err := c.v1client.GetVMStats(ctx, request)
-	var response *cmdv1.Response
-	if vmstatsResponse != nil {
-		response = vmstatsResponse.Response
-	}
-
-	if err := handleError(err, "GetVMStats", response); err != nil || vmstatsResponse == nil {
+	if err := handleError(err, "GetVMStats", nil); err != nil || vmstatsResponse == nil {
 		return result, err
 	}
 
-	if vmstatsResponse.GetDomainStats() != nil && vmstatsResponse.GetDomainStats().GetDomainStats() != "" {
-		if err := json.Unmarshal([]byte(vmstatsResponse.DomainStats.DomainStats), &result.DomainStats); err != nil {
-			return nil, err
+	if domainStats := vmstatsResponse.GetDomainStats(); domainStats != nil {
+		if !domainStats.GetResponse().GetSuccess() {
+			result.Errors[stats.DomainStatsKey] = domainStats.GetResponse().GetMessage()
+		} else if raw := domainStats.GetDomainStats(); raw != "" {
+			if err := json.Unmarshal([]byte(raw), &result.DomainStats); err != nil {
+				result.DomainStats = stats.DomainStats{}
+				result.Errors[stats.DomainStatsKey] = err.Error()
+			}
 		}
 	}
 
-	if vmstatsResponse.GetDirtyRateStats() != nil {
-		result.DirtyRateMbps = ptr.To(vmstatsResponse.GetDirtyRateStats().GetDirtyRateMbs())
+	if dirtyRate := vmstatsResponse.GetDirtyRateStats(); dirtyRate != nil {
+		if !dirtyRate.GetResponse().GetSuccess() {
+			result.Errors[stats.DirtyRateKey] = dirtyRate.GetResponse().GetMessage()
+		} else {
+			result.DirtyRateMbps = new(dirtyRate.GetDirtyRateMbs())
+		}
 	}
 
-	result.GuestAgentVersion = vmstatsResponse.GetGuestAgentVersion().GetMessage()
-	result.GuestGetLoad = vmstatsResponse.GetGuestGetLoad().GetMessage()
-	result.GuestGetCpuStats = vmstatsResponse.GetGuestGetCpuStats().GetMessage()
-	result.GuestGetDiskStats = vmstatsResponse.GetGuestGetDiskStats().GetMessage()
-	result.GuestGetFsInfo = vmstatsResponse.GetGuestGetFsInfo().GetMessage()
-	result.GuestGetTime = vmstatsResponse.GetGuestGetTime().GetMessage()
-	result.GuestGetVcpus = vmstatsResponse.GetGuestGetVcpus().GetMessage()
-	result.GuestGetMemoryBlockInfo = vmstatsResponse.GetGuestGetMemoryBlockInfo().GetMessage()
-	result.GuestGetUsers = vmstatsResponse.GetGuestGetUsers().GetMessage()
-	result.GuestGetOsInfo = vmstatsResponse.GetGuestGetOsInfo().GetMessage()
-	result.GuestGetDisks = vmstatsResponse.GetGuestGetDisks().GetMessage()
-	result.GuestGetHostName = vmstatsResponse.GetGuestGetHostName().GetMessage()
-	result.GuestGetTimezone = vmstatsResponse.GetGuestGetTimezone().GetMessage()
-	result.GuestNetworkGetRoute = vmstatsResponse.GetGuestNetworkGetRoute().GetMessage()
-	result.GuestNetworkGetInterfaces = vmstatsResponse.GetGuestNetworkGetInterfaces().GetMessage()
-	result.GuestGetMemoryBlocks = vmstatsResponse.GetGuestGetMemoryBlocks().GetMessage()
+	setAgentData(result, stats.GuestAgentVersionKey, vmstatsResponse.GetGuestAgentVersion(), &result.GuestAgentVersion)
+	setAgentData(result, stats.GuestGetLoadKey, vmstatsResponse.GetGuestGetLoad(), &result.GuestGetLoad)
+	setAgentData(result, stats.GuestGetCPUStatsKey, vmstatsResponse.GetGuestGetCpuStats(), &result.GuestGetCpuStats)
+	setAgentData(result, stats.GuestGetDiskStatsKey, vmstatsResponse.GetGuestGetDiskStats(), &result.GuestGetDiskStats)
+	setAgentData(result, stats.GuestGetFsInfoKey, vmstatsResponse.GetGuestGetFsInfo(), &result.GuestGetFsInfo)
+	setAgentData(result, stats.GuestGetTimeKey, vmstatsResponse.GetGuestGetTime(), &result.GuestGetTime)
+	setAgentData(result, stats.GuestGetVcpusKey, vmstatsResponse.GetGuestGetVcpus(), &result.GuestGetVcpus)
+	setAgentData(result, stats.GuestGetMemoryBlockInfoKey, vmstatsResponse.GetGuestGetMemoryBlockInfo(), &result.GuestGetMemoryBlockInfo)
+	setAgentData(result, stats.GuestGetUsersKey, vmstatsResponse.GetGuestGetUsers(), &result.GuestGetUsers)
+	setAgentData(result, stats.GuestGetOsInfoKey, vmstatsResponse.GetGuestGetOsInfo(), &result.GuestGetOsInfo)
+	setAgentData(result, stats.GuestGetDisksKey, vmstatsResponse.GetGuestGetDisks(), &result.GuestGetDisks)
+	setAgentData(result, stats.GuestGetHostNameKey, vmstatsResponse.GetGuestGetHostName(), &result.GuestGetHostName)
+	setAgentData(result, stats.GuestGetTimezoneKey, vmstatsResponse.GetGuestGetTimezone(), &result.GuestGetTimezone)
+	setAgentData(result, stats.GuestNetworkGetRouteKey, vmstatsResponse.GetGuestNetworkGetRoute(), &result.GuestNetworkGetRoute)
+	setAgentData(result, stats.GuestNetworkGetInterfacesKey, vmstatsResponse.GetGuestNetworkGetInterfaces(), &result.GuestNetworkGetInterfaces)
+	setAgentData(result, stats.GuestGetMemoryBlocksKey, vmstatsResponse.GetGuestGetMemoryBlocks(), &result.GuestGetMemoryBlocks)
+	setAgentData(result, stats.GuestGetDevicesKey, vmstatsResponse.GetGuestGetDevices(), &result.GuestGetDevices)
 
-	return result, err
+	return result, nil
+}
+
+func setAgentData(result *stats.VMStats, commandKey string, response *cmdv1.Response, dst *string) {
+	if response == nil {
+		return
+	}
+	if !response.GetSuccess() {
+		result.Errors[commandKey] = response.GetMessage()
+		return
+	}
+	*dst = response.GetMessage()
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {
@@ -874,32 +916,45 @@ func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance
 	return err
 }
 
-func (c *VirtLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+func (c *VirtLauncherClient) ExternalSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string, volumes []string) error {
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	checkpointJson, err := json.Marshal(checkpoint)
-	if err != nil {
-		return false, err
-	}
-
-	request := &cmdv1.RedefineCheckpointRequest{
+	request := &cmdv1.ExternalSnapshotRequest{
 		Vmi: &cmdv1.VMI{
 			VmiJson: vmiJson,
 		},
-		Checkpoint: checkpointJson,
+		OverlayDir: overlayDir,
+		Volumes:    volumes,
 	}
 
+	// The transaction runs asynchronously, so this only covers accepting it.
 	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
 	defer cancel()
-	response, err := c.v1client.RedefineCheckpoint(ctx, request)
-	if err = handleError(err, "RedefineCheckpoint", response.GetResponse()); err != nil {
-		if response != nil {
-			return response.CheckpointInvalid, err
-		}
-		return false, err
+	response, err := c.v1client.ExternalSnapshot(ctx, request)
+
+	return handleError(err, "ExternalSnapshot", response)
+}
+
+func (c *VirtLauncherClient) CommitSnapshot(vmi *v1.VirtualMachineInstance, overlayDir string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
 	}
-	return false, nil
+
+	request := &cmdv1.CommitSnapshotRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		OverlayDir: overlayDir,
+	}
+
+	// The commit runs asynchronously, so this only covers starting it.
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.CommitSnapshot(ctx, request)
+
+	return handleError(err, "CommitSnapshot", response)
 }

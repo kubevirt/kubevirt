@@ -20,9 +20,11 @@
 package virtwrap
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"libvirt.org/go/libvirt"
@@ -35,19 +37,21 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -87,6 +91,9 @@ type migrationMonitor struct {
 	l       *LibvirtDomainManager
 	vmi     *v1.VirtualMachineInstance
 	options *cmdclient.MigrationOptions
+	// allowPostCopy follows the migration flags handed to libvirt, which
+	// PreMigrationSource hooks may have changed after the options were computed
+	allowPostCopy bool
 
 	migrationDone <-chan struct{}
 	iterationCh   chan int
@@ -108,6 +115,7 @@ type migrationMonitor struct {
 	downtimeTuning    *downtimeTuningConfig
 	currentDowntimeMs uint64
 	lastTunedAt       time.Time
+	nextTuneIteration uint64
 
 	// TODO: fields used by legacy stall detector; to be removed
 	lastProgressUpdate int64
@@ -325,9 +333,56 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		StartTimestamp: &now,
 		Mode:           migrationMode,
 	}
+	l.metadataCache.CompletedMigration.Set(metadata.CompletedMigrationData{})
 	l.metadataCache.Migration.Store(m)
 	log.Log.V(4).Infof("initialize migration metadata: %v", m)
 	return false, nil
+}
+
+// migrationPreparation tracks a migration that has not been handed to libvirt
+// yet - from migrate() entry through domain preparation and the PreMigrationSource
+// hooks. Until the handoff, cancelMigration can claim the preparation: the hooks'
+// context is canceled, and the abort is reported as succeeded only once the
+// migration unwinds and fails. After the handoff, an abort is only effective
+// once the monitor observes the migration job; until then it fails and is
+// retried.
+type migrationPreparation struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	// state moves from preparing to aborted (abort) or handedOff (handoff).
+	// aborted is terminal: handoff keeps reporting it, so a later cancelMigration
+	// falls through to the active-migration abort path.
+	state atomic.Int32
+}
+
+const (
+	migrationPreparing int32 = iota
+	migrationAborted
+	migrationHandedOff
+)
+
+func newMigrationPreparation() *migrationPreparation {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &migrationPreparation{ctx: ctx, cancel: cancel}
+}
+
+// abort claims the preparation for cancellation. It returns true for exactly
+// one caller: the winner cancels the context; the abort is reported as
+// succeeded once the migration unwinds and fails.
+func (p *migrationPreparation) abort() bool {
+	if !p.state.CompareAndSwap(migrationPreparing, migrationAborted) {
+		return false
+	}
+	p.cancel()
+	return true
+}
+
+// handoff consumes the preparation and reports whether an abort was claimed
+// before it. It is idempotent: the preparation can no longer be aborted once
+// handed off, and repeated calls keep returning the same answer.
+func (p *migrationPreparation) handoff() bool {
+	p.state.CompareAndSwap(migrationPreparing, migrationHandedOff)
+	return p.state.Load() == migrationAborted
 }
 
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
@@ -343,6 +398,14 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) {
 			return
 		case v1.MigrationAbortSucceeded:
 			log.Log.Object(vmi).Infof("cancel migration ignored: abort already succeeded")
+			return
+		}
+
+		if prep := l.activeMigrationPreparation.Load(); prep != nil && prep.abort() {
+			// The claimed abort is reported as succeeded only once the migration
+			// unwinds and fails; until then it stays in progress.
+			migration.AbortStatus = string(v1.MigrationAbortInProgress)
+			log.Log.Object(vmi).Info("Live migration abort claimed during source preparation")
 			return
 		}
 
@@ -395,12 +458,13 @@ func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationA
 	log.Log.V(2).Infof("set migration abort status in metadata: %s", l.metadataCache.Migration.String())
 }
 
-func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) *migrationMonitor {
+func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}, allowPostCopy bool) *migrationMonitor {
 	stallDetectorEnabled := options.StallDetectorOptions != nil
 	monitor := &migrationMonitor{
 		l:                        l,
 		vmi:                      vmi,
 		options:                  options,
+		allowPostCopy:            allowPostCopy,
 		migrationDone:            migrationDone,
 		progressWatermark:        0,
 		remainingData:            0,
@@ -416,7 +480,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.stallDetector = &stallDetector{
 			stallDetectorOptions:    *options.StallDetectorOptions,
 			maxDowntimeMs:           options.MaxDowntimeMs,
-			allowPostCopy:           options.AllowPostCopy,
+			allowPostCopy:           allowPostCopy,
 			allowWorkloadDisruption: options.AllowWorkloadDisruption,
 			hasVFIO:                 vmitrait.HasVFIO(vmi),
 		}
@@ -427,7 +491,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 			options.ProgressTimeout,
 			options.CompletionTimeoutPerGiB,
 			options.MaxDowntimeMs,
-			options.AllowPostCopy,
+			allowPostCopy,
 			options.AllowWorkloadDisruption,
 			options.StallDetectorOptions.StallMargin,
 			options.StallDetectorOptions.StallProgressTimeout,
@@ -446,6 +510,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 
 	monitor.downtimeTuning = newDowntimeTuningConfig(options.MaxDowntimeMs, options.DowntimeTuning)
 	if monitor.downtimeTuning != nil {
+		monitor.currentDowntimeMs = migrationutils.QEMUDefaultTargetDowntimeMS
 		monitor.logger.Infof("downtime tuning enabled: initial=%dms steps=%d startAfterIteration=%d cooldown=%ds ceiling=%dms",
 			monitor.downtimeTuning.InitialMs, monitor.downtimeTuning.Steps,
 			monitor.downtimeTuning.StartAfterIteration, monitor.downtimeTuning.CooldownSeconds,
@@ -493,12 +558,11 @@ func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, stats *libvirt.Domain
 
 	var newDowntime uint64
 	switch {
-	case m.currentDowntimeMs == 0:
-		m.currentDowntimeMs = migrationutils.QEMUDefaultTargetDowntimeMS
+	case m.lastTunedAt.IsZero():
 		newDowntime = uint64(cfg.InitialMs)
 	case stats == nil || !stats.MemIterationSet:
 		return
-	case stats.MemIteration < uint64(cfg.StartAfterIteration):
+	case stats.MemIteration < m.nextTuneIteration:
 		return
 	case time.Since(m.lastTunedAt) < time.Duration(cfg.CooldownSeconds)*time.Second:
 		return
@@ -518,6 +582,10 @@ func (m *migrationMonitor) tuneDowntime(dom cli.VirDomain, stats *libvirt.Domain
 		m.currentDowntimeMs, newDowntime, cfg.MaxDowntimeMs)
 	m.currentDowntimeMs = newDowntime
 	m.lastTunedAt = time.Now()
+	m.nextTuneIteration = uint64(cfg.StartAfterIteration)
+	if stats != nil {
+		m.nextTuneIteration = max(m.nextTuneIteration, stats.MemIteration+1)
+	}
 }
 
 func (m *migrationMonitor) isMigrationPostCopy() bool {
@@ -602,7 +670,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
 
-		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
+		if m.allowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
 			logger.Info("completion timeout reached: starting post-copy mode to force convergence")
 			if err := dom.MigrateStartPostCopy(0); err != nil {
 				logger.Reason(err).Error("failed to start post-copy migration")
@@ -773,7 +841,7 @@ func (m *migrationMonitor) handleLegacyConvergence(dom cli.VirDomain, elapsedNs 
 		// then it would result in that active state being lost.
 
 	case m.shouldAssistMigrationToComplete(elapsedNs, logger) && !m.isPausedMigration():
-		if m.options.AllowPostCopy && !vmitrait.HasVFIO(m.vmi) {
+		if m.allowPostCopy && !vmitrait.HasVFIO(m.vmi) {
 			logger.Info("Starting post copy mode for migration")
 			// if a migration has stalled too long, post copy will be
 			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
@@ -785,7 +853,7 @@ func (m *migrationMonitor) handleLegacyConvergence(dom cli.VirDomain, elapsedNs 
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 		} else if vmitrait.HasVFIO(m.vmi) {
 			logger.Info("Setting large max downtime to trigger migration switchover")
-			// TODO: once the VGPULiveMigration featuregate graduates
+			// TODO: once the MDevVGPULiveMigration featuregate graduates
 			//  (and even possibly other VFIO live migration featuregates)
 			//  we should consider merging this with the "else" case below.
 			// Setting a very high max downtime causes QEMU to trigger its
@@ -1304,7 +1372,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 			if hotplugVol {
 				path = hotplugdisk.GetVolumeMountDir(name) + ".img"
 			} else {
-				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+				path = volumepath.Filesystem(name)
 			}
 			source.File = &libvirtxml.DomainDiskSourceFile{File: path}
 			source.Block = nil
@@ -1314,7 +1382,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, migrationDone <-chan struct{}) error {
 
 	var err error
 	var params *libvirt.DomainMigrateParameters
@@ -1349,6 +1417,35 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return nil
 	}
 	err = critSection()
+	if err != nil {
+		return err
+	}
+
+	// PreMigrationSource hooks run outside domainModifyLock because a blocked sidecar must not
+	// stall other domain operations gated by that lock. The plugin snapshot comes from the
+	// preceding SyncVirtualMachine command.
+	migrateFlags, params, err = plugins.ApplyPreMigrationSourceHooks(prep.ctx, plugins.GetPlugins(), vmi, migrateFlags, params)
+
+	// The monitor starts only after the hooks returned, so it always sees the flags libvirt
+	// gets and hook time does not count towards the migration timeouts.
+	if err == nil {
+		allowPostCopy := migrateFlags&libvirt.MIGRATE_POSTCOPY != 0
+		monitor := newMigrationMonitor(vmi, l, options, migrationDone, allowPostCopy)
+		monitorReady := make(chan error, 1)
+		go monitor.startMonitor(monitorReady)
+		if readyErr := <-monitorReady; readyErr != nil {
+			log.Log.Object(vmi).Reason(readyErr).Error("migration monitor failed to start")
+			err = readyErr
+		}
+	}
+
+	// Always hand off the preparation once the hooks return, even on failure, so an abort
+	// request can't land after this point and later report success on a migration that
+	// already failed.
+	aborted := prep.handoff()
+	if err == nil && aborted {
+		err = fmt.Errorf("live migration was aborted before it was handed off to libvirt")
+	}
 	if err != nil {
 		return err
 	}
@@ -1393,6 +1490,21 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		return
 	}
 
+	prep := newMigrationPreparation()
+	// The fast abort path is armed only when PreMigrationSource hooks will run; without
+	// them, migrateHelper reaches libvirt without waiting on a sidecar and cancels keep
+	// taking the upstream asyncMigrationAbort path. The selection re-runs when the hooks
+	// execute - the snapshot only changes on the next SyncVirtualMachine - so a
+	// disagreement only shifts which abort path is taken.
+	if plugins.PreMigrationSourceHooksSelected(vmi) {
+		l.activeMigrationPreparation.Store(prep)
+	}
+	// LIFO: unregister before cancel, so a concurrent cancelMigration cannot claim an
+	// abort on a finished migration; CompareAndSwap, not Store, so a newer migration's
+	// registration survives.
+	defer prep.cancel()
+	defer l.activeMigrationPreparation.CompareAndSwap(prep, nil)
+
 	migrationDone := make(chan struct{})
 	defer close(migrationDone)
 
@@ -1401,19 +1513,12 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 		log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
 	}
 
-	monitor := newMigrationMonitor(vmi, l, options, migrationDone)
-	monitorReady := make(chan error, 1)
-	go monitor.startMonitor(monitorReady)
-
-	if err := <-monitorReady; err != nil {
-		log.Log.Object(vmi).Reason(err).Error("migration monitor failed to start")
-		l.setMigrationResult(true, err.Error())
-		return
-	}
-
-	err := l.migrateHelper(vmi, options)
+	err := l.migrateHelper(prep, vmi, options, migrationDone)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
+		if prep.handoff() {
+			l.setMigrationAbortStatus(v1.MigrationAbortSucceeded)
+		}
 		l.setMigrationResult(true, err.Error())
 		return
 	}

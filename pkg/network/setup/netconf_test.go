@@ -58,7 +58,12 @@ var _ = Describe("netconf", func() {
 		ns = nsExecutorStub{}
 		stateMap = map[string]*netpod.State{}
 		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
-		vmi = &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"}}
+		vmi = &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"},
+			Status: v1.VirtualMachineInstanceStatus{
+				MigrationTransport: v1.MigrationTransportUnix,
+			},
+		}
 	})
 
 	It("runs setup successfully without networks", func() {

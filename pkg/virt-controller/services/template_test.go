@@ -32,15 +32,14 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+	gomegatypes "github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -48,24 +47,23 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
-	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -76,8 +74,6 @@ var testHookSidecar = hooks.HookSidecar{
 }
 
 var _ = Describe("Template", func() {
-	const expectedNetworkResource = "amazing-network-resource.com"
-
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
@@ -151,45 +147,11 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			// Set up mock clients
-			networkClient := fakenetworkclient.NewSimpleClientset()
-			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 			k8sClient := k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-			// Sadly, we cannot pass desired attachment objects into
-			// Clientset constructor because UnsafeGuessKindToResource
-			// calculates incorrect object kind (without dashes). Instead
-			// of that, we use tracker Create function to register objects
-			// under explicitly defined schema name
-			gvr := schema.GroupVersionResource{
-				Group:    "k8s.cni.cncf.io",
-				Version:  "v1",
-				Resource: "network-attachment-definitions",
-			}
-			for _, name := range []string{"default", "test1"} {
-				network := &networkv1.NetworkAttachmentDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: "default",
-					},
-				}
-				err := networkClient.Tracker().Create(gvr, network, "default")
-				Expect(err).To(Not(HaveOccurred()))
-			}
-			// create a network in a different namespace
-			network := &networkv1.NetworkAttachmentDefinition{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "other-namespace",
-					Annotations: map[string]string{
-						multus.ResourceNameAnnotation: expectedNetworkResource,
-					},
-				},
-			}
-			err := networkClient.Tracker().Create(gvr, network, "other-namespace")
-			Expect(err).To(Not(HaveOccurred()))
 			return config, kvStore, svc
 		}
 		nonRootUser = util.NonRootUID
@@ -239,7 +201,6 @@ var _ = Describe("Template", func() {
 
 			It("should add network DRA claim to compute container resources when feature gate is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				enableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
 				Expect(err).ToNot(HaveOccurred())
@@ -258,7 +219,8 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add network DRA claim to compute container resources when feature gate is disabled", func() {
-				config, _, svc = configFactory(defaultArch)
+				config, kvStore, svc = configFactory(defaultArch)
+				disableFeatureGate(featuregate.NetworkDevicesWithDRAGate)
 
 				pod, err := svc.RenderLaunchManifest(newVMIWithDRANetwork(vmiName))
 				Expect(err).ToNot(HaveOccurred())
@@ -268,13 +230,212 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("CPU DRA resource claims", func() {
+			const (
+				computeContainerName = "compute"
+				vmiName              = "testvmi"
+			)
+
+			newVMIWithDedicatedCPU := func(name string, sockets uint32) *v1.VirtualMachineInstance {
+				return libvmi.New(
+					libvmi.WithName(name),
+					libvmi.WithNamespace("default"),
+					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithCPUCount(2, 1, sockets),
+				)
+			}
+
+			It("should add CPU DRA claim to compute container resources when feature gate is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: dra.CPUClaimRefName},
+				}))
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					},
+				}))
+			})
+
+			It("should reference the CPU DRA claim once for a multi socket guest", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 2))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: dra.CPUClaimRefName},
+				}))
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					},
+				}))
+			})
+
+			It("should not add CPU DRA claim to compute container resources when feature gate is disabled", func() {
+				config, _, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Claims).To(BeEmpty())
+			})
+
+			It("should not restrict the pod to CPU manager nodes when the CPUs come from DRA", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifest(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).ToNot(HaveKey(v1.CPUManager))
+			})
+
+			It("should keep restricting the pod to CPU manager nodes when the VMI needs NUMA passthrough", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				vmi := newVMIWithDedicatedCPU(vmiName, 1)
+				vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+			})
+
+			It("should reference the CPU DRA claim from a temporary pod on both sides", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				// A container claiming a name the pod spec does not declare is rejected on create.
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(Equal([]k8sv1.ResourceClaim{
+					{Name: dra.CPUClaimRefName},
+				}))
+				Expect(pod.Spec.ResourceClaims).To(Equal([]k8sv1.PodResourceClaim{
+					{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					},
+				}))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Value()).To(Equal(int64(2)))
+			})
+
+			It("should not restrict a temporary pod to CPU manager nodes when the CPUs come from DRA", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).ToNot(HaveKey(v1.CPUManager))
+			})
+
+			It("should restrict a temporary pod to CPU manager nodes when the CPU DRA gate is off", func() {
+				config, _, svc = configFactory(defaultArch)
+
+				pod, err := svc.RenderLaunchManifestNoVm(newVMIWithDedicatedCPU(vmiName, 1))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+				Expect(pod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+				Expect(pod.Spec.ResourceClaims).To(BeEmpty())
+			})
+
+			Context("migration target", func() {
+				var migration *v1.VirtualMachineInstanceMigration
+
+				BeforeEach(func() {
+					migration = &v1.VirtualMachineInstanceMigration{
+						ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+					}
+				})
+
+				It("should refuse to render a target for a source pod holding the CPU DRA claim", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(ContainElement(k8sv1.PodResourceClaim{
+						Name:              dra.CPUClaimRefName,
+						ResourceClaimName: ptr.To(dra.CPUResourceClaimName(vmiName)),
+					}))
+
+					_, err = svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).To(MatchError(ErrCPUsFromDRANotMigratable))
+				})
+
+				It("should refuse the target even once the CPU DRA gate is turned back off", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					config, kvStore, svc = configFactory(defaultArch)
+					_, err = svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).To(MatchError(ErrCPUsFromDRANotMigratable))
+				})
+
+				It("should render a target for a dedicated CPU VMI whose source pod uses the CPU manager", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(BeEmpty())
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetPod.Spec.ResourceClaims).To(BeEmpty())
+					Expect(targetPod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+				})
+
+				It("should put the target on the CPU manager path when the gate is on but the source pod predates it", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					vmi := newVMIWithDedicatedCPU(vmiName, 1)
+					sourcePod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(sourcePod.Spec.ResourceClaims).To(BeEmpty())
+
+					// The gate goes on only after the VMI already booted on the CPU manager path.
+					config, kvStore, svc = configFactory(defaultArch)
+					enableFeatureGate(featuregate.CPUsWithDRAGate)
+
+					targetPod, err := svc.RenderMigrationManifest(vmi, migration, sourcePod)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(targetPod.Spec.ResourceClaims).To(BeEmpty())
+					Expect(targetPod.Spec.Containers[0].Resources.Claims).To(BeEmpty())
+					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+				})
+			})
+		})
+
 		Context("Use emulation", func() {
 			const (
-				testNamespace        = "default"
-				computeContainerName = "compute"
-				kvmResource          = "devices.kubevirt.io/kvm"
-				allowEmulationOption = "--allow-emulation"
+				testNamespace                 = "default"
+				computeContainerName          = "compute"
+				kvmResource                   = "devices.kubevirt.io/kvm"
+				allowEmulationOption          = "--allow-emulation"
+				allowCrossArchEmulationOption = "--allow-cross-arch-emulation"
 			)
+
+			notContainCrossArchEmulation := Not(ContainElements(allowCrossArchEmulationOption))
 
 			It("should add the kvm resource when emulation is disabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
@@ -306,34 +467,37 @@ var _ = Describe("Template", func() {
 				Expect(containers[0].Args).To(ContainElements(allowEmulationOption))
 			})
 
-			It("should add the allow-cross-arch-emulation option when feature gate is enabled", func() {
+			DescribeTable("should only add the allow-cross-arch-emulation option when using software emulation", func(fg bool, policy v1.EmulationPolicy, matchExpectedArgs gomegatypes.GomegaMatcher) {
 				config, kvStore, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+				if fg {
+					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+				}
 
-				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				vmi := libvmi.New(libvmi.WithNamespace(testNamespace))
+				if policy != "" {
+					vmi.Spec.EmulationPolicy = &policy
+				}
+				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(pod.Spec.Containers[0].Command).To(ContainElements("--allow-cross-arch-emulation"))
-			})
+				Expect(pod.Spec.Containers[0].Command).To(matchExpectedArgs)
+			},
+				Entry("default state", false, nil, notContainCrossArchEmulation),
+				Entry("FeatureGate and default policy", true, nil, notContainCrossArchEmulation),
+				Entry("FeatureGate and None", true, v1.EmulationPolicyNone, notContainCrossArchEmulation),
+				Entry("FeatureGate and Software", true, v1.EmulationPolicySoftware, ContainElements(allowCrossArchEmulationOption)),
+			)
 
-			It("should not add the allow-cross-arch-emulation option by default", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-
-				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(pod.Spec.Containers[0].Command).NotTo(ContainElements("--allow-cross-arch-emulation"))
-			})
-
-			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when CrossArchitectureVirtualization is enabled", func() {
+			It("should not set kubernetes.io/arch node selector but should set preferred arch affinity and hard vm-arch selector when Software emulation is enabled", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				kvConfig := kv.DeepCopy()
 				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{"CrossArchitectureVirtualization"}
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithArchitecture("arm64"))
+				vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicySoftware)
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -570,7 +734,6 @@ var _ = Describe("Template", func() {
 					HaveKeyWithValue(v1.DomainAnnotation, "testvmi"),
 					HaveKeyWithValue("test", "shouldBeInPod"),
 					HaveKeyWithValue(hooks.HookSidecarListAnnotationName, `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`),
-					HaveKeyWithValue("kubevirt.io/migrationTransportUnix", "true"),
 					HaveKeyWithValue("kubectl.kubernetes.io/default-container", "compute"),
 					HaveKeyWithValue("descheduler.alpha.kubernetes.io/request-evict-only", ""),
 					HaveKey(v1.MemoryOverheadAnnotationBytes),
@@ -1117,17 +1280,6 @@ var _ = Describe("Template", func() {
 
 			})
 
-		})
-		Context("migration over unix sockets", func() {
-			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
-				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI("fake-vmi")
-
-				pod, err := svc.RenderLaunchManifest(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
-				Expect(ok).To(BeTrue())
-			})
 		})
 
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
@@ -2230,8 +2382,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal(requestMemory))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "1303943013", "2303943013"),
-				Entry("on arm64", "arm64", "1438160741", "2438160741"),
+				Entry("on amd64", "amd64", "1279825765", "2279825765"),
+				Entry("on arm64", "arm64", "1414043493", "2414043493"),
 			)
 			DescribeTable("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func(arch string, limitMemory string) {
 				config, kvStore, svc = configFactory(arch)
@@ -2267,8 +2419,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal(limitMemory))
 			},
-				Entry("on amd64", "amd64", "2303943013"),
-				Entry("on arm64", "arm64", "2438160741"),
+				Entry("on amd64", "amd64", "2279825765"),
+				Entry("on arm64", "arm64", "2414043493"),
 			)
 			DescribeTable("should not add unset resources", func(arch string, requestMemory int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2306,8 +2458,8 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			},
-				Entry("on amd64", "amd64", 383),
-				Entry("on arm64", "arm64", 518),
+				Entry("on amd64", "amd64", 359),
+				Entry("on arm64", "arm64", 493),
 			)
 
 			DescribeTable("should check autoattachGraphicsDevicse", func(arch string, autoAttach *bool, memory int) {
@@ -2343,12 +2495,12 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 383),
-				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 383),
-				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 350),
-				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 518),
-				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 518),
-				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 484),
+				Entry("and consider graphics overhead if it is not set on amd64", "amd64", nil, 359),
+				Entry("and consider graphics overhead if it is set to true on amd64", "amd64", pointer.P(true), 359),
+				Entry("and not consider graphics overhead if it is set to false on amd64", "amd64", pointer.P(false), 326),
+				Entry("and consider graphics overhead if it is not set on arm64", "arm64", nil, 493),
+				Entry("and consider graphics overhead if it is set to true on arm64", "arm64", pointer.P(true), 493),
+				Entry("and not consider graphics overhead if it is set to false on arm64", "arm64", pointer.P(false), 460),
 			)
 			It("should calculate vcpus overhead based on guest toplogy", func() {
 				config, kvStore, svc = configFactory(defaultArch)
@@ -2506,6 +2658,10 @@ var _ = Describe("Template", func() {
 					By("Setting huge page memory")
 					vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}
 				}
+				setDedicatedCPUPlacement := func(vmi *v1.VirtualMachineInstance) {
+					By("Enabling dedicated CPU placement")
+					vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1, DedicatedCPUPlacement: true}
+				}
 
 				DescribeTable("should honor memoryOvercommit when set in the CR", func(expectOvercommit overcommitExpectation, memorySetters ...memorySetterFunc) {
 					config, kvStore, svc = configFactory(defaultArch)
@@ -2565,6 +2721,7 @@ var _ = Describe("Template", func() {
 					Entry("memory limits only - not expect overcommit", notExpectOvercommit, setMemoryLimits),
 					Entry("guest memory only - expect overcommit", expectOvercommit, setGuestMemory),
 					Entry("hugepages memory only - not expect overcommit", notExpectOvercommit, setHugePagesMemory),
+					Entry("guest memory with dedicated CPU placement - not expect overcommit", notExpectOvercommit, setGuestMemory, setDedicatedCPUPlacement),
 
 					// Pairs of memory setters
 					Entry("memory requests and limits - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits),
@@ -2658,10 +2815,10 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 303),
-				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 303),
-				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 437),
-				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 437),
+				Entry("hugepages-2Mi on amd64", "amd64", "2Mi", 278),
+				Entry("hugepages-1Gi on amd64", "amd64", "1Gi", 278),
+				Entry("hugepages-2Mi on arm64", "arm64", "2Mi", 413),
+				Entry("hugepages-1Gi on arm64", "arm64", "1Gi", 413),
 			)
 			DescribeTable("should account for difference between guest and container requested memory ", func(arch string, memorySize int) {
 				config, kvStore, svc = configFactory(arch)
@@ -2738,8 +2895,8 @@ var _ = Describe("Template", func() {
 						},
 					))
 			},
-				Entry("on amd64", "amd64", 303),
-				Entry("on arm64", "arm64", 437),
+				Entry("on amd64", "amd64", 279),
+				Entry("on arm64", "arm64", 413),
 			)
 		})
 
@@ -3235,7 +3392,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
+				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -4256,15 +4413,11 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod).ToNot(BeNil())
 
-				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
-					Name: containerdisk.LauncherVolume,
-					VolumeSource: k8sv1.VolumeSource{
-						Image: &k8sv1.ImageVolumeSource{
-							Reference:  "kubevirt/virt-launcher",
-							PullPolicy: config.GetImagePullPolicy(),
-						},
-					},
-				}), "should create launcher binary volume when ImageVolume is used")
+				Expect(pod.Spec.InitContainers).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Name":    Equal("image-volume-binary"),
+					"Command": Equal([]string{"/usr/bin/cp"}),
+					"Args":    Equal([]string{"--preserve=all", "/usr/bin/container-disk", "/init/usr/bin/container-disk"}),
+				})))
 
 				// Find noop init containers
 				var initContainerNames []string
@@ -4273,14 +4426,11 @@ var _ = Describe("Template", func() {
 						continue
 					}
 					initContainerNames = append(initContainerNames, container.Name)
-					// Verify the noop command is used
-					Expect(container.Command).To(ContainElement("/container-disk-binary/usr/bin/container-disk"))
+					Expect(container.Command).To(ContainElement("/usr/bin/container-disk"))
 					Expect(container.Args).To(ContainElement("--no-op"))
-					// Verify volume mount for launcher binary
 					Expect(container.VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
-						Name:      containerdisk.LauncherVolume,
-						MountPath: "/container-disk-binary",
-						ReadOnly:  true,
+						Name:      "virt-bin-share-dir",
+						MountPath: "/usr/bin",
 					}))
 				}
 				// Verify expected init containers are created
@@ -4827,10 +4977,92 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
 		})
 
+		DescribeTable("should mount filesystem hotplug volumes based on volume phase",
+			func(phase v1.VolumePhase, isUtility bool, expectVolumeMount bool) {
+				vmi := api.NewMinimalVMI("fake-vmi")
+				if isUtility {
+					vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+						{
+							Name: "testVolume",
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "pvcDevice",
+							},
+						},
+					}
+				}
+				vmi.Status.VolumeStatus = []v1.VolumeStatus{
+					{
+						Name:          "testVolume",
+						Phase:         phase,
+						HotplugVolume: &v1.HotplugVolumeStatus{},
+					},
+				}
+				ownerPod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
+
+				volumeName := "testVolume"
+				pvcName := "pvcDevice"
+				namespace := "testns"
+				mode := k8sv1.PersistentVolumeFilesystem
+				pvc := k8sv1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				claimMap := map[string]*k8sv1.PersistentVolumeClaim{volumeName: &pvc}
+				volumes := []*v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				prop := k8sv1.MountPropagationHostToContainer
+				expectedMounts := []k8sv1.VolumeMount{
+					{
+						Name:             "hotplug-disks",
+						MountPath:        "/path",
+						MountPropagation: &prop,
+					},
+				}
+				if expectVolumeMount {
+					expectedMounts = append(expectedMounts, k8sv1.VolumeMount{
+						Name:      volumeName,
+						MountPath: "/" + volumeName,
+					})
+				}
+				Expect(pod.Spec.Containers[0].VolumeMounts).To(Equal(expectedMounts))
+			},
+			Entry("utility volume at HotplugVolumeMounted", v1.HotplugVolumeMounted, true, true),
+			Entry("regular hotplug volume at HotplugVolumeMounted", v1.HotplugVolumeMounted, false, false),
+			Entry("regular hotplug volume at VolumeReady", v1.VolumeReady, false, false),
+		)
+
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
+			config, kvStore, svc = configFactory(defaultArch)
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(ownerPod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+				Name: hotplugDisks,
+				VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{
+					Medium:    k8sv1.StorageMediumMemory,
+					SizeLimit: pointer.P(resource.MustParse("1Mi")),
+				}},
+			}))
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			volumeName := "testVolume"
@@ -6086,7 +6318,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
+			memoryOverheadCalculator := &stubMemoryOverheadCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -6102,7 +6334,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithMemoryOverheadCalculators(memoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -6114,7 +6346,7 @@ var _ = Describe("Template", func() {
 			_, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(netBindingPluginMemoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
+			Expect(memoryOverheadCalculator.calculatedMemoryOverhead).To(BeTrue())
 		})
 	})
 
@@ -6291,6 +6523,21 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].Args).ToNot(ContainElement("--firmware-auto-selection"))
 		})
+
+		DescribeTable("should pass --arm64-secure-boot only when the feature gate is enabled", func(enabled bool) {
+			config, kvStore, svc = configFactory(defaultArch)
+			if enabled {
+				enableFeatureGate(featuregate.ARM64SecureBoot)
+			}
+
+			vmi := libvmi.New(libvmi.WithNamespace("default"))
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(slices.Contains(pod.Spec.Containers[0].Args, "--arm64-secure-boot")).To(Equal(enabled))
+		},
+			Entry("enabled", true),
+			Entry("disabled", false),
+		)
 	})
 })
 
@@ -6447,11 +6694,11 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	return timeoutString
 }
 
-type stubNetMemoryCalculator struct {
+type stubMemoryOverheadCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}

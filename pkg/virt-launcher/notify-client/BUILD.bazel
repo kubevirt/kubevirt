@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["client.go"],
+    srcs = [
+        "client.go",
+        "grpcclient.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client",
     visibility = ["//visibility:public"],
     deps = [
@@ -16,7 +19,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
         "//pkg/virt-launcher/virtwrap/storage:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
@@ -64,6 +66,7 @@ go_test(
         "//vendor/google.golang.org/grpc/codes:go_default_library",
         "//vendor/google.golang.org/grpc/status:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",

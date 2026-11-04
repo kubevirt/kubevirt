@@ -128,7 +128,7 @@ func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInsta
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetFilePath)
 	// for each disk that requires it.
-	isBlockVolumes := diskutils.GetEphemeralBackingSourceBlockDevices(domain)
+	isBlockVolumes := getEphemeralBackingSourceBlockDevices(domain)
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.Ephemeral != nil {
 			if err := c.CreateBackedImageForVolume(volume, c.getBackingFilePath(volume.Name, isBlockVolumes[volume.Name]), ephemeralDiskFormat); err != nil {
@@ -153,4 +153,16 @@ func createBackingDisk(backingFile string, backingFormat string, imagePath strin
 		imagePath,
 	)
 	return cmd.CombinedOutput()
+}
+
+func getEphemeralBackingSourceBlockDevices(domain *api.Domain) map[string]bool {
+	isDevEphemeralBackingSource := make(map[string]bool)
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.BackingStore != nil && disk.BackingStore.Source != nil {
+			if disk.BackingStore.Type == "block" && disk.BackingStore.Source.Dev != "" && disk.BackingStore.Source.Name != "" {
+				isDevEphemeralBackingSource[disk.BackingStore.Source.Name] = true
+			}
+		}
+	}
+	return isDevEphemeralBackingSource
 }

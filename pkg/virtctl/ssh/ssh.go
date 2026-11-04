@@ -45,6 +45,7 @@ const (
 	knownHostsFilePathFlag                          = "known-hosts"
 	commandToExecute, commandToExecuteShort         = "command", "c"
 	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
+	vsockFlag                                       = "vsock"
 )
 
 type ssh struct {
@@ -60,6 +61,7 @@ type SSHOptions struct {
 	KnownHostsFilePath        string
 	KnownHostsFilePathDefault string
 	AdditionalSSHLocalOptions []string
+	UseVsock                  bool
 }
 
 func NewSSH(opts *SSHOptions) *ssh {
@@ -100,6 +102,8 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf(`--%s=22: Specify a port on the VM to send SSH traffic to`, portFlag))
 	flagset.StringArrayVarP(&opts.AdditionalSSHLocalOptions, additionalOpts, additionalOptsShort, opts.AdditionalSSHLocalOptions,
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh client`, additionalOpts))
+	flagset.BoolVar(&opts.UseVsock, vsockFlag, opts.UseVsock,
+		fmt.Sprintf(`--%s: Use VSOCK to connect to the VM instead of regular port-forwarding`, vsockFlag))
 }
 
 func DefaultSSHOptions() *SSHOptions {
@@ -239,7 +243,13 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 }
 
 func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
-	args := []string{"-o", BuildProxyCommandOption(kind, namespace, name, options.SSHPort)}
+	subcommand := "port-forward --stdio=true"
+	if options.UseVsock {
+		// SSH encrypts traffic end-to-end, so VSOCK TLS is not needed
+		subcommand += " --vsock --vsock-tls=false"
+	}
+	proxyCommandOption := BuildProxyCommandOption(subcommand, kind, namespace, name, options.SSHPort)
+	args := []string{"-o", proxyCommandOption}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
 	}
@@ -258,11 +268,13 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	return cmd
 }
 
-func BuildProxyCommandOption(kind, namespace, name string, port int) string {
+func BuildProxyCommandOption(subcommand, kind, namespace, name string, port int) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
-	proxyCommand.WriteString(" port-forward --stdio=true ")
+	proxyCommand.WriteRune(' ')
+	proxyCommand.WriteString(subcommand)
+	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(kind)
 	proxyCommand.WriteRune('/')
 	proxyCommand.WriteString(name)

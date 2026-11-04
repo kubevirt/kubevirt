@@ -58,11 +58,12 @@ func GetEvaluator() *Evaluator {
 }
 
 func NewEvaluator() (*Evaluator, error) {
-	env, err := celutil.NewBaseEvaluator(
+	env, err := celutil.NewBaseEnv(
 		celutil.WithNativeTypes(reflect.TypeOf(&libvirtxml.Domain{}),
 			reflect.TypeOf(&v1.VirtualMachineInstance{})),
 		celutil.WithContainer("libvirtxml"),
 		celutil.WithCustomTypeProvider(func(wrap types.Provider) types.Provider { return &sparseProvider{delegate: wrap} }),
+		celutil.WithVariable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
 		celutil.WithVariable("domainSpec", cel.ObjectType("libvirtxml.Domain")),
 	)
 	if err != nil {
@@ -70,26 +71,6 @@ func NewEvaluator() (*Evaluator, error) {
 	}
 
 	return &Evaluator{env: env}, nil
-}
-
-func (e *Evaluator) EvaluateCondition(expr string, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) (bool, error) {
-	ast, err := e.compile(expr)
-	if err != nil {
-		return false, err
-	}
-	if ast.OutputType() != cel.BoolType {
-		return false, fmt.Errorf("condition must return bool, got %s", ast.OutputType())
-	}
-	out, err := e.eval(ast, vmi, domain)
-	if err != nil {
-		return false, err
-	}
-
-	result, ok := out.Value().(bool)
-	if !ok {
-		return false, fmt.Errorf("condition returned %T, expected bool", out.Value())
-	}
-	return result, nil
 }
 
 func (e *Evaluator) EvaluateMutation(expr string, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) (*libvirtxml.Domain, error) {
@@ -115,17 +96,6 @@ func (e *Evaluator) EvaluateMutation(expr string, vmi *v1.VirtualMachineInstance
 		return nil, fmt.Errorf("merging mutation result: %w", err)
 	}
 	return result, nil
-}
-
-func (e *Evaluator) CompileCondition(expr string) error {
-	ast, err := e.compile(expr)
-	if err != nil {
-		return err
-	}
-	if ast.OutputType() != cel.BoolType {
-		return fmt.Errorf("condition must return bool, got %s", ast.OutputType())
-	}
-	return nil
 }
 
 func (e *Evaluator) CompileMutation(expr string) error {

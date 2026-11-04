@@ -32,7 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -61,6 +61,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/flowcontrol"
+	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
@@ -69,7 +70,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -195,7 +196,6 @@ type VirtControllerApp struct {
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
-	caBackupConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             *export.VMExportController
@@ -413,7 +413,6 @@ func Execute() {
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
-	app.caBackupConfigMapInformer = app.informerFactory.KubeVirtBackupCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
@@ -716,13 +715,24 @@ func (vca *VirtControllerApp) initCommon() {
 				return hooks.UnmarshalHookSidecarList(vmi)
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
-		services.WithNetMemoryCalculator(netresources.MemoryCalculator{}),
+		services.WithMemoryOverheadCalculators(
+			netresources.NewMemoryCalculator(vca.clusterConfig),
+			backup.NewMemoryCalculator(
+				vca.persistentVolumeClaimCache,
+				vca.vmBackupTrackerInformer,
+				vca.clusterConfig),
+		),
 		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController, err = vmi.NewController(vca.templateService,
+	vca.vmiController, err = vmi.NewController(
+		workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
+		),
+		vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,
@@ -740,7 +750,7 @@ func (vca *VirtControllerApp) initCommon() {
 		topologyHinter,
 		netAnnotationsGenerator,
 		storageAnnotationsGenerator,
-		netcontrollers.UpdateVMIStatus,
+		netcontrollers.NewVMIStatusUpdater(vca.clusterConfig),
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
@@ -790,7 +800,12 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
-	vca.rsController, err = replicaset.NewController(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	vca.rsController, err = replicaset.NewController(
+		workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-replicaset"},
+		),
+		vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 	if err != nil {
 		panic(err)
 	}
@@ -818,6 +833,10 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	vca.vmController, err = vm.NewController(
+		workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+		),
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
@@ -832,7 +851,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
 		),
-		vm.NewFirmwareController(vca.clientSet.GeneratedKubeVirtClient()),
 		instancetypecontroller.New(
 			vca.instancetypeInformer.GetStore(),
 			vca.clusterInstancetypeInformer.GetStore(),
@@ -976,7 +994,6 @@ func (vca *VirtControllerApp) initExportController() {
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 		VMBackupInformer:            vca.vmBackupInformer,
 		VMBackupTrackerInformer:     vca.vmBackupTrackerInformer,
-		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 		VMTemplateInformer:          vca.vmTemplateInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
@@ -1006,9 +1023,9 @@ func (vca *VirtControllerApp) initBackupController() {
 		vca.vmiInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.vmExportInformer,
-		vca.caExportConfigMapInformer,
+		vca.allPodInformer,
 		recorder,
-		vca.kubevirtNamespace,
+		vca.clusterConfig,
 	)
 	if err != nil {
 		panic(err)

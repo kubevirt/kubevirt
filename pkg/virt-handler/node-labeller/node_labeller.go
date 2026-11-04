@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -375,9 +376,7 @@ func (n *NodeLabeller) getNode() (*v1.Node, error) {
 
 // addNodeLabels adds labels to node.
 func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string) {
-	for key, value := range labels {
-		node.Labels[key] = value
-	}
+	maps.Copy(node.Labels, labels)
 }
 
 // removeLabellerLabels removes labels from node

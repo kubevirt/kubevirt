@@ -22,6 +22,7 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/plugin/v1alpha1/types.go
 
 deepcopy-gen \
@@ -39,6 +40,7 @@ deepcopy-gen \
     kubevirt.io/api/clone/v1alpha1 \
     kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/backup/v1alpha1 \
+    kubevirt.io/api/backup/v1beta1 \
     kubevirt.io/api/plugin/v1alpha1 \
     kubevirt.io/api/core/v1
 
@@ -72,6 +74,7 @@ openapi-gen \
     kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
     kubevirt.io/api/backup/v1alpha1 \
+    kubevirt.io/api/backup/v1beta1 \
     kubevirt.io/api/plugin/v1alpha1 \
     kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 
@@ -91,7 +94,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1,plugin/v1alpha1 \
+    --input core/v1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1,backup/v1beta1,plugin/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -163,6 +166,7 @@ deepcopy-gen \
 
     #include backup
     GOFLAGS= controller-gen crd paths=../api/backup/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/backup/v1beta1/
 
     #include plugin
     GOFLAGS= controller-gen crd paths=../api/plugin/v1alpha1/
@@ -241,6 +245,5 @@ ${KUBEVIRT_DIR}/hack/gen-proto.sh
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/v1/cmd.pb.go -package=v1 -destination=pkg/handler-launcher-com/cmd/v1/generated_mock_cmd.go
-mockgen -source pkg/storage/cbt/nbd/v1/nbd.pb.go -package=v1 -destination=pkg/storage/cbt/nbd/v1/generated_mock_nbd.go
 
 ${KUBEVIRT_DIR}/hack/bazel-race.sh

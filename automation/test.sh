@@ -27,6 +27,7 @@ export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
+readonly SRIOV_TEST_LANE="$(<./kubevirtci/stable_provider.txt)"
 
 readonly NETWORK_SMOKE_LABELS="conformance"
 
@@ -67,7 +68,7 @@ fi
 # as with sig-compute-serial lane all sig-compute periodic lanes need to
 # have the Plugins feature gate enabled as well, since the Serial tests are not
 # split out from the sig-compute as in presubmit jobs
-if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute$ ]]; then
+if [[ $JOB_NAME =~ ^periodic-kubevirt-e2e-k8s-.*-sig-compute(-root)?$ ]]; then
   add_feature_gate "Plugins"
 fi
 
@@ -88,18 +89,14 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
+    export KUBEVIRT_NUM_SECONDARY_NICS=1
+    export KUBEVIRT_SECONDARY_IFACES_TO_IP=eth1
+    export KUBEVIRT_DEPLOY_NET_DRA_DRIVER=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
-    ;;
-  *emulated-igb*)
-    export KUBEVIRT_PROVIDER=${TARGET/-emulated-igb*/}
-    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
-    export KUBEVIRT_WITH_SRIOV=true
-    export KUBEVIRT_NUM_NUMA_NODES=2
-    export KUBEVIRT_NUM_NODES=3
-    export KUBEVIRT_DEPLOY_CDI=false
-    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
-    export KUBEVIRT_E2E_PARALLEL=false
-    export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
+    if [[ "${KUBEVIRT_PROVIDER}" == "${SRIOV_TEST_LANE}" && $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
+      export KUBEVIRT_WITH_SRIOV=true
+      export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -emulated-sriov=true"
+    fi
     ;;
   *sig-storage*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
@@ -107,6 +104,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NFS_CSI=true
     export KUBEVIRT_WITH_ETC_CAPACITY="1G"
     export FAIL_ON_VM_LOG_ERRORS=true
+    add_feature_gate "OCIExport"
     ;;
   *sig-compute-realtime*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
@@ -141,6 +139,10 @@ case "$TARGET" in
     export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
     source hack/config-default.sh
     ;;
+  *sig-compute-root*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-root/}
+    add_feature_gate "Plugins"
+    ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
     add_feature_gate "Plugins"
@@ -151,6 +153,12 @@ case "$TARGET" in
   *sig-compute-conformance*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
     ;;
+  # DRA-CEX: CEX AP-queue passthrough via Kubernetes DRA. Needs an s390x
+  # node with the CEX DRA driver and a crypto queue, so it is not part of
+  # wg-s390x or the generic sig-compute lanes.
+  *sig-compute-dra-cex*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-dra-cex/}
+    ;;
   *sig-compute-dra-gpu*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-dra-gpu/}
     export KUBEVIRT_USE_FAKE_VFIO=true
@@ -158,6 +166,13 @@ case "$TARGET" in
     export FAKE_PCI_DEVICES=8
     export DRA_DRIVER_NAME="vfio-gpu.example.com"
     add_feature_gate "GPUsWithDRA"
+    ;;
+  *sig-compute-dra-cpu*)
+    export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-dra-cpu/}
+    export KUBEVIRT_USE_DRA_CPU=true
+    export KUBEVIRT_NUM_NUMA_NODES=2
+    export KUBEVIRT_NUM_VCPU=12
+    add_feature_gate "CPUsWithDRA"
     ;;
   *sig-compute*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
@@ -193,6 +208,11 @@ case "$TARGET" in
 esac
 
 detect_centos_stream_version
+
+# CS10 ARM64 images support the firmware and variable store used by Secure Boot.
+if [[ $TARGET =~ wg-arm64 && ${KUBEVIRT_CENTOS_STREAM_VERSION} == "10" ]]; then
+  export KUBEVIRT_ARM64_SECURE_BOOT="${KUBEVIRT_ARM64_SECURE_BOOT:-true}"
+fi
 
 # Single-node single-replica test lanes need nfs csi to run sig-storage tests
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
@@ -560,8 +580,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter="(sig-network && (${NETWORK_SMOKE_LABELS}))"
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    # SR-IOV tests runs on dedicated lane
-    add_to_label_filter "(!SRIOV)" "&&"
+    if [[ ! $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
+      add_to_label_filter "(!SRIOV)" "&&"
+    fi
     if [[ $KUBEVIRT_WITH_DYN_NET_CTRL == "true" ]]; then
       add_to_label_filter "(!migration-based-hotplug-NICs)" "&&"
     else
@@ -588,16 +609,21 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,DRA-GPU,DRA-CPU,DRA-CEX,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
     label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
+  elif [[ $TARGET =~ sig-compute-dra-cex ]]; then
+    export KUBEVIRT_E2E_PARALLEL=false
+    label_filter='(DRA-CEX)'
   elif [[ $TARGET =~ sig-compute-dra-gpu ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='(DRA-GPU)'
+  elif [[ $TARGET =~ sig-compute-dra-cpu ]]; then
+    label_filter='(DRA-CPU)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage,DRA-GPU,DRA-CPU,DRA-CEX) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -608,12 +634,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     else
       label_filter='(sig-operator)'
     fi
-  elif [[ $TARGET =~ emulated-igb ]]; then
-    label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else
-    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
+    label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins,DRA-CEX))'
   fi
 
   # execute tests labelled as PERIODIC only on periodic test lanes (according to lane name)
@@ -626,7 +650,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!Sysprep)" "&&"
   fi
 
-  if [[ ! $TARGET =~ wg-s390x ]] && [[ ! $TARGET =~ secure-execution ]]; then
+  # sig-compute-dra-cex runs on s390x, so keep requires-s390x tests.
+  if [[ ! $TARGET =~ wg-s390x ]] && [[ ! $TARGET =~ secure-execution ]] && [[ ! $TARGET =~ dra-cex ]]; then
     add_to_label_filter "(!requires-s390x)" "&&"
   fi
 
@@ -636,6 +661,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
 
   if [[ ${KUBEVIRT_CROSS_ARCH_EMULATION} != "true" ]]; then
     add_to_label_filter "(!requires-cross-arch-emulation)" "&&"
+  fi
+
+  if [[ ${KUBEVIRT_ARM64_SECURE_BOOT} != "true" ]]; then
+    add_to_label_filter "(!requires-arm64-secure-boot)" "&&"
   fi
 
   if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
@@ -685,6 +714,13 @@ fi
 
 if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
+fi
+
+# VSOCK namespace confinement needs nodes with net.vsock.child_ns_mode set to local.
+if [[ "${KUBEVIRT_VSOCK_CHILD_NS_MODE:-}" == "local" ]]; then
+  add_to_label_filter '(!RequiresVSOCKGlobalNamespace)' '&&'
+else
+  add_to_label_filter '(!RequiresVSOCKLocalNamespace)' '&&'
 fi
 
 # OpenShift-specific tests require features not available in KubeVirtCI

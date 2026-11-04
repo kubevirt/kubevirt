@@ -71,7 +71,7 @@ other stuff.
 6. The `virt-handler` (_DaemonSet_) observes that a `VMI` got assigned to the
    host where it is running on.
 6. The `virt-handler` is using the _VMI Specification_ and signals the creation
-   of the corresponding domain using a `libvirtd` instance in the VMI's pod.
+   of the corresponding domain using the `virtqemud` instance in the VMI's pod.
 7. A client deletes the `VMI` object through the `virt-api-server`.
 8. The `virt-handler` observes the deletion and turns off the domain.
 
@@ -125,7 +125,7 @@ The main purpose of the `virt-launcher` Pod is to provide the cgroups and
 namespaces, which will be used to host the VMI process.
 
 `virt-handler` signals `virt-launcher` to start a VMI by passing the VMI's CRD object
-to `virt-launcher`. `virt-launcher` then uses a local libvirtd instance within its
+to `virt-launcher`. `virt-launcher` then uses a local `virtqemud` instance within its
 container to start the VMI. From there `virt-launcher` monitors the VMI process and
 terminates once the VMI has exited.
 
@@ -152,10 +152,12 @@ The main areas which `virt-handler` has to cover are:
 3. Invoke node-centric plugins which can fulfill networking and storage requirements defined in VMI specs.
 
 
-## `libvirtd`
+## `virtqemud`
 
-An instance of `libvirtd` is present in every VMI pod. `virt-launcher` uses libvirtd
-to manage the life-cycle of the VMI process.
+An instance of `virtqemud`, the libvirt daemon for the QEMU driver, is present in
+every VMI pod, together with `virtlogd`. `virt-launcher` starts it and uses it to
+manage the life-cycle of the VMI process. Before v0.59 this was the monolithic
+`libvirtd` daemon.
 
 # Additional components
 

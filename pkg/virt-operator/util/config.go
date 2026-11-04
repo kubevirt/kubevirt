@@ -86,6 +86,19 @@ const (
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesCrossClusterMigrationNetwork = "CrossClusterMigrationNetwork"
+
+	// lookup key in AdditionalProperties — presence means Proxy datapath is selected
+	AdditionalPropertiesDecentralizedLiveMigrationProxy = "DecentralizedLiveMigrationProxy"
+
+	// DecentralizedLiveMigrationProxyEnvName is set on synchronization-controller pods
+	// when the Proxy datapath template is selected (including virt-handler migration
+	// cert mounts). The binary keys Proxy cert loading and proxy init off this env
+	// so old Direct-template pods stay in Direct mode during rollout even if live
+	// ClusterConfig already reports Proxy enabled.
+	DecentralizedLiveMigrationProxyEnvName = "DECENTRALIZED_LIVE_MIGRATION_PROXY"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// lookup key in AdditionalProperties
@@ -165,6 +178,9 @@ type KubeVirtDeploymentConfig struct {
 
 	// environment variables from virt-operator to pass along
 	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
+
+	// synchronization controller placement configuration
+	SynchronizationPlacement *v1.ComponentConfig `json:"synchronizationPlacement,omitempty" optional:"true"`
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
@@ -189,6 +205,21 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		if devcfg := kv.Spec.Configuration.DeveloperConfiguration; devcfg != nil &&
 			slices.Contains(devcfg.FeatureGates, featuregate.PersistentReservation) {
 			additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+		}
+	}
+
+	// Only attach cross-cluster Multus network when Proxy datapath is selected.
+	// Record Proxy mode itself in AdditionalProperties so Direct↔Proxy flips
+	// change the install-strategy ID and roll out synchronization controllers
+	// even when crossClusterNetwork is unset.
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.CrossClusterMigrationProxy) {
+		if kv.Spec.Configuration.MigrationConfiguration != nil &&
+			kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath != nil &&
+			*kv.Spec.Configuration.MigrationConfiguration.DecentralizedLiveMigrationDatapath == v1.DecentralizedLiveMigrationDatapathProxy {
+			additionalProperties[AdditionalPropertiesDecentralizedLiveMigrationProxy] = ""
+			if kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork != nil {
+				additionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.CrossClusterNetwork
+			}
 		}
 	}
 
@@ -222,7 +253,8 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Spec.ImageTag,
 		kv.Namespace,
 		additionalProperties,
-		envVarManager)
+		envVarManager,
+		kv.Spec.SynchronizationPlacement)
 }
 
 func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, fg string) bool {
@@ -294,7 +326,7 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	}
 }
 
-func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager, synchronizationPlacement *v1.ComponentConfig) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
@@ -343,7 +375,7 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv, synchronizationPlacement)
 }
 
 func VerifyEnv() error {
@@ -377,7 +409,7 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string, synchronizationPlacement *v1.ComponentConfig) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
@@ -397,9 +429,10 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 			PrHelperImage:                      prHelperImage,
 			SidecarShimImage:                   sidecarShimImage,
 		},
-		Namespace:            namespace,
-		AdditionalProperties: kvSpec,
-		PassthroughEnvVars:   passthroughEnv,
+		Namespace:                namespace,
+		AdditionalProperties:     kvSpec,
+		PassthroughEnvVars:       passthroughEnv,
+		SynchronizationPlacement: synchronizationPlacement,
 	}
 	c.generateInstallStrategyID()
 	return c
@@ -493,6 +526,19 @@ func (c *KubeVirtDeploymentConfig) GetImagePrefix() string {
 	return c.ImagePrefix
 }
 
+// GetHandlerImage returns the configured override, or falls back to the
+// registry/prefix/version convention (see AddVersionSeparatorPrefix).
+func (c *KubeVirtDeploymentConfig) GetHandlerImage() string {
+	if c.VirtHandlerImage != "" {
+		return c.VirtHandlerImage
+	}
+	version := c.GetHandlerVersion()
+	if !strings.HasPrefix(version, "{{if") {
+		version = ":" + version
+	}
+	return fmt.Sprintf("%s/%svirt-handler%s", c.GetImageRegistry(), c.GetImagePrefix(), version)
+}
+
 func (c *KubeVirtDeploymentConfig) GetExtraEnv() map[string]string {
 	return c.PassthroughEnvVars
 }
@@ -564,6 +610,11 @@ func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 	return enabled
 }
 
+func (c *KubeVirtDeploymentConfig) DecentralizedLiveMigrationProxyEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesDecentralizedLiveMigrationProxy]
+	return enabled
+}
+
 func (c *KubeVirtDeploymentConfig) VirtTemplateDeploymentEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled]
 	return enabled
@@ -591,6 +642,18 @@ func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	} else {
 		return nil
 	}
+}
+
+func (c *KubeVirtDeploymentConfig) GetCrossClusterMigrationNetwork() *string {
+	value, enabled := c.AdditionalProperties[AdditionalPropertiesCrossClusterMigrationNetwork]
+	if enabled {
+		return &value
+	}
+	return nil
+}
+
+func (c *KubeVirtDeploymentConfig) GetSynchronizationPlacement() *v1.ComponentConfig {
+	return c.SynchronizationPlacement
 }
 
 func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
@@ -657,6 +720,31 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 	return productVersion
 }
 
+func (c *KubeVirtDeploymentConfig) GetProductLabels() (productName, productVersion, productComponent string) {
+	productName = c.GetProductName()
+	productVersion = c.AdditionalProperties[ProductVersionKey]
+	productComponent = c.GetProductComponent()
+
+	invalidLabelPatternErrorMessage := "invalid %s: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or dash"
+
+	if !IsValidLabel(productName) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName")
+		productName = ""
+	}
+	if !IsValidLabel(productVersion) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion")
+		productVersion = ""
+	}
+	if !IsValidLabel(productComponent) {
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent")
+		productComponent = ""
+	}
+	if productComponent == "" {
+		productComponent = v1.AppComponent
+	}
+	return productName, productVersion, productComponent
+}
+
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 	// We need an id, which identifies a KubeVirt deployment based on version, registry, namespace, and other
 	// changeable properties from the KubeVirt CR. This will be used for identifying the correct install strategy job
@@ -711,6 +799,22 @@ func fieldsToString(v reflect.Value) string {
 			result += fieldsToString(field)
 		case reflect.String:
 			result += field.String()
+		case reflect.Ptr:
+			// Complex nested types (e.g. ComponentConfig → NodePlacement with
+			// maps/slices) are not all handled by this switch; marshal instead.
+			if !field.IsNil() {
+				b, err := json.Marshal(field.Interface())
+				if err != nil {
+					panic(fmt.Sprintf("fieldsToString unable to marshal field %s: %v", fieldName, err))
+				}
+				result += string(b)
+			}
+		case reflect.Slice, reflect.Array:
+			b, err := json.Marshal(field.Interface())
+			if err != nil {
+				panic(fmt.Sprintf("fieldsToString unable to marshal field %s: %v", fieldName, err))
+			}
+			result += string(b)
 		default:
 			panic(fmt.Sprintf("fieldsToString unable to handle field %s", fieldName))
 		}

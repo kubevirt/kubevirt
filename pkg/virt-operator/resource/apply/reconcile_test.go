@@ -39,13 +39,14 @@ import (
 )
 
 type MockStore struct {
-	get interface{}
+	get  interface{}
+	list []interface{}
 }
 
 func (m *MockStore) Add(_ interface{}) error    { return nil }
 func (m *MockStore) Update(_ interface{}) error { return nil }
 func (m *MockStore) Delete(_ interface{}) error { return nil }
-func (m *MockStore) List() []interface{}        { return nil }
+func (m *MockStore) List() []interface{}        { return m.list }
 func (m *MockStore) ListKeys() []string         { return nil }
 func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error) {
 	item = m.get

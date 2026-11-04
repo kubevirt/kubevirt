@@ -49,6 +49,23 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
+// injectDeploymentPlacement applies node placement once during reconciliation.
+// Synchronization controllers use SynchronizationPlacement when set; otherwise
+// they fall back to Infra, or the default control-plane placement when both are
+// unset. Placement is not applied at generation time so Infra node selectors
+// cannot stack on top of generated control-plane affinity.
+func injectDeploymentPlacement(kv *v1.KubeVirt, deployment *appsv1.Deployment) {
+	componentConfig := kv.Spec.Infra
+	nodePlacementOption := placement.RequireControlPlanePreferNonWorker
+	if deployment.Name == components.VirtSynchronizationControllerName {
+		if kv.Spec.SynchronizationPlacement != nil {
+			componentConfig = kv.Spec.SynchronizationPlacement
+			nodePlacementOption = placement.AnyNode
+		}
+	}
+	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, nodePlacementOption)
+}
+
 func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	kv := r.kv
 
@@ -59,7 +76,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	injectDeploymentPlacement(kv, deployment)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)

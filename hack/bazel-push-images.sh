@@ -69,12 +69,13 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         example-disk-mutation-hook-sidecar
         example-cloudinit-hook-sidecar
         example-node-hook-plugin
-        test-domain-hook-sidecar
+        test-launcher-hook-sidecar
         cirros-container-disk-demo
         cirros-custom-container-disk-demo
         virtio-container-disk
         winrmcli
         network-passt-binding
+        test-network-vhostuser-dra-binding
     "
 fi
 

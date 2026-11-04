@@ -83,17 +83,16 @@ func getCert(pod *k8sv1.Pod, port string) []byte {
 
 	var certificate []byte
 	const offset = 2
-	EventuallyWithOffset(offset, func() []byte {
+	EventuallyWithOffset(offset, func(g Gomega) []byte {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
 		const timeout = 10
 		localPort, err := ForwardPorts(pod, []string{"0:" + port}, stopChan, timeout*time.Second)
-		ExpectWithOffset(offset, err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 
 		conn, err := (&tls.Dialer{Config: conf}).DialContext(context.Background(), "tcp4", fmt.Sprintf("localhost:%d", localPort))
-		if err == nil {
-			defer conn.Close()
-		}
+		g.Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
 		mutex.Lock()
 		defer mutex.Unlock()
 		certificate = make([]byte, len(rawCert))

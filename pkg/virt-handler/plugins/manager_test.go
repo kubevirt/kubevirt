@@ -82,9 +82,9 @@ var _ = Describe("NodeHookManager", func() {
 		})
 
 		It("should skip plugins without matching hook point", func() {
-			Expect(pluginStore.Add(newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStop))).To(Succeed())
+			Expect(pluginStore.Add(newPlugin("test-plugin", pluginv1alpha1.NodeHookOnVMStop))).To(Succeed())
 			// CallNodeHooks for PreVMStart should not attempt to dial a socket for a
-			// plugin that only permits PreVMStop. Since no socket exists, a dial
+			// plugin that only permits OnVMStop. Since no socket exists, a dial
 			// attempt would fail - success here proves the plugin was skipped.
 			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
 		})
@@ -115,7 +115,7 @@ var _ = Describe("NodeHookManager", func() {
 
 		It("should skip plugin when plugin-level condition does not match", func() {
 			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.Condition = "vmi.metadata.name == 'nonexistent'"
+			plugin.Spec.Condition = "vmi.Name == 'nonexistent'"
 			Expect(pluginStore.Add(plugin)).To(Succeed())
 
 			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
@@ -123,7 +123,7 @@ var _ = Describe("NodeHookManager", func() {
 
 		It("should attempt to call plugin when plugin-level condition matches", func() {
 			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.Condition = "vmi.metadata.name == 'test-vmi'"
+			plugin.Spec.Condition = "vmi.Name == 'test-vmi'"
 			Expect(pluginStore.Add(plugin)).To(Succeed())
 
 			err := manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")

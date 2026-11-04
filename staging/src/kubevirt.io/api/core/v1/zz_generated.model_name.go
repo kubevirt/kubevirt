@@ -704,6 +704,11 @@ func (in MigrationConfiguration) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MultiIOThreadAutoPolicy) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.MultiIOThreadAutoPolicy"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MultusNetwork) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.MultusNetwork"
 }
@@ -976,6 +981,11 @@ func (in SecretVolumeSource) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ServiceAccountVolumeSource) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.ServiceAccountVolumeSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SnapshotOverlayOptions) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.SnapshotOverlayOptions"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -1371,6 +1381,16 @@ func (in VirtualMachineStartFailure) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualMachineStateChangeRequest) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.VirtualMachineStateChangeRequest"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineStateSource) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineStateSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineStateSpec) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineStateSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

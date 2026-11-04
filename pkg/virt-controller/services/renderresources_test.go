@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
@@ -175,26 +176,22 @@ var _ = Describe("Resource pod spec renderer", func() {
 	})
 
 	When("an isolated emulator thread is requested", func() {
-		DescribeTable("sets limits and requests to vCPUs + iothreads + emulatorThreadCPUs when vCPUs != 0",
-			func(vcpus uint32, ioThreads uint32, userSpecifiedCPULimit, userSpecifiedCPURequest *resource.Quantity, annotations map[string]string, expectedCPUs int64) {
+		DescribeTable("sets limits and requests to vCPUs + iothreads + emulatorThreadCPUs",
+			func(vcpus uint32, ioThreads uint32, annotations map[string]string, expectedCPUs int64) {
 				vmi := libvmi.New(
 					libvmi.WithCPUCount(vcpus, 0, 0),
 					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
 					libvmi.WithSupplementalPoolThreadCount(ioThreads),
 					libvmi.WithIsolateEmulatorThread(),
 				)
-
-				vmLimits := kubev1.ResourceList{}
-				vmRequests := kubev1.ResourceList{}
-				if userSpecifiedCPULimit != nil && userSpecifiedCPURequest != nil {
-					vmLimits[kubev1.ResourceCPU] = *userSpecifiedCPULimit
-					vmRequests[kubev1.ResourceCPU] = *userSpecifiedCPURequest
+				if annotations != nil {
+					vmi.Annotations = annotations
 				}
 
 				rr := NewResourceRenderer(
-					vmLimits,
-					vmRequests,
-					WithCPUPinning(vmi, annotations, 0),
+					nil,
+					nil,
+					WithCPUPinning(vmi),
 				)
 
 				expectedQuantity := resource.NewQuantity(expectedCPUs, resource.BinarySI)
@@ -203,15 +200,15 @@ var _ = Describe("Resource pod spec renderer", func() {
 				Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, *expectedQuantity))
 			},
 			Entry("vCPUs specified, IO threads present",
-				uint32(5), uint32(2), nil, nil, nil, int64(8)),
+				uint32(5), uint32(2), nil, int64(8)),
 			Entry("vCPUs specified, IO threads present, EmulatorThreadCompleteToEvenParity enabled, odd total",
-				uint32(5), uint32(2), nil, nil, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(8)),
+				uint32(5), uint32(2), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(8)),
 			Entry("vCPUs specified, IO threads present, EmulatorThreadCompleteToEvenParity enabled, even total",
-				uint32(6), uint32(2), nil, nil, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(10)),
-			Entry("No vCPUs, no IO threads, user-specified reqs/limits CPU",
-				uint32(0), uint32(0), resource.NewQuantity(3, resource.BinarySI), resource.NewQuantity(3, resource.BinarySI), nil, int64(4)),
-			Entry("No vCPUs, IO threads, user-specified reqs/limits CPU, EmulatorThreadCompleteToEvenParity enabled",
-				uint32(0), uint32(2), resource.NewQuantity(5, resource.BinarySI), resource.NewQuantity(5, resource.BinarySI), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(8)),
+				uint32(6), uint32(2), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(10)),
+			Entry("vCPUs specified, odd IO thread count, EmulatorThreadCompleteToEvenParity enabled, odd total",
+				uint32(6), uint32(3), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(10)),
+			Entry("vCPUs specified, odd IO thread count, EmulatorThreadCompleteToEvenParity enabled, even total",
+				uint32(5), uint32(3), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(10)),
 		)
 
 		It("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits and the IOThreads", func() {
@@ -227,7 +224,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			)
 			rr = NewResourceRenderer(
 				nil, nil,
-				WithCPUPinning(vmi, nil, 0),
+				WithCPUPinning(vmi),
 			)
 			Expect(rr.Limits()).Should(HaveKeyWithValue(
 				kubev1.ResourceCPU,
@@ -447,6 +444,14 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claims).To(HaveLen(1))
 			Expect(claims[0].Name).To(Equal("net-claim"))
 			Expect(claims[0].Request).To(Equal("net-request"))
+		})
+
+		It("should add CPU DRA claim to container resources", func() {
+			rr = NewResourceRenderer(nil, nil, WithCPUsDRA())
+
+			Expect(rr.Claims()).To(Equal([]kubev1.ResourceClaim{
+				{Name: dra.CPUClaimRefName},
+			}))
 		})
 
 		It("Unified functions should not interfere with other renderer options", func() {

@@ -57,6 +57,28 @@ const (
 )
 
 var _ = ginkgo.Describe("Schema", func() {
+	ginkgo.It("should preserve ARM64 UEFI variable storage when reading and copying domain XML", func() {
+		const domainXML = `<domain><os firmware="efi">
+			<type arch="aarch64" machine="virt">hvm</type>
+			<loader readonly="yes" type="rom">/usr/share/edk2/aarch64/QEMU_EFI.qemuvars.fd</loader>
+			<varstore path="/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json" template="/usr/share/edk2/aarch64/vars.secboot.json"/>
+		</os></domain>`
+		var domain DomainSpec
+		Expect(xml.Unmarshal([]byte(domainXML), &domain)).To(Succeed())
+		expectedVarStore := &VarStore{
+			Path:     "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json",
+			Template: "/usr/share/edk2/aarch64/vars.secboot.json",
+		}
+		Expect(domain.OS.VarStore).To(Equal(expectedVarStore))
+
+		copiedDomain := domain.DeepCopy()
+		domain.OS.VarStore.Path = "/changed.json"
+		Expect(copiedDomain.OS.VarStore).To(Equal(expectedVarStore))
+		xmlBytes, err := xml.Marshal(copiedDomain)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(xmlBytes)).To(ContainSubstring(`<varstore path="/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json" template="/usr/share/edk2/aarch64/vars.secboot.json"></varstore>`))
+	})
+
 	templateToString := func(templateStr, templateInput string) string {
 		tmpl, err := template.New("schema").Parse(templateStr)
 		Expect(err).ToNot(HaveOccurred())
@@ -155,10 +177,12 @@ var _ = ginkgo.Describe("Schema", func() {
 			PVSpinlock: &FeaturePVSpinlock{State: "off"},
 			PMU:        &FeatureState{State: "off"},
 		}
-		exampleDomain.Spec.SysInfo = &SysInfo{
-			Type: "smbios",
-			System: []Entry{
-				{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+		exampleDomain.Spec.SysInfo = []SysInfo{
+			{
+				Type: "smbios",
+				System: []Entry{
+					{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"},
+				},
 			},
 		}
 		exampleDomain.Spec.CPU.Topology = &CPUTopology{
@@ -204,6 +228,39 @@ var _ = ginkgo.Describe("Schema", func() {
 			Expect(newDomain).To(Equal(*domain))
 		})
 	})
+
+	ginkgo.Context("With domain JSON on the virt-launcher to virt-handler channel", func() {
+		// Pre-upgrade virt-launchers encode SysInfo as a single object, and
+		// notify-server drops the whole event if it fails to unmarshal.
+		ginkgo.It("should not reject a sysinfo encoded by an older virt-launcher", func() {
+			legacy := []byte(`{"Name":"testvmi","SysInfo":{"Type":"smbios",` +
+				`"System":[{"Name":"uuid","Value":"e4686d2c-6e8d-4335-b8fd-81bee22f4814"}]}}`)
+
+			newDomain := DomainSpec{}
+			Expect(json.Unmarshal(legacy, &newDomain)).To(Succeed())
+			Expect(newDomain.Name).To(Equal("testvmi"), "the rest of the domain must still be decoded")
+			Expect(newDomain.SysInfo).To(BeEmpty(), "the legacy key is ignored rather than type-matched")
+		})
+
+		ginkgo.It("should round-trip the current sysinfo list", func() {
+			spec := DomainSpec{
+				Name: "testvmi",
+				SysInfo: []SysInfo{
+					{Type: "smbios", System: []Entry{{Name: "uuid", Value: "e4686d2c-6e8d-4335-b8fd-81bee22f4814"}}},
+					{Type: "fwcfg", Entries: []Entry{{Name: "opt/org.seabios/pci64", Value: "no"}}},
+				},
+			}
+
+			buf, err := json.Marshal(spec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(buf)).To(ContainSubstring(`"sysinfoList"`))
+
+			newDomain := DomainSpec{}
+			Expect(json.Unmarshal(buf, &newDomain)).To(Succeed())
+			Expect(newDomain.SysInfo).To(Equal(spec.SysInfo))
+		})
+	})
+
 	unmarshalTest := func(arch, domainStr string, domain *Domain) {
 		NewDefaulter(arch).SetObjectDefaults_Domain(domain)
 		newDomain := DomainSpec{}

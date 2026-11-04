@@ -66,7 +66,11 @@ func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 			disk.CDRom.Bus = bus
 		}
 		if disk.LUN != nil && disk.LUN.Bus == "" {
-			disk.LUN.Bus = bus
+			if disk.LUN.Reservation {
+				disk.LUN.Bus = v1.DiskBusSCSI
+			} else {
+				disk.LUN.Bus = bus
+			}
 		}
 	}
 

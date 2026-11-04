@@ -19,6 +19,8 @@ Copyright The KubeVirt Authors.
 package admitter
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -27,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -190,6 +193,21 @@ var _ = Describe("DRA Admitter", func() {
 			Expect(causes).To(ContainElement(metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "spec.resourceClaims[0].name is a required field",
+				Field:   "spec.resourceClaims[0].name",
+			}))
+		})
+
+		It("should reject the reserved CPU claim reference name", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
+					resourceClaim(dra.CPUClaimRefName),
+				},
+			}
+
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(ContainElement(metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("spec.resourceClaims[0].name %q is reserved", dra.CPUClaimRefName),
 				Field:   "spec.resourceClaims[0].name",
 			}))
 		})

@@ -104,9 +104,6 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"serviceaccounts",
 					"services",
 					"endpoints",
-					// pods/exec is required for testing upgrades - that can be removed when we stop
-					// supporting upgrades from versions in which virt-api required pods/exec privileges
-					"pods/exec",
 				},
 				Verbs: []string{
 					"get",
@@ -116,6 +113,19 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"update",
 					"delete",
 					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"discovery.k8s.io",
+				},
+				Resources: []string{
+					"endpointslices",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
 				},
 			},
 			{
@@ -370,6 +380,18 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 			},
 			{
+				APIGroups: []string{
+					"subresources.template.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinetemplates/process",
+					"virtualmachinetemplates/create",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+			{
 				// for ClusterRole virt-template-metrics-reader
 				NonResourceURLs: []string{
 					"/metrics",
@@ -415,6 +437,11 @@ func getKubeVirtComponentsClusterRules() []rbacv1.PolicyRule {
 			APIGroups: []string{"k8s.cni.cncf.io"},
 			Resources: []string{"network-attachment-definitions"},
 			Verbs:     []string{"get"},
+		},
+		{
+			APIGroups: []string{"subresources.kubevirt.io"},
+			Resources: []string{"virtualmachineinstances/redefine-checkpoint"},
+			Verbs:     []string{"update"},
 		},
 	}
 	rules = append(rules, backwardsCompatRules...)
@@ -553,7 +580,8 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 				ResourceNames: []string{
 					components.KubeVirtCASecretName,
 					components.KubeVirtExportCASecretName,
-					components.KubeVirtBackupCASecretName,
+					// TODO drop "kubevirt-backup-ca" after v1.10, once the previous release no longer ships it
+					"kubevirt-backup-ca",
 					components.VirtHandlerCertSecretName,
 					components.VirtHandlerServerCertSecretName,
 					components.VirtHandlerMigrationClientCertSecretName,

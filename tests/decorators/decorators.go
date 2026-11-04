@@ -21,9 +21,14 @@ var (
 
 	/* HW */
 
-	GPU             = Label("GPU")
-	VGPU            = Label("VGPU")
-	DRAGPU          = Label("DRA-GPU")
+	GPU    = Label("GPU")
+	VGPU   = Label("VGPU")
+	DRAGPU = Label("DRA-GPU")
+	// DRACEX is CEX AP-queue passthrough via Kubernetes DRA.
+	// These tests require s390x and the CEX DRA driver; see TARGET sig-compute-dra-cex.
+	DRACEX          = Label("DRA-CEX")
+	DRANetwork      = Label("DRA-Network")
+	DRACPU          = Label("DRA-CPU")
 	SEV             = Label("SEV")
 	SEVES           = Label("SEVES")
 	SEVSNP          = Label("SEVSNP")
@@ -98,6 +103,12 @@ var (
 	RequiresPersistentReservation = Label("RequiresPersistentReservation")
 	// RequiresPlugins requires the Plugins feature gate to be enabled on the kubevirt level
 	RequiresPlugins = Label("RequiresPlugins")
+	// RequiresVSOCKLocalNamespace requires nodes with net.vsock.child_ns_mode set to local
+	RequiresVSOCKLocalNamespace = Label("RequiresVSOCKLocalNamespace")
+	// RequiresVSOCKGlobalNamespace requires nodes with net.vsock.child_ns_mode unset or set to global
+	RequiresVSOCKGlobalNamespace = Label("RequiresVSOCKGlobalNamespace")
+	// RequiresOCIExport requires the OCIExport feature gate to be enabled on the kubevirt level
+	RequiresOCIExport = Label("RequiresOCIExport")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
@@ -107,6 +118,8 @@ var (
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
 	// RequiresDecentralizedLiveMigration request the feature gate is enabled
 	RequiresDecentralizedLiveMigration = Label("RequiresDecentralizedLiveMigration")
+	// RequiresCrossClusterMigrationProxy requires the CrossClusterMigrationProxy feature gate to be enabled
+	RequiresCrossClusterMigrationProxy = Label("RequiresCrossClusterMigrationProxy")
 
 	/* Provisioner */
 
@@ -121,9 +134,10 @@ var (
 	WgS390x = Label("wg-s390x")
 	WgArm64 = Label("wg-arm64")
 
-	RequiresAMD64 = Label("requires-amd64")
-	RequiresS390X = Label("requires-s390x")
-	RequiresARM64 = Label("requires-arm64")
+	RequiresAMD64           = Label("requires-amd64")
+	RequiresS390X           = Label("requires-s390x")
+	RequiresARM64           = Label("requires-arm64")
+	RequiresARM64SecureBoot = Label("requires-arm64-secure-boot")
 
 	RequiresCrossArchEmulation = Label("requires-cross-arch-emulation")
 

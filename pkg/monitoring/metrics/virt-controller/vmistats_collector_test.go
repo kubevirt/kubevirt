@@ -20,10 +20,15 @@
 package virtcontroller
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -142,14 +147,15 @@ var _ = Describe("VMI Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(18))
+				Expect(cr.Labels).To(HaveLen(19))
 
 				Expect(cr.Labels[4]).To(Equal(getVMIPhase(vmis[i])))
 				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
 				Expect(cr.Labels[5]).To(Equal(os))
 				Expect(cr.Labels[6]).To(Equal(workload))
 				Expect(cr.Labels[7]).To(Equal(flavor))
-				Expect(cr.Labels[17]).To(Equal(getVMIPod(vmis[i])))
+				Expect(cr.Labels[18]).To(Equal(getVMIPod(vmis[i])))
+				Expect(cr.ConstLabels).ToNot(HaveKey("vm"))
 			}
 		})
 
@@ -169,6 +175,86 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(uid).To(Equal(string(vmi.UID)))
 		})
 
+		DescribeTable("should expose has_panic_device correctly", func(panicDevices []k6tv1.PanicDevice, expected string) {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Devices: k6tv1.Devices{
+							PanicDevices: panicDevices,
+						},
+					},
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+			}
+
+			cr := collectVMIInfo(vmi)
+			hasPanic, err := cr.GetLabelValue("has_panic_device")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hasPanic).To(Equal(expected))
+		},
+			Entry("no panic devices", nil, "false"),
+			Entry("empty panic devices slice", []k6tv1.PanicDevice{}, "false"),
+			Entry("with ISA panic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Isa)}}, "true"),
+			Entry("with hyperv panic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Hyperv)}}, "true"),
+			Entry("with pvpanic device", []k6tv1.PanicDevice{{Model: panicModel(k6tv1.Pvpanic)}}, "true"),
+			Entry("with multiple panic devices", []k6tv1.PanicDevice{
+				{Model: panicModel(k6tv1.Isa)},
+				{Model: panicModel(k6tv1.Hyperv)},
+			}, "true"),
+		)
+
+		DescribeTable("should expose vm only for VM-owned VMIs in a scrape", func(vmi *k6tv1.VirtualMachineInstance, expectedVM string) {
+			registry := prometheus.NewRegistry()
+			originalRegister, originalUnregister := operatormetrics.Register, operatormetrics.Unregister
+			operatormetrics.Register, operatormetrics.Unregister = registry.Register, registry.Unregister
+			DeferCleanup(func() {
+				operatormetrics.Register, operatormetrics.Unregister = originalRegister, originalUnregister
+			})
+			DeferCleanup(operatormetrics.CleanRegistry)
+			Expect(operatormetrics.RegisterCollector(operatormetrics.Collector{
+				Metrics: []operatormetrics.Metric{vmiInfo},
+				CollectCallback: func() []operatormetrics.CollectorResult {
+					return []operatormetrics.CollectorResult{
+						collectVMIInfo(vmi),
+						collectVMIInfo(vmiOwnedByVM("other-vmi", "other-vm")),
+					}
+				},
+			})).To(Succeed())
+
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+			request.Header.Set("Accept", "text/plain; version=0.0.4")
+			promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(response, request)
+
+			Expect(response.Code).To(Equal(http.StatusOK))
+			Expect(response.Body.String()).To(ContainSubstring(`vm="other-vm"`))
+			var sample string
+			for _, line := range strings.Split(response.Body.String(), "\n") {
+				if strings.HasPrefix(line, "kubevirt_vmi_info{") && strings.Contains(line, `name="`+vmi.Name+`"`) {
+					sample = line
+					break
+				}
+			}
+			Expect(sample).ToNot(BeEmpty())
+			if expectedVM == "" {
+				Expect(sample).ToNot(MatchRegexp(`[,\{]vm=`))
+			} else {
+				Expect(sample).To(ContainSubstring(`vm="` + expectedVM + `"`))
+			}
+		},
+			Entry("standalone VMI omits vm", &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "standalone-vmi", Namespace: "test-ns"},
+				Status:     k6tv1.VirtualMachineInstanceStatus{Phase: k6tv1.Running},
+			}, ""),
+			Entry("VM-owned VMI exposes the owner name", vmiOwnedByVM("vmi-from-vm", "owner-vm"), "owner-vm"),
+			Entry("ReplicaSet-owned VMI omits vm", vmiOwnedByReplicaSet("vmi-from-rs", "test-rs"), ""),
+			Entry("non-controller VM owner is ignored", vmiWithNonControllerVMOwner("vmi-weak-owner", "weak-vm"), ""),
+		)
+
 		It("should update the vmi_pod label correctly after migration", func() {
 			setupMigrationPods()
 			vmi := createMigrationVMI("target-node", "virt-launcher-targetpod", true, false)
@@ -178,8 +264,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
-			Expect(cr.Labels[17]).To(Equal("virt-launcher-targetpod"))
+			Expect(cr.Labels).To(HaveLen(19))
+			Expect(cr.Labels[18]).To(Equal("virt-launcher-targetpod"))
 		})
 
 		It("should return the original pod when migration failed", func() {
@@ -191,8 +277,8 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
-			Expect(cr.Labels[17]).To(Equal("virt-launcher-originalpod"))
+			Expect(cr.Labels).To(HaveLen(19))
+			Expect(cr.Labels[18]).To(Equal("virt-launcher-originalpod"))
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey, instanceType, expected string) {
@@ -221,7 +307,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no instance type expect empty string", k6tv1.InstancetypeAnnotation, "", ""),
@@ -258,7 +344,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(18))
+			Expect(cr.Labels).To(HaveLen(19))
 			Expect(cr.Labels[9]).To(Equal(expected))
 		},
 			Entry("with no preference expect empty string", k6tv1.PreferenceAnnotation, "", ""),
@@ -835,4 +921,56 @@ func newPodMetaForInformer(name, namespace, createdByUID string) metav1.ObjectMe
 		Namespace: namespace,
 		Labels:    map[string]string{"kubevirt.io/created-by": createdByUID},
 	}
+}
+
+func vmiOwnedByVM(vmiName, vmName string) *k6tv1.VirtualMachineInstance {
+	vm := &k6tv1.VirtualMachine{
+		ObjectMeta: metav1.ObjectMeta{Name: vmName, UID: "owner-vm-uid"},
+	}
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            vmiName,
+			Namespace:       "test-ns",
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, k6tv1.VirtualMachineGroupVersionKind)},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+	}
+}
+
+func vmiOwnedByReplicaSet(vmiName, replicaSetName string) *k6tv1.VirtualMachineInstance {
+	replicaSet := &k6tv1.VirtualMachineInstanceReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{Name: replicaSetName, UID: "rs-uid"},
+	}
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmiName,
+			Namespace: "test-ns",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(replicaSet, k6tv1.VirtualMachineInstanceReplicaSetGroupVersionKind),
+			},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+	}
+}
+
+func vmiWithNonControllerVMOwner(vmiName, vmName string) *k6tv1.VirtualMachineInstance {
+	controller := false
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmiName,
+			Namespace: "test-ns",
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: k6tv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+				Kind:       k6tv1.VirtualMachineGroupVersionKind.Kind,
+				Name:       vmName,
+				UID:        "weak-vm-uid",
+				Controller: &controller,
+			}},
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+	}
+}
+
+func panicModel(m k6tv1.PanicDeviceModel) *k6tv1.PanicDeviceModel {
+	return &m
 }

@@ -77,6 +77,17 @@ const (
 	StartStrategyPaused StartStrategy = "Paused"
 )
 
+type EmulationPolicy string
+
+var EmulationPolicies = []EmulationPolicy{EmulationPolicyNone, EmulationPolicyHardware, EmulationPolicySoftware}
+
+// Valid EmultionPolicy values
+const (
+	EmulationPolicyNone     EmulationPolicy = "None"
+	EmulationPolicyHardware EmulationPolicy = "Hardware"
+	EmulationPolicySoftware EmulationPolicy = "Software"
+)
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 type VirtualMachineInstanceSpec struct {
 
@@ -182,12 +193,8 @@ type VirtualMachineInstanceSpec struct {
 	// will be made available to the domain which consumes them
 	// by name.
 	//
-	// This is an alpha field and requires enabling the
-	// DynamicResourceAllocation feature gate in kubernetes
-	//  https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
 	// This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
 	// or NetworkDevicesWithDRA is enabled.
-	// This feature is in alpha.
 	//
 	// +listType=map
 	// +listMapKey=name
@@ -201,6 +208,55 @@ type VirtualMachineInstanceSpec struct {
 	// +listMapKey=name
 	// +optional
 	UtilityVolumes []UtilityVolume `json:"utilityVolumes,omitempty"`
+	// The most permissive emulation backend this VM may use.
+	// Takes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.
+	//
+	// Valid Options from least to most permissive are:
+	// - None: Only native-kvm
+	// - Hardware: Not yet implemented
+	// - Software: Qemu TCG cross-architecture emulation
+	// Default policy is 'None'
+	//
+	// This is an alpha field and should only be configured if the
+	// feature-gate CrossArchitectureVirtualization is enabled.
+	// This feature is in alpha.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=None;Hardware;Software
+	EmulationPolicy *EmulationPolicy `json:"emulationPolicy,omitempty"`
+	// VirtualMachineState references or templates the PVC that backs the
+	// VirtualMachineState (persistent UEFI, TPM and CBT state).
+	// When set, it takes precedence over the implicit VirtualMachineState PVC
+	// creation that happens when persistent TPM/EFI or CBT is enabled, and any
+	// enabled TPM or EFI feature is treated as persistent unless explicitly
+	// opted out via Persistent: false.
+	// +optional
+	VirtualMachineState *VirtualMachineStateSpec `json:"virtualMachineState,omitempty"`
+}
+
+// VirtualMachineStateSpec references or templates the PVC that backs the
+// VirtualMachineState (persistent UEFI, TPM and CBT state).
+// At least one of VolumeClaimTemplate or Source must be set.
+type VirtualMachineStateSpec struct {
+	// VolumeClaimTemplate is the template the controller uses to create PVCs it
+	// owns. It is used for the initial PVC when Source is unset, and for every
+	// new PVC the controller creates later for operations like live migration.
+	// The controller owns the PVC name via GenerateName, so
+	// volumeClaimTemplate.metadata.name must not be set. The referenced volume
+	// mode must be Filesystem.
+	// +optional
+	VolumeClaimTemplate *k8sv1.PersistentVolumeClaimTemplate `json:"volumeClaimTemplate,omitempty"`
+	// Source is an existing PVC to adopt as the starting VirtualMachineState.
+	// The controller does not take ownership of a PVC referenced this way.
+	// +optional
+	Source *VirtualMachineStateSource `json:"source,omitempty"`
+}
+
+// VirtualMachineStateSource references an existing PVC to adopt as the starting
+// VirtualMachineState.
+type VirtualMachineStateSource struct {
+	// Name of the source PVC.
+	Name string `json:"name"`
 }
 
 type VirtualMachineInstanceResourceClaim struct {
@@ -309,6 +365,11 @@ type VirtualMachineInstanceStatus struct {
 	// +listType=atomic
 	VolumeStatus []VolumeStatus `json:"volumeStatus,omitempty"`
 
+	// SnapshotOverlayPVCUID identifies the scratch PVC verified for the
+	// OverlaySnapshotActive condition. Updated together with that condition.
+	// +optional
+	SnapshotOverlayPVCUID types.UID `json:"snapshotOverlayPVCUID,omitempty"`
+
 	// KernelBootStatus contains info about the kernelBootContainer
 	// +optional
 	KernelBootStatus *KernelBootStatus `json:"kernelBootStatus,omitempty"`
@@ -364,6 +425,14 @@ type VirtualMachineInstanceStatus struct {
 	// +nullable
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+
+	// VirtualMachineStateVolume tracks the live VirtualMachineState PVC
+	// (persistent UEFI, TPM and CBT state). It is the source of truth for the
+	// PVC name, which may differ from the referenced source after a migration.
+	// It is populated for both the declarative and the implicit paths.
+	// +nullable
+	// +optional
+	VirtualMachineStateVolume *VolumeStatus `json:"virtualMachineStateVolume,omitempty" optional:"true"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration
@@ -672,12 +741,22 @@ func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInst
 	}
 }
 
+// IsDecentralizedMigration reports whether this VMI is participating in a
+// decentralized live migration. SyncAddress on SourceState/TargetState is only
+// populated for decentralized migrations; local migrations never set it.
+//
+// Historically this used SyncAddress XOR (exactly one side set), which only
+// matches the pre-sync handshake. Once both sides have published a SyncAddress,
+// XOR becomes false and callers incorrectly treat a still-decentralized VMI as
+// local (for example skipping the source Succeeded transition after handoff).
+// Presence of either SyncAddress is the durable signal for the full lifetime
+// until SourceState/TargetState are cleared on the target after success.
 func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
 	return v.Status.MigrationState != nil &&
 		v.Status.MigrationState.TargetState != nil &&
 		v.Status.MigrationState.SourceState != nil &&
-		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
-			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
+		(v.Status.MigrationState.SourceState.SyncAddress != nil ||
+			v.Status.MigrationState.TargetState.SyncAddress != nil)
 }
 
 type VirtualMachineInstanceConditionType string
@@ -737,6 +816,10 @@ const (
 
 	// VirtualMachineInstanceSoftwareEmulation indicates the VM is running with software emulation
 	VirtualMachineInstanceSoftwareEmulation VirtualMachineInstanceConditionType = "SoftwareEmulation"
+
+	// VirtualMachineInstanceOverlaySnapshotActive indicates the VMI's disks are running on copy-on-write overlays.
+	// False or absent means the disks are on their base images.
+	VirtualMachineInstanceOverlaySnapshotActive VirtualMachineInstanceConditionType = "OverlaySnapshotActive"
 )
 
 // These are valid reasons for VMI conditions.
@@ -763,10 +846,18 @@ const (
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its disks are on snapshot overlays
+	VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable = "SnapshotOverlaysNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its CPUs are provisioned through DRA
+	VirtualMachineInstanceReasonCPUDRANotMigratable = "CPUDRANotLiveMigratable"
 	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
 	VirtualMachineInstanceReasonDecentralizedNotMigratable = "DecentralizedNotLiveMigratable"
+	// Reason means that VMI is not live migratable because its VirtualMachineState PVC is
+	// RWO and referenced through source only, with no volumeClaimTemplate to create a
+	// destination PVC from.
+	VirtualMachineInstanceReasonVirtualMachineStateNotMigratable = "VirtualMachineStateNotLiveMigratable"
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and ready
@@ -784,6 +875,19 @@ const (
 
 	// Indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceReasonEvictionRequested = "EvictionRequested"
+
+	// Reason means the overlay snapshot transaction has been accepted and is running
+	VirtualMachineInstanceReasonOverlayPreparing = "OverlayPreparing"
+	// Reason means every snapshottable disk is on its overlay and the base images are read-only
+	VirtualMachineInstanceReasonOverlaysReady = "OverlaysReady"
+	// Reason means the overlays are being committed back into the base images
+	VirtualMachineInstanceReasonOverlayCommitting = "OverlayCommitting"
+	// Reason means the commit failed and the overlays may still be in use
+	VirtualMachineInstanceReasonOverlayCommitFailed = "OverlayCommitFailed"
+	// Reason means the transaction failed and the disks are back on their base images
+	VirtualMachineInstanceReasonOverlaySnapshotFailed = "OverlaySnapshotFailed"
+	// Reason means every disk is verified back on its base image
+	VirtualMachineInstanceReasonOverlayCommitted = "OverlayCommitted"
 )
 
 const (
@@ -891,7 +995,7 @@ type VirtualMachineInstanceNetworkInterface struct {
 	PodInterfaceName string `json:"podInterfaceName,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
-	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.
+	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
@@ -1201,6 +1305,8 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 	// This label indicates what launcher image a VMI is currently running with.
 	OutdatedLauncherImageLabel string = "kubevirt.io/outdatedLauncherImage"
+	// This label indicates the virt-handler image fingerprint running on this node. Used on Node.
+	VirtHandlerImageHashLabel string = "kubevirt.io/virt-handler-image-hash"
 	// Namespace recommended by Kubernetes for commonly recognized labels
 	AppLabelPrefix = "app.kubernetes.io"
 	// This label is commonly used by 3rd party management tools to identify
@@ -1252,7 +1358,6 @@ const (
 	// Set By VM controller on VMIs to ensure VMIs are processed by VM controller during deletion
 	VirtualMachineControllerFinalizer        string = "kubevirt.io/virtualMachineControllerFinalize"
 	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
-	DeprecatedCPUManager                     string = "cpumanager"
 	CPUManager                               string = "kubevirt.io/cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
@@ -1300,6 +1405,10 @@ const (
 	VirtualMachineLabel               = AppLabel + "/vm"
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
+	// MergeableMemory controls whether guest memory pages may be merged with other
+	// processes via Kernel Same-page Merging (KSM). Set to "false" to opt out.
+	MergeableMemory string = "kubevirt.io/mergeable-memory"
+
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
 	// RestoreRunStrategy is how to restore the run strategy of the VMI
 	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
@@ -1311,9 +1420,6 @@ const (
 	CreateMigrationTarget = "kubevirt.io/create-migration-target"
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
-
-	// MigrationTransportUnixAnnotation means that the VMI will be migrated using the unix URI
-	MigrationTransportUnixAnnotation string = "kubevirt.io/migrationTransportUnix"
 
 	// MigrationUnschedulablePodTimeoutSecondsAnnotation represents a custom timeout period used for unschedulable target pods
 	// This exists for functional testing
@@ -1445,6 +1551,23 @@ const (
 
 	// MigrationInterfaceName is an arbitrary name used in virt-handler to connect it to a dedicated migration network
 	MigrationInterfaceName string = "migration0"
+
+	// CrossClusterMigrationInterfaceName is the name of the interface used for cross-cluster migration
+	CrossClusterMigrationInterfaceName string = "crosscluster0"
+
+	// SynchronizationEndpointLabel is applied by admins to exactly one Ingress,
+	// Route, or Service to designate it as the external endpoint for the
+	// virt-synchronization-controller peer gRPC traffic. When the proxy datapath
+	// is enabled without crossClusterNetwork, KubeVirt discovers the labeled
+	// resource and publishes its address in status.synchronizationAddresses.
+	// At most one resource of each type may carry this label; duplicates within
+	// a type are rejected. Priority: Route > Ingress > Service.
+	//
+	// The selector uses key-exists semantics: the label value is ignored, so
+	// any value (including an empty string) will match. Set the label to "true"
+	// by convention; note that setting it to "false" will NOT disable discovery.
+	// To stop discovery, remove the label entirely.
+	SynchronizationEndpointLabel = "kubevirt.io/synchronization-endpoint"
 
 	// EmulatorThreadCompleteToEvenParity alpha annotation will cause Kubevirt to complete the VMI's CPU count to an even parity when IsolateEmulatorThread options are requested
 	EmulatorThreadCompleteToEvenParity string = "alpha.kubevirt.io/EmulatorThreadCompleteToEvenParity"
@@ -2105,6 +2228,9 @@ const (
 	// VirtualMachineStatusWaitingForReceiver indicates that this virtual machine is a receiver VM and
 	// migration should start next.
 	VirtualMachineStatusWaitingForReceiver VirtualMachinePrintableStatus = "WaitingForReceiver"
+	// VirtualMachineStatusVMStateInUse indicates that the VirtualMachineState PVC referenced by the
+	// virtual machine is already in use by another running virtual machine.
+	VirtualMachineStatusVMStateInUse VirtualMachinePrintableStatus = "ErrorVMStateInUse"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
@@ -2122,6 +2248,8 @@ type VirtualMachineStatus struct {
 	SnapshotInProgress *string `json:"snapshotInProgress,omitempty"`
 	// RestoreInProgress is the name of the VirtualMachineRestore currently executing
 	RestoreInProgress *string `json:"restoreInProgress,omitempty"`
+	// BackupInProgress is the name of the VirtualMachineBackup currently executing
+	BackupInProgress *string `json:"backupInProgress,omitempty"`
 	// Created indicates if the virtual machine is created in the cluster
 	Created bool `json:"created,omitempty"`
 	// Ready indicates if the virtual machine is running and ready
@@ -2189,6 +2317,14 @@ type VirtualMachineStatus struct {
 	//+nullable
 	//+optional
 	PreferenceRef *InstancetypeStatusRef `json:"preferenceRef,omitempty"`
+
+	// VirtualMachineStateVolume tracks the live VirtualMachineState PVC
+	// (persistent UEFI, TPM and CBT state). It is the source of truth for the
+	// PVC name, which may differ from the referenced source after a migration.
+	// It is populated for both the declarative and the implicit paths.
+	// +nullable
+	// +optional
+	VirtualMachineStateVolume *VolumeStatus `json:"virtualMachineStateVolume,omitempty" optional:"true"`
 }
 
 type ControllerRevisionRef struct {
@@ -2264,6 +2400,7 @@ type VirtualMachineInstanceBackupStatus struct {
 	// Volumes lists the volumes included in the backup
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems:=256
 	Volumes []VirtualMachineInstanceBackupVolumeInfo `json:"volumes,omitempty"`
 	// QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.
 	// +optional
@@ -2275,6 +2412,10 @@ type VirtualMachineInstanceBackupStatus struct {
 type VirtualMachineInstanceBackupVolumeInfo struct {
 	// VolumeName is the volume name from VMI spec
 	VolumeName string `json:"volumeName"`
+	// Type is how the volume was backed up, either Full or Incremental.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self in ['Full', 'Incremental']",message="type must be Full or Incremental"
+	Type string `json:"type,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
@@ -2394,6 +2535,8 @@ const (
 	CacheWriteThrough DriverCache = "writethrough"
 	// CacheWriteBack - I/O from the guest is cached on the host.
 	CacheWriteBack DriverCache = "writeback"
+	// CacheDirectSync - I/O from the guest bypasses the host page cache and is written to the physical medium synchronously.
+	CacheDirectSync DriverCache = "directsync"
 
 	// IOThreads - User mode based threads with a shared lock that perform I/O tasks. Can impact performance but offers
 	// more predictable behaviour. This method is also takes fewer CPU cycles to submit I/O requests.
@@ -2631,6 +2774,12 @@ type KubeVirtSpec struct {
 	// +optional
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
+	// SynchronizationPlacement allows customization of node placement for synchronization controllers.
+	// This can be used to schedule sync controllers on specific nodes (e.g., nodes with access to
+	// the cross-cluster migration network). By default, sync controllers use control-plane placement.
+	// +optional
+	SynchronizationPlacement *ComponentConfig `json:"synchronizationPlacement,omitempty"`
+
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
 
@@ -2761,6 +2910,11 @@ const (
 	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
 	// Whether KubeVirt is not functioning completely
 	KubeVirtConditionDegraded KubeVirtConditionType = "Degraded"
+
+	// Whether the synchronization endpoint for cross-cluster proxy migrations
+	// is correctly configured (exactly one labeled Route/Ingress/Service when
+	// the proxy datapath is enabled without crossClusterNetwork).
+	KubeVirtConditionSynchronizationEndpoint KubeVirtConditionType = "SynchronizationEndpoint"
 )
 
 const (
@@ -2981,6 +3135,18 @@ type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
 
+// SnapshotOverlayOptions names the utility volume the copy-on-write overlays
+// of an External mode VirtualMachineSnapshot are written to
+type SnapshotOverlayOptions struct {
+	// VolumeName is the utility volume attached to the VirtualMachineInstance
+	VolumeName string `json:"volumeName"`
+	// Volumes are the volumes the snapshot captures, the only ones put on overlays.
+	// Not used to commit the overlays.
+	// +optional
+	// +listType=atomic
+	Volumes []string `json:"volumes,omitempty"`
+}
+
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
 type VirtualMachineMemoryDumpRequest struct {
 	// ClaimName is the name of the pvc that will contain the memory dump
@@ -3176,6 +3342,12 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	VirtTemplateDeployment *VirtTemplateDeployment `json:"virtTemplateDeployment,omitempty"`
 
+	// MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+	// to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+	// This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+	// +nullable
+	MultiIOThreadAutoPolicy *MultiIOThreadAutoPolicy `json:"multiIOThreadAutoPolicy,omitempty"`
+
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
@@ -3207,6 +3379,23 @@ type KubeVirtConfiguration struct {
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
+
+	// EmulationPolicy is the default emulation policy for VMs that do not set
+	// spec.emulationPolicy. A VM may set a more permissive policy.
+	//
+	// Valid Options from least to most permissive are:
+	// - None: Only native-kvm
+	// - Hardware: Not yet implemented
+	// - Software: Qemu TCG cross-architecture emulation
+	// Default policy is 'None'
+	//
+	// This is an alpha field and should only be configured if the
+	// feature-gate CrossArchitectureVirtualization is enabled.
+	// This feature is in alpha.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=None;Hardware;Software
+	EmulationPolicy *EmulationPolicy `json:"emulationPolicy,omitempty"`
 }
 
 // QGSConfiguration holds QGS configuration
@@ -3283,6 +3472,13 @@ type CommonInstancetypesDeployment struct {
 
 type VirtTemplateDeployment struct {
 	// Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type MultiIOThreadAutoPolicy struct {
+	// Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+	// Requires SCSIMultiIOThread feature gate to be enabled.
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }
@@ -3367,6 +3563,20 @@ const (
 	VersionTLS13 TLSProtocolVersion = "VersionTLS13"
 )
 
+// TLS supported group name constants using IANA TLS Supported Groups
+// registry names. These are convenience constants for use with
+// TLSConfiguration.Groups; the field is an open string set and is
+// not restricted to these values.
+const (
+	TLSGroupX25519             = "X25519"
+	TLSGroupSecp256r1          = "secp256r1"
+	TLSGroupSecp384r1          = "secp384r1"
+	TLSGroupSecp521r1          = "secp521r1"
+	TLSGroupX25519MLKEM768     = "X25519MLKEM768"
+	TLSGroupSecP256r1MLKEM768  = "SecP256r1MLKEM768"
+	TLSGroupSecP384r1MLKEM1024 = "SecP384r1MLKEM1024"
+)
+
 type CustomProfile struct {
 	LocalhostProfile      *string `json:"localhostProfile,omitempty"`
 	RuntimeDefaultProfile bool    `json:"runtimeDefaultProfile,omitempty"`
@@ -3402,6 +3612,7 @@ type DisableFreePageReporting struct{}
 type DisableSerialConsoleLog struct{}
 
 // TLSConfiguration holds TLS options
+// +kubebuilder:validation:XValidation:rule="!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || !self.groups.exists(g, g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']) || self.groups.exists(g, g in ['X25519','secp256r1','secp384r1','secp521r1'])",message="a classical group (X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13 and a TLS 1.3-only group such as X25519MLKEM768 is configured"
 type TLSConfiguration struct {
 	// MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
 	// Protocol versions are based on the following most common TLS configurations:
@@ -3414,6 +3625,19 @@ type TLSConfiguration struct {
 	MinTLSVersion TLSProtocolVersion `json:"minTLSVersion,omitempty"`
 	// +listType=set
 	Ciphers []string `json:"ciphers,omitempty"`
+	// Groups defines the set of allowed TLS supported groups (elliptic curves)
+	// on all TLS server endpoints. Group names follow the IANA TLS Supported
+	// Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised
+	// names are silently ignored at TLS setup time, so an older component
+	// tolerates group names added in a newer release. When empty or when the
+	// TLSGroupPreferences feature gate is disabled, Go's default curve
+	// preferences apply.
+	// +optional
+	// +listType=atomic
+	// MaxItems bounds the CEL cost estimate for the exists() validation rule
+	// on TLSConfiguration; without it the CRD is rejected at creation time.
+	// +kubebuilder:validation:MaxItems=32
+	Groups []string `json:"groups,omitempty"`
 }
 
 type StallDetectorOptions struct {
@@ -3648,14 +3872,45 @@ type MigrationConfiguration struct {
 	// Defaults to false.
 	DisableTLS *bool `json:"disableTLS,omitempty"`
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
-	// through the pod network.
+	// through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is
+	// also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP).
+	// If set with Proxy, synchronization controllers require the migration0 interface at startup
+	// and will fail to start if it is missing.
 	Network *string `json:"network,omitempty"`
 	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
 	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// CrossClusterNetwork is the name of the CNI network used for synchronization-controller
+	// peer traffic when decentralizedLiveMigrationDatapath is Proxy. When set, sync controllers
+	// attach to this network as crosscluster0 and bind the sync gRPC port only there.
+	// When omitted with Proxy, peer traffic uses the pod network. Must not be set when
+	// decentralizedLiveMigrationDatapath is Direct (or unset).
+	CrossClusterNetwork *string `json:"crossClusterNetwork,omitempty"`
+	// DecentralizedLiveMigrationDatapath selects how live-migration traffic moves for
+	// decentralized live migrations (cross-namespace or cross-cluster).
+	// Direct (default when unset): no synchronization-controller migration-data proxy.
+	// Proxy: sync controllers proxy migration traffic on a single gRPC port.
+	// Requires the CrossClusterMigrationProxy feature gate while Alpha.
+	// +optional
+	// +kubebuilder:validation:Enum=Direct;Proxy
+	DecentralizedLiveMigrationDatapath *DecentralizedLiveMigrationDatapath `json:"decentralizedLiveMigrationDatapath,omitempty"`
 }
+
+// DecentralizedLiveMigrationDatapath selects how migration data is transferred for
+// decentralized live migrations.
+// +kubebuilder:validation:Enum=Direct;Proxy
+type DecentralizedLiveMigrationDatapath string
+
+const (
+	// DecentralizedLiveMigrationDatapathDirect transfers migration data without the
+	// synchronization-controller proxy (default when the field is unset).
+	DecentralizedLiveMigrationDatapathDirect DecentralizedLiveMigrationDatapath = "Direct"
+	// DecentralizedLiveMigrationDatapathProxy proxies migration data through
+	// synchronization controllers.
+	DecentralizedLiveMigrationDatapathProxy DecentralizedLiveMigrationDatapath = "Proxy"
+)
 
 // DiskVerification holds container disks verification limits
 type DiskVerification struct {
@@ -3712,15 +3967,48 @@ type DeveloperConfiguration struct {
 	ClusterProfiler bool `json:"clusterProfiler,omitempty"`
 }
 
-// LogVerbosity sets log verbosity level of  various components
+// LogVerbosity sets log verbosity level of various components
 type LogVerbosity struct {
-	VirtAPI                       uint `json:"virtAPI,omitempty"`
-	VirtController                uint `json:"virtController,omitempty"`
-	VirtHandler                   uint `json:"virtHandler,omitempty"`
-	VirtLauncher                  uint `json:"virtLauncher,omitempty"`
-	VirtOperator                  uint `json:"virtOperator,omitempty"`
+	// VirtAPI specifies the log verbosity level for the virt-api deployment.
+	// A higher value increases the amount of logged information.
+	// Changes take effect on the fly without triggering a pod restart.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
+	VirtAPI uint `json:"virtAPI,omitempty"`
+	// VirtController specifies the log verbosity level for the virt-controller deployment.
+	// A higher value increases the amount of logged information.
+	// Changes take effect on the fly without triggering a pod restart.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
+	VirtController uint `json:"virtController,omitempty"`
+	// VirtHandler specifies the log verbosity level for the virt-handler DaemonSet.
+	// A higher value increases the amount of logged information.
+	// Changes take effect on the fly without triggering a pod restart.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
+	VirtHandler uint `json:"virtHandler,omitempty"`
+	// VirtLauncher specifies the log verbosity level for virt-launcher pods managing VMI workloads.
+	// A higher value increases the amount of logged information.
+	// Changes apply to newly created virt-launcher pods. Existing pods retain their original verbosity.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
+	VirtLauncher uint `json:"virtLauncher,omitempty"`
+	// VirtOperator specifies the log verbosity level for the virt-operator deployment.
+	// A higher value increases the amount of logged information.
+	// Changes take effect on the fly without triggering a pod restart.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
+	VirtOperator uint `json:"virtOperator,omitempty"`
+	// VirtSynchronizationController specifies the log verbosity level for the virt-synchronization-controller component.
+	// A higher value increases the amount of logged information.
+	// Changes take effect on the fly without triggering a pod restart.
+	// Default: 2. Levels up to 9 produce progressively more detailed logs.
+	// +optional
 	VirtSynchronizationController uint `json:"virtSynchronizationController,omitempty"`
-	// NodeVerbosity represents a map of nodes with a specific verbosity level
+	// NodeVerbosity represents a map of node names to specific log verbosity levels.
+	// Allows overriding verbosity on specific nodes without altering cluster-wide settings.
+	// Changes take effect on the fly without triggering a pod restart.
+	// +optional
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }
 
@@ -3920,6 +4208,9 @@ type ClusterProfilerResults struct {
 	ComponentResults map[string]ProfilerResult `json:"componentResults"`
 	Continue         string                    `json:"continue,omitempty"`
 }
+
+// DefaultClusterProfilerLabelSelector is used when ClusterProfilerRequest.LabelSelector is empty.
+const DefaultClusterProfilerLabelSelector = AppLabel + " in (virt-api,virt-controller,virt-handler,virt-operator)"
 
 type ClusterProfilerRequest struct {
 	LabelSelector string `json:"labelSelector,omitempty"`

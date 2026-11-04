@@ -68,8 +68,9 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 
 	It("[test_id:4099] should be rotated when a new CA is created", decorators.WgS390x, func() {
 		By("checking that the config-map gets the new CA bundle attached")
-		Eventually(func() int {
-			_, crts := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+		Eventually(func(g Gomega) int {
+			_, crts, err := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+			g.Expect(err).ToNot(HaveOccurred())
 			return len(crts)
 		}, 10*time.Second, 1*time.Second).Should(BeNumerically(">", 0))
 
@@ -93,8 +94,10 @@ var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com]
 
 		By("checking that one of the CAs in the config-map is the new one")
 		var caBundle []byte
-		Eventually(func() bool {
-			caBundle, _ = libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+		Eventually(func(g Gomega) bool {
+			var err error
+			caBundle, _, err = libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+			g.Expect(err).ToNot(HaveOccurred())
 			return libinfra.ContainsCrt(caBundle, newCA)
 		}, 10*time.Second, 1*time.Second).Should(BeTrue(), "the new CA should be added to the config-map")
 

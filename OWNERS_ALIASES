@@ -4,7 +4,6 @@ aliases:
     - vladikr
     - rmohr
     - stu-gott
-    - fabiand
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -12,6 +11,7 @@ aliases:
     - vasiliy-ul
     - iholder101
   emeritus_approvers:
+    - fabiand # 2026-10-15
     - danielBelenky
     - mazzystr
     - cynepco3hahue
@@ -31,8 +31,6 @@ aliases:
     - jean-edouard
     - mhenriks
     - EdDev
-    - xpivarc
-    - iholder101
     - 0xFelix
     - lyarwood
     - fossedihelm
@@ -43,7 +41,6 @@ aliases:
   #
   sig-test-reviewers:
     - enp0s3
-    - xpivarc
     - 0xFelix
     - orelmisan
   sig-test-approvers:
@@ -51,7 +48,6 @@ aliases:
     - kbidarkar
     - phoracek
     - enp0s3
-    - xpivarc
     - dhiller
     - 0xFelix
     - orelmisan
@@ -122,8 +118,8 @@ aliases:
     - 0xFelix
     - vladikr
     - enp0s3
-    - xpivarc
     - orelmisan
+    - akalenyu
   sig-compute-reviewers:
     - victortoso
     - fossedihelm
@@ -132,6 +128,13 @@ aliases:
     - Barakmor1
     - dasionov
     - orelmisan
+    - Aseeef
+
+  # SIG Compute cgroup sub project
+  # Owns cgroup related packages.
+  sig-compute-cgroup-approvers:
+    - akalenyu
+    - iholder101
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
@@ -171,7 +174,6 @@ aliases:
   #
   sig-release-approvers:
     - fossedihelm
-    - xpivarc
   sig-release-reviewers:
     - fossedihelm
     - xpivarc
@@ -183,7 +185,6 @@ aliases:
   sig-buildsystem-approvers:
     - brianmcarey
     - dhiller
-    - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
     - dollierp
@@ -203,6 +204,7 @@ aliases:
   # Responsible for the development and enhancement of
   # KubeVirt control plane.
   sig-control-plane-approvers:
+    - lyarwood
     - xpivarc
   sig-control-plane-reviewers:
     - akalenyu

@@ -69,12 +69,8 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 	var serverMAC, clientMAC string
 	BeforeEach(func() {
-		mac, err := libnet.GenerateRandomMac()
-		serverMAC = mac.String()
-		Expect(err).NotTo(HaveOccurred())
-		mac, err = libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
-		clientMAC = mac.String()
+		serverMAC = libnet.GenerateRandomMac().String()
+		clientMAC = libnet.GenerateRandomMac().String()
 	})
 
 	It("two VMs with macvtap interface should be able to communicate over macvtap network", func() {

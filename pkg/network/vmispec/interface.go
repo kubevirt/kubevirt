@@ -20,9 +20,6 @@
 package vmispec
 
 import (
-	"errors"
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -53,38 +50,6 @@ func FilterInterfacesSpec(ifaces []v1.Interface, predicate func(i v1.Interface) 
 		}
 	}
 	return filteredIfaces
-}
-
-func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[string]v1.InterfaceBindingPlugin) error {
-	ifaces := vmi.Spec.Domain.Devices.Interfaces
-	if len(ifaces) == 0 {
-		return nil
-	}
-
-	podNetwork := LookupPodNetwork(vmi.Spec.Networks)
-	if podNetwork == nil {
-		return nil
-	}
-
-	primaryIface := LookupInterfaceByName(ifaces, podNetwork.Name)
-
-	switch {
-	case primaryIface == nil:
-		return fmt.Errorf("no primary interface found for network %s", podNetwork.Name)
-	case primaryIface.Masquerade != nil || primaryIface.PasstBinding != nil:
-		return nil
-	case primaryIface.Bridge != nil:
-		if _, isLiveMigrationAllowed := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]; isLiveMigrationAllowed {
-			return nil
-		}
-	case primaryIface.Binding != nil:
-		if binding, exist := bindingPlugins[primaryIface.Binding.Name]; exist && binding.Migration != nil {
-			return nil
-		}
-	default:
-	}
-
-	return errors.New("cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
 }
 
 func LookupInterfaceStatusByMac(

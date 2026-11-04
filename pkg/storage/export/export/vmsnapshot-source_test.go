@@ -40,7 +40,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -536,6 +536,66 @@ var _ = Describe("VMSnapshot source", func() {
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(retry).To(BeEquivalentTo(0))
+	})
+
+	It("Should collect the volume name of every restored PVC", func() {
+		pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
+		vmSnapshotContentInformer.GetStore().Add(createTestVMSnapshotContent("snapshot-content"))
+
+		volumesToExport, _, err := controller.restoreSourceVolumesFromVMSnapshot(createSnapshotVMExport(), createTestVMSnapshot(true))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(volumesToExport).To(HaveLen(1))
+		// The restored PVC matches no claim of the VM, only the volume backup
+		// knows the name of the volume.
+		Expect(volumesToExport[0].pvc.Name).To(Equal("test-test-snapshot"))
+		Expect(volumesToExport[0].volumeName).To(Equal("test-volume"))
+	})
+
+	It("Should stay pending when two volume backups restore to the same PVC", func() {
+		testVMExport := createSnapshotVMExport()
+		// Restore PVCs are named <export>-<pvc>, so both backups collapse onto one.
+		const secondVolumesnapshotName = "test-snapshot-2"
+		content := createTestVMSnapshotContent("snapshot-content")
+		second := content.Spec.VolumeBackups[0]
+		second.VolumeName = "test-volume-2"
+		second.VolumeSnapshotName = pointer.P(secondVolumesnapshotName)
+		content.Spec.VolumeBackups = append(content.Spec.VolumeBackups, second)
+		content.Status.VolumeSnapshotStatus = append(content.Status.VolumeSnapshotStatus,
+			snapshotv1.VolumeSnapshotStatus{
+				VolumeSnapshotName: secondVolumesnapshotName,
+				ReadyToUse:         pointer.P(true),
+			})
+
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Fail("no exporter pod must be created for a source with duplicate PVCs")
+			return true, nil, nil
+		})
+		updated := false
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyLinksEmpty(vmExport)
+			Expect(vmExport.Status.Phase).To(Equal(exportv1.Pending))
+			Expect(vmExport.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", exportv1.ConditionReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+				HaveField("Reason", duplicatePVCReason),
+				HaveField("Message", ContainSubstring("test-test-snapshot")),
+			)))
+			updated = true
+			return true, vmExport, nil
+		})
+
+		pvcInformer.GetStore().Add(createRestoredPVC("test-test-snapshot"))
+		vmSnapshotInformer.GetStore().Add(createTestVMSnapshot(true))
+		vmSnapshotContentInformer.GetStore().Add(content)
+		fakeVolumeSnapshotProvider.Add(createTestVolumeSnapshot(testVolumesnapshotName))
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+		Expect(updated).To(BeTrue())
 	})
 
 	It("Should update status with correct links from snapshot with kubevirt content type", func() {

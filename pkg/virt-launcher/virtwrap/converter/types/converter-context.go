@@ -55,7 +55,6 @@ type ConverterContext struct {
 	GPUHostDevices                  []api.HostDevice
 	EFIConfiguration                *EFIConfiguration
 	MemBalloonStatsPeriod           uint
-	UseVirtioTransitional           bool
 	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
@@ -74,4 +73,6 @@ type ConverterContext struct {
 	AllowCrossArchEmulation         bool
 	HostArchitecture                string
 	VSOCKProcPath                   string
+	SCSIMultiIOThreadEnabled        bool
+	MultiIOThreadAutoPolicyEnabled  bool
 }

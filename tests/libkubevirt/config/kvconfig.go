@@ -94,9 +94,19 @@ func WithVMRolloutStrategy(rolloutStrategy *v1.VMRolloutStrategy) KvChangeOption
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
+	return UpdateKubeVirtConfigValueAndWaitWithTimeout(kvConfig, 0)
+}
+
+// UpdateKubeVirtConfigValueAndWaitWithTimeout is like UpdateKubeVirtConfigValueAndWait but allows
+// a custom KubeVirt ready timeout. When readyTimeout is zero, the testsuite default is used.
+func UpdateKubeVirtConfigValueAndWaitWithTimeout(kvConfig v1.KubeVirtConfiguration, readyTimeout time.Duration) *v1.KubeVirt {
 	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
 
-	testsuite.EnsureKubevirtReady()
+	if readyTimeout > 0 {
+		testsuite.EnsureKubevirtReadyWithTimeout(kv, readyTimeout)
+	} else {
+		testsuite.EnsureKubevirtReady()
+	}
 	waitForConfigToBePropagated(kv.ResourceVersion)
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 

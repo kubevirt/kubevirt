@@ -522,6 +522,18 @@ var _ = Describe("Restore controller", func() {
 				Expect(*updateVMStatusCalls).To(Equal(1))
 			})
 
+			It("should not claim a vm while a backup is in progress", func() {
+				r := createRestoreWithOwner()
+				vm := createModifiedVM()
+				vm.Status.BackupInProgress = new("backup")
+				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+				addVirtualMachineRestore(r)
+
+				updateVMStatusCalls := expectVMUpdateStatus(kubevirtClient, vm)
+				controller.processVMRestoreWorkItem()
+				Expect(*updateVMStatusCalls).To(BeZero())
+			})
+
 			It("should update restore status with condition and VolumeRestores", func() {
 				r := createRestoreWithOwner()
 				vm := createRestoreInProgressVM()
@@ -761,7 +773,6 @@ var _ = Describe("Restore controller", func() {
 				uvm.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 				uvm.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 				uvm.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
-				setLegacyFirmwareUUID(uvm)
 				for _, pvc := range getRestorePVCs(r) {
 					pvc.Status.Phase = corev1.ClaimBound
 					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
@@ -1617,7 +1628,6 @@ var _ = Describe("Restore controller", func() {
 						updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
 						updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 						updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
-						setLegacyFirmwareUUID(updatedVM)
 						updateVMCalls = expectVMUpdate(kubevirtClient, updatedVM)
 					}
 					res, err := targetVM.Reconcile()
@@ -1635,23 +1645,6 @@ var _ = Describe("Restore controller", func() {
 					Entry("wait for dvs when dv phase pending", true, cdiv1.Pending, false),
 					Entry("create dvs when dv doesnt exists", false, cdiv1.PhaseUnset, false),
 				)
-
-				It("should set firmware UUID when it lacks from snapshot", func() {
-					addRestoreVolumes(true, cdiv1.Succeeded)
-					addVirtualMachineRestore(r)
-
-					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
-					updatedVM := createSnapshotVM()
-					updatedVM.Status.RestoreInProgress = &vmRestoreName
-					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
-					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
-					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
-					setLegacyFirmwareUUID(updatedVM)
-					expectVMUpdate(kubevirtClient, updatedVM)
-					res, err := targetVM.Reconcile()
-					Expect(err).ShouldNot(HaveOccurred())
-					Expect(res).To(BeTrue())
-				})
 
 				It("should not override existing firmware UUID", func() {
 					addRestoreVolumes(true, cdiv1.Succeeded)
@@ -1710,6 +1703,98 @@ var _ = Describe("Restore controller", func() {
 					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
 
 					snapshotVM := sc.Spec.Source.VirtualMachine
+					ready, err := target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeTrue())
+				})
+
+				It("does not panic when the original backend PVC has already been garbage-collected", func() {
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &kubevirtv1.TPMDevice{
+						Persistent: pointer.P(true),
+					}
+					snapshotVM := sc.Spec.Source.VirtualMachine
+
+					backendVolumeName := storageutils.BackendPVCVolumeName(vmName)
+					backendPVCName := "backend-pvc-" + vmName
+					restoreBackendPVCName := "restore-uid-backend"
+
+					sc.Spec.VolumeBackups = append(sc.Spec.VolumeBackups, snapshotv1.VolumeBackup{
+						VolumeName: backendVolumeName,
+						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      backendPVCName,
+								Namespace: testNamespace,
+							},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &storageClassName,
+							},
+						},
+						VolumeSnapshotName: pointer.P("vmsnapshot-snapshot-uid-volume-backend"),
+					})
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					// backendPVCName is deliberately not added to the PVC informer: it's already gone.
+
+					restoreBackendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      restoreBackendPVCName,
+							Namespace: testNamespace,
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(restoreBackendPVC)).To(Succeed())
+
+					r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+						VolumeName:                backendVolumeName,
+						PersistentVolumeClaimName: restoreBackendPVCName,
+						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-backend",
+					})
+
+					k8sClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						return true, &corev1.PersistentVolumeClaimList{}, nil
+					})
+
+					patches := map[string]string{}
+					k8sClient.Fake.PrependReactor("patch", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						patchAction := action.(testing.PatchAction)
+						patches[patchAction.GetName()] = string(patchAction.GetPatch())
+						return true, nil, nil
+					})
+
+					ready, err := target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeFalse())
+					Expect(patches).To(HaveKey(restoreBackendPVCName))
+				})
+
+				It("is ready for a declarative VirtualMachineState whose original backend PVC has already been garbage-collected", func() {
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.VirtualMachineState = &kubevirtv1.VirtualMachineStateSpec{
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{},
+					}
+					snapshotVM := sc.Spec.Source.VirtualMachine
+
+					backendVolumeName := storageutils.BackendPVCVolumeName(vmName)
+					backendPVCName := "backend-pvc-" + vmName
+
+					sc.Spec.VolumeBackups = append(sc.Spec.VolumeBackups, snapshotv1.VolumeBackup{
+						VolumeName: backendVolumeName,
+						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      backendPVCName,
+								Namespace: testNamespace,
+							},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &storageClassName,
+							},
+						},
+						VolumeSnapshotName: pointer.P("vmsnapshot-snapshot-uid-volume-backend"),
+					})
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					// backendPVCName is deliberately not added to the PVC informer: it's already gone.
+
 					ready, err := target.reconcileBackendVolume(snapshotVM)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(ready).To(BeTrue())
@@ -1794,6 +1879,243 @@ var _ = Describe("Restore controller", func() {
 
 					Expect(patches).To(HaveKey(restoreBackendPVCName))
 					Expect(patches[restoreBackendPVCName]).To(ContainSubstring(backendstorage.PVCPrefix))
+				})
+
+				It("should resolve the backend PVC from the snapshot content for a declarative VirtualMachineState, even without status", func() {
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.VirtualMachineState = &kubevirtv1.VirtualMachineStateSpec{
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{},
+					}
+					sc.Spec.Source.VirtualMachine.Status = kubevirtv1.VirtualMachineStatus{}
+					snapshotVM := sc.Spec.Source.VirtualMachine
+
+					backendVolumeName := storageutils.BackendPVCVolumeName(vmName)
+					backendPVCName := "backend-pvc-" + vmName
+					restoreBackendPVCName := "restore-uid-backend"
+
+					sc.Spec.VolumeBackups = append(sc.Spec.VolumeBackups, snapshotv1.VolumeBackup{
+						VolumeName: backendVolumeName,
+						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      backendPVCName,
+								Namespace: testNamespace,
+							},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &storageClassName,
+							},
+						},
+						VolumeSnapshotName: pointer.P("vmsnapshot-snapshot-uid-volume-backend"),
+					})
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					backendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      backendPVCName,
+							Namespace: testNamespace,
+							Labels: map[string]string{
+								backendstorage.VMStateOwnerLabel: "some-owner-uid",
+							},
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(backendPVC)).To(Succeed())
+
+					restoreBackendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      restoreBackendPVCName,
+							Namespace: testNamespace,
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(restoreBackendPVC)).To(Succeed())
+
+					r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+						VolumeName:                backendVolumeName,
+						PersistentVolumeClaimName: restoreBackendPVCName,
+						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-backend",
+					})
+
+					patches := map[string]string{}
+					k8sClient.Fake.PrependReactor("patch", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						patchAction := action.(testing.PatchAction)
+						patches[patchAction.GetName()] = string(patchAction.GetPatch())
+						return true, nil, nil
+					})
+
+					ready, err := target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeTrue())
+					Expect(patches).To(HaveKey(backendPVCName))
+					Expect(patches).ToNot(HaveKey(restoreBackendPVCName))
+				})
+
+				It("should prefer the live-resolved backend PVC over a stale name recorded in the snapshot", func() {
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &kubevirtv1.TPMDevice{
+						Persistent: pointer.P(true),
+					}
+					snapshotVM := sc.Spec.Source.VirtualMachine
+
+					backendVolumeName := storageutils.BackendPVCVolumeName(vmName)
+					staleBackendPVCName := "backend-pvc-stale"
+					liveBackendPVCName := "backend-pvc-live"
+					restoreBackendPVCName := "restore-uid-backend"
+
+					// The name recorded at backup time no longer matches the PVC currently
+					// labeled for this VM, e.g. because a migration renamed it since the snapshot.
+					sc.Spec.VolumeBackups = append(sc.Spec.VolumeBackups, snapshotv1.VolumeBackup{
+						VolumeName: backendVolumeName,
+						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      staleBackendPVCName,
+								Namespace: testNamespace,
+							},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &storageClassName,
+							},
+						},
+						VolumeSnapshotName: pointer.P("vmsnapshot-snapshot-uid-volume-backend"),
+					})
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					liveBackendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      liveBackendPVCName,
+							Namespace: testNamespace,
+							Labels: map[string]string{
+								backendstorage.PVCPrefix: vmName,
+							},
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(liveBackendPVC)).To(Succeed())
+
+					restoreBackendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      restoreBackendPVCName,
+							Namespace: testNamespace,
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(restoreBackendPVC)).To(Succeed())
+
+					r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+						VolumeName:                backendVolumeName,
+						PersistentVolumeClaimName: restoreBackendPVCName,
+						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-backend",
+					})
+
+					k8sClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						return true, &corev1.PersistentVolumeClaimList{
+							Items: []corev1.PersistentVolumeClaim{*liveBackendPVC},
+						}, nil
+					})
+
+					patches := map[string]string{}
+					k8sClient.Fake.PrependReactor("patch", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						patchAction := action.(testing.PatchAction)
+						patches[patchAction.GetName()] = string(patchAction.GetPatch())
+						return true, nil, nil
+					})
+
+					ready, err := target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeFalse())
+
+					Expect(patches).To(HaveKey(liveBackendPVCName))
+					Expect(patches).ToNot(HaveKey(staleBackendPVCName))
+				})
+
+				It("converges once the restore PVC is observed with the backend label, when restoring to a different VM", func() {
+					newVMName := "newvm"
+					r.Spec.Target.Name = newVMName
+
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &kubevirtv1.TPMDevice{
+						Persistent: pointer.P(true),
+					}
+					snapshotVM := sc.Spec.Source.VirtualMachine
+
+					backendVolumeName := storageutils.BackendPVCVolumeName(vmName)
+					backendPVCName := "backend-pvc-" + vmName
+					restoreBackendPVCName := "restore-uid-backend"
+
+					sc.Spec.VolumeBackups = append(sc.Spec.VolumeBackups, snapshotv1.VolumeBackup{
+						VolumeName: backendVolumeName,
+						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      backendPVCName,
+								Namespace: testNamespace,
+							},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &storageClassName,
+							},
+						},
+						VolumeSnapshotName: pointer.P("vmsnapshot-snapshot-uid-volume-backend"),
+					})
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					backendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      backendPVCName,
+							Namespace: testNamespace,
+							Labels: map[string]string{
+								backendstorage.PVCPrefix: vmName,
+							},
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(backendPVC)).To(Succeed())
+
+					restoreBackendPVC := &corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      restoreBackendPVCName,
+							Namespace: testNamespace,
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(restoreBackendPVC)).To(Succeed())
+
+					r.Status.Restores = append(r.Status.Restores, snapshotv1.VolumeRestore{
+						VolumeName:                backendVolumeName,
+						PersistentVolumeClaimName: restoreBackendPVCName,
+						VolumeSnapshotName:        "vmsnapshot-snapshot-uid-volume-backend",
+					})
+
+					k8sClient.Fake.PrependReactor("list", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						return true, &corev1.PersistentVolumeClaimList{
+							Items: []corev1.PersistentVolumeClaim{*backendPVC},
+						}, nil
+					})
+
+					patches := map[string]string{}
+					k8sClient.Fake.PrependReactor("patch", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
+						patchAction := action.(testing.PatchAction)
+						patches[patchAction.GetName()] = string(patchAction.GetPatch())
+						return true, nil, nil
+					})
+
+					ready, err := target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeFalse())
+					Expect(patches).To(HaveKey(restoreBackendPVCName))
+
+					// Simulate the informer observing the label patch that was just applied.
+					restoreBackendPVC.Labels = map[string]string{backendstorage.PVCPrefix: newVMName}
+					Expect(controller.PVCInformer.GetStore().Update(restoreBackendPVC)).To(Succeed())
+
+					ready, err = target.reconcileBackendVolume(snapshotVM)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ready).To(BeTrue())
 				})
 			})
 
@@ -2315,7 +2637,6 @@ var _ = Describe("Restore controller", func() {
 
 					updatedVM := originalVM.DeepCopy()
 					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
-					setLegacyFirmwareUUID(updatedVM)
 					updateVMCalls := expectVMUpdate(kubevirtClient, updatedVM)
 					calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
@@ -2560,7 +2881,6 @@ var _ = Describe("Restore controller", func() {
 
 				updatedVM := originalVM.DeepCopy()
 				updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
-				setLegacyFirmwareUUID(updatedVM)
 				updateVMCalls := expectVMUpdate(kubevirtClient, updatedVM)
 				calls := expectUpdateVMRestoreUpdatingTargetSpec(restore, "1")
 
@@ -2950,3 +3270,183 @@ func (v *MockVolumeSnapshotProvider) GetVolumeSnapshot(namespace, name string) (
 func (v *MockVolumeSnapshotProvider) Add(s *vsv1.VolumeSnapshot) {
 	v.volumeSnapshots = append(v.volumeSnapshots, s)
 }
+
+var _ = Describe("restoreVirtualMachineState", func() {
+	const (
+		vmName      = "testvm"
+		newVMName   = "newvm"
+		restoredPVC = "restored-vmstate-pvc"
+		originalPVC = "original-vmstate-pvc"
+	)
+
+	newTarget := func(restores []snapshotv1.VolumeRestore) *vmRestoreTarget {
+		return &vmRestoreTarget{
+			controller: &VMRestoreController{Recorder: record.NewFakeRecorder(10)},
+			vmRestore:  &snapshotv1.VirtualMachineRestore{Status: &snapshotv1.VirtualMachineRestoreStatus{Restores: restores}},
+		}
+	}
+
+	newVMWithSource := func(name string) *kubevirtv1.VirtualMachine {
+		vm := &kubevirtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: name}}
+		vm.Spec.Template = &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+			Spec: kubevirtv1.VirtualMachineInstanceSpec{
+				VirtualMachineState: &kubevirtv1.VirtualMachineStateSpec{
+					Source: &kubevirtv1.VirtualMachineStateSource{Name: originalPVC},
+				},
+			},
+		}
+		return vm
+	}
+
+	It("repoints source at the restored PVC", func() {
+		target := newTarget([]snapshotv1.VolumeRestore{{
+			VolumeName:                storageutils.BackendPVCVolumeName(vmName),
+			PersistentVolumeClaimName: restoredPVC,
+		}})
+		newVM := newVMWithSource(vmName)
+
+		Expect(target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})).To(Succeed())
+
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState.Source.Name).To(Equal(restoredPVC))
+	})
+
+	It("sets source even when the original VM only had a volumeClaimTemplate", func() {
+		target := newTarget([]snapshotv1.VolumeRestore{{
+			VolumeName:                storageutils.BackendPVCVolumeName(vmName),
+			PersistentVolumeClaimName: restoredPVC,
+		}})
+		newVM := &kubevirtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}}
+		newVM.Spec.Template = &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+			Spec: kubevirtv1.VirtualMachineInstanceSpec{
+				VirtualMachineState: &kubevirtv1.VirtualMachineStateSpec{
+					VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{},
+				},
+			},
+		}
+
+		Expect(target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})).To(Succeed())
+
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState.Source.Name).To(Equal(restoredPVC))
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState.VolumeClaimTemplate).ToNot(BeNil())
+	})
+
+	It("leaves source untouched when restoring to the same VM with no matching restore entry", func() {
+		target := newTarget(nil)
+		newVM := newVMWithSource(vmName)
+
+		Expect(target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})).To(Succeed())
+
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState.Source.Name).To(Equal(originalPVC))
+	})
+
+	It("clears source and warns rather than sharing the original VM's PVC when restoring to a different VM", func() {
+		target := newTarget(nil)
+		newVM := newVMWithSource(newVMName)
+		newVM.Spec.Template.Spec.VirtualMachineState.VolumeClaimTemplate = &corev1.PersistentVolumeClaimTemplate{}
+
+		Expect(target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})).To(Succeed())
+
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState.Source).To(BeNil())
+		Expect(target.controller.Recorder.(*record.FakeRecorder).Events).To(Receive(ContainSubstring(restoreVMStateNotCapturedEvent)))
+	})
+
+	It("errors when restoring to a different VM with no snapshotted backend volume and no volumeClaimTemplate", func() {
+		target := newTarget(nil)
+		newVM := newVMWithSource(newVMName)
+
+		err := target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})
+
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("is a no-op when the VM has no virtualMachineState", func() {
+		target := newTarget(nil)
+		newVM := &kubevirtv1.VirtualMachine{}
+		newVM.Spec.Template = &kubevirtv1.VirtualMachineInstanceTemplateSpec{}
+
+		Expect(target.restoreVirtualMachineState(newVM, &snapshotv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: vmName}})).To(Succeed())
+		Expect(newVM.Spec.Template.Spec.VirtualMachineState).To(BeNil())
+	})
+})
+
+var _ = Describe("deleteObsoleteBackendPVC", func() {
+	const (
+		restoreNS    = "testns"
+		targetVMName = "testvm"
+	)
+
+	var (
+		virtClient *kubecli.MockKubevirtClient
+		k8sClient  *k8sfake.Clientset
+		ctrl       *VMRestoreController
+	)
+
+	BeforeEach(func() {
+		mockCtrl := gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(mockCtrl)
+		k8sClient = k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+		ctrl = &VMRestoreController{Client: virtClient}
+	})
+
+	newVMRestore := func() *snapshotv1.VirtualMachineRestore {
+		groupName := "kubevirt.io"
+		return &snapshotv1.VirtualMachineRestore{
+			ObjectMeta: metav1.ObjectMeta{Name: "restore", Namespace: restoreNS},
+			Spec: snapshotv1.VirtualMachineRestoreSpec{
+				Target: corev1.TypedLocalObjectReference{APIGroup: &groupName, Kind: "VirtualMachine", Name: targetVMName},
+			},
+		}
+	}
+
+	newTarget := func() *vmRestoreTarget {
+		vm := &kubevirtv1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: targetVMName, Namespace: restoreNS}}
+		vm.Spec.Template = &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+			Spec: kubevirtv1.VirtualMachineInstanceSpec{
+				VirtualMachineState: &kubevirtv1.VirtualMachineStateSpec{
+					Source: &kubevirtv1.VirtualMachineStateSource{Name: "whatever"},
+				},
+			},
+		}
+		return &vmRestoreTarget{vm: vm}
+	}
+
+	It("does not delete a source-adopted PVC marked for cleanup", func() {
+		vmRestore := newVMRestore()
+		adoptedPVC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "adopted-pvc",
+				Namespace: restoreNS,
+				Labels:    map[string]string{restoreCleanupBackendPVCLabel: getCleanupLabelValue(vmRestore)},
+			},
+		}
+		_, err := k8sClient.CoreV1().PersistentVolumeClaims(restoreNS).Create(context.Background(), adoptedPVC, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(ctrl.deleteObsoleteBackendPVC(vmRestore, newTarget())).To(Succeed())
+
+		_, err = k8sClient.CoreV1().PersistentVolumeClaims(restoreNS).Get(context.Background(), adoptedPVC.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("deletes a controller-owned PVC marked for cleanup", func() {
+		vmRestore := newVMRestore()
+		ownedPVC := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "owned-pvc",
+				Namespace: restoreNS,
+				Labels:    map[string]string{restoreCleanupBackendPVCLabel: getCleanupLabelValue(vmRestore)},
+				OwnerReferences: []metav1.OwnerReference{
+					{Kind: "VirtualMachine", Name: targetVMName, UID: "vm-uid", Controller: pointer.P(true)},
+				},
+			},
+		}
+		_, err := k8sClient.CoreV1().PersistentVolumeClaims(restoreNS).Create(context.Background(), ownedPVC, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(ctrl.deleteObsoleteBackendPVC(vmRestore, newTarget())).To(Succeed())
+
+		_, err = k8sClient.CoreV1().PersistentVolumeClaims(restoreNS).Get(context.Background(), ownedPVC.Name, metav1.GetOptions{})
+		Expect(err).To(HaveOccurred())
+	})
+})

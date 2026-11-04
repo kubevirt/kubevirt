@@ -149,6 +149,23 @@ func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
 	return migrationConfig
 }
 
+// GetDecentralizedLiveMigrationDatapath returns Direct when unset.
+func (c *ClusterConfig) GetDecentralizedLiveMigrationDatapath() v1.DecentralizedLiveMigrationDatapath {
+	mig := c.GetConfig().MigrationConfiguration
+	if mig == nil || mig.DecentralizedLiveMigrationDatapath == nil || *mig.DecentralizedLiveMigrationDatapath == "" {
+		return v1.DecentralizedLiveMigrationDatapathDirect
+	}
+	return *mig.DecentralizedLiveMigrationDatapath
+}
+
+// DecentralizedLiveMigrationProxyEnabled reports whether the sync-controller
+// migration-data proxy should run (CrossClusterMigrationProxy feature gate +
+// decentralizedLiveMigrationDatapath=Proxy).
+func (c *ClusterConfig) DecentralizedLiveMigrationProxyEnabled() bool {
+	return c.CrossClusterMigrationProxyEnabled() &&
+		c.GetDecentralizedLiveMigrationDatapath() == v1.DecentralizedLiveMigrationDatapathProxy
+}
+
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 	return c.GetConfig().ImagePullPolicy
 }
@@ -220,6 +237,10 @@ func (c *ClusterConfig) GetNodeSelectors() map[string]string {
 
 func (c *ClusterConfig) GetDefaultNetworkInterface() string {
 	return c.GetConfig().NetworkConfiguration.NetworkInterface
+}
+
+func (c *ClusterConfig) GetEvictionStrategy() *v1.EvictionStrategy {
+	return c.GetConfig().EvictionStrategy
 }
 
 func (c *ClusterConfig) GetDefaultArchitecture() string {
@@ -514,7 +535,7 @@ func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 	if mdevConfig != nil && mdevConfig.Enabled != nil {
 		return !*mdevConfig.Enabled
 	}
-	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+	return c.IsFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
 }
 
 func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
@@ -545,4 +566,15 @@ func (c *ClusterConfig) PersistentReservationEnabled() bool {
 	}
 
 	return slices.Contains(c.GetConfig().DeveloperConfiguration.FeatureGates, featuregate.PersistentReservation)
+}
+
+func (c *ClusterConfig) GetEmulationPolicy(vmi *v1.VirtualMachineInstance) v1.EmulationPolicy {
+	if vmi.Spec.EmulationPolicy != nil {
+		return *vmi.Spec.EmulationPolicy
+	}
+	configPolicy := c.GetConfig().EmulationPolicy
+	if configPolicy != nil {
+		return *configPolicy
+	}
+	return v1.EmulationPolicyNone
 }

@@ -13,10 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type ResourceRendererOption func(renderer *ResourceRenderer)
@@ -116,21 +117,12 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
-// Helper function to extract IO thread CPU count from VMI
-func getIOThreadsCount(vmi *v1.VirtualMachineInstance) int64 {
-	if vmi == nil || vmi.Spec.Domain.IOThreads == nil ||
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
-		return 0
-	}
-	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
-}
-
 func WithoutDedicatedCPU(vmi *v1.VirtualMachineInstance, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		cpu := vmi.Spec.Domain.CPU
 		vcpus := calcVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi) // Get IO thread count
-		totalCPUs := vcpus + ioThreadCPUs      // Include IO threads
+		ioThreadCPUs := hardware.GetIOThreadsCount(vmi)
+		totalCPUs := vcpus + ioThreadCPUs // Include IO threads
 		if totalCPUs != 0 && cpuAllocationRatio > 0 {
 			val := float64(totalCPUs) / float64(cpuAllocationRatio)
 			vcpusStr := fmt.Sprintf("%g", val)
@@ -156,6 +148,14 @@ func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
 		}
 		copyResources(res.Limits, r.calculatedLimits)
 		copyResources(res.Requests, r.calculatedRequests)
+	}
+}
+
+func WithCPUsDRA() ResourceRendererOption {
+	return func(r *ResourceRenderer) {
+		r.resourceClaims = append(r.resourceClaims, k8sv1.ResourceClaim{
+			Name: dra.CPUClaimRefName,
+		})
 	}
 }
 
@@ -260,7 +260,7 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) Resour
 	}
 }
 
-func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRendererOption {
+func WithMemoryRequests(vmi *v1.VirtualMachineInstance, overcommit int) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		limit, hasLimit := renderer.vmLimits[k8sv1.ResourceMemory]
 		request, hasRequest := renderer.vmRequests[k8sv1.ResourceMemory]
@@ -272,6 +272,7 @@ func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRender
 			return
 		}
 
+		vmiSpecMemory := vmi.Spec.Domain.Memory
 		var memory *resource.Quantity
 		if vmiSpecMemory != nil && vmiSpecMemory.Guest != nil {
 			memory = vmiSpecMemory.Guest
@@ -283,7 +284,8 @@ func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRender
 
 		if memory != nil && memory.Value() > 0 {
 			hugepages := vmiSpecMemory != nil && vmiSpecMemory.Hugepages != nil
-			if overcommit == 100 || hugepages {
+			dedicatedCPU := vmi.IsCPUDedicated()
+			if overcommit == 100 || hugepages || dedicatedCPU {
 				renderer.vmRequests[k8sv1.ResourceMemory] = *memory
 			} else {
 				value := (memory.Value() * int64(100)) / int64(overcommit)
@@ -317,42 +319,11 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
-func WithCPUPinning(vmi *v1.VirtualMachineInstance, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
+func WithCPUPinning(vmi *v1.VirtualMachineInstance) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
-		cpu := vmi.Spec.Domain.CPU
-		vcpus := hardware.GetNumberOfVCPUs(cpu)
-		ioThreadCPUs := getIOThreadsCount(vmi)
-		if vcpus != 0 {
-			totalCPUs := vcpus + ioThreadCPUs
-			renderer.vmLimits[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI)
-			renderer.vmRequests[k8sv1.ResourceCPU] = *resource.NewQuantity(totalCPUs, resource.BinarySI) // Ensure requests match limits for dedicated CPUs
-		} else {
-			ioThreadsCount := resource.NewQuantity(ioThreadCPUs, resource.BinarySI)
-			if cpuLimit, ok := renderer.vmLimits[k8sv1.ResourceCPU]; ok {
-				cpuLimit.Add(*ioThreadsCount)
-				renderer.vmLimits[k8sv1.ResourceCPU] = cpuLimit
-			}
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*ioThreadsCount)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
-
-		if cpu.IsolateEmulatorThread {
-			emulatorThreadCPUs := resource.NewQuantity(1, resource.BinarySI)
-			limits := renderer.vmLimits[k8sv1.ResourceCPU]
-			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
-			if emulatorThreadCompleteToEvenParityAnnotationExists &&
-				(limits.Value()+int64(additionalCPUs))%2 == 0 {
-				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
-			}
-			limits.Add(*emulatorThreadCPUs)
-			renderer.vmLimits[k8sv1.ResourceCPU] = limits
-			if cpuRequest, ok := renderer.vmRequests[k8sv1.ResourceCPU]; ok {
-				cpuRequest.Add(*emulatorThreadCPUs)
-				renderer.vmRequests[k8sv1.ResourceCPU] = cpuRequest
-			}
-		}
+		quantity := *resource.NewQuantity(hardware.GetDedicatedHostCPUs(vmi), resource.BinarySI)
+		renderer.vmLimits[k8sv1.ResourceCPU] = quantity
+		renderer.vmRequests[k8sv1.ResourceCPU] = quantity
 
 		// Align memory limits with requests for consistency
 		if memRequest, ok := renderer.vmRequests[k8sv1.ResourceMemory]; ok {
@@ -466,7 +437,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorResource k8s
 	if !allowEmulation {
 		res[hypervisorResource] = resource.MustParse("1")
 	}
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")
 	}
 	return res
@@ -478,7 +449,7 @@ func WithVirtualizationResources(virtResources k8sv1.ResourceList) ResourceRende
 	}
 }
 
-func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) error {
+func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config clusterConfigProvider) error {
 	errors := make([]string, 0)
 
 	if hostDevs := config.GetPermittedHostDevices(); hostDevs != nil {
@@ -493,8 +464,8 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 		for _, dev := range hostDevs.USB {
 			supportedHostDevicesMap[dev.ResourceName] = true
 		}
-		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.GPUsWithDRAGateEnabled(), supportedHostDevicesMap)...)
-		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.HostDevicesWithDRAEnabled(), supportedHostDevicesMap)...)
+		errors = append(errors, validateGPUs(spec.Domain.Devices.GPUs, config.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate), supportedHostDevicesMap)...)
+		errors = append(errors, validateHostDevices(spec.Domain.Devices.HostDevices, config.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate), supportedHostDevicesMap)...)
 	}
 
 	if len(errors) != 0 {
@@ -530,7 +501,7 @@ func validateHostDevices(hostDevs []v1.HostDevice, draEnabled bool, supportedHos
 	return errors
 }
 
-func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func sidecarResources(vmi *v1.VirtualMachineInstance, config clusterConfigProvider) k8sv1.ResourceRequirements {
 	resources := k8sv1.ResourceRequirements{
 		Requests: k8sv1.ResourceList{},
 		Limits:   k8sv1.ResourceList{},
@@ -566,7 +537,7 @@ func sidecarResources(vmi *v1.VirtualMachineInstance, config *virtconfig.Cluster
 	return resources
 }
 
-func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, containerType v1.SupportContainerType, config clusterConfigProvider) k8sv1.ResourceRequirements {
 	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
 		return k8sv1.ResourceRequirements{
 			Limits:   initContainerDedicatedCPURequiredResources(containerType, config),
@@ -580,7 +551,7 @@ func initContainerResourceRequirementsForVMI(vmi *v1.VirtualMachineInstance, con
 	}
 }
 
-func initContainerDedicatedCPURequiredResources(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func initContainerDedicatedCPURequiredResources(containerType v1.SupportContainerType, config clusterConfigProvider) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("10m"),
 		k8sv1.ResourceMemory: resource.MustParse("40M"),
@@ -594,7 +565,7 @@ func initContainerDedicatedCPURequiredResources(containerType v1.SupportContaine
 	return res
 }
 
-func initContainerMinimalLimits(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func initContainerMinimalLimits(containerType v1.SupportContainerType, config clusterConfigProvider) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("100m"),
 		k8sv1.ResourceMemory: resource.MustParse("40M"),
@@ -608,7 +579,7 @@ func initContainerMinimalLimits(containerType v1.SupportContainerType, config *v
 	return res
 }
 
-func initContainerMinimalRequests(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func initContainerMinimalRequests(containerType v1.SupportContainerType, config clusterConfigProvider) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    resource.MustParse("10m"),
 		k8sv1.ResourceMemory: resource.MustParse("1M"),
@@ -622,14 +593,14 @@ func initContainerMinimalRequests(containerType v1.SupportContainerType, config 
 	return res
 }
 
-func hotplugContainerResourceRequirementsForVMI(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func hotplugContainerResourceRequirementsForVMI(config clusterConfigProvider) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   hotplugContainerLimits(config),
 		Requests: hotplugContainerRequests(config),
 	}
 }
 
-func hotplugContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func hotplugContainerLimits(config clusterConfigProvider) k8sv1.ResourceList {
 	cpuQuantity := resource.MustParse("100m")
 	if cpu := config.GetSupportContainerLimit(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
@@ -644,7 +615,7 @@ func hotplugContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList
 	}
 }
 
-func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func hotplugContainerRequests(config clusterConfigProvider) k8sv1.ResourceList {
 	cpuQuantity := resource.MustParse("10m")
 	if cpu := config.GetSupportContainerRequest(v1.HotplugAttachment, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
@@ -689,14 +660,14 @@ func hotplugPodTolerations() []k8sv1.Toleration {
 	}
 }
 
-func vmExportContainerResourceRequirements(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
+func vmExportContainerResourceRequirements(config clusterConfigProvider) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   vmExportContainerLimits(config),
 		Requests: vmExportContainerRequests(config),
 	}
 }
 
-func vmExportContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func vmExportContainerLimits(config clusterConfigProvider) k8sv1.ResourceList {
 	cpuQuantity := resource.MustParse("1")
 	if cpu := config.GetSupportContainerLimit(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu
@@ -711,7 +682,7 @@ func vmExportContainerLimits(config *virtconfig.ClusterConfig) k8sv1.ResourceLis
 	}
 }
 
-func vmExportContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceList {
+func vmExportContainerRequests(config clusterConfigProvider) k8sv1.ResourceList {
 	cpuQuantity := resource.MustParse("100m")
 	if cpu := config.GetSupportContainerRequest(v1.VMExport, k8sv1.ResourceCPU); cpu != nil {
 		cpuQuantity = *cpu

@@ -126,16 +126,41 @@ func upExpr(namespace, component string) string {
 	)
 }
 
-func podsRunningExpr(namespace, component string) string {
-	return fmt.Sprintf(
-		"count(kube_pod_status_phase{pod=~'virt-%s-.*', namespace='%s', phase='Running'} == 1) or vector(0)",
-		component, namespace,
-	)
+// workloadReplicasExpr: real replica count from the Deployment/DaemonSet.
+func workloadReplicasExpr(namespace, component string) string {
+	if component == "handler" {
+		return fmt.Sprintf("kube_daemonset_status_number_ready{namespace='%s', daemonset='virt-%s'}", namespace, component)
+	}
+	return fmt.Sprintf("kube_deployment_status_replicas{namespace='%s', deployment='virt-%s'}", namespace, component)
 }
 
+// podsRunningExpr: falls back to "up", then to the workload's replica count.
+func podsRunningExpr(namespace, component string) string {
+	runningExpr := fmt.Sprintf(
+		"count(kube_pod_status_phase{pod=~'virt-%s-.*', namespace='%s', phase='Running'} == 1)",
+		component, namespace,
+	)
+	upFallbackExpr := fmt.Sprintf(
+		"sum(up{namespace='%s', pod=~'virt-%s-.*'})",
+		namespace, component,
+	)
+	workloadFallbackExpr := fmt.Sprintf("sum(%s)", workloadReplicasExpr(namespace, component))
+	return fmt.Sprintf("%s or %s or %s", runningExpr, upFallbackExpr, workloadFallbackExpr)
+}
+
+// readyExpr: falls back to the self-reported gauge, then to a real 0
+// (a Running pod whose own scrape is down, or 0 replicas).
 func readyExpr(namespace, component, readyStatusMetric string) string {
-	return fmt.Sprintf(
-		"sum(kube_pod_status_ready{pod=~'virt-%s-.*', namespace='%s', condition='true'} * on(pod, namespace) %s{namespace='%s'}) or vector(0)",
+	joinExpr := fmt.Sprintf(
+		"kube_pod_status_ready{pod=~'virt-%s-.*', namespace='%s', condition='true'} * on(pod, namespace) %s{namespace='%s'}",
 		component, namespace, readyStatusMetric, namespace,
 	)
+	selfReportedExpr := fmt.Sprintf("%s{namespace='%s'}", readyStatusMetric, namespace)
+	scrapeDownExpr := fmt.Sprintf(
+		"count(kube_pod_status_phase{pod=~'virt-%s-.*', namespace='%s', phase='Running'} == 1 "+
+			"and on(pod, namespace) up{pod=~'virt-%s-.*', namespace='%s'} == 0) * 0",
+		component, namespace, component, namespace,
+	)
+	zeroReplicasExpr := fmt.Sprintf("sum(%s == 0)", workloadReplicasExpr(namespace, component))
+	return fmt.Sprintf("sum(%s) or sum(%s) or (%s) or (%s)", joinExpr, selfReportedExpr, scrapeDownExpr, zeroReplicasExpr)
 }

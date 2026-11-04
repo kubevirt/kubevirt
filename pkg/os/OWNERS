@@ -1,0 +1,6 @@
+reviewers:
+  - sig-compute-reviewers
+approvers:
+  - sig-compute-approvers
+labels:
+  - sig/compute

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -25,10 +26,12 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -46,6 +49,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -121,7 +126,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
 
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{
-				"vm": func(obj interface{}) ([]string, error) {
+				"vm": func(obj any) ([]string, error) {
 					cr := obj.(*appsv1.ControllerRevision)
 					for _, ref := range cr.OwnerReferences {
 						if ref.Kind == "VirtualMachine" {
@@ -137,7 +142,9 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller, _ = NewController(vmiInformer,
+			mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vm"))
+			controller, _ = NewController(mockQueue,
+				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
@@ -149,15 +156,10 @@ var _ = Describe("VirtualMachine", func() {
 				virtClient,
 				config,
 				nil,
-				nil,
 				instancetypecontroller.NewControllerStub(),
 				[]string{},
 				[]string{},
 			)
-
-			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-			controller.Queue = mockQueue
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
@@ -207,9 +209,7 @@ var _ = Describe("VirtualMachine", func() {
 			allAnnotations := map[string]string{
 				"cdi.kubevirt.io/allowClaimAdoption": "true",
 			}
-			for k, v := range annotations {
-				allAnnotations[k] = v
-			}
+			maps.Copy(allAnnotations, annotations)
 			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
@@ -284,12 +284,12 @@ var _ = Describe("VirtualMachine", func() {
 			vmBytes, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			var raw map[string]interface{}
+			var raw map[string]any
 			err = json.Unmarshal(vmBytes, &raw)
 			Expect(err).ToNot(HaveOccurred())
 
-			objCopy := make(map[string]interface{})
-			spec := raw["spec"].(map[string]interface{})
+			objCopy := make(map[string]any)
+			spec := raw["spec"].(map[string]any)
 			objCopy["spec"] = spec
 			patch, err := json.Marshal(objCopy)
 			Expect(err).ToNot(HaveOccurred())
@@ -420,6 +420,34 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
 
 		})
+		It("should keep the mirrored VirtualMachineStateVolume when the VMI status hasn't populated it yet", func() {
+			vm, vmi := watchtesting.DefaultVirtualMachine(true)
+			vm.Status.Created = true
+			vm.Status.Ready = true
+			// A previous reconcile already mirrored the state volume onto the VM status.
+			vm.Status.VirtualMachineStateVolume = &v1.VolumeStatus{
+				Name:                      "persistent-state-for-this-vm",
+				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "state-pvc"},
+			}
+			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).To(Succeed())
+			addVirtualMachine(vm)
+
+			// The VMI is running but hasn't mirrored the state volume onto its status yet.
+			watchtesting.MarkAsReady(vmi)
+			vmi.Status.VirtualMachineStateVolume = nil
+			vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			controller.vmiIndexer.Add(vmi)
+
+			sanityExecute(vm)
+
+			vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).To(Succeed())
+			Expect(vm.Status.VirtualMachineStateVolume).NotTo(BeNil())
+			Expect(vm.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal("state-pvc"))
+		})
+
 		Context("Disk un/hotplug", func() {
 			addVolumeReactor := func(virtFakeClient *fake.Clientset) {
 				virtFakeClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
@@ -1153,7 +1181,7 @@ var _ = Describe("VirtualMachine", func() {
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 
-			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, pointer.P(0))
+			shouldExpectDataVolumeCreation(vm.UID, map[string]string{"kubevirt.io/created-by": string(vm.UID)}, nil, new(0))
 
 			addVirtualMachine(vm)
 			sanityExecute(vm)
@@ -1633,7 +1661,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			DescribeTable("should calculated expected backoff delay", func(failCount, minExpectedDelay int, maxExpectedDelay int) {
 
-				for i := 0; i < 1000; i++ {
+				for range 1000 {
 					delay := calculateStartBackoffTime(failCount, defaultMaxCrashLoopBackoffDelaySeconds)
 
 					// check that minExpectedDelay <= delay <= maxExpectedDelay
@@ -2026,8 +2054,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Equal(desiredErr))
 				}
 			},
-				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, pointer.P("6"), nil),
-				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, pointer.P("5"), nil),
+				Entry("with only one entry in the annotations", map[string]string{v1.VirtualMachineGenerationAnnotation: "6"}, new("6"), nil),
+				Entry("with multiple entries in the annotations", map[string]string{"test": "test", v1.VirtualMachineGenerationAnnotation: "5"}, new("5"), nil),
 				Entry("with no generation annotation existing", map[string]string{"test": "testing"}, nil, nil),
 				Entry("with empty annotations map", map[string]string{}, nil, nil),
 			)
@@ -2041,8 +2069,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(gen).To(Equal(desiredGeneration))
 				}
 			},
-				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), pointer.P(int64(3))),
-				Entry("with one dash in name", getVMRevisionName("abcdef", 5), pointer.P(int64(5))),
+				Entry("with standard name", getVMRevisionName("9160e5de-2540-476a-86d9-af0081aee68a", 3), new(int64(3))),
+				Entry("with one dash in name", getVMRevisionName("abcdef", 5), new(int64(5))),
 				Entry("with no dash in name", "12345", nil),
 				Entry("with ill formatted generation", "123-456-2b3b", nil),
 			)
@@ -2455,7 +2483,7 @@ var _ = Describe("VirtualMachine", func() {
 							initialAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "2"},
 							desiredAnnotations: map[string]string{v1.VirtualMachineGenerationAnnotation: "3"},
 							revisionVmSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2471,7 +2499,7 @@ var _ = Describe("VirtualMachine", func() {
 								},
 							},
 							newVMSpec: v1.VirtualMachineSpec{
-								Running: pointer.P(true),
+								Running: new(true),
 								Template: &v1.VirtualMachineInstanceTemplateSpec{
 									ObjectMeta: metav1.ObjectMeta{
 										Name:   vmi.ObjectMeta.Name,
@@ -2593,21 +2621,6 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vm.Status.Ready).To(BeTrue())
 		})
 
-		It("should have stable firmware UUIDs", func() {
-			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi1 := SetupVMIFromVM(vm1)
-
-			// intentionally use the same names
-			vm2, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
-			vmi2 := SetupVMIFromVM(vm2)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).To(Equal(vmi2.Spec.Domain.Firmware.UUID))
-
-			// now we want different names
-			vm3, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm3", "testvmi3")
-			vmi3 := SetupVMIFromVM(vm3)
-			Expect(vmi1.Spec.Domain.Firmware.UUID).NotTo(Equal(vmi3.Spec.Domain.Firmware.UUID))
-		})
-
 		It("should honour any firmware UUID present in the template", func() {
 			uid := uuid.NewString()
 			vm1, _ := watchtesting.DefaultVirtualMachineWithNames(true, "testvm1", "testvmi1")
@@ -2667,7 +2680,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should delete VirtualMachineInstance when VirtualMachine marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2688,7 +2701,7 @@ var _ = Describe("VirtualMachine", func() {
 		It("should remove controller finalizer once VirtualMachineInstance is gone", func() {
 			//watchtesting.DefaultVirtualMachine already set finalizer
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
-			vm.DeletionTimestamp = pointer.P(metav1.Now())
+			vm.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -2726,7 +2739,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should not delete the VirtualMachineInstance again if it is already marked for deletion", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(false)
-			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+			vmi.DeletionTimestamp = new(metav1.Now())
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -3451,6 +3464,22 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
+		Context("Backup in progress", func() {
+			It("should not start a VM while a backup holds it", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.BackupInProgress = new("backup")
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+				testutils.ExpectEvent(recorder, startHeldReason)
+			})
+		})
+
 		Context("Changed Block Tracking", func() {
 			createKubeVirtConfigWithCBT := func(enableFeatureGate bool) *v1.KubeVirt {
 				labelSelector := &metav1.LabelSelector{
@@ -3467,9 +3496,9 @@ var _ = Describe("VirtualMachine", func() {
 					},
 				}
 
-				if enableFeatureGate {
+				if !enableFeatureGate {
 					kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.IncrementalBackupGate},
+						DisabledFeatureGates: []string{featuregate.IncrementalBackupGate},
 					}
 				}
 
@@ -3860,7 +3889,7 @@ var _ = Describe("VirtualMachine", func() {
 		Context("VM memory dump", func() {
 			const testPVCName = "testPVC"
 
-			It("should add memory dump volume and update vmi volumes", func() {
+			It("should add memory dump utility volume to vmi", func() {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Status.Created = true
 				vm.Status.Ready = true
@@ -3882,36 +3911,64 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 
 				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.Spec.Volumes[0].Name).To(Equal(testPVCName))
+				Expect(vmi.Spec.UtilityVolumes).To(HaveLen(1))
+				Expect(vmi.Spec.UtilityVolumes[0].Name).To(Equal(testPVCName))
 			})
 
-			It("should remove memory dump volume from vm volumes list", func() {
-				// No need to add vmi - can do this action even if vm not running
+			It("should fail a memory dump in progress when the vm restarted", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.Created = true
+				vm.Status.Ready = true
+				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
+					ClaimName: testPVCName,
+					Phase:     v1.MemoryDumpInProgress,
+				}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				watchtesting.MarkAsReady(vmi)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				controller.vmiIndexer.Add(vmi)
+
+				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpFailed))
+
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vmi.Spec.UtilityVolumes).To(BeEmpty())
+			})
+
+			deprecatedMemoryDumpVolume := v1.Volume{
+				Name: testPVCName,
+				VolumeSource: v1.VolumeSource{
+					MemoryDump: &v1.MemoryDumpVolumeSource{
+						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: testPVCName,
+							},
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
+
+			It("should strip deprecated memory dump volumes from the vm template", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(false)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
 					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpDissociating,
+					Phase:     v1.MemoryDumpCompleted,
 				}
-
-				memoryDumpVol := v1.Volume{
-					Name: testPVCName,
-					VolumeSource: v1.VolumeSource{
-						MemoryDump: &v1.MemoryDumpVolumeSource{
-							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: testPVCName,
-								},
-								Hotpluggable: true,
-							},
-						},
-					},
-				}
-
-				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, memoryDumpVol)
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, deprecatedMemoryDumpVolume)
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
@@ -3923,21 +3980,13 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
 			})
 
-			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase v1.MemoryDumpPhase) {
+			It("should not set up a vmi with deprecated memory dump volumes", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     phase,
-				}
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, deprecatedMemoryDumpVolume)
 
 				vmi := SetupVMIFromVM(vm)
 				Expect(vmi.Spec.Volumes).To(BeEmpty())
-
-			},
-				Entry("in phase Unmounting", v1.MemoryDumpUnmounting),
-				Entry("in phase Completed", v1.MemoryDumpCompleted),
-				Entry("in phase Dissociating", v1.MemoryDumpDissociating),
-			)
+			})
 
 		})
 
@@ -4672,9 +4721,23 @@ var _ = Describe("VirtualMachine", func() {
 						Reason: virtcontroller.FailedPvcNotFoundReason,
 					},
 				),
+				Entry("ErrorPvcNotFound for a missing VirtualMachineState PVC", v1.VirtualMachineStatusPvcNotFound,
+					v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtcontroller.VirtualMachineStatePVCNotFoundReason,
+					},
+				),
+				Entry("ErrorVMStateInUse", v1.VirtualMachineStatusVMStateInUse,
+					v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceSynchronized,
+						Status: k8sv1.ConditionFalse,
+						Reason: virtcontroller.VirtualMachineStateInUseReason,
+					},
+				),
 			)
 
-			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string) {
+			DescribeTable("should set an ImagePullBackOff/ErrPullImage statuses according to VMI Synchronized condition", func(reason string, expectedStatus v1.VirtualMachinePrintableStatus) {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vmi.Status.Phase = v1.Scheduling
 				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
@@ -4694,10 +4757,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachinePrintableStatus(reason)))
+				Expect(vm.Status.PrintableStatus).To(Equal(expectedStatus))
 			},
-				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason),
-				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason),
+				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason, v1.VirtualMachineStatusErrImagePull),
+				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason, v1.VirtualMachineStatusImagePullBackOff),
+				Entry("Reason: InvalidImageName", virtcontroller.InvalidImageNameReason, v1.VirtualMachineStatusErrImagePull),
 			)
 		})
 
@@ -4813,7 +4877,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							DeprecatedPreferredUseEfi: pointer.P(true),
+							DeprecatedPreferredUseEfi: new(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4942,7 +5006,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1beta1.FirmwarePreferences{
-								DeprecatedPreferredUseEfi: pointer.P(true),
+								DeprecatedPreferredUseEfi: new(true),
 							},
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4999,7 +5063,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachPodInterface: pointer.P(false),
+								PreferredAutoattachPodInterface: new(false),
 							},
 						},
 					}
@@ -5094,7 +5158,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
+					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = new(true)
 
 					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
@@ -5128,7 +5192,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(true),
+								PreferredAutoattachInputDevice: new(true),
 								PreferredInputBus:              v1.InputBusVirtio,
 								PreferredInputType:             v1.InputTypeTablet,
 							},
@@ -5174,7 +5238,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
-								PreferredAutoattachInputDevice: pointer.P(false),
+								PreferredAutoattachInputDevice: new(false),
 							},
 						},
 					}
@@ -5250,7 +5314,7 @@ var _ = Describe("VirtualMachine", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						NetworkConfiguration: &v1.NetworkConfiguration{
 							NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-							DeprecatedPermitSlirpInterface: pointer.P(true),
+							DeprecatedPermitSlirpInterface: new(true),
 						},
 					},
 				},
@@ -5383,15 +5447,15 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs).To(matcher)
 
 		},
-			Entry("add default input device when enabled in VirtualMachine", pointer.P(true), []v1.Input{},
+			Entry("add default input device when enabled in VirtualMachine", new(true), []v1.Input{},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("default-0"),
 				}))),
-			Entry("not add default input device when disabled by VirtualMachine", pointer.P(false), []v1.Input{},
+			Entry("not add default input device when disabled by VirtualMachine", new(false), []v1.Input{},
 				BeEmpty()),
 			Entry("not add default input device by default", nil, []v1.Input{},
 				BeEmpty()),
-			Entry("not add default input device when devices already present in VirtualMachine", pointer.P(true), []v1.Input{{Name: "existing-0"}},
+			Entry("not add default input device when devices already present in VirtualMachine", new(true), []v1.Input{{Name: "existing-0"}},
 				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"Name": Equal("existing-0"),
 				}))),
@@ -6140,6 +6204,72 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
 
+				migVols := func(src, dst string) []v1.StorageMigratedVolumeInfo {
+					return []v1.StorageMigratedVolumeInfo{{
+						VolumeName:         diskName,
+						SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: src},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: dst},
+					}}
+				}
+				migState := func(src, dst string) *v1.VolumeMigrationState {
+					return &v1.VolumeMigrationState{MigratedVolumes: migVols(src, dst)}
+				}
+				volUpdateState := func(src, dst string) *v1.VolumeUpdateState {
+					return &v1.VolumeUpdateState{VolumeMigrationState: migState(src, dst)}
+				}
+
+				DescribeTable("should handle migratedVolumes propagation from VMI to VM", func(
+					volClaim string,
+					vmiMigratedVols []v1.StorageMigratedVolumeInfo,
+					vmVolumeUpdateState *v1.VolumeUpdateState,
+					expectedVolumeMigrationState *v1.VolumeMigrationState,
+				) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, volClaim))
+					vm := libvmi.NewVirtualMachine(
+						libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, volClaim)),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration),
+					)
+
+					vmi.Status.MigratedVolumes = vmiMigratedVols
+					vm.Status.VolumeUpdateState = vmVolumeUpdateState
+
+					controller.handleVolumeUpdateRequest(vm, vmi)
+
+					if expectedVolumeMigrationState == nil {
+						if vm.Status.VolumeUpdateState == nil {
+							return
+						}
+						Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(BeNil())
+					} else {
+						Expect(vm.Status.VolumeUpdateState).ToNot(BeNil())
+						Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
+					}
+				},
+					Entry("should propagate when VM status update previously failed",
+						"dv1", migVols("dv0", "dv1"), nil, migState("dv0", "dv1"),
+					),
+					Entry("should not update when VM already has matching migratedVolumes",
+						"dv1", migVols("dv0", "dv1"), volUpdateState("dv0", "dv1"), migState("dv0", "dv1"),
+					),
+					Entry("should not update when VMI has no migratedVolumes",
+						"dv1", nil, nil, nil,
+					),
+					Entry("should not propagate stale migratedVolumes from cancelled migration",
+						"dv0", migVols("dv0", "dv1"), nil, nil,
+					),
+					Entry("should overwrite with new migratedVolumes during chained migration",
+						"dv2", migVols("dv1", "dv2"), volUpdateState("dv0", "dv1"), migState("dv1", "dv2"),
+					),
+				)
+
 				DescribeTable("should return an error", func(setup func() (*v1.VirtualMachineInstance, *v1.VirtualMachine)) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
@@ -6311,7 +6441,7 @@ var _ = Describe("VirtualMachine", func() {
 					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
 
 					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
-					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
+					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = new(true)
 
 					updatedRevision, err := revision.CreateControllerRevision(originalVM, updatedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
@@ -6390,7 +6520,7 @@ var _ = Describe("VirtualMachine", func() {
 				var maxSockets uint32 = 8
 
 				By("Setting a cluster-wide CPU maxSockets value")
-				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(maxSockets)
+				kv.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = new(maxSockets)
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				By("Creating a VM with CPU sockets set to the cluster maxiumum")
@@ -6582,7 +6712,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("for hotplugged volumes", func() {
 				BeforeEach(func() {
-					kv.Spec.Configuration.VMRolloutStrategy = pointer.P(stage)
+					kv.Spec.Configuration.VMRolloutStrategy = new(stage)
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
 				})
@@ -6836,33 +6966,6 @@ var _ = Describe("VirtualMachine", func() {
 				)
 			})
 
-			DescribeTable("RestartRequired condition based on VM and VMI UUID comparison", func(uuid types.UID, matcher gomegatypes.GomegaMatcher) {
-				By("Creating a VM without firmware UUID")
-				vm.Spec.Template.Spec.Domain.Firmware = nil
-				controller.crIndexer.Add(createVMRevision(vm))
-
-				By("Creating a VMI with the calculated legacy UUID")
-				vmi = SetupVMIFromVM(vm)
-				controller.vmiIndexer.Add(vmi)
-
-				By("Setting the UUID in VM spec")
-				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
-					UUID: uuid,
-				}
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				By("Executing the controller")
-				sanityExecute(vm)
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm).To(matcher)
-			},
-				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
-				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
-			)
-
 			It("should clear existing RestartRequired condition when VM and VMI specs match", func() {
 				By("Creating a VM with an existing RestartRequired condition")
 				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
@@ -6967,7 +7070,7 @@ var _ = Describe("VirtualMachine", func() {
 			DescribeTable("The VM should get started when switching to RerunOnFailure from", func(runStrategy v1.VirtualMachineRunStrategy) {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
-				vm.Spec.RunStrategy = pointer.P(runStrategy)
+				vm.Spec.RunStrategy = new(runStrategy)
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -7002,7 +7105,7 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Status.StateChangeRequests = stateChangeRequests
 				vm.Status.RunStrategy = statusRunStrategy
 
-				result := shouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
+				result := virtcontroller.ShouldStartRerunOnFailure(vm, v1.RunStrategyRerunOnFailure)
 				Expect(result).To(Equal(expected))
 			},
 				Entry("return true when VM was never started (empty status RunStrategy)",
@@ -7201,6 +7304,100 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("startVMI", func() {
+			DescribeTable("should ignore an overlay annotation without controller-managed overlay state", func(reference string) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase = v1.Failed
+				vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: reference}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeFalse())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+				Expect(virtFakeClient.Actions()).To(BeEmpty())
+			},
+				Entry("malformed reference", "invalid"),
+				Entry("unverified reference", `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`),
+			)
+			It("should wait for the removal of a scratch volume the launcher was never asked to use", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase = v1.Failed
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "scratch", Type: pointer.P(v1.SnapshotOverlay)}}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeTrue())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+			})
+			It("should not block the VM again from a final VMI it already recorded", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.Status.Phase, vmi.Finalizers = v1.Failed, nil
+				vmi.Annotations = map[string]string{storagetypes.OverlaySnapshotReferenceAnnotation: `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`}
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "snap-scratch-content-uid", Type: pointer.P(v1.SnapshotOverlay)}}
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: k8sv1.ConditionTrue, Reason: v1.VirtualMachineInstanceReasonOverlaysReady}}
+				pending, err := snapshotoverlay.SyncUncommittedOverlays(vm, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pending).To(BeFalse())
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired))
+			})
+			DescribeTable("should preserve interrupted snapshot writes before allowing restart", func(phase v1.VirtualMachineInstancePhase, reason string, referenced bool) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(false)
+				vmi.UID, vmi.Status.Phase = "old-vmi", phase
+				vmi.Finalizers = []string{v1.VirtualMachineControllerFinalizer}
+				vmi.Annotations = map[string]string{}
+				if referenced {
+					vmi.Annotations[storagetypes.OverlaySnapshotReferenceAnnotation] = `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`
+					vmi.Spec.UtilityVolumes = []v1.UtilityVolume{{Name: "snap-scratch-content-uid", Type: pointer.P(v1.SnapshotOverlay)}}
+				}
+				setGenerationAnnotationOnVmi(vm.Generation, vmi)
+				if reason != "" {
+					vmi.Status.SnapshotOverlayPVCUID = "scratch-uid"
+					vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceOverlaySnapshotActive, Status: k8sv1.ConditionFalse, Reason: reason}}
+				}
+				Expect(virtFakeClient.Tracker().Add(vm)).To(Succeed())
+				Expect(virtFakeClient.Tracker().Add(vmi)).To(Succeed())
+				blocked := vmi.IsFinal() && referenced && reason == ""
+				virtFakeClient.PrependReactor("patch", "virtualmachineinstances", func(testing.Action) (bool, runtime.Object, error) {
+					if blocked {
+						persisted, err := virtFakeClient.Tracker().Get(v1.SchemeGroupVersion.WithResource("virtualmachines"), vm.Namespace, vm.Name)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(persisted.(*v1.VirtualMachine)).To(matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired))
+					}
+					return false, nil, nil
+				})
+				Expect(controller.updateStatus(vm.DeepCopy(), vm, vmi, nil, log.Log)).To(Succeed())
+				updated, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				condition := virtcontroller.NewVirtualMachineConditionManager().GetCondition(updated, v1.VirtualMachineManualRecoveryRequired)
+				if blocked {
+					Expect(condition).ToNot(BeNil())
+					Expect(condition.Message).To(Equal("Uncommitted writes remain on scratch PVC `snap-scratch-content-uid`. Starting the VM recovers them. If the recovery is refused, commit the overlays manually, then annotate the VM with snapshot.kubevirt.io/overlays-committed=scratch-uid, or restore a completed snapshot and accept losing writes newer than that snapshot."))
+					_, err = controller.startVMI(updated)
+					Expect(err).ToNot(HaveOccurred())
+					for _, action := range virtFakeClient.Actions() {
+						Expect(action.Matches("create", "virtualmachineinstances")).To(BeFalse())
+					}
+				} else {
+					Expect(condition).To(BeNil())
+				}
+				if vmi.IsFinal() && referenced && reason != "" {
+					persisted, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persisted.Finalizers).To(ContainElement(v1.VirtualMachineControllerFinalizer))
+					delete(vmi.Annotations, storagetypes.OverlaySnapshotReferenceAnnotation)
+					vmi.Spec.UtilityVolumes = nil
+					Expect(controller.updateStatus(updated.DeepCopy(), updated, vmi, nil, log.Log)).To(Succeed())
+					persisted, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(persisted.Finalizers).To(BeEmpty())
+				}
+				Expect(k8sClient.Actions()).To(BeEmpty())
+			},
+				Entry("failed launcher", v1.Failed, "", true),
+				Entry("stopped launcher", v1.Succeeded, "", true),
+				Entry("running launcher", v1.Running, "", true),
+				Entry("cleaned transaction", v1.Failed, "", false),
+				Entry("commit awaiting cleanup", v1.Succeeded, v1.VirtualMachineInstanceReasonOverlayCommitted, true),
+				Entry("preparation failed safely", v1.Failed, v1.VirtualMachineInstanceReasonOverlaySnapshotFailed, true),
+			)
+
 			It("should not start the VMI if the VM has the ManualRecoveryRequiredCondition set", func() {
 				vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMCondition(v1.VirtualMachineCondition{
 					Type:   v1.VirtualMachineManualRecoveryRequired,
@@ -7212,6 +7409,272 @@ var _ = Describe("VirtualMachine", func() {
 				vmiList, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(vmiList.Items).To(BeEmpty())
+			})
+		})
+
+		Context("overlay recovery", func() {
+			const (
+				vmUID      = types.UID("vm-uid")
+				contentUID = types.UID("content-uid")
+				scratchUID = types.UID("scratch-uid")
+				dataUID    = types.UID("data-uid")
+			)
+			scratchName := storagetypes.ScratchPVCName(contentUID)
+
+			var (
+				vm      *v1.VirtualMachine
+				content *snapshotv1.VirtualMachineSnapshotContent
+				scratch *k8sv1.PersistentVolumeClaim
+			)
+
+			newPVC := func(name string, uid types.UID) *k8sv1.PersistentVolumeClaim {
+				return &k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault, UID: uid}}
+			}
+
+			addPVC := func(pvc *k8sv1.PersistentVolumeClaim) {
+				Expect(controller.pvcStore.Add(pvc)).To(Succeed())
+				_, err := k8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			recoverOverlays := func() {
+				virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type: v1.VirtualMachineManualRecoveryRequired, Status: k8sv1.ConditionTrue, Reason: storagetypes.UncommittedOverlaysReason,
+				})
+			}
+
+			createdVMIs := func() []v1.VirtualMachineInstance {
+				vmis, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).List(context.TODO(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmis.Items
+			}
+
+			expectRecovering := func(vmi v1.VirtualMachineInstance) {
+				Expect(vmi.Annotations).To(HaveKeyWithValue(storagetypes.PendingOverlayRecoveryAnnotation, scratchName))
+				reference, err := storagetypes.GetOverlaySnapshotReference(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(reference).To(Equal(&storagetypes.SnapshotOverlayReference{ContentUID: contentUID, ScratchPVCUID: scratchUID}))
+				Expect(vmi.Spec.UtilityVolumes).To(ConsistOf(v1.UtilityVolume{
+					Name: scratchName, PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}, Type: pointer.P(v1.SnapshotOverlay),
+				}))
+				stored, err := k8sClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Get(context.TODO(), scratchName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stored.Annotations).To(HaveKeyWithValue(storagetypes.OverlayOwnerVMIUIDAnnotation, string(vmi.UID)))
+			}
+
+			BeforeEach(func() {
+				vm = libvmi.NewVirtualMachine(libvmi.New(
+					libvmi.WithNamespace(metav1.NamespaceDefault),
+					libvmi.WithPersistentVolumeClaim("data", "data-pvc"),
+				))
+				vm.UID = vmUID
+
+				content = &snapshotv1.VirtualMachineSnapshotContent{
+					ObjectMeta: metav1.ObjectMeta{Name: "content", Namespace: metav1.NamespaceDefault, UID: contentUID},
+					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+						Source: snapshotv1.SourceSpec{VirtualMachine: &snapshotv1.VirtualMachine{
+							ObjectMeta: metav1.ObjectMeta{Name: vm.Name, Namespace: vm.Namespace, UID: vmUID},
+							Spec:       *vm.Spec.DeepCopy(),
+						}},
+						VolumeBackups: []snapshotv1.VolumeBackup{{
+							VolumeName:            "data",
+							PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "data-pvc", UID: dataUID}},
+						}},
+					},
+				}
+				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), content, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				virtClient.EXPECT().VirtualMachineSnapshotContent(metav1.NamespaceDefault).
+					Return(virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault)).AnyTimes()
+
+				scratch = newPVC(scratchName, scratchUID)
+				scratch.Finalizers = []string{storagetypes.OverlayProtectionFinalizer}
+				scratch.Annotations = map[string]string{storagetypes.OverlayOwnerVMIUIDAnnotation: "crashed-vmi-uid"}
+				scratch.OwnerReferences = []metav1.OwnerReference{{Kind: "VirtualMachineSnapshotContent", Name: content.Name, UID: contentUID, Controller: new(true)}}
+				addPVC(newPVC("data-pvc", dataUID))
+
+				virtFakeClient.PrependReactor("create", "virtualmachineinstances", func(action testing.Action) (bool, runtime.Object, error) {
+					action.(testing.CreateAction).GetObject().(*v1.VirtualMachineInstance).UID = "replacement-vmi-uid"
+					return false, nil, nil
+				})
+			})
+
+			It("should not take the recovery annotations from the VM template", func() {
+				vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+					storagetypes.PendingOverlayRecoveryAnnotation:   scratchName,
+					storagetypes.OverlaySnapshotReferenceAnnotation: `{"contentUID":"content-uid","scratchPVCUID":"scratch-uid"}`,
+				}
+
+				_, err := controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmis := createdVMIs()
+				Expect(vmis).To(HaveLen(1))
+				Expect(vmis[0].Annotations).ToNot(HaveKey(storagetypes.PendingOverlayRecoveryAnnotation))
+				Expect(vmis[0].Annotations).ToNot(HaveKey(storagetypes.OverlaySnapshotReferenceAnnotation))
+			})
+
+			It("should start a VMI that recovers the overlays of the interrupted snapshot", func() {
+				addPVC(scratch)
+				recoverOverlays()
+
+				_, err := controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmis := createdVMIs()
+				Expect(vmis).To(HaveLen(1))
+				expectRecovering(vmis[0])
+			})
+
+			// The VM cache can lag behind the VMI going away
+			It("should recover the overlays before the blocking condition is observed", func() {
+				addPVC(scratch)
+
+				_, err := controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmis := createdVMIs()
+				Expect(vmis).To(HaveLen(1))
+				expectRecovering(vmis[0])
+			})
+
+			// The content copies the VM template, defaulting only completes the VMI
+			It("should recover a VM whose disks are left to defaulting", func() {
+				vm.Spec.Template.Spec.Domain.Devices.Disks = nil
+				content.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.Disks = nil
+				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addPVC(scratch)
+				recoverOverlays()
+
+				_, err = controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmis := createdVMIs()
+				Expect(vmis).To(HaveLen(1))
+				expectRecovering(vmis[0])
+			})
+
+			It("should start normally next to the scratch volume of another VM", func() {
+				content.Spec.Source.VirtualMachine.UID = "another-vm-uid"
+				_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Update(context.TODO(), content, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addPVC(scratch)
+
+				_, err = controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmis := createdVMIs()
+				Expect(vmis).To(HaveLen(1))
+				Expect(vmis[0].Annotations).ToNot(HaveKey(storagetypes.PendingOverlayRecoveryAnnotation))
+				Expect(vmis[0].Spec.UtilityVolumes).To(BeEmpty())
+			})
+
+			DescribeTable("should refuse to start rather than lose the overlays", func(change func()) {
+				recoverOverlays()
+				change()
+
+				_, err := controller.startVMI(vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(createdVMIs()).To(BeEmpty())
+			},
+				Entry("when the scratch volume is gone", func() {}),
+				Entry("when a volume moved to another PVC", func() {
+					addPVC(scratch)
+					vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "other-pvc"
+				}),
+				Entry("when a backing PVC was recreated", func() {
+					addPVC(scratch)
+					Expect(controller.pvcStore.Update(newPVC("data-pvc", "recreated-uid"))).To(Succeed())
+				}),
+				Entry("when the scratch volume is being deleted", func() {
+					scratch.DeletionTimestamp = new(metav1.Now())
+					addPVC(scratch)
+				}),
+				Entry("when two scratch volumes hold overlays of the VM", func() {
+					addPVC(scratch)
+					other := scratch.DeepCopy()
+					other.Name, other.UID = storagetypes.ScratchPVCName("other-content-uid"), "other-scratch-uid"
+					other.OwnerReferences[0].Name, other.OwnerReferences[0].UID = "other-content", "other-content-uid"
+					addPVC(other)
+					otherContent := content.DeepCopy()
+					otherContent.Name, otherContent.UID = "other-content", "other-content-uid"
+					_, err := virtFakeClient.SnapshotV1beta1().VirtualMachineSnapshotContents(metav1.NamespaceDefault).Create(context.TODO(), otherContent, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}),
+				Entry("when recovery is required for another reason", func() {
+					addPVC(scratch)
+					virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+						Type: v1.VirtualMachineManualRecoveryRequired, Status: k8sv1.ConditionTrue, Reason: "VolumeMigration",
+					})
+				}),
+			)
+
+			Context("on a VMI created for the recovery", func() {
+				var vmi *v1.VirtualMachineInstance
+
+				BeforeEach(func() {
+					reference, err := json.Marshal(storagetypes.SnapshotOverlayReference{ContentUID: contentUID, ScratchPVCUID: scratchUID})
+					Expect(err).ToNot(HaveOccurred())
+					vmi = libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithName(vm.Name))
+					vmi.UID = "replacement-vmi-uid"
+					vmi.Annotations = map[string]string{
+						storagetypes.PendingOverlayRecoveryAnnotation:   scratchName,
+						storagetypes.OverlaySnapshotReferenceAnnotation: string(reference),
+					}
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("should finish a recovery interrupted after the VMI was created", func() {
+					addPVC(scratch)
+
+					Expect(snapshotoverlay.HandlePendingRecovery(virtClient, controller.pvcStore, vm, vmi)).To(Succeed())
+					Expect(createdVMIs()).To(HaveLen(1))
+					expectRecovering(createdVMIs()[0])
+				})
+
+				It("should refuse the scratch volume of another VM", func() {
+					addPVC(scratch)
+					other := vm.DeepCopy()
+					other.UID = "other-vm-uid"
+
+					Expect(snapshotoverlay.HandlePendingRecovery(virtClient, controller.pvcStore, other, vmi)).To(MatchError(ContainSubstring("does not hold overlays of VM")))
+					Expect(createdVMIs()[0].Spec.UtilityVolumes).To(BeEmpty())
+					stored, err := k8sClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Get(context.TODO(), scratchName, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(stored.Annotations).To(HaveKeyWithValue(storagetypes.OverlayOwnerVMIUIDAnnotation, "crashed-vmi-uid"))
+				})
+
+				It("should leave a released scratch volume to the snapshot controller", func() {
+					scratch.Finalizers = nil
+					addPVC(scratch)
+
+					Expect(snapshotoverlay.HandlePendingRecovery(virtClient, controller.pvcStore, vm, vmi)).To(Succeed())
+					Expect(createdVMIs()[0].Spec.UtilityVolumes).To(BeEmpty())
+				})
+			})
+
+			It("should not let a recovery error hold up a stop", func() {
+				stopped, running := watchtesting.DefaultVirtualMachine(true)
+				stopped.Spec.Running = nil
+				stopped.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+				running.Status.Phase = v1.Running
+				running.Annotations = map[string]string{
+					storagetypes.PendingOverlayRecoveryAnnotation:   scratchName,
+					storagetypes.OverlaySnapshotReferenceAnnotation: "{}",
+				}
+
+				stopped, err := virtFakeClient.KubevirtV1().VirtualMachines(stopped.Namespace).Create(context.TODO(), stopped, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(stopped)
+				running, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(running.Namespace).Create(context.TODO(), running, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(controller.vmiIndexer.Add(running)).To(Succeed())
+
+				sanityExecute(stopped)
+
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			})
 		})
 
@@ -7238,7 +7701,7 @@ var _ = Describe("VirtualMachine", func() {
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
 						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 							MigrationUID: "123",
-							SyncAddress:  pointer.P("127.0.0.1:5900"),
+							SyncAddress:  new("127.0.0.1:5900"),
 						},
 					},
 				}
@@ -7263,6 +7726,12 @@ var _ = Describe("VirtualMachine", func() {
 
 		BeforeEach(func() {
 			vm, vmi = watchtesting.DefaultVirtualMachineWithNames(false, "test", "test")
+		})
+
+		It("should retain the VM-owned snapshot recovery condition", func() {
+			vm.Status.Conditions = []v1.VirtualMachineCondition{{Type: v1.VirtualMachineManualRecoveryRequired, Status: k8sv1.ConditionTrue, Reason: "UncommittedOverlays"}}
+			syncConditions(vm, vmi, nil)
+			Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired))
 		})
 
 		It("should set ready to false when VMI is nil", func() {
@@ -7574,6 +8043,10 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			testController, _ = NewController(
+				workqueue.NewTypedRateLimitingQueueWithConfig(
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+					workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+				),
 				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
@@ -7585,7 +8058,6 @@ var _ = Describe("VirtualMachine", func() {
 				record.NewFakeRecorder(100),
 				virtClient,
 				config,
-				nil,
 				nil,
 				nil,
 				nil,

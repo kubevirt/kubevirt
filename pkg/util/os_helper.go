@@ -41,7 +41,7 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 	}
 }
 
-// The following helper functions wrap nosec annotations with os file functions that potentially assign files or directories
+// The following helper function wraps nosec annotations with os file functions that potentially assign files or directories
 // access permissions that are viewed as not secure by gosec. Since kubevirt functionality and many e2e tests rely on such
 // "unsafe" permission settings, e.g. the pathes shared between the virt-launcher and QEMU. the use of these functions avoids
 // have too many nosec annotations scattered in the code and refers back to places where the "unsafe" permissions are set.
@@ -49,16 +49,6 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 func MkdirAllWithNosec(pathName string) error {
 	// #nosec G301, Expect directory permissions to be 0750 or less
 	return os.MkdirAll(pathName, 0755)
-}
-
-func OpenFileWithNosec(pathName string, flag int) (*os.File, error) {
-	// #nosec G304 G302, Expect file permissions to be 0600 or less
-	return os.OpenFile(pathName, flag, 0644)
-}
-
-func WriteFileWithNosec(pathName string, data []byte) error {
-	// #nosec G306, Expect WriteFile permissions to be 0600 or less
-	return os.WriteFile(pathName, data, 0644)
 }
 
 func WriteBytes(f *os.File, c byte, n int64) error {

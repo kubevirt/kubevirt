@@ -20,6 +20,7 @@
 package vmi
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -40,7 +42,7 @@ import (
 )
 
 // addPVC handles the addition of a PVC, enqueuing affected VMIs.
-func (c *Controller) addPVC(obj interface{}) {
+func (c *Controller) addPVC(obj any) {
 	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
 		return
@@ -51,6 +53,15 @@ func (c *Controller) addPVC(obj interface{}) {
 		c.pvcExpectations.CreationObserved(vmiKey)
 		c.Queue.Add(vmiKey)
 		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
+	}
+	// Declarative VMState PVCs carry an OwnerReference to the VM (or standalone VMI) instead.
+	if _, exists := pvc.Labels[backendstorage.VMStateOwnerLabel]; exists {
+		if controllerRef := v1.GetControllerOf(pvc); controllerRef != nil {
+			vmiKey := controller.NamespacedKey(pvc.Namespace, controllerRef.Name)
+			c.pvcExpectations.CreationObserved(vmiKey)
+			c.Queue.Add(vmiKey)
+			return
+		}
 	}
 	vmis, err := c.listVMIsMatchingDV(pvc.Namespace, pvc.Name)
 	if err != nil {
@@ -63,7 +74,7 @@ func (c *Controller) addPVC(obj interface{}) {
 }
 
 // updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity or requested size changes.
-func (c *Controller) updatePVC(old, cur interface{}) {
+func (c *Controller) updatePVC(old, cur any) {
 	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
 	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
 	if curPVC.ResourceVersion == oldPVC.ResourceVersion {
@@ -124,6 +135,11 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		return "", nil
 	}
 	pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
+
+	if backendstorage.HasDeclarativeVMState(&vmi.Spec) {
+		return c.handleDeclarativeBackendStorage(vmi, key, pvc)
+	}
+
 	if pvc == nil {
 		c.pvcExpectations.ExpectCreations(key, 1)
 		if pvc, err = c.backendStorage.CreatePVCForVMI(vmi); err != nil {
@@ -132,6 +148,58 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		}
 	}
 	return pvc.Name, nil
+}
+
+// handleDeclarativeBackendStorage resolves, creates, or adopts the VMState PVC for a declarative VMI.
+func (c *Controller) handleDeclarativeBackendStorage(vmi *virtv1.VirtualMachineInstance, key string, pvc *k8sv1.PersistentVolumeClaim) (string, common.SyncError) {
+	creating := pvc == nil && vmi.Spec.VirtualMachineState.Source == nil
+	if creating {
+		c.pvcExpectations.ExpectCreations(key, 1)
+	}
+	pvc, err := c.backendStorage.CreatePVCForVMI(vmi)
+	if err != nil {
+		if creating {
+			c.pvcExpectations.CreationObserved(key)
+		}
+		if errors.Is(err, backendstorage.ErrVMStatePVCNotFound) {
+			return "", common.NewSyncError(err, controller.VirtualMachineStatePVCNotFoundReason)
+		}
+		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+	}
+	if syncErr := c.acquireVMStateLock(vmi, pvc); syncErr != nil {
+		return "", syncErr
+	}
+	return pvc.Name, nil
+}
+
+// acquireVMStateLock is an advisory lock blocking a second VM from starting against state a running one still holds.
+func (c *Controller) acquireVMStateLock(vmi *virtv1.VirtualMachineInstance, pvc *k8sv1.PersistentVolumeClaim) common.SyncError {
+	holder := pvc.Labels[backendstorage.VMStateInUseByLabel]
+	if holder == string(vmi.UID) {
+		return nil
+	}
+	if holder != "" && c.isVMStateHolderRunning(vmi.Namespace, holder) {
+		return common.NewSyncError(
+			fmt.Errorf("VirtualMachineState PVC %s is already in use by another running VirtualMachine", pvc.Name),
+			controller.VirtualMachineStateInUseReason,
+		)
+	}
+	if err := c.backendStorage.AcquireVMStateLock(pvc, string(vmi.UID)); err != nil {
+		return common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+	}
+	return nil
+}
+
+// isVMStateHolderRunning reports whether a VMI with the given UID is still running in the namespace.
+func (c *Controller) isVMStateHolderRunning(namespace, holderUID string) bool {
+	for _, obj := range c.vmiIndexer.List() {
+		other := obj.(*virtv1.VirtualMachineInstance)
+		if other.Namespace != namespace || string(other.UID) != holderUID {
+			continue
+		}
+		return !other.IsFinal() && other.DeletionTimestamp == nil
+	}
+	return false
 }
 
 func (c *Controller) processHotplugVolumeStatus(
@@ -150,7 +218,7 @@ func (c *Controller) processHotplugVolumeStatus(
 	usePVCStatus := false
 
 	if attachmentPod == nil {
-		if !c.volumeReady(statusCopy.Phase) {
+		if statusCopy.Phase != virtv1.VolumeReady && !storagetypes.IsMountedDirectoryVolume(vmi, statusCopy) {
 			statusCopy.HotplugVolume.AttachPodUID = ""
 			// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
 			usePVCStatus = true
@@ -228,7 +296,7 @@ func (c *Controller) processPVCInfo(status *virtv1.VolumeStatus, pvcName string,
 }
 
 // updateVolumeStatus updates the VMI's VolumeStatus based on pod and volume state.
-func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) error {
+func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) error {
 	oldStatus := vmi.Status.DeepCopy().VolumeStatus
 	oldStatusMap := make(map[string]virtv1.VolumeStatus)
 	for _, status := range oldStatus {
@@ -246,7 +314,20 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return err
 	}
 
-	attachmentPod, _ := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+	// Attachment pods only hold ready volumes, so a volume that is not ready yet must not keep the
+	// others from matching theirs.
+	readyHotplugVolumes := c.readyHotplugVolumes(vmi, hotplugVolumes, attachmentPods, dataVolumes)
+	attachmentPod, _ := getActiveAndOldAttachmentPods(readyHotplugVolumes, attachmentPods)
+	readyHotplugVolumeNames := sets.New[string]()
+	for _, volume := range readyHotplugVolumes {
+		readyHotplugVolumeNames.Insert(volume.Name)
+	}
+	attachmentPodFor := func(volumeName string) *k8sv1.Pod {
+		if readyHotplugVolumeNames.Has(volumeName) {
+			return attachmentPod
+		}
+		return nil
+	}
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
@@ -284,7 +365,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
-			c.processHotplugVolumeStatus(vmi, volume.Name, pvcName, &status, attachmentPod)
+			c.processHotplugVolumeStatus(vmi, volume.Name, pvcName, &status, attachmentPodFor(volume.Name))
 		}
 		if volume.VolumeSource.PersistentVolumeClaim != nil || volume.VolumeSource.DataVolume != nil || volume.VolumeSource.MemoryDump != nil {
 			err = c.processPVCInfo(&status, pvcName, vmi.Namespace, false)
@@ -305,7 +386,12 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 		// Remove from map so we can detect volumes removed from spec
 		delete(oldStatusMap, utilityVolume.Name)
-		c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPod)
+		if utilityVolume.Type != nil && *utilityVolume.Type == virtv1.MemoryDump && status.MemoryDumpVolume == nil {
+			status.MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
+				ClaimName: utilityVolume.ClaimName,
+			}
+		}
+		c.processHotplugVolumeStatus(vmi, utilityVolume.Name, utilityVolume.ClaimName, &status, attachmentPodFor(utilityVolume.Name))
 		err = c.processPVCInfo(&status, utilityVolume.ClaimName, vmi.Namespace, true)
 		if err != nil {
 			return err
@@ -338,6 +424,15 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return strings.Compare(newStatus[i].Name, newStatus[j].Name) == -1
 	})
 	vmi.Status.VolumeStatus = newStatus
+
+	// Surface the backend-storage volume in its own status field, for both paths.
+	vmi.Status.VirtualMachineStateVolume = nil
+	for i := range newStatus {
+		if backendstorage.IsBackendStorageVolume(newStatus[i]) {
+			vmi.Status.VirtualMachineStateVolume = newStatus[i].DeepCopy()
+			break
+		}
+	}
 	return nil
 }
 
@@ -349,11 +444,6 @@ func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
 		return virtv1.HotplugVolumeMounted
 	}
 	return virtv1.HotplugVolumeDetaching
-}
-
-// volumeReady checks if a volume is in a ready state.
-func (c *Controller) volumeReady(phase virtv1.VolumePhase) bool {
-	return phase == virtv1.VolumeReady
 }
 
 // getVolumePhaseMessageReason determines the phase, reason, and message for a volume.

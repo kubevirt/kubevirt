@@ -21,10 +21,10 @@ package admitters
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,13 +94,11 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return resp
 	}
 
-	raw := ar.Request.Object.Raw
-	vm := v1.VirtualMachine{}
-
-	err := json.Unmarshal(raw, &vm)
+	newVM, oldVM, err := webhookutils.GetVMFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
+	vm := *newVM
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
 	if vm.DeletionTimestamp != nil {
@@ -148,11 +146,30 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
+	if oldVM != nil && oldVM.Spec.Template != nil && oldVM.Spec.Template.Spec.VirtualMachineState != nil {
+		// The VM already had a declarative virtualMachineState before this update, so it must
+		// keep working even if the gate is disabled afterwards.
+		causes = filterOutDeclarativeVMStateGateCause(causes, k8sfield.NewPath("spec", "template", "spec"))
+	}
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = storageadmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
+	var oldVolumes []v1.Volume
+	if oldVM != nil && oldVM.Spec.Template != nil {
+		oldVolumes = oldVM.Spec.Template.Spec.Volumes
+	}
+	if causes = validateContainerPathVolumesFeatureGate(k8sfield.NewPath("spec", "template", "spec"), vm.Spec.Template.Spec.Volumes, oldVolumes, admitter.ClusterConfig); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	if ar.Request.Operation == admissionv1.Update {
+		if causes = validateVirtualMachineStateImmutability(k8sfield.NewPath("spec", "template", "spec"), oldVM, &vm); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
+
+	causes, err = storageadmitters.Admit(ar.Request, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -173,6 +190,8 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	warnings := warnDeprecatedAPIs(&vm.Spec.Template.Spec, admitter.ClusterConfig)
+	warnings = append(warnings, warnDisabledACPIAmd64(&vmCopy.Spec.Template.Spec, admitter.ClusterConfig)...)
+	warnings = append(warnings, storageadmitters.WarnDeprecatedMemoryDumpVolumes(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec)...)
 	if vm.Spec.Running != nil {
 		warnings = append(warnings, "spec.running is deprecated, please use spec.runStrategy instead.")
 	}
@@ -181,6 +200,67 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		Allowed:  true,
 		Warnings: warnings,
 	}
+}
+
+func virtualMachineStateFromVM(vm *v1.VirtualMachine) *v1.VirtualMachineStateSpec {
+	if vm.Spec.Template == nil {
+		return nil
+	}
+	return vm.Spec.Template.Spec.VirtualMachineState
+}
+
+// validateVirtualMachineStateImmutability enforces that virtualMachineState is immutable after creation.
+func validateVirtualMachineStateImmutability(field *k8sfield.Path, oldVM, newVM *v1.VirtualMachine) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if oldVM.Status.RestoreInProgress != nil {
+		// The restore controller repoints source at the PVC it just restored.
+		return causes
+	}
+
+	oldState := virtualMachineStateFromVM(oldVM)
+	newState := virtualMachineStateFromVM(newVM)
+
+	if oldState == nil && newState == nil {
+		return causes
+	}
+
+	immutableErr := func() []metav1.StatusCause {
+		return append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "virtualMachineState is immutable after creation, except for volumeClaimTemplate's storage capacity and storageClassName, and adding a volumeClaimTemplate to a source-adopted VM",
+			Field:   field.Child("virtualMachineState").String(),
+		})
+	}
+
+	if (oldState == nil) != (newState == nil) {
+		return immutableErr()
+	}
+
+	oldCopy := oldState.DeepCopy()
+	newCopy := newState.DeepCopy()
+
+	// A source-adopted VM may add a volumeClaimTemplate, so drop a newly-added one before comparing.
+	if oldCopy.VolumeClaimTemplate == nil && newCopy.VolumeClaimTemplate != nil {
+		newCopy.VolumeClaimTemplate = nil
+	}
+
+	neutralizeMutableTemplateFields(oldCopy)
+	neutralizeMutableTemplateFields(newCopy)
+
+	if !equality.Semantic.DeepEqual(oldCopy, newCopy) {
+		return immutableErr()
+	}
+
+	return causes
+}
+
+func neutralizeMutableTemplateFields(state *v1.VirtualMachineStateSpec) {
+	if state == nil || state.VolumeClaimTemplate == nil {
+		return
+	}
+	state.VolumeClaimTemplate.Spec.StorageClassName = nil
+	delete(state.VolumeClaimTemplate.Spec.Resources.Requests, k8sv1.ResourceStorage)
 }
 
 func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -196,7 +276,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = storageadmitters.AdmitStatus(admitter.VirtClient, ctx, ar.Request, vm, admitter.ClusterConfig)
+	causes = storageadmitters.AdmitStatus(ar.Request, vm)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

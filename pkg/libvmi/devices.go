@@ -21,8 +21,6 @@ package libvmi
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 // WithTablet adds tablet device with given name and bus
@@ -105,10 +103,16 @@ func WithAutoattachSerialConsole(enable bool) Option {
 	}
 }
 
+func WithAutoattachVSOCK(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachVSOCK = &enable
+	}
+}
+
 func WithTPM(persistent bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
-			Persistent: pointer.P(persistent),
+			Persistent: new(persistent),
 		}
 	}
 }
