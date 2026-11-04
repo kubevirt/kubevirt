@@ -99,35 +99,42 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		if n.domainAttachments[iface.Name] != string(v1.Tap) && iface.PasstBinding == nil {
-			continue
-		}
-
-		podIfaceName, err := n.discoverPodInterfaceName(&networks[i])
-		if err != nil {
-			return err
-		}
-
-		var generator libvirtSpecGenerator
-
 		switch {
 		case n.domainAttachments[iface.Name] == string(v1.Tap):
-			generator = domainspec.NewTapLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
-		case iface.PasstBinding != nil:
-			generator = domainspec.NewPasstLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
-		}
+			podIfaceName, err := n.decorateDomainInterface(&networks[i], func(podIfaceName string) libvirtSpecGenerator {
+				return domainspec.NewTapLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
+			})
+			if err != nil {
+				return err
+			}
 
-		if err = generator.Generate(); err != nil {
-			log.Log.Reason(err).Critical("failed to create libvirt configuration")
-		}
-
-		if n.domainAttachments[iface.Name] == string(v1.Tap) {
 			if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
+				return err
+			}
+
+		case iface.PasstBinding != nil:
+			if _, err := n.decorateDomainInterface(&networks[i], func(podIfaceName string) libvirtSpecGenerator {
+				return domainspec.NewPasstLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
+			}); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func (n *VMNetworkConfigurator) decorateDomainInterface(
+	network *v1.Network,
+	generatorFunc func(podIfaceName string) libvirtSpecGenerator,
+) (string, error) {
+	podIfaceName, err := n.discoverPodInterfaceName(network)
+	if err != nil {
+		return "", err
+	}
+	if err = generatorFunc(podIfaceName).Generate(); err != nil {
+		log.Log.Reason(err).Critical("failed to create libvirt configuration")
+	}
+	return podIfaceName, nil
 }
 
 func (n *VMNetworkConfigurator) discoverPodInterfaceName(network *v1.Network) (string, error) {
