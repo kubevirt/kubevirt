@@ -25,6 +25,16 @@ reviews:
       instructions: "See docs/observability/monitoring-guidelines.md."
     - path: "{staging/src/kubevirt.io/api,pkg/virt-api/webhooks}/**"
       instructions: "Follow the rules in docs/api/design_guidelines.md."
+    - path: "**/*"
+      instructions: |
+        For every PR review, read the full subject and body of every
+        commit currently in the PR, including during incremental reviews.
+        Use commit messages to understand rationale, scope, and intentional
+        behavior before raising findings.
+        Check the messages against docs/commit-message-guidelines.md.
+        Verify implementation claims against the code and relevant evidence.
+        Report the inspected commit SHAs in the review walkthrough.
+        If commit messages cannot be retrieved, state that limitation.
   tools:
     trufflehog:
       enabled: true
