@@ -345,6 +345,16 @@ func (c *VirtualMachineController) execute(state *vmiState) error {
 		return nil
 	}
 
+	// Taking a VMI back from the migration source controller means taking back what
+	// the migration left behind on this node. A failed migration keeps the guest
+	// running here, so nothing else would stop the proxy until the VMI is finally
+	// torn down - possibly days later, and a retried migration would find the
+	// listener still up. StopSourceListener is a no-op if there is nothing to stop.
+	if migrationState := vmi.Status.MigrationState; migrationState != nil &&
+		migrationState.SourceNode == c.host && isMigrationDone(migrationState) {
+		c.migrationProxy.StopSourceListener(string(vmi.UID))
+	}
+
 	err := c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,

@@ -3620,6 +3620,43 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
+	Context("on taking a VMI back from the migration source controller", func() {
+		It("should stop the source migration proxy once the migration is done", func() {
+			proxy := &stubProxyCleaner{}
+			controller.migrationProxy = proxy
+
+			By("Creating a source VMI whose migration failed, so the guest keeps running here")
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithName("testvmi"))
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = host
+			vmi.Labels = map[string]string{v1.NodeNameLabel: host}
+			now := metav1.Now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode:     host,
+				TargetNode:     "othernode",
+				MigrationUID:   "123",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Failed:         true,
+				Completed:      true,
+			}
+
+			// An Unknown domain makes sync() return straight away: the hand-back is what
+			// this spec is about, not what the VM controller does afterwards.
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Unknown
+			addVMI(vmi, domain)
+
+			Expect(migrationRole(vmi, true, domain, host)).To(Equal(roleVM),
+				"sanity: a finished migration belongs to the vm controller again")
+
+			sanityExecute()
+
+			Expect(proxy.stoppedSources).To(ConsistOf(string(vmiTestUUID)),
+				"nothing else stops the source proxy while the guest keeps running here")
+		})
+	})
+
 	Context("on VM stop / VMI delete during migration", func() {
 		It("should kill the VM", func() {
 			By("Creating a migrating VMI with a domain in failed post-copy migration state")
@@ -4243,6 +4280,19 @@ func NewRunningVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Virt
 
 	vmi = addActivePods(vmi, podUID, hostname)
 	return vmi
+}
+
+type stubProxyCleaner struct {
+	stoppedSources []string
+	stoppedTargets []string
+}
+
+func (p *stubProxyCleaner) StopSourceListener(key string) {
+	p.stoppedSources = append(p.stoppedSources, key)
+}
+
+func (p *stubProxyCleaner) StopTargetListener(key string) {
+	p.stoppedTargets = append(p.stoppedTargets, key)
 }
 
 type netConfStub struct {
