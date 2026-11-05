@@ -702,11 +702,14 @@ func (c *MigrationTargetController) execute(key string) error {
 		domain.Status.Status != api.Crashed &&
 		domain.Status.Status != ""
 
-	if domainExists && !domainAlive {
-		if !abortInProgress(vmi) && !(vmi.IsDecentralizedMigration() && needsCleanup(vmi)) {
-			c.logger.V(4).Object(vmi).Info("domain is not alive")
-			return nil
-		}
+	// A dead domain usually means there is nothing to drive here yet, but an aborted
+	// or finished migration still has to reach sync: finalCleanup is what releases
+	// this node's claim on the VMI by dropping the migration target node label, and a
+	// migration that failed before its target domain ever ran leaves exactly this
+	// state behind.
+	if domainExists && !domainAlive && !abortInProgress(vmi) && !needsCleanup(vmi) {
+		c.logger.V(4).Object(vmi).Info("domain is not alive")
+		return nil
 	}
 
 	if vmi.Status.MigrationState == nil {

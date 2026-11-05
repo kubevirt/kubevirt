@@ -55,7 +55,6 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -740,6 +739,39 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 	})
 
+	It("should release the target node claim when a migration fails before its domain ran", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = "othernode"
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:   host,
+			SourceNode:   "othernode",
+			MigrationUID: "123",
+			Failed:       true,
+			Completed:    true,
+			EndTimestamp: new(metav1.Now()),
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		// The target domain was defined but never ran. finalCleanup still has to be
+		// reached: dropping the migration target node label is how this node stops
+		// claiming the VMI, and nothing else removes it.
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Shutoff
+		addVMI(vmi, domain)
+
+		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+		controller.Execute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Labels).ToNot(HaveKey(v1.MigrationTargetNodeNameLabel))
+	})
+
 	It("should wait for source abort completion before marking migration failed on target", func() {
 		const targetMigrationUID = types.UID("target-migration-uid")
 
@@ -1071,7 +1103,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Name: "testvol",
 				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  "testclaim",
-					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 					Capacity: k8sv1.ResourceList{
 						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
 					},
