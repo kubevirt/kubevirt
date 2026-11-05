@@ -351,7 +351,9 @@ func (c *MigrationSourceController) execute(state *vmiState) error {
 		return nil
 	}
 
-	// post migration clean up
+	// Post migration clean up. Only a decentralized source is still owned by this
+	// controller once the migration is done; for every other migration the VM
+	// controller has taken the VMI back and stops the listener itself.
 	if isMigrationDone(vmi.Status.MigrationState) {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
 		// Completed/EndTimestamp can be synced onto the source VMI before this
