@@ -53,6 +53,8 @@ type vmiController interface {
 	execute(state *vmiState) error
 }
 
+// role identifies the single virt-handler controller that owns a VMI key on this
+// node for one pass of the Arbiter.
 type role int
 
 const (
