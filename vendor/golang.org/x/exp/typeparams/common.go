@@ -116,7 +116,7 @@ func OriginMethod(fn *types.Func) *types.Func {
 // implements the following rule for uninstantiated generic types:
 //
 // If V and T are generic named types, then V is considered assignable to T if,
-// for every possible instantation of V[A_1, ..., A_N], the instantiation
+// for every possible instantiation of V[A_1, ..., A_N], the instantiation
 // T[A_1, ..., A_N] is valid and V[A_1, ..., A_N] implements T[A_1, ..., A_N].
 //
 // If T has structural constraints, they must be satisfied by V.
