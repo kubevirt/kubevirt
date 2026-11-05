@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
+	"kubevirt.io/kubevirt/pkg/hibernation"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -51,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -128,6 +130,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		specCauses = filterOutDeclarativeVMStateGateCause(specCauses, k8sfield.NewPath("spec"))
 	}
 	causes = append(causes, specCauses...)
+	isController := isKubeVirtServiceAccount && strings.HasSuffix(ar.Request.UserInfo.Username, ":"+components.ControllerServiceAccountName)
+	causes = append(causes, validateSavedStateSourceRequester(k8sfield.NewPath("spec"), &vmi.Spec, isController)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -247,6 +251,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateCPUFeaturePolicies(field, spec)...)
 	causes = append(causes, validateCPUHotplug(field, spec)...)
 	causes = append(causes, validateStartStrategy(field, spec)...)
+	causes = append(causes, validateSavedStateSource(field, spec, config)...)
 	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
@@ -272,7 +277,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, spec.Architecture, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
-	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
+	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, withoutSavedStateSourceVolume(spec))...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
@@ -1012,6 +1017,73 @@ func validateRequestLimitOrCoresProvidedOnDedicatedCPUPlacement(field *k8sfield.
 		})
 	}
 	return causes
+}
+
+func validateSavedStateSource(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	source := spec.SavedStateSource
+	if source == nil {
+		return nil
+	}
+	sourceField := field.Child("savedStateSource")
+	if !config.VMHibernationEnabled() {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("%s requires the %s feature gate", sourceField.String(), featuregate.VMHibernation),
+			Field:   sourceField.String(),
+		}}
+	}
+	var causes []metav1.StatusCause
+	if source.ClaimName == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("%s is required", sourceField.Child("claimName").String()),
+			Field:   sourceField.Child("claimName").String(),
+		})
+	}
+	// The file is opened at the root of the volume, reject anything that is not a plain file name.
+	if source.FileName == "" || source.FileName == "." || source.FileName == ".." || strings.ContainsRune(source.FileName, '/') {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be a file name", sourceField.Child("fileName").String()),
+			Field:   sourceField.Child("fileName").String(),
+		})
+	}
+	return causes
+}
+
+// validateSavedStateSourceRequester only lets the VM controller create a VMI
+// that resumes from a saved state. It sets it from the saved state of the VM,
+// a PVC it provisioned and owns; anyone else could point it at any PVC of the
+// namespace and read it into a guest.
+func validateSavedStateSourceRequester(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, isController bool) []metav1.StatusCause {
+	if spec.SavedStateSource == nil || isController {
+		return nil
+	}
+	sourceField := field.Child("savedStateSource")
+	return []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueNotSupported,
+		Message: fmt.Sprintf("%s can only be set by KubeVirt, hibernate a VirtualMachine and start it instead", sourceField.String()),
+		Field:   sourceField.String(),
+	}}
+}
+
+// withoutSavedStateSourceVolume returns spec without the utility volume of the
+// saved state it resumes from, the only utility volume a VMI may be created
+// with: the VM controller adds it, so that it is hot plugged while the
+// launcher pod starts.
+func withoutSavedStateSourceVolume(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
+	if spec.SavedStateSource == nil || len(spec.UtilityVolumes) == 0 {
+		return spec
+	}
+	volumes := slices.DeleteFunc(slices.Clone(spec.UtilityVolumes), func(volume v1.UtilityVolume) bool {
+		return hibernation.IsSourceVolumeOf(volume, spec.SavedStateSource)
+	})
+	if len(volumes) == 0 {
+		volumes = nil
+	}
+	filtered := *spec
+	filtered.UtilityVolumes = volumes
+	return &filtered
 }
 
 func validateStartStrategy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
