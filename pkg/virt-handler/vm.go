@@ -257,31 +257,13 @@ func (c *VirtualMachineController) Run(stopCh chan struct{}) {
 	c.logger.Info("Stopping virt-handler vms controller.")
 }
 
+// execute runs the VM lifecycle loop for a VMI the Arbiter has decided this
+// controller owns. It is never called while a migration this node participates in
+// is in flight, so there is no migration gate left here.
 func (c *VirtualMachineController) execute(state *vmiState) error {
 	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
-
-	if !vmiExists {
-		// the vmiInformer probably has to catch up to the domainInformer
-		// which already sees the vmi, so let's fetch it from the global
-		// vmi informer to make sure the vmi has actually been deleted
-		c.logger.V(4).Infof("fetching vmi for key %v from the global informer", key)
-		obj, exists, err := c.vmiGlobalStore.GetByKey(key)
-		if err != nil {
-			return err
-		}
-		if exists {
-			vmi = obj.(*v1.VirtualMachineInstance)
-		}
-		vmiExists = exists
-	}
-
-	if !vmiExists {
-		c.vmiExpectations.DeleteExpectations(key)
-	} else if !c.vmiExpectations.SatisfiedExpectations(key) {
-		return nil
-	}
-
 	domain, domainExists, domainCachedUID := state.domain, state.domainExists, state.domainCachedUID
+
 	c.logger.Object(vmi).V(4).Infof("domain exists %v", domainExists)
 
 	if !vmiExists && string(domainCachedUID) != "" {
@@ -339,11 +321,6 @@ func (c *VirtualMachineController) execute(state *vmiState) error {
 		}
 	}
 
-	if vmi.DeletionTimestamp == nil && isMigrationInProgress(vmi, domain) {
-		c.logger.V(4).Infof("ignoring key %v as migration is in progress", key)
-		return nil
-	}
-
 	if vmiExists && !c.isVMIOwnedByNode(vmi) {
 		// Only clean up leftover local state (cached domain, ghost record) once
 		// the VMI's migration away from this node has terminated. NodeName and
@@ -365,14 +342,6 @@ func (c *VirtualMachineController) execute(state *vmiState) error {
 			return c.processVmCleanup(vmi)
 		}
 		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
-		return nil
-	}
-
-	// Skip a migration source only while the migration is still ongoing. A decentralized
-	// source keeps IsMigrationSource()==true even once terminal, so without the IsFinal()
-	// guard sync() never runs and the source ghost record leaks - and MigrationSourceController never deletes it
-	if vmiExists && vmi.IsMigrationSource() && !vmi.IsFinal() {
-		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is a migration source")
 		return nil
 	}
 

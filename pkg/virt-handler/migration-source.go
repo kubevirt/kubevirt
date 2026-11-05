@@ -170,7 +170,7 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
-		!c.isMigrationSource(vmi) {
+		!c.isSourceOfMigration(vmi) {
 		return
 	}
 
@@ -339,33 +339,15 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
+// execute drives the outgoing side of a migration for a VMI the Arbiter has
+// decided this controller owns. Whether this node is the source of an in-flight
+// migration is migrationSourceOwns' decision, not this function's, so the only
+// checks left here are about whether there is work to do.
 func (c *MigrationSourceController) execute(state *vmiState) error {
-	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
-
-	if !vmiExists || ((vmi.IsDecentralizedMigration() && vmi.Status.Phase == v1.Succeeded) ||
-		!vmi.IsDecentralizedMigration() && vmi.IsFinal()) ||
-		vmi.DeletionTimestamp != nil {
-		c.logger.V(4).Infof("vmi for key %v is terminating, succeeded or does not exists", key)
-		if !vmiExists {
-			metrics.ResetVMISync(key)
-		}
-		return nil
-	}
-
-	if !c.vmiExpectations.SatisfiedExpectations(key) {
-		c.logger.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
-		return nil
-	}
-
-	domain, domainExists := state.domain, state.domainExists
+	vmi, domain, domainExists := state.vmi, state.domain, state.domainExists
 
 	if domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		c.logger.V(4).Object(vmi).Infof("Detected stale vmi %s that still needs cleanup before new vmi with identical name/namespace can be processed", vmi.UID)
-		return nil
-	}
-
-	if vmi.Status.MigrationState == nil {
-		c.logger.V(4).Object(vmi).Info("no migration is in progress")
 		return nil
 	}
 
@@ -374,25 +356,21 @@ func (c *MigrationSourceController) execute(state *vmiState) error {
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
 		// Completed/EndTimestamp can be synced onto the source VMI before this
 		// controller observes the migrated domain. Still run sync so updateStatus
-		// can mark a decentralized source VMI as Succeeded. Limit to the source
-		// node — every virt-handler watches the VMI, but only this host has the domain.
-		if vmi.IsDecentralizedMigration() &&
-			vmi.Status.Phase != v1.Succeeded &&
-			vmi.Status.MigrationState.SourceNode == c.host {
+		// can mark a decentralized source VMI as Succeeded.
+		if vmi.IsDecentralizedMigration() {
 			return c.sync(vmi.DeepCopy(), domain)
 		}
-		return nil
-	}
-
-	if !c.isMigrationSource(vmi) {
-		c.logger.Object(vmi).V(4).Info("not a migration source")
 		return nil
 	}
 
 	return c.sync(vmi.DeepCopy(), domain)
 }
 
-func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
+// isSourceOfMigration reports whether this node is the source side of the
+// migration recorded on the VMI. Unlike migrationSourceOwns it says nothing about
+// whether this controller may act: it only qualifies the migration progress this
+// controller is allowed to copy from the domain onto the VMI.
+func (c *MigrationSourceController) isSourceOfMigration(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.IsDecentralizedMigration() {
 		return vmi.Status.MigrationState != nil &&
 			vmi.Status.MigrationState.SourceNode == c.host &&

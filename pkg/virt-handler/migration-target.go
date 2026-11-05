@@ -188,7 +188,7 @@ func (c *MigrationTargetController) setDecentralizedMigrationProgressStatus(vmi 
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
 		vmi.Status.MigrationState == nil ||
-		!c.isMigrationTarget(vmi) {
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] != c.host {
 		c.logger.Object(vmi).V(5).Info("not setting decentralized migration progress status, domain is nil or migration metadata is nil or migration state is nil or not a migration target")
 		return
 	}
@@ -570,25 +570,18 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	return syncErr
 }
 
-func (c *MigrationTargetController) isMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
-	migrationTargetNodeName, _ := vmi.Labels[v1.MigrationTargetNodeNameLabel]
-	return migrationTargetNodeName == c.host
-}
-
 func needsCleanup(vmi *v1.VirtualMachineInstance) bool {
 	migrationState := vmi.Status.MigrationState
 	return migrationState != nil && isMigrationDone(migrationState)
 }
 
+// execute drives the incoming side of a migration for a VMI the Arbiter has
+// decided this controller owns. Whether this node is the migration target is
+// migrationTargetOwns' decision, not this function's, so the only checks left here
+// are about whether there is work to do.
 func (c *MigrationTargetController) execute(state *vmiState) error {
-	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
-
-	if !vmiExists {
-		c.logger.V(4).Infof("vmi for key %v does not exists", key)
-		c.vmiExpectations.DeleteExpectations(key)
-		metrics.ResetVMISync(key)
-		return nil
-	}
+	key, vmi := state.key, state.vmi
+	domain, domainExists, domUID := state.domain, state.domainExists, state.domainCachedUID
 
 	if vmi.IsFinal() || vmi.DeletionTimestamp != nil {
 		c.logger.V(4).Infof("vmi for key %v is terminating or final, doing only a best-effort cleanup", key)
@@ -598,13 +591,6 @@ func (c *MigrationTargetController) execute(state *vmiState) error {
 		c.launcherClients.CloseLauncherClient(vmi)
 		return nil
 	}
-
-	if !c.vmiExpectations.SatisfiedExpectations(key) {
-		log.Log.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
-		return nil
-	}
-
-	domain, domainExists, domUID := state.domain, state.domainExists, state.domainCachedUID
 
 	if domainExists && domUID != "" && domUID != vmi.UID {
 		err := c.domainStore.Delete(domain)
@@ -631,11 +617,6 @@ func (c *MigrationTargetController) execute(state *vmiState) error {
 
 	if vmi.Status.MigrationState == nil {
 		c.logger.Object(vmi).V(4).Info("no migration is in progress")
-		return nil
-	}
-
-	if !c.isMigrationTarget(vmi) {
-		c.logger.Object(vmi).V(4).Info("not a migration target")
 		return nil
 	}
 

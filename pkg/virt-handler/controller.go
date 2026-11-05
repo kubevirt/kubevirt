@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -94,6 +93,8 @@ const (
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
+// role identifies the single virt-handler controller that owns a VMI key on this
+// node for one pass of the Arbiter.
 type role int
 
 const (
@@ -262,9 +263,10 @@ type BaseController struct {
 	netStat                     netstat
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
-	// vmiExpectations is shared by all three controllers. A VMI update written by
-	// one of them has to be observed before any of them processes the key again,
-	// otherwise the next one would act on a snapshot it already invalidated.
+	// vmiExpectations is shared by all three controllers through the Arbiter. A VMI
+	// update written by one of them has to be observed before any of them processes
+	// the key again, otherwise the next owner would act on a snapshot it already
+	// invalidated.
 	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	hypervisorNodeInfo hypervisor.HypervisorNodeInformation
 	hypervisorRuntime  hypervisor.VirtRuntime
@@ -367,27 +369,6 @@ func (c *BaseController) InvalidatePluginsCache() {
 	c.pluginCache.data = nil
 }
 
-func (c *BaseController) snapshot(key string) (*vmiState, error) {
-	vmi, vmiExists, err := c.getVMIFromCache(key)
-	if err != nil {
-		return nil, err
-	}
-
-	domain, domainExists, domainCachedUID, err := c.getDomainFromCache(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return &vmiState{
-		key:             key,
-		vmi:             vmi,
-		vmiExists:       vmiExists,
-		domain:          domain,
-		domainExists:    domainExists,
-		domainCachedUID: domainCachedUID,
-	}, nil
-}
-
 func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
 	obj, exists, err := c.vmiStore.GetByKey(key)
 	if err != nil {
@@ -405,28 +386,6 @@ func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInst
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}
 	return vmi, exists, nil
-}
-
-func (c *BaseController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
-
-	obj, exists, err := c.domainStore.GetByKey(key)
-
-	if err != nil {
-		return nil, false, "", err
-	}
-
-	if exists {
-		domain = obj.(*api.Domain)
-		cachedUID = domain.Spec.Metadata.KubeVirt.UID
-
-		// We're using the DeletionTimestamp to signify that the
-		// Domain is deleted rather than sending the DELETE watch event.
-		if domain.ObjectMeta.DeletionTimestamp != nil {
-			exists = false
-			domain = nil
-		}
-	}
-	return domain, exists, cachedUID, nil
 }
 
 func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
