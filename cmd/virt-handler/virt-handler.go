@@ -32,6 +32,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/time/rate"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"libvirt.org/go/libvirtxml"
@@ -417,15 +418,23 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// One expectations tracker for all three virt-handler controllers: a VMI update
-	// written by one of them must be observed before any of them acts on the key
-	// again.
+	// The VM, migration-source and migration-target controllers share one workqueue
+	// and one set of expectations, both owned by the Arbiter. That is what makes it
+	// impossible for two of them to act on the same VMI at the same time.
+	vmiQueue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.NewTypedMaxOfRateLimiter(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Millisecond, 1000*time.Second),
+			&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Limit(30), 300)},
+		),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vmi"},
+	)
 	vmiExpectations := controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations())
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtClient,
 		app.HostOverride,
+		vmiQueue,
 		vmiExpectations,
 		launcherClientsManager,
 		vmiSourceInformer,
@@ -477,6 +486,7 @@ func (app *virtHandlerApp) Run() {
 		app.virtClient,
 		app.HostOverride,
 		migrationIpAddress,
+		vmiQueue,
 		vmiExpectations,
 		launcherClientsManager,
 		vmiTargetInformer,
@@ -502,10 +512,7 @@ func (app *virtHandlerApp) Run() {
 	cbtHandler := virthandler.NewCBTHandler()
 
 	vmController, err := virthandler.NewVirtualMachineController(
-		workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
-		),
+		vmiQueue,
 		vmiExpectations,
 		recorder,
 		app.virtClient,
@@ -532,6 +539,22 @@ func (app *virtHandlerApp) Run() {
 		cdMounter,
 		hvMounter,
 		ghostRecordStore,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	arbiter, err := virthandler.NewArbiter(
+		app.HostOverride,
+		vmiQueue,
+		vmiExpectations,
+		vmiSourceInformer,
+		vmiTargetInformer,
+		domainSharedInformer,
+		vmiInformer.GetStore(),
+		vmController,
+		migrationSourceController,
+		migrationTargetController,
 	)
 	if err != nil {
 		panic(err)
@@ -597,9 +620,16 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
-	go migrationSourceController.Run(5, stop)
-	go migrationTargetController.Run(5, stop)
-	go vmController.Run(10, stop)
+	go vmController.Run(stop)
+	// 20 workers = the 10 VM + 5 source + 5 target workers the three per-controller
+	// pools used to have, now drawing on one queue. Losing the per-pool isolation is
+	// a deliberate trade-off: enough slow syncs (storage hang, launcher stall) can
+	// occupy all workers and delay unrelated migration work, but a node whose VMs
+	// are stalling en masse is in no shape to finish migrations either, and per-key
+	// serialization - the actual correctness fix - is what the single queue buys.
+	// Per-role worker budgets inside the Arbiter would restore the isolation at the
+	// cost of reintroducing the partitioning this change removes.
+	go arbiter.Run(20, stop)
 	go ksmHandler.Run(stop)
 
 	doneCh := make(chan string)
