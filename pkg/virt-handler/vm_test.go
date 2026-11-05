@@ -97,6 +97,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var virtfakeClient *kubevirtfake.Clientset
 
 	var controller *VirtualMachineController
+	var arbiter *Arbiter
 	var mockQueue *testutils.MockWorkQueue[string]
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
@@ -215,6 +216,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
 		)
+		arbiter = newTestArbiter(controller.BaseController, map[role]vmiController{roleVM: controller})
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -259,7 +261,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	sanityExecute := func() {
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter, []cache.Store{
 			controller.domainStore, controller.vmiStore,
 		}, Default)
 	}
@@ -267,7 +269,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	sanityExecuteNoDomain := func() {
 		// Don't check if the domain store is the same as we know there are some
 		// flows that will automatically delete an entry from the domain store.
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter, []cache.Store{
 			controller.vmiStore,
 		}, Default)
 	}
@@ -1611,7 +1613,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 
-				controller.Execute()
+				arbiter.Execute()
 			})
 
 			It("should call mount if VMI is scheduled to run", func() {
@@ -3680,10 +3682,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			// TargetState's Sync/Node addresses keep IsMigrationSource() true forever; an
 			// EndTimestamp flips the migration from "in progress" to "completed".
+			// An ended migration is always a terminal one: failPostMigration and the
+			// target's finalization set EndTimestamp together with Completed/Failed.
 			decentralizedMigrationState := func(end *metav1.Time) *v1.VirtualMachineInstanceMigrationState {
 				return &v1.VirtualMachineInstanceMigrationState{
 					StartTimestamp: &start,
 					EndTimestamp:   end,
+					Completed:      end != nil,
+					Failed:         end != nil && finalPhase == v1.Failed,
 					SourceNode:     host,
 					MigrationUID:   migrationUID,
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
