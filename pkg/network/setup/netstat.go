@@ -138,7 +138,11 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}
 
-	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
+	interfacesStatus = ifacesStatusFromInfoSource(interfacesStatus,
+		multusStatusNetworksByName,
+		vmiInterfacesSpecByName,
+		netvmispec.InfoSourceMultusStatus,
+	)
 	if networkDRAEnabled {
 		interfacesStatus = ifacesStatusFromPodStatus(interfacesStatus, podStatusNetworksByName, vmiInterfacesSpecByName)
 	}
@@ -211,21 +215,22 @@ func movePrimaryIfaceStatusToFront(
 	)
 }
 
-func ifacesStatusFromMultus(
+func ifacesStatusFromInfoSource(
 	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+	networksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 	vmIfacesSpecByName map[string]v1.Interface,
+	infoSource string,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	for multusIfaceName := range multusStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, multusIfaceName)
-		_, existInSpec := vmIfacesSpecByName[multusIfaceName]
+	for ifaceName := range networksByName {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, ifaceName)
+		_, existInSpec := vmIfacesSpecByName[ifaceName]
 		if existInSpec && ifaceStatus == nil {
 			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       multusIfaceName,
-				InfoSource: netvmispec.InfoSourceMultusStatus,
+				Name:       ifaceName,
+				InfoSource: infoSource,
 			})
 		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, infoSource)
 		}
 	}
 	return interfacesStatus
