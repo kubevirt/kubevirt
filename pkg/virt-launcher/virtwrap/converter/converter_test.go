@@ -1729,6 +1729,19 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
 		})
 
+		It("should convert hugepages on s390x without NUMA", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{PageSize: "1Mi"},
+			}
+			c.Architecture = archconverter.NewConverter(s390x)
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.MemoryBacking.HugePages).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source).ToNot(BeNil())
+			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
+			Expect(domainSpec.CPU.NUMA).To(BeNil(), "NUMA must not be set on s390x")
+		})
+
 		It("should use guest memory instead of requested memory if present", func() {
 			guestMemory := resource.MustParse("123Mi")
 			vmi.Spec.Domain.Memory = &v1.Memory{
