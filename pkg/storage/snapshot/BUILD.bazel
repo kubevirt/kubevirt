@@ -16,6 +16,9 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/instancetype/expand:go_default_library",
+        "//pkg/instancetype/find:go_default_library",
+        "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/pointer:go_default_library",
@@ -25,6 +28,7 @@ go_library(
         "//pkg/storage/utilityvolume:go_default_library",
         "//pkg/storage/utils:go_default_library",
         "//pkg/util/gvk:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

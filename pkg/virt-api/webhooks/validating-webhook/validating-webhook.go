@@ -25,6 +25,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	preferencewebhooks "kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
 	instancetypewebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
@@ -88,7 +91,12 @@ func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig
 }
 
 func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient, informers *webhooks.Informers) {
-	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(clusterConfig, virtClient, informers.VMRestoreInformer))
+	expandHandler := expand.New(
+		clusterConfig,
+		find.NewSpecFinder(nil, nil, nil, virtClient),
+		preferencefind.NewSpecFinder(nil, nil, nil, virtClient),
+	)
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(clusterConfig, virtClient, informers.VMRestoreInformer, expandHandler))
 }
 
 func ServeVMBackups(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient, informers *webhooks.Informers) {
