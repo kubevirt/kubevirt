@@ -223,6 +223,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			virtClient,
 			host,
 			"127.1.1.1", // migration ip address
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			launcherClientManager,
 			vmiInformer,
 			domainInformer,

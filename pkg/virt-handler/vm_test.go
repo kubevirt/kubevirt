@@ -189,6 +189,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-handler-vm"))
 		controller, _ = NewVirtualMachineController(
 			mockQueue,
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			recorder,
 			virtClient,
 			k8sfakeClient,

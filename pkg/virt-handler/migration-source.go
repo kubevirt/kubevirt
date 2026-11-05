@@ -69,7 +69,6 @@ type MigrationSourceController struct {
 	*BaseController
 	migrationProxy     proxyManager
 	pluginExecutor     plugins.NodeHookExecutor
-	vmiExpectations    *controller.UIDTrackingControllerExpectations
 	passtRepairHandler passtRepairSourceHandler
 }
 
@@ -77,6 +76,7 @@ func NewMigrationSourceController(
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	host string,
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -104,6 +104,7 @@ func NewMigrationSourceController(
 		recorder,
 		virtClient,
 		queue,
+		vmiExpectations,
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
@@ -122,7 +123,6 @@ func NewMigrationSourceController(
 	c := &MigrationSourceController{
 		BaseController:     baseCtrl,
 		pluginExecutor:     pluginExecutor,
-		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		passtRepairHandler: passtRepairHandler,
 		migrationProxy:     migrationProxy,
 	}

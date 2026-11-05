@@ -414,10 +414,16 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// One expectations tracker for all three virt-handler controllers: a VMI update
+	// written by one of them must be observed before any of them acts on the key
+	// again.
+	vmiExpectations := controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations())
+
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtClient,
 		app.HostOverride,
+		vmiExpectations,
 		launcherClientsManager,
 		vmiSourceInformer,
 		domainSharedInformer,
@@ -468,6 +474,7 @@ func (app *virtHandlerApp) Run() {
 		app.virtClient,
 		app.HostOverride,
 		migrationIpAddress,
+		vmiExpectations,
 		launcherClientsManager,
 		vmiTargetInformer,
 		domainSharedInformer,
@@ -496,6 +503,7 @@ func (app *virtHandlerApp) Run() {
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
 		),
+		vmiExpectations,
 		recorder,
 		app.virtClient,
 		app.k8sClient,

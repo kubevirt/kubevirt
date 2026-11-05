@@ -186,6 +186,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			recorder,
 			virtClient,
 			host,
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			launcherClientManager,
 			vmiInformer,
 			domainInformer,
