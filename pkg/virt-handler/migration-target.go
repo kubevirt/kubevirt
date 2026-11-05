@@ -86,7 +86,6 @@ type MigrationTargetController struct {
 	netConf                   netconf
 	passtRepairHandler        passtRepairTargetHandler
 	pluginExecutor            plugins.NodeHookExecutor
-	vmiExpectations           *controller.UIDTrackingControllerExpectations
 	migrationProxy            targetProxyManager
 	getCgroupManager          cgroupManagerGetter
 }
@@ -102,6 +101,7 @@ func NewMigrationTargetController(
 	virtClient kubecli.KubevirtClient,
 	host string,
 	migrationIpAddress string,
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -133,6 +133,7 @@ func NewMigrationTargetController(
 		recorder,
 		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
+		vmiExpectations,
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
@@ -158,7 +159,6 @@ func NewMigrationTargetController(
 		netConf:                   netConf,
 		passtRepairHandler:        passtRepairHandler,
 		pluginExecutor:            pluginExecutor,
-		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationProxy:            migrationProxy,
 		getCgroupManager:          newCgroupManager,
 	}
