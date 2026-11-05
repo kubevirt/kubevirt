@@ -93,6 +93,153 @@ const (
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
+type role int
+
+const (
+	// roleNone means no controller may act on the key in this pass.
+	roleNone role = iota
+	roleVM
+	roleSource
+	roleTarget
+)
+
+func (r role) String() string {
+	switch r {
+	case roleVM:
+		return "vm"
+	case roleSource:
+		return "migration-source"
+	case roleTarget:
+		return "migration-target"
+	default:
+		return "none"
+	}
+}
+
+// migrationRole decides which controller owns a VMI on this node for one pass of
+// the Arbiter: the target while this node holds the migration target claim, the
+// source while an outgoing migration is in flight, and the VM controller
+// otherwise - including for every VMI that is terminal or going away, and for the
+// local cleanup of a domain whose VMI is gone.
+//
+// migrationTargetOwns and migrationSourceOwns are mutually exclusive by
+// construction - virt-controller writes the target node label and
+// MigrationState.SourceNode in the same update, and they never name this host at
+// once - so their order below only decides precedence against the VM controller.
+//
+// Hand-over points are chosen so that the controller giving up ownership is the one
+// that publishes the release.
+func migrationRole(vmi *v1.VirtualMachineInstance, vmiExists bool, domain *api.Domain, host string) role {
+	// No VMI left: all that remains is local cleanup of a leftover domain and its
+	// ghost record, which only the VM controller does.
+	if !vmiExists || vmi == nil {
+		return roleVM
+	}
+
+	if migrationTargetOwns(vmi, host) {
+		return roleTarget
+	}
+
+	if migrationSourceOwns(vmi, host) {
+		return roleSource
+	}
+
+	// A VMI that is going away always goes to the VM controller: local teardown and
+	// releasing the ghost record are nobody else's job. This must come before the
+	// in-progress check below, because a VMI that dies mid-migration leaves a
+	// migration state that never reaches an end timestamp, and standing everybody
+	// down there would leak the domain and the ghost record.
+	if vmi.DeletionTimestamp != nil || vmi.IsFinal() {
+		return roleVM
+	}
+
+	// Last line of defence: the cached VMI may not reflect a migration that the
+	// domain already knows about. Nobody acts until the VMI catches up - the key is
+	// re-queued by the next VMI or domain event.
+	if isMigrationInProgress(vmi, domain) {
+		return roleNone
+	}
+
+	return roleVM
+}
+
+// migrationTargetOwns reports whether the migration target controller owns vmi on
+// this node.
+//
+// Ownership starts when virt-controller labels the VMI with the node its target pod
+// was scheduled on, and ends when the target controller itself drops that label,
+// which it does as the very last step of finalCleanup. Because the owner publishes
+// its own release, the VM controller cannot take over while the target is still
+// finalizing - the window that EndTimestamp-based predicates leave wide open.
+func migrationTargetOwns(vmi *v1.VirtualMachineInstance, host string) bool {
+	if vmi.Labels[v1.MigrationTargetNodeNameLabel] != host {
+		return false
+	}
+
+	// A terminal or terminating VMI goes to the VM controller, whose teardown is a
+	// superset of this controller's best-effort cleanup. That holds both when
+	// ackMigrationCompletion has already moved the VMI onto this node (an ordinary
+	// local VMI), and when the guest died on the source mid-migration: there this
+	// controller never gets past its best-effort cleanup, so it could not drop the
+	// label itself, and holding the claim would keep the VM controller away from
+	// the leftover domain and ghost record.
+	if vmi.DeletionTimestamp != nil || vmi.IsFinal() {
+		return false
+	}
+
+	return true
+}
+
+// migrationSourceOwns reports whether the migration source controller owns vmi on
+// this node. It is deliberately the exact condition under which the source
+// controller has work to do, so that the VM controller's own window is its
+// complement rather than a second, independently drifting predicate.
+func migrationSourceOwns(vmi *v1.VirtualMachineInstance, host string) bool {
+	migrationState := vmi.Status.MigrationState
+	if migrationState == nil || migrationState.SourceNode != host {
+		return false
+	}
+
+	// A VMI that is going away is shut down and cleaned up by the VM controller, even
+	// mid-migration. The source controller has nothing to contribute there.
+	if vmi.DeletionTimestamp != nil {
+		return false
+	}
+
+	// A terminal VMI is torn down locally by the VM controller, which is also the only
+	// one that releases the ghost record. A decentralized source is the one exception,
+	// and only for as long as it takes to record on the migration state a failure that
+	// something else caused: nothing on this side of a decentralized migration would
+	// otherwise do it, and that single update always makes progress, so ownership moves
+	// on right after.
+	if vmi.IsFinal() {
+		return vmi.IsDecentralizedMigration() &&
+			vmi.IsMigrationSource() &&
+			vmi.Status.Phase == v1.Failed &&
+			!isMigrationDone(migrationState)
+	}
+
+	if vmi.IsDecentralizedMigration() {
+		// Before the two sides have synchronized there is nothing for the source
+		// controller to do and the guest is simply running here.
+		return vmi.IsMigrationSource()
+	}
+
+	// Once the migration is done the source domain is shut off with reason "migrated"
+	// and the VM controller reaps it through its orphan path.
+	return vmi.Status.NodeName == host && !isMigrationDone(migrationState)
+}
+
+func vmiOwnedByNode(vmi *v1.VirtualMachineInstance, host string) bool {
+	nodeName, ok := vmi.Labels[v1.NodeNameLabel]
+
+	if ok && nodeName != "" && nodeName == host {
+		return true
+	}
+
+	return vmi.Status.NodeName != "" && vmi.Status.NodeName == host
+}
+
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
