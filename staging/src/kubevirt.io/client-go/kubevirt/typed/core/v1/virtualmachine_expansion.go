@@ -46,6 +46,8 @@ type VirtualMachineExpansion interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
+	Hibernate(ctx context.Context, name string, hibernateOptions *v1.HibernateOptions) error
+	DiscardSavedState(ctx context.Context, name string) error
 	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
 	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
 }
@@ -196,6 +198,34 @@ func (c *virtualMachines) RemoveMemoryDump(ctx context.Context, name string) err
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("removememorydump").
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachines) Hibernate(ctx context.Context, name string, hibernateOptions *v1.HibernateOptions) error {
+	body, err := json.Marshal(hibernateOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("hibernate").
+		Body(body).
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachines) DiscardSavedState(ctx context.Context, name string) error {
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("discardsavedstate").
 		Do(ctx).
 		Error()
 }

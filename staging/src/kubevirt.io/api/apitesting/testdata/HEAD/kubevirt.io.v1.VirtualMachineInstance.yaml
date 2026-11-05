@@ -512,6 +512,9 @@ spec:
   - name: nameValue
     resourceClaimName: resourceClaimNameValue
     resourceClaimTemplateName: resourceClaimTemplateNameValue
+  savedStateSource:
+    claimName: claimNameValue
+    fileName: fileNameValue
   schedulerName: schedulerNameValue
   serviceAccountName: serviceAccountNameValue
   startStrategy: startStrategyValue
@@ -877,6 +880,12 @@ status:
   qosClass: qosClassValue
   reason: reasonValue
   runtimeUser: 18446744073709551605
+  savedState:
+    endTimestamp: "1988-01-01T01:01:01Z"
+    fileName: fileNameValue
+    message: messageValue
+    phase: phaseValue
+    startTimestamp: "1986-01-01T01:01:01Z"
   selinuxContext: selinuxContextValue
   snapshotOverlayPVCUID: snapshotOverlayPVCUIDValue
   topologyHints:

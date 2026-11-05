@@ -9692,6 +9692,48 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/discardsavedstate": {
+    "put": {
+     "description": "Discards the saved state of a hibernated VirtualMachine. The next start boots it.",
+     "operationId": "v1DiscardSavedState",
+     "responses": {
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "409": {
+       "description": "Conflict",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
     "put": {
      "description": "Cancel evacuation Virtual Machine",
@@ -9772,6 +9814,61 @@
       },
       "404": {
        "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/hibernate": {
+    "put": {
+     "description": "Saves the memory and device state of a running VirtualMachine and stops it. The next start resumes from the saved state.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1Hibernate",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.HibernateOptions"
+       }
+      }
+     ],
+     "responses": {
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "409": {
+       "description": "Conflict",
        "schema": {
         "type": "string"
        }
@@ -11590,6 +11687,48 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/discardsavedstate": {
+    "put": {
+     "description": "Discards the saved state of a hibernated VirtualMachine. The next start boots it.",
+     "operationId": "v1alpha3DiscardSavedState",
+     "responses": {
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "409": {
+       "description": "Conflict",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
     "put": {
      "description": "Cancel evacuation Virtual Machine",
@@ -11670,6 +11809,61 @@
       },
       "404": {
        "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/hibernate": {
+    "put": {
+     "description": "Saves the memory and device state of a running VirtualMachine and stops it. The next start resumes from the saved state.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3Hibernate",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.HibernateOptions"
+       }
+      }
+     ],
+     "responses": {
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "409": {
+       "description": "Conflict",
        "schema": {
         "type": "string"
        }
@@ -15510,6 +15704,25 @@
      }
     }
    },
+   "v1.HibernateOptions": {
+    "description": "HibernateOptions are provided when hibernating a VirtualMachine: its memory and device state are saved to a PVC and the VirtualMachine is stopped. The next start resumes it from the saved state.",
+    "type": "object",
+    "properties": {
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "storageClassName": {
+      "description": "StorageClassName of the PVC holding the saved state. Defaults to the default storage class.",
+      "type": "string"
+     }
+    }
+   },
    "v1.HostDevice": {
     "type": "object",
     "required": [
@@ -17748,6 +17961,26 @@
      }
     }
    },
+   "v1.SavedStateSource": {
+    "description": "SavedStateSource references a memory and device state saved by a hibernation.",
+    "type": "object",
+    "required": [
+     "claimName",
+     "fileName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the PVC holding the saved state.",
+      "type": "string",
+      "default": ""
+     },
+     "fileName": {
+      "description": "FileName is the name of the saved state file at the root of the PVC.",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.SeccompConfiguration": {
     "description": "SeccompConfiguration holds Seccomp configuration for Kubevirt components",
     "type": "object",
@@ -19898,6 +20131,36 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceSavedStateStatus": {
+    "description": "VirtualMachineInstanceSavedStateStatus reports a save of the memory and device state of a VirtualMachineInstance, or its resume from one.",
+    "type": "object",
+    "required": [
+     "phase"
+    ],
+    "properties": {
+     "endTimestamp": {
+      "description": "EndTimestamp is when the save or restore ended.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "fileName": {
+      "description": "FileName is the name of the saved state file at the root of the volume.",
+      "type": "string"
+     },
+     "message": {
+      "description": "Message is a human readable detail, set on failure.",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase of the save or restore.",
+      "type": "string",
+      "default": ""
+     },
+     "startTimestamp": {
+      "description": "StartTimestamp is when the save or restore started.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceSpec": {
     "description": "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
     "type": "object",
@@ -19992,6 +20255,10 @@
        "name"
       ],
       "x-kubernetes-list-type": "map"
+     },
+     "savedStateSource": {
+      "description": "SavedStateSource, when set, makes the VirtualMachineInstance resume from a previously saved memory and device state instead of booting. It is set by the VirtualMachine controller when a hibernated VirtualMachine is started and requires the VMHibernation feature gate.",
+      "$ref": "#/definitions/v1.SavedStateSource"
      },
      "schedulerName": {
       "description": "If specified, the VMI will be dispatched by specified scheduler. If not specified, the VMI will be dispatched by default scheduler.",
@@ -20191,6 +20458,10 @@
       "format": "int64",
       "default": 0
      },
+     "savedState": {
+      "description": "SavedState reports the save of the memory and device state of the VirtualMachineInstance, or its resume from a saved state.",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceSavedStateStatus"
+     },
      "selinuxContext": {
       "description": "SELinuxContext is the actual SELinux context of the virt-launcher pod",
       "type": "string"
@@ -20313,6 +20584,100 @@
      "disableSerialConsoleLog": {
       "description": "DisableSerialConsoleLog disables logging the auto-attached default serial console. If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`. The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.",
       "$ref": "#/definitions/v1.DisableSerialConsoleLog"
+     }
+    }
+   },
+   "v1.VirtualMachineSavedState": {
+    "description": "VirtualMachineSavedState tracks a hibernation of a VirtualMachine.",
+    "type": "object",
+    "required": [
+     "phase",
+     "claimName",
+     "sourceUID"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the PVC holding the saved state. It is owned by the VirtualMachine.",
+      "type": "string",
+      "default": ""
+     },
+     "discard": {
+      "description": "Discard requests the saved state to be deleted. The next start boots the VirtualMachine. Set while Pending, it cancels the hibernation and the VirtualMachine keeps running.",
+      "type": "boolean"
+     },
+     "fileName": {
+      "description": "FileName is the saved state file at the root of the PVC.",
+      "type": "string"
+     },
+     "message": {
+      "description": "Message is a human readable detail about the phase.",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase of the hibernation.",
+      "type": "string",
+      "default": ""
+     },
+     "requestTimestamp": {
+      "description": "RequestTimestamp is when the hibernation was requested. A Pending hibernation times out from it.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "restoreEndTimestamp": {
+      "description": "RestoreEndTimestamp is when the domain resumed from the saved state.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "restoreStartTimestamp": {
+      "description": "RestoreStartTimestamp is when the domain started to resume from the saved state.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "restoreUID": {
+      "description": "RestoreUID is the UID of the VirtualMachineInstance resuming from the saved state.",
+      "type": "string"
+     },
+     "runStrategy": {
+      "description": "RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested. It is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs, and when the hibernated VirtualMachine is started.",
+      "type": "string"
+     },
+     "saveEndTimestamp": {
+      "description": "SaveEndTimestamp is when the state was written.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "saveStartTimestamp": {
+      "description": "SaveStartTimestamp is when the state started to be written.",
+      "$ref": "#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "sourceNodeSelector": {
+      "description": "SourceNodeSelector holds the node labels a node needs to resume the state, e.g. the host-model CPU of the node the state was saved on.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "sourceUID": {
+      "description": "SourceUID is the UID of the VirtualMachineInstance the state was saved from.",
+      "type": "string",
+      "default": ""
+     },
+     "specHash": {
+      "description": "SpecHash identifies the VirtualMachine spec the state was saved from. A start with a different spec discards the saved state.",
+      "type": "string"
+     },
+     "storageClassName": {
+      "description": "StorageClassName used to provision the PVC. Empty means the default storage class.",
+      "type": "string"
+     },
+     "supersededUID": {
+      "description": "SupersededUID is the UID of the VirtualMachineInstance that failed to resume from the saved state and that a start request retrying the resume superseded. The VM controller replaces it, whatever the run strategy.",
+      "type": "string"
+     },
+     "volumeClaimUIDs": {
+      "description": "VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to their UIDs at save time. A start with a replaced PVC discards the saved state.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
      }
     }
    },
@@ -20488,6 +20853,10 @@
      "runStrategy": {
       "description": "RunStrategy tracks the last recorded RunStrategy used by the VM. This is needed to correctly process the next strategy (for now only the RerunOnFailure)",
       "type": "string"
+     },
+     "savedState": {
+      "description": "SavedState tracks the memory and device state saved by a hibernation request, from the request until the VirtualMachine resumed from it or the state was discarded.",
+      "$ref": "#/definitions/v1.VirtualMachineSavedState"
      },
      "snapshotInProgress": {
       "description": "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",

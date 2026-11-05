@@ -709,6 +709,9 @@ spec:
       - name: nameValue
         resourceClaimName: resourceClaimNameValue
         resourceClaimTemplateName: resourceClaimTemplateNameValue
+      savedStateSource:
+        claimName: claimNameValue
+        fileName: fileNameValue
       schedulerName: schedulerNameValue
       serviceAccountName: serviceAccountNameValue
       startStrategy: startStrategyValue
@@ -938,6 +941,27 @@ status:
   ready: true
   restoreInProgress: restoreInProgressValue
   runStrategy: runStrategyValue
+  savedState:
+    claimName: claimNameValue
+    discard: true
+    fileName: fileNameValue
+    message: messageValue
+    phase: phaseValue
+    requestTimestamp: "1984-01-01T01:01:01Z"
+    restoreEndTimestamp: "1981-01-01T01:01:01Z"
+    restoreStartTimestamp: "1979-01-01T01:01:01Z"
+    restoreUID: restoreUIDValue
+    runStrategy: runStrategyValue
+    saveEndTimestamp: "1984-01-01T01:01:01Z"
+    saveStartTimestamp: "1982-01-01T01:01:01Z"
+    sourceNodeSelector:
+      sourceNodeSelectorKey: sourceNodeSelectorValue
+    sourceUID: sourceUIDValue
+    specHash: specHashValue
+    storageClassName: storageClassNameValue
+    supersededUID: supersededUIDValue
+    volumeClaimUIDs:
+      volumeClaimUIDsKey: volumeClaimUIDsValue
   snapshotInProgress: snapshotInProgressValue
   startFailure:
     consecutiveFailCount: -20

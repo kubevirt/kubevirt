@@ -29,6 +29,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"topologySpreadConstraints":     "TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology\ndomains. K8s scheduler will schedule VMI pods in a way which abides by the constraints.\n+optional\n+patchMergeKey=topologyKey\n+patchStrategy=merge\n+listType=map\n+listMapKey=topologyKey\n+listMapKey=whenUnsatisfiable",
 		"evictionStrategy":              "EvictionStrategy describes the strategy to follow when a node drain occurs.\nThe possible options are:\n- \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown.\n- \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown.\n- \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\".\n- \"External\": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.\n+optional",
 		"startStrategy":                 "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.\n\n+optional",
+		"savedStateSource":              "SavedStateSource, when set, makes the VirtualMachineInstance resume from\na previously saved memory and device state instead of booting.\nIt is set by the VirtualMachine controller when a hibernated\nVirtualMachine is started and requires the VMHibernation feature gate.\n+optional",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
@@ -113,6 +114,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 		"changedBlockTracking":          "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"savedState":                    "SavedState reports the save of the memory and device state of the\nVirtualMachineInstance, or its resume from a saved state.\n+nullable\n+optional",
 		"virtualMachineStateVolume":     "VirtualMachineStateVolume tracks the live VirtualMachineState PVC\n(persistent UEFI, TPM and CBT state). It is the source of truth for the\nPVC name, which may differ from the referenced source after a migration.\nIt is populated for both the declarative and the implicit paths.\n+nullable\n+optional",
 	}
 }
@@ -492,6 +494,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"volumeSnapshotStatuses":    "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":              "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":         "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"savedState":                "SavedState tracks the memory and device state saved by a hibernation\nrequest, from the request until the VirtualMachine resumed from it or\nthe state was discarded.\n+nullable\n+optional",
 		"observedGeneration":        "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
 		"desiredGeneration":         "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
 		"runStrategy":               "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
@@ -851,6 +854,49 @@ func (SnapshotOverlayOptions) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SavedStateSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "SavedStateSource references a memory and device state saved by a hibernation.",
+		"claimName": "ClaimName is the name of the PVC holding the saved state.",
+		"fileName":  "FileName is the name of the saved state file at the root of the PVC.",
+	}
+}
+
+func (VirtualMachineInstanceSavedStateStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineInstanceSavedStateStatus reports a save of the memory and\ndevice state of a VirtualMachineInstance, or its resume from one.",
+		"phase":          "Phase of the save or restore.",
+		"fileName":       "FileName is the name of the saved state file at the root of the volume.\n+optional",
+		"startTimestamp": "StartTimestamp is when the save or restore started.\n+optional",
+		"endTimestamp":   "EndTimestamp is when the save or restore ended.\n+optional",
+		"message":        "Message is a human readable detail, set on failure.\n+optional",
+	}
+}
+
+func (VirtualMachineSavedState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                      "VirtualMachineSavedState tracks a hibernation of a VirtualMachine.",
+		"phase":                 "Phase of the hibernation.",
+		"claimName":             "ClaimName is the PVC holding the saved state. It is owned by the VirtualMachine.",
+		"storageClassName":      "StorageClassName used to provision the PVC. Empty means the default storage class.\n+optional",
+		"fileName":              "FileName is the saved state file at the root of the PVC.\n+optional",
+		"sourceUID":             "SourceUID is the UID of the VirtualMachineInstance the state was saved from.",
+		"requestTimestamp":      "RequestTimestamp is when the hibernation was requested.\nA Pending hibernation times out from it.\n+optional",
+		"runStrategy":           "RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested.\nIt is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs,\nand when the hibernated VirtualMachine is started.\n+optional",
+		"sourceNodeSelector":    "SourceNodeSelector holds the node labels a node needs to resume the\nstate, e.g. the host-model CPU of the node the state was saved on.\n+optional",
+		"specHash":              "SpecHash identifies the VirtualMachine spec the state was saved from.\nA start with a different spec discards the saved state.\n+optional",
+		"volumeClaimUIDs":       "VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to\ntheir UIDs at save time. A start with a replaced PVC discards the saved state.\n+optional",
+		"restoreUID":            "RestoreUID is the UID of the VirtualMachineInstance resuming from the saved state.\n+optional",
+		"supersededUID":         "SupersededUID is the UID of the VirtualMachineInstance that failed to\nresume from the saved state and that a start request retrying the\nresume superseded. The VM controller replaces it, whatever the run strategy.\n+optional",
+		"saveStartTimestamp":    "SaveStartTimestamp is when the state started to be written.\n+optional",
+		"saveEndTimestamp":      "SaveEndTimestamp is when the state was written.\n+optional",
+		"restoreStartTimestamp": "RestoreStartTimestamp is when the domain started to resume from the saved state.\n+optional",
+		"restoreEndTimestamp":   "RestoreEndTimestamp is when the domain resumed from the saved state.\n+optional",
+		"discard":               "Discard requests the saved state to be deleted. The next start boots the VirtualMachine.\nSet while Pending, it cancels the hibernation and the VirtualMachine keeps running.\n+optional",
+		"message":               "Message is a human readable detail about the phase.\n+optional",
+	}
+}
+
 func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
@@ -861,6 +907,14 @@ func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 		"endTimestamp":   "EndTimestamp represents the time the memory dump was completed\n+optional",
 		"fileName":       "FileName represents the name of the output file\n+optional",
 		"message":        "Message is a detailed message about failure of the memory dump\n+optional",
+	}
+}
+
+func (HibernateOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                 "HibernateOptions are provided when hibernating a VirtualMachine: its memory\nand device state are saved to a PVC and the VirtualMachine is stopped.\nThe next start resumes it from the saved state.",
+		"storageClassName": "StorageClassName of the PVC holding the saved state. Defaults to the default storage class.\n+optional",
+		"dryRun":           "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 
