@@ -1,5 +1,9 @@
 # Integration tests
 
+See the [developer guide](../../docs/devel/integration-tests.md) for choosing a
+test layer, writing and migrating tests, framework configuration and limitations,
+and troubleshooting.
+
 Organize integration tests by the SIG responsible for the behavior being tested.
 Each SIG directory with tests has its own Go package, Ginkgo suite entry point,
 and Bazel test target.
