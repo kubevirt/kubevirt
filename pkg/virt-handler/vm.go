@@ -1813,13 +1813,7 @@ func (c *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 }
 
 func (c *VirtualMachineController) isVMIOwnedByNode(vmi *v1.VirtualMachineInstance) bool {
-	nodeName, ok := vmi.Labels[v1.NodeNameLabel]
-
-	if ok && nodeName != "" && nodeName == c.host {
-		return true
-	}
-
-	return vmi.Status.NodeName != "" && vmi.Status.NodeName == c.host
+	return vmiOwnedByNode(vmi, c.host)
 }
 
 func (c *VirtualMachineController) checkNetworkInterfacesForMigration(vmi *v1.VirtualMachineInstance) error {
