@@ -367,6 +367,44 @@ func (c *BaseController) InvalidatePluginsCache() {
 	c.pluginCache.data = nil
 }
 
+// vmiState is the VMI and its domain as resolved for one pass over a key, so
+// that execute() works from a snapshot taken at a single point in time instead
+// of reading the caches as it goes.
+type vmiState struct {
+	key             string
+	vmi             *v1.VirtualMachineInstance
+	vmiExists       bool
+	domain          *api.Domain
+	domainExists    bool
+	domainCachedUID types.UID
+}
+
+// vmiController is the part of a virt-handler controller that acts on a key.
+type vmiController interface {
+	execute(state *vmiState) error
+}
+
+func (c *BaseController) snapshot(key string) (*vmiState, error) {
+	vmi, vmiExists, err := c.getVMIFromCache(key)
+	if err != nil {
+		return nil, err
+	}
+
+	domain, domainExists, domainCachedUID, err := c.getDomainFromCache(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &vmiState{
+		key:             key,
+		vmi:             vmi,
+		vmiExists:       vmiExists,
+		domain:          domain,
+		domainExists:    domainExists,
+		domainCachedUID: domainCachedUID,
+	}, nil
+}
+
 func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInstance, exists bool, err error) {
 	obj, exists, err := c.vmiStore.GetByKey(key)
 	if err != nil {

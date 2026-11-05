@@ -347,7 +347,13 @@ func (c *MigrationSourceController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	if err := c.execute(key); err != nil {
+
+	state, err := c.snapshot(key)
+	if err == nil {
+		err = c.execute(state)
+	}
+
+	if err != nil {
 		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -416,11 +422,8 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
-func (c *MigrationSourceController) execute(key string) error {
-	vmi, vmiExists, err := c.getVMIFromCache(key)
-	if err != nil {
-		return err
-	}
+func (c *MigrationSourceController) execute(state *vmiState) error {
+	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
 
 	if !vmiExists || ((vmi.IsDecentralizedMigration() && vmi.Status.Phase == v1.Succeeded) ||
 		!vmi.IsDecentralizedMigration() && vmi.IsFinal()) ||
@@ -437,10 +440,7 @@ func (c *MigrationSourceController) execute(key string) error {
 		return nil
 	}
 
-	domain, domainExists, _, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
+	domain, domainExists := state.domain, state.domainExists
 
 	if domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		c.logger.V(4).Object(vmi).Infof("Detected stale vmi %s that still needs cleanup before new vmi with identical name/namespace can be processed", vmi.UID)

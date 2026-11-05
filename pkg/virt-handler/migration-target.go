@@ -472,7 +472,13 @@ func (c *MigrationTargetController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	if err := c.execute(key); err != nil {
+
+	state, err := c.snapshot(key)
+	if err == nil {
+		err = c.execute(state)
+	}
+
+	if err != nil {
 		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -657,11 +663,8 @@ func needsCleanup(vmi *v1.VirtualMachineInstance) bool {
 	return migrationState != nil && isMigrationDone(migrationState)
 }
 
-func (c *MigrationTargetController) execute(key string) error {
-	vmi, vmiExists, err := c.getVMIFromCache(key)
-	if err != nil {
-		return err
-	}
+func (c *MigrationTargetController) execute(state *vmiState) error {
+	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
 
 	if !vmiExists {
 		c.logger.V(4).Infof("vmi for key %v does not exists", key)
@@ -684,13 +687,10 @@ func (c *MigrationTargetController) execute(key string) error {
 		return nil
 	}
 
-	domain, domainExists, domUID, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
+	domain, domainExists, domUID := state.domain, state.domainExists, state.domainCachedUID
 
 	if domainExists && domUID != "" && domUID != vmi.UID {
-		err = c.domainStore.Delete(domain)
+		err := c.domainStore.Delete(domain)
 		if err != nil && !errors.IsNotFound(err) {
 			return err
 		}

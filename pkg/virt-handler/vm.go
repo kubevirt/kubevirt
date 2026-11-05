@@ -307,7 +307,13 @@ func (c *VirtualMachineController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	if err := c.execute(key); err != nil {
+
+	state, err := c.snapshot(key)
+	if err == nil {
+		err = c.execute(state)
+	}
+
+	if err != nil {
 		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -317,11 +323,8 @@ func (c *VirtualMachineController) Execute() bool {
 	return true
 }
 
-func (c *VirtualMachineController) execute(key string) error {
-	vmi, vmiExists, err := c.getVMIFromCache(key)
-	if err != nil {
-		return err
-	}
+func (c *VirtualMachineController) execute(state *vmiState) error {
+	key, vmi, vmiExists := state.key, state.vmi, state.vmiExists
 
 	if !vmiExists {
 		// the vmiInformer probably has to catch up to the domainInformer
@@ -344,10 +347,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	domain, domainExists, domainCachedUID, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
+	domain, domainExists, domainCachedUID := state.domain, state.domainExists, state.domainCachedUID
 	c.logger.Object(vmi).V(4).Infof("domain exists %v", domainExists)
 
 	if !vmiExists && string(domainCachedUID) != "" {
@@ -400,8 +400,7 @@ func (c *VirtualMachineController) execute(key string) error {
 
 	if migrations.IsMigrating(vmi) && (vmi.Status.Phase == v1.Failed) {
 		c.logger.V(1).Infof("cleaning up VMI key %v as migration is in progress and the vmi is failed", key)
-		err = c.processVmCleanup(vmi)
-		if err != nil {
+		if err := c.processVmCleanup(vmi); err != nil {
 			return err
 		}
 	}
@@ -443,7 +442,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	err = c.sync(key,
+	err := c.sync(key,
 		vmi.DeepCopy(),
 		vmiExists,
 		domain,
