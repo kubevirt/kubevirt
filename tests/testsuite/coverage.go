@@ -22,8 +22,6 @@ package testsuite
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/client-go/kubecli"
@@ -51,13 +50,19 @@ var daemonLabels = map[string]string{
 	"virt-operator":   "kubevirt.io=virt-operator",
 }
 
-const coveragePort = 6061
+const (
+	coveragePort = 6061
+	// coverageRunID is the shared run identifier used by daemon flushes and
+	// virt-launcher uploads. Must match what SetupCoverage passes to
+	// coveragemap.Install so the collector merges all data under one run.
+	coverageRunID = "functest"
+)
 
 // FlushDaemonCoverage calls POST /coverage/flush on every control-plane daemon
 // pod via the Kubernetes pod proxy. Best-effort: errors are logged but do not
 // fail the suite (coverage is a reference signal, not a hard requirement).
 func FlushDaemonCoverage(ctx context.Context, client kubecli.KubevirtClient) {
-	ns := GetTestNamespace(nil)
+	ns := flags.KubeVirtInstallNamespace
 
 	for component, selector := range daemonLabels {
 		pods, err := client.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: selector})
@@ -66,7 +71,7 @@ func FlushDaemonCoverage(ctx context.Context, client kubecli.KubevirtClient) {
 			continue
 		}
 		for _, pod := range pods.Items {
-			if err := flushPod(ctx, client, ns, pod.Name); err != nil {
+			if err := flushPod(ctx, client, flags.KubeVirtInstallNamespace, pod.Name); err != nil {
 				klog.Log.Reason(err).Warningf("coverage: flush failed for %s/%s", component, pod.Name)
 			} else {
 				klog.Log.Infof("coverage: flushed %s/%s", component, pod.Name)
@@ -90,10 +95,11 @@ func flushPod(ctx context.Context, client kubecli.KubevirtClient, ns, podName st
 	return resp.Error()
 }
 
-// CollectCoverageArtifacts downloads the merged covdata from the collector,
-// writes it to $ARTIFACTS/coverage/, and generates text + HTML reports using
-// "go tool covdata".
-func CollectCoverageArtifacts(ctx context.Context, collectorURL, artifactsDir string) {
+// CollectCoverageArtifacts downloads the merged covdata from the collector via
+// the Kubernetes API server service proxy (so the test binary can reach it
+// without in-cluster DNS), writes it to $ARTIFACTS/coverage/, and generates
+// text + HTML reports using "go tool covdata".
+func CollectCoverageArtifacts(ctx context.Context, client kubecli.KubevirtClient, artifactsDir string) {
 	covDir := filepath.Join(artifactsDir, "coverage")
 	rawDir := filepath.Join(covDir, "merged.covdata")
 	if err := os.MkdirAll(rawDir, 0o755); err != nil {
@@ -101,32 +107,21 @@ func CollectCoverageArtifacts(ctx context.Context, collectorURL, artifactsDir st
 		return
 	}
 
-	// Download the merged covdata tar from the collector.
-	rawURL := collectorURL + "/raw"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	// Use the API server proxy so the test binary (running outside the cluster)
+	// can reach the in-cluster collector service.
+	proxyPath := fmt.Sprintf("/api/v1/namespaces/%s/services/%s:%d/proxy/coverage/raw?run=%s",
+		coverageNS, collectorServiceName, collectorPort, coverageRunID)
+	rawBytes, err := client.CoreV1().RESTClient().Get().AbsPath(proxyPath).DoRaw(ctx)
 	if err != nil {
-		klog.Log.Reason(err).Warning("coverage: could not build raw request")
+		klog.Log.Reason(err).Warningf("coverage: GET %s failed", proxyPath)
 		return
 	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		klog.Log.Reason(err).Warningf("coverage: GET %s failed", rawURL)
-		return
-	}
-	defer resp.Body.Close()
 
 	tarPath := filepath.Join(covDir, "merged.tar")
-	f, err := os.Create(tarPath)
-	if err != nil {
-		klog.Log.Reason(err).Warning("coverage: could not create tar file")
-		return
-	}
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
+	if err := os.WriteFile(tarPath, rawBytes, 0o644); err != nil {
 		klog.Log.Reason(err).Warning("coverage: could not write tar file")
 		return
 	}
-	f.Close()
 
 	// Untar into rawDir.
 	if out, err := exec.CommandContext(ctx, "tar", "-xf", tarPath, "-C", rawDir).CombinedOutput(); err != nil {
@@ -242,19 +237,47 @@ func SetupCoverage() {
 	}
 
 	// 4. Wait for the collector to be ready (up to 2 min).
-	collectorURL := fmt.Sprintf("http://%s.%s/coverage", collectorServiceName, coverageNS)
+	// Use the Kubernetes API server service proxy so the test binary can reach
+	// the collector without in-cluster DNS (the test binary runs outside the cluster).
+	collectorProxyURL := fmt.Sprintf("/api/v1/namespaces/%s/services/%s:%d/proxy/coverage",
+		coverageNS, collectorServiceName, collectorPort)
 	deadline := time.Now().Add(2 * time.Minute)
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(collectorURL + "/report")
-		if err == nil {
-			resp.Body.Close()
+		result := virtClient.CoreV1().RESTClient().Get().AbsPath(collectorProxyURL + "/healthz").Do(ctx)
+		if result.Error() == nil {
 			klog.Log.Info("coverage: collector is ready")
 			break
 		}
 		time.Sleep(5 * time.Second)
 	}
 
-	// 5. Probe virt-api :6061 — fail fast if images aren't instrumented.
+	// 5. Inject COVERAGE_COLLECTOR_URL + COVERAGE_RUN_ID into daemon deployments
+	// so their coveragehttp.flush() knows where to send data.
+	collectorEnvURL := fmt.Sprintf("http://%s.%s/coverage", collectorServiceName, coverageNS)
+	daemonDeployments := []string{"virt-api", "virt-controller"}
+	for _, name := range daemonDeployments {
+		patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"env":[
+			{"name":"COVERAGE_COLLECTOR_URL","value":%q},
+			{"name":"COVERAGE_RUN_ID","value":%q},
+			{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}}
+		]}]}}}}`, name, collectorEnvURL, coverageRunID)
+		if _, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).
+			Patch(ctx, name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{}); err != nil {
+			klog.Log.Reason(err).Warningf("coverage: could not patch %s with collector env", name)
+		}
+	}
+	// virt-handler is a DaemonSet
+	handlerPatch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":"virt-handler","env":[
+		{"name":"COVERAGE_COLLECTOR_URL","value":%q},
+		{"name":"COVERAGE_RUN_ID","value":%q},
+		{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}}
+	]}]}}}}`, collectorEnvURL, coverageRunID)
+	if _, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).
+		Patch(ctx, "virt-handler", types.StrategicMergePatchType, []byte(handlerPatch), metav1.PatchOptions{}); err != nil {
+		klog.Log.Reason(err).Warning("coverage: could not patch virt-handler with collector env")
+	}
+
+	// 6. Probe virt-api :6061 — fail fast if images aren't instrumented.
 	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		ctx, metav1.ListOptions{LabelSelector: "kubevirt.io=virt-api"})
 	if err == nil && len(pods.Items) > 0 {
@@ -268,7 +291,7 @@ func SetupCoverage() {
 		if err := coveragemap.Install(ctx, virtClient,
 			flags.CovUploaderImage,
 			fmt.Sprintf("http://%s.%s/coverage", collectorServiceName, coverageNS),
-			"functest"); err != nil {
+			coverageRunID); err != nil {
 			klog.Log.Reason(err).Warning("coverage: MAP install failed")
 		} else {
 			klog.Log.Info("coverage: MAP installed for virt-launcher injection")

@@ -102,6 +102,20 @@ func buildPolicy(uploaderImage, collectorURL, runID string) *unstructured.Unstru
     name: %q,
     emptyDir: Object.spec.volumes.emptyDir{}
   }},
+  JSONPatch{op: "add", path: "/spec/containers/0/volumeMounts/-",
+    value: Object.spec.containers.volumeMounts{
+      name: %q, mountPath: %q
+    }
+  },
+  JSONPatch{op: "add", path: "/spec/containers/0/env/-",
+    value: Object.spec.containers.env{name: "GOCOVERDIR", value: %q}
+  },
+  JSONPatch{op: "add", path: "/spec/containers/0/env/-",
+    value: Object.spec.containers.env{name: "COVERAGE_RUN_ID", value: %q}
+  },
+  JSONPatch{op: "replace", path: "/spec/terminationGracePeriodSeconds",
+    value: 60
+  },
   JSONPatch{op: "add",
     path: "/spec/initContainers/-",
     value: Object.spec.initContainers{
@@ -131,6 +145,9 @@ func buildPolicy(uploaderImage, collectorURL, runID string) *unstructured.Unstru
   }
 ]`,
 		VolumeName,
+		VolumeName, CoverageDir,
+		CoverageDir,
+		runID,
 		uploaderImage,
 		CoverageDir,
 		runID,

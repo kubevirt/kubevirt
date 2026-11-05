@@ -210,7 +210,9 @@ var _ = ReportAfterSuite("E2E coverage report", func(_ Report) {
 	testsuite.FlushDaemonCoverage(ctx, virtClient)
 
 	// 2. Pull merged covdata from the collector and write local artifacts.
-	testsuite.CollectCoverageArtifacts(ctx, flags.CovCollectorURL, flags.ArtifactsDir)
+	// CollectCoverageArtifacts uses the API server proxy internally so the
+	// test binary (running outside the cluster) can reach the collector.
+	testsuite.CollectCoverageArtifacts(ctx, virtClient, flags.ArtifactsDir)
 
 	// 3. Clean up MAP and binding so the cluster is left in a clean state.
 	coveragemap.Uninstall(ctx, virtClient)
