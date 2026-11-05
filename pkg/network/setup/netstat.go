@@ -144,7 +144,11 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		netvmispec.InfoSourceMultusStatus,
 	)
 	if networkDRAEnabled {
-		interfacesStatus = ifacesStatusFromPodStatus(interfacesStatus, podStatusNetworksByName, vmiInterfacesSpecByName)
+		interfacesStatus = ifacesStatusFromInfoSource(interfacesStatus,
+			podStatusNetworksByName,
+			vmiInterfacesSpecByName,
+			netvmispec.InfoSourcePodStatus,
+		)
 	}
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
@@ -231,30 +235,6 @@ func ifacesStatusFromInfoSource(
 			})
 		} else if ifaceStatus != nil {
 			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, infoSource)
-		}
-	}
-	return interfacesStatus
-}
-
-// ifacesStatusFromPodStatus preserves the pod-status info source set by the
-// virt-controller, which this rebuild would otherwise drop. The source is owned
-// by the virt-controller (derived from the pod) and is not visible to the
-// domain, so it is carried over from the previous status.
-func ifacesStatusFromPodStatus(
-	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	podStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
-	vmIfacesSpecByName map[string]v1.Interface,
-) []v1.VirtualMachineInstanceNetworkInterface {
-	for podIfaceName := range podStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, podIfaceName)
-		_, existInSpec := vmIfacesSpecByName[podIfaceName]
-		if existInSpec && ifaceStatus == nil {
-			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       podIfaceName,
-				InfoSource: netvmispec.InfoSourcePodStatus,
-			})
-		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
 		}
 	}
 	return interfacesStatus
