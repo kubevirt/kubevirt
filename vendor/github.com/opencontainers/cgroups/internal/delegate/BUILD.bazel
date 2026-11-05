@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["delegate.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/cgroups/internal/delegate",
+    importpath = "github.com/opencontainers/cgroups/internal/delegate",
+    visibility = ["//vendor/github.com/opencontainers/cgroups:__subpackages__"],
+)

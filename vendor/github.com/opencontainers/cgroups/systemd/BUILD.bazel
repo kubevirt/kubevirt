@@ -22,6 +22,7 @@ go_library(
         "//vendor/github.com/opencontainers/cgroups:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/fs:go_default_library",
         "//vendor/github.com/opencontainers/cgroups/fs2:go_default_library",
+        "//vendor/github.com/opencontainers/cgroups/internal/delegate:go_default_library",
         "//vendor/github.com/sirupsen/logrus:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],

@@ -7,7 +7,9 @@ go_library(
         "alu_string.go",
         "doc.go",
         "func.go",
+        "func_lin.go",
         "func_string.go",
+        "func_win.go",
         "instruction.go",
         "jump.go",
         "jump_string.go",
@@ -21,5 +23,9 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/asm",
     importpath = "github.com/cilium/ebpf/asm",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/cilium/ebpf/internal/sys:go_default_library"],
+    deps = [
+        "//vendor/github.com/cilium/ebpf/internal:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/platform:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/sys:go_default_library",
+    ],
 )

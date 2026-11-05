@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "enums.go",
+        "error_reporting.go",
+        "fd.go",
+        "map.go",
+        "module.go",
+        "native.go",
+        "object.go",
+        "proc.go",
+        "program.go",
+        "result.go",
+        "result_string_windows.go",
+        "structs.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/internal/efw",
+    importpath = "github.com/cilium/ebpf/internal/efw",
+    visibility = ["//vendor/github.com/cilium/ebpf:__subpackages__"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:windows": [
+            "//vendor/golang.org/x/sys/windows:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

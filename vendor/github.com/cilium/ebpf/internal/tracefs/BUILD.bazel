@@ -13,6 +13,8 @@ go_library(
     deps = [
         "//vendor/github.com/cilium/ebpf/internal:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal/linux:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/mountinfo:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/platform:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal/unix:go_default_library",
     ],
 )

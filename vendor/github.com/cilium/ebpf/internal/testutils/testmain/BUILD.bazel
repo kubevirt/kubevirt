@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "fd_trace.go",
+        "main.go",
+        "windows.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/internal/testutils/testmain",
+    importpath = "github.com/cilium/ebpf/internal/testutils/testmain",
+    visibility = ["//vendor/github.com/cilium/ebpf:__subpackages__"],
+    deps = ["//vendor/github.com/cilium/ebpf/internal/platform:go_default_library"],
+)

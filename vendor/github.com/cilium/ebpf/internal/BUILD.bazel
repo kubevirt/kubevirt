@@ -3,16 +3,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "buffer.go",
         "deque.go",
         "elf.go",
         "endian_be.go",
         "endian_le.go",
         "errors.go",
         "feature.go",
-        "goos.go",
         "io.go",
         "math.go",
+        "nil.go",
         "output.go",
         "prog.go",
         "version.go",
@@ -20,4 +19,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/internal",
     importpath = "github.com/cilium/ebpf/internal",
     visibility = ["//vendor/github.com/cilium/ebpf:__subpackages__"],
+    deps = ["//vendor/github.com/cilium/ebpf/internal/platform:go_default_library"],
 )

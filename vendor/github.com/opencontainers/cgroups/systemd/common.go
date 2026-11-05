@@ -77,7 +77,7 @@ func ExpandSlice(slice string) (string, error) {
 	if sliceName == "-" {
 		return "/", nil
 	}
-	for _, component := range strings.Split(sliceName, "-") {
+	for component := range strings.SplitSeq(sliceName, "-") {
 		// test--a.slice isn't permitted, nor is -test.slice.
 		if component == "" {
 			return "", fmt.Errorf("invalid slice name: %s", slice)
@@ -299,9 +299,8 @@ func systemdVersionAtoi(str string) (int, error) {
 // along with round-up during calculation in order to write the same value to cgroupfs later.
 func addCPUQuota(cm *dbusConnManager, properties *[]systemdDbus.Property, quota *int64, period uint64) {
 	if period != 0 {
-		// systemd only supports CPUQuotaPeriodUSec since v242
 		sdVer := systemdVersion(cm)
-		if sdVer >= 242 {
+		if sdVer >= cpuQuotaPeriodSupportedVersion {
 			*properties = append(*properties,
 				newProp("CPUQuotaPeriodUSec", period))
 		} else {
@@ -338,9 +337,8 @@ func addCpuset(cm *dbusConnManager, props *[]systemdDbus.Property, cpus, mems st
 		return nil
 	}
 
-	// systemd only supports AllowedCPUs/AllowedMemoryNodes since v244
 	sdVer := systemdVersion(cm)
-	if sdVer < 244 {
+	if sdVer < allowedCPUsSupportedVersion {
 		logrus.Debugf("systemd v%d is too old to support AllowedCPUs/AllowedMemoryNodes"+
 			" (settings will still be applied to cgroupfs)", sdVer)
 		return nil

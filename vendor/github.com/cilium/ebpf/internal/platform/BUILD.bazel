@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "constants.go",
+        "platform.go",
+        "platform_linux.go",
+        "platform_other.go",
+        "platform_windows.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/internal/platform",
+    importpath = "github.com/cilium/ebpf/internal/platform",
+    visibility = ["//vendor/github.com/cilium/ebpf:__subpackages__"],
+)

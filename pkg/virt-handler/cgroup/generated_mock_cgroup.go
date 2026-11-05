@@ -380,3 +380,18 @@ func (mr *MockcgroupsManagerMockRecorder) Set(r any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockcgroupsManager)(nil).Set), r)
 }
+
+// Stats mocks base method.
+func (m *MockcgroupsManager) Stats(opts *cgroups.StatsOptions) (*cgroups.Stats, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stats", opts)
+	ret0, _ := ret[0].(*cgroups.Stats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Stats indicates an expected call of Stats.
+func (mr *MockcgroupsManagerMockRecorder) Stats(opts any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stats", reflect.TypeOf((*MockcgroupsManager)(nil).Stats), opts)
+}
