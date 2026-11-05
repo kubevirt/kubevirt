@@ -544,17 +544,17 @@ http_archive(
 
 http_archive(
     name = "libguestfs-appliance-x86_64",
-    sha256 = "fb6da700eeae24da89aae6516091f7c5f46958b0b7812d2b122dc11dca1ab26a",
+    sha256 = "112dd6b438f62b1db2e5dcbb975496a983985da07654c311660f55ab36b8f475",
     urls = [
-        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-575-centos9-amd64.tar.xz",
+        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-757-centos9-amd64.tar.xz",
     ],
 )
 
 http_archive(
     name = "libguestfs-appliance-s390x",
-    sha256 = "532cb951d4245265da645c8cce14033c19ea8f0d163c01e88f4153dae44e0f95",
+    sha256 = "2c3af439307a1b86fb6b1bd1094f2923ec1b2b6009ba634c99c9589fe0eb71c6",
     urls = [
-        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-575-centos9-s390x.tar.xz",
+        "https://storage.googleapis.com/kubevirt-prow/devel/release/kubevirt/libguestfs-appliance/libguestfs-appliance-1.54.0-qcow2-linux-5.14.0-757-centos9-s390x.tar.xz",
     ],
 )
 
