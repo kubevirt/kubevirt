@@ -172,7 +172,16 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.HasLegacyBackendStorage(sourceVM) {
+
+		// Expand the source VM spec locally to resolve instancetype/preference references.
+		// This ensures that preference-applied fields like persistent TPM/EFI
+		// are visible when checking for backend storage requirements.
+		vmToCheck, err := ctrl.expandHandler.Expand(sourceVM)
+		if err != nil {
+			return nil, fmt.Errorf("failed to expand source VM %s/%s: %w", sourceVM.Namespace, sourceVM.Name, err)
+		}
+
+		if backendstorage.HasLegacyBackendStorage(vmToCheck) {
 			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
 		}
 		cloneInfo.sourceVm = sourceVM
@@ -488,7 +497,13 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 		return nil
 	}
 
-	if backendstorage.HasLegacyBackendStorage(vm) {
+	// Expand the snapshot VM spec to resolve instancetype/preference references.
+	vmToCheck, err := virtsnapshot.ExpandSnapshotVMSpec(vm, ctrl.expandHandler)
+	if err != nil {
+		return err
+	}
+
+	if backendstorage.HasLegacyBackendStorage(vmToCheck) {
 		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 
