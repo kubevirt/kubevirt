@@ -43,6 +43,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "fuzz_test.go",
         "install_suite_test.go",
         "strategy_test.go",
     ],
