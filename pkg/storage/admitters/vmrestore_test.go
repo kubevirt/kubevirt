@@ -608,6 +608,55 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Entry("target exists", true),
 			)
 
+			It("should allow restore to a different VM when the snapshotted VM uses the declarative virtualMachineState API", func() {
+				const targetVMName = "new-test-vm"
+
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{
+						VirtualMachineState: &v1.VirtualMachineStateSpec{
+							Source: &v1.VirtualMachineStateSource{Name: "vmstate-pvc"},
+						},
+					},
+				}
+
+				vmSnapshotContent := &snapshotv1.VirtualMachineSnapshotContent{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "snapshot-content",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+						Source: snapshotv1.SourceSpec{
+							VirtualMachine: &snapshotv1.VirtualMachine{
+								ObjectMeta: vm.ObjectMeta,
+								Spec:       vm.Spec,
+								Status:     vm.Status,
+							},
+						},
+					},
+				}
+				snapshot.Status.VirtualMachineSnapshotContentName = pointer.P(vmSnapshotContent.Name)
+
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     targetVMName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, snapshot, vmSnapshotContent).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeTrue())
+			})
+
 			Context("when using Patches", func() {
 
 				var restore *snapshotv1.VirtualMachineRestore
@@ -630,9 +679,9 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				})
 
 				DescribeTable("should reject patching elements not under /spec/:", func(patchSet *patch.PatchSet) {
-					patchBytes, err := patchSet.GeneratePayload()
+					patches, err := patchSet.ToSlice()
 					Expect(err).To(Not(HaveOccurred()))
-					restore.Spec.Patches = []string{string(patchBytes)}
+					restore.Spec.Patches = patches
 
 					ar := createRestoreAdmissionReview(restore)
 					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
@@ -649,31 +698,45 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				)
 
 				DescribeTable("should allow patching elements under /spec/:", func(patchSet *patch.PatchSet) {
-					patchBytes, err := patchSet.GeneratePayload()
+					patches, err := patchSet.ToSlice()
 					Expect(err).To(Not(HaveOccurred()))
-					restore.Spec.Patches = []string{string(patchBytes)}
+					restore.Spec.Patches = patches
 
 					ar := createRestoreAdmissionReview(restore)
 					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeTrue())
 				},
 					Entry("patch to replace MAC", patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "some-value"))),
+					Entry("patch to replace MAC with a colon separated address",
+						patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "be:ad:00:00:be:04"))),
+					Entry("patch to replace a value containing a comma",
+						patch.New(patch.WithReplace("/spec/template/spec/domain/firmware/serial", "some,value"))),
+					Entry("patch to replace a value that is an object",
+						patch.New(patch.WithReplace("/spec/template/spec/nodeSelector", map[string]string{"key": "value"}))),
+					Entry("patch to replace a value that is an array",
+						patch.New(patch.WithReplace("/spec/template/spec/tolerations", []string{"a", "b"}))),
 					Entry("patch to add running", patch.New(patch.WithAdd("/spec/running", "some-value"))),
 					Entry("patch to remove instancetype", patch.New(patch.WithRemove("/spec/instancetype"))),
 					Entry("patch to replace a label", patch.New(patch.WithReplace("/metadata/labels/key", "some-value"))),
 					Entry("patch to remove an annotation", patch.New(patch.WithRemove("/metadata/annotations/key"))),
+					Entry("patch to replace an annotation with a colon separated value",
+						patch.New(patch.WithReplace("/metadata/annotations/key", "some:value"))),
 				)
 
-				It("should reject an invalid patch", func() {
-					const invalidPatch = `{"op": "remove", "path": "/spec/running" : "illegal-field"}`
-					restore.Spec.Patches = []string{invalidPatch}
+				DescribeTable("should reject a malformed patch:", func(malformedPatch string) {
+					restore.Spec.Patches = []string{malformedPatch}
 
 					ar := createRestoreAdmissionReview(restore)
 					resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshot).Admit(context.Background(), ar)
 					Expect(resp.Allowed).To(BeFalse())
 					Expect(resp.Result.Details.Causes).To(HaveLen(1))
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
-				})
+				},
+					Entry("patch that is not valid JSON", `{"op": "remove", "path": "/spec/running" : "illegal-field"}`),
+					Entry("patch without a path", `{"op": "replace", "value": "some-value"}`),
+					Entry("patch that is a list of operations instead of a single operation",
+						`[{"op": "replace", "path": "/spec/running", "value": "some-value"}]`),
+				)
 			})
 
 		})

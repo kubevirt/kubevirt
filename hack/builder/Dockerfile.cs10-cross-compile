@@ -1,0 +1,21 @@
+ARG BUILDER_IMAGE
+FROM "${BUILDER_IMAGE}"
+
+RUN dnf install -y dnf-plugins-core epel-release && \
+    dnf config-manager --enable crb && \
+    dnf install -y --setopt=install_weak_deps=False \
+        gcc-aarch64-linux-gnu \
+        gcc-s390x-linux-gnu && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/aarch64-linux-gnu/sys-root \
+                   --forcearch aarch64 \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf install -y --setopt=install_weak_deps=False \
+                   --installroot /usr/s390x-linux-gnu/sys-root \
+                   --forcearch s390x \
+                   --releasever 10 \
+        glibc-devel \
+        glibc-static && \
+    dnf clean -y all

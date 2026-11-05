@@ -23,9 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -56,6 +59,68 @@ var _ = Describe("VMI traits", func() {
 		)
 	})
 
+	DescribeTable("RequiresMemoryOverheadReservation",
+		func(vmi *v1.VirtualMachineInstance, expected bool) {
+			Expect(vmitrait.RequiresMemoryOverheadReservation(vmi)).To(Equal(expected))
+		},
+		Entry("Domain Memory reference is nil", &v1.VirtualMachineInstance{}, false),
+		Entry("ReservedOverhead reference is nil",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{},
+			}}},
+			false,
+		),
+		Entry("ReservedOverhead reference is empty",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{ReservedOverhead: &v1.ReservedOverhead{}},
+			}}},
+			false,
+		),
+		Entry("AddedOverhead has a value",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{ReservedOverhead: &v1.ReservedOverhead{
+					AddedOverhead: pointer.P(resource.MustParse("1Gi")),
+				}},
+			}}},
+			true,
+		),
+	)
+
+	DescribeTable("RequiresLockingMemory",
+		func(vmi *v1.VirtualMachineInstance, expected bool) {
+			Expect(vmitrait.RequiresLockingMemory(vmi)).To(Equal(expected))
+		},
+		Entry("Domain Memory reference is nil", &v1.VirtualMachineInstance{}, false),
+		Entry("ReservedOverhead reference is nil",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{},
+			}}},
+			false,
+		),
+		Entry("ReservedOverhead reference is empty",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{ReservedOverhead: &v1.ReservedOverhead{}},
+			}}},
+			false,
+		),
+		Entry("MemLock is not Required",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{ReservedOverhead: &v1.ReservedOverhead{
+					MemLock: pointer.P(v1.MemLockRequirement(v1.MemLockNotRequired)),
+				}},
+			}}},
+			false,
+		),
+		Entry("MemLock is Required",
+			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
+				Memory: &v1.Memory{ReservedOverhead: &v1.ReservedOverhead{
+					MemLock: pointer.P(v1.MemLockRequirement(v1.MemLockRequired)),
+				}},
+			}}},
+			true,
+		),
+	)
+
 	Context("HasVFIO", func() {
 		DescribeTable("should return true when a VFIO device is present", func(vmi *v1.VirtualMachineInstance) {
 			Expect(vmitrait.HasVFIO(vmi)).To(BeTrue())
@@ -68,7 +133,7 @@ var _ = Describe("VMI traits", func() {
 			),
 			Entry("with an SRIOV interface",
 				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov1")),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding("sriov1")), //nolint:staticcheck
 					libvmi.WithNetwork(&v1.Network{Name: "sriov1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-net"}}}),
 				),
 			),

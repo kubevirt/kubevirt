@@ -391,6 +391,7 @@ spec:
           verbs:
           - get
           - list
+          - watch
           - delete
           - patch
         - apiGroups:
@@ -750,9 +751,10 @@ spec:
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
           - virtualmachineinstances/backup
-          - virtualmachineinstances/redefine-checkpoint
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/externalsnapshot
+          - virtualmachineinstances/commitsnapshot
           - virtualmachineinstances/reset
           - virtualmachineinstances/softreboot
           - virtualmachineinstances/sev/setupsession
@@ -863,11 +865,19 @@ spec:
           - resource.k8s.io
           resources:
           - resourceslices
+          verbs:
+          - list
+          - watch
+          - get
+        - apiGroups:
+          - resource.k8s.io
+          resources:
           - resourceclaims
           verbs:
           - list
           - watch
           - get
+          - create
         - apiGroups:
           - kubevirt.io
           resources:
@@ -925,15 +935,6 @@ spec:
           - list
           - watch
         - apiGroups:
-          - backup.kubevirt.io
-          resources:
-          - virtualmachinebackuptrackers
-          - virtualmachinebackuptrackers/status
-          verbs:
-          - list
-          - watch
-          - patch
-        - apiGroups:
           - plugin.kubevirt.io
           resources:
           - plugins
@@ -954,6 +955,14 @@ spec:
           resources:
           - kubevirts
           verbs:
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - get
           - list
           - watch
         - apiGroups:
@@ -1520,6 +1529,12 @@ spec:
           verbs:
           - get
         - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachineinstances/redefine-checkpoint
+          verbs:
+          - update
+        - apiGroups:
           - authentication.k8s.io
           resources:
           - tokenreviews
@@ -1629,6 +1644,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                  readOnlyRootFilesystem: true
                   seccompProfile:
                     type: RuntimeDefault
                 terminationMessagePolicy: FallbackToLogsOnError

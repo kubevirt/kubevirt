@@ -574,6 +574,25 @@ spec:
                     items:
                       type: string
                     type: array
+                  emulationPolicy:
+                    description: |-
+                      EmulationPolicy is the default emulation policy for VMs that do not set
+                      spec.emulationPolicy. A VM may set a more permissive policy.
+
+                      Valid Options from least to most permissive are:
+                      - None: Only native-kvm
+                      - Hardware: Not yet implemented
+                      - Software: Qemu TCG cross-architecture emulation
+                      Default policy is 'None'
+
+                      This is an alpha field and should only be configured if the
+                      feature-gate CrossArchitectureVirtualization is enabled.
+                      This feature is in alpha.
+                    enum:
+                    - None
+                    - Hardware
+                    - Software
+                    type: string
                   evictionStrategy:
                     description: |-
                       EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
@@ -931,6 +950,20 @@ spec:
                   minCPUModel:
                     description: deprecated
                     type: string
+                  multiIOThreadAutoPolicy:
+                    description: |-
+                      MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+                      to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+                      This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+                          Requires SCSIMultiIOThread feature gate to be enabled.
+                        nullable: true
+                        type: boolean
+                    type: object
                   network:
                     description: NetworkConfiguration holds network options
                     properties:
@@ -1225,6 +1258,22 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: set
+                      groups:
+                        description: |-
+                          Groups defines the set of allowed TLS supported groups (elliptic curves)
+                          on all TLS server endpoints. Group names follow the IANA TLS Supported
+                          Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised
+                          names are silently ignored at TLS setup time, so an older component
+                          tolerates group names added in a newer release. When empty or when the
+                          TLSGroupPreferences feature gate is disabled, Go's default curve
+                          preferences apply.
+                          MaxItems bounds the CEL cost estimate for the exists() validation rule
+                          on TLSConfiguration; without it the CRD is rejected at creation time.
+                        items:
+                          type: string
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
                       minTLSVersion:
                         description: |-
                           MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
@@ -1241,6 +1290,15 @@ spec:
                         - VersionTLS13
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: a classical group (X25519, secp256r1, secp384r1 or
+                        secp521r1) is required in groups when minTLSVersion is below
+                        VersionTLS13 and a TLS 1.3-only group such as X25519MLKEM768
+                        is configured
+                      rule: '!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion)
+                        && self.minTLSVersion == ''VersionTLS13'') || !self.groups.exists(g,
+                        g in [''X25519MLKEM768'',''SecP256r1MLKEM768'',''SecP384r1MLKEM1024''])
+                        || self.groups.exists(g, g in [''X25519'',''secp256r1'',''secp384r1'',''secp521r1''])'
                   virtTemplateDeployment:
                     description: VirtTemplateDeployment controls the deployment of
                       virt-template components
@@ -5138,6 +5196,25 @@ spec:
                     items:
                       type: string
                     type: array
+                  emulationPolicy:
+                    description: |-
+                      EmulationPolicy is the default emulation policy for VMs that do not set
+                      spec.emulationPolicy. A VM may set a more permissive policy.
+
+                      Valid Options from least to most permissive are:
+                      - None: Only native-kvm
+                      - Hardware: Not yet implemented
+                      - Software: Qemu TCG cross-architecture emulation
+                      Default policy is 'None'
+
+                      This is an alpha field and should only be configured if the
+                      feature-gate CrossArchitectureVirtualization is enabled.
+                      This feature is in alpha.
+                    enum:
+                    - None
+                    - Hardware
+                    - Software
+                    type: string
                   evictionStrategy:
                     description: |-
                       EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
@@ -5495,6 +5572,20 @@ spec:
                   minCPUModel:
                     description: deprecated
                     type: string
+                  multiIOThreadAutoPolicy:
+                    description: |-
+                      MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy
+                      to allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.
+                      This setting has no effect unless the SCSIMultiIOThread feature gate is enabled.
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: |-
+                          Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.
+                          Requires SCSIMultiIOThread feature gate to be enabled.
+                        nullable: true
+                        type: boolean
+                    type: object
                   network:
                     description: NetworkConfiguration holds network options
                     properties:
@@ -5789,6 +5880,22 @@ spec:
                           type: string
                         type: array
                         x-kubernetes-list-type: set
+                      groups:
+                        description: |-
+                          Groups defines the set of allowed TLS supported groups (elliptic curves)
+                          on all TLS server endpoints. Group names follow the IANA TLS Supported
+                          Groups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised
+                          names are silently ignored at TLS setup time, so an older component
+                          tolerates group names added in a newer release. When empty or when the
+                          TLSGroupPreferences feature gate is disabled, Go's default curve
+                          preferences apply.
+                          MaxItems bounds the CEL cost estimate for the exists() validation rule
+                          on TLSConfiguration; without it the CRD is rejected at creation time.
+                        items:
+                          type: string
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
                       minTLSVersion:
                         description: |-
                           MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
@@ -5805,6 +5912,15 @@ spec:
                         - VersionTLS13
                         type: string
                     type: object
+                    x-kubernetes-validations:
+                    - message: a classical group (X25519, secp256r1, secp384r1 or
+                        secp521r1) is required in groups when minTLSVersion is below
+                        VersionTLS13 and a TLS 1.3-only group such as X25519MLKEM768
+                        is configured
+                      rule: '!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion)
+                        && self.minTLSVersion == ''VersionTLS13'') || !self.groups.exists(g,
+                        g in [''X25519MLKEM768'',''SecP256r1MLKEM768'',''SecP384r1MLKEM1024''])
+                        || self.groups.exists(g, g in [''X25519'',''secp256r1'',''secp384r1'',''secp521r1''])'
                   virtTemplateDeployment:
                     description: VirtTemplateDeployment controls the deployment of
                       virt-template components

@@ -22,11 +22,11 @@ package virthandler
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
@@ -40,16 +40,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-	api2 "kubevirt.io/client-go/api"
+	clientgoapi "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
@@ -79,7 +78,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -109,9 +107,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var sockFile string
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
-	var stop chan struct{}
-	var wg *sync.WaitGroup
-	var eventChan chan watch.Event
 
 	const migratableNetworkBindingPlugin = "mig_plug"
 	const host = "master"
@@ -124,10 +119,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	BeforeEach(func() {
 		diskutils.MockDefaultOwnershipManager()
 
-		wg = &sync.WaitGroup{}
-		stop = make(chan struct{})
-		eventChan = make(chan watch.Event, 100)
-		shareDir := GinkgoT().TempDir()
 		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 		DeferCleanup(os.RemoveAll, podsDir)
@@ -194,8 +185,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		fakeNodeStore := fakeNodeInformer.GetStore()
-		fakeBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
-		cbtHandler := NewCBTHandler(virtClient, fakeBackupTrackerInformer)
+		cbtHandler := NewCBTHandler()
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-handler-vm"))
 		controller, _ = NewVirtualMachineController(
 			mockQueue,
@@ -233,15 +223,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
 
-		wg.Add(1)
-
-		go func() {
-			err = notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
-			wg.Done()
-			Expect(err).ToNot(HaveOccurred())
-		}()
-		time.Sleep(1 * time.Second)
-
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		clientInfo := &virtcache.LauncherClientInfo{
 			Client:             client,
@@ -254,8 +235,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	AfterEach(func() {
-		close(stop)
-		wg.Wait()
 		var events []string
 		// Ensure that we add checks for expected events to every test
 		for len(recorder.Events) > 0 {
@@ -345,10 +324,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
-		BeforeEach(func() {
-			diskutils.MockDefaultOwnershipManager()
-		})
-
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			addDomain(domain)
@@ -371,7 +346,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not attempt graceful shutdown of Domain if domain is already down.", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
 
@@ -389,7 +364,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		DescribeTable("should not delete a Shutoff domain while the VMI is still Scheduled", func(reason api.StateChangeReason) {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -415,7 +390,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 
 		It("should delete a Shutoff domain once the Scheduled deferral window has expired", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -440,7 +415,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should delete a Shutoff domain using CreationTimestamp fallback when PhaseTransitionTimestamps are missing", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -460,7 +435,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should delete a Shutoff domain with a definitive Failed reason even while the VMI is still Scheduled", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -480,7 +455,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should delete a Shutoff domain when the VMI was previously Running", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
 
@@ -496,7 +471,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -512,7 +487,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should only emit one graceful shutdown event", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -566,9 +541,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should do nothing if vmi and domain do not match", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = "other uuid"
-			oldVMI := api2.NewMinimalVMI("testvmi")
+			oldVMI := clientgoapi.NewMinimalVMI("testvmi")
 			oldVMI.UID = vmiTestUUID
 			domain := api.NewMinimalDomainWithUUID("testvmi", oldVMI.UID)
 			domain.Status.Status = api.Running
@@ -719,7 +694,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should cleanup if vmi is finalized and domain does not exist", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Succeeded
 
@@ -733,7 +708,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should do final cleanup if vmi is being deleted and not finalized", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Scheduled
 			now := metav1.Time{Time: time.Now()}
@@ -763,10 +738,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should attempt force terminate Domain if grace period expires", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
+			domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 
 			initGracePeriodHelper(1, vmi, domain)
 			metav1.Now()
@@ -783,7 +759,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should immediately kill domain with grace period of 0", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 
 			initGracePeriodHelper(0, vmi, domain)
@@ -799,7 +775,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			var domain *api.Domain
 
 			BeforeEach(func() {
-				vmi = api2.NewMinimalVMI("testvmi")
+				vmi = clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				now := metav1.Now()
@@ -820,6 +796,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should force kill when grace period expired", func() {
+				domain.Status.Status = api.Paused
+				domain.Spec.Metadata.KubeVirt.SnapshotOverlay = &api.SnapshotOverlayMetadata{Phase: api.SnapshotOverlayCommitting}
 				initGracePeriodHelper(1, vmi, domain)
 				expired := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 				domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &expired
@@ -849,7 +827,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -873,7 +851,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should update the qemu machine type on the VMI status", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -908,7 +886,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should continue sync when hotplug mount returns ErrWaitingForHotplugMount", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -931,7 +909,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should emit HotplugFailed event when hotplug mount returns os.ErrNotExist", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -951,7 +929,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -984,7 +962,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should add guest agent condition when sees the channel connected", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -1038,7 +1016,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should maintain unsupported user agent condition when it's already set", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -1088,7 +1066,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should remove guest agent condition when there is no channel connected", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -1322,7 +1300,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			Expect(cmdclient.MarkSocketUnresponsive(sockFile)).To(Succeed())
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Scheduled
@@ -1342,7 +1320,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should move VirtualMachineInstance from Running to Failed if domain does not exist in cache", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
@@ -1372,7 +1350,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			newPanicVMI := func() *v1.VirtualMachineInstance {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.ObjectMeta.ResourceVersion = "1"
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
@@ -1463,7 +1441,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should move VirtualMachineInstance to Failed if configuring the networks on the virt-launcher fails with critical error", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -1485,7 +1463,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -1521,7 +1499,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should adjust an existing migration method if live migration condition previously existed", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -1611,12 +1589,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		Context("reacting to a VMI with hotplug", func() {
-			BeforeEach(func() {
-				controller.hotplugVolumeMounter = mockHotplugVolumeMounter
-			})
-
 			It("should not sync if hotplug disks not ready", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Scheduled
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1640,7 +1614,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should call mount if VMI is scheduled to run", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Scheduled
 				createVMI(vmi)
@@ -1652,8 +1626,42 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testutils.ExpectEvent(recorder, VMIDefined)
 			})
 
+			It("should set Synchronized=False when a disk is locked by another process", func() {
+				// A VMI that is scheduled so the controller tries to start it
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Scheduled
+				createVMI(vmi)
+
+				// Mount succeeds, but start fails later inside virt-launcher
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+				// SyncVirtualMachine is mocked, so return the launcher error that
+				// causes virt-handler to classify this as a disk write-lock failure.
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Return(
+					errors.New(`Failed to get "write" lock on /var/run/kubevirt-private/vmi-disks/disk0/disk.img`),
+				)
+
+				sanityExecute()
+
+				// sync() records this event.
+				testutils.ExpectEvent(recorder, v1.SyncFailed.String())
+
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(),
+					vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(updatedVMI.Status.Conditions).To(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal(v1.VirtualMachineInstanceSynchronized),
+						"Status":  Equal(k8sv1.ConditionFalse),
+						"Message": ContainSubstring("is locked by another process"),
+					}),
+				))
+			})
+
 			It("should call mount and unmount if VMI is running", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1669,7 +1677,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should call mount, fail if mount fails", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1684,7 +1692,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should call unmountAll from processVmCleanup", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1699,7 +1707,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Context("hotplug status events", func() {
 			It("should have hashotplug false without hotplugged volumes", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
@@ -1713,7 +1721,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should have hashotplug true with hotplugged volumes", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
@@ -1742,7 +1750,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			DescribeTable("should generate a mount event, when able to move to mount", func(currentPhase v1.VolumePhase) {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1776,7 +1784,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 
 			DescribeTable("should generate an unmount event, when able to move to unmount", func(currentPhase v1.VolumePhase) {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
@@ -1807,7 +1815,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 
 			DescribeTable("should not change phase when volume is mounted but not in spec", func(currentPhase v1.VolumePhase) {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				// Volume is NOT in spec (simulates RemoveVolume having been called)
@@ -1839,7 +1847,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 
 			DescribeTable("should generate an unmount event for cdrom when appropriate", func(source string) {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
@@ -1883,8 +1891,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Entry("When target is unset", ""),
 			)
 
+			DescribeTable("should keep checking a hotplug volume until it settles", func(addVolume func(*v1.VirtualMachineInstance, *v1.VolumeStatus), phase v1.VolumePhase, mounted, expectRefresh bool) {
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				volumeStatus := v1.VolumeStatus{
+					Name:          "test",
+					Phase:         phase,
+					HotplugVolume: &v1.HotplugVolumeStatus{AttachPodName: "testpod", AttachPodUID: "1234"},
+				}
+				addVolume(vmi, &volumeStatus)
+				specVolumes := sets.New[string]()
+				for _, volume := range vmi.Spec.Volumes {
+					specVolumes.Insert(volume.Name)
+				}
+				for _, volume := range vmi.Spec.UtilityVolumes {
+					specVolumes.Insert(volume.Name)
+				}
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(mounted, nil)
+
+				_, needsRefresh := controller.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumes)
+				Expect(needsRefresh).To(Equal(expectRefresh))
+			},
+				Entry("utility volume that is mounted", withUtilityVolume, v1.HotplugVolumeMounted, true, false),
+				Entry("utility volume that is still attaching", withUtilityVolume, v1.HotplugVolumeAttachedToNode, false, true),
+				Entry("memory dump volume while the dump runs", withMemoryDumpVolume, v1.MemoryDumpVolumeInProgress, true, false),
+				Entry("memory dump volume once the dump completed", withMemoryDumpVolume, v1.MemoryDumpVolumeCompleted, true, false),
+				Entry("memory dump volume removed from the spec", withMemoryDumpStatusOnly, v1.MemoryDumpVolumeCompleted, true, true),
+				Entry("disk volume that is mounted but not attached to the domain yet", withDiskVolume, v1.HotplugVolumeMounted, true, true),
+			)
+
 			It("Should generate a ready event when target is assigned", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1922,7 +1959,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("generateEventsForVolumeStatusChange should not modify arguments", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1952,7 +1989,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Context("memory dump status events", func() {
 			It("Should trigger memory dump and generate InProgress event once mounted", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1991,7 +2028,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("Should generate memory dump completed event once memory dump completed", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -2037,7 +2074,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("Should generate memory dump failed event if memory dump failed", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -2087,7 +2124,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should leave VirtualMachineInstance phase alone if not the current active node", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Status.NodeName = "othernode"
@@ -2103,7 +2140,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not try to migrate a vmi twice", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -2158,7 +2195,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should block migrate non-shared disks ", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2188,7 +2225,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should migrate shared disks without blockMigration flag", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2225,7 +2262,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should fail migration for non-shared PVCs", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2264,7 +2301,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should fail migration for non-shared data volume PVCs", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2303,7 +2340,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2358,7 +2395,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should be allowed to migrate a mix of non-shared and shared disks", func() {
 
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2413,7 +2450,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "myvolume",
@@ -2445,7 +2482,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should not be allowed to live-migrate shared and non-shared HostDisks ", func() {
 			_true := true
 			_false := false
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
@@ -2493,8 +2530,46 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
+		DescribeTable("with a filesystem", func(volume libvmi.Option, accessMode k8sv1.PersistentVolumeAccessMode, migrated, expectBlockMigrate bool, expectedErr string) {
+			statusOpts := []libvmistatus.Option{
+				libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+					Name: "disk0",
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+						VolumeMode:  new(k8sv1.PersistentVolumeFilesystem),
+					},
+				}),
+			}
+			if migrated {
+				statusOpts = append(statusOpts, libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{VolumeName: "disk0"}))
+			}
+			vmi := libvmi.New(volume, libvmistatus.WithStatus(libvmistatus.New(statusOpts...)))
+
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(Equal(expectBlockMigrate))
+			if expectedErr != "" {
+				Expect(err).To(MatchError(expectedErr))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("shared PVC should migrate without block migration",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteMany, false, false, ""),
+			Entry("non-shared PVC should not migrate",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteOnce, false, true,
+				"cannot migrate VMI: PVC claim is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"),
+			Entry("non-shared migrated PVC should block migrate",
+				libvmi.WithPersistentVolumeClaim("disk0", "claim"), k8sv1.ReadWriteOnce, true, true, ""),
+			Entry("shared DV should migrate without block migration",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteMany, false, false, ""),
+			Entry("non-shared DV should not migrate",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteOnce, false, true,
+				"cannot migrate VMI: PVC dv is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"),
+			Entry("non-shared migrated DV should block migrate",
+				libvmi.WithDataVolume("disk0", "dv"), k8sv1.ReadWriteOnce, true, true, ""),
+		)
 		DescribeTable("with host model", func(hostCpuModel string) {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 			controller.hostCpuModel = hostCpuModel
@@ -2514,6 +2589,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Context("Filesystem Devices", func() {
 			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
+
+			It("should not be allowed to live-migrate while the disks are on snapshot overlays", func() {
+				vmi := libvmi.New()
+				vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+					Status: k8sv1.ConditionTrue,
+					Reason: v1.VirtualMachineInstanceReasonOverlaysReady,
+				})
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSnapshotOverlaysNotMigratable))
+			})
 
 			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
 				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
@@ -2566,7 +2655,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 
 			DescribeTable("sharing with virtiofs a", func(configVolume libvmi.Option) {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				configVolume(vmi)
 
 				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
@@ -2583,7 +2672,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not be allowed to live-migrate if the VMI has non-migratable interface", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 
 			strategy := v1.EvictionStrategyLiveMigrate
 			vmi.Spec.EvictionStrategy = &strategy
@@ -2609,7 +2698,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should not be allowed to live-migrate if the VMI uses PCI host device", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 					{
 						Name:       "name1",
@@ -2640,7 +2729,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 
 				It("should respect the vgpu live migration feature gate", func() {
-					vmi := api2.NewMinimalVMI("testvmi")
+					vmi := clientgoapi.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 						{
 							Name:       "m10",
@@ -2670,11 +2759,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
-					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.VGPULiveMigration + " is not enabled"))
+					Expect(condition.Message).To(Equal("VMI specifies a GPU but feature gate " + featuregate.MDevVGPULiveMigration + " is not enabled"))
 
 					config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: permittedHostDevs,
 					})
@@ -2687,7 +2776,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 
 				It("should not be allowed to live-migrate if the VMI uses generic PCI Host Device", func() {
-					vmi := api2.NewMinimalVMI("testvmi")
+					vmi := clientgoapi.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 						{
 							Name:       "nic1",
@@ -2697,7 +2786,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2720,7 +2809,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 
 				It("should not be allowed to live-migrate if the VMI uses passthrough PCI GPU", func() {
-					vmi := api2.NewMinimalVMI("testvmi")
+					vmi := clientgoapi.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 						{
 							Name:       "m10",
@@ -2730,7 +2819,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 						PermittedHostDevices: &v1.PermittedHostDevices{
 							PciHostDevices: []v1.PciHostDevice{
@@ -2753,7 +2842,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 
 				It("should not be allowed to live-migrate if the VMI uses multiple vGPUs", func() {
-					vmi := api2.NewMinimalVMI("testvmi")
+					vmi := clientgoapi.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 						{
 							Name:       "name1",
@@ -2767,7 +2856,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.VGPULiveMigration},
+							FeatureGates: []string{featuregate.MDevVGPULiveMigration},
 						},
 					})
 					controller.clusterConfig = config
@@ -2783,7 +2872,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not be allowed to live-migrate if the VMI uses SEV", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				SEV: &v1.SEV{},
 			}
@@ -2796,7 +2885,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not be allowed to live-migrate if the VMI uses Secure Execution", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 			vmi.Spec.Architecture = "s390x"
 
@@ -2807,8 +2896,74 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable))
 		})
 
+		enableCPUDRAGate := func() {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				},
+			})
+			controller.clusterConfig = config
+		}
+
+		It("should not be allowed to live-migrate if the VMI takes its CPUs from DRA", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+			enableCPUDRAGate()
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonCPUDRANotMigratable))
+
+			storageCondition := controller.calculateLiveStorageMigrationCondition(vmi)
+			Expect(storageCondition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(storageCondition.Message).To(ContainSubstring(cpuDRANotMigratableMessage))
+		})
+
+		It("should be allowed to live-migrate a dedicated CPU VMI while the CPU DRA gate is off", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, DedicatedCPUPlacement: true}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(controller.calculateLiveStorageMigrationCondition(vmi).Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
+		It("should be allowed to live-migrate a shared CPU VMI while the CPU DRA gate is on", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2}
+			enableCPUDRAGate()
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(controller.calculateLiveStorageMigrationCondition(vmi).Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
+		It("should be allowed to live-migrate a NUMA passthrough VMI that predates the CPU DRA gate", func() {
+			// virt-api rejects this combination while the gate is on, so it only arises for a VMI
+			// created before the gate was turned on. CPUsFromDRA excludes NUMA
+			// passthrough, so such a VMI keeps kubelet pinning its CPUs and CPU DRA must not block
+			// its migration.
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+				NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
+			}
+			enableCPUDRAGate()
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(controller.calculateLiveStorageMigrationCondition(vmi).Status).To(Equal(k8sv1.ConditionTrue))
+		})
+
 		It("should not be allowed to live-migrate if the VMI uses TDX", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 				TDX: &v1.TDX{},
 			}
@@ -2821,7 +2976,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
@@ -2840,7 +2995,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not be allowed to storage-migrate if the VMI uses SCSI persistent reservation", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
@@ -2859,9 +3014,69 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Message).To(ContainSubstring("SCSI persistent reservation"))
 		})
 
+		Context("with a declarative VirtualMachineState", func() {
+			vmiWithVMState := func(template *k8sv1.PersistentVolumeClaimTemplate, accessModes ...k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachineInstance {
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
+				vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{
+					Source:              &v1.VirtualMachineStateSource{Name: "vmstate-pvc"},
+					VolumeClaimTemplate: template,
+				}
+				if len(accessModes) > 0 {
+					vmi.Status.VirtualMachineStateVolume = &v1.VolumeStatus{
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{AccessModes: accessModes},
+					}
+				}
+				return vmi
+			}
+
+			It("should not be allowed to live-migrate an RWO VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteOnce)
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable))
+			})
+
+			It("should not be allowed to live-migrate while the VirtualMachineState access mode is unknown", func() {
+				vmi := vmiWithVMState(nil)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtualMachineStateNotMigratable))
+			})
+
+			It("should be allowed to live-migrate a RWX VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteMany)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			It("should be allowed to live-migrate an RWO VirtualMachineState PVC backed by a volumeClaimTemplate", func() {
+				vmi := vmiWithVMState(&k8sv1.PersistentVolumeClaimTemplate{}, k8sv1.ReadWriteOnce)
+
+				condition, _ := controller.calculateLiveMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			It("should not be allowed to storage-migrate an RWO VirtualMachineState PVC referenced through source only", func() {
+				vmi := vmiWithVMState(nil, k8sv1.ReadWriteOnce)
+
+				condition := controller.calculateLiveStorageMigrationCondition(vmi)
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				Expect(condition.Message).To(ContainSubstring("VirtualMachineState"))
+			})
+		})
+
 		Context("with network configuration", func() {
 			It("should block migration for bridge binding assigned to the pod network", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 
 				vmi.Spec.Networks = []v1.Network{
 					{
@@ -2883,7 +3098,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should not block migration for masquerade binding assigned to the pod network", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 
 				vmi.Spec.Networks = []v1.Network{
 					{
@@ -2905,7 +3120,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should not block migration for bridge binding assigned to a multus network", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				interfaceName := "interfaceName"
 
 				vmi.Spec.Networks = []v1.Network{
@@ -2942,7 +3157,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			DescribeTable("using", func(disk v1.Disk, volume v1.Volume, migrationMethod v1.VirtualMachineInstanceMigrationMethod) {
 				migrationMethodExpected := fmt.Sprintf("Migration method is expected to be %s", migrationMethod)
 
-				vmi := api2.NewMinimalVMI("testvmi")
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{disk}
 				vmi.Spec.Volumes = []v1.Volume{volume}
 
@@ -2964,7 +3179,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("HyperV reenlightenment shouldn't be migratable when tsc frequency is missing", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)}}}
 			vmi.Status.TopologyHints = nil
 
@@ -2975,7 +3190,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("HyperV passthrough shouldn't be migratable", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
@@ -2986,7 +3201,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("VMI with utility volumes should remain migratable", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
 					Name: "test-utility-volume",
@@ -3012,7 +3227,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		BeforeEach(func() {
 			const vmiName = "testvmi"
-			vmi = api2.NewMinimalVMI(vmiName)
+			vmi = clientgoapi.NewMinimalVMI(vmiName)
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -3049,7 +3264,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	Context("VirtualMachineInstance controller gets informed about changes in a Domain", func() {
 		It("should update Guest OS Information in VMI status", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -3099,7 +3314,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should update Guest FSFreeze Status in VMI status if fs frozen", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -3121,7 +3336,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should not show Guest FSFreeze Status in VMI status if fs not frozen", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
@@ -3144,7 +3359,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update Memory information in VMI status", func() {
 			initialMemory := resource.MustParse("128Ki")
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -3176,7 +3391,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	Context("VirtualMachineInstance controller gets informed about disk information", func() {
 		It("should update existing volume status with target", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
@@ -3264,200 +3479,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				),
 			))
 		})
-	})
-
-	Context("Guest Agent Compatibility", func() {
-		var vmi *v1.VirtualMachineInstance
-		var vmiWithPassword *v1.VirtualMachineInstance
-		var vmiWithSSH *v1.VirtualMachineInstance
-		var basicCommands []v1.GuestAgentCommandInfo
-		var sshCommands []v1.GuestAgentCommandInfo
-		var oldSshCommands []v1.GuestAgentCommandInfo
-		var passwordCommands []v1.GuestAgentCommandInfo
-		const agentSupported = "This guest agent is supported"
-
-		BeforeEach(func() {
-			vmi = &v1.VirtualMachineInstance{}
-			vmiWithPassword = &v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{
-					AccessCredentials: []v1.AccessCredential{
-						{
-							UserPassword: &v1.UserPasswordAccessCredential{
-								PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-									QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
-								},
-							},
-						},
-					},
-				},
-			}
-			vmiWithSSH = &v1.VirtualMachineInstance{
-				Spec: v1.VirtualMachineInstanceSpec{
-					AccessCredentials: []v1.AccessCredential{
-						{
-							SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
-								PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
-									QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
-								},
-							},
-						},
-					},
-				},
-			}
-
-			basicCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range requiredGuestAgentCommands {
-				basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			sshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range sshRelatedGuestAgentCommands {
-				sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			oldSshCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range oldSSHRelatedGuestAgentCommands {
-				oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-
-			passwordCommands = []v1.GuestAgentCommandInfo{}
-			for _, cmdName := range passwordRelatedGuestAgentCommands {
-				passwordCommands = append(passwordCommands, v1.GuestAgentCommandInfo{
-					Name:    cmdName,
-					Enabled: true,
-				})
-			}
-		})
-
-		It("should succeed with empty VMI and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmi, basicCommands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should succeed with empty VMI and all commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, sshCommands...)
-			commands = append(commands, passwordCommands...)
-
-			result, reason := isGuestAgentSupported(vmi, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should fail with password and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmiWithPassword, basicCommands)
-			Expect(result).To(BeFalse())
-			Expect(reason).To(Equal("This guest agent doesn't support required password commands"))
-		})
-
-		It("should succeed with password and required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, passwordCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithPassword, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should fail with SSH and basic commands", func() {
-			result, reason := isGuestAgentSupported(vmiWithSSH, basicCommands)
-			Expect(result).To(BeFalse())
-			Expect(reason).To(Equal("This guest agent doesn't support required public key commands"))
-		})
-
-		It("should succeed with SSH and required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, sshCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-
-		It("should succeed with SSH and old required commands", func() {
-			var commands []v1.GuestAgentCommandInfo
-			commands = append(commands, basicCommands...)
-			commands = append(commands, oldSshCommands...)
-
-			result, reason := isGuestAgentSupported(vmiWithSSH, commands)
-			Expect(result).To(BeTrue())
-			Expect(reason).To(Equal(agentSupported))
-		})
-	})
-
-	Context("claimDeviceOwnership", func() {
-		var path string
-		BeforeEach(func() {
-			path = GinkgoT().TempDir()
-		})
-
-		Context("with a generic device", func() {
-			const device = "device"
-			BeforeEach(func() {
-				Expect(os.Mkdir(filepath.Join(path, "dev"), 0o755)).To(Succeed())
-				f, err := os.Create(filepath.Join(path, "dev", device))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(f.Close()).To(Succeed())
-			})
-
-			It("should succeed", func() {
-				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(controller.claimDeviceOwnership(p, device)).To(Succeed())
-			})
-
-			DescribeTable("should return an error if the device doesn't exist", func(softEmulation bool) {
-				kv := &v1.KubeVirtConfiguration{
-					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						UseEmulation: softEmulation,
-					},
-				}
-				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
-				controller.clusterConfig = config
-
-				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(controller.claimDeviceOwnership(p, "noexist")).To(HaveOccurred())
-			},
-				Entry("with software emulation enabled", true),
-				Entry("with software emulation disable", false),
-			)
-		})
-
-		DescribeTable("iwith kvm device not existing should", func(softEmulation bool) {
-			kv := &v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					UseEmulation: softEmulation,
-				},
-			}
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
-			controller.clusterConfig = config
-
-			p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-			Expect(err).ToNot(HaveOccurred())
-			err = controller.claimDeviceOwnership(p, "kvm")
-			if softEmulation {
-				Expect(err).NotTo(HaveOccurred())
-			} else {
-				Expect(err).To(HaveOccurred())
-			}
-		},
-			Entry("failed with software emulation enabled", true),
-			Entry("succeed with software emulation disable", false),
-		)
 	})
 
 	Context("on post-copy migration failure", func() {
@@ -3654,208 +3675,200 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
-	Context("updateBackupStatus", func() {
-		startTime := metav1.Now()
-		endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
+	Context("launcher client verification in sync", func() {
+		It("should set domainAlive to false when GetVerifiedLauncherClient fails", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+			)
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
 
-		DescribeTable("should not update when",
-			func(cbtStatus *v1.ChangedBlockTrackingStatus) {
-				vmi := api2.NewMinimalVMI("testvmi")
-				vmi.UID = vmiTestUUID
-				vmi.Status.ChangedBlockTracking = cbtStatus
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
 
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
-					Name:      "test-backup",
-					Completed: true,
-				}
+			// Create a new launcher client manager that returns an error
+			launcherClientManager := &launcherclients.MockLauncherClientManager{
+				Client:           nil, // Setting to nil will cause GetVerifiedLauncherClient to return an error
+				Initialized:      true,
+				IrrecoverableErr: true, // Make the error irrecoverable
+			}
+			controller.launcherClients = launcherClientManager
 
-				controller.updateBackupStatus(vmi, domain)
-				Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
+			addVMI(vmi, domain)
+
+			// The sync function should handle the error from GetVerifiedLauncherClient
+			// and set domainAlive to false, which causes the domain to be treated as non-existent
+			// This should result in attempting to kill the virtual machine
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			// domainAlive was set to false, triggering deleteVM which removes the domain from the store
+			Expect(controller.domainStore.List()).To(BeEmpty())
+		})
+
+		It("should proceed normally when GetVerifiedLauncherClient succeeds", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+			)
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			// Create a launcher client manager with a valid client
+			launcherClientManager := &launcherclients.MockLauncherClientManager{
+				Client:      client,
+				Initialized: true,
+			}
+			controller.launcherClients = launcherClientManager
+
+			addVMI(vmi, domain)
+
+			// When the launcher client is verified successfully, normal sync should proceed
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+		})
+	})
+})
+
+var _ = Describe("isGuestAgentSupported", func() {
+	var vmi *v1.VirtualMachineInstance
+	var vmiWithPassword *v1.VirtualMachineInstance
+	var vmiWithSSH *v1.VirtualMachineInstance
+	var basicCommands []v1.GuestAgentCommandInfo
+	var sshCommands []v1.GuestAgentCommandInfo
+	var oldSshCommands []v1.GuestAgentCommandInfo
+	var passwordCommands []v1.GuestAgentCommandInfo
+	const agentSupported = "This guest agent is supported"
+
+	BeforeEach(func() {
+		vmi = &v1.VirtualMachineInstance{}
+		vmiWithPassword = &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				AccessCredentials: []v1.AccessCredential{
+					{
+						UserPassword: &v1.UserPasswordAccessCredential{
+							PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+								QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+							},
+						},
+					},
+				},
 			},
-			Entry("VMI ChangedBlockTracking is nil", nil),
-			Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
-		)
-
-		DescribeTable("should",
-			func(vmiBackupStatus *v1.VirtualMachineInstanceBackupStatus, domainBackupMetadata *api.BackupMetadata, expectUpdate bool) {
-				vmi := api2.NewMinimalVMI("testvmi")
-				vmi.UID = vmiTestUUID
-				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
-					State: v1.ChangedBlockTrackingEnabled,
-				}
-				vmi.Status.ChangedBlockTracking.BackupStatus = vmiBackupStatus
-
-				backupMsg := "backup completed successfully"
-				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-				domain.Spec.Metadata.KubeVirt.Backup = domainBackupMetadata
-
-				controller.updateBackupStatus(vmi, domain)
-
-				if expectUpdate {
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(domainBackupMetadata.EndTimestamp))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(domainBackupMetadata.CheckpointName))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
-					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(domainBackupMetadata.BackupMsg))
-				} else {
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
-					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(BeNil())
-				}
+		}
+		vmiWithSSH = &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				AccessCredentials: []v1.AccessCredential{
+					{
+						SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+							PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+								QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+							},
+						},
+					},
+				},
 			},
-			Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "new-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "old-backup",
-					StartTimestamp: &startTime,
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, false,
-			),
-			Entry("not update backupStatus when backupStatus StartTimestamp and backupMetadata StartTimestamp do not match (race condition)",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "test-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "test-backup",
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, false,
-			),
-			Entry("update backupStatus when backupStatus name and backupMetadata name match",
-				&v1.VirtualMachineInstanceBackupStatus{
-					BackupName:     "test-backup",
-					StartTimestamp: &startTime,
-				}, &api.BackupMetadata{
-					Name:           "test-backup",
-					StartTimestamp: &startTime,
-					EndTimestamp:   &endTime,
-					CheckpointName: "test-checkpoint",
-					BackupMsg:      "backup completed successfully",
-					Completed:      true,
-					Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
-				}, true,
-			),
-		)
+		}
+
+		basicCommands = []v1.GuestAgentCommandInfo{}
+		for _, cmdName := range requiredGuestAgentCommands {
+			basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
+				Name:    cmdName,
+				Enabled: true,
+			})
+		}
+
+		sshCommands = []v1.GuestAgentCommandInfo{}
+		for _, cmdName := range sshRelatedGuestAgentCommands {
+			sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
+				Name:    cmdName,
+				Enabled: true,
+			})
+		}
+
+		oldSshCommands = []v1.GuestAgentCommandInfo{}
+		for _, cmdName := range oldSSHRelatedGuestAgentCommands {
+			oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
+				Name:    cmdName,
+				Enabled: true,
+			})
+		}
+
+		passwordCommands = []v1.GuestAgentCommandInfo{}
+		for _, cmdName := range passwordRelatedGuestAgentCommands {
+			passwordCommands = append(passwordCommands, v1.GuestAgentCommandInfo{
+				Name:    cmdName,
+				Enabled: true,
+			})
+		}
 	})
 
-	Context("updateSoftwareEmulationCondition", func() {
-		It("should be a no-op when the feature gate is disabled", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = "arm64"
-			domain := &api.Domain{}
-			domain.Spec.Type = "qemu"
-			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+	It("should succeed with empty VMI and basic commands", func() {
+		result, reason := isGuestAgentSupported(vmi, basicCommands)
+		Expect(result).To(BeTrue())
+		Expect(reason).To(Equal(agentSupported))
+	})
 
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
-		})
+	It("should succeed with empty VMI and all commands", func() {
+		var commands []v1.GuestAgentCommandInfo
+		commands = append(commands, basicCommands...)
+		commands = append(commands, sshCommands...)
+		commands = append(commands, passwordCommands...)
 
-		It("should not set the condition when the guest architecture matches the host", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
-				},
-			})
-			controller.clusterConfig = config
+		result, reason := isGuestAgentSupported(vmi, commands)
+		Expect(result).To(BeTrue())
+		Expect(reason).To(Equal(agentSupported))
+	})
 
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = runtime.GOARCH
-			domain := &api.Domain{}
-			domain.Spec.Type = "kvm"
-			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+	It("should fail with password and basic commands", func() {
+		result, reason := isGuestAgentSupported(vmiWithPassword, basicCommands)
+		Expect(result).To(BeFalse())
+		Expect(reason).To(Equal("This guest agent doesn't support required password commands"))
+	})
 
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
-		})
+	It("should succeed with password and required commands", func() {
+		var commands []v1.GuestAgentCommandInfo
+		commands = append(commands, basicCommands...)
+		commands = append(commands, passwordCommands...)
 
-		It("should set the condition for cross-architecture emulation", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
-				},
-			})
-			controller.clusterConfig = config
+		result, reason := isGuestAgentSupported(vmiWithPassword, commands)
+		Expect(result).To(BeTrue())
+		Expect(reason).To(Equal(agentSupported))
+	})
 
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = "arm64"
-			if runtime.GOARCH == "arm64" {
-				vmi.Spec.Architecture = "amd64"
-			}
-			domain := &api.Domain{}
-			domain.Spec.Type = "qemu"
-			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+	It("should fail with SSH and basic commands", func() {
+		result, reason := isGuestAgentSupported(vmiWithSSH, basicCommands)
+		Expect(result).To(BeFalse())
+		Expect(reason).To(Equal("This guest agent doesn't support required public key commands"))
+	})
 
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeTrue())
-		})
+	It("should succeed with SSH and required commands", func() {
+		var commands []v1.GuestAgentCommandInfo
+		commands = append(commands, basicCommands...)
+		commands = append(commands, sshCommands...)
 
-		It("should not duplicate the condition if already present", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
-				},
-			})
-			controller.clusterConfig = config
+		result, reason := isGuestAgentSupported(vmiWithSSH, commands)
+		Expect(result).To(BeTrue())
+		Expect(reason).To(Equal(agentSupported))
+	})
 
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = "arm64"
-			if runtime.GOARCH == "arm64" {
-				vmi.Spec.Architecture = "amd64"
-			}
-			domain := &api.Domain{}
-			domain.Spec.Type = "qemu"
-			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+	It("should succeed with SSH and old required commands", func() {
+		var commands []v1.GuestAgentCommandInfo
+		commands = append(commands, basicCommands...)
+		commands = append(commands, oldSshCommands...)
 
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-
-			count := 0
-			for _, c := range vmi.Status.Conditions {
-				if c.Type == v1.VirtualMachineInstanceSoftwareEmulation {
-					count++
-				}
-			}
-			Expect(count).To(Equal(1))
-		})
-
-		It("should remove the condition when no longer cross-arch", func() {
-			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
-				},
-			})
-			controller.clusterConfig = config
-
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = runtime.GOARCH
-			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-				Type:   v1.VirtualMachineInstanceSoftwareEmulation,
-				Status: k8sv1.ConditionTrue,
-			})
-			domain := &api.Domain{}
-			domain.Spec.Type = "kvm"
-			condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
-
-			controller.updateSoftwareEmulationCondition(vmi, domain, condManager)
-			Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
-		})
+		result, reason := isGuestAgentSupported(vmiWithSSH, commands)
+		Expect(result).To(BeTrue())
+		Expect(reason).To(Equal(agentSupported))
 	})
 })
 
@@ -3879,6 +3892,205 @@ var _ = Describe("CurrentMemory in Libvirt Domain", func() {
 		Entry("Gi (G)", &api.Memory{Value: 512, Unit: "G"}, resource.MustParse("512Gi")),
 		Entry("Ti (T)", &api.Memory{Value: 512, Unit: "T"}, resource.MustParse("512Ti")),
 	)
+})
+
+var _ = Describe("updateBackupStatus", func() {
+	var vmiTestUUID types.UID
+
+	BeforeEach(func() {
+		vmiTestUUID = uuid.NewUUID()
+	})
+
+	startTime := metav1.Now()
+	endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
+
+	DescribeTable("should not update when",
+		func(cbtStatus *v1.ChangedBlockTrackingStatus) {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.ChangedBlockTracking = cbtStatus
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+				Name:      "test-backup",
+				Completed: true,
+			}
+
+			updateBackupStatus(vmi, domain)
+			Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
+		},
+		Entry("VMI ChangedBlockTracking is nil", nil),
+		Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
+	)
+
+	DescribeTable("should",
+		func(vmiBackupStatus *v1.VirtualMachineInstanceBackupStatus, domainBackupMetadata *api.BackupMetadata, expectUpdate bool) {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				State: v1.ChangedBlockTrackingEnabled,
+			}
+			vmi.Status.ChangedBlockTracking.BackupStatus = vmiBackupStatus
+
+			backupMsg := "backup completed successfully"
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Spec.Metadata.KubeVirt.Backup = domainBackupMetadata
+
+			updateBackupStatus(vmi, domain)
+
+			if expectUpdate {
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(domainBackupMetadata.EndTimestamp))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(domainBackupMetadata.CheckpointName))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
+				Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(domainBackupMetadata.BackupMsg))
+			} else {
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(BeNil())
+			}
+		},
+		Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "new-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "old-backup",
+				StartTimestamp: &startTime,
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, false,
+		),
+		Entry("not update backupStatus when backupStatus StartTimestamp and backupMetadata StartTimestamp do not match (race condition)",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "test-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "test-backup",
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, false,
+		),
+		Entry("update backupStatus when backupStatus name and backupMetadata name match",
+			&v1.VirtualMachineInstanceBackupStatus{
+				BackupName:     "test-backup",
+				StartTimestamp: &startTime,
+			}, &api.BackupMetadata{
+				Name:           "test-backup",
+				StartTimestamp: &startTime,
+				EndTimestamp:   &endTime,
+				CheckpointName: "test-checkpoint",
+				BackupMsg:      "backup completed successfully",
+				Completed:      true,
+				Volumes:        `[{"volumeName":"rootdisk"},{"volumeName":"datadisk"}]`,
+			}, true,
+		),
+	)
+})
+
+var _ = Describe("updateSoftwareEmulationCondition", func() {
+
+	var configWithCrossPlatformFG *virtconfig.ClusterConfig
+
+	BeforeEach(func() {
+		configWithCrossPlatformFG, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.CrossArchitectureVirtualization},
+			},
+		})
+	})
+
+	It("should be a no-op when the feature gate is disabled", func() {
+		configWithoutCrossPlatformFG, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{},
+			},
+		})
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.Spec.Architecture = "arm64"
+		domain := &api.Domain{}
+		domain.Spec.Type = "qemu"
+		condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+		updateSoftwareEmulationCondition(configWithoutCrossPlatformFG, vmi, domain)
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+	})
+
+	It("should not set the condition when the guest architecture matches the host", func() {
+
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.Spec.Architecture = runtime.GOARCH
+		domain := &api.Domain{}
+		domain.Spec.Type = "kvm"
+		condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+		updateSoftwareEmulationCondition(configWithCrossPlatformFG, vmi, domain)
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+	})
+
+	It("should set the condition for cross-architecture emulation", func() {
+
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.Spec.Architecture = "arm64"
+		if runtime.GOARCH == "arm64" {
+			vmi.Spec.Architecture = "amd64"
+		}
+		domain := &api.Domain{}
+		domain.Spec.Type = "qemu"
+		condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+		updateSoftwareEmulationCondition(configWithCrossPlatformFG, vmi, domain)
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeTrue())
+	})
+
+	It("should not duplicate the condition if already present", func() {
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.Spec.Architecture = "arm64"
+		if runtime.GOARCH == "arm64" {
+			vmi.Spec.Architecture = "amd64"
+		}
+		domain := &api.Domain{}
+		domain.Spec.Type = "qemu"
+
+		updateSoftwareEmulationCondition(configWithCrossPlatformFG, vmi, domain)
+		updateSoftwareEmulationCondition(configWithCrossPlatformFG, vmi, domain)
+
+		count := 0
+		for _, c := range vmi.Status.Conditions {
+			if c.Type == v1.VirtualMachineInstanceSoftwareEmulation {
+				count++
+			}
+		}
+		Expect(count).To(Equal(1))
+	})
+
+	It("should remove the condition when no longer cross-arch", func() {
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		vmi.Spec.Architecture = runtime.GOARCH
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceSoftwareEmulation,
+			Status: k8sv1.ConditionTrue,
+		})
+		domain := &api.Domain{}
+		domain.Spec.Type = "kvm"
+		condManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+		updateSoftwareEmulationCondition(configWithCrossPlatformFG, vmi, domain)
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceSoftwareEmulation)).To(BeFalse())
+	})
 })
 
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
@@ -3905,7 +4117,7 @@ func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostna
 	return vmi
 }
 func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMI("testvmi")
+	vmi := clientgoapi.NewMinimalVMI("testvmi")
 	vmi.UID = vmiUID
 	vmi.ObjectMeta.ResourceVersion = "1"
 	vmi.Status.Phase = v1.Scheduled
@@ -3915,7 +4127,7 @@ func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.Vi
 }
 
 func NewRunningVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMI("testvmi")
+	vmi := clientgoapi.NewMinimalVMI("testvmi")
 	vmi.UID = vmiUID
 	vmi.ObjectMeta.ResourceVersion = "1"
 	vmi.Status.Phase = v1.Running
@@ -3998,40 +4210,71 @@ func withFilesystemDevice(deviceName string) libvmi.Option {
 }
 
 var _ = Describe("detectDiskWriteLockError", func() {
-	var controller *VirtualMachineController
 	const expectedSubstr = "a disk image is locked by another process"
 
-	BeforeEach(func() {
-		controller = &VirtualMachineController{
-			vmiGlobalStore: cache.NewStore(cache.MetaNamespaceKeyFunc),
-		}
-	})
-
 	It("should not match an empty error", func() {
-		vmi := api2.NewMinimalVMI("testvmi")
-		_, ok := controller.detectDiskWriteLockError(fmt.Errorf(""), vmi)
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		_, ok := detectDiskWriteLockError(fmt.Errorf(""), vmi)
 		Expect(ok).To(BeFalse())
 	})
 
 	It("should not match an unrelated error", func() {
-		vmi := api2.NewMinimalVMI("testvmi")
-		_, ok := controller.detectDiskWriteLockError(fmt.Errorf("some other error"), vmi)
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		_, ok := detectDiskWriteLockError(fmt.Errorf("some other error"), vmi)
 		Expect(ok).To(BeFalse())
 	})
 
 	It("should return a generic message when there is a write lock", func() {
 		err := fmt.Errorf(`Failed to get "write" lock on /some/unknown/path`)
-		vmi := api2.NewMinimalVMI("testvmi")
-		msg, ok := controller.detectDiskWriteLockError(err, vmi)
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		msg, ok := detectDiskWriteLockError(err, vmi)
 		Expect(ok).To(BeTrue())
 		Expect(msg).To(ContainSubstring(expectedSubstr))
 	})
 
 	It("should return a generic message when another process is using the image", func() {
 		err := fmt.Errorf("Is another process using the image")
-		vmi := api2.NewMinimalVMI("testvmi")
-		msg, ok := controller.detectDiskWriteLockError(err, vmi)
+		vmi := clientgoapi.NewMinimalVMI("testvmi")
+		msg, ok := detectDiskWriteLockError(err, vmi)
 		Expect(ok).To(BeTrue())
 		Expect(msg).To(ContainSubstring(expectedSubstr))
 	})
 })
+
+func withUtilityVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
+	vmi.Spec.UtilityVolumes = append(vmi.Spec.UtilityVolumes, v1.UtilityVolume{
+		Name:                              volumeStatus.Name,
+		PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
+	})
+}
+
+func withMemoryDumpVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeStatus.Name,
+		VolumeSource: v1.VolumeSource{
+			MemoryDump: &v1.MemoryDumpVolumeSource{
+				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
+					Hotpluggable:                      true,
+				},
+			},
+		},
+	})
+	withMemoryDumpStatusOnly(vmi, volumeStatus)
+}
+
+func withMemoryDumpStatusOnly(_ *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
+	volumeStatus.MemoryDumpVolume = &v1.DomainMemoryDumpInfo{ClaimName: volumeStatus.Name}
+}
+
+func withDiskVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeStatus.Name,
+		VolumeSource: v1.VolumeSource{
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
+				Hotpluggable:                      true,
+			},
+		},
+	})
+}

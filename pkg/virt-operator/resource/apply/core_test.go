@@ -25,7 +25,9 @@ import (
 	"encoding/json"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	fakestrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -51,6 +54,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -395,6 +399,39 @@ var _ = Describe("Apply", func() {
 			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, externalCACerts, duration, requiredCM)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
+		})
+	})
+
+	Context("certificate secrets", func() {
+		It("should apply an install strategy that still carries the removed backup CA secret", func() {
+			const operatorNamespace = "opNamespace"
+			coreclientset := fake.NewSimpleClientset()
+			stores := util.Stores{SecretCache: cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)}
+			expectations := &util.Expectations{
+				Secrets: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secrets")),
+			}
+			caKeyPair, err := triple.NewCA("kubevirt.io", time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			caCert := &tls.Certificate{Leaf: caKeyPair.Cert, PrivateKey: caKeyPair.Key}
+
+			backupCASecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-backup-ca", Namespace: operatorNamespace}}
+			apiSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: components.VirtApiCertSecretName, Namespace: operatorNamespace}}
+
+			r := &Reconciler{
+				kv:             &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: operatorNamespace}},
+				targetStrategy: &fakestrategy.FakeStrategy{FakeCertificateSecrets: []*corev1.Secret{backupCASecret, apiSecret}},
+				stores:         stores,
+				k8sClient:      coreclientset,
+				expectations:   expectations,
+			}
+
+			queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
+			duration := &metav1.Duration{Duration: time.Hour}
+			Expect(r.createOrUpdateCertificateSecrets(queue, caCert, duration, duration, duration)).To(Succeed())
+
+			secrets, err := coreclientset.CoreV1().Secrets(operatorNamespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(secrets.Items).To(ConsistOf(HaveField("Name", components.VirtApiCertSecretName)))
 		})
 	})
 
@@ -881,6 +918,9 @@ var _ = Describe("Apply", func() {
 			stores = util.Stores{}
 			stores.ConfigMapCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			stores.InstallStrategyConfigMapCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+			stores.SynchronizationServiceCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+			stores.SynchronizationIngressCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
+			stores.SynchronizationRouteCache = cache.NewStore(cache.MetaNamespaceKeyFunc)
 
 			expectations := &util.Expectations{}
 			kv = &v1.KubeVirt{
@@ -910,6 +950,7 @@ var _ = Describe("Apply", func() {
 				virtClient:   kubevirtClient,
 				k8sClient:    clientset,
 				expectations: expectations,
+				recorder:     record.NewFakeRecorder(100),
 			}
 		})
 		createLease := func(holder string) *coordinationv1.Lease {
@@ -1188,6 +1229,630 @@ var _ = Describe("Apply", func() {
 			err = reconciler.updateSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"10.244.0.1:9185"}))
+		})
+
+		Context("synchronization endpoint discovery via labeled resources", func() {
+			enableProxyWithoutCrossCluster := func() {
+				datapath := v1.DecentralizedLiveMigrationDatapathProxy
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+					featuregate.DecentralizedLiveMigration,
+					featuregate.CrossClusterMigrationProxy,
+				}
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
+					DecentralizedLiveMigrationDatapath: &datapath,
+				}
+			}
+
+			createLeaseAndPod := func() {
+				lease := createLease(synchronizationControllerPodName)
+				_, err := clientset.CoordinationV1().Leases(kubevirtNamespace).Create(context.Background(), lease, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				pod := &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      synchronizationControllerPodName,
+						Namespace: kubevirtNamespace,
+					},
+					Status: corev1.PodStatus{
+						PodIPs: []corev1.PodIP{{IP: "10.244.0.1"}},
+					},
+				}
+				_, err = clientset.CoreV1().Pods(kubevirtNamespace).Create(context.Background(), pod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			synchronizationEndpointCondition := func(kv *v1.KubeVirt) *v1.KubeVirtCondition {
+				for i := range kv.Status.Conditions {
+					if kv.Status.Conditions[i].Type == v1.KubeVirtConditionSynchronizationEndpoint {
+						return &kv.Status.Conditions[i]
+					}
+				}
+				return nil
+			}
+
+			It("should advertise Route host when labeled Route exists", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{
+						Host: "cluster-a.example.com",
+					},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "cluster-a.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{Type: routev1.RouteAdmitted, Status: corev1.ConditionTrue},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"cluster-a.example.com:443"}))
+				cond := synchronizationEndpointCondition(kv)
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(corev1.ConditionTrue))
+				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointFound))
+			})
+
+			It("should advertise Ingress host when labeled Ingress exists", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{
+							{Host: "cluster-b.example.com"},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"cluster-b.example.com:443"}))
+			})
+
+			It("should advertise Ingress LoadBalancer hostname when rules have no host", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{}},
+					},
+					Status: networkingv1.IngressStatus{
+						LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+							Ingress: []networkingv1.IngressLoadBalancerIngress{
+								{Hostname: "lb.example.com"},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"lb.example.com:443"}))
+			})
+
+			It("should advertise Service DNS name when labeled Service exists", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Port: 9185, Protocol: corev1.ProtocolTCP},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:9185"}))
+			})
+
+			It("should prefer LoadBalancer hostname over Service DNS name", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Port: 9185, Protocol: corev1.ProtocolTCP},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{Hostname: "sync-lb.example.com"},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"sync-lb.example.com:9185"}))
+			})
+
+			It("should prefer LoadBalancer IP when hostname is empty", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Port: 9185, Protocol: corev1.ProtocolTCP},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "203.0.113.10"},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"203.0.113.10:9185"}))
+			})
+
+			It("should prefer the Service port named grpc when multiple ports exist", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{Name: "metrics", Port: 8443, Protocol: corev1.ProtocolTCP},
+							{Name: "grpc", Port: 9185, Protocol: corev1.ProtocolTCP},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:9185"}))
+			})
+
+			It("should prefer Route over Ingress", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "route-host.example.com"},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "route-host.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{Type: routev1.RouteAdmitted, Status: corev1.ConditionTrue},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{Host: "ingress-host.example.com"}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"route-host.example.com:443"}))
+			})
+
+			It("should prefer Ingress over Service", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{Host: "ingress-host.example.com"}},
+					},
+				})).To(Succeed())
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 9185}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"ingress-host.example.com:443"}))
+			})
+
+			DescribeTable("should report duplicate endpoints without repeating warnings when cache order changes", func(kind string, first, second interface{}) {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				kv.Status.SynchronizationAddresses = []string{"stale.example.com:443"}
+
+				store := &MockStore{list: []interface{}{second, first}}
+				switch kind {
+				case "Routes":
+					reconciler.stores.SynchronizationRouteCache = store
+				case "Ingresses":
+					reconciler.stores.SynchronizationIngressCache = store
+				case "Services":
+					reconciler.stores.SynchronizationServiceCache = store
+				}
+
+				Expect(reconciler.updateSynchronizationAddress()).To(Succeed())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+				cond := synchronizationEndpointCondition(kv)
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointMisconfigured))
+				message := cond.Message
+				Expect(message).To(ContainSubstring("endpoint-1"))
+				Expect(message).To(ContainSubstring("endpoint-2"))
+				Expect(reconciler.recorder.(*record.FakeRecorder).Events).To(Receive(ContainSubstring(util.ConditionReasonSynchronizationEndpointMisconfigured)))
+
+				By("reconciling with the same endpoints in the opposite cache order")
+				store.list = []interface{}{first, second}
+				Expect(reconciler.updateSynchronizationAddress()).To(Succeed())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+				Expect(synchronizationEndpointCondition(kv).Message).To(Equal(message))
+				Expect(reconciler.recorder.(*record.FakeRecorder).Events).ToNot(Receive())
+			},
+				Entry("Routes", "Routes",
+					&routev1.Route{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&routev1.Route{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+				Entry("Ingresses", "Ingresses",
+					&networkingv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&networkingv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+				Entry("Services", "Services",
+					&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-1"}},
+					&corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "endpoint-2"}},
+				),
+			)
+
+			It("should fall back to pod IP when no labeled endpoint exists", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"10.244.0.1:9185"}))
+			})
+
+			It("should ignore labeled endpoints when crossClusterNetwork is set", func() {
+				datapath := v1.DecentralizedLiveMigrationDatapathProxy
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+					featuregate.DecentralizedLiveMigration,
+					featuregate.CrossClusterMigrationProxy,
+				}
+				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
+					DecentralizedLiveMigrationDatapath: &datapath,
+					CrossClusterNetwork:                pointer.P("kubevirt/crosscluster-cni"),
+				}
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "should-be-ignored.example.com"},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "should-be-ignored.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{Type: routev1.RouteAdmitted, Status: corev1.ConditionTrue},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				// crosscluster0 interface not present, so no addresses
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+			})
+
+			It("should ignore labeled endpoints when proxy is disabled", func() {
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
+					featuregate.DecentralizedLiveMigration,
+				}
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "should-be-ignored.example.com"},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "should-be-ignored.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{Type: routev1.RouteAdmitted, Status: corev1.ConditionTrue},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				// Direct mode uses pod IP
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"10.244.0.1:9185"}))
+			})
+
+			It("should use Route spec host when status ingress is empty", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "spec-host.example.com"},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"spec-host.example.com:443"}))
+			})
+
+			It("should skip Route when Admitted condition is False and fall back to pod IP", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "rejected.example.com"},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "rejected.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{
+										Type:   routev1.RouteAdmitted,
+										Status: corev1.ConditionFalse,
+									},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"10.244.0.1:9185"}))
+			})
+
+			It("should skip Route with Admitted=False and use Ingress instead", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{Host: "rejected.example.com"},
+					Status: routev1.RouteStatus{
+						Ingress: []routev1.RouteIngress{
+							{
+								Host: "rejected.example.com",
+								Conditions: []routev1.RouteIngressCondition{
+									{
+										Type:   routev1.RouteAdmitted,
+										Status: corev1.ConditionFalse,
+									},
+								},
+							},
+						},
+					},
+				})).To(Succeed())
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{Host: "ingress-fallback.example.com"}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"ingress-fallback.example.com:443"}))
+			})
+
+			It("should skip Route with empty hostname and fall through to Ingress", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: routev1.RouteSpec{},
+				})).To(Succeed())
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{Host: "ingress-fallback.example.com"}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"ingress-fallback.example.com:443"}))
+			})
+
+			It("should skip Ingress with empty hostname and fall through to Service", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationIngressCache.Add(&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: networkingv1.IngressSpec{
+						Rules: []networkingv1.IngressRule{{Host: ""}},
+					},
+				})).To(Succeed())
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 9185}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:9185"}))
+			})
+
+			It("should use default synchronization port when Service has no ports", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:9185"}))
+			})
+
+			It("should use configured synchronization port when Service has no ports", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				kv.Spec.SynchronizationPort = "7777"
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:7777"}))
+			})
+
+			It("should prefer the Service port over the configured sync port", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				kv.Spec.SynchronizationPort = "7777"
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{{Port: 8443}},
+					},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(Equal([]string{"virt-synchronization-controller.kubevirt.svc:8443"}))
+			})
+
+			It("should clear synchronization addresses when the sync port is invalid", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				kv.Spec.SynchronizationPort = "not-a-number"
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+				cond := synchronizationEndpointCondition(kv)
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointMisconfigured))
+			})
+
+			It("should clear synchronization addresses when the sync port is out of range", func() {
+				enableProxyWithoutCrossCluster()
+				createLeaseAndPod()
+				kv.Spec.SynchronizationPort = "70000"
+				Expect(stores.SynchronizationServiceCache.Add(&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "virt-synchronization-controller",
+						Namespace: kubevirtNamespace,
+					},
+					Spec: corev1.ServiceSpec{},
+				})).To(Succeed())
+
+				err := reconciler.updateSynchronizationAddress()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(kv.Status.SynchronizationAddresses).To(BeNil())
+				cond := synchronizationEndpointCondition(kv)
+				Expect(cond).ToNot(BeNil())
+				Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+				Expect(cond.Reason).To(Equal(util.ConditionReasonSynchronizationEndpointMisconfigured))
+			})
 		})
 	})
 })

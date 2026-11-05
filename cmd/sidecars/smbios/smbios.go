@@ -58,12 +58,19 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	}
 	domainSpec.OS.SMBios = &libvirtxml.DomainSMBios{Mode: "sysinfo"}
 
-	var sysInfo libvirtxml.DomainSysInfo
-	if len(domainSpec.SysInfo) > 0 {
-		sysInfo = domainSpec.SysInfo[0]
+	// A domain can carry several <sysinfo> blocks, so pick the smbios one by type.
+	var sysInfo *libvirtxml.DomainSysInfo
+	for i := range domainSpec.SysInfo {
+		if domainSpec.SysInfo[i].SMBIOS != nil {
+			sysInfo = &domainSpec.SysInfo[i]
+			break
+		}
 	}
-	if sysInfo.SMBIOS == nil {
-		sysInfo.SMBIOS = &libvirtxml.DomainSysInfoSMBIOS{}
+	if sysInfo == nil {
+		domainSpec.SysInfo = append(domainSpec.SysInfo, libvirtxml.DomainSysInfo{
+			SMBIOS: &libvirtxml.DomainSysInfoSMBIOS{},
+		})
+		sysInfo = &domainSpec.SysInfo[len(domainSpec.SysInfo)-1]
 	}
 
 	sysInfo.SMBIOS.BaseBoard = []libvirtxml.DomainSysInfoBaseBoard{
@@ -76,7 +83,6 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 			},
 		},
 	}
-	domainSpec.SysInfo = []libvirtxml.DomainSysInfo{sysInfo}
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {

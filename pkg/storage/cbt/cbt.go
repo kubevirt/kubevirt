@@ -29,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
@@ -55,6 +56,18 @@ var (
 	//
 	//   5 overlays (1 per disk) ~= 148 MiB.
 	CBTBackendStateOverhead = "512Mi"
+)
+
+const (
+	NBDSocketName = "backup-nbd-sock"
+	// CBTDirName is the backend-storage subpath (and volume mount SubPath)
+	// that holds QCOW2 CBT metadata overlays.
+	CBTDirName       = util.VMStateDirCBT
+	BackupNBDSubPath = "cbt-nbd"
+	NBDSocketDir     = "sock"
+
+	overlayVolumesDir = "volumes"
+	overlayFile       = "overlay.qcow2"
 )
 
 func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingState {
@@ -315,20 +328,44 @@ func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineI
 
 func IsCBTEligibleVolume(volume *v1.Volume) bool {
 	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil ||
-		volume.VolumeSource.HostDisk != nil
+		volume.VolumeSource.DataVolume != nil
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
-	cbtPath := "/var/lib/libvirt/qemu/cbt"
-	if vmitrait.IsNonRoot(vmi) {
-		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
+	// Declarative VMState mounts the whole PVC, so cbt/ is referenced directly, no symlink needed.
+	if util.HasDeclarativeVMState(vmi) {
+		return filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)
 	}
-
-	return cbtPath
+	return filepath.Join(qemuStatePath(vmi), CBTDirName)
 }
 
-func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	cbtPath := PathForCBT(vmi)
-	return filepath.Join(cbtPath, volumeName+".qcow2")
+func PathForBackupNBD(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(qemuStatePath(vmi), BackupNBDSubPath)
+}
+
+func PathForBackupNBDSocketDir(vmi *v1.VirtualMachineInstance) string {
+	return filepath.Join(PathForBackupNBD(vmi), NBDSocketDir)
+}
+
+const rootQEMUStateDir = "/var/lib/libvirt/qemu"
+
+func qemuStatePath(vmi *v1.VirtualMachineInstance) string {
+	if vmitrait.IsNonRoot(vmi) {
+		return filepath.Join(util.VirtPrivateDir, "libvirt", "qemu")
+	}
+
+	return rootQEMUStateDir
+}
+
+func qcow2OverlaySubPath(volumeName, claimName string) string {
+	return filepath.Join(overlayVolumesDir, volumeName, claimName, overlayFile)
+}
+
+func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volume *v1.Volume) string {
+	return filepath.Join(PathForCBT(vmi), qcow2OverlaySubPath(volume.Name, storagetypes.PVCNameFromVirtVolume(volume)))
+}
+
+// GetQCOW2OverlayBackendPath returns the overlay path relative to the backend storage PVC root.
+func GetQCOW2OverlayBackendPath(volumeName, claimName string) string {
+	return filepath.Join(CBTDirName, qcow2OverlaySubPath(volumeName, claimName))
 }

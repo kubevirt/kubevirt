@@ -32,7 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/hooks"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -70,7 +70,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -196,7 +196,6 @@ type VirtControllerApp struct {
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
 
 	caExportConfigMapInformer    cache.SharedIndexInformer
-	caBackupConfigMapInformer    cache.SharedIndexInformer
 	exportRouteConfigMapInformer cache.SharedInformer
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             *export.VMExportController
@@ -414,7 +413,6 @@ func Execute() {
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
-	app.caBackupConfigMapInformer = app.informerFactory.KubeVirtBackupCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
 	app.allPodInformer = app.informerFactory.Pod()
@@ -752,7 +750,7 @@ func (vca *VirtControllerApp) initCommon() {
 		topologyHinter,
 		netAnnotationsGenerator,
 		storageAnnotationsGenerator,
-		netcontrollers.UpdateVMIStatus,
+		netcontrollers.NewVMIStatusUpdater(vca.clusterConfig),
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
@@ -853,7 +851,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
 		),
-		vm.NewFirmwareController(vca.clientSet.GeneratedKubeVirtClient()),
 		instancetypecontroller.New(
 			vca.instancetypeInformer.GetStore(),
 			vca.clusterInstancetypeInformer.GetStore(),
@@ -997,7 +994,6 @@ func (vca *VirtControllerApp) initExportController() {
 		ControllerRevisionInformer:  vca.controllerRevisionInformer,
 		VMBackupInformer:            vca.vmBackupInformer,
 		VMBackupTrackerInformer:     vca.vmBackupTrackerInformer,
-		BackupCAConfigMapInformer:   vca.caBackupConfigMapInformer,
 		VMTemplateInformer:          vca.vmTemplateInformer,
 	}
 	if err := vca.exportController.Init(); err != nil {
@@ -1027,9 +1023,9 @@ func (vca *VirtControllerApp) initBackupController() {
 		vca.vmiInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.vmExportInformer,
-		vca.caExportConfigMapInformer,
+		vca.allPodInformer,
 		recorder,
-		vca.kubevirtNamespace,
+		vca.clusterConfig,
 	)
 	if err != nil {
 		panic(err)

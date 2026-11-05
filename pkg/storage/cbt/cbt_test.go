@@ -20,6 +20,8 @@
 package cbt_test
 
 import (
+	"path/filepath"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -38,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -97,7 +100,9 @@ var _ = Describe("CBT", func() {
 	}
 
 	disableFeatureGate := func() {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+			DisabledFeatureGates: []string{featuregate.IncrementalBackupGate},
+		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
@@ -565,12 +570,48 @@ var _ = Describe("CBT", func() {
 			},
 			Entry("PVC", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"}}}, true),
 			Entry("DataVolume", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-dv"}}, true),
-			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, true),
+			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, false),
 			Entry("ContainerDisk", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}, false),
 			Entry("ConfigMap", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-config"}}}, false),
 			Entry("Secret", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "test-secret"}}, false),
 			Entry("EmptyDisk", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{Capacity: resource.MustParse("1Gi")}}, false),
 			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
 		)
+
+	})
+
+	Context("PathForCBT", func() {
+		It("should return the canonical VMState PVC path when the declarative virtualMachineState API is used", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{VolumeClaimTemplate: &k8sv1.PersistentVolumeClaimTemplate{}}
+			Expect(cbt.PathForCBT(vmi)).To(Equal(filepath.Join(util.VMStatePVCMountPath, util.VMStateDirCBT)))
+		})
+	})
+
+	Context("GetQCOW2OverlayPath", func() {
+		overlayPath := func(volumeName, claimName string, withVolume func(diskName, pvcName string, diskOpts ...libvmi.DiskOption) libvmi.Option) string {
+			vmi := libvmi.New(withVolume(volumeName, claimName))
+			return cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])
+		}
+
+		It("should give a volume pointed at another claim a different overlay", func() {
+			Expect(overlayPath("disk", "claim-a", libvmi.WithPersistentVolumeClaim)).
+				ToNot(Equal(overlayPath("disk", "claim-b", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should give each volume on a claim its own overlay", func() {
+			Expect(overlayPath("disk-a", "claim", libvmi.WithPersistentVolumeClaim)).
+				ToNot(Equal(overlayPath("disk-b", "claim", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should keep the overlay when a DataVolume volume is referenced by its PVC", func() {
+			Expect(overlayPath("disk", "claim", libvmi.WithDataVolume)).
+				To(Equal(overlayPath("disk", "claim", libvmi.WithPersistentVolumeClaim)))
+		})
+
+		It("should keep the backend-PVC-relative overlay path a suffix of the launcher's absolute path", func() {
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk", "claim"))
+			Expect(cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])).To(HaveSuffix(cbt.GetQCOW2OverlayBackendPath("disk", "claim")))
+		})
 	})
 })

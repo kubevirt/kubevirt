@@ -99,9 +99,15 @@ func collectDiskInfo(paths *export.ServerPaths) ([]oci.DiskInfo, error) {
 			}
 		}
 
+		if vi.VolumeName == "" {
+			// No volume of the VM to attach the layer to.
+			log.Log.Infof("Skipping volume %s, has no volume name", vi.Path)
+			continue
+		}
+
 		disks = append(disks, oci.DiskInfo{
 			FilePath:   p,
-			VolumeName: filepath.Base(vi.Path),
+			VolumeName: vi.VolumeName,
 		})
 	}
 	return disks, nil

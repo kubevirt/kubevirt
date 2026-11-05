@@ -24,6 +24,21 @@ else
 	echo "[ OK ] found /dev/kvm"
 fi
 
+# All ephemeral (gocli) providers use IPv6 (dual-stack by default, or single-stack IPv6),
+# so ip6_tables is always required. It may be loaded as a module (listed in /proc/modules)
+# or compiled into the kernel, in which case it won't appear there but still registers
+# /proc/net/ip6_tables_names.
+if grep -q "^ip6_tables " /proc/modules 2>/dev/null \
+	|| [ -d /sys/module/ip6_tables ] \
+	|| [ -e /proc/net/ip6_tables_names ]; then
+	echo "[ OK ] ip6_tables is available"
+else
+	echo "[ERR ] ip6_tables is not available"
+	echo "[ERR ] run: sudo modprobe ip6_tables"
+	echo "[ERR ] see PODMAN.md for how to load required modules persistently"
+	exit 1
+fi
+
 KVM_ARCH=""
 KVM_NESTED="unknown"
 KVM_HPAGE="unknown"

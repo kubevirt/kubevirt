@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/client-go/testing"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	fake2 "kubevirt.io/client-go/testing"
@@ -75,6 +75,20 @@ func (c *fakeVirtualMachineInstances) Freeze(ctx context.Context, name string, u
 func (c *fakeVirtualMachineInstances) Unfreeze(ctx context.Context, name string) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "unfreeze", name, struct{}{}), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachineInstances) ExternalSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "externalsnapshot", name, overlayOptions), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachineInstances) CommitSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "commitsnapshot", name, overlayOptions), nil)
 
 	return err
 }
@@ -178,13 +192,6 @@ func (c *fakeVirtualMachineInstances) EvacuateCancel(ctx context.Context, name s
 func (c *fakeVirtualMachineInstances) Backup(ctx context.Context, name string, backupOptions *backupv1.BackupOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "backup", name, backupOptions), nil)
-
-	return err
-}
-
-func (c *fakeVirtualMachineInstances) RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error {
-	_, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "redefine-checkpoint", name, checkpoint), nil)
 
 	return err
 }

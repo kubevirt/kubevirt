@@ -70,11 +70,13 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 	if nonRoot {
 		socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
 		if err != nil {
+			listener.Close()
 			return nil, err
 		}
 
 		err = diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
 		if err != nil {
+			listener.Close()
 			return nil, fmt.Errorf("unable to change ownership for domain notify: %w", err)
 		}
 	}

@@ -20,23 +20,22 @@
 package storage
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"io"
-	"strings"
-	"time"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
@@ -50,7 +49,6 @@ var _ = Describe("Changed Block Tracking", func() {
 		vmi                      *v1.VirtualMachineInstance
 		converterContext         *convertertypes.ConverterContext
 		createQCOW2OverlayCalled int
-		blockDevCalled           int
 	)
 
 	setupCBTTest := func() {
@@ -60,12 +58,8 @@ var _ = Describe("Changed Block Tracking", func() {
 			IsBlockDV:  make(map[string]bool),
 		}
 		createQCOW2OverlayCalled = 0
-		blockDevCalled = 0
-		CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+		CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
 			createQCOW2OverlayCalled++
-			if blockDev {
-				blockDevCalled++
-			}
 			return nil
 		}
 	}
@@ -90,21 +84,234 @@ var _ = Describe("Changed Block Tracking", func() {
 		)
 	})
 
-	Context("isMigrationNewBackendStorage", func() {
-		DescribeTable("should return correct value based on migration state",
-			func(sourcePVC, targetPVC string, expected bool) {
-				vmi := newVMI(testNamespace, testVmName)
-				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-					SourcePersistentStatePVCName: sourcePVC,
-					TargetPersistentStatePVCName: targetPVC,
-				}
+	Context("createQCOW2Overlay", func() {
+		var dir string
 
-				result := isMigrationNewBackendStorage(vmi)
-				Expect(result).To(Equal(expected))
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		It("should reuse an existing overlay", func() {
+			overlay := filepath.Join(dir, "disk0.qcow2")
+			Expect(os.WriteFile(overlay, []byte("overlay"), 0o600)).To(Succeed())
+
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).To(Succeed())
+			Expect(os.ReadFile(overlay)).To(Equal([]byte("overlay")))
+		})
+
+		It("should refuse an overlay that is a symlink", func() {
+			target := filepath.Join(dir, "target")
+			Expect(os.WriteFile(target, []byte("target"), 0o600)).To(Succeed())
+			overlay := filepath.Join(dir, "disk0.qcow2")
+			Expect(os.Symlink(target, overlay)).To(Succeed())
+
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).ToNot(Succeed())
+			Expect(os.ReadFile(target)).To(Equal([]byte("target")))
+		})
+	})
+
+	Context("reconcileQCOW2OverlaysInDir", func() {
+		var dir string
+
+		BeforeEach(func() {
+			dir = GinkgoT().TempDir()
+		})
+
+		It("should remove orphaned overlays and keep desired ones", func() {
+			diskA := filepath.Join(dir, "disk-a.qcow2")
+			diskB := filepath.Join(dir, "disk-b.qcow2")
+			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(diskB, []byte("b"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(diskA))).To(Succeed())
+
+			Expect(diskA).To(BeAnExistingFile())
+			Expect(diskB).NotTo(BeAnExistingFile())
+		})
+
+		It("should remove all overlays when the desired set is empty", func() {
+			Expect(os.WriteFile(filepath.Join(dir, "disk-a.qcow2"), []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(dir, "disk-b.qcow2"), []byte("b"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, nil)).To(Succeed())
+
+			Expect(filepath.Join(dir, "disk-a.qcow2")).NotTo(BeAnExistingFile())
+			Expect(filepath.Join(dir, "disk-b.qcow2")).NotTo(BeAnExistingFile())
+		})
+
+		It("should remove leftover overlay temp files", func() {
+			diskA := filepath.Join(dir, "disk-a.qcow2")
+			Expect(os.WriteFile(diskA+".tmp", []byte("tmp"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(diskA, []byte("a"), 0o600)).To(Succeed())
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(diskA))).To(Succeed())
+
+			Expect(diskA).To(BeAnExistingFile())
+			Expect(diskA + ".tmp").NotTo(BeAnExistingFile())
+		})
+
+		It("should remove the directories of orphaned overlays and keep those of desired ones", func() {
+			keep := filepath.Join(dir, "volumes", "disk-a", "claim-a", "overlay.qcow2")
+			orphan := filepath.Join(dir, "volumes", "disk-b", "claim-b", "overlay.qcow2")
+			for _, path := range []string{keep, orphan} {
+				Expect(os.MkdirAll(filepath.Dir(path), 0o750)).To(Succeed())
+				Expect(os.WriteFile(path, []byte("overlay"), 0o600)).To(Succeed())
+			}
+
+			Expect(reconcileQCOW2OverlaysInDir(dir, sets.New(keep))).To(Succeed())
+
+			Expect(keep).To(BeAnExistingFile())
+			Expect(filepath.Join(dir, "volumes", "disk-b")).ToNot(BeADirectory())
+		})
+
+		It("should no-op when the CBT directory does not exist", func() {
+			Expect(reconcileQCOW2OverlaysInDir(filepath.Join(dir, "missing"), sets.New(filepath.Join(dir, "missing", "disk-a.qcow2")))).To(Succeed())
+		})
+	})
+
+	Context("addLiveDomainCBTOverlayPaths", func() {
+		It("should only keep disk sources under the CBT directory", func() {
+			dir := GinkgoT().TempDir()
+			under := filepath.Join(dir, "disk-a.qcow2")
+			nested := filepath.Join(dir, "claim", "uid", "disk-a.qcow2")
+			outside := filepath.Join(filepath.Dir(dir), "outside.qcow2")
+
+			desired := sets.New[string]()
+			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: under}},
+						{Source: api.DiskSource{File: nested}},
+						{Source: api.DiskSource{File: outside}},
+						{Source: api.DiskSource{File: ""}},
+					},
+				},
+			})
+
+			Expect(desired).To(HaveKey(under))
+			Expect(desired).To(HaveKey(nested))
+			Expect(desired).NotTo(HaveKey(outside))
+		})
+
+		It("should no-op for a nil domain spec", func() {
+			desired := sets.New[string]()
+			addLiveDomainCBTOverlayPaths(desired, "/cbt", nil)
+			Expect(desired).To(BeEmpty())
+		})
+
+		It("should keep a live-domain overlay path that GetQCOW2OverlayPath would not produce", func() {
+			// Simulates a migration/upgrade target whose domain still references
+			// an older nested layout while this launcher would create flat paths.
+			dir := GinkgoT().TempDir()
+			currentLayout := filepath.Join(dir, "disk-a.qcow2")
+			legacyLayout := filepath.Join(dir, "claim", "uid", "disk-a.qcow2")
+			orphan := filepath.Join(dir, "disk-b.qcow2")
+			Expect(os.MkdirAll(filepath.Dir(legacyLayout), 0o750)).To(Succeed())
+			Expect(os.WriteFile(currentLayout, []byte("a"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(legacyLayout, []byte("legacy"), 0o600)).To(Succeed())
+			Expect(os.WriteFile(orphan, []byte("b"), 0o600)).To(Succeed())
+
+			desired := sets.New(currentLayout)
+			addLiveDomainCBTOverlayPaths(desired, dir, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacyLayout}},
+					},
+				},
+			})
+			Expect(reconcileQCOW2OverlaysInDir(dir, desired)).To(Succeed())
+
+			Expect(currentLayout).To(BeAnExistingFile())
+			Expect(legacyLayout).To(BeAnExistingFile())
+			Expect(orphan).NotTo(BeAnExistingFile())
+		})
+	})
+
+	Context("isPathUnderDir", func() {
+		DescribeTable("path containment",
+			func(path, dir string, expected bool) {
+				Expect(isPathUnderDir(path, dir)).To(Equal(expected))
 			},
-			Entry("RWX backend storage", "shared-pvc", "shared-pvc", false),
-			Entry("RWO backend storage", "source-pvc", "target-pvc", true),
+			Entry("nested file", "/cbt/sub/f.qcow2", "/cbt", true),
+			Entry("path equals dir", "/cbt", "/cbt", true),
+			Entry("empty path", "", "/cbt", false),
+			Entry("sibling escape", "/cbt-other/f.qcow2", "/cbt", false),
+			Entry("parent traversal", "/cbt/../../etc/passwd", "/cbt", false),
 		)
+	})
+
+	Context("CleanupChangedBlockTrackingOverlays", func() {
+		It("should no-op when ChangedBlockTracking status is nil", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, nil)).To(Succeed())
+		})
+
+		It("should no-op when CBT is still enabled", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, nil)).To(Succeed())
+		})
+
+		It("should skip wipe when the live domain still references a CBT overlay", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingDisabled)
+			cbtDir := cbt.PathForCBT(vmi)
+			Expect(CleanupChangedBlockTrackingOverlays(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: filepath.Join(cbtDir, "disk-a.qcow2")}},
+					},
+				},
+			})).To(Succeed())
+		})
+	})
+
+	Context("buildCBTOverlayKeepPaths", func() {
+		It("should include eligible volumes and skip ineligible ones", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			pvcVolume := newPVCVolume("pvc-volume", "test-pvc", false)
+			vmi.Spec.Volumes = []v1.Volume{
+				pvcVolume,
+				newConfigMapVolume("config-map-volume"),
+			}
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, nil)
+			Expect(keep).To(Equal(sets.New(cbt.GetQCOW2OverlayPath(vmi, &pvcVolume))))
+		})
+
+		It("should keep live-domain overlay paths not produced by GetQCOW2OverlayPath", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			volume := newPVCVolume("disk-a", "test-pvc", false)
+			vmi.Spec.Volumes = []v1.Volume{volume}
+			cbtDir := cbt.PathForCBT(vmi)
+			legacy := filepath.Join(cbtDir, "claim", "uid", "disk-a.qcow2")
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacy}},
+					},
+				},
+			})
+			Expect(keep).To(HaveKey(cbt.GetQCOW2OverlayPath(vmi, &volume)))
+			Expect(keep).To(HaveKey(legacy))
+		})
+
+		It("should only contain live-domain paths when no eligible volumes remain", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Volumes = nil
+			cbtDir := cbt.PathForCBT(vmi)
+			legacy := filepath.Join(cbtDir, "orphan-still-open.qcow2")
+
+			_, keep := buildCBTOverlayKeepPaths(vmi, &api.DomainSpec{
+				Devices: api.Devices{
+					Disks: []api.Disk{
+						{Source: api.DiskSource{File: legacy}},
+					},
+				},
+			})
+			Expect(keep).To(Equal(sets.New(legacy)))
+		})
 	})
 
 	Context("ApplyChangedBlockTracking", func() {
@@ -126,42 +333,44 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should process fs volumes that support CBT", func() {
+			pvcVolume := newPVCVolume("pvc-volume", "test-pvc", false)
+			dvVolume := newDVVolume("dv-volume", "test-dv", false)
 			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("pvc-volume", "test-pvc", false),
-				newDVVolume("dv-volume", "test-dv", false),
-				newHostDiskVolume("host-disk-volume", "/path/to/disk"),
+				pvcVolume,
+				dvVolume,
+				newHostDiskVolume("host-disk-volume", "/data/disk.img"),
 			}
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(createQCOW2OverlayCalled).To(Equal(3))
-			Expect(blockDevCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("host-disk-volume"))
-			Expect(converterContext.ApplyCBT["host-disk-volume"]).To(ContainSubstring("host-disk-volume.qcow2"))
+			Expect(createQCOW2OverlayCalled).To(Equal(2))
+			Expect(converterContext.ApplyCBT).ToNot(HaveKey("host-disk-volume"))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &pvcVolume)))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("dv-volume", cbt.GetQCOW2OverlayPath(vmi, &dvVolume)))
 		})
 
 		It("should process block volumes that support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("pvc-volume", "test-pvc", false),
-				newDVVolume("dv-volume", "test-dv", false),
-			}
+			pvcVolume := newPVCVolume("pvc-volume", "test-pvc", false)
+			dvVolume := newDVVolume("dv-volume", "test-dv", false)
+			vmi.Spec.Volumes = []v1.Volume{pvcVolume, dvVolume}
 			converterContext.IsBlockPVC["pvc-volume"] = true
 			converterContext.IsBlockDV["dv-volume"] = true
+
+			var capturedPaths []string
+			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+				createQCOW2OverlayCalled++
+				capturedPaths = append(capturedPaths, imagePath)
+				return nil
+			}
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(2))
-			Expect(blockDevCalled).To(Equal(2))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
+			Expect(capturedPaths).To(ConsistOf(volumepath.BlockDevice("pvc-volume"), volumepath.BlockDevice("dv-volume")))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &pvcVolume)))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("dv-volume", cbt.GetQCOW2OverlayPath(vmi, &dvVolume)))
 		})
 
 		It("should process hotplug volumes with correct paths", func() {
@@ -177,7 +386,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPaths []string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
 				createQCOW2OverlayCalled++
 				capturedPaths = append(capturedPaths, imagePath)
 				return nil
@@ -203,10 +412,9 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPath string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
 				createQCOW2OverlayCalled++
 				capturedPath = imagePath
-				Expect(blockDev).To(BeTrue())
 				return nil
 			}
 
@@ -219,22 +427,19 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 
 		It("should apply cbt to domain but skip creation when CBT is already enabled", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("pvc-volume", "test-pvc", false),
-			}
+			volume := newPVCVolume("pvc-volume", "test-pvc", false)
+			vmi.Spec.Volumes = []v1.Volume{volume}
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &volume)))
 		})
 
 		It("should create overlay for hotplug volume when CBT is already enabled", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("hotplug-pvc-volume", "test-pvc", true),
-			}
+			volume := newPVCVolume("hotplug-pvc-volume", "test-pvc", true)
+			vmi.Spec.Volumes = []v1.Volume{volume}
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -243,14 +448,12 @@ var _ = Describe("Changed Block Tracking", func() {
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(1))
-			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
-			Expect(converterContext.ApplyCBT["hotplug-pvc-volume"]).To(ContainSubstring("hotplug-pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("hotplug-pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &volume)))
 		})
 
 		It("should skip overlay creation for hotplug volume when phase is VolumeReady", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("hotplug-pvc-volume", "test-pvc", true),
-			}
+			volume := newPVCVolume("hotplug-pvc-volume", "test-pvc", true)
+			vmi.Spec.Volumes = []v1.Volume{volume}
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -259,8 +462,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
-			Expect(converterContext.ApplyCBT["hotplug-pvc-volume"]).To(ContainSubstring("hotplug-pvc-volume.qcow2"))
+			Expect(converterContext.ApplyCBT).To(HaveKeyWithValue("hotplug-pvc-volume", cbt.GetQCOW2OverlayPath(vmi, &volume)))
 		})
 
 		It("should return error when overlay creation fails", func() {
@@ -271,7 +473,7 @@ var _ = Describe("Changed Block Tracking", func() {
 
 			errMsg := "failed to create overlay"
 			// Mock createQCOW2Overlay to return error
-			CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
 				createQCOW2OverlayCalled++
 				return fmt.Errorf("%s", errMsg)
 			}
@@ -284,296 +486,45 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 	})
 
-	Context("runOverlayQMPSession", func() {
-		const overlayPath = "/test/overlay.qcow2"
-		const overlaySize int64 = 1024
+	Context("DeleteQCOW2Overlay", func() {
+		var dir string
 
-		It("should send dismiss and quit only after concluded", func() {
-			qmpOutput := strings.Join([]string{
-				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
-				`{"return": {}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "created", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "running", "id": "create"}}`,
-				`{"return": {}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "waiting", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "pending", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
-				`{"return": [{"id": "create", "type": "create", "status": "concluded"}]}`,
-				`{"return": {}}`,
-				`{"return": {}}`,
-			}, "\n")
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			output, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(output).To(ContainSubstring(`"status": "concluded"`))
-
-			written := stdinBuf.String()
-			Expect(written).To(ContainSubstring("blockdev-create"))
-			Expect(written).To(ContainSubstring("query-jobs"))
-			Expect(written).To(ContainSubstring("job-dismiss"))
-			Expect(written).To(ContainSubstring("quit"))
-		})
-
-		It("should return error when job concludes with error", func() {
-			qmpOutput := strings.Join([]string{
-				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
-				`{"return": {}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "created", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "running", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "aborting", "id": "create"}}`,
-				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
-				`{"return": [{"id": "create", "type": "create", "status": "concluded", "error": "Could not create file: No such file or directory"}]}`,
-				`{"return": {}}`,
-				`{"return": {}}`,
-			}, "\n")
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("blockdev-create job failed"))
-			Expect(err.Error()).To(ContainSubstring("Could not create file"))
-
-			written := stdinBuf.String()
-			Expect(written).To(ContainSubstring("query-jobs"))
-			Expect(written).To(ContainSubstring("job-dismiss"))
-			Expect(written).To(ContainSubstring("quit"))
-		})
-
-		It("should still send init commands when daemon exits without concluding", func() {
-			qmpOutput := strings.Join([]string{
-				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
-				`{"return": {}}`,
-				`{"error": {"class": "GenericError", "desc": "something went wrong"}}`,
-			}, "\n")
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("exited without job concluding"))
-			Expect(err.Error()).To(ContainSubstring(overlayPath))
-
-			written := stdinBuf.String()
-			Expect(written).To(ContainSubstring("qmp_capabilities"))
-			Expect(written).To(ContainSubstring("blockdev-create"))
-			Expect(written).NotTo(ContainSubstring("job-dismiss"))
-		})
-
-		It("should return error on context timeout", func() {
-			stdoutR, stdoutW := io.Pipe()
-			defer stdoutW.Close()
-
-			var stdinBuf writeCloserBuffer
-			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-			defer cancel()
-
-			go func() {
-				<-ctx.Done()
-				stdoutW.Close()
-			}()
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdoutR, overlaySize, overlayPath)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("timed out"))
-			Expect(err.Error()).To(ContainSubstring(overlayPath))
-
-			Expect(stdinBuf.String()).NotTo(ContainSubstring("job-dismiss"))
-		})
-
-		It("should include overlay size in blockdev-create command", func() {
-			qmpOutput := `{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-			const testSize int64 = 107374182400
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, testSize, overlayPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stdinBuf.String()).To(ContainSubstring(fmt.Sprintf(`"size": %d`, testSize)))
-		})
-
-		It("should set cluster size of 256KiB for overlays", func() {
-			qmpOutput := `{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-			const testSize int64 = 107374182400
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, testSize, overlayPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stdinBuf.String()).To(ContainSubstring(fmt.Sprintf(`"cluster-size": %d`, 1<<18)))
-		})
-
-		It("should not panic on multiple concluded events", func() {
-			qmpOutput := strings.Join([]string{
-				`{"return": {}}`,
-				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
-				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
-			}, "\n")
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			Expect(func() {
-				_, _ = runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			}).ToNot(Panic())
-		})
-
-		It("should capture output lines after concluded event", func() {
-			qmpOutput := strings.Join([]string{
-				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
-				`{"return": {}}`,
-				`{"return": {}}`,
-				`{"event": "SHUTDOWN"}`,
-			}, "\n")
-			stdout := strings.NewReader(qmpOutput)
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			output, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(output).To(ContainSubstring("SHUTDOWN"))
-		})
-
-		It("should return error on empty stdout", func() {
-			stdout := strings.NewReader("")
-
-			var stdinBuf writeCloserBuffer
-			ctx := context.Background()
-
-			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("exited without job concluding"))
-		})
-	})
-
-	Context("ApplyChangedBlockTrackingForMigration", func() {
 		BeforeEach(func() {
-			setupCBTTest()
+			dir = GinkgoT().TempDir()
 		})
 
-		It("should skip volumes that don't support CBT", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newConfigMapVolume("config-map-volume"),
-				newSecretVolume("secret-volume"),
-			}
+		touch := func(path string) string {
+			Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
+			Expect(os.WriteFile(path, nil, 0o600)).To(Succeed())
+			return path
+		}
 
-			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(converterContext.ApplyCBT).To(BeEmpty())
-			Expect(createQCOW2OverlayCalled).To(Equal(0))
-		})
+		overlayDisk := func(overlay string) api.Disk {
+			return api.Disk{Source: api.DiskSource{
+				File:      overlay,
+				DataStore: &api.DataStore{Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"}},
+			}}
+		}
 
-		It("should use existing overlay for RWX backend storage (no overlay creation)", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("pvc-volume", "test-pvc", false),
-				newDVVolume("dv-volume", "test-dv", false),
-			}
-			setRWXMigrationState(vmi)
+		DescribeTable("should remove only the file of a flat overlay", func(name string) {
+			overlay := touch(filepath.Join(dir, name))
+			other := touch(filepath.Join(dir, "other.qcow2"))
 
-			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-			Expect(converterContext.ApplyCBT["pvc-volume"]).To(ContainSubstring("pvc-volume.qcow2"))
-			Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-			Expect(converterContext.ApplyCBT["dv-volume"]).To(ContainSubstring("dv-volume.qcow2"))
-		})
-
-		DescribeTable("should create overlays for RWO backend storage",
-			func(isBlock bool, expectedPathFunc func(string) string) {
-				vmi.Spec.Volumes = []v1.Volume{
-					newPVCVolume("pvc-volume", "test-pvc", false),
-					newDVVolume("dv-volume", "test-dv", false),
-				}
-				converterContext.IsBlockPVC["pvc-volume"] = isBlock
-				converterContext.IsBlockDV["dv-volume"] = isBlock
-				setRWOMigrationState(vmi)
-
-				var capturedPaths []string
-				CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
-					createQCOW2OverlayCalled++
-					capturedPaths = append(capturedPaths, imagePath)
-					Expect(blockDev).To(Equal(isBlock))
-					return nil
-				}
-
-				err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(createQCOW2OverlayCalled).To(Equal(2))
-				Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
-				Expect(converterContext.ApplyCBT).To(HaveKey("dv-volume"))
-				Expect(capturedPaths).To(ContainElement(expectedPathFunc("pvc-volume")))
-				Expect(capturedPaths).To(ContainElement(expectedPathFunc("dv-volume")))
-			},
-			Entry("filesystem volumes", false, volumepath.Filesystem),
-			Entry("block volumes", true, volumepath.BlockDevice),
+			Expect(DeleteQCOW2Overlay(overlayDisk(overlay))).To(Succeed())
+			Expect(overlay).ToNot(BeAnExistingFile())
+			Expect(other).To(BeAnExistingFile())
+		},
+			Entry("of a volume", "disk0.qcow2"),
 		)
 
-		DescribeTable("should create overlays for hotplug volumes with RWO backend",
-			func(volumeName string, isBlock bool, expectedPathFunc func(string) string) {
-				vmi.Spec.Volumes = []v1.Volume{
-					newPVCVolume(volumeName, "test-hotplug-pvc", true),
-				}
-				converterContext.IsBlockPVC[volumeName] = isBlock
-				converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
-					volumeName: {Name: volumeName, Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
-				}
-				setRWOMigrationState(vmi)
+		It("should ignore disks without an overlay", func() {
+			image := touch(filepath.Join(dir, "disk.img"))
 
-				var capturedPath string
-				CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
-					createQCOW2OverlayCalled++
-					capturedPath = imagePath
-					Expect(blockDev).To(Equal(isBlock))
-					return nil
-				}
-
-				err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(createQCOW2OverlayCalled).To(Equal(1))
-				Expect(converterContext.ApplyCBT).To(HaveKey(volumeName))
-				Expect(capturedPath).To(Equal(expectedPathFunc(volumeName)))
-			},
-			Entry("filesystem volume", "hotplug-fs-volume", false, volumepath.HotplugFilesystem),
-			Entry("block volume", "hotplug-block-volume", true, volumepath.HotplugBlockDevice),
-		)
-
-		It("should use existing overlay for hotplug volumes with RWX backend (no overlay creation)", func() {
-			vmi.Spec.Volumes = []v1.Volume{
-				newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true),
-			}
-			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
-				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
-			}
-			setRWXMigrationState(vmi)
-
-			err := ApplyChangedBlockTrackingForMigration(vmi, converterContext)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(createQCOW2OverlayCalled).To(Equal(0))
-			Expect(converterContext.ApplyCBT).To(HaveKey("hotplug-pvc-volume"))
+			Expect(DeleteQCOW2Overlay(api.Disk{Source: api.DiskSource{File: image}})).To(Succeed())
+			Expect(image).To(BeAnExistingFile())
 		})
 	})
 })
-
-type writeCloserBuffer struct {
-	bytes.Buffer
-}
-
-func (w *writeCloserBuffer) Close() error { return nil }
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := api2.NewMinimalVMIWithNS(namespace, name)
@@ -633,19 +584,5 @@ func newHostDiskVolume(name, path string) v1.Volume {
 				Path: path,
 			},
 		},
-	}
-}
-
-func setRWOMigrationState(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-		SourcePersistentStatePVCName: "source-pvc",
-		TargetPersistentStatePVCName: "target-pvc",
-	}
-}
-
-func setRWXMigrationState(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-		SourcePersistentStatePVCName: "shared-pvc",
-		TargetPersistentStatePVCName: "shared-pvc",
 	}
 }

@@ -68,7 +68,12 @@ func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 	return nil
 }
 
-func generateDomainForTargetCPU(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec, topology *cmdv1.Topology, cpuSet []int) (*api.Domain, error) {
+func generateDomainForTargetCPU(
+	vmi *v1.VirtualMachineInstance,
+	domSpec *api.DomainSpec,
+	topology *cmdv1.Topology,
+	cpuSet []int,
+) (*api.Domain, error) {
 	domain := api.NewMinimalDomain(vmi.Name)
 	domain.Spec = *domSpec
 	cpuTopology := vcpu.GetCPUTopology(vmi)

@@ -31,18 +31,21 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/storage/snapshotoverlay"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 const (
-	failedRetrieveVMI      = "Failed to retrieve VMI"
-	failedFreezeVMI        = "Failed to freeze VMI"
-	failedDetectCmdClient  = "Failed to detect cmd client"
-	failedConnectCmdClient = "Failed to connect cmd client"
+	failedRetrieveVMI         = "Failed to retrieve VMI"
+	failedFreezeVMI           = "Failed to freeze VMI"
+	failedExternalSnapshotVMI = "Failed to start the external snapshot of the VMI"
+	failedCommitSnapshotVMI   = "Failed to start the snapshot overlay commit of the VMI"
+	failedDetectCmdClient     = "Failed to detect cmd client"
+	failedConnectCmdClient    = "Failed to connect cmd client"
 )
 
 type LifecycleHandler struct {
@@ -153,6 +156,75 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) ExternalSnapshotHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	opts, overlayDir, err := overlayRequest(request, vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to resolve the overlay directory of the external snapshot request")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	if err := client.ExternalSnapshot(vmi, overlayDir, opts.Volumes); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedExternalSnapshotVMI)
+		response.WriteError(http.StatusInternalServerError, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "ExternalSnapshotError", "%s: %s", failedExternalSnapshotVMI, err.Error())
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) CommitSnapshotHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+
+	_, overlayDir, err := overlayRequest(request, vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to resolve the overlay directory of the commit snapshot request")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	if err := client.CommitSnapshot(vmi, overlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error(failedCommitSnapshotVMI)
+		response.WriteError(http.StatusInternalServerError, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "CommitSnapshotError", "%s: %s", failedCommitSnapshotVMI, err.Error())
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+// overlayRequest decodes the options of a snapshot overlay request and resolves
+// where its scratch volume is mounted
+func overlayRequest(request *restful.Request, vmi *v1.VirtualMachineInstance) (opts *v1.SnapshotOverlayOptions, overlayDir string, err error) {
+	if request.Request.Body == nil {
+		return nil, "", fmt.Errorf("failed to retrieve the snapshot overlay volume from the request")
+	}
+	defer request.Request.Body.Close()
+
+	opts = &v1.SnapshotOverlayOptions{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		return nil, "", err
+	}
+
+	overlayDir, err = snapshotoverlay.ScratchDir(vmi, opts.VolumeName)
+	return opts, overlayDir, err
 }
 
 func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *restful.Response) {
@@ -379,44 +451,4 @@ func (lh *LifecycleHandler) BackupHandler(request *restful.Request, response *re
 	}
 
 	response.WriteHeader(http.StatusAccepted)
-}
-
-func (lh *LifecycleHandler) RedefineCheckpointHandler(request *restful.Request, response *restful.Response) {
-	vmi, client, err := lh.getVMILauncherClient(request, response)
-	if err != nil {
-		return
-	}
-
-	if request.Request.Body == nil {
-		log.Log.Object(vmi).Error("Request with no body: checkpoint info is required")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve checkpoint info from request"))
-		return
-	}
-
-	checkpoint := &backupv1.BackupCheckpoint{}
-	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(checkpoint)
-	switch err {
-	case io.EOF, nil:
-		break
-	default:
-		log.Log.Object(vmi).Reason(err).Error("Failed to decode checkpoint info")
-		response.WriteError(http.StatusBadRequest, err)
-		return
-	}
-
-	checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
-		if checkpointInvalid {
-			// Checkpoint bitmap is corrupt/invalid - use 422 Unprocessable Entity
-			// This tells the caller the checkpoint cannot be processed and should be cleared
-			response.WriteError(http.StatusUnprocessableEntity, err)
-		} else {
-			// Transient error - use 503 Service Unavailable to indicate retry
-			response.WriteError(http.StatusServiceUnavailable, err)
-		}
-		return
-	}
-
-	response.WriteHeader(http.StatusOK)
 }

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "bindingplugin.go",
+        "bindingplugin_dra.go",
         "bindingplugin_macvtap.go",
         "dual_stack_cluster.go",
         "framework.go",
@@ -77,6 +78,7 @@ go_library(
         "//vendor/k8s.io/api/batch/v1:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/networking/v1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

@@ -27,7 +27,6 @@ import (
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -44,13 +43,6 @@ func SetLocalDirectory(dir string) error {
 	err := util.MkdirAllWithNosec(dir)
 	if err != nil {
 		return fmt.Errorf("Unable to initialize Ignition local cache directory (%s): %w", dir, err)
-	}
-
-	exists, err := diskutils.FileExists(dir)
-	if err != nil {
-		return fmt.Errorf("Ignition local cache directory (%s) does not exist or is inaccessible: %w", dir, err)
-	} else if exists == false {
-		return fmt.Errorf("Ignition local cache directory (%s) does not exist or is inaccessible", dir)
 	}
 
 	ignitionLocalDir = dir

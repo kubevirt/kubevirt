@@ -20,6 +20,8 @@
 package compute_test
 
 import (
+	"encoding/xml"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
@@ -123,9 +125,11 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
-		Entry("when VMI has SCSI disk with dedicatedIOThread and Virtio disk, VMI has 4 shared IO threads",
+		Entry("when VMI has SCSI disk with auto iothread policy and Virtio disk, VMI has 4 IO threads",
 			libvmi.New(
-				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithCPURequest("4"),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
 				libvmi.WithDisk("virtio-disk", v1.DiskBusVirtio),
 			),
 			!usbNeeded,
@@ -133,18 +137,36 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
-					Queues: pointer.P[uint](1), IOThread: pointer.P[uint](2),
+					Queues: pointer.P[uint](4), IOThreads: createIOThreadList(4),
 				}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
-		Entry("when VMI has SCSI disk with dedicatedIOThread and Virtio disks, VMI has 2 shared IO threads, should roll over controller thread",
+		Entry("when VMI has SCSI disk with auto iothread policy where total auto threads exceed VMI's virtqueues",
 			libvmi.New(
-				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithCPURequest("2"),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
+				libvmi.WithDisk("virtio-disk", v1.DiskBusVirtio),
+			),
+			!usbNeeded,
+			4,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				// we should expect to see the SCSI Drive only gets allocated IOThreads capped at total vCPUS
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
+					Queues: pointer.P[uint](2), IOThreads: createIOThreadList(2),
+				}},
+				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
+			}),
+		Entry("when VMI is using shared iothread policy with SCSI disk and Virtio disks",
+			libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared),
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
 				libvmi.WithDisk("virtio-disk1", v1.DiskBusVirtio),
 				libvmi.WithDisk("virtio-disk2", v1.DiskBusVirtio),
 			),
 			!usbNeeded,
-			2,
+			1,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
@@ -152,33 +174,10 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
 			}),
-		Entry("when VMI has multiple SCSI disks with dedicatedIOThread, VMI has 4 shared IO threads",
-			libvmi.New(
-				libvmi.WithDisk("scsi-disk1", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
-				libvmi.WithDisk("scsi-disk2", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
-			),
-			!usbNeeded,
-			4,
-			[]api.Controller{
-				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{
-					Queues: pointer.P[uint](1), IOThread: pointer.P[uint](1),
-				}},
-				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
-		Entry("when VMI has SCSI disk with dedicatedIOThread and VMI has no IOThreads",
+		Entry("when VMI has SCSI disk and VMI has no IOThreads",
 			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
 			!usbNeeded,
 			0,
-			[]api.Controller{
-				{Type: "usb", Index: "0", Model: "none"},
-				{Type: "scsi", Index: "0", Model: "test-model"},
-				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
-		Entry("when VMI has SCSI disk without dedicatedIOThread and VMI has IOThreads",
-			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
-			!usbNeeded,
-			4,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -190,6 +189,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		vmi *v1.VirtualMachineInstance,
 		supportPCIHole64Disabling bool,
 		expectedControllers []api.Controller,
+		expectedSysInfo []api.SysInfo,
 	) {
 		var domain api.Domain
 
@@ -204,7 +204,9 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
-		Expect(domain).To(Equal(newDomainWithControllers(expectedControllers)))
+		expected := newDomainWithControllers(expectedControllers)
+		expected.Spec.SysInfo = expectedSysInfo
+		Expect(domain).To(Equal(expected))
 	},
 		Entry("when arch does not support PCIHole64 disabling, annotation not set",
 			libvmi.New(),
@@ -213,7 +215,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch does not support PCIHole64 disabling, annotation set",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			!pciHole64DisablingSupported,
@@ -221,7 +224,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling, annotation not set",
 			libvmi.New(),
 			pciHole64DisablingSupported,
@@ -229,7 +233,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling, annotation set to false",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "false")),
 			pciHole64DisablingSupported,
@@ -237,7 +242,8 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			nil),
 		Entry("when arch supports PCIHole64 disabling and annotation is true",
 			libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true")),
 			pciHole64DisablingSupported,
@@ -246,8 +252,26 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{Type: "scsi", Index: "0", Model: "test-model"},
 				{Type: "pci", Index: "0", Model: "pcie-root", PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"}},
 				{Type: "virtio-serial", Index: "0", Model: "virtio-test-model"},
-			}),
+			},
+			[]api.SysInfo{{Type: "fwcfg", Entries: []api.Entry{{Name: "opt/org.seabios/pci64", Value: "no"}}}}),
 	)
+
+	It("should serialize the SeaBIOS fwcfg entry as its own sysinfo element", func() {
+		var domain api.Domain
+
+		configurator := compute.NewControllersDomainConfigurator(
+			compute.ControllersWithSupportPCIHole64Disabling(pciHole64DisablingSupported),
+		)
+		vmi := libvmi.New(libvmi.WithAnnotation(v1.DisablePCIHole64, "true"))
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		buf, err := xml.Marshal(domain.Spec)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(string(buf)).To(ContainSubstring(
+			`<sysinfo type="fwcfg"><entry name="opt/org.seabios/pci64">no</entry></sysinfo>`,
+		))
+	})
 
 	DescribeTable("should set IOMMU on SCSI and virtio-serial controllers when launch security is active",
 		func(useLaunchSecuritySEV, useLaunchSecurityPV bool, vmi *v1.VirtualMachineInstance, autoThreads int, expectedDomain api.Domain) {
@@ -297,7 +321,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when SEV is active with SCSI IOThreads, IOMMU is preserved alongside IOThread and Queues",
 			true, false,
 			libvmi.New(
-				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
 				libvmi.WithDisk("virtio-disk", v1.DiskBusVirtio),
 			),
 			4,
@@ -306,9 +330,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 				{
 					Type: "scsi", Index: "0", Model: "test-model",
 					Driver: &api.ControllerDriver{
-						IOMMU:    "on",
-						Queues:   pointer.P[uint](1),
-						IOThread: pointer.P[uint](2),
+						IOMMU: "on",
 					},
 				},
 				{
@@ -358,6 +380,14 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			}),
 	)
 })
+
+func createIOThreadList(threadRange int) *api.DiskIOThreads {
+	iothreads := &api.DiskIOThreads{}
+	for id := 1; id <= threadRange; id++ {
+		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+	}
+	return iothreads
+}
 
 func newDomainWithControllers(controllers []api.Controller) api.Domain {
 	return api.Domain{

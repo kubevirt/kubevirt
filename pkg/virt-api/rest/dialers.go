@@ -27,6 +27,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/cache"
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,11 +35,13 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
 type netDial struct {
-	request *restful.Request
+	request            *restful.Request
+	launcherPodIndexer cache.Indexer
 }
 
 type handlerDial struct {
@@ -73,7 +76,7 @@ func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serro
 func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
 	logger := log.Log.Object(vmi)
 
-	targetIP, err := getTargetInterfaceIP(vmi)
+	targetIP, err := n.resolveTargetIP(vmi)
 	if err != nil {
 		logger.Reason(err).Error("Can't establish TCP tunnel.")
 		return nil, k8serrors.NewBadRequest(err.Error())
@@ -87,6 +90,11 @@ func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8se
 	protocol := "tcp"
 	if protocolParam := n.request.PathParameter(definitions.ProtocolParamName); len(protocolParam) > 0 {
 		protocol = protocolParam
+	}
+	// Port-forward only supports TCP and UDP. Reject any other client-supplied
+	// network type instead of forwarding it to net.Dial.
+	if protocol != "tcp" && protocol != "udp" {
+		return nil, k8serrors.NewBadRequest(fmt.Sprintf("unsupported protocol %q", protocol))
 	}
 
 	addr := fmt.Sprintf("%s:%s", targetIP, port)
@@ -130,12 +138,24 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 	return kubecli.NewVirtHandlerClient(app.virtClient, app.handlerHttpClient).Port(app.consoleServerPort).ForNode(vmi.Status.NodeName), nil
 }
 
-// get the first available interface IP
-// if no interface is present, return error
-func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
+// resolveTargetIP returns the launcher pod IP, the only address virt-api and
+// virt-launcher are guaranteed to share. The guest-reported interface IP is
+// never dialed: it reflects the guest's own view of its addresses and is
+// untrusted input. Callers must ensure the VMI is connected to the pod network;
+// validateVMIForPortForward enforces this before the dialer runs.
+func (n netDial) resolveTargetIP(vmi *v1.VirtualMachineInstance) (string, error) {
+	if n.launcherPodIndexer == nil {
+		return "", fmt.Errorf("launcher pod indexer is not available")
 	}
-	return interfaces[0].IP, nil
+	pod, err := controller.CurrentVMIPod(vmi, n.launcherPodIndexer)
+	if err != nil {
+		return "", fmt.Errorf("failed to look up the virt-launcher pod: %w", err)
+	}
+	if pod == nil {
+		return "", fmt.Errorf("virt-launcher pod was not found")
+	}
+	if pod.Status.PodIP == "" {
+		return "", fmt.Errorf("virt-launcher pod IP is not available yet")
+	}
+	return pod.Status.PodIP, nil
 }

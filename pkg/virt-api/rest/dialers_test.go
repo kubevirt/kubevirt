@@ -31,8 +31,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -56,38 +58,39 @@ var _ = Describe("NetDialer", func() {
 		request = restful.NewRequest(httpReq)
 	})
 
-	makeVMIWithInterfaceStatus := func(interfaces []v1.VirtualMachineInstanceNetworkInterface) *v1.VirtualMachineInstance {
-		return &v1.VirtualMachineInstance{
-			TypeMeta: metav1.TypeMeta{},
+	launcherPodForVMI := func(vmi *v1.VirtualMachineInstance, node, podIP string) *k8sv1.Pod {
+		return &k8sv1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vmName,
-				Namespace: vmNamespace,
+				Name:            vmi.Name + "-launcher",
+				Namespace:       vmi.Namespace,
+				Labels:          map[string]string{v1.AppLabel: "virt-launcher"},
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
 			},
-			Spec: v1.VirtualMachineInstanceSpec{},
-			Status: v1.VirtualMachineInstanceStatus{
-				Interfaces: interfaces,
-			},
+			Spec:   k8sv1.PodSpec{NodeName: node},
+			Status: k8sv1.PodStatus{PodIP: podIP},
 		}
 	}
 
-	It("Should fail if vmi has no network interfaces", func() {
-		dialer := netDial{
-			request: request,
+	newLauncherPodIndexer := func(pods ...*k8sv1.Pod) cache.Indexer {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		for _, pod := range pods {
+			Expect(indexer.Add(pod)).To(Succeed())
 		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus(nil))
-		Expect(statusErr.Status().Message).To(Equal("no network interfaces are present"))
-	})
+		return indexer
+	}
 
 	It("Should fail if request has no port", func() {
 		request.PathParameters()["port"] = ""
+		vmi := libvmi.New(
+			libvmi.WithNamespace(vmNamespace),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithNodeName("node1"))),
+		)
 		dialer := netDial{
-			request: request,
+			request:            request,
+			launcherPodIndexer: newLauncherPodIndexer(launcherPodForVMI(vmi, "node1", "10.244.0.10")),
 		}
-		_, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: "192.168.0.1",
-			},
-		}))
+		_, statusErr := dialer.DialUnderlying(vmi)
 		Expect(statusErr.Status().Message).To(Equal("port must not be empty"))
 	})
 
@@ -119,7 +122,7 @@ var _ = Describe("NetDialer", func() {
 
 		runningStatus := libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running)))
 		vmi := libvmi.New(runningStatus)
-		app := NewSubresourceAPIApp(virtClient, k8sfakeClient, int(port), nil, config)
+		app := NewSubresourceAPIApp(virtClient, k8sfakeClient, nil, int(port), nil, config)
 		dialer := app.virtHandlerDialer(func(_ *v1.VirtualMachineInstance, _ kubecli.VirtHandlerConn) (string, error) {
 			return fullURL, nil
 		})
@@ -129,25 +132,93 @@ var _ = Describe("NetDialer", func() {
 		Expect(conn).To(BeNil())
 	})
 
-	DescribeTable("Should dial vmi", func(ipAddr string) {
-		ln, err := net.Listen("tcp", fmt.Sprintf("%s:0", ipAddr))
-		Expect(err).NotTo(HaveOccurred())
-		defer ln.Close()
-		tcpAddr := ln.Addr().(*net.TCPAddr)
+	Context("with launcher pod IP resolution", func() {
+		const (
+			nodeName = "node1"
+			podIP    = "10.244.0.10"
+		)
 
-		request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
-		dialer := netDial{
-			request: request,
-		}
-		conn, statusErr := dialer.DialUnderlying(makeVMIWithInterfaceStatus([]v1.VirtualMachineInstanceNetworkInterface{
-			{
-				IP: tcpAddr.IP.String(),
-			},
-		}))
-		Expect(statusErr).NotTo(HaveOccurred())
-		Expect(conn).NotTo(BeNil())
-	},
-		Entry("with ipv4 ip address", "127.0.0.1"),
-		Entry("with ipv6 ip address", "[::1]"),
-	)
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = libvmi.New(
+				libvmi.WithNamespace(vmNamespace),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithNodeName(nodeName))),
+			)
+		})
+
+		It("Should resolve the launcher pod IP", func() {
+			dialer := netDial{request: request, launcherPodIndexer: newLauncherPodIndexer(launcherPodForVMI(vmi, nodeName, podIP))}
+			Expect(dialer.resolveTargetIP(vmi)).To(Equal(podIP))
+		})
+
+		DescribeTable("Should fail to resolve the target IP", func(indexer func(vmi *v1.VirtualMachineInstance) cache.Indexer) {
+			dialer := netDial{request: request, launcherPodIndexer: indexer(vmi)}
+			_, err := dialer.resolveTargetIP(vmi)
+			Expect(err).To(HaveOccurred())
+		},
+			Entry("when there is no launcher pod",
+				func(_ *v1.VirtualMachineInstance) cache.Indexer {
+					return newLauncherPodIndexer()
+				}),
+			Entry("when the launcher pod has no IP yet",
+				func(vmi *v1.VirtualMachineInstance) cache.Indexer {
+					return newLauncherPodIndexer(launcherPodForVMI(vmi, nodeName, ""))
+				}),
+			Entry("when the launcher pod is scheduled to a different node",
+				func(vmi *v1.VirtualMachineInstance) cache.Indexer {
+					return newLauncherPodIndexer(launcherPodForVMI(vmi, "node2", podIP))
+				}),
+			Entry("when the pod is not controlled by the VMI",
+				func(vmi *v1.VirtualMachineInstance) cache.Indexer {
+					pod := launcherPodForVMI(vmi, nodeName, podIP)
+					pod.OwnerReferences[0].UID = "other-vmi"
+					return newLauncherPodIndexer(pod)
+				}),
+			Entry("when the pod lookup fails",
+				func(vmi *v1.VirtualMachineInstance) cache.Indexer {
+					// An indexer without the namespace index makes the lookup fail.
+					indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+					Expect(indexer.Add(launcherPodForVMI(vmi, nodeName, podIP))).To(Succeed())
+					return indexer
+				}),
+			Entry("when no launcher pod indexer is available",
+				func(_ *v1.VirtualMachineInstance) cache.Indexer {
+					return nil
+				}),
+		)
+
+		DescribeTable("Should dial the launcher pod IP", func(ipAddr, unreachableIP string) {
+			ln, err := net.Listen("tcp", fmt.Sprintf("%s:0", ipAddr))
+			Expect(err).NotTo(HaveOccurred())
+			defer ln.Close()
+			tcpAddr := ln.Addr().(*net.TCPAddr)
+			request.PathParameters()["port"] = strconv.FormatInt(int64(tcpAddr.Port), 10)
+
+			// Nothing listens on the interface IP; the listener is only reachable via the pod IP.
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{IP: unreachableIP}}
+			pod := launcherPodForVMI(vmi, nodeName, tcpAddr.IP.String())
+			dialer := netDial{request: request, launcherPodIndexer: newLauncherPodIndexer(pod)}
+
+			conn, statusErr := dialer.DialUnderlying(vmi)
+			Expect(statusErr).NotTo(HaveOccurred())
+			Expect(conn).NotTo(BeNil())
+			defer conn.Close()
+			Expect(conn.RemoteAddr().String()).To(Equal(ln.Addr().String()))
+		},
+			Entry("with ipv4 ip address", "127.0.0.1", "::1"),
+			Entry("with ipv6 ip address", "[::1]", "127.0.0.1"),
+		)
+
+		It("Should fail with an unsupported protocol", func() {
+			request.PathParameters()["port"] = "22"
+			request.PathParameters()["protocol"] = "unix"
+			dialer := netDial{request: request, launcherPodIndexer: newLauncherPodIndexer(launcherPodForVMI(vmi, nodeName, podIP))}
+
+			_, statusErr := dialer.DialUnderlying(vmi)
+			Expect(statusErr).To(HaveOccurred())
+			Expect(statusErr.Status().Message).To(ContainSubstring("unsupported protocol"))
+		})
+	})
 })

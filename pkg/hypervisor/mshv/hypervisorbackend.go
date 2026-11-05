@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
+	VirtLauncherMonitorOverhead = "2Mi"   // The `ps` RSS limit for the static C virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
 	VirtlogdOverhead            = "25Mi"  // The `ps` RSS for virtlogd
 	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
@@ -158,7 +158,7 @@ func (k *MshvHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance
 		overhead.Add(resource.MustParse("100Mi"))
 	}
 
-	if util.RequiresMemoryOverheadReservation(vmi) {
+	if vmitrait.RequiresMemoryOverheadReservation(vmi) {
 		overhead.Add(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
 	}
 

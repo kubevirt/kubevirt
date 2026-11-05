@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,19 @@ import (
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
+
+// stubMigrationTunnelServer is a minimal Synchronize_MigrationTunnelServer for
+// unit tests that only need Recv() to return a fixed OPEN frame.
+type stubMigrationTunnelServer struct {
+	grpc.ServerStream
+	openFrame *syncv1.MigrationFrame
+}
+
+func (s *stubMigrationTunnelServer) Send(*syncv1.MigrationFrame) error { return nil }
+
+func (s *stubMigrationTunnelServer) Recv() (*syncv1.MigrationFrame, error) {
+	return s.openFrame, nil
+}
 
 const (
 	testMigrationID         = "testMigrationID"
@@ -108,7 +122,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -142,12 +156,95 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
 			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
 		)
+
+		It("should prefer KubeVirt CR synchronizationAddresses when proxy is enabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("sync.example.com:443"))
+		})
+
+		It("should fall through to cross-cluster IP when proxy is enabled but CR has no addresses", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status:     virtv1.KubeVirtStatus{},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
+
+		It("should ignore KubeVirt CR synchronizationAddresses when proxy is disabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  false,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
 	})
 
 	Context("migration proxy initialization", func() {
 		It("should leave the tunnel uninitialized when Proxy is disabled", func() {
 			// Uses the suite BeforeEach controller, created with a nil ProxyInitConfig.
 			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
+
+		It("should reject MigrationTunnel when the tunnel manager is nil (Direct mode)", func() {
+			// Suite BeforeEach builds the controller with a nil ProxyInitConfig, so
+			// tunnelManager stays nil. An inbound MigrationTunnel RPC must fail fast.
+			Expect(controller.tunnelManager).To(BeNil())
+
+			stream := &stubMigrationTunnelServer{
+				openFrame: &syncv1.MigrationFrame{
+					MigrationId: testMigrationID,
+					ChannelId:   1,
+					FrameType:   syncv1.FrameType_FRAME_TYPE_OPEN,
+				},
+			}
+			err := controller.MigrationTunnel(stream)
+			Expect(err).To(MatchError(ContainSubstring("tunnel manager not initialized")))
 		})
 
 		It("should initialize the tunnel on the pod IP when Proxy is enabled without required NADs", func() {
@@ -1105,7 +1202,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 		BeforeEach(func() {
 			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()

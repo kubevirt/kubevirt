@@ -324,6 +324,9 @@
         "minTLSVersion": "minTLSVersionValue",
         "ciphers": [
           "ciphersValue"
+        ],
+        "groups": [
+          "groupsValue"
         ]
       },
       "seccompConfiguration": {
@@ -381,6 +384,9 @@
       "virtTemplateDeployment": {
         "enabled": true
       },
+      "multiIOThreadAutoPolicy": {
+        "enabled": true
+      },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },
@@ -430,7 +436,8 @@
           }
         }
       },
-      "roleAggregationStrategy": "roleAggregationStrategyValue"
+      "roleAggregationStrategy": "roleAggregationStrategyValue",
+      "emulationPolicy": "emulationPolicyValue"
     },
     "infra": {
       "nodePlacement": {

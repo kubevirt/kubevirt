@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -127,12 +128,21 @@ type synchronizationControllerApp struct {
 	ctx context.Context
 }
 
-func (app *synchronizationControllerApp) prepareCertManager() (err error) {
+func (app *synchronizationControllerApp) prepareCertManager() {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
+}
+
+func (app *synchronizationControllerApp) prepareMigrationCertManagers() {
 	app.migrationclientcertmanager = bootstrap.NewFileCertificateManager(app.migrationClientCertFilePath, app.migrationClientKeyFilePath)
 	app.migrationservercertmanager = bootstrap.NewFileCertificateManager(app.migrationServerCertFilePath, app.migrationServerKeyFilePath)
-	return
+}
+
+// migrationProxyTemplateEnabled reports whether this pod was rolled out with the
+// Proxy datapath template (env set together with virt-handler migration cert mounts).
+func migrationProxyTemplateEnabled() bool {
+	v, ok := os.LookupEnv(operatorutil.DecentralizedLiveMigrationProxyEnvName)
+	return ok && v == "true"
 }
 
 // Update synchronization controller log verbosity on relevant config changes
@@ -173,13 +183,17 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 	app.serverTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
 	app.clientTLSConfig = kvtls.SetupTLSForVirtSynchronizationControllerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 
-	// Terminating TLS for virt-handler ↔ proxy:
+	return nil
+}
+
+// setupMigrationTLS configures terminating TLS for virt-handler ↔ proxy.
+// Must be called after setupTLS(); it depends on app.caManager being non-nil.
+// Only call when the Proxy datapath is enabled (handler certs are mounted).
+func (app *synchronizationControllerApp) setupMigrationTLS() {
 	// - client config (migration client cert): dial target virt-handler
 	// - server config (virt-handler server cert): accept source virt-handler
 	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationclientcertmanager, app.externallyManaged)
 	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.migrationservercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler", "migration"})
-
-	return nil
 }
 
 func (app *synchronizationControllerApp) Run() {
@@ -239,10 +253,7 @@ func (app *synchronizationControllerApp) Run() {
 	vmiInformer := factory.VMI()
 	migrationInformer := factory.VirtualMachineInstanceMigration()
 
-	if err := app.prepareCertManager(); err != nil {
-		log.Log.Criticalf("Error preparing the certificate manager: %v", err)
-		os.Exit(2)
-	}
+	app.prepareCertManager()
 
 	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
 	if err != nil {
@@ -280,27 +291,44 @@ func (app *synchronizationControllerApp) Run() {
 		panic("timed out waiting for KubeVirt configuration caches to sync")
 	}
 
+	// Derive Proxy mode from the pod template env (set only when virt-handler
+	// migration certs are mounted), not live ClusterConfig. Old Direct-template
+	// pods must stay in Direct mode during rollout even if the CR already says Proxy.
+	proxyFromTemplate := migrationProxyTemplateEnabled()
 	proxyConfig := &synchronization.ProxyInitConfig{
-		Enabled: app.clusterConfig.DecentralizedLiveMigrationProxyEnabled(),
+		Enabled: proxyFromTemplate,
 	}
-	if mig := app.clusterConfig.GetConfig().MigrationConfiguration; mig != nil {
-		proxyConfig.RequireMigrationInterface = mig.Network != nil
-		proxyConfig.RequireCrossClusterInterface = mig.CrossClusterNetwork != nil
+	if proxyFromTemplate {
+		if mig := app.clusterConfig.GetConfig().MigrationConfiguration; mig != nil {
+			proxyConfig.RequireMigrationInterface = mig.Network != nil
+			proxyConfig.RequireCrossClusterInterface = mig.CrossClusterNetwork != nil
+		}
 	}
-	log.Log.Infof("Migration proxy init config: enabled=%t requireMigrationIface=%t requireCrossClusterIface=%t",
-		proxyConfig.Enabled, proxyConfig.RequireMigrationInterface, proxyConfig.RequireCrossClusterInterface)
+	log.Log.Infof("Migration proxy init config: enabled=%t (template) liveProxy=%t requireMigrationIface=%t requireCrossClusterIface=%t",
+		proxyConfig.Enabled, app.clusterConfig.DecentralizedLiveMigrationProxyEnabled(),
+		proxyConfig.RequireMigrationInterface, proxyConfig.RequireCrossClusterInterface)
 
 	// Proxy peer/gRPC fallback must use the real pod IP so it matches what
 	// virt-operator advertises when crossClusterNetwork is unset. Direct mode
 	// still prefers the migration-network address from FindMigrationIP.
 	controllerIP := app.ip
-	if proxyConfig.Enabled {
+	if proxyFromTemplate {
+		// Handler migration certs are only mounted on Proxy-template pods.
+		app.prepareMigrationCertManagers()
+		app.setupMigrationTLS()
+		go app.migrationclientcertmanager.Start()
+		go app.migrationservercertmanager.Start()
 		controllerIP = app.podIP
 	}
+
+	go app.clientcertmanager.Start()
+	go app.servercertmanager.Start()
+
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,
 		vmiInformer,
 		migrationInformer,
+		factory.KubeVirt().GetStore(),
 		app.clientTLSConfig,
 		app.serverTLSConfig,
 		app.migrationClientTLSConfig,
@@ -313,11 +341,6 @@ func (app *synchronizationControllerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
-
-	go app.clientcertmanager.Start()
-	go app.servercertmanager.Start()
-	go app.migrationclientcertmanager.Start()
-	go app.migrationservercertmanager.Start()
 
 	app.runWithLeaderElection(synchronizationController, stop)
 }
@@ -449,8 +472,12 @@ func (app *synchronizationControllerApp) close() {
 	// release resources associated with the application
 	app.clientcertmanager.Stop()
 	app.servercertmanager.Stop()
-	app.migrationclientcertmanager.Stop()
-	app.migrationservercertmanager.Stop()
+	if app.migrationclientcertmanager != nil {
+		app.migrationclientcertmanager.Stop()
+	}
+	if app.migrationservercertmanager != nil {
+		app.migrationservercertmanager.Stop()
+	}
 }
 
 func (app *synchronizationControllerApp) healthzHandler(w http.ResponseWriter, _ *http.Request) {

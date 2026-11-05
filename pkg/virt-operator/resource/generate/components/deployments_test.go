@@ -76,6 +76,51 @@ var _ = Describe("Deployments", func() {
 			),
 		)
 
+		DescribeTable("virt-handler migration cert mounts",
+			func(proxyEnabled bool, expectHandlerCerts bool) {
+				config := &util.KubeVirtDeploymentConfig{
+					Namespace: namespace,
+				}
+				if proxyEnabled {
+					config.AdditionalProperties = map[string]string{
+						util.AdditionalPropertiesDecentralizedLiveMigrationProxy: "",
+					}
+				}
+
+				deployment := NewSynchronizationControllerDeployment(config, "kubevirt", "v1.0.0", "sync-controller")
+				Expect(deployment).ToNot(BeNil())
+				Expect(deployment.Spec.Template.Spec.Containers).NotTo(BeEmpty())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				mounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				env := deployment.Spec.Template.Spec.Containers[0].Env
+
+				Expect(volumes).To(ContainElement(HaveField("Name", VirtSynchronizationControllerCertSecretName)))
+				Expect(volumes).To(ContainElement(HaveField("Name", VirtSynchronizationControllerServerCertSecretName)))
+				Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-sync-controller/clientcertificates")))
+				Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-sync-controller/servercertificates")))
+
+				if expectHandlerCerts {
+					Expect(volumes).To(ContainElement(HaveField("Name", VirtHandlerMigrationClientCertSecretName)))
+					Expect(volumes).To(ContainElement(HaveField("Name", VirtHandlerServerCertSecretName)))
+					Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationclientcertificates")))
+					Expect(mounts).To(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationservercertificates")))
+					Expect(env).To(ContainElement(corev1.EnvVar{
+						Name:  util.DecentralizedLiveMigrationProxyEnvName,
+						Value: "true",
+					}))
+				} else {
+					Expect(volumes).NotTo(ContainElement(HaveField("Name", VirtHandlerMigrationClientCertSecretName)))
+					Expect(volumes).NotTo(ContainElement(HaveField("Name", VirtHandlerServerCertSecretName)))
+					Expect(mounts).NotTo(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationclientcertificates")))
+					Expect(mounts).NotTo(ContainElement(HaveField("MountPath", "/etc/virt-handler/migrationservercertificates")))
+					Expect(env).NotTo(ContainElement(HaveField("Name", util.DecentralizedLiveMigrationProxyEnvName)))
+				}
+			},
+			Entry("proxy disabled omits handler certs", false, false),
+			Entry("proxy enabled mounts handler certs", true, true),
+		)
+
 		It("should defer node placement to reconciliation", func() {
 			By("Creating config with SynchronizationPlacement that would previously be applied at generation")
 			config := &util.KubeVirtDeploymentConfig{
@@ -139,5 +184,75 @@ var _ = Describe("Deployments", func() {
 				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
 			}
 		})
+	})
+
+	Context("SecurityContext", func() {
+		DescribeTable("should set ReadOnlyRootFilesystem to true on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				for _, c := range podSpec.Containers {
+					Expect(c.SecurityContext).ToNot(BeNil(),
+						"container %s should have SecurityContext", c.Name)
+					Expect(c.SecurityContext.ReadOnlyRootFilesystem).ToNot(BeNil(),
+						"container %s should have ReadOnlyRootFilesystem set", c.Name)
+					Expect(*c.SecurityContext.ReadOnlyRootFilesystem).To(BeTrue(),
+						"container %s should have ReadOnlyRootFilesystem=true", c.Name)
+				}
+			},
+			Entry(VirtAPIName, func() corev1.PodSpec {
+				d := NewApiServerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
+
+		DescribeTable("should NOT have tmp-dir volume on",
+			func(createDeployment func() corev1.PodSpec) {
+				podSpec := createDeployment()
+				Expect(podSpec.Volumes).ToNot(
+					ContainElement(HaveField("Name", "/tmp")),
+					"deployment should not have tmp-dir volume")
+			},
+			Entry(VirtAPIName, func() corev1.PodSpec {
+				deployment := NewApiServerDeployment(
+					&util.KubeVirtDeploymentConfig{},
+					"",
+					"",
+					"",
+				)
+				return deployment.Spec.Template.Spec
+			}),
+			Entry(VirtControllerName, func() corev1.PodSpec {
+				d := NewControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtOperatorName, func() corev1.PodSpec {
+				d := NewOperatorDeployment("", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", corev1.PullIfNotPresent)
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtExportProxyName, func() corev1.PodSpec {
+				d := NewExportProxyDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+			Entry(VirtSynchronizationControllerName, func() corev1.PodSpec {
+				d := NewSynchronizationControllerDeployment(&util.KubeVirtDeploymentConfig{}, "", "", "")
+				return d.Spec.Template.Spec
+			}),
+		)
 	})
 })

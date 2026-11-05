@@ -75,3 +75,18 @@ def centos_stream_alias(name, cs9_target, cs10_target, visibility = None):
         }),
         visibility = visibility,
     )
+
+def centos_stream_aliases(names, visibility = None):
+    """Create version-selecting aliases for a list of unversioned target names.
+
+    Args:
+        names: Target names without the _cs9/_cs10 suffix
+        visibility: Target visibility
+    """
+    for name in names:
+        centos_stream_alias(
+            name = name,
+            cs9_target = ":" + name + "_cs9",
+            cs10_target = ":" + name + "_cs10",
+            visibility = visibility,
+        )

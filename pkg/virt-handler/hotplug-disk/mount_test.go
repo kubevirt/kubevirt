@@ -51,7 +51,7 @@ import (
 	"github.com/opencontainers/cgroups"
 	devices "github.com/opencontainers/cgroups/devices/config"
 
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"

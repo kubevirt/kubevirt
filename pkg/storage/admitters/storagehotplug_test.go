@@ -832,7 +832,11 @@ var _ = Describe("Utility Volumes Admitter", func() {
 		var config *virtconfig.ClusterConfig
 
 		BeforeEach(func() {
-			kv := &v1.KubeVirtConfiguration{}
+			kv := &v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.UtilityVolumesGate},
+				},
+			}
 			config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
 		})
 

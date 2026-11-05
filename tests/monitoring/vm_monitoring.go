@@ -98,6 +98,21 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 		})
 
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds buckets correctly configured", func() {
+			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
+				GinkgoLogr.Info("Checking bucket", "le", bucket)
+				libmonitoring.WaitForHistogramBucketValueToBe(
+					virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket", bucket, 0, ">=", 0,
+				)
+			}
+		})
+
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds_sum populated", func() {
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_sum", nil, 0, ">", 0,
+			)
+		})
+
 		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
@@ -261,6 +276,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				"guest_os_machine":        agentVMI.Status.Machine.Type,
 				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+				"has_panic_device":        "true",
 			}
 
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
@@ -444,6 +460,15 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
+			By("Verifying the migration downtime metric is populated")
+			downtimeLabels := map[string]string{
+				"name":      vmi.Name,
+				"namespace": vmi.Namespace,
+				"node":      vmi.Status.NodeName,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_last_downtime_duration_seconds", downtimeLabels, 1, ">=", 0,
+			)
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
 				context.Background(), vmi.Name, metav1.DeleteOptions{},
@@ -454,12 +479,37 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)).To(Succeed())
 		})
 
+		It("should have kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum populated after migration", func() {
+			By("Creating VMI")
+			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Migrating VMI")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying the migration phase transition time from creation sum metric is populated")
+			labels := map[string]string{"phase": "Succeeded"}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum", labels, 0, ">", 0,
+			)
+
+			By("Delete VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const migrationVMIDisappearTimeout = 240 * time.Second
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
+				vmi, migrationVMIDisappearTimeout,
+			)).To(Succeed())
+		})
+
 		It("Should correctly update metrics on failing VMIM", func() {
 			const migrationPollInterval = 5 * time.Second
 
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()), //nolint:staticcheck
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
@@ -668,7 +718,8 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
 	)
 	vmi := libvmops.RunVMIAndExpectLaunch(
-		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), flags.StartupTimeoutSecondsXLarge(),
+		libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithPanicDevice(v1.Isa)),
+		flags.StartupTimeoutSecondsXLarge(),
 	)
 
 	var err error

@@ -37,13 +37,31 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
-	setDefaultArchitectureFromDataSource(clusterConfig, vm, virtClient)
+// ClusterConfigProvider is the cluster configuration the defaults pipeline
+// needs. *virtconfig.ClusterConfig satisfies it.
+type ClusterConfigProvider interface {
+	GetMachineType(arch string) string
+	GetDefaultArchitecture() string
+	GetCPUModel() string
+	GetCPURequest() *resource.Quantity
+	IsVMRolloutStrategyLiveUpdate() bool
+	GetMaximumCpuSockets() uint32
+	GetMaxHotplugRatio() uint32
+	GetMaximumGuestMemory() *resource.Quantity
+	GetDefaultNetworkInterface() string
+	IsBridgeInterfaceOnPodNetworkEnabled() bool
+	GetEvictionStrategy() *v1.EvictionStrategy
+}
+
+var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
+
+func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider, virtClient kubecli.KubevirtClient) {
+	setDefaultArchitectureFromDataSource(vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
 	setVMDefaultMachineType(vm, clusterConfig)
 }
 
-func setVMDefaultMachineType(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) {
+func setVMDefaultMachineType(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider) {
 	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
 		return
@@ -62,7 +80,7 @@ func setVMDefaultMachineType(vm *v1.VirtualMachine, clusterConfig *virtconfig.Cl
 	}
 }
 
-func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error {
+func SetDefaultVirtualMachineInstance(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance) error {
 	if err := SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
 		return err
 	}
@@ -81,7 +99,7 @@ func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, v
 	return nil
 }
 
-func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+func setupHotplug(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance) {
 	if !clusterConfig.IsVMRolloutStrategyLiveUpdate() {
 		return
 	}
@@ -89,7 +107,7 @@ func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachin
 	setupMemoryHotplug(clusterConfig, vmi)
 }
 
-func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+func setupCPUHotplug(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance) {
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
 		maxSockets := clusterConfig.GetMaximumCpuSockets()
 		if vmi.Spec.Domain.CPU.Sockets > maxSockets && maxSockets != 0 {
@@ -112,7 +130,7 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 	}
 }
 
-func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+func setupMemoryHotplug(clusterConfig ClusterConfigProvider, vmi *v1.VirtualMachineInstance) {
 	if vmi.Spec.Domain.Memory.MaxGuest != nil {
 		return
 	}
@@ -161,7 +179,7 @@ func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultCPUArch(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	// Do some CPU arch specific setting.
 	switch {
 	case IsARM64(spec):
@@ -190,12 +208,12 @@ func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
+func SetDefaultVirtualMachineInstanceSpec(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) error {
 	setDefaultArchitecture(clusterConfig, spec)
 	setDefaultMachineType(clusterConfig, spec)
 	setDefaultResourceRequests(clusterConfig, spec)
 	setGuestMemory(spec)
-	SetDefaultGuestCPUTopology(clusterConfig, spec)
+	SetDefaultGuestCPUTopology(spec)
 	setDefaultPullPoliciesOnContainerDisks(spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := netvmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
@@ -205,13 +223,13 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	return nil
 }
 
-func setDefaultEvictionStrategy(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultEvictionStrategy(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.EvictionStrategy == nil {
-		spec.EvictionStrategy = clusterConfig.GetConfig().EvictionStrategy
+		spec.EvictionStrategy = clusterConfig.GetEvictionStrategy()
 	}
 }
 
-func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultMachineType(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	machineType := clusterConfig.GetMachineType(spec.Architecture)
 
 	if machine := spec.Domain.Machine; machine != nil {
@@ -259,7 +277,7 @@ func setGuestMemory(spec *v1.VirtualMachineInstanceSpec) {
 
 }
 
-func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultResourceRequests(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	resources := &spec.Domain.Resources
 
 	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
@@ -282,7 +300,7 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 	}
 }
 
-func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func SetDefaultGuestCPUTopology(spec *v1.VirtualMachineInstanceSpec) {
 	cores := uint32(1)
 	threads := uint32(1)
 	sockets := uint32(1)
@@ -307,7 +325,7 @@ func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v
 	}
 }
 
-func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultCPUModel(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	// create cpu topology struct
 	if spec.Domain.CPU == nil {
 		spec.Domain.CPU = &v1.CPU{}
@@ -324,20 +342,20 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 	}
 }
 
-func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultArchitecture(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
 	}
 }
 
-func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient) {
+func setDefaultArchitectureFromDataSource(vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient) {
 	const (
 		dataSourceKind        = "datasource"
 		templateArchLabel     = "template.kubevirt.io/architecture"
 		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
 		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
 	)
-	if vm.Spec.Template.Spec.Architecture != "" {
+	if virtClient == nil || vm.Spec.Template.Spec.Architecture != "" {
 		return
 	}
 	for _, template := range vm.Spec.DataVolumeTemplates {

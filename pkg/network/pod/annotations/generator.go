@@ -86,6 +86,14 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		annotations[istio.RerouteVirtualInterfacesAnnotation] = defaultBridgeName
 	}
 
+	if istio.ProxyInjectionEnabled(vmi) {
+		if val, exists := vmi.Annotations[istio.NativeSidecarAnnotation]; exists {
+			annotations[istio.NativeSidecarAnnotation] = val
+		} else {
+			annotations[istio.NativeSidecarAnnotation] = "true"
+		}
+	}
+
 	return annotations, nil
 }
 

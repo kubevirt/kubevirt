@@ -109,6 +109,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	}
 
 	var causes []metav1.StatusCause
+	causes = append(causes, validateContainerPathVolumesFeatureGate(k8sfield.NewPath("spec"), vmi.Spec.Volumes, nil, admitter.ClusterConfig)...)
 	clusterCfg := admitter.ClusterConfig.GetConfig()
 	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
 		causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
@@ -118,12 +119,19 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, validateSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	}
 
-	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
+	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+	specCauses := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
+	if isKubeVirtServiceAccount {
+		// A VMI created by KubeVirt's own controllers always derives from an already-admitted VM
+		// spec, so a declarative virtualMachineState it already carries must keep working even if
+		// the gate is disabled afterwards.
+		specCauses = filterOutDeclarativeVMStateGateCause(specCauses, k8sfield.NewPath("spec"))
+	}
+	causes = append(causes, specCauses...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
-	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
 	causes = append(causes, validateGraceIOVirtualizationAnnotations(k8sfield.NewPath("metadata"), &vmi.Spec, vmi.Annotations, admitter.ClusterConfig)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
@@ -134,6 +142,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 
 	warnings := warnDeprecatedAPIs(&vmi.Spec, admitter.ClusterConfig)
 	warnings = append(warnings, warnDisabledACPIAmd64(&vmi.Spec, admitter.ClusterConfig)...)
+	warnings = append(warnings, storageadmitters.WarnDeprecatedMemoryDumpVolumes(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
 	return &admissionv1.AdmissionResponse{
 		Allowed:  true,
@@ -260,7 +269,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
 
-	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
+	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain, spec.Architecture, config)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
 	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
@@ -286,7 +295,103 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
 	causes = append(causes, validateServiceAccountName(field, spec)...)
+	causes = append(causes, validateEmulationPolicy(field, spec, config)...)
+	causes = append(causes, validateVirtualMachineState(field, spec, config)...)
 
+	return causes
+}
+
+func declarativeVMStateGateCause(field *k8sfield.Path) metav1.StatusCause {
+	return metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.DeclarativeVMState),
+		Field:   field.Child("virtualMachineState").String(),
+	}
+}
+
+// filterOutDeclarativeVMStateGateCause drops the DeclarativeVMState gate-disabled cause, so a VM/VMI
+// that already had virtualMachineState set keeps working even after the gate is later disabled.
+func filterOutDeclarativeVMStateGateCause(causes []metav1.StatusCause, field *k8sfield.Path) []metav1.StatusCause {
+	gateCause := declarativeVMStateGateCause(field)
+	filtered := causes[:0]
+	for _, c := range causes {
+		if c != gateCause {
+			filtered = append(filtered, c)
+		}
+	}
+	return filtered
+}
+
+func validateVirtualMachineState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if spec.VirtualMachineState == nil {
+		return causes
+	}
+
+	vmsField := field.Child("virtualMachineState")
+
+	if !config.DeclarativeVMStateEnabled() {
+		return append(causes, declarativeVMStateGateCause(field))
+	}
+
+	vmState := spec.VirtualMachineState
+	if vmState.VolumeClaimTemplate == nil && vmState.Source == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "at least one of volumeClaimTemplate or source must be set",
+			Field:   vmsField.String(),
+		})
+	}
+
+	if vmState.Source != nil && vmState.Source.Name == "" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: "source.name must not be empty",
+			Field:   vmsField.Child("source", "name").String(),
+		})
+	}
+
+	if template := vmState.VolumeClaimTemplate; template != nil {
+		templateField := vmsField.Child("volumeClaimTemplate")
+		if template.Name != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "volumeClaimTemplate.metadata.name must not be set, the controller generates the PVC name; if you need a fixed name, pre-create the PVC and reference it through source instead",
+				Field:   templateField.Child("metadata", "name").String(),
+			})
+		}
+		if mode := template.Spec.VolumeMode; mode != nil && *mode != k8sv1.PersistentVolumeFilesystem {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("volumeClaimTemplate.spec.volumeMode must be %q", k8sv1.PersistentVolumeFilesystem),
+				Field:   templateField.Child("spec", "volumeMode").String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+// Objects already using ContainerPath may update or add ContainerPath volumes after the feature gate is disabled.
+func validateContainerPathVolumesFeatureGate(field *k8sfield.Path, volumes, oldVolumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	if config.ContainerPathVolumesEnabled() {
+		return nil
+	}
+	for _, volume := range oldVolumes {
+		if volume.ContainerPath != nil {
+			return nil
+		}
+	}
+	var causes []metav1.StatusCause
+	for idx, volume := range volumes {
+		if volume.ContainerPath != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "ContainerPathVolumes feature gate is not enabled",
+				Field:   field.Child("volumes").Index(idx).Child("containerPath").String(),
+			})
+		}
+	}
 	return causes
 }
 
@@ -378,9 +483,9 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 				})
 			}
 			// Block reserved paths used by KubeVirt internally
-			reservedPrefixes := []string{"/var/run/kubevirt", "/var/run/libvirt"}
+			reservedPrefixes := []string{"/var/run/kubevirt", "/var/run/libvirt", "/run/kubevirt", "/run/libvirt"}
 			for _, prefix := range reservedPrefixes {
-				if strings.HasPrefix(volume.ContainerPath.Path, prefix) {
+				if strings.HasPrefix(filepath.Clean(volume.ContainerPath.Path), prefix) {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("ContainerPath volume '%s' uses reserved path prefix '%s'", volume.Name, prefix),
@@ -782,13 +887,22 @@ func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 
 func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
+	guestMappingPassthroughField := field.Child("domain", "cpu", "numa", "guestMappingPassthrough")
 	if spec.Domain.CPU != nil && spec.Domain.CPU.NUMA != nil && spec.Domain.CPU.NUMA.GuestMappingPassthrough != nil {
 		if !config.NUMAEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("NUMA feature gate is not enabled in kubevirt-config, invalid entry %s",
-					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String()),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+					guestMappingPassthroughField.String()),
+				Field: guestMappingPassthroughField.String(),
+			})
+		}
+		if config.CPUsWithDRAGateEnabled() && spec.Domain.CPU.DedicatedCPUPlacement {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is not supported when CPUsWithDRA is enabled",
+					guestMappingPassthroughField.String()),
+				Field: guestMappingPassthroughField.String(),
 			})
 		}
 		if !spec.Domain.CPU.DedicatedCPUPlacement {
@@ -796,9 +910,9 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must be set to true when NUMA topology strategy is set in %s",
 					field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
-					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+					guestMappingPassthroughField.String(),
 				),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				Field: guestMappingPassthroughField.String(),
 			})
 		}
 		if spec.Domain.Memory == nil || spec.Domain.Memory.Hugepages == nil {
@@ -806,9 +920,9 @@ func validateNUMA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, con
 				Type: metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must be requested when NUMA topology strategy is set in %s",
 					field.Child("domain", "memory", "hugepages").String(),
-					field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+					guestMappingPassthroughField.String(),
 				),
-				Field: field.Child("domain", "cpu", "numa", "guestMappingPassthrough").String(),
+				Field: guestMappingPassthroughField.String(),
 			})
 		}
 	}
@@ -1517,21 +1631,46 @@ func smmFeatureEnabled(features *v1.Features) bool {
 	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
 }
 
-func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
+func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec, arch string, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, storageadmitters.ValidateDisks(field.Child("devices").Child("disks"), spec.Devices.Disks)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	// TDX uses stateless firmware with Secure Boot keys embedded in the ROM;
-	// it does not need SMM to protect UEFI variable writes.
-	tdxEnabled := spec.LaunchSecurity != nil && spec.LaunchSecurity.TDX != nil
-	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) && !tdxEnabled {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
-			Field:   field.String(),
-		})
+	if secureBootEnabled(spec.Firmware) {
+		tdxEnabled := spec.LaunchSecurity != nil && spec.LaunchSecurity.TDX != nil
+		sbField := field.Child("firmware", "bootloader", "efi", "secureBoot")
+		switch arch {
+		case "amd64", "":
+			if !smmFeatureEnabled(spec.Features) && !tdxEnabled {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),
+					Field:   field.String(),
+				})
+			}
+		case "arm64":
+			if !config.ARM64SecureBootEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.ARM64SecureBoot),
+					Field:   sbField.String(),
+				})
+			}
+			if !config.FirmwareAutoSelectionEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection),
+					Field:   sbField.String(),
+				})
+			}
+		default:
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SecureBoot is not supported on architecture %s", arch),
+				Field:   field.String(),
+			})
+		}
 	}
 
 	return causes
@@ -2225,5 +2364,38 @@ func validateServiceAccountName(field *k8sfield.Path, spec *v1.VirtualMachineIns
 		}
 	}
 
+	return causes
+}
+
+func validateEmulationPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.EmulationPolicy == nil {
+		return causes
+	}
+
+	if !config.CrossArchitectureVirtualizationEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization),
+			Field:   field.Child("emulationPolicy").String(),
+		})
+		return causes
+	}
+
+	if !slices.Contains(v1.EmulationPolicies, *spec.EmulationPolicy) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Unknown EmulationPolicy '%s', allowed values are %v", *spec.EmulationPolicy, v1.EmulationPolicies),
+			Field:   field.Child("emulationPolicy").String(),
+		})
+	}
+	if *spec.EmulationPolicy == v1.EmulationPolicyHardware {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "EmulationPolicy 'Hardware' is not yet implemented",
+			Field:   field.Child("emulationPolicy").String(),
+		})
+	}
 	return causes
 }

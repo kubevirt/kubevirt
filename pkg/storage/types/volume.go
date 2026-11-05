@@ -74,6 +74,20 @@ func IsUtilityVolume(vmi *v1.VirtualMachineInstance, volumeName string) bool {
 	return false
 }
 
+// IsMountedDirectoryVolume checks if a utility or memory dump volume is bind-mounted into
+// virt-launcher. Directory volumes never become domain disks, so they stop at HotplugVolumeMounted
+// or the memory dump phases that follow it.
+func IsMountedDirectoryVolume(vmi *v1.VirtualMachineInstance, status *v1.VolumeStatus) bool {
+	if !IsUtilityVolume(vmi, status.Name) && status.MemoryDumpVolume == nil {
+		return false
+	}
+	switch status.Phase {
+	case v1.HotplugVolumeMounted, v1.MemoryDumpVolumeInProgress, v1.MemoryDumpVolumeCompleted, v1.MemoryDumpVolumeFailed:
+		return true
+	}
+	return false
+}
+
 func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod) []*v1.Volume {
 	hotplugVolumes := make([]*v1.Volume, 0)
 	podVolumes := virtlauncherPod.Spec.Volumes

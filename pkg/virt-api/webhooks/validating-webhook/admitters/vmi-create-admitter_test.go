@@ -112,6 +112,123 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	DescribeTable("ContainerPath feature gate on VMI creation", func(enabled, allowed bool) {
+		if enabled {
+			enableFeatureGates(featuregate.ContainerPathVolumesGate)
+		} else {
+			withDisabledFeatureGates(featuregate.ContainerPathVolumesGate)
+		}
+		vmi := newBaseVmi()
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name:         "containerpath",
+			VolumeSource: v1.VolumeSource{ContainerPath: &v1.ContainerPathVolumeSource{Path: "/run/secrets/test"}},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name: "containerpath", Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(Equal(allowed))
+		if !allowed {
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumes[0].containerPath"))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("ContainerPathVolumes feature gate"))
+		}
+	},
+		Entry("rejects when disabled", false, false),
+		Entry("allows when enabled", true, true),
+	)
+
+	Context("with virtualMachineState", func() {
+		field := k8sfield.NewPath("fake")
+
+		validate := func(state *v1.VirtualMachineStateSpec) []metav1.StatusCause {
+			spec := &v1.VirtualMachineInstanceSpec{VirtualMachineState: state}
+			return validateVirtualMachineState(field, spec, config)
+		}
+
+		It("should accept an unset virtualMachineState", func() {
+			Expect(validate(nil)).To(BeEmpty())
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			causes := validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
+			Expect(causes[0].Field).To(Equal("fake.virtualMachineState"))
+		})
+
+		It("should keep admitting a VMI with virtualMachineState created by a KubeVirt controller, even with the gate disabled", func() {
+			vmi := newBaseVmi()
+			vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + components.ControllerServiceAccountName}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+		})
+
+		It("should still reject a VMI with virtualMachineState created by a regular user, when the gate is disabled", func() {
+			vmi := newBaseVmi()
+			vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "fake-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+		})
+
+		Context("with the feature gate enabled", func() {
+			BeforeEach(func() {
+				enableFeatureGates(featuregate.DeclarativeVMState)
+			})
+
+			It("should reject when neither volumeClaimTemplate nor source is set", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+				Expect(causes[0].Message).To(Equal("at least one of volumeClaimTemplate or source must be set"))
+			})
+
+			It("should reject a source with an empty name", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{}})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(Equal("source.name must not be empty"))
+			})
+
+			It("should reject a volumeClaimTemplate with metadata.name set", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{
+					VolumeClaimTemplate: &k8sv1.PersistentVolumeClaimTemplate{
+						ObjectMeta: metav1.ObjectMeta{Name: "myname"},
+					},
+				})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring("volumeClaimTemplate.metadata.name must not be set"))
+			})
+
+			It("should reject a volumeClaimTemplate with a non-Filesystem volumeMode", func() {
+				causes := validate(&v1.VirtualMachineStateSpec{
+					VolumeClaimTemplate: &k8sv1.PersistentVolumeClaimTemplate{
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeMode: pointer.P(k8sv1.PersistentVolumeBlock),
+						},
+					},
+				})
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(Equal(`volumeClaimTemplate.spec.volumeMode must be "Filesystem"`))
+			})
+
+			It("should accept a valid virtualMachineState", func() {
+				Expect(validate(&v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "x"}})).To(BeEmpty())
+			})
+		})
+	})
+
 	It("when spec validator pass, should allow", func() {
 		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
 		Expect(err).ToNot(HaveOccurred())
@@ -1847,6 +1964,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject NUMA passthrough when CPUsWithDRA feature gate is enabled", func() {
+			enableFeatureGates(featuregate.CPUsWithDRAGate)
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(ContainElement(metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Field:   "fake.domain.cpu.numa.guestMappingPassthrough",
+				Message: "fake.domain.cpu.numa.guestMappingPassthrough is not supported when CPUsWithDRA is enabled",
+			}))
+		})
+
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
@@ -2571,6 +2704,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("kubevirt path", "/var/run/kubevirt/something", "/var/run/kubevirt"),
 			Entry("kubevirt-private path", "/var/run/kubevirt-private/secret", "/var/run/kubevirt"),
 			Entry("libvirt path", "/var/run/libvirt/socket", "/var/run/libvirt"),
+			Entry("run kubevirt path", "/run/kubevirt/something", "/run/kubevirt"),
+			Entry("run kubevirt-private path", "/run/kubevirt-private/secret", "/run/kubevirt"),
+			Entry("run libvirt path", "/run/libvirt/socket", "/run/libvirt"),
+			Entry("run kubevirt root", "/run/kubevirt", "/run/kubevirt"),
+			Entry("run libvirt root", "/run/libvirt", "/run/libvirt"),
+			Entry("normalized kubevirt path", "/run/secrets/../kubevirt-private/secret", "/run/kubevirt"),
+			Entry("normalized libvirt path", "/var//run/./libvirt/socket", "/var/run/libvirt"),
 		)
 
 	})
@@ -2650,6 +2790,87 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
+		})
+
+		Context("ARM64 Secure Boot", func() {
+			BeforeEach(func() {
+				vmi.Spec.Architecture = "arm64"
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(true),
+						},
+					},
+				}
+			})
+
+			It("should accept ARM64 EFI with SecureBoot and without SMM when feature gate is enabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot, featuregate.FirmwareAutoSelection)
+
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when ARM64SecureBoot feature gate is disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.FirmwareAutoSelection)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when FirmwareAutoSelection feature gate is disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+			})
+
+			It("should reject ARM64 EFI with SecureBoot when both feature gates are disabled", func() {
+				enableFeatureGates(featuregate.MultiArchitecture)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(2))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+				Expect(causes[1].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+			})
+
+			It("should accept ARM64 EFI without SecureBoot and without ARM64SecureBoot feature gate", func() {
+				enableFeatureGates(featuregate.MultiArchitecture)
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(false)
+
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+		})
+
+		It("should still require SMM for amd64 EFI with SecureBoot", func() {
+			vmi.Spec.Architecture = "amd64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SecureBoot requires SMM"))
+		})
+
+		It("should reject SecureBoot on unsupported architectures", func() {
+			enableFeatureGates(featuregate.MultiArchitecture)
+			vmi.Spec.Architecture = "riscv64"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("SecureBoot is not supported on architecture riscv64"))
 		})
 
 		It("should not accept BIOS and EFI together", func() {
@@ -3767,6 +3988,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "testdisk",
 					DiskDevice: v1.DiskDevice{
 						LUN: &v1.LunTarget{
+							Bus:         v1.DiskBusSCSI,
 							Reservation: true,
 						},
 					},
@@ -4226,6 +4448,69 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		})
+	})
+
+	Context("with EmulationPolicy", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithMemoryRequest("128M"),
+			)
+		})
+
+		It("should do nothing when not set", func() {
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		})
+		It("should reject when FeatureGate is not enabled", func() {
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicyNone)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring(fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization)))
+		})
+		It("should reject unkown value", func() {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicy("foo"))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("Unknown EmulationPolicy 'foo', allowed values are"))
+		})
+		DescribeTable("should accept valid values", func(value v1.EmulationPolicy) {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(value)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprint(resp.Result))
+		},
+			Entry("None", v1.EmulationPolicyNone),
+			Entry("Software", v1.EmulationPolicySoftware),
+		)
+		It("should reject Hardware value", func() {
+			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicyHardware)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(ContainSubstring("EmulationPolicy 'Hardware' is not yet implemented"))
 		})
 	})
 })

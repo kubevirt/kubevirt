@@ -74,7 +74,7 @@ var _ = Describe("MemoryDump", func() {
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
 		metadataCache = metadata.NewCache()
-		manager = NewStorageManager(mockConn, metadataCache, nil)
+		manager = NewStorageManager(mockConn, metadataCache)
 		testDomainName = fmt.Sprintf("%s_%s", testNamespace, testVmName)
 	})
 

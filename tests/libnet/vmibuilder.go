@@ -31,9 +31,9 @@ import (
 
 func ConformancePodNetworkInterface(ports ...v1.Port) v1.Interface {
 	if flags.PrimaryNetworkBindingPlugin == "" {
-		return libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)
+		return libvmi.InterfaceDeviceWithMasqueradeBinding(ports...) //nolint:staticcheck
 	}
-	return libvmi.InterfaceWithBindingPlugin(
+	return libvmi.InterfaceWithBindingPlugin( //nolint:staticcheck
 		v1.DefaultPodNetwork().Name,
 		v1.PluginBinding{Name: flags.PrimaryNetworkBindingPlugin},
 		ports...,
@@ -43,7 +43,7 @@ func ConformancePodNetworkInterface(ports ...v1.Port) v1.Interface {
 func WithMasqueradeNetworking(ports ...v1.Port) libvmi.Option {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	return func(vmi *v1.VirtualMachineInstance) {
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...))(vmi)
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...))(vmi) //nolint:staticcheck
 		libvmi.WithNetwork(v1.DefaultPodNetwork())(vmi)
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData))(vmi)
 	}

@@ -32,13 +32,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -681,53 +680,11 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 	return resp, nil
 }
 
-func RunServer(socketPath string,
-	domainManager virtwrap.DomainManager,
-	stopChan chan struct{},
-	options *ServerOptions) (chan struct{}, error) {
-	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
-	if options == nil {
-		options = NewServerOptions(false)
+func RegisterCmdServer(cmdServer cmdv1.CmdServer) func(grpcServer *grpc.Server) {
+	return func(server *grpc.Server) {
+		registerInfoServer(server)
+		cmdv1.RegisterCmdServer(server, cmdServer)
 	}
-	server := NewLauncher(domainManager, options)
-	registerInfoServer(grpcServer)
-
-	// register more versions as soon as needed
-	// and add them to info.go
-	cmdv1.RegisterCmdServer(grpcServer, server)
-
-	sock, err := grpcutil.CreateSocket(socketPath)
-	if err != nil {
-		return nil, err
-	}
-
-	done := make(chan struct{})
-
-	go func() {
-		<-stopChan
-		log.Log.Info("stopping cmd server")
-		stopped := make(chan struct{})
-		go func() {
-			grpcServer.Stop()
-			close(stopped)
-		}()
-
-		select {
-		case <-stopped:
-			log.Log.Info("cmd server stopped")
-		case <-time.After(1 * time.Second):
-			log.Log.Error("timeout on stopping the cmd server, continuing anyway.")
-		}
-		sock.Close()
-		os.Remove(socketPath)
-		close(done)
-	}()
-
-	go func() {
-		grpcServer.Serve(sock)
-	}()
-
-	return done, nil
 }
 
 func (l *Launcher) Ping(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.Response, error) {
@@ -887,11 +844,6 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 		default:
 			return nil, fmt.Errorf("unknown backup mode: only Push and Pull are supported")
 		}
-	case backupv1.Export:
-		if err := validateBackupExportRequest(options); err != nil {
-			return nil, err
-		}
-		return options, nil
 	case backupv1.Abort:
 		return options, nil
 	default:
@@ -899,34 +851,6 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 	}
 
 	return options, nil
-}
-
-func validateBackupExportRequest(options *backupv1.BackupOptions) error {
-	if options.Mode != backupv1.PullMode {
-		return fmt.Errorf("can only export Pull mode backup")
-	}
-	if options.ExportServerAddr == nil {
-		return fmt.Errorf("backup export server address wasn't provided")
-	}
-	if options.ExportServerName == nil {
-		return fmt.Errorf("backup export server name wasn't provided")
-	}
-	if options.BackupName == "" {
-		return fmt.Errorf("backup name wasn't provided")
-	}
-	if options.BackupStartTime == nil {
-		return fmt.Errorf("backup start time wasn't provided")
-	}
-	if options.BackupCert == nil {
-		return fmt.Errorf("backup certificate wasn't provided")
-	}
-	if options.BackupKey == nil {
-		return fmt.Errorf("backup key wasn't provided")
-	}
-	if options.CACert == nil {
-		return fmt.Errorf("backup export server CA cert wasn't provided")
-	}
-	return nil
 }
 
 func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.Response, error) {
@@ -959,52 +883,36 @@ func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.Backup
 	return response, nil
 }
 
-func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.RedefineCheckpointRequest) (*cmdv1.RedefineCheckpointResponse, error) {
+func (l *Launcher) ExternalSnapshot(_ context.Context, request *cmdv1.ExternalSnapshotRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response:          response,
-			CheckpointInvalid: false,
-		}, nil
+		return response, nil
 	}
 
-	if !storage.IsChangedBlockTrackingEnabled(vmi) {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: "Redefine checkpoint failed: ChangedBlockTracking is not enabled",
-			},
-			CheckpointInvalid: false,
-		}, nil
+	if err := l.domainManager.ExternalSnapshot(vmi, request.OverlayDir, request.Volumes); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to start external snapshot")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
-	checkpoint := &backupv1.BackupCheckpoint{}
-	if err := json.Unmarshal(request.Checkpoint, checkpoint); err != nil {
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: fmt.Sprintf("Redefine checkpoint failed: invalid checkpoint info: %v", err),
-			},
-			CheckpointInvalid: false,
-		}, nil
+	log.Log.Object(vmi).Info("External snapshot transaction accepted")
+	return response, nil
+}
+
+func (l *Launcher) CommitSnapshot(_ context.Context, request *cmdv1.CommitSnapshotRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	checkpointInvalid, err := l.domainManager.RedefineCheckpoint(vmi, checkpoint)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
-		return &cmdv1.RedefineCheckpointResponse{
-			Response: &cmdv1.Response{
-				Success: false,
-				Message: err.Error(),
-			},
-			CheckpointInvalid: checkpointInvalid,
-		}, nil
+	if err := l.domainManager.CommitSnapshot(vmi, request.OverlayDir); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to start snapshot overlay commit")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
-	log.Log.Object(vmi).Infof("Checkpoint %s redefined successfully", checkpoint.Name)
-	return &cmdv1.RedefineCheckpointResponse{
-		Response: &cmdv1.Response{
-			Success: true,
-		},
-	}, nil
+	log.Log.Object(vmi).Info("Snapshot overlay commit request accepted")
+	return response, nil
 }

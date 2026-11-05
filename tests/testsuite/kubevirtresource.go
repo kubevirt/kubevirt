@@ -111,17 +111,18 @@ func AdjustKubeVirtResource() {
 		featuregate.CPUManager,
 		featuregate.IgnitionGate,
 		featuregate.SidecarGate,
-		featuregate.IncrementalBackupGate,
+		featuregate.ExternalVMSnapshotGate,
+		featuregate.OfflineIncrementalBackupGate,
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.ObjectGraph,
+		featuregate.DeclarativeVMState,
 		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,
-		featuregate.ContainerPathVolumesGate,
 	} {
 		if !unsupportedGates[gate] {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(

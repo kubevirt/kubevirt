@@ -40,8 +40,25 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
 		"accessCredentials":             "Specifies a set of public keys to inject into the vm guest\n+listType=atomic\n+optional\n+kubebuilder:validation:MaxItems:=256",
 		"architecture":                  "Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components",
-		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis is an alpha field and requires enabling the\nDynamicResourceAllocation feature gate in kubernetes\n https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,\nor NetworkDevicesWithDRA is enabled.\nThis feature is in alpha.\n\n+listType=map\n+listMapKey=name\n+optional",
+		"resourceClaims":                "ResourceClaims define which ResourceClaims must be allocated\nand reserved before the VMI, hence virt-launcher pod is allowed to start. The resources\nwill be made available to the domain which consumes them\nby name.\n\nThis field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,\nor NetworkDevicesWithDRA is enabled.\n\n+listType=map\n+listMapKey=name\n+optional",
 		"utilityVolumes":                "List of utility volumes that can be mounted to the vmi virt-launcher pod\nwithout having a matching disk in the domain.\nUsed to collect data for various operational workflows.\n+kubebuilder:validation:MaxItems:=256\n+listType=map\n+listMapKey=name\n+optional",
+		"emulationPolicy":               "The most permissive emulation backend this VM may use.\nTakes precedence over spec.configuration.emulationPolicy in the KubeVirt CR.\n\nValid Options from least to most permissive are:\n- None: Only native-kvm\n- Hardware: Not yet implemented\n- Software: Qemu TCG cross-architecture emulation\nDefault policy is 'None'\n\nThis is an alpha field and should only be configured if the\nfeature-gate CrossArchitectureVirtualization is enabled.\nThis feature is in alpha.\n\n+optional\n+kubebuilder:validation:Enum=None;Hardware;Software",
+		"virtualMachineState":           "VirtualMachineState references or templates the PVC that backs the\nVirtualMachineState (persistent UEFI, TPM and CBT state).\nWhen set, it takes precedence over the implicit VirtualMachineState PVC\ncreation that happens when persistent TPM/EFI or CBT is enabled, and any\nenabled TPM or EFI feature is treated as persistent unless explicitly\nopted out via Persistent: false.\n+optional",
+	}
+}
+
+func (VirtualMachineStateSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                    "VirtualMachineStateSpec references or templates the PVC that backs the\nVirtualMachineState (persistent UEFI, TPM and CBT state).\nAt least one of VolumeClaimTemplate or Source must be set.",
+		"volumeClaimTemplate": "VolumeClaimTemplate is the template the controller uses to create PVCs it\nowns. It is used for the initial PVC when Source is unset, and for every\nnew PVC the controller creates later for operations like live migration.\nThe controller owns the PVC name via GenerateName, so\nvolumeClaimTemplate.metadata.name must not be set. The referenced volume\nmode must be Filesystem.\n+optional",
+		"source":              "Source is an existing PVC to adopt as the starting VirtualMachineState.\nThe controller does not take ownership of a PVC referenced this way.\n+optional",
+	}
+}
+
+func (VirtualMachineStateSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "VirtualMachineStateSource references an existing PVC to adopt as the starting\nVirtualMachineState.",
+		"name": "Name of the source PVC.",
 	}
 }
 
@@ -83,6 +100,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"evacuationNodeName":            "EvacuationNodeName is used to track the eviction process of a VMI. It stores the name of the node that we want\nto evacuate. It is meant to be used by KubeVirt core components only and can't be set or modified by users.\n+optional",
 		"activePods":                    "ActivePods is a mapping of pod UID to node name.\nIt is possible for multiple pods to be running for a single VMI during migration.",
 		"volumeStatus":                  "VolumeStatus contains the statuses of all the volumes\n+optional\n+listType=atomic",
+		"snapshotOverlayPVCUID":         "SnapshotOverlayPVCUID identifies the scratch PVC verified for the\nOverlaySnapshotActive condition. Updated together with that condition.\n+optional",
 		"kernelBootStatus":              "KernelBootStatus contains info about the kernelBootContainer\n+optional",
 		"fsFreezeStatus":                "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.\n+optional",
 		"topologyHints":                 "+optional",
@@ -95,6 +113,7 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"memory":                        "Memory shows various informations about the VirtualMachine memory.\n+optional",
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 		"changedBlockTracking":          "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"virtualMachineStateVolume":     "VirtualMachineStateVolume tracks the live VirtualMachineState PVC\n(persistent UEFI, TPM and CBT state). It is the source of truth for the\nPVC name, which may differ from the referenced source after a migration.\nIt is populated for both the declarative and the implicit paths.\n+nullable\n+optional",
 	}
 }
 
@@ -205,7 +224,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"ipAddresses":      "List of all IP addresses of a Virtual Machine interface",
 		"podInterfaceName": "PodInterfaceName represents the name of the pod network interface",
 		"interfaceName":    "The interface name inside the Virtual Machine",
-		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
+		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status, pod-status.",
 		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
 		"linkState":        "LinkState Reports the current operational link state`. values: up, down.",
 	}
@@ -460,25 +479,27 @@ func (VirtualMachineStartFailure) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                       "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
-		"snapshotInProgress":     "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
-		"restoreInProgress":      "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
-		"created":                "Created indicates if the virtual machine is created in the cluster",
-		"ready":                  "Ready indicates if the virtual machine is running and ready",
-		"printableStatus":        "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
-		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
-		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
-		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
-		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
-		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
-		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
-		"observedGeneration":     "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
-		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
-		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
-		"volumeUpdateState":      "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
-		"changedBlockTracking":   "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
-		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
-		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+		"":                          "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"snapshotInProgress":        "SnapshotInProgress is the name of the VirtualMachineSnapshot currently executing",
+		"restoreInProgress":         "RestoreInProgress is the name of the VirtualMachineRestore currently executing",
+		"backupInProgress":          "BackupInProgress is the name of the VirtualMachineBackup currently executing",
+		"created":                   "Created indicates if the virtual machine is created in the cluster",
+		"ready":                     "Ready indicates if the virtual machine is running and ready",
+		"printableStatus":           "PrintableStatus is a human readable, high-level representation of the status of the virtual machine\n+kubebuilder:default=Stopped",
+		"conditions":                "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"stateChangeRequests":       "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+		"volumeRequests":            "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
+		"volumeSnapshotStatuses":    "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
+		"startFailure":              "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
+		"memoryDumpRequest":         "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
+		"observedGeneration":        "ObservedGeneration is the generation observed by the vmi when started.\n+optional",
+		"desiredGeneration":         "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
+		"runStrategy":               "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
+		"volumeUpdateState":         "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
+		"changedBlockTracking":      "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"instancetypeRef":           "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
+		"preferenceRef":             "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+		"virtualMachineStateVolume": "VirtualMachineStateVolume tracks the live VirtualMachineState PVC\n(persistent UEFI, TPM and CBT state). It is the source of truth for the\nPVC name, which may differ from the referenced source after a migration.\nIt is populated for both the declarative and the implicit paths.\n+nullable\n+optional",
 	}
 }
 
@@ -508,7 +529,7 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 		"failed":         "Failed indicates that the backup failed",
 		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
 		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
-		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic",
+		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic\n+kubebuilder:validation:MaxItems:=256",
 		"quiesceStatus":  "QuiesceStatus indicates whether filesystem freeze succeeded, failed, or was skipped.\n+optional",
 	}
 }
@@ -517,6 +538,7 @@ func (VirtualMachineInstanceBackupVolumeInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "VirtualMachineInstanceBackupVolumeInfo contains information about a volume included in a backup\n+k8s:openapi-gen=true",
 		"volumeName": "VolumeName is the volume name from VMI spec",
+		"type":       "Type is how the volume was backed up, either Full or Incremental.\n+optional\n+kubebuilder:validation:XValidation:rule=\"self in ['Full', 'Incremental']\",message=\"type must be Full or Incremental\"",
 	}
 }
 
@@ -821,6 +843,14 @@ func (FreezeUnfreezeTimeout) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SnapshotOverlayOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "SnapshotOverlayOptions names the utility volume the copy-on-write overlays\nof an External mode VirtualMachineSnapshot are written to",
+		"volumeName": "VolumeName is the utility volume attached to the VirtualMachineInstance",
+		"volumes":    "Volumes are the volumes the snapshot captures, the only ones put on overlays.\nNot used to commit the overlays.\n+optional\n+listType=atomic",
+	}
+}
+
 func (VirtualMachineMemoryDumpRequest) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineMemoryDumpRequest represent the memory dump request phase and info",
@@ -904,12 +934,14 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,\ntolerations, and affinity, are propagated from a VM to its VMI.\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
 		"virtTemplateDeployment":             "VirtTemplateDeployment controls the deployment of virt-template components\n+nullable",
+		"multiIOThreadAutoPolicy":            "MultiIOThreadAutoPolicy, when used in conjunction with SCSIMultiIOThread feature gate, will enable the auto IOThreadPolicy\nto allocate a pool of iothreads (capped at 8 threads) to each virtio-blk disk instead of a single iothread per disk.\nThis setting has no effect unless the SCSIMultiIOThread feature gate is enabled.\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
 		"persistentReservationConfiguration": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
 		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting RoleAggregationStrategy to \"Manual\" requires the OptOutRoleAggregation feature gate\nto be enabled (Beta, enabled by default since v1.9.0).\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
+		"emulationPolicy":                    "EmulationPolicy is the default emulation policy for VMs that do not set\nspec.emulationPolicy. A VM may set a more permissive policy.\n\nValid Options from least to most permissive are:\n- None: Only native-kvm\n- Hardware: Not yet implemented\n- Software: Qemu TCG cross-architecture emulation\nDefault policy is 'None'\n\nThis is an alpha field and should only be configured if the\nfeature-gate CrossArchitectureVirtualization is enabled.\nThis feature is in alpha.\n\n+optional\n+kubebuilder:validation:Enum=None;Hardware;Software",
 	}
 }
 
@@ -960,6 +992,12 @@ func (CommonInstancetypesDeployment) SwaggerDoc() map[string]string {
 func (VirtTemplateDeployment) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled": "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.\n+nullable",
+	}
+}
+
+func (MultiIOThreadAutoPolicy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled configures the auto IOThreadsPolicy to allocate multiple iothreads to virtio-blk disks. Defaults to false.\nRequires SCSIMultiIOThread feature gate to be enabled.\n+nullable",
 	}
 }
 
@@ -1020,9 +1058,10 @@ func (DisableSerialConsoleLog) SwaggerDoc() map[string]string {
 
 func (TLSConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "TLSConfiguration holds TLS options",
+		"":              "TLSConfiguration holds TLS options\n+kubebuilder:validation:XValidation:rule=\"!has(self.groups) || size(self.groups) == 0 || (has(self.minTLSVersion) && self.minTLSVersion == 'VersionTLS13') || !self.groups.exists(g, g in ['X25519MLKEM768','SecP256r1MLKEM768','SecP384r1MLKEM1024']) || self.groups.exists(g, g in ['X25519','secp256r1','secp384r1','secp521r1'])\",message=\"a classical group (X25519, secp256r1, secp384r1 or secp521r1) is required in groups when minTLSVersion is below VersionTLS13 and a TLS 1.3-only group such as X25519MLKEM768 is configured\"",
 		"minTLSVersion": "MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.\nProtocol versions are based on the following most common TLS configurations:\n\n  https://ssl-config.mozilla.org/\n\nNote that SSLv3.0 is not a supported protocol version due to well known\nvulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE\n+kubebuilder:validation:Enum=VersionTLS10;VersionTLS11;VersionTLS12;VersionTLS13",
 		"ciphers":       "+listType=set",
+		"groups":        "Groups defines the set of allowed TLS supported groups (elliptic curves)\non all TLS server endpoints. Group names follow the IANA TLS Supported\nGroups registry (e.g. X25519, secp256r1, X25519MLKEM768). Unrecognised\nnames are silently ignored at TLS setup time, so an older component\ntolerates group names added in a newer release. When empty or when the\nTLSGroupPreferences feature gate is disabled, Go's default curve\npreferences apply.\n+optional\n+listType=atomic\nMaxItems bounds the CEL cost estimate for the exists() validation rule\non TLSConfiguration; without it the CRD is rejected at creation time.\n+kubebuilder:validation:MaxItems=32",
 	}
 }
 

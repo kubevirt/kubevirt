@@ -42,7 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
@@ -164,7 +164,7 @@ var _ = Describe("Application", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,
 			nil,
-			func(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error { return nil },
+			stubNetStatusUpdater{},
 			func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
 				return nil
 			},
@@ -195,7 +195,6 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config,
-			nil,
 			nil,
 			instancetypecontroller.NewControllerStub(),
 			[]string{},
@@ -295,9 +294,9 @@ var _ = Describe("Application", func() {
 			vmiInformer,
 			pvcInformer,
 			vmExportInformer,
-			configMapInformer,
+			podInformer,
 			recorder,
-			"",
+			config,
 		)
 
 		app.readyChan = make(chan bool)
@@ -424,5 +423,11 @@ func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance, _ *k8sv1.
 type stubNetworkAnnotationsGenerator struct{}
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return nil
+}
+
+type stubNetStatusUpdater struct{}
+
+func (s stubNetStatusUpdater) Update(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) error {
 	return nil
 }

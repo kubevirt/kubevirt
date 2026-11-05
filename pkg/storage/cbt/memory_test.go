@@ -28,7 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -133,17 +133,6 @@ var _ = Describe("CBT memory overhead", func() {
 		Entry("DataVolume", libvmi.WithDataVolume("disk0", "test-dv")),
 	)
 
-	It("should calculate bitmap overhead for a HostDisk volume", func() {
-		addTracker("tracker1", "test-vmi", metav1.NamespaceDefault)
-		testVMI := cbtEnabled(libvmi.New(
-			libvmi.WithNamespace(metav1.NamespaceDefault),
-			libvmi.WithName("test-vmi"),
-			libvmi.WithHostDiskAndCapacity("disk0", "/data/disk.img", v1.HostDiskExistsOrCreate, "1Ti"),
-		))
-		overhead := calc.Calculate(testVMI)
-		Expect(overhead.String()).To(Equal("22Mi"))
-	})
-
 	It("should multiply bitmap overhead by tracker count", func() {
 		addPVC("test-pvc", metav1.NamespaceDefault, resource.MustParse("1Ti"))
 		addTracker("tracker1", "test-vmi", metav1.NamespaceDefault)
@@ -210,30 +199,6 @@ var _ = Describe("CBT memory overhead", func() {
 			libvmi.WithNamespace(metav1.NamespaceDefault),
 			libvmi.WithName("test-vmi"),
 			libvmi.WithPersistentVolumeClaim("disk0", "test-pvc"),
-		))
-		overhead := calc.Calculate(testVMI)
-		Expect(overhead.String()).To(Equal("20Mi"))
-	})
-
-	It("should sum overhead across HostDisk and PVC volumes", func() {
-		addPVC("test-pvc", metav1.NamespaceDefault, resource.MustParse("1Ti"))
-		addTracker("tracker1", "test-vmi", metav1.NamespaceDefault)
-		testVMI := cbtEnabled(libvmi.New(
-			libvmi.WithNamespace(metav1.NamespaceDefault),
-			libvmi.WithName("test-vmi"),
-			libvmi.WithPersistentVolumeClaim("disk0", "test-pvc"),
-			libvmi.WithHostDiskAndCapacity("disk1", "/data/disk.img", v1.HostDiskExistsOrCreate, "1Ti"),
-		))
-		overhead := calc.Calculate(testVMI)
-		Expect(overhead.String()).To(Equal("24Mi"))
-	})
-
-	It("should skip HostDisk volume with zero capacity", func() {
-		addTracker("tracker1", "test-vmi", metav1.NamespaceDefault)
-		testVMI := cbtEnabled(libvmi.New(
-			libvmi.WithNamespace(metav1.NamespaceDefault),
-			libvmi.WithName("test-vmi"),
-			libvmi.WithHostDisk("disk0", "/data/disk.img", v1.HostDiskExists),
 		))
 		overhead := calc.Calculate(testVMI)
 		Expect(overhead.String()).To(Equal("20Mi"))

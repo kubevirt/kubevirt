@@ -27,19 +27,24 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
+	"github.com/opencontainers/selinux/go-selinux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirt"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -48,14 +53,14 @@ const (
 	backupTimeXMLFormat               = "2006-01-02_15-04-05"
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
-	qmpQueryBlockNodesCmd             = `{"execute":"query-named-block-nodes"}`
-	operationCanceledMsg              = "Operation canceled"
-
-	pullBackupSocketDir  = "/var/run/kubevirt/sockets"
-	pullBackupSocketName = "backup-nbd-sock"
+	backupAbortedMsg                  = "backup aborted"
 )
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	if OverlaysActive(m.metadataCache) {
+		return fmt.Errorf("cannot back up the VMI while its disks are on snapshot overlays")
+	}
+
 	logger := log.Log.With("backupName", backupOptions.BackupName)
 	logger.Info("Backup begin called")
 	if m.MigrationInProgress() {
@@ -154,7 +159,24 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
-	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath)
+	var disksWithoutBitmap sets.Set[string]
+	if isIncrementalBackup(backupOptions) {
+		base := checkpointDefinition(*backupOptions.Incremental, backupOptions.IncrementalCreationTime)
+		_, disksWithoutBitmap, err = redefineCheckpointOnUsableDisks(dom, domainDisks, base)
+		if err != nil && !errors.Is(err, errNoUsableCheckpointBitmap) {
+			logger.Reason(err).Errorf("failed to redefine base checkpoint %s", base.Name)
+			return err
+		}
+	}
+
+	var nbdSocketPath string
+	if backupOptions.Mode == backupv1.PullMode {
+		if nbdSocketPath, err = preparePullBackupSocket(vmi); err != nil {
+			logger.Reason(err).Error("failed to prepare the pull backup socket")
+			return err
+		}
+	}
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath, disksWithoutBitmap)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -205,18 +227,15 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
-	if isIncrementalBackup(backupOptions) {
-		log.Log.Infof("Generating incremental backup %s from checkpoint: %s", backupOptions.BackupName, *backupOptions.Incremental)
-		domainBackup.Incremental = backupOptions.Incremental
-	}
+	incremental := isIncrementalBackup(backupOptions)
 	if backupOptions.Mode == backupv1.PullMode {
 		domainBackup.Server = &api.DomainBackupServer{
 			Transport: api.BackupUnixTransport,
-			Socket:    filepath.Join(pullBackupSocketDir, pullBackupSocketName),
+			Socket:    nbdSocketPath,
 		}
 	}
 	backupTime := backupTimeFormatted(backupOptions.BackupStartTime)
@@ -224,6 +243,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
 	var backupVolumesInfo []v1.VirtualMachineInstanceBackupVolumeInfo
+	anyIncremental := false
 	// the name of the volume should match the alias
 	for _, disk := range disks {
 		if disk.Target.Device == "" {
@@ -235,7 +255,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		checkpointDisk := api.CheckpointDisk{
 			Name: disk.Target.Device,
 		}
-		volumeName := converter.GetVolumeNameByDisk(disk)
+		volumeName := disk.Alias.GetName()
 		if DiskHasDataStore(&disk) {
 			backupDisk.Backup = "yes"
 			backupDisk.Type = "file"
@@ -247,8 +267,20 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 				setBackupDiskTargetPath(&backupDisk, backupOptions, volumeName, backupPath)
 			}
 			checkpointDisk.Checkpoint = "bitmap"
+
+			volumeType := backupv1.Full
+			if incremental {
+				if disksWithoutBitmap.Has(disk.Target.Device) {
+					backupDisk.BackupMode = "full"
+				} else {
+					volumeType = backupv1.Incremental
+					anyIncremental = true
+				}
+			}
+
 			backupVolumesInfo = append(backupVolumesInfo, v1.VirtualMachineInstanceBackupVolumeInfo{
 				VolumeName: volumeName,
+				Type:       string(volumeType),
 			})
 		} else {
 			backupDisk.Backup = "no"
@@ -256,6 +288,12 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		}
 		backupDisks.Disks = append(backupDisks.Disks, backupDisk)
 		checkpointDisks.Disks = append(checkpointDisks.Disks, checkpointDisk)
+	}
+
+	// Name the base only when a disk is actually backed up against it.
+	if anyIncremental {
+		log.Log.Infof("Generating incremental backup %s from checkpoint: %s", backupOptions.BackupName, *backupOptions.Incremental)
+		domainBackup.Incremental = backupOptions.Incremental
 	}
 
 	domainBackup.BackupDisks = backupDisks
@@ -308,51 +346,103 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 	backupName := backupMetadata.Name
 	logger := log.Log.With("backupName", backupName)
 
+	// Fast path for duplicate delivery once a terminal result is recorded. The locked
+	// update below still re-checks Completed so a concurrent first write is handled safely.
+	if backupMetadata.Completed {
+		logger.V(2).Info("Ignoring duplicate backup job completed event; backup already finalized")
+		return
+	}
+
+	jobType := event.Info.Type
+	errorMessageSet := event.Info.ErrorMessageSet
+	errorMessage := event.Info.ErrorMessage
+
 	if domain != nil {
-		finalStats, err := domain.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED)
+		// KEEP_COMPLETED preserves stats so a duplicate post-reconnect callback can still
+		// observe DOMAIN_JOB_COMPLETED instead of DOMAIN_JOB_NONE.
+		finalStats, err := domain.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
 		if err != nil {
 			logger.Reason(err).Error("Failed to get final job stats for completed backup.")
 		} else if finalStats != nil {
-			event.Info.Type = finalStats.Type
+			// GetJobStats can report COMPLETED for aborted jobs. Keep an explicit
+			// cancelled/failed type from the event when present. Also do not overwrite
+			// a usable event type with DOMAIN_JOB_NONE (stats may already be gone even
+			// with KEEP_COMPLETED if the domain is torn down).
+			if jobType != libvirt.DOMAIN_JOB_CANCELLED && jobType != libvirt.DOMAIN_JOB_FAILED &&
+				finalStats.Type != libvirt.DOMAIN_JOB_NONE {
+				jobType = finalStats.Type
+			}
+			if !errorMessageSet && finalStats.ErrorMessageSet {
+				errorMessageSet = true
+				errorMessage = finalStats.ErrorMessage
+			}
 		}
 	}
+
+	// After a libvirt reconnect, completed job events may arrive with DOMAIN_JOB_NONE.
+	// Prefer the event's JobSuccess flag when stats no longer report a terminal type.
+	if jobType == libvirt.DOMAIN_JOB_NONE && event.Info.JobSuccessSet {
+		if event.Info.JobSuccess {
+			jobType = libvirt.DOMAIN_JOB_COMPLETED
+		} else {
+			jobType = libvirt.DOMAIN_JOB_FAILED
+		}
+	}
+
+	// Prefer AbortReason (set before AbortJob) and job type over matching libvirt
+	// error strings, which are locale- and version-dependent. AbortJob may also
+	// surface as DOMAIN_JOB_COMPLETED; AbortReason covers that case.
+	// DOMAIN_JOB_FAILED wins over an in-flight Finalize so a real job failure is
+	// not reported as Complete.
+	finalizing := backupMetadata.AbortReason == string(backupv1.BackupAbortFinalize)
+	cancelling := backupMetadata.AbortReason == string(backupv1.BackupAbortCancel) ||
+		(!finalizing && jobType == libvirt.DOMAIN_JOB_CANCELLED)
+	jobFailed := jobType == libvirt.DOMAIN_JOB_FAILED
 
 	var failed bool
 	var message string
-	switch event.Info.Type {
-	case libvirt.DOMAIN_JOB_COMPLETED:
-		logger.Info("Backup has been completed successfully")
-	case libvirt.DOMAIN_JOB_CANCELLED:
-		logger.Info("Backup has been aborted")
-		failed = backupMetadata.Mode == string(backupv1.PushMode)
-		if failed {
-			message = "backup aborted"
-		}
-	case libvirt.DOMAIN_JOB_FAILED:
+	switch {
+	case jobFailed:
 		logger.Info("Backup has failed")
 		failed = true
+	case finalizing:
+		// Pull-mode delete after a successful client pull: end Complete.
+		logger.Info("Backup has been finalized")
+	case cancelling:
+		logger.Info("Backup has been aborted")
+		failed = true
+		message = backupAbortedMsg
+	case jobType == libvirt.DOMAIN_JOB_COMPLETED:
+		logger.Info("Backup has been completed successfully")
 	default:
-		message = fmt.Sprintf("unexpected job completion type: %d", event.Info.Type)
+		message = fmt.Sprintf("unexpected job completion type: %d", jobType)
 		failed = true
 	}
 
-	// If we successfully aborted but we didn't fail (i.e., PullMode)
-	// avoid propagating an error message (i.e., Operation canceled)
-	if event.Info.ErrorMessageSet && !(backupMetadata.Mode == string(backupv1.PullMode) && event.Info.ErrorMessage == operationCanceledMsg) {
-		err := event.Info.ErrorMessage
+	// On cancel (and successful finalize) keep the dedicated outcome message;
+	// otherwise merge any libvirt error text from the event / GetJobStats.
+	if errorMessageSet && !cancelling && (!finalizing || jobFailed) {
 		if message == "" {
-			message = err
+			message = errorMessage
 		} else {
-			message = fmt.Sprintf("%s: %s", message, event.Info.ErrorMessage)
+			message = fmt.Sprintf("%s: %s", message, errorMessage)
 		}
 	}
 	if failed && message == "" {
 		message = "unknown failure reason"
 	}
 
+	updated := false
 	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
 		if !exists || backupMetadata.Name != backupName {
 			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
+			return
+		}
+		// First terminal result wins. Do not upgrade Failed→Success: the controller
+		// treats ConditionFailed as terminal and would not flip the VirtualMachineBackup
+		// to Complete if a later duplicate event "corrected" launcher metadata.
+		if backupMetadata.Completed {
+			logger.V(2).Info("Ignoring duplicate backup job completed event; backup already finalized")
 			return
 		}
 
@@ -361,9 +451,12 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		backupMetadata.BackupMsg = message
 		now := metav1.Now()
 		backupMetadata.EndTimestamp = &now
+		updated = true
 	})
 
-	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+	if updated {
+		log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+	}
 }
 
 func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
@@ -371,10 +464,10 @@ func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstanc
 	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
 		return fmt.Errorf("failed to abort backup: %w", err)
 	}
-	return m.abortBackup(vmi, backupMetadata)
+	return m.abortBackup(vmi, backupMetadata, backupOptions.AbortReason)
 }
 
-func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata) error {
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata, abortReason backupv1.BackupAbortReason) error {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -392,7 +485,29 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 		return fmt.Errorf("cannot abort backup, wrong operation or type: %d, %d", stats.Operation, stats.Type)
 	}
 
+	// Record the abort reason before AbortJob so a completion event cannot race
+	// ahead and treat the cancelled job as a successful COMPLETED backup.
+	// The first reason wins: a TTL Cancel in flight must not be overwritten by a
+	// later Finalize when the backup is deleted.
+	var previousAbortReason string
+	m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
+		if !exists || md.Name != backupMetadata.Name {
+			return
+		}
+		previousAbortReason = md.AbortReason
+		if md.AbortReason != "" {
+			return
+		}
+		md.AbortReason = string(abortReason)
+	})
+
 	if err := dom.AbortJob(); err != nil {
+		m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
+			if !exists || md.Name != backupMetadata.Name {
+				return
+			}
+			md.AbortReason = previousAbortReason
+		})
 		log.Log.Object(vmi).Reason(err).Error("failed to abort backup, error calling abort job on domain")
 		return err
 	}
@@ -401,49 +516,42 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 	return nil
 }
 
-func (m *StorageManager) ExportVirtualMachineBackup(backupOptions *backupv1.BackupOptions) error {
-	backupMetadata, exists := m.metadataCache.Backup.Load()
-	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
-		return err
+var preparePullBackupSocket = preparePullBackupSocketFunc
+
+func preparePullBackupSocketFunc(vmi *v1.VirtualMachineInstance) (string, error) {
+	dir := cbt.PathForBackupNBDSocketDir(vmi)
+	if err := kutil.MkdirAllWithNosec(dir); err != nil {
+		return "", fmt.Errorf("failed to create %s: %w", dir, err)
 	}
-	return m.initiateBackupTunnel(backupOptions)
+	if err := relabelWithoutCategories(dir); err != nil {
+		return "", fmt.Errorf("failed to relabel %s: %w", dir, err)
+	}
+	safeDir, err := safepath.JoinAndResolveWithRelativeRoot("/", dir)
+	if err != nil {
+		return "", err
+	}
+	if err := diskutils.DefaultOwnershipManager.SetFileOwnership(safeDir); err != nil {
+		return "", fmt.Errorf("failed to set the ownership of %s: %w", dir, err)
+	}
+	return filepath.Join(dir, cbt.NBDSocketName), nil
 }
 
-func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOptions) error {
-	m.backupTunnelMu.Lock()
-	defer m.backupTunnelMu.Unlock()
-
-	backupSock := filepath.Join(pullBackupSocketDir, pullBackupSocketName)
-
-	if m.activeBackupTunnel != nil {
-		if m.activeBackupTunnel.IsMatch(backupOptions.BackupName, backupOptions.BackupStartTime) {
-			return nil
-		}
-		m.activeBackupTunnel.Stop()
+func relabelWithoutCategories(path string) error {
+	label, err := selinux.FileLabel(path)
+	if errors.Is(err, syscall.ENODATA) || errors.Is(err, syscall.ENOTSUP) {
+		return nil
 	}
-
-	tunnel := newBackupTunnelManager(
-		*backupOptions.ExportServerAddr,
-		*backupOptions.ExportServerName,
-		backupSock,
-		*backupOptions.CACert,
-		*backupOptions.BackupCert,
-		*backupOptions.BackupKey,
-		backupOptions.BackupName,
-		backupOptions.BackupStartTime,
-		m.registerNBD,
-	)
-	if err := tunnel.Start(); err != nil {
+	if err != nil {
 		return err
 	}
-
-	m.activeBackupTunnel = tunnel
-
-	return nil
+	ctx, err := selinux.NewContext(label)
+	if err != nil {
+		return err
+	}
+	ctx["level"] = "s0"
+	return selinux.SetFileLabel(path, ctx.Get())
 }
 
-// isLibvirtCheckpointInvalidError checks if the libvirt error indicates
-// the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)
 func isLibvirtCheckpointInvalidError(err error) bool {
 	var libvirtErr libvirt.Error
 	if errors.As(err, &libvirtErr) {
@@ -457,158 +565,86 @@ func isLibvirtCheckpointInvalidError(err error) bool {
 	return false
 }
 
-// RedefineCheckpoint redefines a checkpoint from a previous backup session.
-// This is used after VM restart to restore checkpoint metadata in libvirt.
-// It iterates over all domain disks and includes those that have the checkpoint bitmap.
-func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
-	logger := log.Log.With("checkpointName", checkpoint.Name)
-	logger.Info("Redefining checkpoint")
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := m.virConn.LookupDomainByName(domName)
-	if err != nil {
-		return false, fmt.Errorf("failed to lookup domain %s: %v", domName, err)
+func checkpointDefinition(name string, creationTime *metav1.Time) *api.DomainCheckpoint {
+	domainCheckpoint := &api.DomainCheckpoint{Name: name}
+	if creationTime != nil {
+		domainCheckpoint.CreationTime = new(uint64(creationTime.Unix()))
 	}
-	defer dom.Free()
-
-	// Get all domain disks and find those with the checkpoint bitmap
-	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, checkpoint.Name)
-	if err != nil {
-		return false, err
-	}
-
-	if len(disksWithoutBitmap) > 0 {
-		logger.V(3).Infof("Disks without checkpoint bitmap: %v", disksWithoutBitmap)
-	}
-
-	if len(checkpointDisks.Disks) == 0 {
-		logger.Warning("No disks found with checkpoint bitmap")
-		return true, fmt.Errorf("no disks found with checkpoint bitmap %s", checkpoint.Name)
-	}
-
-	domainCheckpoint := &api.DomainCheckpoint{
-		Name:            checkpoint.Name,
-		CheckpointDisks: checkpointDisks,
-	}
-
-	if checkpoint.CreationTime != nil {
-		ct := uint64(checkpoint.CreationTime.Unix())
-		domainCheckpoint.CreationTime = &ct
-	}
-
-	checkpointXML, err := xml.Marshal(domainCheckpoint)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal checkpoint XML: %v", err)
-	}
-
-	logger.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
-
-	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
-	_, err = dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
-	if err != nil {
-		checkpointInvalid = isLibvirtCheckpointInvalidError(err)
-		if checkpointInvalid {
-			logger.Reason(err).Error("Checkpoint bitmap is invalid/corrupt")
-		}
-		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %v", checkpoint.Name, err)
-	}
-
-	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpointDisks.Disks))
-	return false, nil
+	return domainCheckpoint
 }
 
-// findDisksWithCheckpointBitmap iterates over all domain disks and returns those
-// that have the specified checkpoint bitmap in their qcow2 file.
-func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*api.CheckpointDisks, []string, error) {
-	disks, err := util.GetAllDomainDisks(dom)
+var errNoUsableCheckpointBitmap = errors.New("no disk carries a usable checkpoint bitmap")
+
+func redefineCheckpointOnUsableDisks(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
+	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, disks, domainCheckpoint)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get domain disks: %v", err)
+		return nil, disksWithoutBitmap, err
+	}
+	if len(checkpointDisks.Disks) == 0 {
+		return checkpointDisks, disksWithoutBitmap, errNoUsableCheckpointBitmap
 	}
 
-	bitmapsByFile, err := queryBitmaps(dom)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to query bitmaps: %v", err)
-	}
+	redefined := domainCheckpoint.DeepCopy()
+	redefined.CheckpointDisks = checkpointDisks
+	return checkpointDisks, disksWithoutBitmap, redefineCheckpoint(dom, redefined)
+}
 
+// findDisksWithCheckpointBitmap returns the domain disks that carry a usable
+// bitmap for the checkpoint, and those that don't.
+//
+// Bitmap state is only exposed by QEMU, and querying it through the QEMU
+// monitor taints the domain. Instead, each disk is probed by redefining the
+// checkpoint with that disk alone and REDEFINE_VALIDATE, which makes libvirt
+// run the same check it runs at BackupBegin: the bitmap must be present,
+// persistent, recording and consistent. Each successful probe leaves a
+// single-disk definition behind, so callers must redefine the checkpoint
+// afterwards, see redefineCheckpointOnUsableDisks.
+func findDisksWithCheckpointBitmap(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
 	checkpointDisks := &api.CheckpointDisks{}
-	var disksWithoutBitmap []string
+	disksWithoutBitmap := sets.New[string]()
 
 	for _, disk := range disks {
 		if disk.Target.Device == "" || !DiskHasDataStore(&disk) {
 			continue
 		}
-		if disk.Source.File == "" {
-			log.Log.Warningf("disk with data store source should have the qcow2 overlay file source, disk %s", disk.Target.Device)
+
+		checkpointDisk := api.CheckpointDisk{Name: disk.Target.Device, Checkpoint: "bitmap"}
+		probe := domainCheckpoint.DeepCopy()
+		probe.CheckpointDisks = &api.CheckpointDisks{Disks: []api.CheckpointDisk{checkpointDisk}}
+		err := redefineCheckpoint(dom, probe)
+		if err == nil {
+			checkpointDisks.Disks = append(checkpointDisks.Disks, checkpointDisk)
 			continue
 		}
-
-		if hasBitmap(bitmapsByFile, disk.Source.File, checkpointName) {
-			checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
-				Name:       disk.Target.Device,
-				Checkpoint: "bitmap",
-			})
-		} else {
-			disksWithoutBitmap = append(disksWithoutBitmap, disk.Target.Device)
+		if !isLibvirtCheckpointInvalidError(err) {
+			return nil, nil, fmt.Errorf("failed to probe checkpoint %s bitmap on disk %s: %w", domainCheckpoint.Name, disk.Target.Device, err)
 		}
+		log.Log.V(3).Reason(err).Infof("Disk %s has no usable bitmap for checkpoint %s", disk.Target.Device, domainCheckpoint.Name)
+		disksWithoutBitmap.Insert(disk.Target.Device)
 	}
 
 	return checkpointDisks, disksWithoutBitmap, nil
 }
 
-func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName string) bool {
-	bitmaps, ok := bitmapsByFile[filePath]
-	if !ok {
-		return false
-	}
-	for _, bm := range bitmaps {
-		if bm.Name == bitmapName {
-			if bm.Inconsistent {
-				log.Log.Warningf("Bitmap %s on %s is inconsistent (possibly from failed migration), treating as absent", bitmapName, filePath)
-				return false
-			}
-			return true
-		}
-	}
-	return false
-}
-
-type qmpBitmapInfo struct {
-	Name         string `json:"name"`
-	Inconsistent bool   `json:"inconsistent,omitempty"`
-}
-
-type qmpBlockNodeInfo struct {
-	File         string          `json:"file,omitempty"`
-	DirtyBitmaps []qmpBitmapInfo `json:"dirty-bitmaps,omitempty"`
-}
-
-type qmpQueryBlockNodesResponse struct {
-	Return []qmpBlockNodeInfo `json:"return"`
-}
-
-// queryBitmaps queries QEMU for bitmap information via QMP.
-// Returns a map of file path to list of bitmaps on that file.
-// This is used instead of qemu-img info because qemu-img info doesn't see
-// updated bitmap state unless the VM was shutdown.
-var queryBitmaps = func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
-	output, err := dom.QemuMonitorCommand(qmpQueryBlockNodesCmd, libvirt.DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+func redefineCheckpoint(dom cli.VirDomain, domainCheckpoint *api.DomainCheckpoint) error {
+	checkpointXML, err := xml.Marshal(domainCheckpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute QMP query-named-block-nodes: %w", err)
+		return fmt.Errorf("failed to marshal checkpoint XML: %v", err)
 	}
 
-	var resp qmpQueryBlockNodesResponse
-	if err := json.Unmarshal([]byte(output), &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse QMP response: %w", err)
-	}
+	log.Log.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
 
-	result := make(map[string][]qmpBitmapInfo)
-	for _, node := range resp.Return {
-		if node.File != "" && len(node.DirtyBitmaps) > 0 {
-			result[node.File] = append(result[node.File], node.DirtyBitmaps...)
+	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
+	chk, err := dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
+	if err != nil {
+		return err
+	}
+	if chk != nil {
+		if err := chk.Free(); err != nil {
+			log.Log.Reason(err).Warningf("failed to free checkpoint %s", domainCheckpoint.Name)
 		}
 	}
-
-	return result, nil
+	return nil
 }
 
 func checkBackupEligibility(exists bool, backupMetadata api.BackupMetadata, backupOptions *backupv1.BackupOptions) error {

@@ -131,7 +131,7 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {

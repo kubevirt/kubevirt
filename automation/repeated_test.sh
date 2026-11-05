@@ -250,11 +250,12 @@ add_feature_gate() {
 }
 
 add_feature_gate "Plugins"
+add_feature_gate "OCIExport"
 
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
 # skip certain tests on flake lane
-add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU))" "&&"
+add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU,DRA-Network,DRA-CPU))" "&&"
 
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
@@ -265,6 +266,7 @@ add_to_label_filter '(!USB)' '&&'
 add_to_label_filter '(!requires-arm64)' '&&'
 add_to_label_filter '(!requires-s390x)' '&&'
 add_to_label_filter '(!requires-cross-arch-emulation)' '&&'
+add_to_label_filter '(!requires-arm64-secure-boot)' '&&'
 add_to_label_filter '(!RequiresPersistentReservation)' '&&'
 add_to_label_filter '(!RequiresVSOCKLocalNamespace)' '&&'
 

@@ -39,12 +39,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmicloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -53,13 +55,20 @@ import (
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
+const (
+	preBootOriginalMarker = "VEP190_PREBOOT_BEFORE"
+	preBootMutatedMarker  = "VEP190_PREBOOT_AFTER!"
+	preBootMarkerPath     = "/tmp/vep190-preboot-marker"
+)
+
+var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
 
 	BeforeEach(func() {
 		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
@@ -78,16 +87,16 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 	}
 
 	createCelPlugin := func(name, condition string, expressions ...string) {
-		var hooks []pluginv1alpha1.DomainHook
+		var hooks []pluginv1alpha1.LauncherHook
 		for _, expr := range expressions {
-			hooks = append(hooks, pluginv1alpha1.DomainHook{
+			hooks = append(hooks, pluginv1alpha1.LauncherHook{
 				Condition: condition,
-				CEL:       &pluginv1alpha1.CELDomainHook{Expression: expr},
+				CEL:       &pluginv1alpha1.CELLauncherHook{HookPoint: pluginv1alpha1.LauncherHookGuestDefinition, Expression: expr},
 			})
 		}
 		createPlugin(&pluginv1alpha1.Plugin{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
-			Spec:       pluginv1alpha1.PluginSpec{DomainHooks: hooks},
+			Spec:       pluginv1alpha1.PluginSpec{LauncherHooks: hooks},
 		})
 	}
 
@@ -99,7 +108,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 		}, 30)).To(Succeed())
 	}
 
-	It("should apply a CEL domain hook that adds a watchdog device visible inside the guest", func() {
+	It("should apply a CEL launcher hook that adds a watchdog device visible inside the guest", func() {
 		createCelPlugin("watchdog-plugin", "", `Domain{Devices: DomainDeviceList{Watchdogs: [DomainWatchdog{Model: "i6300esb", Action: "none"}]}}`)
 
 		By("Starting an Alpine VMI without a watchdog in its spec")
@@ -201,7 +210,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 		expectWatchdog(vmi)
 	})
 
-	Context("sidecar domain hooks", func() {
+	Context("sidecar launcher hooks", func() {
 		BeforeEach(func() {
 			enabled, err := util.IsMutatingAdmissionPolicyEnabled(kubevirt.Client())
 			Expect(err).NotTo(HaveOccurred())
@@ -210,11 +219,11 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			}
 		})
 
-		deploySidecarInjectorMAP := func(pluginName, socketPath string, sidecarCommand []string) {
+		deploySidecarInjectorMAP := func(pluginName, socketPath string, sidecarCommand []string, mountEphemeralDisks bool) {
 			virtClient := kubevirt.Client()
 			testNamespace := testsuite.GetTestNamespace(nil)
 			policyName := fmt.Sprintf("plugin-sidecar-injector-%s", pluginName)
-			sidecarImage := fmt.Sprintf("%s/test-domain-hook-sidecar:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
+			sidecarImage := fmt.Sprintf("%s/test-launcher-hook-sidecar:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
 
 			mapGVR := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "mutatingadmissionpolicies"}
 			bindingGVR := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "mutatingadmissionpolicybindings"}
@@ -227,7 +236,24 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 				commandCEL += fmt.Sprintf("%q", c)
 			}
 			commandCEL += "]"
+			volumeMountsCEL := fmt.Sprintf(`[Object.spec.containers.volumeMounts{
+                name: "kubevirt-plugin-sockets",
+                mountPath: "/var/run/kubevirt-plugin/%s/",
+                subPath: %q
+            }]`, pluginName, pluginName)
+			if mountEphemeralDisks {
+				volumeMountsCEL = fmt.Sprintf(`[Object.spec.containers.volumeMounts{
+                name: "kubevirt-plugin-sockets",
+                mountPath: "/var/run/kubevirt-plugin/%s/",
+                subPath: %q
+            }, Object.spec.containers.volumeMounts{
+                name: "ephemeral-disks",
+                mountPath: "/var/run/kubevirt-ephemeral-disks"
+            }]`, pluginName, pluginName)
+			}
 
+			// The sidecar runs as qemu (107) so it can read and rewrite the boot
+			// artifacts that virt-launcher generated on the shared volume.
 			By("Creating MutatingAdmissionPolicy for sidecar injection")
 			policy := &unstructured.Unstructured{
 				Object: map[string]interface{}{
@@ -277,6 +303,8 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
             securityContext: Object.spec.containers.securityContext{
                 allowPrivilegeEscalation: false,
                 runAsNonRoot: true,
+                runAsUser: 107,
+                runAsGroup: 107,
                 seccompProfile: Object.spec.containers.securityContext.seccompProfile{
                     type: "RuntimeDefault"
                 },
@@ -284,14 +312,10 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
                     drop: ["ALL"]
                 }
             },
-            volumeMounts: [Object.spec.containers.volumeMounts{
-                name: "kubevirt-plugin-sockets",
-                mountPath: "/var/run/kubevirt-plugin/%s/",
-                subPath: %q
-            }]
+            volumeMounts: %s
         }
     }
-]`, pluginName, sidecarImage, commandCEL, pluginName, pluginName),
+]`, pluginName, sidecarImage, commandCEL, volumeMountsCEL),
 								},
 							},
 						},
@@ -324,6 +348,10 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			By("Waiting for MutatingAdmissionPolicy to become active")
 			expectedSidecarName := fmt.Sprintf("plugin-sidecar-%s", pluginName)
 			Eventually(func(g Gomega) {
+				probeVolumes := []k8sv1.Volume{{Name: "kubevirt-plugin-sockets", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}}
+				if mountEphemeralDisks {
+					probeVolumes = append(probeVolumes, k8sv1.Volume{Name: "ephemeral-disks", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
+				}
 				probePod := &k8sv1.Pod{
 					ObjectMeta: metav1.ObjectMeta{Name: "map-readiness-probe", Namespace: testNamespace, Labels: map[string]string{"kubevirt.io": "virt-launcher"}},
 					Spec: k8sv1.PodSpec{
@@ -338,7 +366,7 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 								Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 							},
 						}},
-						Volumes: []k8sv1.Volume{{Name: "kubevirt-plugin-sockets", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}},
+						Volumes: probeVolumes,
 					},
 				}
 				result, err := virtClient.CoreV1().Pods(testNamespace).Create(context.Background(), probePod, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
@@ -353,32 +381,145 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 
 		deploySleepingSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", "--sleep"})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--sleep"}, false)
 		}
 
 		deployErrorSidecarInjectorMAP := func(pluginName string) {
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", "--error", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", socketPath}, false)
 		}
 
-		It("should apply both CEL and sidecar domain hooks", func() {
-			const pluginName = "composition-test"
-			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
-
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", socketPath})
-
-			By("Creating Plugin with CEL watchdog hook and sidecar domain hook")
+		createSidecarLauncherPlugin := func(pluginName, socketPath string, permittedHooks []pluginv1alpha1.LauncherHookPoint, failureStrategy pluginv1alpha1.FailureStrategy) {
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+							PermittedHooks: permittedHooks,
+						},
+						FailureStrategy: failureStrategy,
+					}},
+				},
+			})
+		}
+
+		newPreBootVMI := func() *v1.VirtualMachineInstance {
+			userData := fmt.Sprintf("#cloud-config\nruncmd:\n  - echo %s > %s\n", preBootOriginalMarker, preBootMarkerPath)
+			return libvmifact.NewAlpineWithTestTooling(libvmi.WithCloudInitNoCloud(libvmicloudinit.WithNoCloudUserData(userData)))
+		}
+
+		It("should run PreBoot after cloud-init generation and expose its mutation to the guest", func() {
+			const pluginName = "preboot-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, true)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreBoot}, pluginv1alpha1.FailureStrategyFail)
+
+			By("Starting a VMI with a cloud-init marker that the sidecar replaces")
+			vmi := newPreBootVMI()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+
+			By("Checking the sidecar-modified cloud-init command ran in the guest")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			output, err := console.RunCommandAndStoreOutput(vmi, "cat "+preBootMarkerPath+"\n", 30*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(output).To(ContainSubstring(preBootMutatedMarker))
+
+			By("Checking the generated cloud-init ISO contains the sidecar mutation")
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			isoPath := "/var/run/kubevirt-ephemeral-disks/cloud-init-data/" + vmi.Namespace + "/" + vmi.Name + "/noCloud.iso"
+			_, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"grep", "-a", "-q", preBootMutatedMarker, isoPath})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should prevent boot when PreBoot fails with FailureStrategy Fail", func() {
+			const pluginName = "preboot-fail-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", "PreBoot", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreBoot}, pluginv1alpha1.FailureStrategyFail)
+
+			vmi := libvmifact.NewAlpine()
+			vmi = libvmops.RunVMIAndExpectScheduling(vmi, 90)
+			Eventually(ThisVMI(vmi), 2*time.Minute, time.Second).Should(
+				HaveConditionFalseWithMessage(v1.VirtualMachineInstanceSynchronized, "intentional test error for PreBoot"))
+			Expect(ThisVMI(vmi)()).ToNot(BeInPhase(v1.Running))
+		})
+
+		containerLogs := func(pod *k8sv1.Pod, containerName string) (string, error) {
+			var tailLines int64 = 200
+			logs, err := kubevirt.Client().CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &k8sv1.PodLogOptions{
+				TailLines: &tailLines,
+				Container: containerName,
+			}).DoRaw(context.Background())
+			return string(logs), err
+		}
+		sidecarLogs := func(pod *k8sv1.Pod, pluginName string) string {
+			logs, _ := containerLogs(pod, "plugin-sidecar-"+pluginName)
+			return logs
+		}
+
+		It("should invoke PreMigrationSource on the source and apply the returned parallel migration config", decorators.RequiresTwoSchedulableNodes, func() {
+			const pluginName = "premigration-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}, pluginv1alpha1.FailureStrategyFail)
+
+			// A CPU limit disables KubeVirt's automatic parallel migration, so the
+			// hook must enable it as well as setting the connection count.
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking(), libvmi.WithCPULimit("2"))
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			migration := libmigration.RunMigration(kubevirt.Client(), libmigration.New(vmi.Name, vmi.Namespace))
+			By("Waiting for the source sidecar to record the mutated migration config")
+			Eventually(func() string { return sidecarLogs(sourcePod, pluginName) }, 30*time.Second, time.Second).Should(
+				ContainSubstring(`parallel connections=2`),
+			)
+			By("Checking virt-launcher accepted the sidecar's migration changes")
+			libmigration.ExpectMigrationToSucceed(kubevirt.Client(), migration, flags.MigrationTimeout())
+		})
+
+		It("should fail migration when PreMigrationSource fails with FailureStrategy Fail", decorators.RequiresTwoSchedulableNodes, func() {
+			const pluginName = "premigration-fail-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", "--error", "PreMigrationSource", socketPath}, false)
+			createSidecarLauncherPlugin(pluginName, socketPath, []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookPreMigrationSource}, pluginv1alpha1.FailureStrategyFail)
+
+			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
+			_ = libmigration.RunMigrationAndExpectFailure(libmigration.New(vmi.Name, vmi.Namespace), flags.MigrationTimeout())
+			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(WithTransform(func(vmi *v1.VirtualMachineInstance) string {
+				if vmi.Status.MigrationState == nil {
+					return ""
+				}
+				return vmi.Status.MigrationState.FailureReason
+			}, ContainSubstring("intentional test error for PreMigrationSource")))
+		})
+
+		It("should apply both CEL and sidecar launcher hooks", func() {
+			const pluginName = "composition-test"
+			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
+
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
+
+			By("Creating Plugin with CEL watchdog hook and sidecar launcher hook")
+			createPlugin(&pluginv1alpha1.Plugin{
+				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
+				Spec: pluginv1alpha1.PluginSpec{
+					LauncherHooks: []pluginv1alpha1.LauncherHook{
 						{
-							CEL: &pluginv1alpha1.CELDomainHook{
+							CEL: &pluginv1alpha1.CELLauncherHook{
+								HookPoint:  pluginv1alpha1.LauncherHookGuestDefinition,
 								Expression: `Domain{Devices: DomainDeviceList{Watchdogs: [DomainWatchdog{Model: "i6300esb", Action: "poweroff"}]}}`,
 							},
 						},
 						{
-							Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+							Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+								SocketPath:     socketPath,
+								PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
+							},
 						},
 					},
 				},
@@ -402,14 +543,17 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			const pluginName = "migration-test"
 			socketPath := fmt.Sprintf("/var/run/kubevirt-plugin/%s/hook.sock", pluginName)
 
-			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-domain-hook-sidecar", socketPath})
+			deploySidecarInjectorMAP(pluginName, socketPath, []string{"/usr/bin/test-launcher-hook-sidecar", socketPath}, false)
 
-			By("Creating Plugin with sidecar domain hook")
+			By("Creating Plugin with sidecar launcher hook")
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar: &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
+						},
 					}},
 				},
 			})
@@ -444,8 +588,11 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
+						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
 				},
@@ -467,8 +614,11 @@ var _ = Describe("[sig-compute]Plugin domain hooks", Serial, decorators.SigCompu
 			createPlugin(&pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: pluginName},
 				Spec: pluginv1alpha1.PluginSpec{
-					DomainHooks: []pluginv1alpha1.DomainHook{{
-						Sidecar:         &pluginv1alpha1.SidecarDomainHook{SocketPath: socketPath},
+					LauncherHooks: []pluginv1alpha1.LauncherHook{{
+						Sidecar: &pluginv1alpha1.SidecarLauncherHook{
+							SocketPath:     socketPath,
+							PermittedHooks: []pluginv1alpha1.LauncherHookPoint{pluginv1alpha1.LauncherHookGuestDefinition},
+						},
 						FailureStrategy: pluginv1alpha1.FailureStrategyIgnore,
 					}},
 				},
@@ -513,13 +663,13 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 		expectMarkerExists(vmi.Status.NodeName, pluginMarkerDir, "PreVMStart", vmi.Name)
 	})
 
-	It("should execute PreVMStop and PostVMStop hooks", func() {
+	It("should execute OnVMStop and PostVMStop hooks", func() {
 		ds := createPluginDaemonSet(virtClient, pluginName, pluginSocketPath, pluginMarkerDir)
 		DeferCleanup(cleanupPluginDaemonSet, virtClient, ds)
 
 		plugin := createPluginCR(virtClient, pluginName, pluginSocketPath,
 			[]pluginv1alpha1.NodeHookPoint{
-				pluginv1alpha1.NodeHookPreVMStop,
+				pluginv1alpha1.NodeHookOnVMStop,
 				pluginv1alpha1.NodeHookPostVMStop,
 			},
 			pluginv1alpha1.FailureStrategyFail, "")
@@ -533,7 +683,7 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 		err := virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		expectMarkerExists(nodeName, pluginMarkerDir, "PreVMStop", vmi.Name)
+		expectMarkerExists(nodeName, pluginMarkerDir, "OnVMStop", vmi.Name)
 		expectMarkerExists(nodeName, pluginMarkerDir, "PostVMStop", vmi.Name)
 	})
 

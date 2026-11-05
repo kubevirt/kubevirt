@@ -233,4 +233,29 @@ type VMStats struct {
 	GuestNetworkGetInterfaces string
 	GuestGetMemoryBlocks      string
 	GuestGetDevices           string
+
+	Errors map[string]string `json:",omitempty"`
 }
+
+const (
+	DomainStatsKey = "domain-stats"
+	DirtyRateKey   = "dirty-rate"
+
+	GuestAgentVersionKey         = "guest-agent-version"
+	GuestGetLoadKey              = "guest-get-load"
+	GuestGetCPUStatsKey          = "guest-get-cpustats"
+	GuestGetDiskStatsKey         = "guest-get-diskstats"
+	GuestGetFsInfoKey            = "guest-get-fsinfo"
+	GuestGetTimeKey              = "guest-get-time"
+	GuestGetVcpusKey             = "guest-get-vcpus"
+	GuestGetMemoryBlockInfoKey   = "guest-get-memory-block-info"
+	GuestGetUsersKey             = "guest-get-users"
+	GuestGetOsInfoKey            = "guest-get-osinfo"
+	GuestGetDisksKey             = "guest-get-disks"
+	GuestGetHostNameKey          = "guest-get-host-name"
+	GuestGetTimezoneKey          = "guest-get-timezone"
+	GuestNetworkGetRouteKey      = "guest-network-get-route"
+	GuestNetworkGetInterfacesKey = "guest-network-get-interfaces"
+	GuestGetMemoryBlocksKey      = "guest-get-memory-blocks"
+	GuestGetDevicesKey           = "guest-get-devices"
+)

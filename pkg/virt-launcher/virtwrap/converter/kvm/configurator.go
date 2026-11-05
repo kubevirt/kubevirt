@@ -82,7 +82,7 @@ func (k KvmDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 
 	if crossArchEmulation {
 		if !k.allowCrossArchEmulation {
-			return fmt.Errorf("cross-architecture emulation requires the CrossArchitectureVirtualization feature gate")
+			return fmt.Errorf("cross-architecture emulation requires emulationPolicy=Software")
 		}
 
 		logger := log.DefaultLogger()

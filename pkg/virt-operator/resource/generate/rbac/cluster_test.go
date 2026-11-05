@@ -280,6 +280,20 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 			)
 		})
 
+		// The overlay subresources are driven by the snapshot controller, not users.
+		DescribeTable("should not contain a rule for", func(clusterRoleName, resource string) {
+			clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), clusterRoleName).(*rbacv1.ClusterRole)
+			Expect(clusterRole).ToNot(BeNil())
+			for _, rule := range clusterRole.Rules {
+				Expect(rule.Resources).ToNot(ContainElement(resource))
+			}
+		},
+			Entry("admin, virtualmachineinstances/externalsnapshot", ClusterRoleAdmin, "virtualmachineinstances/externalsnapshot"),
+			Entry("admin, virtualmachineinstances/commitsnapshot", ClusterRoleAdmin, "virtualmachineinstances/commitsnapshot"),
+			Entry("edit, virtualmachineinstances/externalsnapshot", ClusterRoleEdit, "virtualmachineinstances/externalsnapshot"),
+			Entry("edit, virtualmachineinstances/commitsnapshot", ClusterRoleEdit, "virtualmachineinstances/commitsnapshot"),
+		)
+
 		Context("instance type view cluster role", func() {
 
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {

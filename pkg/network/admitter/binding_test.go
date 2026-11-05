@@ -34,19 +34,19 @@ import (
 
 var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has both binding plugin and interface binding method", func() {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				Binding:                &v1.PluginBinding{Name: "boo"},
-			}),
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithBridgeBinding(),
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "boo"}),
+			)),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -56,33 +56,31 @@ var _ = Describe("Validating network binding combinations", func() {
 	})
 
 	It("network interface has only plugin binding", func() {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:    "foo",
-				Binding: &v1.PluginBinding{Name: "boo"},
-			}),
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "boo"}),
+			)),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 
 	It("network interface has neither binding plugin nor interface binding method", func() {
-		vm := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name: "foo",
-			}),
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("foo")),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -92,7 +90,7 @@ var _ = Describe("Validating network binding combinations", func() {
 	})
 
 	It("network interface has more than one binding method", func() {
-		vm := libvmi.New(
+		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
 				Name: "foo",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -106,7 +104,7 @@ var _ = Describe("Validating network binding combinations", func() {
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
@@ -116,18 +114,18 @@ var _ = Describe("Validating network binding combinations", func() {
 	})
 
 	It("network interface has only binding method", func() {
-		vm := libvmi.New(
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"foo",
+				libvmi.WithBridgeBinding(),
+			)),
 			libvmi.WithNetwork(&v1.Network{
 				Name:          "foo",
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "foo",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
 	})
 })
@@ -135,15 +133,8 @@ var _ = Describe("Validating network binding combinations", func() {
 var _ = Describe("Validating core binding", func() {
 	It("should reject a masquerade interface on a network different than pod", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  []v1.Port{{Name: "test"}},
-			}),
-			libvmi.WithNetwork(&v1.Network{
-				Name:          "default",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
-			}),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding(), libvmi.WithPorts(v1.Port{Name: "test"}))),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "test")),
 		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
@@ -158,12 +149,12 @@ var _ = Describe("Validating core binding", func() {
 
 	It("should reject a masquerade interface with a specified reserved MAC address", func() {
 		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(
+				"default",
+				libvmi.WithMasqueradeBinding(),
+				libvmi.WithMac("02:00:00:00:00:00"),
+			)),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				MacAddress:             "02:00:00:00:00:00",
-			}),
 		)
 
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
@@ -178,7 +169,7 @@ var _ = Describe("Validating core binding", func() {
 
 	It("should reject a bridge interface on a pod network when it is not permitted", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 

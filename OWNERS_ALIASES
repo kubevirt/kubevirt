@@ -4,7 +4,6 @@ aliases:
     - vladikr
     - rmohr
     - stu-gott
-    - fabiand
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -12,6 +11,7 @@ aliases:
     - vasiliy-ul
     - iholder101
   emeritus_approvers:
+    - fabiand # 2026-10-15
     - danielBelenky
     - mazzystr
     - cynepco3hahue
@@ -119,6 +119,7 @@ aliases:
     - vladikr
     - enp0s3
     - orelmisan
+    - akalenyu
   sig-compute-reviewers:
     - victortoso
     - fossedihelm

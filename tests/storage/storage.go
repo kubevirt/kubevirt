@@ -42,10 +42,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/diskimg"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -857,7 +858,7 @@ var _ = Describe(SIG("Storage", func() {
 					objectEventWatcher.SetWarningsPolicy(wp)
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
-					objectEventWatcher.WaitFor(ctx, watcher.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+					objectEventWatcher.WaitFor(ctx, watcher.EventType(diskimg.EventTypeToleratedSmallPV), diskimg.EventReasonToleratedSmallPV)
 				})
 			})
 		})
@@ -1092,55 +1093,7 @@ var _ = Describe(SIG("Storage", func() {
 				createAndWaitForVMIReady(vmi2, dv, 500)
 			})
 		})
-		Context("[QUARANTINE] non-shareable disk conflict", decorators.Quarantine, func() {
-			It("should report a clear error when two VMs use the same DataVolume without shareable", decorators.RequiresRWXFilesystemStorage, func() {
-				sc, exists := libstorage.GetRWXFileSystemStorageClass()
-				if !exists {
-					Skip("Skip when RWX filesystem storage class is not present")
-				}
 
-				By("Creating a DataVolume")
-				dv := libdv.NewDataVolume(
-					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
-					libdv.WithStorage(
-						libdv.StorageWithStorageClass(sc),
-						libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
-					),
-				)
-
-				By("Creating VM1 that owns the DataVolume via dataVolumeTemplates")
-				vm1 := libstorage.RenderVMWithDataVolumeTemplate(dv, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm1, err = virtClient.VirtualMachine(vm1.Namespace).Create(context.Background(), vm1, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VM1's VMI to be running")
-				Eventually(matcher.ThisVMIWith(vm1.Namespace, vm1.Name), time.Second*250, time.Second*5).Should(matcher.BeRunning())
-
-				By("Creating VM2 referencing the same DataVolume by name")
-				vmi2 := libstorage.RenderVMIWithDataVolume(dv.Name, vm1.Namespace)
-				vm2 := libvmi.NewVirtualMachine(vmi2, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm2, err = virtClient.VirtualMachine(vm2.Namespace).Create(context.Background(), vm2, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking VM2's VMI gets a clear disk local error in its Synchronized condition")
-				Eventually(func(g Gomega) {
-					vmi, err := virtClient.VirtualMachineInstance(vm2.Namespace).Get(context.Background(), vm2.Name, metav1.GetOptions{})
-					g.Expect(err).ToNot(HaveOccurred())
-
-					var syncCond *v1.VirtualMachineInstanceCondition
-					for i := range vmi.Status.Conditions {
-						if vmi.Status.Conditions[i].Type == v1.VirtualMachineInstanceSynchronized {
-							syncCond = &vmi.Status.Conditions[i]
-							break
-						}
-					}
-					g.Expect(syncCond).ToNot(BeNil())
-					g.Expect(syncCond.Status).To(Equal(k8sv1.ConditionFalse))
-					g.Expect(syncCond.Message).To(ContainSubstring("is locked by another process"))
-				}, time.Second*120, time.Second*5).Should(Succeed())
-			})
-		})
 		Context("write and read data from a shared disk", func() {
 			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"

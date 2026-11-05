@@ -93,12 +93,6 @@ func (c *MemoryCalculator) cbtVolumeCapacities(volumes []v1.Volume, namespace st
 		if !IsCBTEligibleVolume(&vol) {
 			continue
 		}
-		if vol.HostDisk != nil {
-			if !vol.HostDisk.Capacity.IsZero() {
-				capacities = append(capacities, vol.HostDisk.Capacity)
-			}
-			continue
-		}
 		pvcName := storagetypes.PVCNameFromVirtVolume(&vol)
 		if pvcName == "" {
 			continue

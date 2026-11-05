@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "errors.go",
+        "merge.go",
+        "patch.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/evanphx/json-patch/v5",
+    importpath = "github.com/evanphx/json-patch/v5",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/evanphx/json-patch/v5/internal/json:go_default_library"],
+)

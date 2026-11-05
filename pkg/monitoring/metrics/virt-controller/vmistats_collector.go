@@ -84,6 +84,8 @@ var (
 			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
 			"evictable", "outdated",
+			// Device info
+			"has_panic_device",
 			// Pod info
 			"vmi_pod",
 		},
@@ -217,6 +219,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 			strconv.FormatBool(isVMEvictable(vmi)),
 			strconv.FormatBool(isVMIOutdated(vmi)),
+			strconv.FormatBool(hasPanicDevice(vmi)),
 			vmiPod,
 		},
 		ConstLabels: relatedVMLabels,
@@ -391,6 +394,10 @@ func isVMEvictable(vmi *k6tv1.VirtualMachineInstance) bool {
 func isVMIOutdated(vmi *k6tv1.VirtualMachineInstance) bool {
 	_, hasOutdatedLabel := vmi.Labels[k6tv1.OutdatedLauncherImageLabel]
 	return hasOutdatedLabel
+}
+
+func hasPanicDevice(vmi *k6tv1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.PanicDevices) > 0
 }
 
 func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {

@@ -142,6 +142,7 @@ spec:
       useEmulation: true
     emulatedMachines:
     - emulatedMachinesValue
+    emulationPolicy: emulationPolicyValue
     evictionStrategy: evictionStrategyValue
     handlerConfiguration:
       restClient:
@@ -201,6 +202,8 @@ spec:
       unsafeMigrationOverride: true
       utilityVolumesTimeout: -21
     minCPUModel: minCPUModelValue
+    multiIOThreadAutoPolicy:
+      enabled: true
     network:
       binding:
         bindingKey:
@@ -263,6 +266,8 @@ spec:
     tlsConfiguration:
       ciphers:
       - ciphersValue
+      groups:
+      - groupsValue
       minTLSVersion: minTLSVersionValue
     virtTemplateDeployment:
       enabled: true

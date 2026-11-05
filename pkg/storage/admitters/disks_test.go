@@ -260,6 +260,35 @@ var _ = Describe("Disk Validation", func() {
 			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
 		})
 
+		It("should reject LUN with reservation and non-SCSI bus", func() {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus:         v1.DiskBusSATA,
+						Reservation: true,
+					},
+				},
+			})
+			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake[0].lun.bus"))
+		})
+
+		It("should accept LUN with reservation and SCSI bus", func() {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testdisk",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus:         v1.DiskBusSCSI,
+						Reservation: true,
+					},
+				},
+			})
+			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject disks with unsupported I/O modes", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk1",
@@ -411,7 +440,7 @@ var _ = Describe("Disk Validation", func() {
 			Expect(causes).To(HaveLen(1)) // Only first disk should fail
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus)))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("DedicatedIOThreads are not supported for disks on a %s bus", bus)))
 
 		},
 			Entry("SATA bus", v1.DiskBusSATA),

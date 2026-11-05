@@ -47,9 +47,25 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(c)
 
 	hasIOThreads := iothreads.HasIOThreads(vmi)
-	var ioThreadCount, autoThreads int
+	var ioThreadCount, autoThreads, scsiControllerThreads int
 	if hasIOThreads {
+		// ioThreadCount here accounts for total of autoThreads + dedicatedIOThreads
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
+		if c.SCSIMultiIOThreadEnabled && vmi.Spec.Domain.IOThreadsPolicy != nil {
+			if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+				scsiControllerThreads = ioThreadCount
+			} else {
+				scsiControllerThreads = autoThreads
+				if c.MultiIOThreadAutoPolicyEnabled {
+					dedicatedThreads := ioThreadCount - autoThreads
+					vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+					// cap the total threads allocated to scsi controller and domain by the number of vCPUs
+					scsiControllerThreads = iothreads.AutoPoolSize(autoThreads, vcpus)
+					// threads allocated to the domain use this capped value while still accounting for dedicated threads
+					ioThreadCount = scsiControllerThreads + dedicatedThreads
+				}
+			}
+		}
 	}
 
 	architecture := c.Architecture.GetArchitecture()
@@ -113,16 +129,19 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			storage.DiskWithApplyCBT(c.ApplyCBT),
 			storage.DiskWithDisksInfo(c.DisksInfo),
 			storage.DiskWithEphemeralDiskCreator(c.EphemeraldiskCreator),
+			storage.DiskWithScsiMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
+			storage.DiskWithMultiIOThreadAutoPolicyEnabled(c.MultiIOThreadAutoPolicyEnabled),
 		),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
 			compute.ControllersWithSCSIModel(scsiControllerModel),
-			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
+			compute.ControllersWithSCSIIOThreads(uint(scsiControllerThreads)),
 			compute.ControllersWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.ControllersWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
+			compute.ControllerWithSCSIMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(
@@ -199,28 +218,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func GetVolumeNameByDisk(disk api.Disk) string {
-	return disk.Alias.GetName()
-}
-
-// GetVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
-func GetVolumeNameByTarget(domain *api.Domain, target string) string {
-	for _, d := range domain.Spec.Devices.Disks {
-		if d.Target.Device == target {
-			return GetVolumeNameByDisk(d)
-		}
-	}
-	return ""
-}
-
-func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
-	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
-	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
-	}
-	return gracePeriodSeconds
 }
 
 func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {

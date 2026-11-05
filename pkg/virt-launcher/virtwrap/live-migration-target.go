@@ -42,14 +42,12 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 const (
@@ -173,13 +171,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
-	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-		if err := storage.ApplyChangedBlockTrackingForMigration(vmi, c); err != nil {
-			return fmt.Errorf("failed to create CBT overlays for migration: %v", err)
-		}
+	domain := &api.Domain{}
+	if err := l.prepareVMStateLayout(vmi, domain); err != nil {
+		return fmt.Errorf("failed to prepare VMState layout: %v", err)
 	}
 
-	domain := &api.Domain{}
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
@@ -191,7 +187,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 
 	l.metadataCache.UID.Set(vmi.UID)
 	l.metadataCache.GracePeriod.Set(
-		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
+		api.GracePeriodMetadata{DeletionGracePeriodSeconds: gracePeriodSeconds(vmi)},
 	)
 	// inProgress is intentionally ignored: unlike the source side, target
 	// preparation must fully re-run on retries (sockets, hooks, etc.).
@@ -212,12 +208,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, _, err := plugins.ApplyDomainHooks(pluginList, vmi, &dom.Spec,
-			pluginv1alpha1.InvocationContextMigrationTarget)
-		if err != nil {
-			return fmt.Errorf("applying plugin domain hooks failed: %v", err)
+		if err := applyGuestDefinitionHooksToDomainSpec(pluginList, vmi, &dom.Spec, pluginv1alpha1.InvocationContextMigrationTarget); err != nil {
+			return fmt.Errorf("applying guest definition hooks failed: %v", err)
 		}
-		updatedSpec.DeepCopyInto(&dom.Spec)
 	}
 
 	if shouldBlockMigrationTargetPreparation(vmi) {
@@ -253,6 +246,17 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		l.paused.add(vmi.UID)
 	}
 
+	return nil
+}
+
+func applyGuestDefinitionHooksToDomainSpec(pluginList []pluginv1alpha1.Plugin, vmi *v1.VirtualMachineInstance, spec *api.DomainSpec, invocationContext pluginv1alpha1.InvocationContext) error {
+	updatedSpec, xmlStr, err := plugins.ApplyGuestDefinitionHooks(pluginList, vmi, spec, invocationContext)
+	if err != nil {
+		return err
+	}
+	if guestDefinitionChanged := xmlStr != ""; guestDefinitionChanged {
+		updatedSpec.DeepCopyInto(spec)
+	}
 	return nil
 }
 

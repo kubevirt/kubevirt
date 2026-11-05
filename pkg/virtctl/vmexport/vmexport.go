@@ -55,6 +55,7 @@ import (
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -1168,8 +1169,9 @@ func setupPortForward(client kubecli.KubevirtClient, vmeInfo *VMExportInfo) (cha
 		return nil, fmt.Errorf("no pods found for the service %s", service.Name)
 	}
 
-	// Set up the port forwarding ports
-	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, "443", *service, podList.Items[0])
+	// Set up the port forwarding ports. ClusterIP export Services expose 443
+	// (kube-proxy remaps to 8443); headless Services expose 8443 directly.
+	ports, err := translateServicePortToTargetPort(vmeInfo.LocalPort, strconv.Itoa(int(storagetypes.ExportServiceDialPort(service))), *service, podList.Items[0])
 	if err != nil {
 		return nil, err
 	}

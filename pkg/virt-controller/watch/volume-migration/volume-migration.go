@@ -135,6 +135,10 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 	if vm == nil {
 		return fmt.Errorf("cannot validate the migrated volumes for an empty VM")
 	}
+	if controller.NewVirtualMachineInstanceConditionManager().
+		HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceOverlaySnapshotActive, k8sv1.ConditionTrue) {
+		return fmt.Errorf("cannot migrate the volumes of %s/%s, its disks are on snapshot overlays", vmi.Namespace, vmi.Name)
+	}
 	updatedVols := updatedVolumesMapping(vmi, vm)
 	valid := true
 	disks := storagetypes.GetDisksByName(&vmi.Spec)

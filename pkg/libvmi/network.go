@@ -144,20 +144,29 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 }
 
 // InterfaceDeviceWithMasqueradeBinding returns an Interface named "default" with masquerade binding.
+//
+// Deprecated: use NewInterface(name, WithMasqueradeBinding()) instead.
 func InterfaceDeviceWithMasqueradeBinding(ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(kvirtv1.DefaultPodNetwork().Name, WithMasqueradeBinding(), WithPorts(ports...))
 }
 
 // InterfaceDeviceWithBridgeBinding returns an Interface with bridge binding.
+//
+// Deprecated: use NewInterface(name, WithBridgeBinding()) instead.
 func InterfaceDeviceWithBridgeBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithBridgeBinding())
 }
 
 // InterfaceDeviceWithSRIOVBinding returns an Interface with SRIOV binding.
+//
+// Deprecated: use NewInterface(name, WithSRIOVBinding()) instead.
 func InterfaceDeviceWithSRIOVBinding(name string) kvirtv1.Interface {
 	return NewInterface(name, WithSRIOVBinding())
 }
 
+// InterfaceWithBindingPlugin returns an Interface with a plugin binding.
+//
+// Deprecated: use NewInterface(name, WithBindingPlugin(binding)) instead.
 func InterfaceWithBindingPlugin(name string, binding kvirtv1.PluginBinding, ports ...kvirtv1.Port) kvirtv1.Interface {
 	return NewInterface(name, WithBindingPlugin(binding), WithPorts(ports...))
 }

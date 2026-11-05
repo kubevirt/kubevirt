@@ -43,7 +43,13 @@ const (
 	UnknownInterfaceQueueCount = 0
 )
 
+type clusterConfigProvider interface {
+	NetworkDevicesWithDRAGateEnabled() bool
+}
+
 type NetStat struct {
+	clusterConfigProvider clusterConfigProvider
+
 	cacheCreator cacheCreator
 
 	// In memory cache, storing pod interface information.
@@ -52,12 +58,13 @@ type NetStat struct {
 	podInterfaceVolatileCache sync.Map
 }
 
-func NewNetStat() *NetStat {
-	return NewNetStateWithCustomFactory(cache.CacheCreator{})
+func NewNetStat(clusterConfigProvider clusterConfigProvider) *NetStat {
+	return NewNetStateWithCustomFactory(clusterConfigProvider, cache.CacheCreator{})
 }
 
-func NewNetStateWithCustomFactory(cacheCreator cacheCreator) *NetStat {
+func NewNetStateWithCustomFactory(clusterConfigProvider clusterConfigProvider, cacheCreator cacheCreator) *NetStat {
 	return &NetStat{
+		clusterConfigProvider:     clusterConfigProvider,
 		cacheCreator:              cacheCreator,
 		podInterfaceVolatileCache: sync.Map{},
 	}
@@ -100,6 +107,16 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
 		},
 	)
+	networkDRAEnabled := c.clusterConfigProvider.NetworkDevicesWithDRAGateEnabled()
+	var podStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface
+	if networkDRAEnabled {
+		podStatusNetworksByName = netvmispec.IndexInterfaceStatusByName(
+			vmi.Status.Interfaces,
+			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+				return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
+			},
+		)
+	}
 	vmiInterfacesSpecByName := netvmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 
 	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
@@ -122,6 +139,9 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
+	if networkDRAEnabled {
+		interfacesStatus = ifacesStatusFromPodStatus(interfacesStatus, podStatusNetworksByName, vmiInterfacesSpecByName)
+	}
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
 	vmi.Status.Interfaces = interfacesStatus
@@ -206,6 +226,30 @@ func ifacesStatusFromMultus(
 			})
 		} else if ifaceStatus != nil {
 			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
+		}
+	}
+	return interfacesStatus
+}
+
+// ifacesStatusFromPodStatus preserves the pod-status info source set by the
+// virt-controller, which this rebuild would otherwise drop. The source is owned
+// by the virt-controller (derived from the pod) and is not visible to the
+// domain, so it is carried over from the previous status.
+func ifacesStatusFromPodStatus(
+	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	podStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+	vmIfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	for podIfaceName := range podStatusNetworksByName {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, podIfaceName)
+		_, existInSpec := vmIfacesSpecByName[podIfaceName]
+		if existInSpec && ifaceStatus == nil {
+			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
+				Name:       podIfaceName,
+				InfoSource: netvmispec.InfoSourcePodStatus,
+			})
+		} else if ifaceStatus != nil {
+			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
 		}
 	}
 	return interfacesStatus

@@ -39,16 +39,17 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/diskimg"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -273,16 +274,20 @@ func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Pa
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
-func (c *BaseController) configureHostDisks(
+func (c *BaseController) configureDiskImages(
 	vmi *v1.VirtualMachineInstance,
 	virtLauncherRootMount *safepath.Path,
 	recorder record.EventRecorder) error {
 	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
 
-	hostDiskCreator := hostdisk.NewHostDiskCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-	if err := hostDiskCreator.Create(vmi); err != nil {
-		return fmt.Errorf("preparing host-disks failed: %v", err)
+	pvcImages, err := diskimg.ImageBackedPVCImages(vmi)
+	if err != nil {
+		return err
+	}
+	creator := diskimg.NewCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+	if err := creator.Create(vmi, append(hostdisk.Images(vmi), pvcImages...)); err != nil {
+		return fmt.Errorf("preparing disk images failed: %w", err)
 	}
 	return nil
 }
@@ -329,13 +334,13 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 	}
 
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
 		}
 	}
 
-	if err := c.configureHostDisks(vmi, virtLauncherRootMount, recorder); err != nil {
+	if err := c.configureDiskImages(vmi, virtLauncherRootMount, recorder); err != nil {
 		return err
 	}
 

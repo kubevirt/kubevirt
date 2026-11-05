@@ -19,6 +19,8 @@
 package admitters
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
@@ -34,4 +36,14 @@ func Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clus
 	causes = append(causes, ValidateDisks(field.Child("domain", "devices", "disks"), vmiSpec.Domain.Devices.Disks)...)
 
 	return causes
+}
+
+func WarnDeprecatedMemoryDumpVolumes(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec) []string {
+	var warnings []string
+	for idx, volume := range vmiSpec.Volumes {
+		if volume.MemoryDump != nil {
+			warnings = append(warnings, fmt.Sprintf("%s is deprecated, memory dumps are attached as utility volumes", field.Child("volumes").Index(idx).Child("memoryDump")))
+		}
+	}
+	return warnings
 }

@@ -89,7 +89,7 @@ func rewriteDiskPath(vmi *v1.VirtualMachineInstance, path, oldSegment, newSegmen
 		return path
 	}
 	newPath := strings.Replace(path, oldSegment, newSegment, 1)
-	log.Log.Object(vmi).V(4).Infof("diskSourcePathHook: updating disk path from %s to %s", path, newPath)
+	log.Log.Object(vmi).V(4).Infof("diskSourcePathHook: updating disk path from %s to %s", path, newPath) //nolint:mnd
 	return newPath
 }
 

@@ -464,6 +464,7 @@ func ListenUnixNoFollow(socketDir *Path, socketName string) (net.Listener, error
 	// having a socket created at the wrong place, but it makes it unlikely
 	_, err = JoinNoFollow(socketDir, socketName)
 	if err != nil {
+		listener.Close()
 		return nil, err
 	}
 	return listener, nil

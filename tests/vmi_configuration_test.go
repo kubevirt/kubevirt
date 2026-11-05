@@ -23,8 +23,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,8 +50,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -79,23 +82,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-	})
-
-	Context("when requesting virtio-transitional models", func() {
-		It("[test_id:6957]should start and run the guest", func() {
-			vmi := libvmifact.NewAlpine(
-				libvmi.WithRng(),
-				libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch()),
-				libvmi.WithTablet("tablet", "virtio"),
-				libvmi.WithTablet("tablet1", "usb"),
-			)
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			testutils.ExpectVirtioTransitionalOnly(domSpec)
-		})
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
@@ -156,6 +142,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmi.New(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithLogSerialConsole(true),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -176,12 +163,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting no bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).NotTo(Succeed())
-				// The expecter *should* have error-ed since the network interface is not marked bootable
+				Expect(expectNetBoot(vmi)).To(MatchError(errNoNetBoot))
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
@@ -196,14 +181,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
 					withSerialBIOS(),
+					libvmi.WithLogSerialConsole(true),
 				)
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting a bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).To(Succeed())
+				Expect(expectNetBoot(vmi)).To(Succeed())
 			})
 		})
 
@@ -326,6 +311,95 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
+
+		// Ubuntu 24.04 is used as a container disk for CI convenience; any bootable
+		// ARM64 disk with a valid Secure Boot chain would work.
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
+		Context("ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func() {
+			var (
+				vm  *v1.VirtualMachine
+				vmi *v1.VirtualMachineInstance
+			)
+
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+				vmi = libvmi.New(
+					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithRng(),
+					libvmi.WithArchitecture("arm64"),
+					libvmi.WithUefi(true),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
+disable_root: false
+chpasswd:
+  expire: false
+  users:
+    - name: root
+      password: kubevirt
+      type: text
+`)),
+				)
+			})
+
+			createVM := func() {
+				GinkgoHelper()
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyHalted))
+				var err error
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			startAndCheckSecureBoot := func() {
+				GinkgoHelper()
+				By("Starting the VM and logging into Ubuntu")
+				vm = libvmops.StartVirtualMachine(vm)
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BCas{C: []expect.Caser{
+						&expect.Case{R: regexp.MustCompile(`(?m)^\S+ login: `), S: "root\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`Password:`), S: "kubevirt\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`root@[^:]+:[^\r\n]*# `), T: expect.OK()},
+					}},
+				}, 5*time.Minute)).To(Succeed())
+				Expect(console.RunCommand(vmi, "stty cols 500 rows 500", 10*time.Second)).To(Succeed())
+
+				By("Checking that Secure Boot is enabled in the guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "mokutil --sb-state\n"},
+					&expect.BExp{R: console.RetValue("SecureBoot enabled")},
+				}, 10)).To(Succeed())
+			}
+
+			It("should enable Secure Boot in the guest", func() {
+				createVM()
+				startAndCheckSecureBoot()
+			})
+
+			It("should persist firmware variables across VM restarts", decorators.RequiresRWOFsVMStateStorageClass, func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				createVM()
+				startAndCheckSecureBoot()
+				libvmops.WriteEFITestVariable(vmi)
+				previousUID := vmi.UID
+
+				By("Replacing the VMI and virt-launcher pod by stopping and starting the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				startAndCheckSecureBoot()
+				Expect(vmi.UID).ToNot(Equal(previousUID))
+				libvmops.CheckEFITestVariable(vmi)
+			})
+		})
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
@@ -1703,6 +1777,80 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
+}
+
+var errNoNetBoot = errors.New("no NIC option ROM output in the serial console")
+
+// expectNetBoot succeeds if the VMI's serial console shows "iPXE", proving the NIC
+// option ROM ran, and reports errNoNetBoot once SeaBIOS reports no boot device. It
+// reads the guest-console-log sidecar rather than a live console, because the firmware
+// prints its banner before a console connection can be established.
+func expectNetBoot(vmi *v1.VirtualMachineInstance) error {
+	const (
+		maxConsoleLog = 64 * 1024 // bound only; the log is normally about a kilobyte
+		readChunk     = 1024
+		// No trailing period: some SeaBIOS builds append a retry notice.
+		noBootableDevice = "No bootable device"
+	)
+
+	virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.Duration(flags.StartupTimeoutSecondsSmall()) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stream, err := kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).
+		GetLogs(virtLauncherPod.Name, &k8sv1.PodLogOptions{
+			Container: "guest-console-log",
+			Follow:    true,
+		}).Stream(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, err)
+	}
+	defer stream.Close()
+
+	// SeaBIOS may interleave escape sequences for letter placement on screen.
+	esc := console.UTFPosEscape
+	netBootMarker := regexp.MustCompile("i(PXE|" + esc + "P" + esc + "X" + esc + "E)")
+
+	// Matched against everything received so far, since a marker may straddle two reads.
+	var consoleLog strings.Builder
+	defer func() { GinkgoWriter.Printf("BIOS output of VMI %s:\n%s\n", vmi.Name, consoleLog.String()) }()
+
+	buf := make([]byte, readChunk)
+	reader := io.LimitReader(stream, maxConsoleLog)
+	for {
+		n, readErr := reader.Read(buf)
+		if n > 0 {
+			consoleLog.Write(buf[:n])
+			if netBootMarker.MatchString(consoleLog.String()) {
+				return nil
+			}
+			// After the ROM marker: the positive case prints both, iPXE first.
+			if strings.Contains(consoleLog.String(), noBootableDevice) {
+				return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
+			}
+		}
+		if readErr != nil {
+			// EOF or a spent budget means the console was read as long as intended,
+			// anything else means it was not read at all.
+			if !errors.Is(readErr, io.EOF) && ctx.Err() == nil {
+				return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, readErr)
+			}
+			break
+		}
+	}
+
+	// No SeaBIOS banner means the boot was never observed, which is not the same as
+	// observing a boot without an option ROM.
+	if !strings.Contains(consoleLog.String(), "SeaBIOS") {
+		return fmt.Errorf("no firmware output in the serial console of VMI %s", vmi.Name)
+	}
+
+	return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
 }
 
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {

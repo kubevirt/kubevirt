@@ -20,6 +20,7 @@
 package export
 
 import (
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,7 +40,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -51,6 +52,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -172,7 +175,6 @@ var _ = Describe("Backup source", func() {
 			ControllerRevisionInformer:  controllerRevisionInformer,
 			VMBackupInformer:            vmBackupInformer,
 			VMBackupTrackerInformer:     vmBackupTrackerInformer,
-			BackupCAConfigMapInformer:   cmInformer,
 		}
 		initCert = func(ctrl *VMExportController) {
 			ctrl.caCertManager.Start()
@@ -237,7 +239,7 @@ var _ = Describe("Backup source", func() {
 				},
 			},
 			Status: &backupv1.VirtualMachineBackupStatus{
-				Type:            backupv1.Full,
+				StartTimestamp:  new(metav1.Now()),
 				Conditions:      conditions,
 				IncludedVolumes: includedVolumes,
 				CheckpointName:  checkpointName,
@@ -245,14 +247,25 @@ var _ = Describe("Backup source", func() {
 		}
 	}
 
-	addTestVMI := func(vmName string) {
+	const backendStoragePVCName = "persistent-state-for-test-vm"
+
+	addTestVMI := func(vmName string) *virtv1.VirtualMachineInstance {
 		vmi := &virtv1.VirtualMachineInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vmName,
 				Namespace: testNamespace,
 			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				VolumeStatus: []virtv1.VolumeStatus{{
+					Name: backendstorage.PVCPrefix + "-this-vm",
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+						ClaimName: backendStoragePVCName,
+					},
+				}},
+			},
 		}
 		Expect(controller.VMIInformer.GetStore().Add(vmi)).To(Succeed())
+		return vmi
 	}
 
 	createBackupVMExport := func() *exportv1.VirtualMachineExport {
@@ -273,12 +286,11 @@ var _ = Describe("Backup source", func() {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
-			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
+			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName, Type: backupv1.Full}},
 			pointer.P(testBackupCheckpointName),
 		)
 		addTestVMI("test-vm")
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -324,23 +336,22 @@ var _ = Describe("Backup source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 		Expect(pod).ToNot(BeNil())
 
-		Expect(pod.Spec.Volumes).To(HaveLen(2), "Backup pods should only mount cert and token secrets")
+		Expect(pod.Spec.Volumes).To(ConsistOf(
+			HaveField("Name", "certificates"),
+			HaveField("Name", "token"),
+			HaveField("Name", nbdVolumeName),
+		), "Backup pods should only mount the cert and token secrets and the NBD socket")
 		Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty())
 
 		Expect(pod.Spec.Containers).To(HaveLen(1))
-		cert, exists, err := controller.backupCA()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(exists).To(BeTrue())
-		Expect(cert).ToNot(BeEmpty())
 
 		Expect(pod.Spec.Containers[0].Env).To(ContainElements(
-			k8sv1.EnvVar{Name: "BACKUP_CACERT", Value: cert},
-			k8sv1.EnvVar{Name: "BACKUP_UID", Value: testBackupUID},
-			k8sv1.EnvVar{Name: "BACKUP_TYPE", Value: string(backupv1.Full)},
+			k8sv1.EnvVar{Name: "BACKUP_NBD_SOCKET", Value: nbdSocketPath},
 			k8sv1.EnvVar{Name: "BACKUP_CHECKPOINT", Value: testBackupCheckpointName},
 			k8sv1.EnvVar{Name: "BACKUP0_BACKUP_PATH", Value: testBackupVolumeName},
 			k8sv1.EnvVar{Name: "BACKUP0_DATA_URI", Value: backupDataURI(testBackupVolumeName)},
 			k8sv1.EnvVar{Name: "BACKUP0_MAP_URI", Value: backupMapURI(testBackupVolumeName)},
+			k8sv1.EnvVar{Name: "BACKUP0_TYPE", Value: string(backupv1.Full)},
 		))
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 	})
@@ -360,7 +371,6 @@ var _ = Describe("Backup source", func() {
 
 			vmBackup := createTestVMBackup(backupConditions, volumes, checkpoint)
 			controller.VMBackupInformer.GetStore().Add(vmBackup)
-			withBackupCAConfigMap(controller)
 
 			vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				update, ok := action.(testing.UpdateAction)
@@ -409,25 +419,6 @@ var _ = Describe("Backup source", func() {
 		),
 	)
 
-	It("Should publish not ready addresses on the export service", func() {
-		testVMExport := createBackupVMExport()
-		source := NewVMBackupSource(nil, "", "")
-
-		var service *k8sv1.Service
-		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			create, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			service, ok = create.GetObject().(*k8sv1.Service)
-			Expect(ok).To(BeTrue())
-			return true, service, nil
-		})
-
-		service, err := controller.getOrCreateExportService(testVMExport, source)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(service).ToNot(BeNil())
-		Expect(service.Spec.PublishNotReadyAddresses).To(BeTrue())
-	})
-
 	It("Should return error if VirtualMachineBackup is not found", func() {
 		testVMExport := createBackupVMExport()
 
@@ -438,7 +429,7 @@ var _ = Describe("Backup source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
-	It("Should return error if VirtualMachineBackup status is empty", func() {
+	It("Should return error if the VirtualMachineBackup has not started", func() {
 		testVMExport := createBackupVMExport()
 
 		vmBackup := &backupv1.VirtualMachineBackup{
@@ -452,7 +443,7 @@ var _ = Describe("Backup source", func() {
 		retry, err := controller.updateVMExport(testVMExport)
 
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("backup status empty"))
+		Expect(err.Error()).To(ContainSubstring("backup has not started"))
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
@@ -476,7 +467,6 @@ var _ = Describe("Backup source", func() {
 		)
 		addTestVMI("test-vm")
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 
@@ -506,7 +496,7 @@ var _ = Describe("Backup source", func() {
 		Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(HaveField("Name", "BACKUP_CHECKPOINT")))
 	})
 
-	It("Should return an error when failed to obtain backup CA", func() {
+	DescribeTable("Should stop the exporter when the VMI cannot serve the backup", func(prepareVMI func(), expectedMessage string) {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
@@ -514,26 +504,60 @@ var _ = Describe("Backup source", func() {
 			nil,
 		)
 		controller.VMBackupInformer.GetStore().Add(vmBackup)
-		_, err := controller.updateVMExport(testVMExport)
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError(ContainSubstring("could not obtain VirtualMachineBackup tunnel CA:")))
-	})
+		prepareVMI()
 
-	It("Should add pod affinity when CBT is enabled (CheckpointName is set)", func() {
+		podName := controller.getExportPodName(testVMExport)
+		Expect(controller.PodInformer.GetStore().Add(&k8sv1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: testNamespace},
+			Status:     k8sv1.PodStatus{Phase: k8sv1.PodRunning},
+		})).To(Succeed())
+		expectExporterDelete(k8sClient, podName)
+
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			Expect(vmExport.Status.Conditions).To(ContainElement(SatisfyAll(
+				HaveField("Type", exportv1.ConditionReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+				HaveField("Message", expectedMessage),
+			)))
+			return true, vmExport, nil
+		})
+
+		retry, err := controller.updateVMExport(testVMExport)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(Equal(requeueTime))
+		testutils.ExpectEvent(recorder, serviceCreatedEvent)
+		testutils.ExpectEvent(recorder, ExportPaused)
+	},
+		Entry("when the VMI is gone", func() {}, vmBackupNoVMI),
+		Entry("when the VMI has no backend storage", func() {
+			vmi := addTestVMI("test-vm")
+			vmi.Status.VolumeStatus = nil
+			Expect(controller.VMIInformer.GetStore().Update(vmi)).To(Succeed())
+		}, vmBackupNoBackendStorage),
+	)
+
+	DescribeTable("Should serve the backup from the virt-launcher NBD socket", func(checkpointName *string) {
 		testVMExport := createBackupVMExport()
 		vmBackup := createTestVMBackup(
 			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
 			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			pointer.P(testBackupCheckpointName),
+			checkpointName,
 		)
 		vmBackup.Spec.Source = k8sv1.TypedLocalObjectReference{
 			APIGroup: &virtv1.SchemeGroupVersion.Group,
 			Kind:     "VirtualMachine",
 			Name:     "test-vm",
 		}
-		addTestVMI("test-vm")
+		vmiToleration := k8sv1.Toleration{Key: "dedicated", Operator: k8sv1.TolerationOpEqual, Value: "vms", Effect: k8sv1.TaintEffectNoSchedule}
+		vmi := addTestVMI("test-vm")
+		vmi.Spec.Tolerations = []k8sv1.Toleration{vmiToleration}
+		Expect(controller.VMIInformer.GetStore().Update(vmi)).To(Succeed())
 		Expect(controller.VMBackupInformer.GetStore().Add(vmBackup)).To(Succeed())
-		withBackupCAConfigMap(controller)
 
 		var pod *k8sv1.Pod
 
@@ -571,66 +595,43 @@ var _ = Describe("Backup source", func() {
 		By("Checking pod affinity is set")
 		Expect(pod.Spec.Affinity).ToNot(BeNil())
 		Expect(pod.Spec.Affinity.PodAffinity).ToNot(BeNil())
-		Expect(pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+		Expect(pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
 
-		affinityTerm := pod.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0]
-		Expect(affinityTerm.Weight).To(Equal(int32(100)))
-		Expect(affinityTerm.PodAffinityTerm).ToNot(BeNil())
-		Expect(affinityTerm.PodAffinityTerm.TopologyKey).To(Equal("kubernetes.io/hostname"))
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector).ToNot(BeNil())
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.AppLabel, "virt-launcher"))
-		Expect(affinityTerm.PodAffinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.VirtualMachineInstanceIDLabel, "test-vm"))
-	})
+		affinityTerm := pod.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution[0]
+		Expect(affinityTerm.TopologyKey).To(Equal("kubernetes.io/hostname"))
+		Expect(affinityTerm.LabelSelector).ToNot(BeNil())
+		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.AppLabel, "virt-launcher"))
+		Expect(affinityTerm.LabelSelector.MatchLabels).To(HaveKeyWithValue(virtv1.VirtualMachineInstanceIDLabel, "test-vm"))
 
-	It("Should NOT add pod affinity when CBT is disabled (CheckpointName is nil)", func() {
-		testVMExport := createBackupVMExport()
-		vmBackup := createTestVMBackup(
-			[]metav1.Condition{{Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue}},
-			[]backupv1.BackupVolumeInfo{{VolumeName: testBackupVolumeName}},
-			nil,
-		)
-		addTestVMI("test-vm")
-		Expect(controller.VMBackupInformer.GetStore().Add(vmBackup)).To(Succeed())
-		withBackupCAConfigMap(controller)
+		By("Checking the exporter tolerates the VMI's taints")
+		Expect(pod.Spec.Tolerations).To(ContainElement(vmiToleration))
 
-		var pod *k8sv1.Pod
-
-		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			create, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			pod, ok = create.GetObject().(*k8sv1.Pod)
-			Expect(ok).To(BeTrue())
-
-			pod.Status = k8sv1.PodStatus{
-				Phase: k8sv1.PodRunning,
-				Conditions: []k8sv1.PodCondition{
-					{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue},
+		By("Checking the backup NBD socket is mounted read only from the backend storage")
+		Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+			Name: nbdVolumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: backendStoragePVCName,
+					ReadOnly:  true,
 				},
-			}
-			return true, pod, nil
-		})
-
-		vmExportClient.Fake.PrependReactor(
-			"update",
-			"virtualmachineexports",
-			func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-				vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
-				Expect(ok).To(BeTrue())
-				return true, vmExport, nil
 			},
-		)
+		}))
+		Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
+			Name:      nbdVolumeName,
+			MountPath: nbdDir,
+			SubPath:   path.Join(cbt.BackupNBDSubPath, cbt.NBDSocketDir),
+			ReadOnly:  true,
+		}))
+		Expect(pod.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{
+			Name:  "BACKUP_NBD_SOCKET",
+			Value: nbdSocketPath,
+		}))
+	},
+		Entry("with a checkpoint", pointer.P(testBackupCheckpointName)),
+		Entry("without a checkpoint", nil),
+	)
 
-		_, err := controller.updateVMExport(testVMExport)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pod).ToNot(BeNil())
-
-		By("Checking pod affinity is NOT set")
-		Expect(pod.Spec.Affinity).To(BeNil())
-	})
-
-	Context("getBackupSourceVMIID", func() {
+	Context("getBackupSourceVMI", func() {
 		It("Should return error when VirtualMachineBackupTracker not found", func() {
 			vmBackup := &backupv1.VirtualMachineBackup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -646,13 +647,13 @@ var _ = Describe("Backup source", func() {
 				},
 			}
 
-			_, err := controller.getBackupSourceVMIID(vmBackup)
+			_, err := controller.getBackupSourceVMI(vmBackup)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("VirtualMachineBackupTracker not found"))
 			Expect(err.Error()).To(ContainSubstring("missing-tracker"))
 		})
 
-		It("Should return the VMI ID for a direct VM source", func() {
+		It("Should return the VMI of a direct VM source", func() {
 			vmBackup := &backupv1.VirtualMachineBackup{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-backup",
@@ -667,24 +668,63 @@ var _ = Describe("Backup source", func() {
 				},
 			}
 
-			vmiID, err := controller.getBackupSourceVMIID(vmBackup)
+			addTestVMI("test-vm")
+
+			vmi, err := controller.getBackupSourceVMI(vmBackup)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmiID).To(Equal("test-vm"))
+			Expect(vmi.Name).To(Equal("test-vm"))
+		})
+	})
+
+	Context("latestTrackerCheckpointsForVM", func() {
+		trackerFor := func(name, vmName, checkpoint string) *backupv1.VirtualMachineBackupTracker {
+			tracker := &backupv1.VirtualMachineBackupTracker{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+				Spec: backupv1.VirtualMachineBackupTrackerSpec{
+					Source: k8sv1.TypedLocalObjectReference{
+						APIGroup: &virtv1.SchemeGroupVersion.Group,
+						Kind:     "VirtualMachine",
+						Name:     vmName,
+					},
+				},
+			}
+			if checkpoint != "" {
+				tracker.Status = &backupv1.VirtualMachineBackupTrackerStatus{
+					LatestCheckpoint: &backupv1.BackupCheckpoint{Name: checkpoint},
+				}
+			}
+			return tracker
+		}
+
+		BeforeEach(func() {
+			// This lookup needs the VM-keyed index, unlike the rest of this suite's fake informer.
+			indexedInformer, _ := testutils.NewFakeInformerWithIndexersFor(
+				&backupv1.VirtualMachineBackupTracker{}, virtcontroller.GetVirtualMachineBackupTrackerInformerIndexers())
+			controller.VMBackupTrackerInformer = indexedInformer
+		})
+
+		It("returns the latest checkpoint of every tracker for the VM", func() {
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-a", "test-vm", "backup-a-2"))).To(Succeed())
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-b", "test-vm", "backup-b-1"))).To(Succeed())
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-other-vm", "other-vm", "backup-c-1"))).To(Succeed())
+
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(ConsistOf("backup-a-2", "backup-b-1"))
+		})
+
+		It("skips trackers that have no checkpoint yet", func() {
+			Expect(controller.VMBackupTrackerInformer.GetStore().Add(trackerFor("tracker-a", "test-vm", ""))).To(Succeed())
+
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(BeEmpty())
+		})
+
+		It("returns nothing when the VM has no trackers", func() {
+			checkpoints, err := controller.latestTrackerCheckpointsForVM(testNamespace, "test-vm")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoints).To(BeEmpty())
 		})
 	})
 })
-
-func withBackupCAConfigMap(controller *VMExportController) {
-	Expect(
-		controller.BackupCAConfigMapInformer.GetStore().Add(&k8sv1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: controller.KubevirtNamespace,
-				Name:      components.KubeVirtBackupCASecretName,
-			},
-			Data: map[string]string{
-				"ca-bundle": "test",
-			},
-		}),
-	).To(Succeed())
-
-}

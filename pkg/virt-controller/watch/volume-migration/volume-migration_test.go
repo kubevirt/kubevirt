@@ -106,6 +106,18 @@ var _ = Describe("Volume Migration", func() {
 			}
 		})
 
+		It("should refuse to migrate volumes while the disks are on snapshot overlays", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithName("vmi"))
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type:   v1.VirtualMachineInstanceOverlaySnapshotActive,
+				Status: k8sv1.ConditionTrue,
+			})
+			vm := libvmi.NewVirtualMachine(vmi)
+
+			Expect(volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)).
+				To(MatchError(ContainSubstring("snapshot overlays")))
+		})
+
 		DescribeTable("should validate the migrated volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, expectError error) {
 			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)
 			if expectError != nil {

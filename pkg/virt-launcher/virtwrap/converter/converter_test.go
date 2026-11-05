@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -572,8 +573,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.DisableHotplug = false
-			c.UseVirtioTransitional = true
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = &c.UseVirtioTransitional
+			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
 			dom := vmiToDomain(vmi, c)
 			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
 		},
@@ -615,6 +615,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
 			xml := vmiToDomainXML(vmi, c)
 			Expect(xml).To(ContainSubstring(`<panic model="hyperv"></panic>`))
+			Expect(xml).To(ContainSubstring(`<on_crash>preserve-running</on_crash>`))
 		})
 
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
@@ -1042,16 +1043,6 @@ var _ = Describe("Converter", func() {
 						}
 					},
 				),
-				Entry("HostDisk", "test-hostdisk",
-					func(name string) v1.VolumeSource {
-						return v1.VolumeSource{
-							HostDisk: &v1.HostDisk{
-								Path: "/var/run/kubevirt-private/vmi-disks/" + name + "/disk.img",
-								Type: v1.HostDiskExistsOrCreate,
-							},
-						}
-					},
-				),
 			)
 
 			DescribeTable("should create domain disk with datastore for block volumes with CBT enabled",
@@ -1127,11 +1118,14 @@ var _ = Describe("Converter", func() {
 			)
 		})
 
-		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func(arch, expectedModel string) {
+		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and shared iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
+			c.SCSIMultiIOThreadEnabled = true
 			one := uint(1)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			policy := v1.IOThreadsPolicy(v1.IOThreadsPolicyShared)
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
@@ -1502,7 +1496,7 @@ var _ = Describe("Converter", func() {
 
 				vmi.Status.VSOCKCID = pointer.P(uint32(100))
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-				c.UseVirtioTransitional = useVirtioTransitional
+				vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(useVirtioTransitional)
 				c.VSOCKProcPath = fakeProc
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 				Expect(domainSpec.Devices.VSOCK).ToNot(BeNil())
@@ -2148,12 +2142,22 @@ var _ = Describe("Converter", func() {
 		vmi := libvmi.New()
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
-		Expect(domain.Spec.SysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
-			"serial entry should not be present in sysinfo",
-		)
+		Expect(domain.Spec.SysInfo).To(ContainElement(HaveField("Type", Equal("smbios"))))
+		for _, sysInfo := range domain.Spec.SysInfo {
+			Expect(sysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
+				"serial entry should not be present in sysinfo",
+			)
+		}
 	})
 
 	Context("IOThreads", func() {
+
+		getModelForArch := func(arch string) string {
+			if arch == s390x {
+				return "virtio-scsi"
+			}
+			return "virtio-non-transitional"
+		}
 
 		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
@@ -2434,6 +2438,212 @@ var _ = Describe("Converter", func() {
 
 			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
 			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
+		})
+
+		It("Should set the iothread pool for virtio-blk but NOT for SCSI controller when SCSIMultiIOThread feature gate is disabled", func() {
+			count := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0", libvmi.WithDedicatedIOThreads(true)),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= int(count); id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: false})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
+			Expect(domain.Spec.Devices.Disks[0].Driver.IOThreads).To(Equal(iothreads))
+
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:   "scsi",
+				Index:  "0",
+				Model:  getModelForArch(runtime.GOARCH),
+				Driver: nil,
+			}))
+		})
+
+		DescribeTable("Should set iothreads for a vmi with scsi and virtio-blk disks", func(multiIOAuto bool) {
+			cores := uint(2)
+			vmi := libvmi.New(
+				libvmi.WithCPURequest(strconv.Itoa(int(cores))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0"),
+				libvmi.WithPersistentVolumeClaim("disk1", "pvc1"),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator,
+				SCSIMultiIOThreadEnabled:       true,
+				MultiIOThreadAutoPolicyEnabled: multiIOAuto,
+			})
+
+			// total auto threads are calculated by the amount of disks in VMI
+			// however, when constructing the iothread pool a minimum is taken between
+			// the total auto threads and the number of vCPUS as to not overallocate
+			autoThreads := min(len(vmi.Spec.Domain.Devices.Disks), int(cores))
+
+			// scsi controller should get allocated all total auto threads
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= autoThreads; id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			// verify scsi controller exists and has correct iothreads set
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: getModelForArch(runtime.GOARCH),
+				Driver: &api.ControllerDriver{
+					IOThreads: iothreads,
+					Queues:    &cores,
+				},
+			}))
+
+			disk0, err := getDiskByName(domain.Spec, "disk0")
+			Expect(err).ToNot(HaveOccurred())
+			disk1, err := getDiskByName(domain.Spec, "disk1")
+			Expect(err).ToNot(HaveOccurred())
+
+			if multiIOAuto {
+				// if configured to use mutliIO auto policy, virtio-blk disks should also get iothread pool
+				Expect(disk0.Driver.IOThreads).To(Equal(iothreads))
+				Expect(disk1.Driver.IOThreads).To(Equal(iothreads))
+			} else {
+				Expect(int(*disk0.Driver.IOThread)).To(Equal(1), "disk should get first thread from auto pool")
+				Expect(int(*disk1.Driver.IOThread)).To(Equal(2), "disk should get second thread from auto pool")
+			}
+
+		},
+			Entry("using mutliIO auto policy", true),
+			Entry("using legacy auto policy", false),
+		)
+
+		DescribeTable("Should cap auto thread pool size for virtio-blk disks when it exceeds the maximum",
+			func(withDedicated bool) {
+				maxThreads := iothreads.AutoThreadPoolMax
+				cores := uint(maxThreads + 2)
+				opts := []libvmi.Option{
+					libvmi.WithCPURequest(strconv.Itoa(int(cores))),
+					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				}
+				if withDedicated {
+					opts = append(opts, libvmi.WithPersistentVolumeClaim("dedicated-disk", "pvc-dedicated", libvmi.WithDedicatedIOThreads(true)))
+				}
+				// create enough auto disks to exceed AutoThreadPoolMax
+				for i := range maxThreads + 2 {
+					opts = append(opts, libvmi.WithEmptyDisk(fmt.Sprintf("disk-%d", i), v1.DiskBusVirtio, resource.MustParse("1Gi")))
+				}
+				vmi := libvmi.New(opts...)
+
+				domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+					Architecture:                   archconverter.NewConverter(runtime.GOARCH),
+					AllowEmulation:                 true,
+					EphemeraldiskCreator:           EphemeralDiskImageCreator,
+					SCSIMultiIOThreadEnabled:       true,
+					MultiIOThreadAutoPolicyEnabled: true,
+				})
+
+				if withDedicated {
+					Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(maxThreads + 1)))
+					dedicatedDisk, err := getDiskByName(domain.Spec, "dedicated-disk")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(dedicatedDisk.Driver.IOThreads).To(BeNil())
+					Expect(int(*dedicatedDisk.Driver.IOThread)).To(Equal(maxThreads + 1))
+				} else {
+					Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(maxThreads)))
+				}
+
+				for i := range maxThreads + 2 {
+					disk, err := getDiskByName(domain.Spec, fmt.Sprintf("disk-%d", i))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(disk.Driver.IOThreads.IOThread).To(HaveLen(maxThreads))
+				}
+			},
+			Entry("without dedicated disks", false),
+			Entry("with a dedicated disk", true),
+		)
+
+		It("Should cap the total threads allocated to scsi controller and domain by the number of vCPUs", func() {
+			cores := uint(2)
+			vmi := libvmi.New(
+				libvmi.WithCPURequest(strconv.Itoa(int(cores))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithPersistentVolumeClaim("disk0", "pvc0"),
+				libvmi.WithPersistentVolumeClaim("disk1", "pvc1"),
+				libvmi.WithPersistentVolumeClaim("disk2", "pvc2"),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+				libvmi.WithPersistentVolumeClaim("dedicated-disk", "pvc-dedicated", libvmi.WithDedicatedIOThreads(true)),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+				Architecture:                   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:                 true,
+				EphemeraldiskCreator:           EphemeralDiskImageCreator,
+				SCSIMultiIOThreadEnabled:       true,
+				MultiIOThreadAutoPolicyEnabled: true,
+			})
+
+			autoPoolSize := int(cores)
+			// total threads allocated to the domain should be capped by the number of vCPUs
+			// while still accounting for any disks using dedicated threads
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(autoPoolSize + 1)))
+
+			autoPool := &api.DiskIOThreads{}
+			for id := 1; id <= autoPoolSize; id++ {
+				autoPool.IOThread = append(autoPool.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: getModelForArch(runtime.GOARCH),
+				Driver: &api.ControllerDriver{
+					IOThreads: autoPool,
+					Queues:    &cores,
+				},
+			}))
+
+			for _, name := range []string{"disk0", "disk1", "disk2"} {
+				disk, err := getDiskByName(domain.Spec, name)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(disk.Driver.IOThreads).To(Equal(autoPool))
+			}
+			dedicatedDisk, err := getDiskByName(domain.Spec, "dedicated-disk")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(dedicatedDisk.Driver.IOThreads).To(BeNil())
+			Expect(int(*dedicatedDisk.Driver.IOThread)).To(Equal(autoPoolSize + 1))
+		})
+
+		It("Should set the scsi controller iothread pool with the supplementalPool policy", func() {
+			count := uint(4)
+			vmi := libvmi.New(
+				libvmi.WithCPURequest(strconv.Itoa(int(count))),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(uint32(count))}),
+				libvmi.WithEmptyDisk("scsi-disk", v1.DiskBusSCSI, resource.MustParse("1Gi")),
+			)
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, EphemeraldiskCreator: EphemeralDiskImageCreator, SCSIMultiIOThreadEnabled: true})
+
+			Expect(domain.Spec.IOThreads.IOThreads).To(Equal(uint(count)))
+
+			iothreads := &api.DiskIOThreads{}
+			for id := 1; id <= int(count); id++ {
+				iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+			}
+			// verify scsi controller exists and has correct iothreads set
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(api.Controller{
+				Type:  "scsi",
+				Index: "0",
+				Model: getModelForArch(runtime.GOARCH),
+				Driver: &api.ControllerDriver{
+					IOThreads: iothreads,
+					Queues:    &count,
+				},
+			}))
 		})
 
 		It("Should honor shared ioThreadsPolicy for single disk", func() {
@@ -3310,6 +3520,7 @@ var _ = Describe("Converter", func() {
 				UsesFirmwareAutoSelection: true,
 			}
 
+			vmi.Spec.Architecture = "amd64"
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
@@ -3328,6 +3539,62 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.OS.NVRam).ToNot(BeNil())
 			Expect(domainSpec.OS.NVRam.Format).To(Equal("raw"))
 			Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.fd"))
+		})
+
+		DescribeTable("should keep ARM64 Secure Boot variables in the EFI storage directory", func(runtimeUser uint64, persistent *bool, expectedPath string) {
+			vmi.Spec.Architecture = "arm64"
+			vmi.Status.RuntimeUser = runtimeUser
+			c.Architecture = archconverter.NewConverter("arm64")
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				SecureLoader:              true,
+				UsesFirmwareAutoSelection: true,
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(true),
+						Persistent: persistent,
+					},
+				},
+			}
+
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(Equal("efi"))
+			Expect(domainSpec.OS.BootLoader).To(BeNil())
+			Expect(domainSpec.OS.NVRam).To(BeNil())
+			Expect(domainSpec.OS.VarStore).To(Equal(&api.VarStore{Path: expectedPath}))
+		},
+			Entry("persistent EFI when running as root", uint64(0), pointer.P(true), "/var/lib/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("persistent EFI when running as non-root", uint64(107), pointer.P(true), "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("ephemeral EFI when running as root", uint64(0), nil, "/var/lib/libvirt/qemu/nvram/testvmi_VARS.json"),
+			Entry("ephemeral EFI when running as non-root", uint64(107), pointer.P(false), "/var/run/kubevirt-private/libvirt/qemu/nvram/testvmi_VARS.json"),
+		)
+
+		It("should use pflash for ARM64 EFI without Secure Boot", func() {
+			vmi.Spec.Architecture = "arm64"
+			c.EFIConfiguration = &convertertypes.EFIConfiguration{
+				EFICode:      "AAVMF_CODE.fd",
+				EFIVars:      "AAVMF_VARS.fd",
+				SecureLoader: false,
+			}
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+			vmi.Status.RuntimeUser = 107
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.OS.Firmware).To(BeEmpty())
+			Expect(domainSpec.OS.FirmwareInfo).To(BeNil())
+			Expect(domainSpec.OS.VarStore).To(BeNil())
+			Expect(domainSpec.OS.BootLoader).ToNot(BeNil())
+			Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+			Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
+			Expect(path.Base(domainSpec.OS.BootLoader.Path)).To(Equal("AAVMF_CODE.fd"))
+			Expect(path.Base(domainSpec.OS.NVRam.Template)).To(Equal("AAVMF_VARS.fd"))
 		})
 
 		DescribeTable("display device should be set to", func(arch string, bootloader v1.Bootloader, enableFG bool, expectedDevice string) {

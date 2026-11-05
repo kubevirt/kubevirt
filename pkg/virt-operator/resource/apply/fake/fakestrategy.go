@@ -34,8 +34,9 @@ import (
 )
 
 type FakeStrategy struct {
-	FakeInstancetypes []*instancetypev1beta1.VirtualMachineClusterInstancetype
-	FakePreferences   []*instancetypev1beta1.VirtualMachineClusterPreference
+	FakeInstancetypes      []*instancetypev1beta1.VirtualMachineClusterInstancetype
+	FakePreferences        []*instancetypev1beta1.VirtualMachineClusterPreference
+	FakeCertificateSecrets []*corev1.Secret
 }
 
 func (ins *FakeStrategy) ServiceAccounts() []*corev1.ServiceAccount {
@@ -103,7 +104,7 @@ func (ins *FakeStrategy) APIServices() []*apiregv1.APIService {
 }
 
 func (ins *FakeStrategy) CertificateSecrets() []*corev1.Secret {
-	return nil
+	return ins.FakeCertificateSecrets
 }
 
 func (ins *FakeStrategy) SCCs() []*secv1.SecurityContextConstraints {

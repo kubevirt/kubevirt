@@ -41,6 +41,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -125,19 +126,13 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache(), false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, ok := event.Object.(*api.Domain)
-					newDomain.Spec.XMLName = xml.Name{}
-					Expect(ok).To(BeTrue(), "should typecase domain")
-					Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
-					Expect(event.Type).To(Equal(kubeEventType))
-				}
-				Expect(timedOut).To(BeFalse(), "should not time out")
+				var eventReceived watch.Event
+				Eventually(eventChan).Within(2 * time.Second).Should(Receive(&eventReceived))
+				newDomain, ok := eventReceived.Object.(*api.Domain)
+				newDomain.Spec.XMLName = xml.Name{}
+				Expect(ok).To(BeTrue(), "should typecase domain")
+				Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
+				Expect(eventReceived.Type).To(Equal(kubeEventType))
 			},
 				Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
 				Entry("modified for stopped VMIs with shutoff reason", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
@@ -221,26 +216,14 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache(), false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case e := <-eventChan:
-					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
-					Expect(e.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
-					Expect(e.Type).To(Equal(watch.Modified))
+				var event watch.Event
+				Eventually(eventChan).Within(2 * time.Second).Should(Receive(&event))
+				Expect(event.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
+				Expect(event.Object.(*api.Domain).ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+				Expect(event.Type).To(Equal(watch.Modified))
 
-				}
-				Expect(timedOut).To(BeFalse())
-
-				select {
-				case <-timeout:
-					timedOut = true
-				case <-deleteNotificationSent:
-					// virt-launcher waits in a final delete notification to be sent before exiting.
-				}
-				Expect(timedOut).To(BeFalse())
+				// virt-launcher waits in a final delete notification to be sent before exiting.
+				Eventually(deleteNotificationSent).Within(2 * time.Second).Should(Receive())
 			})
 
 		It("should not set DeletionTimestamp for stopped/migrated event when domain is already gone", func() {
@@ -300,18 +283,12 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache(), false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
-					newInterfaceStatuses := newDomain.Status.Interfaces
-					Expect(newInterfaceStatuses).To(HaveLen(1))
-					Expect(equality.Semantic.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
-				}
-				Expect(timedOut).To(BeFalse())
+				var event watch.Event
+				Eventually(eventChan).Within(2 * time.Second).Should(Receive(&event))
+				newDomain, _ := event.Object.(*api.Domain)
+				newInterfaceStatuses := newDomain.Status.Interfaces
+				Expect(newInterfaceStatuses).To(HaveLen(1))
+				Expect(equality.Semantic.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 			})
 
 		It("should update Guest OS Info",
@@ -331,17 +308,11 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache(), false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
-					newOSStatus := newDomain.Status.OSInfo
-					Expect(equality.Semantic.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
-				}
-				Expect(timedOut).To(BeFalse())
+				var event watch.Event
+				Eventually(eventChan).Within(2 * time.Second).Should(Receive(&event))
+				newDomain, _ := event.Object.(*api.Domain)
+				newOSStatus := newDomain.Status.OSInfo
+				Expect(equality.Semantic.DeepEqual(osInfoStatus, newOSStatus)).To(BeTrue())
 			})
 
 		It("should update Guest FSFreeze status",
@@ -361,17 +332,11 @@ var _ = Describe("Notify", func() {
 
 				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache(), false)
 
-				timedOut := false
-				timeout := time.After(2 * time.Second)
-				select {
-				case <-timeout:
-					timedOut = true
-				case event := <-eventChan:
-					newDomain, _ := event.Object.(*api.Domain)
-					newFSFreezeStatus := newDomain.Status.FSFreezeStatus
-					Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
-				}
-				Expect(timedOut).To(BeFalse())
+				var event watch.Event
+				Eventually(eventChan).Within(2 * time.Second).Should(Receive(&event))
+				newDomain, _ := event.Object.(*api.Domain)
+				newFSFreezeStatus := newDomain.Status.FSFreezeStatus
+				Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
 			})
 
 		It("should consolidate I/O error status and Agent updates into a single watch event", func() {
@@ -435,7 +400,7 @@ var _ = Describe("Notify", func() {
 			mockLibvirt.DomainEXPECT().Free()
 			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
-			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(1)).Return(&domainJobInfo, nil)
+			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&domainJobInfo, nil)
 
 			metadataCache := metadata.NewCache()
 			metadataCache.Backup.Store(api.BackupMetadata{})
@@ -453,6 +418,258 @@ var _ = Describe("Notify", func() {
 			Expect(ok).To(BeTrue())
 			Expect(backupMeta.Completed).To(BeTrue())
 		})
+
+		It("should convert and persist completed migration stats", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation:   libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				DowntimeSet: true,
+				Downtime:    150,
+			}
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			completedMigration, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedMigration.Stats.DowntimeSet).To(BeTrue())
+			Expect(completedMigration.Stats.Downtime).To(Equal(uint64(150)))
+			Expect(string(completedMigration.MigrationUID)).To(Equal("migration-1"))
+		})
+
+		It("should not persist stats without a reported downtime", func() {
+			domainJobInfo := libvirt.DomainJobInfo{
+				Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+			}
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
+
+			storeCompletedMigrationStats(&domainJobInfo, metadataCache)
+
+			_, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should not persist stats without migration metadata", func() {
+			metadataCache := metadata.NewCache()
+
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+
+			_, exists := metadataCache.CompletedMigration.Load()
+			Expect(exists).To(BeFalse())
+		})
+
+		DescribeTable("should attach completed stats only to their outgoing migration", func(
+			captured api.MigrationMetadata, outgoing *api.MigrationMetadata, stats api.CompletedMigrationStats, attach bool,
+		) {
+			metadataCache := metadata.NewCache()
+			metadataCache.Migration.Store(captured)
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: stats.DowntimeSet, Downtime: stats.Downtime}, metadataCache)
+			// A cache update after the outgoing snapshot was taken must not change the association.
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-2"})
+			domain := api.NewMinimalDomain("test")
+			domain.Spec.Metadata.KubeVirt.Migration = outgoing
+			domain.Status.CompletedMigrationStats = &api.CompletedMigrationStats{DowntimeSet: true, Downtime: 99}
+			expected := domain.DeepCopy()
+			expected.Status.CompletedMigrationStats = nil
+			if attach {
+				expected.Status.CompletedMigrationStats = &stats
+			}
+
+			applyCompletedMigrationStats(domain, metadataCache)
+
+			Expect(domain).To(Equal(expected))
+		},
+			Entry("matching outgoing snapshot despite a newer cache value",
+				api.MigrationMetadata{UID: "migration-1"}, &api.MigrationMetadata{UID: "migration-1"},
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, true),
+			Entry("old stats must not overwrite a newer migration",
+				api.MigrationMetadata{UID: "migration-1"}, &api.MigrationMetadata{UID: "migration-2"},
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, false),
+			Entry("new stats must not be attached to an older outgoing snapshot",
+				api.MigrationMetadata{UID: "migration-2"}, &api.MigrationMetadata{UID: "migration-1"},
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, false),
+			Entry("missing outgoing migration",
+				api.MigrationMetadata{UID: "migration-1"}, nil,
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, false),
+			Entry("missing outgoing migration UID",
+				api.MigrationMetadata{UID: "migration-1"}, &api.MigrationMetadata{},
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, false),
+			Entry("missing captured migration UID",
+				api.MigrationMetadata{}, &api.MigrationMetadata{},
+				api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}, false),
+			Entry("unreported downtime clears a reused domain's stats",
+				api.MigrationMetadata{UID: "migration-1"}, &api.MigrationMetadata{UID: "migration-1"},
+				api.CompletedMigrationStats{Downtime: 150}, false),
+			Entry("reported zero is valid",
+				api.MigrationMetadata{UID: "migration-1"}, &api.MigrationMetadata{UID: "migration-1"},
+				api.CompletedMigrationStats{DowntimeSet: true}, true),
+		)
+
+		It("should clear completed stats from a reused domain after the cache is reset", func() {
+			metadataCache := metadata.NewCache()
+			migration := api.MigrationMetadata{UID: "migration-1"}
+			metadataCache.Migration.Store(migration)
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+			domain := api.NewMinimalDomain("test")
+			domain.Spec.Metadata.KubeVirt.Migration = &migration
+			applyCompletedMigrationStats(domain, metadataCache)
+			Expect(domain.Status.CompletedMigrationStats).ToNot(BeNil())
+
+			metadataCache.CompletedMigration.Set(metadata.CompletedMigrationData{})
+			applyCompletedMigrationStats(domain, metadataCache)
+
+			Expect(domain.Status.CompletedMigrationStats).To(BeNil())
+			Expect(domain.Spec.Metadata.KubeVirt.Migration).To(Equal(&migration))
+		})
+
+		DescribeTable("should not publish stale downtime without matching authoritative metadata", func(migration *api.MigrationMetadata) {
+			metadataCache := metadata.NewCache()
+			previous := api.MigrationMetadata{UID: "migration-1"}
+			stats := api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}
+			if migration != nil {
+				metadataCache.Migration.Store(*migration)
+			}
+			// Simulate an earlier completion being stored after the next migration's cache reset.
+			metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{Stats: stats, MigrationUID: previous.UID})
+			domain := util.NewDomainFromName("test", "1234")
+			domain.Spec.Metadata.KubeVirt.Migration = &previous
+			domain.Status.CompletedMigrationStats = &stats
+			ctrl := gomock.NewController(GinkgoT())
+			mockLib := testing.NewLibvirt(ctrl)
+			mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			e.eventCallback(mockLib.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent,
+				nil, nil, nil, nil, metadataCache, false)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+			domainEvent, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domainEvent.Spec.Metadata.KubeVirt.Migration).To(Equal(migration))
+			Expect(domainEvent.Status.CompletedMigrationStats).To(BeNil())
+			Expect(string(domainEvent.Spec.Metadata.KubeVirt.UID)).To(Equal("1234"))
+		},
+			Entry("missing metadata", nil),
+			Entry("missing migration UID", &api.MigrationMetadata{}),
+			Entry("later migration with residual old stats", &api.MigrationMetadata{UID: "migration-2"}),
+		)
+
+		It("should include migration results updated while domain XML is being read", func() {
+			metadataCache := metadata.NewCache()
+			start := metav1.NewTime(time.Unix(100, 0))
+			end := metav1.NewTime(time.Unix(200, 0))
+			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1", StartTimestamp: &start})
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+			x, err := xml.Marshal(api.NewMinimalDomain("test").Spec)
+			Expect(err).ToNot(HaveOccurred())
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).DoAndReturn(func(_ libvirt.DomainXMLFlags) (string, error) {
+				metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
+					migration.EndTimestamp = &end
+				})
+				return string(x), nil
+			})
+
+			e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{},
+				client, deleteNotificationSent, nil, nil, nil, nil, metadataCache, false)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+			domainEvent, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			current, exists := metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue())
+			Expect(domainEvent.Spec.Metadata.KubeVirt.Migration).To(Equal(&current))
+			Expect(domainEvent.Spec.Metadata.KubeVirt.Migration.EndTimestamp).To(Equal(&end))
+			Expect(domainEvent.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
+		})
+
+		DescribeTable("should preserve updated migration metadata in domain notify events", func(
+			domainMissing bool, xmlError error, notification libvirtEvent, failed bool,
+		) {
+			ctrl := gomock.NewController(GinkgoT())
+			mockLib := testing.NewLibvirt(ctrl)
+			if domainMissing {
+				mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).
+					Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}).Times(2)
+			} else {
+				x, err := xml.Marshal(api.NewMinimalDomain("test").Spec)
+				Expect(err).ToNot(HaveOccurred())
+				mockLib.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLib.VirtDomain, nil).Times(2)
+				mockLib.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTOFF, int(libvirt.DOMAIN_SHUTOFF_MIGRATED), nil).Times(2)
+				mockLib.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(x), xmlError).Times(2)
+				mockLib.DomainEXPECT().Free().Times(2)
+			}
+			metadataCache := metadata.NewCache()
+			metadataCache.UID.Set("1234")
+			backup := api.BackupMetadata{Name: "existing-backup", Completed: true}
+			metadataCache.Backup.Set(backup)
+			start := metav1.NewTime(time.Unix(100, 0))
+			end := metav1.NewTime(time.Unix(200, 0))
+			metadataCache.Migration.Store(api.MigrationMetadata{
+				UID: "migration-1", StartTimestamp: &start, Mode: v1.MigrationPreCopy,
+			})
+			storeCompletedMigrationStats(&libvirt.DomainJobInfo{DowntimeSet: true, Downtime: 150}, metadataCache)
+			// Reproduce JOB_COMPLETED arriving before the result writer, without timing-dependent goroutines.
+			metadataCache.Migration.WithSafeBlock(func(migration *api.MigrationMetadata, _ bool) {
+				migration.EndTimestamp = &end
+				migration.Mode = v1.MigrationPostCopy
+				migration.AbortStatus = string(v1.MigrationAbortFailed)
+				migration.Failed = failed
+				if failed {
+					migration.FailureReason = "migration failed"
+				}
+			})
+			expected, exists := metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue())
+			domain := util.NewDomainFromName("test", "1234")
+			domain.Spec.Metadata.KubeVirt.Backup = &backup
+
+			for range 2 {
+				e.eventCallback(mockLib.VirtConnection, domain, notification, client, deleteNotificationSent,
+					nil, nil, nil, nil, metadataCache, false)
+
+				var event watch.Event
+				Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+				Expect(event.Type).To(Equal(watch.Modified))
+				domainEvent, ok := event.Object.(*api.Domain)
+				Expect(ok).To(BeTrue())
+				Expect(domainEvent.Spec.Metadata.KubeVirt.Migration).To(Equal(&expected))
+				Expect(string(domainEvent.Spec.Metadata.KubeVirt.UID)).To(Equal("1234"))
+				Expect(domainEvent.Spec.Metadata.KubeVirt.Backup).To(Equal(&backup))
+				Expect(domainEvent.Status.CompletedMigrationStats).To(Equal(&api.CompletedMigrationStats{DowntimeSet: true, Downtime: 150}))
+				current, _ := metadataCache.Migration.Load()
+				Expect(current).To(Equal(expected))
+			}
+			if notification.Event != nil && notification.Event.Event == libvirt.DOMAIN_EVENT_UNDEFINED {
+				Expect(domain.DeletionTimestamp).ToNot(BeNil())
+				Expect(deleteNotificationSent).To(HaveLen(1))
+			} else {
+				Expect(domain.DeletionTimestamp).To(BeNil())
+				Expect(deleteNotificationSent).To(BeEmpty())
+			}
+		},
+			Entry("metadata notification with the domain present", false, nil, libvirtEvent{}, false),
+			Entry("metadata notification after the domain disappeared", true, nil, libvirtEvent{}, false),
+			Entry("XML temporarily unavailable", false, libvirt.Error{Code: libvirt.ERR_OPERATION_INVALID}, libvirtEvent{}, false),
+			Entry("domain disappears before XML is read", false, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN}, libvirtEvent{}, false),
+			Entry("preserve failure result fields", false, nil, libvirtEvent{}, true),
+			Entry("delayed job-completed notification", true, nil, libvirtEvent{
+				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
+					Info: libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT},
+				},
+			}, false),
+			Entry("stopped-migrated notification", true, nil, libvirtEvent{
+				Event: &libvirt.DomainEventLifecycle{
+					Event: libvirt.DOMAIN_EVENT_STOPPED, Detail: int(libvirt.DOMAIN_EVENT_STOPPED_MIGRATED),
+				},
+			}, false),
+			Entry("final undefined notification", true, nil, libvirtEvent{
+				Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED},
+			}, false),
+		)
 	})
 
 	Describe("K8s Events", func() {
@@ -505,8 +722,7 @@ var _ = Describe("Notify", func() {
 			err := client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 			Expect(err).ToNot(HaveOccurred())
 
-			event := <-recorder.Events
-			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
+			Expect(recorder.Events).To(Receive(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage))))
 		})
 
 		It("Should generate a k8s event on IO errors", func() {
@@ -537,8 +753,7 @@ var _ = Describe("Notify", func() {
 			eventMessage := "VM Paused due to not enough space on volume: "
 			metadataCache := metadata.NewCache()
 			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache, false)
-			event := <-recorder.Events
-			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
+			Expect(recorder.Events).To(Receive(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage))))
 		})
 
 		Context("handleGuestPanicEvent", func() {
@@ -656,11 +871,13 @@ var _ = Describe("Notify", func() {
 	Describe("gRPC status error handling", func() {
 		newTestNotifier := func(fake *fakeNotifyClient) *Notifier {
 			return &Notifier{
-				v1client:        fake,
-				conn:            &grpc.ClientConn{},
-				intervalTimeout: 100 * time.Millisecond,
-				sendTimeout:     1 * time.Second,
-				totalTimeout:    3 * time.Second,
+				client: &notifyClient{
+					v1client:        fake,
+					conn:            &grpc.ClientConn{},
+					intervalTimeout: 100 * time.Millisecond,
+					sendTimeout:     1 * time.Second,
+					totalTimeout:    3 * time.Second,
+				},
 			}
 		}
 

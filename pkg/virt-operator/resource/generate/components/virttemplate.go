@@ -322,11 +322,21 @@ func updateDeployment(deployment *appsv1.Deployment, config *operatorutil.KubeVi
 		})
 	}
 
-	if config.GetVerbosity() != "" {
-		container.Args = append(container.Args, "-v", config.GetVerbosity())
+	if verbosity := config.GetVerbosity(); verbosity != "" {
+		container.Args = append(container.Args, verbosityArgs(deployment.Name, verbosity)...)
 	}
 
 	return nil
+}
+
+func verbosityArgs(deploymentName, verbosity string) []string {
+	if deploymentName != VirtTemplateControllerDeploymentName {
+		return []string{"-v", verbosity}
+	}
+	if verbosity == "0" {
+		verbosity = "info"
+	}
+	return []string{"--zap-log-level", verbosity}
 }
 
 func getOverrideImageForDeployment(deploymentName string, config *operatorutil.KubeVirtDeploymentConfig) string {

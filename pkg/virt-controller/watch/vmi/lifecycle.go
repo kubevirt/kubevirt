@@ -49,18 +49,18 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/dra"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (common.SyncError, *k8sv1.Pod) {
@@ -168,6 +168,16 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
 			return common.NewSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation"), pod
+		}
+
+		// The real pod and the WaitForFirstConsumer temporary pod both reference this claim. The
+		// temporary pod is deleted before the real pod is created. Migration targets are rendered
+		// on another path and cannot share the claim.
+		if dra.CPUsFromDRA(vmi, c.clusterConfig.CPUsWithDRAGateEnabled()) {
+			if err := dra.CreateCPUResourceClaim(context.Background(), vmi, c.clientset); err != nil {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating CPU ResourceClaim: %v", err)
+				return common.NewSyncError(fmt.Errorf("failed to create CPU ResourceClaim: %v", err), controller.FailedCreatePodReason), pod
+			}
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -407,12 +417,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
 				// during reconcile
-				if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+				if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 					return err
 				}
 
 				// Network
-				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+				if err := c.netStatusUpdater.Update(vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -431,7 +441,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
 
 				// Allocate the CID if VSOCK is enabled.
-				if util.IsAutoAttachVSOCK(vmiCopy) {
+				if vmitrait.IsAutoAttachVSOCK(vmiCopy) {
 					if err := c.cidsMap.Allocate(vmiCopy); err != nil {
 						return err
 					}
@@ -487,12 +497,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		// Storage
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 
 		// Network
-		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+		if err := c.netStatusUpdater.Update(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
@@ -518,7 +528,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
 					vmiCopy.Status.MigrationState.Completed = true
-					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+					vmiCopy.Status.MigrationState.EndTimestamp = new(metav1.Now())
 				}
 				break
 			}
@@ -527,7 +537,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			break
 		}
 
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 	case vmi.IsWaitingForSync():
@@ -769,8 +779,8 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 			if pattern == "" {
 				continue
 			}
-			if strings.HasSuffix(pattern, "*") {
-				prefix := strings.TrimSuffix(pattern, "*")
+			if before, ok := strings.CutSuffix(pattern, "*"); ok {
+				prefix := before
 				// Reject bare "*" to prevent accidental sync-all. Only prefix wildcards like "vendor.io/*" are supported.
 				if prefix == "" {
 					continue

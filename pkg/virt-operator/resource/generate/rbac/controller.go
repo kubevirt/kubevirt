@@ -431,9 +431,10 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/backup",
-					"virtualmachineinstances/redefine-checkpoint",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/externalsnapshot",
+					"virtualmachineinstances/commitsnapshot",
 					"virtualmachineinstances/reset",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/sev/setupsession",
@@ -600,12 +601,25 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"resourceslices",
+				},
+				Verbs: []string{
+					"list",
+					"watch",
+					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					"resource.k8s.io",
+				},
+				Resources: []string{
 					"resourceclaims",
 				},
 				Verbs: []string{
 					"list",
 					"watch",
 					"get",
+					"create",
 				},
 			},
 		},

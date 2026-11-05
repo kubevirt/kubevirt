@@ -103,6 +103,58 @@ func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
 	return int64(vCPUs)
 }
 
+// GetIOThreadsCount returns the configured supplementalPool thread count, or zero when it is unset.
+// It does not check the IO threads policy or dedicated CPU placement.
+func GetIOThreadsCount(vmi *v1.VirtualMachineInstance) int64 {
+	if vmi == nil || vmi.Spec.Domain.IOThreads == nil ||
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
+		return 0
+	}
+	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
+}
+
+// supplementalPoolThreadCount returns the supplementalPool thread count when that policy is set,
+// and zero otherwise. The launcher only pins these threads to their own host CPUs under that policy.
+func supplementalPoolThreadCount(vmi *v1.VirtualMachineInstance) int64 {
+	if vmi == nil || vmi.Spec.Domain.IOThreadsPolicy == nil ||
+		*vmi.Spec.Domain.IOThreadsPolicy != v1.IOThreadsPolicySupplementalPool ||
+		vmi.Spec.Domain.IOThreads == nil ||
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount == nil {
+		return 0
+	}
+	return int64(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
+}
+
+// emulatorThreadHostCPUs returns the number of host CPUs reserved for the isolated emulator thread.
+func emulatorThreadHostCPUs(vmi *v1.VirtualMachineInstance, guestVCPUs int64) int64 {
+	if vmi == nil || vmi.Spec.Domain.CPU == nil || !vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		return 0
+	}
+
+	emulatorCPUs := int64(1)
+	if _, evenParity := vmi.Annotations[v1.EmulatorThreadCompleteToEvenParity]; evenParity {
+		additionalCPUs := supplementalPoolThreadCount(vmi)
+		if (guestVCPUs+additionalCPUs)%2 == 0 {
+			emulatorCPUs = 2
+		}
+	}
+	return emulatorCPUs
+}
+
+// getSupplementalDedicatedHostCPUs returns supplementalPool threads and emulator host CPUs for dedicatedCpuPlacement (excluding guest vCPUs).
+func getSupplementalDedicatedHostCPUs(vmi *v1.VirtualMachineInstance, guestVCPUs int64) int64 {
+	return supplementalPoolThreadCount(vmi) + emulatorThreadHostCPUs(vmi, guestVCPUs)
+}
+
+// GetDedicatedHostCPUs returns every host CPU a dedicated CPU VM needs: its guest vCPUs, plus the
+// supplementalPool IO threads and the isolated emulator thread when it asks for them.
+// The mutating webhook has already filled an empty topology, using limits.cpu or requests.cpu
+// as the socket count, so there is no separate fallback here.
+func GetDedicatedHostCPUs(vmi *v1.VirtualMachineInstance) int64 {
+	vCPUs := GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+	return vCPUs + getSupplementalDedicatedHostCPUs(vmi, vCPUs)
+}
+
 // ParsePciAddress returns an array of PCI DBSF fields (domain, bus, slot, function)
 func ParsePciAddress(pciAddress string) ([]string, error) {
 	pciAddrRegx, err := regexp.Compile(PCI_ADDRESS_PATTERN)

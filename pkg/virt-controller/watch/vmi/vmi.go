@@ -21,6 +21,7 @@ package vmi
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -101,7 +102,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
 		storageAnnotationsGenerator:       storageAnnotationsGenerator,
-		updateNetworkStatus:               netStatusUpdater,
+		netStatusUpdater:                  netStatusUpdater,
 		validateNetworkSpec:               netSpecValidator,
 		netMigrationEvaluator:             netMigrationEvaluator,
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
@@ -189,7 +190,9 @@ type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
-type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+type statusUpdater interface {
+	Update(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+}
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
@@ -237,7 +240,7 @@ type Controller struct {
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
 	storageAnnotationsGenerator       storageAnnotationsGenerator
-	updateNetworkStatus               statusUpdater
+	netStatusUpdater                  statusUpdater
 	validateNetworkSpec               specValidator
 	netMigrationEvaluator             migrationEvaluator
 	additionalLauncherAnnotationsSync []string
@@ -246,6 +249,11 @@ type Controller struct {
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
+	var workers sync.WaitGroup
+	// Queue shutdown unblocks Get but does not wait for reconciliations to finish.
+	// Join the workers before returning so callers can safely release shared
+	// resources, including the API server in integration tests.
+	defer workers.Wait()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting vmi controller.")
 
@@ -261,8 +269,8 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	c.cidsMap.Sync(vmis)
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(c.runWorker, time.Second, stopCh)
+	for range threadiness {
+		workers.Go(func() { wait.Until(c.runWorker, time.Second, stopCh) })
 	}
 
 	<-stopCh
@@ -374,7 +382,7 @@ func (c *Controller) execute(key string) error {
 }
 
 // When a pod is created, enqueue the vmi that manages it and update its podExpectations.
-func (c *Controller) addPod(obj interface{}) {
+func (c *Controller) addPod(obj any) {
 	pod := obj.(*k8sv1.Pod)
 
 	if pod.DeletionTimestamp != nil {
@@ -401,7 +409,7 @@ func (c *Controller) addPod(obj interface{}) {
 // When a pod is updated, figure out what vmi/s manage it and wake them
 // up. If the labels of the pod have changed we need to awaken both the old
 // and new vmi. old and cur must be *v1.Pod types.
-func (c *Controller) updatePod(old, cur interface{}) {
+func (c *Controller) updatePod(old, cur any) {
 	curPod := cur.(*k8sv1.Pod)
 	oldPod := old.(*k8sv1.Pod)
 	if curPod.ResourceVersion == oldPod.ResourceVersion {
@@ -441,7 +449,7 @@ func (c *Controller) updatePod(old, cur interface{}) {
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
-func (c *Controller) onPodDelete(obj interface{}) {
+func (c *Controller) onPodDelete(obj any) {
 	pod, ok := obj.(*k8sv1.Pod)
 
 	// When a delete is dropped, the relist will notice a pod in the store not
@@ -504,12 +512,12 @@ func (c *Controller) recoverVMIFromPodAnnotations(pod *k8sv1.Pod) *virtv1.Virtua
 	return vmi
 }
 
-func (c *Controller) addVirtualMachineInstance(obj interface{}) {
+func (c *Controller) addVirtualMachineInstance(obj any) {
 	c.lowerVMIExpectation(obj)
 	c.enqueueVirtualMachine(obj)
 }
 
-func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
+func (c *Controller) deleteVirtualMachineInstance(obj any) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
 	// When a delete is dropped, the relist will notice a vmi in the store not
@@ -531,12 +539,12 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	c.enqueueVirtualMachine(vmi)
 }
 
-func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
+func (c *Controller) updateVirtualMachineInstance(_, curr any) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
 }
 
-func (c *Controller) updateKubeVirt(old, curr interface{}) {
+func (c *Controller) updateKubeVirt(old, curr any) {
 	oldKV := old.(*virtv1.KubeVirt)
 	currKV := curr.(*virtv1.KubeVirt)
 
@@ -551,7 +559,7 @@ func (c *Controller) updateKubeVirt(old, curr interface{}) {
 	}
 }
 
-func (c *Controller) lowerVMIExpectation(curr interface{}) {
+func (c *Controller) lowerVMIExpectation(curr any) {
 	key, err := controller.KeyFunc(curr)
 	if err != nil {
 		return
@@ -559,7 +567,7 @@ func (c *Controller) lowerVMIExpectation(curr interface{}) {
 	c.vmiExpectations.SetExpectations(key, 0, 0)
 }
 
-func (c *Controller) enqueueVirtualMachine(obj interface{}) {
+func (c *Controller) enqueueVirtualMachine(obj any) {
 	logger := log.Log
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 	key, err := controller.KeyFunc(vmi)
