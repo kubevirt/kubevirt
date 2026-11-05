@@ -678,6 +678,10 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 }
 
 func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
+	if err := r.deletePodDisruptionBudgetForDeployment(deployment); err != nil {
+		return err
+	}
+
 	obj, exists, err := r.stores.DeploymentCache.Get(deployment)
 	if err != nil {
 		return err
