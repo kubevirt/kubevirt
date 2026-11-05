@@ -1068,32 +1068,17 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("Softreboot a VirtualMachineInstance", decorators.ACPI, func() {
+	Describe("Softreboot a VirtualMachineInstance", decorators.ACPI, Ordered, decorators.OncePerOrderedCleanup, func() {
 		const vmiLaunchTimeout = 360
+		var vmi *v1.VirtualMachineInstance
 
-		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
+		BeforeAll(func() {
+			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			By("Disable qemu-guest-agent service in the VMI to force ACPI mode reboot")
-			err := console.RunCommand(vmi, "sudo systemctl disable --now qemu-guest-agent", 10*time.Second)
-			Expect(err).ToNot(HaveOccurred(), "Should disable qemu-guest-agent service in the VMI")
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
-			bootID, err := readBootID(vmi, console.LoginToFedora)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Trigger soft reboot")
-			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for VMI to reboot")
-			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 
 		It("soft reboot vmi should fail to soft reboot a paused vmi", decorators.WgS390x, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
 			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
@@ -1112,6 +1097,22 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 
+			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
+		})
+
+		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
+			By("Disable qemu-guest-agent service in the VMI to force ACPI mode reboot")
+			err := console.RunCommand(vmi, "sudo systemctl disable --now qemu-guest-agent", 10*time.Second)
+			Expect(err).ToNot(HaveOccurred(), "Should disable qemu-guest-agent service in the VMI")
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+			bootID, err := readBootID(vmi, console.LoginToFedora)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Trigger soft reboot")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to reboot")
 			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 	})
