@@ -126,7 +126,6 @@ type VirtualMachineController struct {
 	lastSeenPanicCount       sync.Map
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
-	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
@@ -143,6 +142,7 @@ func newCgroupManager(vmi *v1.VirtualMachineInstance, host string, hypervisorNod
 
 func NewVirtualMachineController(
 	queue workqueue.TypedRateLimitingInterface[string],
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	k8sClient kubernetes.Interface,
@@ -180,6 +180,7 @@ func NewVirtualMachineController(
 		recorder,
 		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
+		vmiExpectations,
 		vmiInformer,
 		domainInformer,
 		clusterConfig,
@@ -206,7 +207,6 @@ func NewVirtualMachineController(
 		heartBeatInterval:        1 * time.Minute,
 		netConf:                  netConf,
 		sriovHotplugExecutorPool: executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
-		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,

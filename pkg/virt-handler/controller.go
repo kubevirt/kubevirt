@@ -261,10 +261,14 @@ type BaseController struct {
 	netStat                     netstat
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
-	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
-	hypervisorRuntime           hypervisor.VirtRuntime
-	pluginStore                 cache.Store
-	pluginCache                 pluginCache
+	// vmiExpectations is shared by all three controllers. A VMI update written by
+	// one of them has to be observed before any of them processes the key again,
+	// otherwise the next one would act on a snapshot it already invalidated.
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
+	hypervisorNodeInfo hypervisor.HypervisorNodeInformation
+	hypervisorRuntime  hypervisor.VirtRuntime
+	pluginStore        cache.Store
+	pluginCache        pluginCache
 }
 
 func NewBaseController(
@@ -273,6 +277,7 @@ func NewBaseController(
 	recorder record.EventRecorder,
 	vmiClient clientv1.VirtualMachineInstancesGetter,
 	queue workqueue.TypedRateLimitingInterface[string],
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -291,6 +296,7 @@ func NewBaseController(
 		recorder:                    recorder,
 		vmiClient:                   vmiClient,
 		queue:                       queue,
+		vmiExpectations:             vmiExpectations,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
