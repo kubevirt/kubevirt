@@ -382,7 +382,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
 				// during reconcile
-				if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+				if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 					return err
 				}
 
@@ -456,7 +456,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		// Storage
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 
@@ -498,7 +498,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			break
 		}
 
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 	case vmi.IsWaitingForSync():
