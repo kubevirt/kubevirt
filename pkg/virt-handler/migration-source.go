@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -76,6 +75,7 @@ func NewMigrationSourceController(
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	host string,
+	queue workqueue.TypedRateLimitingInterface[string],
 	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
@@ -90,10 +90,6 @@ func NewMigrationSourceController(
 	pluginExecutor plugins.NodeHookExecutor,
 ) (*MigrationSourceController, error) {
 
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
-		workqueue.DefaultTypedControllerRateLimiter[string](),
-		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
-	)
 	logger := log.Log.With("controller", "migration-source")
 
 	hypervisorName := clusterConfig.GetHypervisor().Name
@@ -120,32 +116,12 @@ func NewMigrationSourceController(
 		return nil, err
 	}
 
-	c := &MigrationSourceController{
+	return &MigrationSourceController{
 		BaseController:     baseCtrl,
 		pluginExecutor:     pluginExecutor,
 		passtRepairHandler: passtRepairHandler,
 		migrationProxy:     migrationProxy,
-	}
-
-	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addDeleteDomainFunc,
-		DeleteFunc: c.addDeleteDomainFunc,
-		UpdateFunc: c.updateDomainFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	}, nil
 }
 
 func (c *MigrationSourceController) hasTargetDetectedReadyDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
@@ -302,65 +278,6 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 	}
 
 	return nil
-}
-
-func (c *MigrationSourceController) Run(threadiness int, stopCh chan struct{}) {
-	defer c.queue.ShutDown()
-	c.logger.Info("Starting virt-handler source controller.")
-
-	cache.WaitForCacheSync(stopCh, c.hasSynced)
-
-	// queue keys for previous Domains on the host that no longer exist
-	// in the cache. This ensures we perform local cleanup of deleted VMs.
-	for _, domain := range c.domainStore.List() {
-		d := domain.(*api.Domain)
-		vmiRef := v1.NewVMIReferenceWithUUID(
-			d.ObjectMeta.Namespace,
-			d.ObjectMeta.Name,
-			d.Spec.Metadata.KubeVirt.UID)
-
-		key := controller.VirtualMachineInstanceKey(vmiRef)
-
-		_, exists, _ := c.vmiStore.GetByKey(key)
-		if !exists {
-			c.queue.Add(key)
-		}
-	}
-
-	// Start the actual work
-	for range threadiness {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	<-stopCh
-	c.logger.Info("Stopping virt-handler source controller.")
-}
-
-func (c *MigrationSourceController) runWorker() {
-	for c.Execute() {
-	}
-}
-
-func (c *MigrationSourceController) Execute() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-
-	state, err := c.snapshot(key)
-	if err == nil {
-		err = c.execute(state)
-	}
-
-	if err != nil {
-		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
-		c.queue.AddRateLimited(key)
-	} else {
-		c.logger.V(4).Infof("processed VirtualMachineInstance %v", key)
-		c.queue.Forget(key)
-	}
-	return true
 }
 
 func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -644,43 +561,6 @@ func (c *MigrationSourceController) processVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	return c.migrateVMI(vmi, domain)
-}
-
-func (c *MigrationSourceController) addFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) deleteFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) updateFunc(_, new any) {
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) addDeleteDomainFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationSourceController) updateDomainFunc(_, new any) {
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.queue.Add(key)
-	}
 }
 
 func (c *MigrationSourceController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, domain *api.Domain, client cmdclient.LauncherClient) error {

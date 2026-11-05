@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -100,6 +99,7 @@ func NewMigrationTargetController(
 	virtClient kubecli.KubevirtClient,
 	host string,
 	migrationIpAddress string,
+	queue workqueue.TypedRateLimitingInterface[string],
 	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
@@ -118,10 +118,6 @@ func NewMigrationTargetController(
 	hvMounter hotplugvolume.VolumeMounter,
 	memoryOverheadCalculators ...memoryOverheadCalculator,
 ) (*MigrationTargetController, error) {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
-		workqueue.DefaultTypedControllerRateLimiter[string](),
-		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
-	)
 	logger := log.Log.With("controller", "migration-target")
 
 	hypervisorName := clusterConfig.GetHypervisor().Name
@@ -148,7 +144,7 @@ func NewMigrationTargetController(
 		return nil, err
 	}
 
-	c := &MigrationTargetController{
+	return &MigrationTargetController{
 		BaseController:            baseCtrl,
 		capabilities:              capabilities,
 		containerDiskMounter:      cdMounter,
@@ -159,27 +155,7 @@ func NewMigrationTargetController(
 		passtRepairHandler:        passtRepairHandler,
 		pluginExecutor:            pluginExecutor,
 		migrationProxy:            migrationProxy,
-	}
-
-	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addFunc,
-		DeleteFunc: c.deleteFunc,
-		UpdateFunc: c.updateFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addDomainFunc,
-		DeleteFunc: c.deleteDomainFunc,
-		UpdateFunc: c.updateDomainFunc,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
+	}, nil
 }
 
 func domainIsActiveOnTarget(domain *api.Domain) bool {
@@ -427,65 +403,6 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	}
 
 	return nil, false
-}
-
-func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
-	defer c.queue.ShutDown()
-	c.logger.Info("Starting virt-handler target controller.")
-
-	cache.WaitForCacheSync(stopCh, c.hasSynced)
-
-	// queue keys for previous Domains on the host that no longer exist
-	// in the cache. This ensures we perform local cleanup of deleted VMs.
-	for _, domain := range c.domainStore.List() {
-		d := domain.(*api.Domain)
-		vmiRef := v1.NewVMIReferenceWithUUID(
-			d.ObjectMeta.Namespace,
-			d.ObjectMeta.Name,
-			d.Spec.Metadata.KubeVirt.UID)
-
-		key := controller.VirtualMachineInstanceKey(vmiRef)
-
-		_, exists, _ := c.vmiStore.GetByKey(key)
-		if !exists {
-			c.queue.Add(key)
-		}
-	}
-
-	// Start the actual work
-	for range threadiness {
-		go wait.Until(c.runWorker, time.Second, stopCh)
-	}
-
-	<-stopCh
-	c.logger.Info("Stopping virt-handler target controller.")
-}
-
-func (c *MigrationTargetController) runWorker() {
-	for c.Execute() {
-	}
-}
-
-func (c *MigrationTargetController) Execute() bool {
-	key, quit := c.queue.Get()
-	if quit {
-		return false
-	}
-	defer c.queue.Done(key)
-
-	state, err := c.snapshot(key)
-	if err == nil {
-		err = c.execute(state)
-	}
-
-	if err != nil {
-		c.logger.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
-		c.queue.AddRateLimited(key)
-	} else {
-		c.logger.V(4).Infof("processed VirtualMachineInstance %v", key)
-		c.queue.Forget(key)
-	}
-	return true
 }
 
 func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, oldSpec *v1.VirtualMachineInstanceSpec, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string, shouldExpect bool) error {
@@ -989,75 +906,6 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
 
 	return nil, false
-}
-
-func (c *MigrationTargetController) addFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationTargetController) deleteFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationTargetController) updateFunc(_, new any) {
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.vmiExpectations.SetExpectations(key, 0, 0)
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationTargetController) addDomainFunc(obj any) {
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationTargetController) deleteDomainFunc(obj any) {
-	domain, ok := obj.(*api.Domain)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			c.logger.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
-			return
-		}
-		domain, ok = tombstone.Obj.(*api.Domain)
-		if !ok {
-			c.logger.Reason(fmt.Errorf("tombstone contained object that is not a domain %#v", obj)).Error("Failed to process delete notification")
-			return
-		}
-	}
-	c.logger.Object(domain).Info("Domain deleted")
-	key, err := controller.KeyFunc(obj)
-	if err == nil {
-		c.queue.Add(key)
-	}
-}
-
-func (c *MigrationTargetController) updateDomainFunc(old, new any) {
-	newDomain := new.(*api.Domain)
-	oldDomain := old.(*api.Domain)
-	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
-		c.logger.Object(newDomain).Infof("Domain is in state %s reason %s", newDomain.Status.Status, newDomain.Status.Reason)
-	}
-
-	if newDomain.ObjectMeta.DeletionTimestamp != nil {
-		c.logger.Object(newDomain).Info("Domain is marked for deletion")
-	}
-
-	key, err := controller.KeyFunc(new)
-	if err == nil {
-		c.queue.Add(key)
-	}
 }
 
 func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
