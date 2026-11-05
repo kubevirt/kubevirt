@@ -202,6 +202,35 @@ func (mr *MockConnectionMockRecorder) DomainEventRebootRegister(callback any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventRebootRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventRebootRegister), callback)
 }
 
+// DomainRestoreParams mocks base method.
+func (m *MockConnection) DomainRestoreParams(params libvirt.DomainSaveRestoreParams, flags libvirt.DomainSaveRestoreFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainRestoreParams", params, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainRestoreParams indicates an expected call of DomainRestoreParams.
+func (mr *MockConnectionMockRecorder) DomainRestoreParams(params, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainRestoreParams", reflect.TypeOf((*MockConnection)(nil).DomainRestoreParams), params, flags)
+}
+
+// DomainSaveImageGetXMLDesc mocks base method.
+func (m *MockConnection) DomainSaveImageGetXMLDesc(file string, flags libvirt.DomainSaveImageXMLFlags) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainSaveImageGetXMLDesc", file, flags)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DomainSaveImageGetXMLDesc indicates an expected call of DomainSaveImageGetXMLDesc.
+func (mr *MockConnectionMockRecorder) DomainSaveImageGetXMLDesc(file, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainSaveImageGetXMLDesc", reflect.TypeOf((*MockConnection)(nil).DomainSaveImageGetXMLDesc), file, flags)
+}
+
 // GetAllDomainStats mocks base method.
 func (m *MockConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
 	m.ctrl.T.Helper()
@@ -1016,6 +1045,20 @@ func (m *MockVirDomain) Resume() error {
 func (mr *MockVirDomainMockRecorder) Resume() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockVirDomain)(nil).Resume))
+}
+
+// SaveParams mocks base method.
+func (m *MockVirDomain) SaveParams(params libvirt.DomainSaveRestoreParams, flags libvirt.DomainSaveRestoreFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveParams", params, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveParams indicates an expected call of SaveParams.
+func (mr *MockVirDomainMockRecorder) SaveParams(params, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveParams", reflect.TypeOf((*MockVirDomain)(nil).SaveParams), params, flags)
 }
 
 // Screenshot mocks base method.

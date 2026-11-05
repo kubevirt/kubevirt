@@ -581,6 +581,26 @@ func (mr *MockCmdClientMockRecorder) ResetVirtualMachine(ctx, in any, opts ...an
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).ResetVirtualMachine), varargs...)
 }
 
+// SaveVirtualMachine mocks base method.
+func (m *MockCmdClient) SaveVirtualMachine(ctx context.Context, in *SaveVirtualMachineRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "SaveVirtualMachine", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SaveVirtualMachine indicates an expected call of SaveVirtualMachine.
+func (mr *MockCmdClientMockRecorder) SaveVirtualMachine(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).SaveVirtualMachine), varargs...)
+}
+
 // ShutdownVirtualMachine mocks base method.
 func (m *MockCmdClient) ShutdownVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -1208,6 +1228,21 @@ func (m *MockCmdServer) ResetVirtualMachine(arg0 context.Context, arg1 *VMIReque
 func (mr *MockCmdServerMockRecorder) ResetVirtualMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).ResetVirtualMachine), arg0, arg1)
+}
+
+// SaveVirtualMachine mocks base method.
+func (m *MockCmdServer) SaveVirtualMachine(arg0 context.Context, arg1 *SaveVirtualMachineRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveVirtualMachine", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SaveVirtualMachine indicates an expected call of SaveVirtualMachine.
+func (mr *MockCmdServerMockRecorder) SaveVirtualMachine(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).SaveVirtualMachine), arg0, arg1)
 }
 
 // ShutdownVirtualMachine mocks base method.

@@ -436,6 +436,20 @@ func (mr *MockLauncherClientMockRecorder) ResetVirtualMachine(vmi any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).ResetVirtualMachine), vmi)
 }
 
+// SaveVirtualMachine mocks base method.
+func (m *MockLauncherClient) SaveVirtualMachine(vmi *v1.VirtualMachineInstance, savePath string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveVirtualMachine", vmi, savePath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveVirtualMachine indicates an expected call of SaveVirtualMachine.
+func (mr *MockLauncherClientMockRecorder) SaveVirtualMachine(vmi, savePath any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).SaveVirtualMachine), vmi, savePath)
+}
+
 // ShutdownVirtualMachine mocks base method.
 func (m *MockLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	m.ctrl.T.Helper()
