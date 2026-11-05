@@ -1975,14 +1975,19 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 	}
 
 	It("fails with an aborted-before-libvirt error when preparation was already cancelled before the hooks ran", func() {
+		var frees atomic.Int32
 		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil).Times(2)
-		domain.EXPECT().Free().Return(nil).Times(2)
+		domain.EXPECT().Free().DoAndReturn(func() error { frees.Add(1); return nil }).Times(2)
 		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
 		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
 		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
 
 		migrationDone := make(chan struct{})
-		DeferCleanup(func() { close(migrationDone) })
+		// migrateHelper does not join the monitor goroutine, so wait for its deferred Free before gomock verifies the expectations.
+		DeferCleanup(func() {
+			close(migrationDone)
+			Eventually(frees.Load).Should(Equal(int32(2)))
+		})
 		prep := newMigrationPreparation()
 		DeferCleanup(prep.cancel)
 		// Simulate a concurrent CancelVMIMigration that claimed the preparation while migrateHelper runs.
@@ -1994,11 +1999,12 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 
 	It("starts the migration monitor after the hook phase, before MigrateToURI3", func() {
 		var lookups atomic.Int32
+		var frees atomic.Int32
 		connection.EXPECT().LookupDomainByName("default_test").DoAndReturn(func(_ string) (cli.VirDomain, error) {
 			lookups.Add(1)
 			return domain, nil
 		}).Times(2)
-		domain.EXPECT().Free().Return(nil).Times(2)
+		domain.EXPECT().Free().DoAndReturn(func() error { frees.Add(1); return nil }).Times(2)
 		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
 		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
 		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
@@ -2008,7 +2014,11 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 		})
 
 		migrationDone := make(chan struct{})
-		DeferCleanup(func() { close(migrationDone) })
+		// migrateHelper does not join the monitor goroutine, so wait for its deferred Free before gomock verifies the expectations.
+		DeferCleanup(func() {
+			close(migrationDone)
+			Eventually(frees.Load).Should(Equal(int32(2)))
+		})
 		prep := newMigrationPreparation()
 		DeferCleanup(prep.cancel)
 		Expect(manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")}, migrationDone)).To(Succeed())
