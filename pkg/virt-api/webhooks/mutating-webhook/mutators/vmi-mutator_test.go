@@ -623,6 +623,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(exist).To(BeTrue())
 	})
 
+	It("should copy the qgs socket path annotation to a TDX VMI", func() {
+		expectedQGSSocketPath := "/var/run/tdx-qgs/custom.socket"
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					ConfidentialCompute: &v1.ConfidentialComputeConfiguration{
+						TDX: &v1.TDXConfiguration{
+							Attestation: &v1.TDXAttestationConfiguration{
+								QgsSocketPath: pointer.P(expectedQGSSocketPath),
+							},
+						},
+					},
+				},
+			},
+		})
+
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			TDX: &v1.TDX{},
+		}
+
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.QGSSocketPathAnnotation, expectedQGSSocketPath))
+	})
+
 	DescribeTable("should set PCI topology version based on architecture", func(arch string, expectAnnotation bool) {
 		vmiMeta, _, _ := getMetaSpecStatusFromAdmitWithArch(arch)
 		if expectAnnotation {

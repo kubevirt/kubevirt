@@ -22,6 +22,8 @@ go_library(
         "//pkg/storage/reservation:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//pkg/virt-controller/services:go_default_library",
+        "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/device-manager/deviceplugin/v1beta1:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-handler/virt-chroot:go_default_library",
