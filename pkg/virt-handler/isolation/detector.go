@@ -24,21 +24,18 @@ package isolation
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
 
 	ps "github.com/mitchellh/go-ps"
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -56,6 +53,9 @@ type PodIsolationDetector interface {
 }
 
 const isolationDialTimeout = 5
+
+var listProcesses = ps.Processes
+var setMemlockRLimitFunc = setMemlockRLimitDefault
 
 type socketBasedIsolationDetector struct {
 	socketDir string
@@ -108,7 +108,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 	}
 	launcherPid := res.Pid()
 
-	processes, err := ps.Processes()
+	processes, err := listProcesses()
 	if err != nil {
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
@@ -124,21 +124,8 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		var vmiBaseMemory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-		} else {
-			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-		}
-
-		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
-		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
+		if err := setProcessMemoryLockUnlimited(process.Pid()); err != nil {
+			return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", process.Pid(), err)
 		}
 		// we assume a single process should match
 		break
@@ -164,27 +151,10 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return err
 	}
 	qemuProcessID := qemuProcess.Pid()
-	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add max memory assigned to the VM
-	var vmiBaseMemory *resource.Quantity
-
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
+	if err := setProcessMemoryLockUnlimited(qemuProcessID); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", qemuProcessID, err)
 	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		qemuProcess, memlockSize.Value())
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to unlimited", qemuProcess)
 
 	return nil
 }
@@ -203,14 +173,17 @@ func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error
 	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
 }
 
-// setProcessMemoryLockRLimit Adjusts process MEMLOCK
-// soft-limit (current) and hard-limit (max) to the given size.
-func setProcessMemoryLockRLimit(pid int, size int64) error {
+// setProcessMemoryLockUnlimited sets both MEMLOCK limits to unlimited.
+func setProcessMemoryLockUnlimited(pid int) error {
+	return setMemlockRLimitFunc(pid, unix.RLIM_INFINITY)
+}
+
+func setMemlockRLimitDefault(pid int, size uint64) error {
 	// standard golang libraries don't provide API to set runtime limits
 	// for other processes, so we have to directly call to kernel
 	rlimit := unix.Rlimit{
-		Cur: uint64(size),
-		Max: uint64(size),
+		Cur: size,
+		Max: size,
 	}
 	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
 		uintptr(pid),
