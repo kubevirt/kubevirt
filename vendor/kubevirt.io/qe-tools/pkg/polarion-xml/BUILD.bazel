@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["polarion_xml.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/qe-tools/pkg/polarion-xml",
-    importpath = "kubevirt.io/qe-tools/pkg/polarion-xml",
-    visibility = ["//visibility:public"],
-)
