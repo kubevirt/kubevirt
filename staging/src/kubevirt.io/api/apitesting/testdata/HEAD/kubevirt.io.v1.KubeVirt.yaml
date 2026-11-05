@@ -144,6 +144,8 @@ spec:
     - emulatedMachinesValue
     emulationPolicy: emulationPolicyValue
     evictionStrategy: evictionStrategyValue
+    exportConfiguration:
+      externalCertificationStrategy: externalCertificationStrategyValue
     handlerConfiguration:
       restClient:
         rateLimiter:
