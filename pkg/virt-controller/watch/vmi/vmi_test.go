@@ -229,32 +229,40 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		var qemuGid int64 = 107
 
 		mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-vmi"))
-		controller, _ = NewController(mockQueue,
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
-			vmiInformer,
-			vmInformer,
-			podInformer,
-			pvcInformer,
-			migrationInformer,
-			storageClassInformer,
-			recorder,
-			virtClient,
-			dataVolumeInformer,
-			storageProfileInformer,
-			cdiInformer,
-			cdiConfigInformer,
-			kubeVirtInformer,
-			config,
-			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
-			stubNetworkAnnotationsGenerator{},
-			stubStorageAnnotationsGenerator{},
-			stubNetStatusUpdater{},
-			validateNetVMISpecStub(),
-			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
-			&fakeAllocator{},
-			[]string{},
-			[]string{},
-		)
+		controller, _ = NewController(ControllerConfig{
+			Queue:         mockQueue,
+			Client:        virtClient,
+			Recorder:      recorder,
+			ClusterConfig: config,
+			TemplateService: services.NewTemplateService(
+				"a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g",
+				rqInformer.GetStore(), nsInformer.GetStore(),
+			),
+			Informers: Informers{
+				VMI:            vmiInformer,
+				VM:             vmInformer,
+				Pod:            podInformer,
+				PVC:            pvcInformer,
+				Migration:      migrationInformer,
+				StorageClass:   storageClassInformer,
+				DataVolume:     dataVolumeInformer,
+				StorageProfile: storageProfileInformer,
+				CDI:            cdiInformer,
+				CDIConfig:      cdiConfigInformer,
+				KubeVirt:       kubeVirtInformer,
+			},
+			Network: NetworkDependencies{
+				AnnotationsGenerator: stubNetworkAnnotationsGenerator{},
+				StatusUpdater:        stubNetStatusUpdater{},
+				SpecValidator:        validateNetVMISpecStub(),
+				MigrationEvaluator:   stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
+			},
+			StorageAnnotationsGenerator:       stubStorageAnnotationsGenerator{},
+			TopologyHinter:                    topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
+			VsockAllocator:                    &fakeAllocator{},
+			AdditionalLauncherAnnotationsSync: []string{},
+			AdditionalLauncherLabelsSync:      []string{},
+		})
 
 		sanityExecute = func() {
 			controllertesting.SanityExecute(controller, []cache.Store{
@@ -6487,4 +6495,34 @@ func actionsSummary(actions []testing.Action) []expectedAction {
 		result = append(result, expectedAction{Verb: a.GetVerb(), Resource: a.GetResource().Resource})
 	}
 	return result
+}
+
+var _ = Describe("VMI controller cache synchronization", func() {
+	It("waits for the migration cache even after the other caches have synced", func() {
+		informer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstance{})
+		shared := &syncStatusInformer{SharedIndexInformer: informer, synced: true}
+		migration := &syncStatusInformer{SharedIndexInformer: informer}
+
+		controller, err := NewController(ControllerConfig{
+			Informers: Informers{
+				VMI: shared, VM: shared, Pod: shared, PVC: shared,
+				Migration: migration, StorageClass: shared, DataVolume: shared,
+				StorageProfile: shared, CDI: shared, CDIConfig: shared, KubeVirt: shared,
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(controller.hasSynced()).To(BeFalse())
+
+		migration.synced = true
+		Expect(controller.hasSynced()).To(BeTrue())
+	})
+})
+
+type syncStatusInformer struct {
+	cache.SharedIndexInformer
+	synced bool
+}
+
+func (i *syncStatusInformer) HasSynced() bool {
+	return i.synced
 }

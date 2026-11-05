@@ -53,70 +53,47 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 )
 
-func NewController(queue workqueue.TypedRateLimitingInterface[string],
-	templateService templateService,
-	vmiInformer cache.SharedIndexInformer,
-	vmInformer cache.SharedIndexInformer,
-	podInformer cache.SharedIndexInformer,
-	pvcInformer cache.SharedIndexInformer,
-	migrationInformer cache.SharedIndexInformer,
-	storageClassInformer cache.SharedIndexInformer,
-	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
-	dataVolumeInformer cache.SharedIndexInformer,
-	storageProfileInformer cache.SharedIndexInformer,
-	cdiInformer cache.SharedIndexInformer,
-	cdiConfigInformer cache.SharedIndexInformer,
-	kubeVirtInformer cache.SharedIndexInformer,
-	clusterConfig *virtconfig.ClusterConfig,
-	topologyHinter topology.Hinter,
-	netAnnotationsGenerator annotationsGenerator,
-	storageAnnotationsGenerator storageAnnotationsGenerator,
-	netStatusUpdater statusUpdater,
-	netSpecValidator specValidator,
-	netMigrationEvaluator migrationEvaluator,
-	vsockCIDAllocator vsockAllocator,
-	additionalLauncherAnnotationsSync []string,
-	additionalLauncherLabelsSync []string,
-) (*Controller, error) {
+func NewController(config ControllerConfig) (*Controller, error) {
+	informers := config.Informers
+	hasSynced, err := informers.syncFunc()
+	if err != nil {
+		return nil, err
+	}
 
 	c := &Controller{
-		templateService:                   templateService,
-		Queue:                             queue,
-		vmiIndexer:                        vmiInformer.GetIndexer(),
-		vmStore:                           vmInformer.GetStore(),
-		podIndexer:                        podInformer.GetIndexer(),
-		pvcIndexer:                        pvcInformer.GetIndexer(),
-		migrationIndexer:                  migrationInformer.GetIndexer(),
-		recorder:                          recorder,
-		clientset:                         clientset,
-		podExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		pvcExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeIndexer:                 dataVolumeInformer.GetIndexer(),
-		cdiStore:                          cdiInformer.GetStore(),
-		cdiConfigStore:                    cdiConfigInformer.GetStore(),
-		clusterConfig:                     clusterConfig,
-		topologyHinter:                    topologyHinter,
-		cidsMap:                           vsockCIDAllocator,
-		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
-		netAnnotationsGenerator:           netAnnotationsGenerator,
-		storageAnnotationsGenerator:       storageAnnotationsGenerator,
-		netStatusUpdater:                  netStatusUpdater,
-		validateNetworkSpec:               netSpecValidator,
-		netMigrationEvaluator:             netMigrationEvaluator,
-		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
-		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
+		templateService:   config.TemplateService,
+		Queue:             config.Queue,
+		vmiIndexer:        informers.VMI.GetIndexer(),
+		vmStore:           informers.VM.GetStore(),
+		podIndexer:        informers.Pod.GetIndexer(),
+		pvcIndexer:        informers.PVC.GetIndexer(),
+		migrationIndexer:  informers.Migration.GetIndexer(),
+		recorder:          config.Recorder,
+		clientset:         config.Client,
+		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pvcExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeIndexer: informers.DataVolume.GetIndexer(),
+		cdiStore:          informers.CDI.GetStore(),
+		cdiConfigStore:    informers.CDIConfig.GetStore(),
+		clusterConfig:     config.ClusterConfig,
+		topologyHinter:    config.TopologyHinter,
+		cidsMap:           config.VsockAllocator,
+		backendStorage: backendstorage.NewBackendStorage(
+			config.Client, config.ClusterConfig,
+			informers.StorageClass.GetStore(), informers.StorageProfile.GetStore(), informers.PVC.GetIndexer(),
+		),
+		netAnnotationsGenerator:           config.Network.AnnotationsGenerator,
+		storageAnnotationsGenerator:       config.StorageAnnotationsGenerator,
+		netStatusUpdater:                  config.Network.StatusUpdater,
+		validateNetworkSpec:               config.Network.SpecValidator,
+		netMigrationEvaluator:             config.Network.MigrationEvaluator,
+		additionalLauncherAnnotationsSync: config.AdditionalLauncherAnnotationsSync,
+		additionalLauncherLabelsSync:      config.AdditionalLauncherLabelsSync,
+		hasSynced:                         hasSynced,
 	}
 
-	c.hasSynced = func() bool {
-		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
-			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
-			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
-			kubeVirtInformer.HasSynced()
-	}
-
-	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.VMI.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addVirtualMachineInstance,
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
@@ -125,7 +102,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		return nil, err
 	}
 
-	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.Pod.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
 		DeleteFunc: c.onPodDelete,
 		UpdateFunc: c.updatePod,
@@ -134,7 +111,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		return nil, err
 	}
 
-	_, err = dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.DataVolume.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDataVolume,
 		DeleteFunc: c.deleteDataVolume,
 		UpdateFunc: c.updateDataVolume,
@@ -143,7 +120,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		return nil, err
 	}
 
-	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.PVC.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPVC,
 		UpdateFunc: c.updatePVC,
 	})
@@ -151,7 +128,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		return nil, err
 	}
 
-	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = informers.KubeVirt.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateKubeVirt,
 	})
 	if err != nil {
