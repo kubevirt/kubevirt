@@ -4040,6 +4040,104 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				)))
 				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
 			})
+
+			It("Should match the attachment pod while another claim is pending", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.Volumes = []virtv1.Volume{hotplugPVC("pending"), hotplugPVC("ready")}
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				attachmentPod := readyPodServing(virtlauncherPod, "hp-volume", "attachment-pod-uid", "ready")
+				Expect(controller.podIndexer.Add(attachmentPod)).To(Succeed())
+
+				pendingPVC := newPvc(k8sv1.NamespaceDefault, "pending")
+				pendingPVC.Status.Phase = k8sv1.ClaimPending
+				Expect(controller.pvcIndexer.Add(pendingPVC)).To(Succeed())
+				addBoundPVC("ready")
+
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "pending"),
+					HaveField("Phase", virtv1.VolumePending),
+					HaveField("Reason", kvcontroller.PVCNotReadyReason),
+					HaveField("HotplugVolume.AttachPodName", BeEmpty()),
+				)))
+				Expect(vmi.Status.VolumeStatus).To(ContainElement(And(
+					HaveField("Name", "ready"),
+					HaveField("Phase", virtv1.HotplugVolumeAttachedToNode),
+					HaveField("HotplugVolume.AttachPodUID", types.UID("attachment-pod-uid")),
+				)))
+				testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+			})
+		})
+
+		It("Should attach the other hotplug volumes while a claim is pending", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.SelinuxContext = "none"
+			for _, name := range []string{"pending", "ready"} {
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+					Name: name,
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: name + "-pvc"},
+							Hotpluggable:                      true,
+						},
+					},
+				})
+			}
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			pendingPVC := newPvc(k8sv1.NamespaceDefault, "pending-pvc")
+			pendingPVC.Status.Phase = k8sv1.ClaimPending
+			Expect(controller.pvcIndexer.Add(pendingPVC)).To(Succeed())
+			readyPVC := newPvc(k8sv1.NamespaceDefault, "ready-pvc")
+			readyPVC.Status.Phase = k8sv1.ClaimBound
+			Expect(controller.pvcIndexer.Add(readyPVC)).To(Succeed())
+
+			hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+			Expect(controller.handleHotplugVolumes(hotplugVolumes, nil, vmi, virtlauncherPod, nil)).ToNot(HaveOccurred())
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			attachmentPods := slices.DeleteFunc(pods.Items, func(pod k8sv1.Pod) bool { return pod.GenerateName != "hp-volume-" })
+			Expect(attachmentPods).To(HaveLen(1))
+			Expect(attachmentPods[0].Spec.Volumes).To(ContainElement(HaveField("Name", "ready")))
+			Expect(attachmentPods[0].Spec.Volumes).ToNot(ContainElement(HaveField("Name", "pending")))
+		})
+
+		It("Should attach a pending claim in a WaitForFirstConsumer storage class", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.SelinuxContext = "none"
+			vmi.Spec.Volumes = []virtv1.Volume{{
+				Name: "wffc",
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "wffc-pvc"},
+						Hotpluggable:                      true,
+					},
+				},
+			}}
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			Expect(storageClassStore.Add(&storagev1.StorageClass{
+				ObjectMeta:        metav1.ObjectMeta{Name: "wffc"},
+				VolumeBindingMode: pointer.P(storagev1.VolumeBindingWaitForFirstConsumer),
+			})).To(Succeed())
+			wffcPVC := newPvc(k8sv1.NamespaceDefault, "wffc-pvc")
+			wffcPVC.Spec.StorageClassName = pointer.P("wffc")
+			wffcPVC.Status.Phase = k8sv1.ClaimPending
+			Expect(controller.pvcIndexer.Add(wffcPVC)).To(Succeed())
+
+			hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
+			Expect(controller.handleHotplugVolumes(hotplugVolumes, nil, vmi, virtlauncherPod, nil)).ToNot(HaveOccurred())
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulCreatePodReason)
+
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			attachmentPods := slices.DeleteFunc(pods.Items, func(pod k8sv1.Pod) bool { return pod.GenerateName != "hp-volume-" })
+			Expect(attachmentPods).To(HaveLen(1))
+			Expect(attachmentPods[0].Spec.Volumes).To(ContainElement(HaveField("Name", "wffc")))
 		})
 
 		It("Should attach the other hotplug volumes when a claim cannot be found", func() {
@@ -5872,6 +5970,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should not enqueue when nothing changed", "50Gi", "50Gi", "2", false),
 			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
 		)
+
+		It("should enqueue the VMI of a hotplug volume when its PVC gets bound", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+				libvmi.WithHotplugPersistentVolumeClaim("myvolume", "testpvc"),
+			)
+			indexVMI(vmi)
+
+			oldPVC := pvcWith("50Gi", "50Gi", "1")
+			oldPVC.Status.Phase = k8sv1.ClaimPending
+			newPVC := pvcWith("50Gi", "50Gi", "2")
+			newPVC.Status.Phase = k8sv1.ClaimBound
+
+			addDataVolumePVC(oldPVC)
+			controller.updatePVC(oldPVC, newPVC)
+
+			Eventually(func() int {
+				return mockQueue.Len()
+			}, time.Second, 100*time.Millisecond).Should(Equal(1))
+
+			item, _ := mockQueue.Get()
+			Expect(item).To(Equal("default/testvmi"))
+		})
 
 		It("should enqueue the VMI of a utility volume when its PVC is added", func() {
 			vmi := libvmi.New(
