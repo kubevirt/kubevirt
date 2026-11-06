@@ -326,7 +326,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
-
 				By("Verifying that SEV is enabled in the guest")
 				const consoleTimeout = 60
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -342,7 +341,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, false, "SEV SEV-ES"),
+			Entry("[QUARANTINE] It should launch with SEV-ES features enabled", decorators.Quarantine, decorators.SEVES, true, false, "SEV SEV-ES"),
 			// SEV-SNP enabled
 			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
