@@ -53,6 +53,21 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 		Entry("Should fail to parse an unsupported path", "GET /foo/bar", true),
 	)
 
+	Context("Connection to the virtio-serial socket", func() {
+		It("Should return the connection error once all attempts failed", func() {
+			// dumb.sock does not exist and maxConnectAttempts is 1
+			server := newServer()
+			Expect(server.start(context.Background())).To(HaveOccurred())
+		})
+
+		It("Should return no error when the context is canceled while connecting", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel()
+			server := newServer()
+			Expect(server.start(ctx)).To(Succeed())
+		})
+	})
+
 	Context("Send a valid request and close the qemu side connection", func() {
 		It("Should respond with an empty metrics and two new lines", func() {
 			qemu, msrv := net.Pipe()
