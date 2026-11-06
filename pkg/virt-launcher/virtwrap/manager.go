@@ -937,16 +937,9 @@ func (l *LibvirtDomainManager) generateSomeCloudInitISO(vmi *v1.VirtualMachineIn
 		}
 		var err error
 		if size != 0 {
-			err = cloudinit.GenerateEmptyIso(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
+			err = cloudinit.GenerateIsoPlaceholder(vmi.Name, vmi.Namespace, cloudInitDataStore, size)
 		} else {
-			// ClusterInstancetype will take precedence over a namespaced Instancetype
-			// for setting instance_type in the metadata
-			instancetype := vmi.Annotations[v1.ClusterInstancetypeAnnotation]
-			if instancetype == "" {
-				instancetype = vmi.Annotations[v1.InstancetypeAnnotation]
-			}
-
-			err = cloudinit.GenerateLocalData(vmi, instancetype, cloudInitDataStore)
+			err = cloudinit.GenerateIso(vmi, cloudInitDataStore)
 		}
 		if err != nil {
 			return fmt.Errorf("generating local cloud-init data failed: %v", err)
