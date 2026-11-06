@@ -39,7 +39,7 @@ var (
 )
 
 type Notifier struct {
-	client *notifyClient
+	client notifierClient
 
 	firstAdd    *sync.Once
 	firstDelete *sync.Once
@@ -52,9 +52,9 @@ type libvirtEvent struct {
 	JobCompletedEvent *libvirt.DomainEventJobCompleted
 }
 
-func NewNotifier(virtShareDir string) *Notifier {
+func NewNotifier(client notifierClient) *Notifier {
 	return &Notifier{
-		client:      newGRPCNotifyClient(virtShareDir),
+		client:      client,
 		firstAdd:    &sync.Once{},
 		firstDelete: &sync.Once{},
 	}
@@ -68,14 +68,6 @@ var (
 
 func init() {
 	addToScheme(scheme)
-}
-
-// used by unit tests
-func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
-	n.client.intervalTimeout = interval
-	n.client.sendTimeout = send
-	n.client.totalTimeout = total
-
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
