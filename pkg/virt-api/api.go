@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
+	virttemplateclient "kubevirt.io/virt-template-client-go/virttemplate"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -112,6 +113,7 @@ type virtAPIApp struct {
 	k8sClient          kubernetes.Interface
 	launcherPodIndexer cache.Indexer
 	aggregatorClient   *aggregatorclient.Clientset
+	templateClient     virttemplateclient.Interface
 	authorizor         rest.VirtApiAuthorizor
 	clusterConfig      *virtconfig.ClusterConfig
 
@@ -183,6 +185,7 @@ func (app *virtAPIApp) Execute() {
 	}
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(clientConfig)
+	app.templateClient = virttemplateclient.NewForConfigOrDie(clientConfig)
 
 	app.authorizor = authorizor
 
@@ -227,13 +230,17 @@ func (app *virtAPIApp) composeSubresources() {
 	for _, version := range v1.SubresourceGroupVersions {
 		subresourcesvmGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachines"}
 		subresourcesvmiGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachineinstances"}
+		subresourcesvmTemplateGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "virtualmachinetemplates"}
 		expandvmspecGVR := schema.GroupVersionResource{Group: version.Group, Version: version.Version, Resource: "expand-vm-spec"}
 
 		subws := new(restful.WebService)
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(definitions.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtClient, app.k8sClient, app.launcherPodIndexer, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+		subresourceApp := rest.NewSubresourceAPIApp(
+			app.virtClient, app.k8sClient, app.launcherPodIndexer, app.consoleServerPort,
+			app.handlerTLSConfiguration, app.clusterConfig, app.templateClient,
+		)
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -501,6 +508,17 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-objectgraph").
 			Doc("Get graph of objects related to a Virtual Machine").
+			Writes(v1.ObjectGraphNode{}).
+			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
+
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmTemplateGVR)+definitions.SubResourcePath("objectgraph")).
+			To(subresourceApp.VMTemplateObjectGraph).
+			Consumes(restful.MIME_JSON).
+			Reads(v1.ObjectGraphOptions{}).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmtemplate-objectgraph").
+			Doc("Get graph of objects related to a Virtual Machine Template").
 			Writes(v1.ObjectGraphNode{}).
 			Returns(http.StatusOK, "OK", v1.ObjectGraphNode{}))
 

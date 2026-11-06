@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"kubevirt.io/api/instancetype"
+	templateapi "kubevirt.io/virt-template-api/core"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -99,6 +100,17 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch", "patch", "update",
+				},
+			},
+			{
+				APIGroups: []string{
+					templateapi.GroupName,
+				},
+				Resources: []string{
+					templateapi.PluralResourceName,
+				},
+				Verbs: []string{
+					"get",
 				},
 			},
 			{

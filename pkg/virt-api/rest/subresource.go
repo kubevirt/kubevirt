@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+	virttemplateclient "kubevirt.io/virt-template-client-go/virttemplate"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
@@ -70,6 +71,7 @@ type instancetypeVMExpander interface {
 type SubresourceAPIApp struct {
 	virtClient              kubecli.KubevirtClient
 	k8sClient               kubernetes.Interface
+	templateClient          virttemplateclient.Interface
 	launcherPodIndexer      cache.Indexer
 	consoleServerPort       int
 	profilerComponentPort   int
@@ -79,7 +81,11 @@ type SubresourceAPIApp struct {
 	handlerHttpClient       *http.Client
 }
 
-func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, launcherPodIndexer cache.Indexer, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
+func NewSubresourceAPIApp(
+	virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, launcherPodIndexer cache.Indexer,
+	consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig,
+	templateClient virttemplateclient.Interface,
+) *SubresourceAPIApp {
 	// When this method is called from tools/openapispec.go when running 'make generate',
 	// the virtClient is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
 	var instancetypeExpander instancetypeVMExpander
@@ -101,6 +107,7 @@ func NewSubresourceAPIApp(virtClient kubecli.KubevirtClient, k8sClient kubernete
 	return &SubresourceAPIApp{
 		virtClient:              virtClient,
 		k8sClient:               k8sClient,
+		templateClient:          templateClient,
 		launcherPodIndexer:      launcherPodIndexer,
 		consoleServerPort:       consoleServerPort,
 		profilerComponentPort:   defaultProfilerComponentPort,
