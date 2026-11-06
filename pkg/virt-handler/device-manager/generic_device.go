@@ -275,9 +275,9 @@ func (dpi *GenericDevicePlugin) PreStartContainer(_ context.Context, _ *pluginap
 
 func (dpi *GenericDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newDeviceWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+		return fmt.Errorf("failed to create a device watcher: %v", err)
 	}
 	defer watcher.Close()
 
