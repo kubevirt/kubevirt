@@ -72,7 +72,7 @@ if [ $# -eq 0 ]; then
             # C packages are excluded because they are not Go.
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race \
                 -ldflags "${test_ldflags}" \
-                -skip FuzzAdmitter -timeout 15m \
+                -timeout 15m \
                 $(go list -e ./cmd/... ./pkg/... | grep -v container-disk-v2alpha | grep -v virt-launcher-monitor)
         )
     elif [ "${target}" = "clean" ]; then
@@ -134,7 +134,7 @@ for arg in $args; do
             test_ldflags="-X kubevirt.io/client-go/version.gitVersion=v0.0.0-test"
             go ${target} -v -tags "${KUBEVIRT_GO_BUILD_TAGS}" -race \
                 -ldflags "${test_ldflags}" \
-                -skip FuzzAdmitter -timeout 15m ./$arg/...
+                -timeout 15m ./$arg/...
         )
     elif [ "${target}" = "clean" ]; then
         (

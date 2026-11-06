@@ -27,6 +27,7 @@ go_test(
     srcs = [
         "evacuation_suite_test.go",
         "evacuation_test.go",
+        "fuzz_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",

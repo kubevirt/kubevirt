@@ -13,8 +13,3 @@ bazel run \
     //tools/util/...:* \
     //tools/cache/...:* \
     //tests/framework/...:*
-
-bazel run \
-    --config="${ARCHITECTURE}" \
-    -- :buildozer -types go_test 'set race "off"' \
-    //pkg/virt-api/webhooks/fuzz/...:*
