@@ -268,6 +268,12 @@ if [[ "${rwofs_sc}" == "local" ]]; then
     add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
 fi
 
+if [[ ${KUBEVIRT_NUM_NODES:-} = "1" && ${KUBEVIRT_INFRA_REPLICAS:-} = "1" ]]; then
+  add_to_label_filter '!(multi-replica)' '&&'
+else
+  add_to_label_filter '!(single-replica)' '&&'
+fi
+
 if ! kubectl get clusterversion version &>/dev/null; then
   add_to_label_filter '(!OpenShift)' '&&'
 fi
