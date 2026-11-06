@@ -639,9 +639,8 @@ func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	value, enabled := c.AdditionalProperties[AdditionalPropertiesMigrationNetwork]
 	if enabled {
 		return &value
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (c *KubeVirtDeploymentConfig) GetCrossClusterMigrationNetwork() *string {
