@@ -58,10 +58,18 @@ generate:
 	hack/dockerized hack/common-instancetypes/sync.sh
 	hack/dockerized hack/virt-template/sync.sh
 	./hack/update-generated-api-testdata.sh
+	./hack/gen-docs-map.py
 
-generate-verify: generate
+# docs-map-verify is already covered by generate plus the tree-cleanliness
+# check verify-generate.sh runs afterwards; it is kept because it fails faster
+# and with a precise hint on how to refresh the map. Running it as the first
+# prerequisite relies on make executing prerequisites serially and in order.
+generate-verify: docs-map-verify generate
 	./hack/verify-generate.sh
 	./hack/check-for-binaries.sh
+
+docs-map-verify:
+	./hack/gen-docs-map.py --verify
 
 apidocs:
 	hack/dockerized "./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
@@ -308,6 +316,7 @@ vmlog-checker:
 	lint \
 	lint-metrics \
 	update-generated-api-testdata \
+	docs-map-verify \
 	rpm-deps \
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
