@@ -20,10 +20,31 @@
 package featuregate
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 )
+
+const DependencyWarningPattern = "feature gate %s depends on feature gate %s, which is not enabled"
+
+// WarnMissingDependencies returns a warning for every enabled feature gate that
+// declares a dependency on a feature gate which is not enabled
+func WarnMissingDependencies(devConfig *v1.DeveloperConfiguration) []string {
+	var warnings []string
+	for _, fg := range GetRegisteredFeatureGates() {
+		if !IsEnabled(fg.Name, devConfig) {
+			continue
+		}
+		for _, dep := range fg.Dependencies {
+			if !IsEnabled(dep, devConfig) {
+				warnings = append(warnings, fmt.Sprintf(DependencyWarningPattern, fg.Name, dep))
+			}
+		}
+	}
+	return warnings
+}
 
 func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
