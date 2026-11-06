@@ -1632,6 +1632,9 @@ var _ = Describe("Manager", func() {
 			}
 			loaderBytes := []byte("OVMF binary with SEV support")
 			vmi := newVMI(testNamespace, testVmName)
+			// The measurement has to hash the firmware this guest actually
+			// boots, so the VMI must carry the launch security that selects it.
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{SEV: &v1.SEV{}}
 
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil)
 			// Make sure that we always free the domain after use
@@ -1641,7 +1644,7 @@ var _ = Describe("Manager", func() {
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(ovmfDir)
-			err = os.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSEV), loaderBytes, 0644)
+			err = os.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSNP), loaderBytes, 0644)
 			Expect(err).ToNot(HaveOccurred())
 			manager, _ := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, ovmfDir, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, "", false, false, false, false, nil)
 			sevMeasurementInfo, err := manager.GetLaunchMeasurement(vmi)
@@ -4087,7 +4090,10 @@ var _ = Describe("Manager", func() {
 			Expect(converterContext.EFIConfiguration.SecureLoader).To(BeFalse())
 			Expect(converterContext.EFIConfiguration.EFICode).ToNot(BeEmpty())
 		},
-			Entry("SEV", &v1.LaunchSecurity{SEV: &v1.SEV{}}, []string{efi.EFICodeSEV, efi.EFIVars}),
+			// SEV and SEV-ES boot the same stateless AmdSev build as SNP, so
+			// EFICodeSNP is the only ROM any of them needs.
+			Entry("SEV", &v1.LaunchSecurity{SEV: &v1.SEV{}}, []string{efi.EFICodeSNP}),
+			Entry("SEV-ES", &v1.LaunchSecurity{SEV: &v1.SEV{Policy: &v1.SEVPolicy{EncryptedState: virtpointer.P(true)}}}, []string{efi.EFICodeSNP}),
 			Entry("SNP", &v1.LaunchSecurity{SNP: &v1.SEVSNP{}}, []string{efi.EFICodeSNP}),
 			Entry("TDX", &v1.LaunchSecurity{TDX: &v1.TDX{}}, []string{efi.EFICodeTDX}),
 		)

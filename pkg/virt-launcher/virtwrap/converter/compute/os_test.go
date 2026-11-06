@@ -136,6 +136,8 @@ var _ = Describe("OS Domain Configurator", func() {
 			expectedDomain := newDomainWithOS(expectedOS)
 			Expect(domain).To(Equal(expectedDomain))
 		},
+			Entry("for SEV VMs", withSEV),
+			Entry("for SEV-ES VMs", withSEVES),
 			Entry("for SEV-SNP VMs", withSNP),
 			Entry("for TDX VMs", withTDX),
 		)
@@ -343,6 +345,14 @@ func withVMState() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "vmstate-pvc"}}
 	}
+}
+
+func withSEV() libvmi.Option {
+	return libvmi.WithSEV(false, false)
+}
+
+func withSEVES() libvmi.Option {
+	return libvmi.WithSEV(true, false)
 }
 
 func withSNP() libvmi.Option {

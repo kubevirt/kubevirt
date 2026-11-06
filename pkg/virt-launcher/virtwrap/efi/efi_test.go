@@ -56,13 +56,11 @@ var _ = Describe("EFI environment detection", func() {
 			Expect(efiEnv).ToNot(BeNil())
 
 			Expect(efiEnv.Bootable(secureBootEnabled, None)).To(Equal(SBBootable))
-			Expect(efiEnv.Bootable(secureBootEnabled, SEV)).To(BeFalse())
 			Expect(efiEnv.Bootable(secureBootEnabled, SNP)).To(BeFalse())
 			Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(Equal(NoSBBootable))
 
 			if SBBootable {
 				Expect(efiEnv.EFICode(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, codeSB)))
-				Expect(efiEnv.EFICode(secureBootEnabled, SEV)).ToNot(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFICode(secureBootEnabled, SNP)).ToNot(Equal(filepath.Join(ovmfPath, codeSB)))
 				Expect(efiEnv.EFIVars(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, varsSB)))
 			}
@@ -97,25 +95,17 @@ var _ = Describe("EFI environment detection", func() {
 		Expect(efiEnv.EFICode(secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, EFICodeSecureBoot)))
 	})
 
-	It("SEV and SEV-SNP EFI Roms", func() {
-		ovmfPath := createEFIRoms(EFICodeSEV, EFIVars, EFICodeSNP)
+	It("AMD SEV, SEV-ES and SEV-SNP EFI Roms", func() {
+		ovmfPath := createEFIRoms(EFIVars, EFICodeSNP)
 		defer os.RemoveAll(ovmfPath)
 
 		efiEnv := DetectEFIEnvironment("x86_64", ovmfPath)
 		Expect(efiEnv).ToNot(BeNil())
 
 		Expect(efiEnv.Bootable(secureBootEnabled, None)).To(BeFalse())
-		Expect(efiEnv.Bootable(secureBootEnabled, SEV)).To(BeFalse())
 		Expect(efiEnv.Bootable(secureBootEnabled, SNP)).To(BeFalse())
-		Expect(efiEnv.Bootable(!secureBootEnabled, SEV)).To(BeTrue())
 		Expect(efiEnv.Bootable(!secureBootEnabled, SNP)).To(BeTrue())
 		Expect(efiEnv.Bootable(!secureBootEnabled, None)).To(BeFalse())
-
-		codeSEV := filepath.Join(ovmfPath, EFICodeSEV)
-		Expect(efiEnv.EFICode(secureBootEnabled, SEV)).ToNot(Equal(codeSEV))
-		Expect(efiEnv.EFICode(secureBootEnabled, None)).ToNot(Equal(codeSEV))
-		Expect(efiEnv.EFICode(!secureBootEnabled, SEV)).To(Equal(codeSEV))
-		Expect(efiEnv.EFICode(!secureBootEnabled, None)).ToNot(Equal(codeSEV))
 
 		codeSNP := filepath.Join(ovmfPath, EFICodeSNP)
 		Expect(efiEnv.EFICode(secureBootEnabled, SNP)).ToNot(Equal(codeSNP))
@@ -123,10 +113,9 @@ var _ = Describe("EFI environment detection", func() {
 		Expect(efiEnv.EFICode(!secureBootEnabled, SNP)).To(Equal(codeSNP))
 		Expect(efiEnv.EFICode(!secureBootEnabled, None)).ToNot(Equal(codeSNP))
 
-		varsSEV := filepath.Join(ovmfPath, EFIVars)
-		Expect(efiEnv.EFIVars(!secureBootEnabled, SEV)).To(Equal(varsSEV))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, SNP)).To(Equal(""))
-		Expect(efiEnv.EFIVars(!secureBootEnabled, None)).To(Equal(varsSEV))
+		// The AmdSev firmware is stateless, so no varstore is handed to libvirt.
+		Expect(efiEnv.EFIVars(!secureBootEnabled, SNP)).To(BeEmpty())
+		Expect(efiEnv.EFIVars(!secureBootEnabled, None)).To(Equal(filepath.Join(ovmfPath, EFIVars)))
 	})
 
 	It("TDX EFI Roms", func() {

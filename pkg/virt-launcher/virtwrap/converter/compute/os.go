@@ -144,8 +144,8 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
 	}
 
-	if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
-		// Use stateless firmware for the TDX/SNP VMs
+	if util.IsSEVVMI(vmi) || util.IsTDXVMI(vmi) {
+		// Use stateless firmware for the AMD SEV and TDX VMs
 		domain.Spec.OS.BootLoader.Type = "rom"
 		domain.Spec.OS.NVRam = nil
 	} else {
