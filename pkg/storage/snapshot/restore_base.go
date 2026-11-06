@@ -37,6 +37,7 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -57,6 +58,8 @@ type VMRestoreController struct {
 	VolumeSnapshotProvider VolumeSnapshotProvider
 
 	Recorder record.EventRecorder
+
+	ClusterConfig *virtconfig.ClusterConfig
 
 	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
 }
