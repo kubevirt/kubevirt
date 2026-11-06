@@ -1757,6 +1757,7 @@ type AccessCredential struct {
 }
 
 // Network represents a network type and a resource that should be connected to the vm.
+// +kubebuilder:validation:XValidation:rule="(has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1",message="network source must have exactly one of pod, multus or resourceClaim"
 type Network struct {
 	// Network name.
 	// Must be a DNS_LABEL and unique within the vm.
@@ -1816,6 +1817,7 @@ type MultusNetwork struct {
 	// References to a NetworkAttachmentDefinition CRD object. Format:
 	// <networkName>, <namespace>/<networkName>. If namespace is not
 	// specified, VMI namespace is assumed.
+	// +kubebuilder:validation:MinLength:=1
 	NetworkName string `json:"networkName"`
 
 	// Select the default network and add it to the

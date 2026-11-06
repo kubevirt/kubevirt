@@ -1,0 +1,80 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package admitter_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/admitter"
+)
+
+var _ = Describe("Validate network admission", func() {
+	It("should accept resourceClaim network type", func() {
+		const draNetName = "dra-net"
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(draNetName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
+				Name:              "claim1",
+				ResourceClaimName: new("claim1"),
+			}),
+			libvmi.WithNetwork(libvmi.DRANetwork(draNetName, "claim1", "request1")),
+		)
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should accept networks with a multus network source and bridge interface", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
+			libvmi.WithNetwork(libvmi.MultusNetwork("default", "default")),
+		)
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should allow primary network and multiple secondary networks", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("multus1", libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("multus2", libvmi.WithBridgeBinding())),
+			libvmi.WithNetwork(&v1.Network{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}),
+			libvmi.WithNetwork(libvmi.MultusNetwork("multus1", "multus-net1")),
+			libvmi.WithNetwork(libvmi.MultusNetwork("multus2", "multus-net2")),
+		)
+
+		validator := admitter.NewValidator(
+			k8sfield.NewPath("fake"),
+			&vmi.Spec,
+			stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true},
+		)
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+})
