@@ -175,7 +175,8 @@ func (s v1Alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error) {
 	// Check binary exists
-	if _, err := exec.LookPath(preCloudInitIsoBin); err != nil {
+	executablePath, err := exec.LookPath(preCloudInitIsoBin)
+	if err != nil {
 		return nil, fmt.Errorf("Failed in finding %s in $PATH: %v", preCloudInitIsoBin, err)
 	}
 
@@ -186,7 +187,7 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 	}
 
 	cloudInitData := cloudinit.CloudInitData{}
-	err := json.Unmarshal(cloudInitDataJSON, &cloudInitData)
+	err = json.Unmarshal(cloudInitDataJSON, &cloudInitData)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to unmarshal given CloudInitData: %s due %v", cloudInitDataJSON, err)
 	}
@@ -194,9 +195,12 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 	args := append([]string{},
 		"--vmi", string(vmiJSON),
 		"--cloud-init", string(cloudInitDataJSON))
+	if err := verifyExecutableChecksum(executablePath, os.ReadFile); err != nil {
+		return nil, err
+	}
 
 	log.Log.Infof("Executing %s", preCloudInitIsoBin)
-	command := exec.Command(preCloudInitIsoBin, args...)
+	command := exec.Command(executablePath, args...)
 	if reader, err := command.StderrPipe(); err != nil {
 		log.Log.Reason(err).Infof("Could not pipe stderr")
 	} else {
@@ -206,7 +210,8 @@ func runPreCloudInitIso(vmiJSON []byte, cloudInitDataJSON []byte) ([]byte, error
 }
 
 func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
-	if _, err := exec.LookPath(onDefineDomainBin); err != nil {
+	executablePath, err := exec.LookPath(onDefineDomainBin)
+	if err != nil {
 		return nil, fmt.Errorf("Failed in finding %s in $PATH due %v", onDefineDomainBin, err)
 	}
 
@@ -218,15 +223,42 @@ func runOnDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
 	args := append([]string{},
 		"--vmi", string(vmiJSON),
 		"--domain", string(domainXML))
+	if err := verifyExecutableChecksum(executablePath, os.ReadFile); err != nil {
+		return nil, err
+	}
 
 	log.Log.Infof("Executing %s", onDefineDomainBin)
-	command := exec.Command(onDefineDomainBin, args...)
+	command := exec.Command(executablePath, args...)
 	if reader, err := command.StderrPipe(); err != nil {
 		log.Log.Reason(err).Infof("Could not pipe stderr")
 	} else {
 		go logStderr(reader, "onDefineDomain")
 	}
 	return command.Output()
+}
+
+func verifyExecutableChecksum(executablePath string, readFile func(string) ([]byte, error)) error {
+	algorithm, algorithmDefined := os.LookupEnv(hooks.HookChecksumAlgorithmEnvVar)
+	value, valueDefined := os.LookupEnv(hooks.HookChecksumValueEnvVar)
+
+	if !algorithmDefined && !valueDefined {
+		return nil
+	}
+	if !algorithmDefined || !valueDefined {
+		return errors.New("incomplete hook checksum configuration")
+	}
+
+	content, err := readFile(executablePath)
+	if err != nil {
+		return fmt.Errorf("read hook executable %q: %w", executablePath, err)
+	}
+
+	checksum := hooks.Checksum{Algorithm: algorithm, Value: value}
+	if err := hooks.VerifyChecksum(content, checksum); err != nil {
+		return fmt.Errorf("verify hook executable %q: %w", executablePath, err)
+	}
+
+	return nil
 }
 
 func logStderr(reader io.Reader, hookName string) {
