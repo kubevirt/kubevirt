@@ -77,6 +77,8 @@ const (
 	apiVMMigrate          = "virtualmachines/migrate"
 	apiVMMemoryDump       = "virtualmachines/memorydump"
 	apiVMRemoveMemoryDump = "virtualmachines/removememorydump"
+	apiVMHibernate        = "virtualmachines/hibernate"
+	apiVMDiscardState     = "virtualmachines/discardsavedstate"
 	apiVMObjectGraph      = "virtualmachines/objectgraph"
 	apiVMEvacuateCancel   = "virtualmachines/evacuate/cancel"
 
@@ -272,6 +274,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
 					apiVMRemoveMemoryDump,
+					apiVMHibernate,
+					apiVMDiscardState,
 					apiVMEvacuateCancel,
 				},
 				Verbs: []string{
@@ -492,6 +496,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
 					apiVMRemoveMemoryDump,
+					apiVMHibernate,
+					apiVMDiscardState,
 					apiVMEvacuateCancel,
 				},
 				Verbs: []string{

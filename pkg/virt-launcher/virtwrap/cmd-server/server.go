@@ -313,6 +313,22 @@ func (l *Launcher) VirtualMachineMemoryDump(_ context.Context, request *cmdv1.Me
 	return response, nil
 }
 
+func (l *Launcher) SaveVirtualMachine(_ context.Context, request *cmdv1.SaveVirtualMachineRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.SaveVMI(vmi, request.SavePath); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to save the vmi state")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	return response, nil
+}
+
 func (l *Launcher) FreezeVirtualMachine(_ context.Context, request *cmdv1.FreezeRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {

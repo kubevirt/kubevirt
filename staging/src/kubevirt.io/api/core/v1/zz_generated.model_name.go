@@ -459,6 +459,11 @@ func (in Handler) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HibernateOptions) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.HibernateOptions"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in HostDevice) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.HostDevice"
 }
@@ -964,6 +969,11 @@ func (in SSHPublicKeyAccessCredentialSource) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SavedStateSource) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.SavedStateSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ScreenshotOptions) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.ScreenshotOptions"
 }
@@ -1339,6 +1349,11 @@ func (in VirtualMachineInstanceResourceClaim) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineInstanceSavedStateStatus) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineInstanceSavedStateStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualMachineInstanceSpec) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.VirtualMachineInstanceSpec"
 }
@@ -1366,6 +1381,11 @@ func (in VirtualMachineMemoryDumpRequest) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VirtualMachineOptions) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.VirtualMachineOptions"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VirtualMachineSavedState) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.VirtualMachineSavedState"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

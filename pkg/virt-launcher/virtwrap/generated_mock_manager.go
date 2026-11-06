@@ -500,6 +500,20 @@ func (mr *MockDomainManagerMockRecorder) ResetVMI(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetVMI", reflect.TypeOf((*MockDomainManager)(nil).ResetVMI), arg0)
 }
 
+// SaveVMI mocks base method.
+func (m *MockDomainManager) SaveVMI(vmi *v1.VirtualMachineInstance, savePath string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveVMI", vmi, savePath)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveVMI indicates an expected call of SaveVMI.
+func (mr *MockDomainManagerMockRecorder) SaveVMI(vmi, savePath any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveVMI", reflect.TypeOf((*MockDomainManager)(nil).SaveVMI), vmi, savePath)
+}
+
 // SignalShutdownVMI mocks base method.
 func (m *MockDomainManager) SignalShutdownVMI(arg0 *v1.VirtualMachineInstance) error {
 	m.ctrl.T.Helper()

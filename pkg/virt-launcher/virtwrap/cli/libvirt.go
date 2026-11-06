@@ -48,6 +48,8 @@ const ConnectionInterval = 500 * time.Millisecond
 type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
 	DomainDefineXML(xml string) (VirDomain, error)
+	DomainRestoreParams(params libvirt.DomainSaveRestoreParams, flags libvirt.DomainSaveRestoreFlags) error
+	DomainSaveImageGetXMLDesc(file string, flags libvirt.DomainSaveImageXMLFlags) (string, error)
 	Close() (int, error)
 	DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
@@ -275,6 +277,26 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	dom, err = l.Connect.DomainDefineXML(xml)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) DomainRestoreParams(params libvirt.DomainSaveRestoreParams, flags libvirt.DomainSaveRestoreFlags) error {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return err
+	}
+
+	err := l.Connect.DomainRestoreParams(params, flags)
+	l.checkConnectionLost(err)
+	return err
+}
+
+func (l *LibvirtConnection) DomainSaveImageGetXMLDesc(file string, flags libvirt.DomainSaveImageXMLFlags) (string, error) {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return "", err
+	}
+
+	xml, err := l.Connect.DomainSaveImageGetXMLDesc(file, flags)
+	l.checkConnectionLost(err)
+	return xml, err
 }
 
 func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
@@ -695,6 +717,7 @@ type VirDomain interface {
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
+	SaveParams(params libvirt.DomainSaveRestoreParams, flags libvirt.DomainSaveRestoreFlags) error
 	PinVcpuFlags(vcpu uint, cpuMap []bool, flags libvirt.DomainModificationImpact) error
 	PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error
 	SetVcpusFlags(vcpu uint, flags libvirt.DomainVcpuFlags) error

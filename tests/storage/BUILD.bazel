@@ -11,6 +11,7 @@ go_library(
         "events.go",
         "export.go",
         "framework.go",
+        "hibernation.go",
         "hostdisk.go",
         "hotplug.go",
         "memorydump.go",
