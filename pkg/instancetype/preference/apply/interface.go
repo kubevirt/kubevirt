@@ -38,7 +38,10 @@ func isInterfaceOnPodNetwork(interfaceName string, vmiSpec *virtv1.VirtualMachin
 	return false
 }
 
-func applyInterfacePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyInterfacePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if preferenceSpec.Devices == nil || len(vmiSpec.Domain.Devices.Interfaces) == 0 {
+		return
+	}
 	for ifaceIndex := range vmiSpec.Domain.Devices.Interfaces {
 		vmiIface := &vmiSpec.Domain.Devices.Interfaces[ifaceIndex]
 		if preferenceSpec.Devices.PreferredInterfaceModel != "" && vmiIface.Model == "" {
