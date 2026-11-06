@@ -14,11 +14,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -28,6 +31,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -361,17 +366,67 @@ var _ = Describe("dialBackendTLS", func() {
 })
 
 type captureTransport struct {
-	lastReq *http.Request
+	lastReq    *http.Request
+	statusCode int
+	body       string
+	roundTrips atomic.Int64
 }
 
 func (t *captureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.lastReq = req
+	t.roundTrips.Add(1)
+	status := t.statusCode
+	if status == 0 {
+		status = http.StatusOK
+	}
+	body := t.body
+	if body == "" && status == http.StatusOK {
+		body = "ok"
+	}
 	return &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader("ok")),
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
 		Header:     make(http.Header),
 		Request:    req,
 	}, nil
+}
+
+// blockingBodyTransport returns immediately with a body that blocks on Read
+// until release is closed, so tests can observe the active-transfer gauge.
+type blockingBodyTransport struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (t *blockingBodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	close(t.started)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &blockingReadCloser{release: t.release},
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+type blockingReadCloser struct {
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingReadCloser) Read(p []byte) (int, error) {
+	<-b.release
+	return 0, io.EOF
+}
+
+func (b *blockingReadCloser) Close() error {
+	b.once.Do(func() {
+		select {
+		case <-b.release:
+		default:
+			close(b.release)
+		}
+	})
+	return nil
 }
 
 func newReadyExport(namespace, name, serviceName string) *exportv1.VirtualMachineExport {
@@ -399,6 +454,15 @@ func newExportService(namespace, name, clusterIP string) *corev1.Service {
 	}
 }
 
+var _ = BeforeSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+	Expect(exportproxymetrics.SetupMetrics()).To(Succeed())
+})
+
+var _ = AfterSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+})
+
 var _ = Describe("proxyHandler", func() {
 	var (
 		kvStore cache.Store
@@ -407,6 +471,7 @@ var _ = Describe("proxyHandler", func() {
 	)
 
 	BeforeEach(func() {
+		exportproxymetrics.ResetTransferMetricsForTest()
 		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -427,14 +492,23 @@ var _ = Describe("proxyHandler", func() {
 		app.reverseProxy.Transport = capture
 	})
 
-	It("rewrites headless export Services to the container port", func() {
-		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
-		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, corev1.ClusterIPNone))).To(Succeed())
-
-		rec := httptest.NewRecorder()
+	exportProxyRequest := func() *http.Request {
 		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
 		req.Host = "virt-exportproxy.kubevirt.svc:443"
-		app.proxyHandler(rec, req)
+		req.RemoteAddr = "192.0.2.10:12345"
+		return req
+	}
+
+	addReadyExportAndService := func(clusterIP string) {
+		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, clusterIP))).To(Succeed())
+	}
+
+	It("rewrites headless export Services to the container port", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(capture.lastReq.URL.Scheme).To(Equal("https"))
@@ -444,12 +518,10 @@ var _ = Describe("proxyHandler", func() {
 	})
 
 	It("rewrites ClusterIP export Services to the historical Service port", func() {
-		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
-		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, "10.96.0.10"))).To(Succeed())
+		addReadyExportAndService("10.96.0.10")
 
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
-		app.proxyHandler(rec, req)
+		app.proxyHandler(rec, exportProxyRequest())
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportClusterIPServicePort)))
@@ -459,8 +531,7 @@ var _ = Describe("proxyHandler", func() {
 		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
 
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
-		app.proxyHandler(rec, req)
+		app.proxyHandler(rec, exportProxyRequest())
 
 		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		Expect(capture.lastReq).To(BeNil())
@@ -481,10 +552,64 @@ var _ = Describe("proxyHandler", func() {
 		Expect(app.exportStore.Add(export)).To(Succeed())
 
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
-		app.proxyHandler(rec, req)
+		app.proxyHandler(rec, exportProxyRequest())
 
 		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		Expect(capture.lastReq).To(BeNil())
+	})
+
+	DescribeTable("does not count unauthenticated backend responses toward active transfers",
+		func(statusCode int) {
+			addReadyExportAndService(corev1.ClusterIPNone)
+			capture.statusCode = statusCode
+
+			rec := httptest.NewRecorder()
+			app.proxyHandler(rec, exportProxyRequest())
+
+			Expect(rec.Code).To(Equal(statusCode))
+			Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(0)))
+			Expect(capture.roundTrips.Load()).To(Equal(int64(1)))
+		},
+		Entry("401 Unauthorized", http.StatusUnauthorized),
+		Entry("403 Forbidden", http.StatusForbidden),
+	)
+
+	It("counts successful transfers until the response body is closed", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+		blocker := &blockingBodyTransport{
+			started: make(chan struct{}),
+			release: make(chan struct{}),
+		}
+		app.reverseProxy.Transport = blocker
+
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			rec := httptest.NewRecorder()
+			app.proxyHandler(rec, exportProxyRequest())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		}()
+
+		Eventually(blocker.started).Should(BeClosed())
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(1)))
+
+		close(blocker.release)
+		Eventually(done).Should(BeClosed())
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(0)))
+	})
+
+	It("returns 429 when soft admission is at capacity without contacting the backend", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+		exportproxymetrics.SetActiveTransferCountForTest(admission.SoftTransferLimit)
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+		Expect(rec.Header().Get("Retry-After")).To(Equal("1"))
+		Expect(rec.Header().Get("Connection")).To(Equal("close"))
+		Expect(capture.roundTrips.Load()).To(Equal(int64(0)))
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(admission.SoftTransferLimit)))
 	})
 })
