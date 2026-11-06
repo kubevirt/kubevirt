@@ -626,7 +626,7 @@ func (c *Controller) proactiveScaleIn(pool *poolv1.VirtualMachinePool, vms []*vi
 }
 
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
-	if len(vms) == 0 || count == 0 {
+	if len(vms) == 0 || count <= 0 {
 		return nil
 	} else if count > len(vms) {
 		count = len(vms)
@@ -642,10 +642,8 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 	// make sure we count already deleting VMs here during scale in.
 	count = count - (len(vms) - len(eligibleVMs))
 
-	if len(eligibleVMs) == 0 || count == 0 {
+	if len(eligibleVMs) == 0 || count <= 0 {
 		return nil
-	} else if count > len(eligibleVMs) {
-		count = len(eligibleVMs)
 	}
 
 	sortPolicy := resolveScaleInPolicy(pool.Spec.ScaleInStrategy)
@@ -656,6 +654,12 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 		if err != nil {
 			return err
 		}
+	}
+
+	if len(eligibleVMs) == 0 {
+		return nil
+	} else if count > len(eligibleVMs) {
+		count = len(eligibleVMs)
 	}
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
