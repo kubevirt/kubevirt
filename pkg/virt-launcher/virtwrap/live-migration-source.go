@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -190,8 +191,9 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	return nil
 }
 
-// This returns domain xml without the metadata section, as it is only relevant to the source domain
-// Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
+// migratableDomXML returns domain XML for the migration DestXML parameter.
+// DOMAIN_XML_MIGRATABLE strips source-only host details; configureLocalDiskToMigrate
+// then adjusts local disks and may inject CBT overlay sizes into <metadata>.
 func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) (string, error) {
 	xmlstr, err := dom.GetXMLDesc(libvirt.DOMAIN_XML_MIGRATABLE)
 	if err != nil {
@@ -1246,18 +1248,10 @@ func getDiskPathFromSource(source *libvirtxml.DomainDiskSource) (string, error) 
 }
 
 func getDiskName(disk *libvirtxml.DomainDisk) string {
-	if disk == nil {
+	if disk == nil || disk.Alias == nil {
 		return ""
 	}
-	n := disk.Alias.Name
-	if len(n) < 3 {
-		return n
-	}
-	// Trim the ua- prefix
-	if strings.HasPrefix(n, "ua-") {
-		return n[3:]
-	}
-	return n
+	return api.UserAliasToName(disk.Alias.Name)
 }
 
 func getMigrateVolumeForCondition(vmi *v1.VirtualMachineInstance, condition func(info *v1.StorageMigratedVolumeInfo) bool) map[string]bool {
@@ -1322,29 +1316,47 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		}
 	}
 
+	cbtOverlaySizes := make(map[string]int64)
 	for i, d := range dom.Devices.Disks {
 		if d.Alias == nil {
 			return fmt.Errorf("empty alias")
 		}
 		name := getDiskName(&d)
-		if !migDisks.isLocalVolumeToMigrate(name) {
-			continue
+		hasDataStore := d.Source != nil &&
+			d.Source.DataStore != nil &&
+			d.Source.DataStore.Source != nil
+		migrating := migDisks.isLocalVolumeToMigrate(name)
+
+		// CBT qcow2+dataStore disks need the source virtual size on every live
+		// migration (including shared RWX volumes that are not volume-migrated).
+		// The target premigration hook sizes the overlay from DestXML metadata.
+		var size int64
+		if hasDataStore || migrating {
+			var err error
+			size, err = getDiskVirtualSizeFunc(&d)
+			if err != nil {
+				return err
+			}
 		}
-		// Calculate the size of the volume to migrate
-		size, err := getDiskVirtualSizeFunc(&d)
-		if err != nil {
-			return err
+		if hasDataStore {
+			cbtOverlaySizes[name] = size
+		}
+
+		if !migrating {
+			continue
 		}
 		// Configure the slice to enable to migrate the volume to a destination with different size
 		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
 		var source *libvirtxml.DomainDiskSource
-		if dom.Devices.Disks[i].Source.DataStore != nil && dom.Devices.Disks[i].Source.DataStore.Source != nil {
+		if hasDataStore {
 			source = dom.Devices.Disks[i].Source.DataStore.Source
 		} else {
 			source = dom.Devices.Disks[i].Source
 		}
 
-		if source.Slices == nil {
+		// CBT disks cannot use slices (rejected on dataStore; invalid on overlay).
+		// Non-CBT disks keep RHEL-4607 slices. CBT sizes were already recorded above.
+		if !hasDataStore && source.Slices == nil {
 			source.Slices = &libvirtxml.DomainDiskSlices{
 				Slices: []libvirtxml.DomainDiskSlice{
 					{
@@ -1377,6 +1389,9 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 			source.File = &libvirtxml.DomainDiskSourceFile{File: path}
 			source.Block = nil
 		}
+	}
+	if err := storage.SetMigrationDiskSizes(dom, cbtOverlaySizes); err != nil {
+		return fmt.Errorf("failed to set CBT migration disk sizes in DestXML metadata: %w", err)
 	}
 
 	return nil

@@ -37,9 +37,13 @@ var _ = Describe("CBTOverlayHook", func() {
 		overlayPath = "/var/lib/libvirt/qemu/cbt/disk0.qcow2"
 		fsDataPath  = "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"
 		blkDataPath = "/dev/disk0"
+		sourceSize  = int64(2028994560)
 	)
 
-	type overlayCall struct{ overlay, data string }
+	type overlayCall struct {
+		overlay, data string
+		size          int64
+	}
 
 	var (
 		calls          []overlayCall
@@ -50,8 +54,8 @@ var _ = Describe("CBTOverlayHook", func() {
 	BeforeEach(func() {
 		calls = nil
 		createErr = nil
-		storage.CreateQCOW2Overlay = func(overlay, data string) error {
-			calls = append(calls, overlayCall{overlay, data})
+		storage.CreateQCOW2Overlay = func(overlay, data string, size int64) error {
+			calls = append(calls, overlayCall{overlay, data, size})
 			return createErr
 		}
 		DeferCleanup(func() { storage.CreateQCOW2Overlay = originalCreate })
@@ -68,18 +72,23 @@ var _ = Describe("CBTOverlayHook", func() {
 	}
 
 	domainWith := func(disks ...libvirtxml.DomainDisk) *libvirtxml.Domain {
-		return &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: disks}}
+		dom := &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: disks}}
+		Expect(storage.SetMigrationDiskSizes(dom, map[string]int64{"disk0": sourceSize})).To(Succeed())
+		return dom
 	}
 
-	DescribeTable("should create the overlay at the path of the claim the target VMI names",
+	DescribeTable("should create the overlay at the path of the claim the target VMI names, sized from DestXML metadata",
 		func(dataStore libvirtxml.DomainDiskSource, dataPath string) {
 			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "dst"))
 			targetOverlay := cbt.GetQCOW2OverlayPath(vmi, &vmi.Spec.Volumes[0])
 			domain := domainWith(cbtDisk(dataStore))
 
 			Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(Succeed())
-			Expect(calls).To(ConsistOf(overlayCall{targetOverlay, dataPath}))
+			Expect(calls).To(ConsistOf(overlayCall{targetOverlay, dataPath, sourceSize}))
 			Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(targetOverlay))
+			Expect(domain.Devices.Disks[0].Source.Slices).To(BeNil())
+			Expect(domain.Devices.Disks[0].Source.DataStore.Source.Slices).To(BeNil())
+			Expect(domain.Metadata).To(BeNil())
 		},
 		Entry("with a filesystem data store", libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}, fsDataPath),
 		Entry("with a block data store", libvirtxml.DomainDiskSource{Block: &libvirtxml.DomainDiskSourceBlock{Dev: blkDataPath}}, blkDataPath),
@@ -99,6 +108,16 @@ var _ = Describe("CBTOverlayHook", func() {
 		})
 
 		Expect(disk.CBTOverlayHook(nil, libvmi.New(), domain)).To(Succeed())
+		Expect(calls).To(BeEmpty())
+	})
+
+	It("should fail when DestXML metadata size is missing", func() {
+		vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "dst"))
+		domain := &libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Disks: []libvirtxml.DomainDisk{
+			cbtDisk(libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: fsDataPath}}),
+		}}}
+
+		Expect(disk.CBTOverlayHook(nil, vmi, domain)).To(MatchError(ContainSubstring("missing source virtual size in DestXML metadata")))
 		Expect(calls).To(BeEmpty())
 	})
 
