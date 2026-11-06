@@ -1,0 +1,24 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2606231619-4fe2cd536f
+ARG SIDECAR_SHIM_BASE_IMAGE=quay.io/vamsi_siddu/sidecar-shim:latest
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    CGO_ENABLED=0 BIN_NAME=sidecars KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars
+
+FROM ${SIDECAR_SHIM_BASE_IMAGE}
+
+COPY --from=builder /workspace/_out/cmd/sidecars/sidecars /usr/bin/sidecar-shim
+
+COPY --from=builder /workspace/.version /.version
+
+USER 1001
+
+ENTRYPOINT ["/usr/bin/sidecar-shim"]
