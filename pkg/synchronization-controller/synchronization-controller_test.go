@@ -1416,6 +1416,44 @@ var _ = Describe("VMI status synchronization controller", func() {
 			})
 		})
 
+		It("should wait for target state before rebuilding the target connection", func() {
+			remoteURL, err := remoteController.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+
+			targetVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress: pointer.P(remoteURL),
+					},
+				},
+			}
+			Expect(remoteController.vmiInformer.GetStore().Update(targetVMI)).To(Succeed())
+			Expect(remoteController.rebuildConnectionsAndUpdateSyncAddress()).To(Succeed())
+			_, exists := remoteController.syncReceivingConnectionMap.Load(testMigrationID)
+			Expect(exists).To(BeFalse())
+
+			state := targetVMI.Status.MigrationState
+			targetVMI.Status.MigrationState = nil
+			Expect(remoteController.vmiInformer.GetStore().Update(targetVMI)).To(Succeed())
+			Expect(remoteController.rebuildConnectionsAndUpdateSyncAddress()).To(Succeed())
+			targetVMI.Status.MigrationState = state
+
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
+			Expect(remoteController.vmiInformer.GetStore().Update(targetVMI)).To(Succeed())
+			Expect(remoteController.rebuildConnectionsAndUpdateSyncAddress()).To(Succeed())
+			_, exists = remoteController.syncReceivingConnectionMap.Load(testMigrationID)
+			Expect(exists).To(BeFalse())
+
+			targetVMI.Status.MigrationState.TargetState.MigrationUID = targetTestMigrationUID
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(remoteController.vmiInformer.GetStore().Update(targetVMI)).To(Succeed())
+			Expect(remoteController.rebuildConnectionsAndUpdateSyncAddress()).To(Succeed())
+			conn, exists := remoteController.syncReceivingConnectionMap.Load(testMigrationID)
+			Expect(exists).To(BeTrue())
+			Expect(conn.(*SynchronizationConnection).grpcClientConnection.CanonicalTarget()).To(ContainSubstring(remoteURL))
+		})
+
 		It("should properly rebuild target", func() {
 			remoteURL, err := remoteController.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
