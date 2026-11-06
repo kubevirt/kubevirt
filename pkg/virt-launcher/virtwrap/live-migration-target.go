@@ -323,20 +323,20 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 type TargetMigrationMonitor struct {
 	c             cli.Connection
 	logger        *log.FilteredLogger
-	domain        *api.Domain
+	domainName    string
 	metadataCache *metadata.Cache
 }
 
 func NewTargetMigrationMonitor(
 	c cli.Connection,
 	logger *log.FilteredLogger,
-	domain *api.Domain,
+	domainName string,
 	metadataCache *metadata.Cache,
 ) *TargetMigrationMonitor {
 	return &TargetMigrationMonitor{
 		c:             c,
 		logger:        logger,
-		domain:        domain,
+		domainName:    domainName,
 		metadataCache: metadataCache,
 	}
 }
@@ -346,10 +346,9 @@ var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Sec
 func (m *TargetMigrationMonitor) StartMonitor() {
 	go func() {
 		var err error
-		domName := m.domain.Spec.Name
 		for attempt := 0; attempt <= len(retryDelays); attempt++ {
 			err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(context context.Context) (bool, error) {
-				dom, err := m.c.LookupDomainByName(domName)
+				dom, err := m.c.LookupDomainByName(m.domainName)
 				if err != nil {
 					return false, err
 				}
