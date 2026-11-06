@@ -102,6 +102,27 @@ generated hardware identity values back into `VM.spec`, the same resource the
 user manages, rather than into `status`. See
 [§2.2.1](#221-exception-late-defaulting-into-spec) for the justification.
 
+### 1.3 Declarative Intent, Not Imperative Action
+
+Kubernetes fields in a resource's `spec` represent desired state, not actions:
+"fields in the specification should have declarative rather than imperative
+names and semantics -- they represent the desired state, not actions intended
+to yield the desired state" ([Kubernetes API
+Conventions](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md)).
+A controller must be able to resume reconciling toward a `spec` value after a
+crash or restart without knowing what happened before; this only works if the
+field names a steady state, not a command.
+
+The practical test: if there is no persistent state an operation could settle
+into — no "has this converged" question a controller could answer by comparing
+`spec` to `status` — the operation cannot be expressed as a `spec` field.
+`reset` and `softreboot` are edge-triggered: there is no steady state called
+"reset." `pause`/`unpause`, by contrast, describe a state the system can hold
+indefinitely and a controller can continuously reconcile toward, so they are
+closer to legitimately declarative. Failing this test does not by itself
+justify a new subresource — see [§2.4](#24-subresources-for-actions) for the
+full decision process.
+
 ---
 
 ## 2. Resource Hierarchy & Lifecycle
@@ -267,6 +288,64 @@ When adding a new resource to the KubeVirt hierarchy:
   matters, use finalizers.
 - Never add a new finalizer to an object after its `deletionTimestamp` has been
   set — Kubernetes rejects this.
+
+### 2.4 Subresources for Actions
+
+A subresource is reserved for operations that are common enough to justify a
+permanent API surface, need RBAC distinct from editing `spec`/`status`, and
+cannot be satisfied by a declarative field ([§1.3](#13-declarative-intent-not-imperative-action)).
+It is not a default escape hatch for "this feels like an action." Evaluate new
+action proposals in this order, cheapest option first:
+
+1. **Can it be a declarative, level-based field?** If the operation describes a
+    persistent state a controller can continuously reconcile toward — one that
+    survives a controller restart — prefer a regular `spec` field over a
+    subresource. Most of KubeVirt's existing lifecycle subresources (`pause`,
+    `freeze`) model states that could, in principle, be expressed this way; they
+    exist as subresources primarily for the RBAC reason below, not because the
+    state itself is imperative.
+
+2. **Does it need RBAC distinct from `spec`/`status` writers?** If every caller
+    who could reasonably trigger the operation already has `spec` write access,
+    a subresource adds API surface without adding safety. [Kubernetes API
+    Conventions](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md)
+    gives this as the explicit rationale for `/status`: "the alternate endpoint
+    allows different rules to be applied to the update, and access to be
+    appropriately restricted." The same reasoning extends to action
+    subresources.
+
+3. **If the operation is edge-triggered (fails §1.3's test) and still needs to
+    be observable or durable**, prefer modeling the request as a `Condition`
+    written through a dedicated, RBAC-scoped subresource, rather than inventing
+    a new ad hoc field — the pattern Kubernetes' `CertificateSigningRequest`
+    uses for its `/approval` subresource. See
+    [`subresource_patterns.md`](subresource_patterns.md#request-as-condition-certificatesigningrequests-approval)
+    for the full mechanism and RBAC breakdown.
+
+4. **Only fall back to a bare synchronous imperative proxy** — the pattern
+    `pause`, `unpause`, `reset`, and `softreboot` use today, where virt-api
+    calls virt-handler, which calls virt-launcher, which calls libvirt, and the
+    original HTTP response reflects the success or failure of that entire
+    chain — when the action is simple and infrequent enough that losing
+    durability and audit is acceptable. This pattern has a known failure mode:
+    every hop's timeout must be budgeted consistently, or a client can see a
+    failure for an action that succeeds anyway moments later. Any new
+    synchronous-proxy subresource must set outer timeouts to be at least the
+    sum of the inner ones, or the client's result cannot be trusted.
+
+    > **Note:** KubeVirt's own `reset` path does not do this correctly today —
+    > virt-api's HTTP client to virt-handler times out after 10s while
+    > virt-handler's gRPC call to virt-launcher allows 20s, so a slow
+    > hypervisor call can surface as a client-visible failure even though the
+    > action completes anyway afterward. This is a known limitation of the
+    > current implementation, not a property of the pattern itself; see
+    > [`subresource_patterns.md`](subresource_patterns.md) for the full trace.
+
+The existing `pause` / `unpause` / `freeze` / `unfreeze` / `reset` /
+`softreboot` family is the established precedent set. A new action subresource
+should be justified against this same bar — common, RBAC-distinct, not
+expressible declaratively — not against "other hypervisors expose this as a
+command too."
 
 ---
 
@@ -925,7 +1004,7 @@ provides the complete set of sources consulted.
 
 | Source | Sections influenced |
 |----|----|
-| [Kubernetes API Conventions (`api-conventions.md`)](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md) | Foundational structure rules: spec/status separation, object anatomy, naming, serialization, conditions schema — §1.2, §3.1, §3.2, §6 |
+| [Kubernetes API Conventions (`api-conventions.md`)](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api-conventions.md) | Foundational structure rules: spec/status separation, object anatomy, naming, serialization, conditions schema, declarative vs. imperative fields, subresource rationale — §1.2, §1.3, §2.4, §3.1, §3.2, §6 |
 | [Kubernetes API Changes Guide (`api_changes.md`)](https://github.com/kubernetes/community/blob/main/contributors/devel/sig-architecture/api_changes.md) | Rules for evolving APIs safely: new fields must be optional, backward-compatible defaulting, hub-and-spoke versioning — §3.2, §4.2.3 |
 | [Kubernetes Deprecation Policy](https://kubernetes.io/docs/reference/using-api/deprecation-policy/) | Minimum support lifespans by graduation track (alpha/beta/GA), co-existence and warning header requirements — §4.2.3 |
 | [Kubernetes API Concepts](https://kubernetes.io/docs/reference/using-api/api-concepts/) | Operational standards: server-side apply field ownership, pagination, dry-run — §1.2 |
@@ -933,6 +1012,7 @@ provides the complete set of sources consulted.
 | [Kubernetes CRD Status Subresource](https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource) | Structural enforcement of single-owner status writes — §6.6 |
 | [Server-Side Apply](https://kubernetes.io/docs/reference/using-api/server-side-apply/) | Field ownership model for multi-actor reconciliation — §1.2 |
 | [Gateway API Design Guide](https://gateway-api.sigs.k8s.io/guides/api-design/) | Real-world CRD design patterns: conflict resolution, naming conventions (use plural nouns for array fields, singular verbs for action fields) — §6.7 |
+| [CertificateSigningRequest Approval & RBAC](https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/) | Precedent for a request-as-Condition subresource (`/approval`) with RBAC distinct from `/status` — §2.4 |
 
 ### Tooling
 
