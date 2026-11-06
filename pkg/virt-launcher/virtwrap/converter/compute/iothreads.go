@@ -23,27 +23,59 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 type IOThreadsDomainConfigurator struct {
-	totalThreads uint
+	scsiMultiIOEnabled bool
+	multiIOAutoEnabled bool
 }
 
-func NewIOThreadsDomainConfigurator(totalThreads uint) IOThreadsDomainConfigurator {
-	return IOThreadsDomainConfigurator{
-		totalThreads: totalThreads,
+type ioThreadsOption func(*IOThreadsDomainConfigurator)
+
+func NewIOThreadsDomainConfigurator(options ...ioThreadsOption) IOThreadsDomainConfigurator {
+	var configurator IOThreadsDomainConfigurator
+	for _, f := range options {
+		f(&configurator)
+	}
+	return configurator
+}
+
+func IOThreadsWithSCSIMultiIOThreadEnabled(enabled bool) ioThreadsOption {
+	return func(i *IOThreadsDomainConfigurator) {
+		i.scsiMultiIOEnabled = enabled
+	}
+}
+
+func IOThreadsWithMultiIOThreadAutoPolicyEnabled(enabled bool) ioThreadsOption {
+	return func(i *IOThreadsDomainConfigurator) {
+		i.multiIOAutoEnabled = enabled
 	}
 }
 
 func (i IOThreadsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if i.totalThreads == 0 {
+	if !iothreads.HasIOThreads(vmi) {
+		return nil
+	}
+
+	totalThreads, autoThreads := iothreads.GetIOThreadsCountType(vmi)
+	if i.scsiMultiIOEnabled && i.multiIOAutoEnabled &&
+		vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto {
+		vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+		dedicatedThreads := totalThreads - autoThreads
+		totalThreads = iothreads.AutoPoolSize(autoThreads, vcpus) + dedicatedThreads
+	}
+
+	if totalThreads == 0 {
 		return nil
 	}
 
 	if domain.Spec.IOThreads == nil {
 		domain.Spec.IOThreads = &api.IOThreads{}
 	}
-	domain.Spec.IOThreads.IOThreads = i.totalThreads
+	domain.Spec.IOThreads.IOThreads = uint(totalThreads)
 
 	return nil
 }
