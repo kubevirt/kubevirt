@@ -22,11 +22,9 @@ package eventsserver_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestNotifyServer(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Notify Server Suite")
+	testutils.KubeVirtTestSuiteSetup(t)
 }
