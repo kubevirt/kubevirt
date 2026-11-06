@@ -22,6 +22,20 @@ set -e
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-4}
+
+# E2E coverage collection (opt-in). Set KUBEVIRT_E2E_COVERAGE=true or pass
+# --cov-report to enable. Requires images built with --build-cover.
+KUBEVIRT_E2E_COVERAGE=${KUBEVIRT_E2E_COVERAGE:-false}
+COV_REPORT_ARGS=""
+for arg in "$@"; do
+    [ "$arg" = "--cov-report" ] && KUBEVIRT_E2E_COVERAGE=true
+done
+if [ "$KUBEVIRT_E2E_COVERAGE" = "true" ]; then
+    echo "E2E coverage collection enabled (--cov-report)"
+    COV_REPORT_ARGS="-cov-report \
+      -cov-collector-image=${COV_COLLECTOR_IMAGE:-${docker_prefix}/kv-coverage-collector:${DOCKER_TAG}} \
+      -cov-uploader-image=${COV_UPLOADER_IMAGE:-${docker_prefix}/coverage-uploader:${DOCKER_TAG}}"
+fi
 KUBEVIRT_FUNC_TEST_GINKGO_ARGS=${FUNC_TEST_ARGS:-${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}}
 KUBEVIRT_FUNC_TEST_LABEL_FILTER=${FUNC_TEST_LABEL_FILTER:-${KUBEVIRT_FUNC_TEST_LABEL_FILTER}}
 KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT:-4h}
@@ -56,7 +70,7 @@ function functest() {
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -timeout=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT} -r "$@" _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} --testing-manifest-path=${TESTING_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -virtctl-path=${virtctl_path} -example-guest-agent-path=${example_guest_agent_path}
+    _out/tests/ginkgo -timeout=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT} -r "$@" _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} --testing-manifest-path=${TESTING_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -virtctl-path=${virtctl_path} -example-guest-agent-path=${example_guest_agent_path} ${COV_REPORT_ARGS}
 }
 
 additional_test_args=()

@@ -17,6 +17,7 @@ go_library(
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/checkpoint:go_default_library",
         "//pkg/controller:go_default_library",
+        "//pkg/coveragehttp:go_default_library",
         "//pkg/downwardmetrics/scraper:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
