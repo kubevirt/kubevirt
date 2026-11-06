@@ -75,6 +75,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	)
 	scsiControllerModel := c.Architecture.SCSIControllerModel(virtioModel)
 
+	var passthroughPCIHoleKiB uint
+	if c.Architecture.SupportPCIHole64Disabling() {
+		passthroughPCIHoleKiB = passthroughPCIHole64KiB(vmi, c.GPUHostDevices, c.GenericHostDevices, c.SRIOVDevices)
+	}
+
 	configurators := []convertertypes.Configurator{
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
@@ -140,6 +145,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.ControllersWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.ControllersWithSupportPCIHole64Disabling(c.Architecture.SupportPCIHole64Disabling()),
+			compute.ControllersWithPassthroughPCIHole64KiB(passthroughPCIHoleKiB),
 			compute.ControllersWithVirtioSerialModel(virtioModel),
 			compute.ControllerWithSCSIMultiIOThreadEnabled(c.SCSIMultiIOThreadEnabled),
 		),
