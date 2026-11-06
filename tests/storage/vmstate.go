@@ -32,11 +32,14 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
@@ -593,6 +596,69 @@ var _ = Describe(SIG("VirtualMachineState", func() {
 			Expect(console.LoginToFedora(newVMI)).To(Succeed())
 			checkTPMSecret(newVMI)
 			checkEFIVar(newVMI)
+		})
+	})
+
+	Context("clone", func() {
+		It("clones a VM using the implicit backend-storage API to a new VM with its state intact", decorators.StorageReq, decorators.RequiresSnapshotStorageClass, func() {
+			if _, found := libstorage.GetVMStateStorageClass(); !found {
+				Fail("Fail test when VirtualMachineState storage class is not configured")
+			}
+
+			By("Starting a VM the implicit way (persistent TPM/EFI, no declarative VirtualMachineState)")
+			vm, vmi := createAndStartVM(newPersistentFedora())
+			Expect(vm.Spec.Template.Spec.VirtualMachineState).To(BeNil())
+
+			By("Writing state into the guest TPM and EFI")
+			storeTPMSecret(vmi)
+			storeEFIVar(vmi)
+
+			By("Stopping the source VM so its backend state is flushed before cloning")
+			libvmops.StopVirtualMachine(vm)
+
+			By("Cloning the VM to a new VM")
+			targetVMName := "clone-" + vm.Name
+			vmClone := kubecli.NewMinimalCloneWithNS("clone-"+vm.Name, vm.Namespace)
+			groupName := "kubevirt.io"
+			source := &k8sv1.TypedLocalObjectReference{APIGroup: &groupName, Kind: "VirtualMachine", Name: vm.Name}
+			target := source.DeepCopy()
+			target.Name = targetVMName
+			vmClone.Spec.Source = source
+			vmClone.Spec.Target = target
+			vmClone, err := virtClient.VirtualMachineClone(vm.Namespace).Create(context.Background(), vmClone, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() clone.VirtualMachineClonePhase {
+				vmClone, err = virtClient.VirtualMachineClone(vm.Namespace).Get(context.Background(), vmClone.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmClone.Status.Phase
+			}).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(Equal(clone.Succeeded))
+
+			targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() {
+				err := virtClient.VirtualMachine(targetVM.Namespace).Delete(context.Background(), targetVM.Name, metav1.DeleteOptions{})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
+
+			By("Verifying the clone was upgraded to the declarative API")
+			Expect(targetVM.Spec.Template.Spec.VirtualMachineState).ToNot(BeNil())
+			Expect(targetVM.Spec.Template.Spec.VirtualMachineState.Source).ToNot(BeNil())
+
+			By("Starting the cloned VM and verifying the state carried over")
+			runStrategyPatch, err := patch.New(patch.WithReplace("/spec/runStrategy", v1.RunStrategyAlways)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Patch(context.Background(), targetVM.Name, types.JSONPatchType, runStrategyPatch, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(targetVM)).WithTimeout(360 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(targetVMI)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Expect(console.LoginToFedora(targetVMI)).To(Succeed())
+			checkTPMSecret(targetVMI)
+			checkEFIVar(targetVMI)
 		})
 	})
 }))
