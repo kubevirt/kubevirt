@@ -544,6 +544,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
+	// +listType=map
+	// +listMapKey=name
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Inputs describe input devices
 	Inputs []Input `json:"inputs,omitempty"`
@@ -1527,6 +1529,8 @@ type DHCPOptions struct {
 	NTPServers []string `json:"ntpServers,omitempty"`
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional
+	// +listType=map
+	// +listMapKey=option
 	PrivateOptions []DHCPPrivateOptions `json:"privateOptions,omitempty"`
 }
 
@@ -1552,6 +1556,7 @@ func (d *DHCPOptions) UnmarshalJSON(data []byte) error {
 type DHCPPrivateOptions struct {
 	// Option is an Integer value from 224-254
 	// Required.
+	// +kubebuilder:validation:XValidation:rule="self >= 224 && self <= 254",message="provided DHCPPrivateOptions are out of range, must be in range 224 to 254"
 	Option int `json:"option"`
 	// Value is a String value for the Option provided
 	// Required.

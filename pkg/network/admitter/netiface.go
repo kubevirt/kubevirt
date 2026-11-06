@@ -72,38 +72,6 @@ func validateInterfacesAssignedToNetworks(field *k8sfield.Path, spec *v1.Virtual
 	return causes
 }
 
-func validateNetworkNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	networkSet := map[string]struct{}{}
-	for i, network := range spec.Networks {
-		if _, exists := networkSet[network.Name]; exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: fmt.Sprintf("Network with name %q already exists, every network must have a unique name", network.Name),
-				Field:   field.Child("networks").Index(i).Child("name").String(),
-			})
-		}
-		networkSet[network.Name] = struct{}{}
-	}
-	return causes
-}
-
-func validateInterfaceNameUnique(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	ifaceSet := map[string]struct{}{}
-	for idx, iface := range spec.Domain.Devices.Interfaces {
-		if _, exists := ifaceSet[iface.Name]; exists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueDuplicate,
-				Message: "Only one interface can be connected to one specific network",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-			})
-		}
-		ifaceSet[iface.Name] = struct{}{}
-	}
-	return causes
-}
-
 func validateInterfacesFields(
 	field *k8sfield.Path,
 	spec *v1.VirtualMachineInstanceSpec,
@@ -410,25 +378,7 @@ func validateForwardPortRangesOverlaps(field *k8sfield.Path, idx int, protocol s
 func validateDHCPOptions(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if iface.DHCPOptions != nil {
-		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
 		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
-	}
-	return causes
-}
-
-func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	privateOptions := iface.DHCPOptions.PrivateOptions
-	if countUniqueDHCPPrivateOptions(privateOptions) < len(privateOptions) {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Found Duplicates: you have provided duplicate DHCPPrivateOptions",
-			Field:   field.String(),
-		})
-	}
-
-	for _, DHCPPrivateOption := range privateOptions {
-		causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
 	}
 	return causes
 }
@@ -447,23 +397,4 @@ func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.
 		}
 	}
 	return causes
-}
-
-func validateDHCPPrivateOptionsWithinRange(field *k8sfield.Path, dhcpPrivateOption v1.DHCPPrivateOptions) []metav1.StatusCause {
-	if !(dhcpPrivateOption.Option >= 224 && dhcpPrivateOption.Option <= 254) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
-			Field:   field.String(),
-		}}
-	}
-	return nil
-}
-
-func countUniqueDHCPPrivateOptions(privateOptions []v1.DHCPPrivateOptions) int {
-	optionSet := map[int]struct{}{}
-	for _, DHCPPrivateOption := range privateOptions {
-		optionSet[DHCPPrivateOption.Option] = struct{}{}
-	}
-	return len(optionSet)
 }

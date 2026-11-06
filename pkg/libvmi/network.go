@@ -108,6 +108,13 @@ func WithPorts(ports ...kvirtv1.Port) InterfaceOption {
 	}
 }
 
+// WithDHCPOptions sets the DHCP options.
+func WithDHCPOptions(opts kvirtv1.DHCPOptions) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.DHCPOptions = &opts
+	}
+}
+
 // WithACPIIndex sets the ACPI index.
 func WithACPIIndex(acpiIdx int) InterfaceOption {
 	return func(iface *kvirtv1.Interface) {

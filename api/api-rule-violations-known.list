@@ -4,10 +4,8 @@ API rule violation: list_type_missing,kubevirt.io/api/clone/v1alpha1,VirtualMach
 API rule violation: list_type_missing,kubevirt.io/api/clone/v1beta1,VirtualMachineCloneList,Items
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,CPU,Features
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,DHCPOptions,NTPServers
-API rule violation: list_type_missing,kubevirt.io/api/core/v1,DHCPOptions,PrivateOptions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Disks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Inputs
-API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,Interfaces
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,PanicDevices
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,DownwardAPIVolumeSource,Fields
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Interface,Ports
@@ -21,7 +19,6 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInst
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceMigrationStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceReplicaSetStatus,Conditions
-API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Networks
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Tolerations
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceSpec,Volumes
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,Conditions
