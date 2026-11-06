@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -67,7 +66,7 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
+			if err := chownToQEMU(file); err != nil {
 				return err
 			}
 		}
@@ -89,9 +88,23 @@ func createQCOW(file string, size string) error {
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 
+// NewEmptyDiskCreator uses the virt-launcher empty disk directory.
 func NewEmptyDiskCreator() *emptyDiskCreator {
+	return NewEmptyDiskCreatorWith(emptyDiskBaseDir, createQCOW)
+}
+
+// NewEmptyDiskCreatorWith uses a custom directory and disk creation function.
+func NewEmptyDiskCreatorWith(directory string, discCreateFunc func(filePath string, size string) error) *emptyDiskCreator {
 	return &emptyDiskCreator{
-		emptyDiskBaseDir: emptyDiskBaseDir,
-		discCreateFunc:   createQCOW,
+		emptyDiskBaseDir: directory,
+		discCreateFunc:   discCreateFunc,
 	}
+}
+
+// chownToQEMU is needed if virt-launcher runs as featuregate.Root
+func chownToQEMU(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }
