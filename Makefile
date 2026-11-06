@@ -243,7 +243,7 @@ lint:
 	hack/dockerized "hack/lint-newcirros-deprecation.sh"
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
-	hack/dockerized "hack/license-header-check.sh"
+	hack/dockerized "hack/license-header/license-header-check.sh"
 	hack/dockerized "hack/go-fix.sh --diff"
 
 lint-metrics:

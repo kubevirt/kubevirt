@@ -1,0 +1,15 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+reviewers:
+  - sig-compute-reviewers
+  - sig-storage-reviewers
+  - sig-network-reviewers
+  - sig-test-reviewers
+  - sig-observability-reviewers
+  - sig-control-plane-reviewers
+approvers:
+  - sig-compute-approvers
+  - sig-storage-approvers
+  - sig-network-approvers
+  - sig-test-approvers
+  - sig-observability-approvers
+  - sig-control-plane-approvers
