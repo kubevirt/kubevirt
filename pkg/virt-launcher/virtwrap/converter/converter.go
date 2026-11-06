@@ -29,6 +29,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/video"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/kvm"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
@@ -102,7 +103,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 			compute.BalloonWithVirtioModel(virtioModel),
 		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests, c.AllowCrossArchEmulation),
+		compute.NewGraphicsDomainConfigurator(
+			video.NewDeviceConfigurator(architecture, c.BochsForEFIGuests),
+			c.AllowCrossArchEmulation,
+		),
 		compute.SoundDomainConfigurator{},
 		compute.NewHostDeviceDomainConfigurator(
 			c.GenericHostDevices,
