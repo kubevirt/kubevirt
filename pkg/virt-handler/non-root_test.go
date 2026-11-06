@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -77,5 +78,36 @@ var _ = Describe("prepareVFIO", func() {
 		res.EXPECT().MountRoot().Return(mountRootOf(tempDir), nil)
 
 		Expect(controller.prepareVFIO(res)).To(MatchError(syscall.ENOTDIR))
+	})
+
+	It("chowns VFIO cdevs exposed under the devices directory", func() {
+		tempDir := GinkgoT().TempDir()
+		vfioDir := filepath.Join(tempDir, "dev", "vfio")
+		devicesDir := filepath.Join(vfioDir, "devices")
+		Expect(os.MkdirAll(devicesDir, 0777)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(vfioDir, "vfio"), nil, 0666)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(devicesDir, "vfio1"), nil, 0600)).To(Succeed())
+		mountRoot := mountRootOf(tempDir)
+		res.EXPECT().MountRoot().Return(mountRoot, nil)
+
+		originalOwnershipManager := diskutils.DefaultOwnershipManager
+		DeferCleanup(func() {
+			diskutils.DefaultOwnershipManager = originalOwnershipManager
+		})
+		ownershipManager := diskutils.NewMockOwnershipManagerInterface(gomock.NewController(GinkgoT()))
+		diskutils.DefaultOwnershipManager = ownershipManager
+
+		vfioBasePath, err := mountRoot.AppendAndResolveWithRelativeRoot("dev", "vfio")
+		Expect(err).ToNot(HaveOccurred())
+		devicesPath, err := safepath.JoinNoFollow(vfioBasePath, "devices")
+		Expect(err).ToNot(HaveOccurred())
+		cdevPath, err := safepath.JoinNoFollow(devicesPath, "vfio1")
+		Expect(err).ToNot(HaveOccurred())
+		ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).DoAndReturn(func(path *safepath.Path) error {
+			Expect(path.String()).To(Equal(cdevPath.String()))
+			return nil
+		})
+
+		Expect(controller.prepareVFIO(res)).To(Succeed())
 	})
 })
