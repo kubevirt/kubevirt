@@ -431,8 +431,11 @@ func toImageWithDigest(image string, imageID string) (string, error) {
 		baseImage = image[:colonIndex]
 	}
 
+	// Only a repository digest reference (<repo>@sha256:<digest>) is
+	// reproducible on another node. A bare sha256 image ID is the node-local
+	// image config digest, which no registry can serve.
 	digestMatches := digestRegex.FindStringSubmatch(imageID)
-	if len(digestMatches) < 2 {
+	if len(digestMatches) < 2 || !strings.Contains(imageID, "@sha256:"+digestMatches[1]) {
 		return "", fmt.Errorf("failed to identify image digest for container %q with id %q", image, imageID)
 	}
 	return fmt.Sprintf("%s@sha256:%s", baseImage, digestMatches[1]), nil
