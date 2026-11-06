@@ -23,12 +23,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
@@ -73,45 +70,6 @@ var _ = Describe("Preferences - annotations", func() {
 
 			Expect(meta.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
 			Expect(meta.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, preferenceName))
-		})
-	})
-
-	Context("apply to vmi", func() {
-		var (
-			vmi            *v1.VirtualMachineInstance
-			preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec
-
-			vmiApplier = apply.NewVMIApplier()
-			field      = k8sfield.NewPath("spec", "template", "spec")
-		)
-
-		BeforeEach(func() {
-			vmi = libvmi.New()
-
-			preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-				Annotations: map[string]string{
-					"annotation-1": "1",
-					"annotation-2": "2",
-				},
-			}
-		})
-
-		It("should apply to VMI", func() {
-			Expect(vmiApplier.ApplyToVMI(field, nil, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
-			Expect(vmi.Annotations).To(Equal(preferenceSpec.Annotations))
-		})
-
-		It("should not overwrite already existing values", func() {
-			vmiAnnotations := map[string]string{
-				"annotation-1": "dont-overwrite",
-				"annotation-2": "dont-overwrite",
-				"annotation-3": "dont-overwrite",
-			}
-			vmi.Annotations = vmiAnnotations
-
-			Expect(vmiApplier.ApplyToVMI(field, nil, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
-			Expect(vmi.Annotations).To(HaveLen(3))
-			Expect(vmi.Annotations).To(Equal(vmiAnnotations))
 		})
 	})
 })

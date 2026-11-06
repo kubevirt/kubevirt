@@ -159,7 +159,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 		// There is still a window where the instancetype can be updated between the VirtualMachine validation webhook accepting
 		// the VirtualMachine and the VirtualMachine controller creating a ControllerRevison. As such we need to check one final
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
-		if err := h.checkForInstancetypeConflicts(&instancetype.Spec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta); err != nil {
+		if err := h.checkForInstancetypeConflicts(&instancetype.Spec, vm.Spec.Template); err != nil {
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, instancetype)
@@ -174,8 +174,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 		// time that there are no conflicts when applying the instancetype to the VirtualMachine before continuing.
 		if err := h.checkForInstancetypeConflicts(
 			&clusterInstancetype.Spec,
-			&vm.Spec.Template.Spec,
-			&vm.Spec.Template.ObjectMeta,
+			vm.Spec.Template,
 		); err != nil {
 			return nil, err
 		}
@@ -187,12 +186,11 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 
 func (h *revisionHandler) checkForInstancetypeConflicts(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-	vmiMetadata *metav1.ObjectMeta,
+	template *virtv1.VirtualMachineInstanceTemplateSpec,
 ) error {
-	// Apply the instancetype to a copy of the VMISpec as we don't want to persist any changes here in the VM being passed around
-	vmiSpecCopy := vmiSpec.DeepCopy()
-	conflicts := apply.NewVMIApplier().ApplyToVMI(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
+	// Apply the instancetype to a copy of the template as we don't want to persist any changes in the VM being passed around.
+	templateCopy := template.DeepCopy()
+	conflicts := apply.NewVM().ApplyToTemplate(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, templateCopy)
 	if len(conflicts) > 0 {
 		return conflicts
 	}
