@@ -129,6 +129,7 @@ var (
 		k6tv1.VirtualMachineStatusUnschedulable,
 		k6tv1.VirtualMachineStatusErrImagePull,
 		k6tv1.VirtualMachineStatusImagePullBackOff,
+		k6tv1.VirtualMachineStatusErrorPodSandbox,
 		k6tv1.VirtualMachineStatusPvcNotFound,
 		k6tv1.VirtualMachineStatusDataVolumeError,
 	}

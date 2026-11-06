@@ -2517,6 +2517,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusWaitingForVolumeBinding, c.isVirtualMachineStatusWaitingForVolumeBinding},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
+		{virtv1.VirtualMachineStatusErrorPodSandbox, c.isVirtualMachineStatusErrorPodSandbox},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
@@ -2653,6 +2654,14 @@ func (c *Controller) isVirtualMachineStatusErrImagePull(vm *virtv1.VirtualMachin
 func (c *Controller) isVirtualMachineStatusImagePullBackOff(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
 	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == controller.ImagePullBackOffReason
+}
+
+// isVirtualMachineStatusErrorPodSandbox determines whether the VM status field should be set to
+// "ErrorPodSandboxNotReady" because the kubelet failed to create the pod sandbox.
+func (c *Controller) isVirtualMachineStatusErrorPodSandbox(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	syncCond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	return syncCond != nil && syncCond.Status == k8score.ConditionFalse &&
+		syncCond.Reason == controller.FailedPodSandboxCreationReason
 }
 
 // isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".

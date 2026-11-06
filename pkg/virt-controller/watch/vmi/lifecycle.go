@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -61,6 +62,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
+)
+
+const (
+	// sandboxFailureGracePeriod is how long a pod may stay pending before a sandbox-creation
+	// failure is surfaced, to avoid flapping on the normal (brief) sandbox-setup window.
+	sandboxFailureGracePeriod = 30 * time.Second
+	// sandboxRetryInterval is the cadence for re-listing pod events to discover a
+	// sandbox-creation failure that has not surfaced an event yet.
+	sandboxRetryInterval = 15 * time.Second
+	// sandboxMaxRetries caps the self-scheduled re-list wakeups used to discover the event.
+	// Once the failure is recorded on the Synchronized condition it is reused without
+	// re-listing (see podSandboxSyncError), so a permanently-stuck VMI stops hitting the API.
+	sandboxMaxRetries = 6
+	// maxConditionMessageLen bounds a relayed failure message before it is written to a
+	// status condition, matching the upstream k8s metav1.Condition convention. Kubelet does
+	// not truncate sandbox-failure messages, so a pathological CNI error chain is capped here.
+	maxConditionMessageLen = 32 * 1024
 )
 
 func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (common.SyncError, *k8sv1.Pod) {
@@ -401,6 +419,15 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			if imageErr := checkForContainerImageError(pod); imageErr != nil {
 				// only overwrite syncErr if imageErr != nil
 				syncErr = imageErr
+			} else if sandboxErr := c.podSandboxSyncError(vmiCopy, pod); sandboxErr != nil {
+				// A pod failing to create its sandbox (e.g. a CNI ADD failure) is report-only:
+				// the message is surfaced via the Synchronized condition and the VMI keeps
+				// retrying so transient failures self-heal.
+				syncErr = sandboxErr
+			} else if shouldRetrySandboxCheck(pod) {
+				// The failure event does not change the pod, so pod-watch will not re-enqueue
+				// the VMI. Wake up to re-list, bounded by shouldRetrySandboxCheck.
+				c.Queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), sandboxRetryInterval)
 			}
 
 			if controller.IsPodReady(pod) && vmi.DeletionTimestamp == nil {
@@ -982,6 +1009,19 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
+// truncateMessage caps a message at maxConditionMessageLen bytes before it is relayed onto a
+// status condition, trimming to a valid UTF-8 boundary so the stored message is never malformed.
+func truncateMessage(msg string) string {
+	if len(msg) <= maxConditionMessageLen {
+		return msg
+	}
+	truncated := msg[:maxConditionMessageLen]
+	for len(truncated) > 0 && !utf8.ValidString(truncated) {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated
+}
+
 // isContainerImageErrorReason reports whether a container waiting reason indicates an image
 // reference or pull failure for a containerDisk volume.
 func isContainerImageErrorReason(reason string) bool {
@@ -1000,10 +1040,101 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 		}
 		reason := containerStatus.State.Waiting.Reason
 		if isContainerImageErrorReason(reason) {
-			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
+			return common.NewSyncError(errors.New(truncateMessage(containerStatus.State.Waiting.Message)), reason)
 		}
 	}
 	return nil
+}
+
+// isPodPending reports whether the pod is pending its sandbox and not being torn down. The detail
+// of a sandbox-creation failure never lands on the pod object (the container waiting reason varies
+// by runtime, e.g. ContainerCreating or PodInitializing), so the authoritative signal is the pod's
+// FailedCreatePodSandBox event; a pending pod past the grace period is the cue to look for it.
+// A pod that has not been scheduled to a node (e.g. unschedulable) never reaches sandbox creation,
+// so it is not treated as pending here to avoid polling for an event that cannot exist. Likewise a
+// pod that is still pending only because its images are being pulled reports PodReadyToStartContainers
+// (its sandbox and network are already configured) and is not treated as pending, so a sandbox
+// failure is not reported after the sandbox succeeds.
+func isPodPending(pod *k8sv1.Pod) bool {
+	if pod.Status.Phase != k8sv1.PodPending || pod.DeletionTimestamp != nil {
+		return false
+	}
+	podConditions := controller.NewPodConditionManager()
+	if !podConditions.HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionTrue) {
+		return false
+	}
+	if podConditions.HasConditionWithStatus(pod, k8sv1.PodReadyToStartContainers, k8sv1.ConditionTrue) {
+		return false
+	}
+	return true
+}
+
+// podSandboxSyncError returns the sandbox-creation failure (e.g. a CNI ADD failure) for a pending
+// pod as a syncErr. A failure already recorded on the Synchronized condition is reused without
+// re-listing events, but only when it was recorded during this pod's lifetime (its transition
+// time is not before the pod's creation): a permanently-stuck pod that is re-reconciled (e.g. on
+// resync) does not keep hitting the API server, while a recreated pod (new, later creation time)
+// falls through to a fresh list so its own failure is reported. When that fresh list reports a
+// different cause, the stale condition is removed so the downstream condition writer re-adds it
+// with the new message (the writer suppresses message-only updates for an unchanged reason). The
+// condition is dropped automatically once the pod is no longer pending (recovered), since this
+// returns nil then.
+func (c *Controller) podSandboxSyncError(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) common.SyncError {
+	if !isPodPending(pod) {
+		return nil
+	}
+	cm := controller.NewVirtualMachineInstanceConditionManager()
+	cond := cm.GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	recorded := cond != nil && cond.Status == k8sv1.ConditionFalse &&
+		cond.Reason == controller.FailedPodSandboxCreationReason
+	if recorded && !cond.LastTransitionTime.Before(&pod.CreationTimestamp) {
+		return common.NewSyncError(errors.New(cond.Message), controller.FailedPodSandboxCreationReason)
+	}
+	syncErr := c.checkForPodSandboxError(pod)
+	if syncErr != nil && recorded {
+		// The recorded condition predates this pod (stale). Drop it so the downstream writer
+		// re-adds it with the fresh message and a transition time within this pod's lifetime,
+		// which both refreshes the cause and restores the reuse (no-re-poll) path afterwards.
+		cm.RemoveCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	}
+	return syncErr
+}
+
+// checkForPodSandboxError surfaces a pod sandbox-creation failure (e.g. a CNI ADD failure) as a
+// syncErr carrying the exact kubelet message. The detail exists only in the pod's
+// FailedCreatePodSandBox event, so once a pod has been pending past a grace period we list that
+// pod's events on-demand and relay the message verbatim. Returns nil while the pod is still
+// within the grace period or when no such event is found.
+func (c *Controller) checkForPodSandboxError(pod *k8sv1.Pod) common.SyncError {
+	if !isPodPending(pod) {
+		return nil
+	}
+	if time.Since(pod.CreationTimestamp.Time) < sandboxFailureGracePeriod {
+		return nil
+	}
+
+	selector := "involvedObject.uid=" + string(pod.UID)
+	events, err := c.clientset.CoreV1().Events(pod.Namespace).List(context.Background(), v1.ListOptions{FieldSelector: selector})
+	if err != nil {
+		log.Log.Object(pod).Reason(err).Error("Failed to list events while checking for pod sandbox creation failure")
+		return nil
+	}
+	for i := range events.Items {
+		if event := &events.Items[i]; event.Reason == controller.FailedPodSandboxCreationReason {
+			return common.NewSyncError(errors.New(truncateMessage(event.Message)), controller.FailedPodSandboxCreationReason)
+		}
+	}
+	return nil
+}
+
+// shouldRetrySandboxCheck reports whether to schedule another bounded re-list to discover a
+// sandbox-creation failure whose event has not appeared yet. It stops once the pod is past the
+// grace period plus the retry window, so a permanently-stuck VMI does not poll the API forever.
+func shouldRetrySandboxCheck(pod *k8sv1.Pod) bool {
+	if !isPodPending(pod) {
+		return false
+	}
+	return time.Since(pod.CreationTimestamp.Time) < sandboxFailureGracePeriod+sandboxMaxRetries*sandboxRetryInterval
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
