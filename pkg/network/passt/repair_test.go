@@ -183,6 +183,69 @@ var _ = Describe("Passt Repair Handler", func() {
 		Expect(handler.HandleMigrationTarget(vmi, failingSocketDirFunc)).To(MatchError(expectedError))
 	})
 
+	DescribeTable("should allow retry after a dirFunc error",
+		func(handleMigration func(*passt.RepairManager, *v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error) {
+			repairCallCount := 0
+			dirFuncCallCount := 0
+			handler := passt.NewRepairManagerWithOptions(
+				stubFindRepairSocketInDir,
+				func(string, *v1.VirtualMachineInstance, func(instance *v1.VirtualMachineInstance)) {
+					repairCallCount++
+				},
+				newActiveVMs(),
+			)
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			failOnceDirFunc := func(*v1.VirtualMachineInstance) (string, error) {
+				dirFuncCallCount++
+				if dirFuncCallCount == 1 {
+					return "", errors.New("transient error")
+				}
+				return "/var/run/passt", nil
+			}
+
+			Expect(handleMigration(handler, vmi, failOnceDirFunc)).To(MatchError("transient error"))
+			Expect(repairCallCount).To(Equal(0))
+
+			Expect(handleMigration(handler, vmi, failOnceDirFunc)).To(Succeed())
+			Expect(repairCallCount).To(Equal(1))
+		},
+		Entry("HandleMigrationSource", (*passt.RepairManager).HandleMigrationSource),
+		Entry("HandleMigrationTarget", (*passt.RepairManager).HandleMigrationTarget),
+	)
+
+	It("HandleMigrationSource should allow retry after findRepairSocketFunc error", func() {
+		repairCallCount := 0
+		findSocketCallCount := 0
+		handler := passt.NewRepairManagerWithOptions(
+			func(string) (string, error) {
+				findSocketCallCount++
+				if findSocketCallCount == 1 {
+					return "", errors.New("transient error")
+				}
+				return "/var/run/passt/repair.socket.repair", nil
+			},
+			func(string, *v1.VirtualMachineInstance, func(instance *v1.VirtualMachineInstance)) {
+				repairCallCount++
+			},
+			newActiveVMs(),
+		)
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		)
+
+		Expect(handler.HandleMigrationSource(vmi, stubSocketDir)).To(MatchError("transient error"))
+		Expect(repairCallCount).To(Equal(0))
+
+		Expect(handler.HandleMigrationSource(vmi, stubSocketDir)).To(Succeed())
+		Expect(repairCallCount).To(Equal(1))
+	})
+
 	It("Should not run HandleMigrationSource because it is already running", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding())),
@@ -244,7 +307,9 @@ func (s *activeVMs) TestAndSetActive(vmi *v1.VirtualMachineInstance) bool {
 	return isActive
 }
 
-func (s *activeVMs) SetInactive(_ *v1.VirtualMachineInstance) {}
+func (s *activeVMs) SetInactive(vmi *v1.VirtualMachineInstance) {
+	delete(s.running, vmi.UID)
+}
 
 func newActiveVMs() *activeVMs {
 	return &activeVMs{running: map[types.UID]struct{}{}}
