@@ -762,9 +762,11 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 		}
 	}
 
-	// Declarative VMs don't need the backend label stamped on the restore PVC below,
-	// since restoreVirtualMachineState already repoints source at it directly.
-	if !backendstorage.HasLegacyBackendStorage(snapshotVM) {
+	// The legacy backend label is only needed while the target stays on the implicit API: an in-place
+	// restore, or a different-VM restore with the gate off. A declarative target finds the restored
+	// PVC through virtualMachineState.source instead.
+	if !backendstorage.HasLegacyBackendStorage(snapshotVM) ||
+		(t.vmRestore.Spec.Target.Name != snapshotVM.Name && t.controller.ClusterConfig.DeclarativeVMStateEnabled()) {
 		return true, nil
 	}
 
@@ -1034,11 +1036,23 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 	return newVM, nil
 }
 
-// restoreVirtualMachineState points virtualMachineState.source at the PVC the restore just created.
+// restoreVirtualMachineState points virtualMachineState.source at the PVC the restore just created,
+// upgrading an implicit-API source to the declarative API when restoring to a different VM.
 func (t *vmRestoreTarget) restoreVirtualMachineState(newVM *kubevirtv1.VirtualMachine, snapshotVM *snapshotv1.VirtualMachine) error {
 	vmState := newVM.Spec.Template.Spec.VirtualMachineState
+	legacySource := false
 	if vmState == nil {
-		return nil
+		// A legacy source is upgraded to the declarative API only when restoring to a different VM
+		// and the gate is on. In-place restores reuse their own PVC, and with the gate off the target
+		// stays implicit (setting virtualMachineState would be rejected by VM admission).
+		if newVM.Name == snapshotVM.Name ||
+			!backendstorage.IsBackendStorageNeeded(snapshotVM) ||
+			!t.controller.ClusterConfig.DeclarativeVMStateEnabled() {
+			return nil
+		}
+		vmState = &kubevirtv1.VirtualMachineStateSpec{}
+		newVM.Spec.Template.Spec.VirtualMachineState = vmState
+		legacySource = true
 	}
 	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
 	for _, vr := range t.vmRestore.Status.Restores {
@@ -1051,7 +1065,10 @@ func (t *vmRestoreTarget) restoreVirtualMachineState(newVM *kubevirtv1.VirtualMa
 	// the original VM's PVC, which would mean two VMs sharing one VirtualMachineState PVC.
 	if newVM.Name != snapshotVM.Name {
 		vmState.Source = nil
-		if vmState.VolumeClaimTemplate == nil {
+		if legacySource {
+			// Nothing captured to adopt: drop back to the implicit API, starting with fresh state.
+			newVM.Spec.Template.Spec.VirtualMachineState = nil
+		} else if vmState.VolumeClaimTemplate == nil {
 			return fmt.Errorf("cannot restore virtualMachineState to a different VM: backend volume wasn't included in the snapshot and no volumeClaimTemplate is set")
 		}
 		t.controller.Recorder.Eventf(t.vmRestore, corev1.EventTypeWarning, restoreVMStateNotCapturedEvent,

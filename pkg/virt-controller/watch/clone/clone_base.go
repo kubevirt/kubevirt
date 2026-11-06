@@ -37,11 +37,10 @@ const (
 	TargetVMCreated       Event = "TargetVMCreated"
 	PVCBound              Event = "PVCBound"
 
-	SnapshotDeleted                 Event = "SnapshotDeleted"
-	SnapshotContentInvalid          Event = "SnapshotContentInvalid"
-	SourceDoesNotExist              Event = "SourceDoesNotExist"
-	SourceWithBackendStorageInvalid Event = "SourceVMWithBackendStorageInvalid"
-	VMVolumeSnapshotsInvalid        Event = "VMVolumeSnapshotsInvalid"
+	SnapshotDeleted          Event = "SnapshotDeleted"
+	SnapshotContentInvalid   Event = "SnapshotContentInvalid"
+	SourceDoesNotExist       Event = "SourceDoesNotExist"
+	VMVolumeSnapshotsInvalid Event = "VMVolumeSnapshotsInvalid"
 )
 
 var (
@@ -49,8 +48,7 @@ var (
 	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
 	ErrVolumeNotBackedUp            = "volume %s is not backed up in snapshot %s"
 
-	ErrSourceDoesntExist        = errors.New("Source doesnt exist")
-	ErrSourceWithBackendStorage = errors.New("Clone of source with backendstorage is not supported")
+	ErrSourceDoesntExist = errors.New("Source doesnt exist")
 )
 
 type VMCloneController struct {
