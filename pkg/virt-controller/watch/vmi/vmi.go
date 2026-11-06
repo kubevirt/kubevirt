@@ -72,7 +72,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
 	storageAnnotationsGenerator storageAnnotationsGenerator,
-	netStatusUpdater statusUpdater,
+	netStatusUpdater netStatusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
 	vsockCIDAllocator vsockAllocator,
@@ -190,7 +190,7 @@ type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
-type statusUpdater interface {
+type netStatusUpdater interface {
 	Update(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
 }
 
@@ -240,7 +240,7 @@ type Controller struct {
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
 	storageAnnotationsGenerator       storageAnnotationsGenerator
-	netStatusUpdater                  statusUpdater
+	netStatusUpdater                  netStatusUpdater
 	validateNetworkSpec               specValidator
 	netMigrationEvaluator             migrationEvaluator
 	additionalLauncherAnnotationsSync []string
