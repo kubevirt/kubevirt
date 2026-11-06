@@ -819,7 +819,7 @@ var _ = Describe("validatePermittedHostDevices", func() {
 	Context("with DRA feature gates enabled", func() {
 		BeforeEach(func() {
 			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{"HostDevicesWithDRA", "GPUsWithDRA"},
+				FeatureGates: []string{"GPUsWithDRA"},
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 		})
