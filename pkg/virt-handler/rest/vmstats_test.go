@@ -141,9 +141,7 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should report stats not available for an on-node VMI with no socket", func() {
 		enableFeatureGate()
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-vm"},
-		})).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "test-vm"))).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/test-vm":{"domainStats":{}}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -153,12 +151,8 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should only report the VMI named in vmis when others are in the store", func() {
 		enableFeatureGate()
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm1"},
-		})).To(Succeed())
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm2"},
-		})).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "vm1"))).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "vm2"))).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/vm1":{"domainStats":{}}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -168,9 +162,7 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should report per-VMI results when one requested VMI is on-node and another is not", func() {
 		enableFeatureGate()
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "on-node-vm"},
-		})).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "on-node-vm"))).To(Succeed())
 
 		recorder := makeRequest(`{"vmis":{"default/on-node-vm":{"domainStats":{}},"default/missing-vm":{"domainStats":{}}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -180,12 +172,8 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should report a result for every VMI in the store when allVMIs is set", func() {
 		enableFeatureGate()
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vm1"},
-		})).To(Succeed())
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-a", Name: "vm2"},
-		})).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "vm1"))).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("tenant-a", "vm2"))).To(Succeed())
 
 		recorder := makeRequest(`{"allVMIs":{"domainStats":{}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -202,16 +190,97 @@ var _ = Describe("VMStats handler", func() {
 
 	It("should report both the allVMIs selection and a vmis key that is not on node", func() {
 		enableFeatureGate()
-		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "on-node-vm"},
-		})).To(Succeed())
+		Expect(vmiStore.Add(runningVMI("default", "on-node-vm"))).To(Succeed())
 
 		recorder := makeRequest(`{"allVMIs":{"domainStats":{}},"vmis":{"default/missing-vm":{"dirtyRate":{}}}}`)
 		Expect(recorder.Code).To(Equal(http.StatusOK))
 		Expect(recorder.Body.String()).To(MatchJSON(
 			`{"default/on-node-vm":{"error":"stats not available: VMI socket not found or busy"},"default/missing-vm":{"error":"VMI not found on node"}}`))
 	})
+
+	It("should refuse stats collection for a VMI that is not running", func() {
+		enableFeatureGate()
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduled-vm"},
+			Status:     v1.VirtualMachineInstanceStatus{Phase: v1.Scheduled},
+		})).To(Succeed())
+
+		recorder := makeRequest(`{"vmis":{"default/scheduled-vm":{"dirtyRate":{}}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/scheduled-vm":{"error":"VMI is not running"}}`))
+	})
+
+	It("should refuse stats collection for a VMI with an active migration", func() {
+		enableFeatureGate()
+		now := metav1.Now()
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "migrating-vm"},
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase: v1.Running,
+				MigrationState: &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+				},
+			},
+		})).To(Succeed())
+
+		recorder := makeRequest(`{"vmis":{"default/migrating-vm":{"dirtyRate":{}}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/migrating-vm":{"error":"VMI has an active migration"}}`))
+	})
+
+	It("should skip ineligible VMIs when allVMIs is set and still collect from running VMIs", func() {
+		enableFeatureGate()
+		now := metav1.Now()
+		Expect(vmiStore.Add(runningVMI("default", "running-vm"))).To(Succeed())
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "scheduled-vm"},
+			Status:     v1.VirtualMachineInstanceStatus{Phase: v1.Scheduled},
+		})).To(Succeed())
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "migrating-vm"},
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase: v1.Running,
+				MigrationState: &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+				},
+			},
+		})).To(Succeed())
+
+		recorder := makeRequest(`{"allVMIs":{"domainStats":{},"dirtyRate":{}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/running-vm":{"error":"stats not available: VMI socket not found or busy"},"default/scheduled-vm":{"error":"VMI is not running"},"default/migrating-vm":{"error":"VMI has an active migration"}}`))
+	})
+
+	It("should collect from a VMI whose migration already finished", func() {
+		enableFeatureGate()
+		now := metav1.Now()
+		Expect(vmiStore.Add(&v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "migrated-vm"},
+			Status: v1.VirtualMachineInstanceStatus{
+				Phase: v1.Running,
+				MigrationState: &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+					Completed:      true,
+				},
+			},
+		})).To(Succeed())
+
+		recorder := makeRequest(`{"vmis":{"default/migrated-vm":{"domainStats":{}}}}`)
+		Expect(recorder.Code).To(Equal(http.StatusOK))
+		Expect(recorder.Body.String()).To(MatchJSON(
+			`{"default/migrated-vm":{"error":"stats not available: VMI socket not found or busy"}}`))
+	})
 })
+
+func runningVMI(namespace, name string) *v1.VirtualMachineInstance {
+	return &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+		Status:     v1.VirtualMachineInstanceStatus{Phase: v1.Running},
+	}
+}
 
 var _ = Describe("parseVMStatsRequestBody", func() {
 	parse := func(body string) (*vmStatsRequestBody, error) {
