@@ -9,6 +9,7 @@ go_library(
         "instancetype.go",
         "kubecli.go",
         "kubevirt.go",
+        "kubevirt_mock_utils.go",
         "kubevirt_test_utils.go",
         "kv.go",
         "migration.go",
