@@ -122,6 +122,7 @@ var _ = Describe("Domain Watcher", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
