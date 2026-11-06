@@ -27,7 +27,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -94,6 +93,157 @@ const (
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
+// role identifies the single virt-handler controller that owns a VMI key on this
+// node for one pass of the Arbiter.
+type role int
+
+const (
+	// roleNone means no controller may act on the key in this pass.
+	roleNone role = iota
+	roleVM
+	roleSource
+	roleTarget
+)
+
+func (r role) String() string {
+	switch r {
+	case roleVM:
+		return "vm"
+	case roleSource:
+		return "migration-source"
+	case roleTarget:
+		return "migration-target"
+	default:
+		return "none"
+	}
+}
+
+// migrationRole is the single source of truth about which controller owns a VMI.
+//
+// The VM lifecycle, migration-source and migration-target controllers must never
+// act on the same VMI concurrently. Expressing that as three independent "should I
+// skip?" predicates, each evaluated against its own informer cache, cannot provide
+// that guarantee: the predicates are not complements of each other, and they are
+// not even evaluated against the same snapshot. This function replaces them with a
+// single decision, taken once per pass, over one snapshot.
+//
+// The source and the target of a migration are never the same node for a given
+// VMI, so migrationTargetOwns and migrationSourceOwns are mutually exclusive by
+// construction - virt-controller writes the target node label and
+// MigrationState.SourceNode in the same update, and they never name this host at
+// once. Their order below therefore only decides precedence against the VM
+// controller, not against each other.
+//
+// Hand-over points are chosen so that the controller giving up ownership is the one
+// that publishes the release, rather than both sides racing on a timestamp written
+// by somebody else.
+func migrationRole(vmi *v1.VirtualMachineInstance, vmiExists bool, domain *api.Domain, host string) role {
+	// No VMI left: all that remains is local cleanup of a leftover domain and its
+	// ghost record, which only the VM controller does.
+	if !vmiExists || vmi == nil {
+		return roleVM
+	}
+
+	if migrationTargetOwns(vmi, host) {
+		return roleTarget
+	}
+
+	if migrationSourceOwns(vmi, host) {
+		return roleSource
+	}
+
+	// A VMI that is going away always goes to the VM controller: local teardown and
+	// releasing the ghost record are nobody else's job. This must come before the
+	// in-progress check below, because a VMI that dies mid-migration leaves a
+	// migration state that never reaches an end timestamp, and standing everybody
+	// down there would leak the domain and the ghost record.
+	if vmi.DeletionTimestamp != nil || vmi.IsFinal() {
+		return roleVM
+	}
+
+	// Last line of defence: the cached VMI may not reflect a migration that the
+	// domain already knows about. Nobody acts until the VMI catches up - the key is
+	// re-queued by the next VMI or domain event.
+	if isMigrationInProgress(vmi, domain) {
+		return roleNone
+	}
+
+	return roleVM
+}
+
+// migrationTargetOwns reports whether the migration target controller owns vmi on
+// this node.
+//
+// Ownership starts when virt-controller labels the VMI with the node its target pod
+// was scheduled on, and ends when the target controller itself drops that label,
+// which it does as the very last step of finalCleanup. Because the owner publishes
+// its own release, the VM controller cannot take over while the target is still
+// finalizing - the window that EndTimestamp-based predicates leave wide open.
+func migrationTargetOwns(vmi *v1.VirtualMachineInstance, host string) bool {
+	if vmi.Labels[v1.MigrationTargetNodeNameLabel] != host {
+		return false
+	}
+
+	// Once ackMigrationCompletion has moved the VMI onto this node, a terminating VMI
+	// is an ordinary local VMI: the VM controller owns the teardown, and its cleanup
+	// is a superset of the target's best-effort one.
+	if (vmi.DeletionTimestamp != nil || vmi.IsFinal()) && vmiOwnedByNode(vmi, host) {
+		return false
+	}
+
+	return true
+}
+
+// migrationSourceOwns reports whether the migration source controller owns vmi on
+// this node. It is deliberately the exact condition under which the source
+// controller has work to do, so that the VM controller's own window is its
+// complement rather than a second, independently drifting predicate.
+func migrationSourceOwns(vmi *v1.VirtualMachineInstance, host string) bool {
+	migrationState := vmi.Status.MigrationState
+	if migrationState == nil || migrationState.SourceNode != host {
+		return false
+	}
+
+	// A VMI that is going away is shut down and cleaned up by the VM controller, even
+	// mid-migration. The source controller has nothing to contribute there.
+	if vmi.DeletionTimestamp != nil {
+		return false
+	}
+
+	// A terminal VMI is torn down locally by the VM controller, which is also the only
+	// one that releases the ghost record. A decentralized source is the one exception,
+	// and only for as long as it takes to record on the migration state a failure that
+	// something else caused: nothing on this side of a decentralized migration would
+	// otherwise do it, and that single update always makes progress, so ownership moves
+	// on right after.
+	if vmi.IsFinal() {
+		return vmi.IsDecentralizedMigration() &&
+			vmi.IsMigrationSource() &&
+			vmi.Status.Phase == v1.Failed &&
+			!isMigrationDone(migrationState)
+	}
+
+	if vmi.IsDecentralizedMigration() {
+		// Before the two sides have synchronized there is nothing for the source
+		// controller to do and the guest is simply running here.
+		return vmi.IsMigrationSource()
+	}
+
+	// Once the migration is done the source domain is shut off with reason "migrated"
+	// and the VM controller reaps it through its orphan path.
+	return vmi.Status.NodeName == host && !isMigrationDone(migrationState)
+}
+
+func vmiOwnedByNode(vmi *v1.VirtualMachineInstance, host string) bool {
+	nodeName, ok := vmi.Labels[v1.NodeNameLabel]
+
+	if ok && nodeName != "" && nodeName == host {
+		return true
+	}
+
+	return vmi.Status.NodeName != "" && vmi.Status.NodeName == host
+}
+
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
@@ -113,10 +263,15 @@ type BaseController struct {
 	netStat                     netstat
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
-	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
-	hypervisorRuntime           hypervisor.VirtRuntime
-	pluginStore                 cache.Store
-	pluginCache                 pluginCache
+	// vmiExpectations is shared by all three controllers through the Arbiter. A VMI
+	// update written by one of them has to be observed before any of them processes
+	// the key again, otherwise the next owner would act on a snapshot it already
+	// invalidated.
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
+	hypervisorNodeInfo hypervisor.HypervisorNodeInformation
+	hypervisorRuntime  hypervisor.VirtRuntime
+	pluginStore        cache.Store
+	pluginCache        pluginCache
 }
 
 func NewBaseController(
@@ -125,6 +280,7 @@ func NewBaseController(
 	recorder record.EventRecorder,
 	virtClient kubecli.KubevirtClient,
 	queue workqueue.TypedRateLimitingInterface[string],
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -143,6 +299,7 @@ func NewBaseController(
 		recorder:                    recorder,
 		virtClient:                  virtClient,
 		queue:                       queue,
+		vmiExpectations:             vmiExpectations,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
@@ -229,28 +386,6 @@ func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInst
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}
 	return vmi, exists, nil
-}
-
-func (c *BaseController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
-
-	obj, exists, err := c.domainStore.GetByKey(key)
-
-	if err != nil {
-		return nil, false, "", err
-	}
-
-	if exists {
-		domain = obj.(*api.Domain)
-		cachedUID = domain.Spec.Metadata.KubeVirt.UID
-
-		// We're using the DeletionTimestamp to signify that the
-		// Domain is deleted rather than sending the DELETE watch event.
-		if domain.ObjectMeta.DeletionTimestamp != nil {
-			exists = false
-			domain = nil
-		}
-	}
-	return domain, exists, cachedUID, nil
 }
 
 func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
