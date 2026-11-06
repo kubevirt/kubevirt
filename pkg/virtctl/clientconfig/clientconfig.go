@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
@@ -23,13 +24,23 @@ func NewContext(ctx context.Context, clientConfig clientcmd.ClientConfig) contex
 	return context.WithValue(ctx, clientConfigKey, clientConfig)
 }
 
+// clientConfigFromContext retrieves the clientcmd.ClientConfig stored in ctx, if any.
+// Otherwise, it returns an error.
+func clientConfigFromContext(ctx context.Context) (clientcmd.ClientConfig, error) {
+	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
+	if !ok {
+		return nil, fmt.Errorf("unable to get client config from context")
+	}
+	return clientConfig, nil
+}
+
 // ClientAndNamespaceFromContext tries to retrieve a clientcmd.Clientconfig value stored in ctx, if any.
 // It then creates a kubecli.KubevirtClient and gets the namespace from the client config and returns them.
 // Otherwise, it returns an error.
 func ClientAndNamespaceFromContext(ctx context.Context) (virtClient kubecli.KubevirtClient, namespace string, overridden bool, err error) {
-	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
-	if !ok {
-		return nil, "", false, fmt.Errorf("unable to get client config from context")
+	clientConfig, err := clientConfigFromContext(ctx)
+	if err != nil {
+		return nil, "", false, err
 	}
 	virtClient, err = kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
@@ -40,4 +51,15 @@ func ClientAndNamespaceFromContext(ctx context.Context) (virtClient kubecli.Kube
 		return nil, "", false, err
 	}
 	return virtClient, namespace, overridden, nil
+}
+
+// K8sClientFromContext tries to retrieve a clientcmd.ClientConfig value stored in ctx, if any.
+// It then creates a kubernetes.Interface and returns it.
+// Otherwise, it returns an error.
+func K8sClientFromContext(ctx context.Context) (kubernetes.Interface, error) {
+	clientConfig, err := clientConfigFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return kubecli.GetK8sClientFromClientConfig(clientConfig)
 }
