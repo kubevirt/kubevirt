@@ -349,22 +349,18 @@ var _ = Describe("Validating VMI network spec", func() {
 			}))
 		})
 
-		It("should reject when portRanges and ports are both set", func() {
+		It("should accept when portRanges and ports are both set", func() {
 			spec := &v1.VirtualMachineInstanceSpec{}
 			spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name:                   "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
-				Ports:                  []v1.Port{{Port: 22}},
+				Ports:                  []v1.Port{{Name: "ssh", Protocol: "TCP", Port: 22}},
 				PortRanges:             []v1.PortRange{{Protocol: "TCP", Start: 80, End: 90}},
 			}}
 			spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
 			validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{portRangesSpecGateEnabled: true})
-			Expect(validator.Validate()).To(ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "Cannot define both ports and portRanges on interface",
-				Field:   "fake.domain.devices.interfaces[0].name",
-			}))
+			Expect(validator.Validate()).To(BeEmpty())
 		})
 
 		DescribeTable("should reject portRanges with", func(portRanges []v1.PortRange, expectedCauses []metav1.StatusCause) {
