@@ -62,6 +62,12 @@ func CheckSpreadCPUTopology(
 		return nil
 	}
 
+	// 1 vCPU always results in {1,1,1} via the early-return in applyGuestCPUTopology,
+	// so divisibility is irrelevant.
+	if instancetypeSpec.CPU.Guest == 1 {
+		return nil
+	}
+
 	ratio, across := apply.GetSpreadOptions(preferenceSpec)
 	switch across {
 	case v1beta1.SpreadAcrossSocketsCores:
