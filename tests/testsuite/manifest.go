@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/rest"
 
 	"kubevirt.io/client-go/log"
 
@@ -141,17 +142,18 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 }
 
 func ApplyRawManifest(object unstructured.Unstructured) error {
-	virtCli := kubevirt.Client()
+	return applyRawManifest(kubevirt.Client().CoreV1().RESTClient(), object)
+}
 
+func applyRawManifest(client rest.Interface, object unstructured.Unstructured) error {
 	uri := composeResourceURI(object)
 	jsonbody, err := object.MarshalJSON()
 	if err != nil {
 		return err
 	}
-	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
+	b, err := client.Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
 	if err != nil {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n, err: %#v", object, err))
-		return err
+		return fmt.Errorf("cannot apply %s %q in namespace %q: %w", object.GetKind(), object.GetName(), object.GetNamespace(), err)
 	}
 	status := unstructured.Unstructured{}
 	return json.Unmarshal(b, &status)
