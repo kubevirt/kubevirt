@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -26,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -45,6 +47,16 @@ const (
 	mdevSupportedTypesDirName = "mdev_supported_types"
 )
 
+func disableFakeVGPUDisplay(gpu *v1.GPU, fake bool) {
+	if fake {
+		gpu.VirtualGPUOptions = &v1.VGPUOptions{
+			Display: &v1.VGPUDisplayOptions{
+				Enabled: ptr.To(false),
+			},
+		}
+	}
+}
+
 var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var testNodeName string
@@ -52,10 +64,16 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		// There should be only one node in this lane
-		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		Expect(nodes).To(HaveLen(1))
-		testNodeName = nodes[0].Name
+		workerNodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+			LabelSelector: "node-role.kubernetes.io/worker," + v1.NodeSchedulable + "=true",
+		})
+		Expect(err).ToNot(HaveOccurred())
+		// Single-node kind-vgpu clusters expose only a schedulable control-plane node.
+		if len(workerNodes.Items) == 0 {
+			workerNodes = libnode.GetAllSchedulableNodes(virtClient)
+		}
+		Expect(workerNodes.Items).NotTo(BeEmpty())
+		testNodeName = workerNodes.Items[0].Name
 	})
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
@@ -89,6 +107,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		  exit 0
 		done`, expectedInstancesCount, mdevTypeName)
 			testPod := libpod.RenderPod("test-all-mdev-created", []string{"/bin/bash", "-c"}, []string{check})
+			testPod.Spec.NodeName = testNodeName
 			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -108,6 +127,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		fi
 	        exit 0`
 		testPod := libpod.RenderPod("test-all-mdev-removed", []string{"/bin/bash", "-c"}, []string{check})
+		testPod.Spec.NodeName = testNodeName
 		testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
@@ -277,6 +297,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: deviceName,
 				},
 			}
+
+			usingFakeVGPU := flags.EmulatedVGPUMDEV
+			disableFakeVGPUDisplay(&vGPUs[0], usingFakeVGPU)
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -292,10 +315,13 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			// make sure that one mdev has display and ramfb on
-			By("Maiking sure that a boot display is enabled")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+
+			if !usingFakeVGPU {
+				// make sure that one mdev has display and ramfb on
+				By("Making sure that a boot display is enabled")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+			}
 		})
 		It("Should override default mdev configuration on a specific node", func() {
 			By("Determining the expected amount of mediated device instances used for the test")
@@ -306,7 +332,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			config.MediatedDevicesConfiguration.NodeMediatedDeviceTypes = []v1.NodeMediatedDeviceTypesConfig{
 				{
 					NodeSelector: map[string]string{
-						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)): mdevTestLabel,
+						cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): mdevTestLabel,
 					},
 					MediatedDeviceTypes: []string{
 						"nvidia-223",
@@ -318,7 +344,15 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
 			By("Adding a mdevTestLabel1 that should trigger mdev config change")
-			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
+			libnode.AddLabelToNode(testNodeName, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)), mdevTestLabel)
+
+			By("Waiting for updated mediated-device resource to appear on the labeled node")
+			Eventually(func() bool {
+				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), testNodeName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				qty, ok := node.Status.Allocatable[k8sv1.ResourceName(updatedDeviceName)]
+				return ok && qty.Sign() > 0
+			}, 2*time.Minute, 1*time.Second).Should(BeTrue(), "wait for kubelet to advertise updated mdev resource")
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -329,6 +363,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: updatedDeviceName,
 				},
 			}
+			disableFakeVGPUDisplay(&vGPUs[0], flags.EmulatedVGPUMDEV)
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -376,6 +411,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				ReadOnly:  false,
 				MountPath: "/sys",
 			})
+			testPod.Spec.NodeName = testNodeName
 			testPod, err = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
