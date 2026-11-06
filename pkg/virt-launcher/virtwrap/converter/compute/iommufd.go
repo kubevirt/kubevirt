@@ -36,11 +36,27 @@ func NewIOMMUFDConfigurator(iommufdEnabled bool) IOMMUFDConfigurator {
 }
 
 func (i IOMMUFDConfigurator) Configure(_ *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if i.iommufdEnabled {
-		domain.Spec.IOMMUFD = &api.IOMMUFD{
-			Enabled: "yes",
-			FDGroup: "iommu",
+	if !i.iommufdEnabled {
+		return nil
+	}
+
+	domain.Spec.IOMMUFD = &api.IOMMUFD{
+		Enabled: "yes",
+		FDGroup: "iommu",
+	}
+
+	for index := range domain.Spec.Devices.HostDevices {
+		hostDevice := &domain.Spec.Devices.HostDevices[index]
+		if hostDevice.Type != api.HostDevicePCI {
+			continue
 		}
+
+		// Explicitly select IOMMUFD for each PCI hostdev. This is required for
+		// hostdevs such as DRA devices that are supplied with managed="no".
+		if hostDevice.Driver == nil {
+			hostDevice.Driver = &api.HostDevDriver{}
+		}
+		hostDevice.Driver.Iommufd = "yes"
 	}
 
 	return nil
