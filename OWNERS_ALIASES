@@ -129,6 +129,7 @@ aliases:
     - dasionov
     - orelmisan
     - Aseeef
+    - jschintag
 
   # SIG Compute cgroup sub project
   # Owns cgroup related packages.
