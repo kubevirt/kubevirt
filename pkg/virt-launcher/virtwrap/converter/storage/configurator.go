@@ -208,10 +208,7 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 		disk.Serial = diskDevice.Serial
 		if diskDevice.Shareable != nil {
 			if *diskDevice.Shareable {
-				if diskDevice.Cache == "" {
-					diskDevice.Cache = v1.CacheNone
-				}
-				if diskDevice.Cache != v1.CacheNone && diskDevice.Cache != v1.CacheDirectSync {
+				if diskDevice.Cache != "" && diskDevice.Cache != v1.CacheNone && diskDevice.Cache != v1.CacheDirectSync {
 					return fmt.Errorf("a sharable disk requires cache mode none or directsync, got: %v", diskDevice.Cache)
 				}
 				disk.Shareable = &api.Shareable{}
