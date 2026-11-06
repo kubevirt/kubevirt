@@ -20,11 +20,15 @@
 package hostdevice_test
 
 import (
+	"bytes"
 	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
@@ -75,6 +79,43 @@ var _ = Describe("Address Pool", func() {
 			Expect(pool.Pop(resource0)).To(Equal(pciAddresses0))
 			Expect(pool.Pop(resource1)).To(Equal(pciAddresses1))
 		})
+	})
+
+	Context("missing resource variable warning", func() {
+		var logs bytes.Buffer
+
+		BeforeEach(func() {
+			logs.Reset()
+			log.Log.SetIOWriter(&logs)
+			DeferCleanup(func() {
+				log.Log.SetIOWriter(GinkgoWriter)
+			})
+		})
+
+		DescribeTable("should warn only when no sibling prefix advertises the resource",
+			func(poolPrefix string, env []envData, expectWarning bool) {
+				withEnvironmentContext(env, func() {
+					hostdevice.NewAddressPool(poolPrefix, []string{resource0})
+				})
+				if expectWarning {
+					Expect(logs.String()).To(ContainSubstring("not set for resource " + resource0))
+				} else {
+					Expect(logs.String()).ToNot(ContainSubstring("not set for resource"))
+				}
+			},
+			Entry("PCI pool, resource advertised as MDEV",
+				v1.PCIResourcePrefix, []envData{newResourceEnv(v1.MDevResourcePrefix, resource0, pciAddresses0)}, false),
+			Entry("MDEV pool, resource advertised as PCI",
+				v1.MDevResourcePrefix, []envData{newResourceEnv(v1.PCIResourcePrefix, resource0, pciAddresses0)}, false),
+			Entry("PCI pool, resource advertised under neither prefix",
+				v1.PCIResourcePrefix, nil, true),
+			Entry("MDEV pool, resource advertised under neither prefix",
+				v1.MDevResourcePrefix, nil, true),
+			Entry("USB pool has no sibling, even with the PCI variable set",
+				v1.USBResourcePrefix, []envData{newResourceEnv(v1.PCIResourcePrefix, resource0, pciAddresses0)}, true),
+			Entry("unknown prefix has no sibling",
+				resourcePrefix, nil, true),
+		)
 	})
 })
 
