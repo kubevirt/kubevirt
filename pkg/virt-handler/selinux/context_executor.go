@@ -106,7 +106,24 @@ func (ce *ContextExecutor) resetContext() error {
 
 func (ce *ContextExecutor) isSELinuxEnabled() bool {
 	_, selinuxEnabled, err := ce.executor.NewSELinux()
-	return err == nil && selinuxEnabled
+	if err != nil || !selinuxEnabled {
+		return false
+	}
+	// SELinux capability check to avoid false positives on partially-enabled systems.
+	// Some custom kernels may mount selinuxfs (so /sys/fs/selinux/enforce exists and
+	// virt-chroot getenforce reports enforcing/permissive) while the SELinux LSM is
+	// not actually enabled in the kernel cmdline. In that case getxattr on
+	// /proc/<pid>/attr/current returns EOPNOTSUPP, and proceeding with SELinux context
+	// switching would make getLabelForPID fail fatally, breaking VMI network setup and
+	// leaving virt-handler unable to complete its task.
+	// Generic fix: verify that the SELinux label of our own process can be read.
+	// If it cannot, SELinux is considered not functional and we degrade to no context
+	// switching, matching the behavior of the go-selinux non-SELinux stub.
+	if _, err := ce.getLabelForPID(os.Getpid()); err != nil {
+		log.Log.Warningf("SELinux detected but not functional, disabling SELinux context switching: %v", err)
+		return false
+	}
+	return true
 }
 
 func (ce *ContextExecutor) getLabelForPID(pid int) (string, error) {
