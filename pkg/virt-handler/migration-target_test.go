@@ -85,7 +85,7 @@ func decentralizedTargetAbortMigrationState(targetMigrationUID types.UID, target
 			VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
 				Node:                      sourceNode,
 				SyncAddress:               &syncAddress,
-				VirtualMachineInstanceUID: pointer.P(sourceVMIUID),
+				VirtualMachineInstanceUID: new(sourceVMIUID),
 			},
 		},
 		TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
@@ -492,7 +492,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
 			StartTimestamp: &startTimestamp,
-			EndTimestamp:   pointer.P(nowTimeStamp),
+			EndTimestamp:   new(nowTimeStamp),
 		}
 
 		addVMI(vmi, domain)
@@ -527,9 +527,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:                     "othernode",
 			MigrationUID:                   "123",
 			TargetNodeDomainDetected:       true,
-			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
-			StartTimestamp:                 pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:                   pointer.P(metav1.Now()),
+			TargetNodeDomainReadyTimestamp: new(metav1.Now()),
+			StartTimestamp:                 new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:                   new(metav1.Now()),
 		}
 
 		cpuTopology := &v1.CPU{
@@ -553,8 +553,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
-			StartTimestamp: pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:   pointer.P(metav1.Now()),
+			StartTimestamp: new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:   new(metav1.Now()),
 		}
 
 		addVMI(vmi, domain)
@@ -589,9 +589,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:                     "othernode",
 			MigrationUID:                   "123",
 			TargetNodeDomainDetected:       true,
-			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			TargetNodeDomainReadyTimestamp: new(metav1.Now()),
 			StartTimestamp:                 &pastTime,
-			EndTimestamp:                   pointer.P(metav1.Now()),
+			EndTimestamp:                   new(metav1.Now()),
 		}
 		cpuTopology := &v1.CPU{
 			Sockets: 1,
@@ -612,7 +612,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
 			StartTimestamp: &pastTime,
-			EndTimestamp:   pointer.P(metav1.Now()),
+			EndTimestamp:   new(metav1.Now()),
 		}
 
 		addVMI(vmi, domain)
@@ -646,9 +646,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:                     "othernode",
 			MigrationUID:                   "123",
 			TargetNodeDomainDetected:       true,
-			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
-			StartTimestamp:                 pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:                   pointer.P(metav1.Now()),
+			TargetNodeDomainReadyTimestamp: new(metav1.Now()),
+			StartTimestamp:                 new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:                   new(metav1.Now()),
 		}
 
 		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -656,8 +656,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
-			StartTimestamp: pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:   pointer.P(metav1.Now()),
+			StartTimestamp: new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:   new(metav1.Now()),
 		}
 
 		addVMI(vmi, domain)
@@ -689,9 +689,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:                     "othernode",
 			MigrationUID:                   "123",
 			TargetNodeDomainDetected:       true,
-			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
-			StartTimestamp:                 pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:                   pointer.P(metav1.Now()),
+			TargetNodeDomainReadyTimestamp: new(metav1.Now()),
+			StartTimestamp:                 new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:                   new(metav1.Now()),
 		}
 
 		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -699,8 +699,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
-			StartTimestamp: pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
-			EndTimestamp:   pointer.P(metav1.Now()),
+			StartTimestamp: new(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:   new(metav1.Now()),
 		}
 
 		addVMI(vmi, domain)
@@ -730,7 +730,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:   "othernode",
 			MigrationUID: "123",
 			Failed:       true,
-			EndTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp: new(metav1.Now()),
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1092,7 +1092,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:   "othernode",
 			MigrationUID: "123",
 			Failed:       true,
-			EndTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp: new(metav1.Now()),
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1125,7 +1125,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:   "othernode",
 			MigrationUID: "123",
 			Failed:       true,
-			EndTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp: new(metav1.Now()),
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1156,7 +1156,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			MigrationUID:             "123",
 			TargetNodeDomainDetected: true,
 			StartTimestamp:           &pastTime,
-			EndTimestamp:             pointer.P(metav1.Now()),
+			EndTimestamp:             new(metav1.Now()),
 			Completed:                true,
 		}
 
@@ -1165,7 +1165,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
 			StartTimestamp: &pastTime,
-			EndTimestamp:   pointer.P(metav1.Now()),
+			EndTimestamp:   new(metav1.Now()),
 		}
 
 		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
@@ -1191,7 +1191,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			MigrationUID: "123",
 			Failed:       true,
 			Completed:    true,
-			EndTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp: new(metav1.Now()),
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -1223,7 +1223,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			MigrationUID:             "123",
 			TargetNodeDomainDetected: true,
 			StartTimestamp:           &pastTime,
-			EndTimestamp:             pointer.P(metav1.Now()),
+			EndTimestamp:             new(metav1.Now()),
 			Completed:                true,
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)

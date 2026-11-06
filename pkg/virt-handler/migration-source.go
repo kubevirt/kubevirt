@@ -178,10 +178,7 @@ func (c *MigrationSourceController) hasTargetDetectedReadyDomain(vmi *v1.Virtual
 
 	timeLeft := int64(migrationTargetDelayTimeout) - diff
 
-	enqueueTime := timeLeft
-	if enqueueTime < 5 {
-		enqueueTime = 5
-	}
+	enqueueTime := max(timeLeft, 5)
 
 	// re-enqueue the key to ensure it gets processed again within the right time.
 	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(enqueueTime)*time.Second)
@@ -234,7 +231,7 @@ func (c *MigrationSourceController) failPostMigration(vmi *v1.VirtualMachineInst
 	vmi.Status.MigrationState.Completed = true
 	vmi.Status.MigrationState.Failed = true
 	if vmi.Status.MigrationState.EndTimestamp == nil {
-		vmi.Status.MigrationState.EndTimestamp = pointer.P(metav1.NewTime(time.Now()))
+		vmi.Status.MigrationState.EndTimestamp = new(metav1.NewTime(time.Now()))
 	}
 }
 
@@ -331,7 +328,7 @@ func (c *MigrationSourceController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -559,7 +556,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	// updated later the virt-handler.
 	// This check can be removed in future
 	if migrationConfiguration.AllowWorkloadDisruption == nil {
-		migrationConfiguration.AllowWorkloadDisruption = pointer.P(*migrationConfiguration.AllowPostCopy)
+		migrationConfiguration.AllowWorkloadDisruption = new(*migrationConfiguration.AllowPostCopy)
 	}
 	if migrationConfiguration.MaxDowntimeMs == nil {
 		migrationConfiguration.MaxDowntimeMs = pointer.P(virtconfig.DefaultMigrationMaxDowntimeMs)
@@ -593,7 +590,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 
 	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
 		if exp.Compression != nil {
-			options.Compression = pointer.P(string(*exp.Compression))
+			options.Compression = new(string(*exp.Compression))
 		}
 		if c.clusterConfig.MigrationDowntimeTuningEnabled() && exp.DowntimeTuning != nil {
 			options.DowntimeTuning = exp.DowntimeTuning
@@ -649,7 +646,7 @@ func (c *MigrationSourceController) processVMI(vmi *v1.VirtualMachineInstance, d
 	return c.migrateVMI(vmi, domain)
 }
 
-func (c *MigrationSourceController) addFunc(obj interface{}) {
+func (c *MigrationSourceController) addFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -657,14 +654,14 @@ func (c *MigrationSourceController) addFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationSourceController) deleteFunc(obj interface{}) {
+func (c *MigrationSourceController) deleteFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
 
-func (c *MigrationSourceController) updateFunc(_, new interface{}) {
+func (c *MigrationSourceController) updateFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -672,14 +669,14 @@ func (c *MigrationSourceController) updateFunc(_, new interface{}) {
 	}
 }
 
-func (c *MigrationSourceController) addDeleteDomainFunc(obj interface{}) {
+func (c *MigrationSourceController) addDeleteDomainFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
 
-func (c *MigrationSourceController) updateDomainFunc(_, new interface{}) {
+func (c *MigrationSourceController) updateDomainFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.queue.Add(key)
@@ -731,19 +728,19 @@ func applyStallDetectorDefaults(sd *v1.StallDetectorOptions) *v1.StallDetectorOp
 		sd.SwitchoverTimeout = pointer.P(virtconfig.DefaultSwitchoverTimeout)
 	}
 	if sd.EwmaAlpha == nil {
-		sd.EwmaAlpha = pointer.P(resource.MustParse(virtconfig.DefaultEwmaAlpha))
+		sd.EwmaAlpha = new(resource.MustParse(virtconfig.DefaultEwmaAlpha))
 	}
 	if sd.PrecopyPossibleFactor == nil {
-		sd.PrecopyPossibleFactor = pointer.P(resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor))
+		sd.PrecopyPossibleFactor = new(resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor))
 	}
 	if sd.PatienceWindowDecayFactor == nil {
-		sd.PatienceWindowDecayFactor = pointer.P(resource.MustParse(virtconfig.DefaultPatienceWindowDecayFactor))
+		sd.PatienceWindowDecayFactor = new(resource.MustParse(virtconfig.DefaultPatienceWindowDecayFactor))
 	}
 	if sd.SearchLocalMinima == nil {
 		sd.SearchLocalMinima = pointer.P(virtconfig.DefaultSearchLocalMinima)
 	}
 	if sd.CompletionTimeoutFactor == nil {
-		sd.CompletionTimeoutFactor = pointer.P(resource.MustParse(virtconfig.DefaultCompletionTimeoutFactor))
+		sd.CompletionTimeoutFactor = new(resource.MustParse(virtconfig.DefaultCompletionTimeoutFactor))
 	}
 	return sd
 }
@@ -759,5 +756,5 @@ func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *
 		return
 	}
 
-	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
+	options.ParallelMigrationThreads = new(parallelMultifdMigrationThreads)
 }
