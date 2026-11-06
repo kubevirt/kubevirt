@@ -1136,75 +1136,85 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 
-		It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(true)), flags.StartupTimeoutSecondsMedium())
-
-			By("Pausing the VMI")
-			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
-
-			By("Trying to console into the VMI")
-			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Trying to vnc into the VMI")
-			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VNC(vmi.Name, false)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:3090]should result in a difference in the uptime after pause", func() {
+		Context("with graphics device", Ordered, decorators.OncePerOrderedCleanup, func() {
 			const (
 				sleepTimeSeconds = 10
 				deviation        = 4
 			)
 
-			grepGuestUptime := func(vmi *v1.VirtualMachineInstance) float64 {
-				res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-					&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
-					&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
-				}, 15)
+			var (
+				vmi       *v1.VirtualMachineInstance
+				startTime time.Time
+			)
+
+			BeforeAll(func() {
+				startTime = time.Now()
+				By("Starting a Alpine VMI")
+				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
+					libvmi.WithAutoattachGraphicsDevice(true)),
+					flags.StartupTimeoutSecondsMedium())
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			})
+
+			It("[test_id:3090]should result in a difference in the uptime after pause", func() {
+				grepGuestUptime := func(vmi *v1.VirtualMachineInstance) float64 {
+					res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+						&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
+						&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
+					}, 15)
+					Expect(err).ToNot(HaveOccurred())
+					re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
+					guestUptime, err := strconv.ParseFloat(strings.TrimSpace(re.FindString(res[0].Match[0])), 64)
+					Expect(err).ToNot(HaveOccurred(), "should be able to parse uptime to float")
+					return guestUptime
+				}
+
+				hostUptime := func(startTime time.Time) float64 {
+					return time.Since(startTime).Seconds()
+				}
+
+				By("checking uptime difference between guest and host")
+				uptimeDiffBeforePausing := hostUptime(startTime) - grepGuestUptime(vmi)
+
+				By("Pausing the VMI")
+				err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
-				guestUptime, err := strconv.ParseFloat(strings.TrimSpace(re.FindString(res[0].Match[0])), 64)
-				Expect(err).ToNot(HaveOccurred(), "should be able to parse uptime to float")
-				return guestUptime
-			}
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+				time.Sleep(sleepTimeSeconds * time.Second) // sleep to increase uptime diff
 
-			hostUptime := func(startTime time.Time) float64 {
-				return time.Since(startTime).Seconds()
-			}
-			startTime := time.Now()
-			By("Starting a Alpine VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), flags.StartupTimeoutSecondsMedium())
+				By("Unpausing the VMI")
+				err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
-			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				By("Verifying VMI was indeed Paused")
+				uptimeDiffAfterPausing := hostUptime(startTime) - grepGuestUptime(vmi)
 
-			By("checking uptime difference between guest and host")
-			uptimeDiffBeforePausing := hostUptime(startTime) - grepGuestUptime(vmi)
+				// We subtract from the sleep time the deviation due to the low resolution of `uptime` (seconds).
+				// If you capture the uptime when it is at the beginning of that second or at the end of that second,
+				// the value comes out the same even though in fact a whole second has almost passed.
+				// In extreme cases, as we take 4 readings (2 initially and 2 after the unpause), the deviation could be up to just under 4 seconds.
+				// This fact does not invalidate the purpose of the test, which is to prove that during the pause the vmi is actually paused.
+				Expect(uptimeDiffAfterPausing-uptimeDiffBeforePausing).To(BeNumerically(">=", sleepTimeSeconds-deviation), fmt.Sprintf("guest should be paused for at least %d seconds", sleepTimeSeconds-deviation))
+			})
 
-			By("Pausing the VMI")
-			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
-			time.Sleep(sleepTimeSeconds * time.Second) // sleep to increase uptime diff
+			It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
+				By("Pausing the VMI")
+				err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 
-			By("Unpausing the VMI")
-			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+				By("Trying to console into the VMI")
+				_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				Expect(err).ToNot(HaveOccurred())
 
-			By("Verifying VMI was indeed Paused")
-			uptimeDiffAfterPausing := hostUptime(startTime) - grepGuestUptime(vmi)
-
-			// We subtract from the sleep time the deviation due to the low resolution of `uptime` (seconds).
-			// If you capture the uptime when it is at the beginning of that second or at the end of that second,
-			// the value comes out the same even though in fact a whole second has almost passed.
-			// In extreme cases, as we take 4 readings (2 initially and 2 after the unpause), the deviation could be up to just under 4 seconds.
-			// This fact does not invalidate the purpose of the test, which is to prove that during the pause the vmi is actually paused.
-			Expect(uptimeDiffAfterPausing-uptimeDiffBeforePausing).To(BeNumerically(">=", sleepTimeSeconds-deviation), fmt.Sprintf("guest should be paused for at least %d seconds", sleepTimeSeconds-deviation))
+				By("Trying to vnc into the VMI")
+				_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VNC(vmi.Name, false)
+				Expect(err).ToNot(HaveOccurred())
+			})
 		})
 	})
 
