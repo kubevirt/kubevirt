@@ -17945,7 +17945,7 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref common.R
 					},
 					"ttlDuration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a reasonable default is applied.",
+							Description: "TTLDuration limits the lifetime of an in-progress backup and its associated export. It applies to both push and pull mode backups. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a 2h default is applied to both modes.",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},
@@ -18556,7 +18556,7 @@ func schema_kubevirtio_api_backup_v1beta1_VirtualMachineBackupSpec(ref common.Re
 					},
 					"ttlDuration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TTLDuration limits the lifetime of a pull mode backup and its export. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a reasonable default is applied.",
+							Description: "TTLDuration limits the lifetime of an in-progress backup and its associated export. It applies to both push and pull mode backups. When set, an in-progress backup past this duration (counting from CreationTimestamp) is cancelled and marked as Failed. Deleting the VirtualMachineBackup after a successful client pull still finalizes the backup as Complete. When omitted, a 2h default is applied to both modes.",
 							Ref:         ref(metav1.Duration{}.OpenAPIModelName()),
 						},
 					},

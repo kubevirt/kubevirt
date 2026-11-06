@@ -62,6 +62,13 @@ func (ctrl *VMBackupController) reconcileOffline(backup *backupv1.VirtualMachine
 	if backup.Status.StartTimestamp == nil {
 		return ctrl.startOfflineBackup(backup, vm, backupTracker)
 	}
+	if isBackupTTLExpired(backup) {
+		if err := ctrl.cleanupBackupExportAndWait(backup); err != nil {
+			return err
+		}
+		ctrl.setFailed(backup, backupv1.ReasonFailed, backupTTLExpiredMsg)
+		return nil
+	}
 	if backup.IsPushMode() {
 		return ctrl.reconcileOfflinePush(backup, backupTracker)
 	}
@@ -235,14 +242,6 @@ func (ctrl *VMBackupController) waitForExporterPodGone(backup *backupv1.VirtualM
 }
 
 func (ctrl *VMBackupController) reconcileOfflinePull(backup *backupv1.VirtualMachineBackup, backupTracker *backupv1.VirtualMachineBackupTracker) error {
-	if isPullBackupTTLExpired(backup) {
-		if err := ctrl.cleanupBackupExportAndWait(backup); err != nil {
-			return err
-		}
-		ctrl.setFailed(backup, backupv1.ReasonFailed, backupTTLExpiredMsg)
-		return nil
-	}
-
 	vmExport, err := ctrl.getOrCreateBackupExport(backup)
 	if err != nil {
 		return err
