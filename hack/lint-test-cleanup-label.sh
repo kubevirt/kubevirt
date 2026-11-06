@@ -26,6 +26,7 @@ EXCLUDE_PATTERN="./decorators/decorators.go|\
 ./tests/vnc_test.go|\
 ./tests/infrastructure/prometheus.go|\
 ./tests/compute/console.go|\
+./tests/vmi_lifecycle_test.go|\
 ./tests/storage/export.go"
 
 if grep -rl 'OncePerOrderedCleanup' ./tests --include=*.go |
