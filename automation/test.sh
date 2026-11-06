@@ -416,11 +416,11 @@ cat >>ci.bazelrc <<EOF
 build --jobs=4
 build --noshow_progress
 EOF
-# Use --remote_download_toplevel for bandwidth savings, but skip it when
+# Use --remote_download_minimal for maximum bandwidth savings, but skip it when
 # RPMs change since novel OCI image action hashes need their transitive
 # inputs downloaded to build locally.
 if [[ -z "${RPM_CHANGES:-}" ]]; then
-    echo "build --remote_download_toplevel" >>ci.bazelrc
+    echo "build --remote_download_minimal" >>ci.bazelrc
 fi
 
 echo "=== ci.bazelrc ==="
