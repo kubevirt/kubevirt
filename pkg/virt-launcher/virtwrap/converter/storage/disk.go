@@ -85,7 +85,7 @@ func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	return nil
 }
 
-func convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc) error {
+func convertV1BlockSizeToAPIBlockIO(source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -225,6 +225,9 @@ func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
 	if err := unix.Statfs(path, &statfs); err != nil {
 		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
 	}
+	if statfs.Bsize < 0 {
+		return nil, fmt.Errorf("invalid block size %d for file %v", statfs.Bsize, path)
+	}
 	blockSize := uint(statfs.Bsize)
 	return &api.BlockIO{
 		LogicalBlockSize:   blockSize,
@@ -247,7 +250,7 @@ func (n *deviceNamer) getExistingTargetValue(key string) (string, bool) {
 	return "", false
 }
 
-func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]deviceNamer) (string, int) {
+func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]deviceNamer) (name string, index int) {
 	prefix := getPrefixFromBus(bus)
 	if _, ok := prefixMap[prefix]; !ok {
 		// This should never happen since the prefix map is populated from all disks.
@@ -256,8 +259,8 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 			usedDeviceMap:   make(map[string]string),
 		}
 	}
-	deviceNamer := prefixMap[prefix]
-	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
+	namer := prefixMap[prefix]
+	if name, ok := namer.getExistingVolumeValue(diskName); ok {
 		for i := range 26 * 26 * 26 {
 			calculatedName := formatDeviceName(prefix, i)
 			if calculatedName == name {
@@ -270,9 +273,9 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 	// Name not found yet, generate next new one.
 	for i := range 26 * 26 * 26 {
 		name := formatDeviceName(prefix, i)
-		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
-			deviceNamer.existingNameMap[diskName] = name
-			deviceNamer.usedDeviceMap[name] = diskName
+		if _, ok := namer.getExistingTargetValue(name); !ok {
+			namer.existingNameMap[diskName] = name
+			namer.usedDeviceMap[name] = diskName
 			return name, i
 		}
 	}
@@ -340,7 +343,14 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, ioThreadPool *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint, useSupplementalPool bool) (uint, uint) {
+func assignDiskIOThread(
+	disk *v1.Disk,
+	apiDisk *api.Disk,
+	ioThreadPool *api.DiskIOThreads,
+	autoThreads int,
+	currentDedicatedThread, currentAutoThread uint,
+	useSupplementalPool bool,
+) (dedicatedThread, autoThread uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
 		// if using supplementalPool, always assign the entire pool
 		if useSupplementalPool {
