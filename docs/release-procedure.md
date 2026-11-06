@@ -2,6 +2,8 @@
 
 This document describes the technical procedure for cutting releases.
 Refer to [release.md](release.md) in order to learn about the high-level release process.
+For security-related patch releases, see [security-release-process.md](security-release-process.md),
+which describes the expedited process for embargo handling and disclosure-day release cutting.
 
 # Creating Releases
 
@@ -104,6 +106,12 @@ The release process is mostly automatic and consists of the following steps:
    the release notes already present on the release's description in github.
 
 ## Creating New Patch Releases
+
+> **Note**
+> For security patch releases that must be cut on an expedited timeline (e.g.,
+> on disclosure day after a CVE embargo lifts), follow the checklist in
+> [security-release-process.md](security-release-process.md) instead of the
+> standard process below.
 
 Releases on the stable branch only increment the patch level.
 The release itself is only a git signed tag as it's used for minor releases as well.
