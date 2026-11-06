@@ -2217,18 +2217,22 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 
 		Context("with migration compression", Serial, func() {
-			It("should migrate with zstd compression and confirm via API and logs", func() {
+			DescribeTable("should report migration progress without a compression ratio", func(compression v1.MigrationCompression) {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
-				By("Creating a migration policy with compression enabled")
+				By("Creating a migration policy with limited bandwidth and the selected compression method")
 				policy := GeneratePolicyAndAlignVMI(vmi)
+				policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("1Mi"))
 				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
-					Compression: pointer.P(v1.MigrationCompressionZstd),
+					Compression: pointer.P(compression),
 				}
 				policy = CreateMigrationPolicy(virtClient, policy)
 
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+				By("Checking that the guest has booted before migrating")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2241,16 +2245,40 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
 				Expect(*vmi.Status.MigrationState.MigrationPolicyName).To(Equal(policy.Name))
 
-				By("Verifying compression is set in the migration configuration")
+				By("Verifying the selected compression method is set in the migration configuration")
 				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
 				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions).ToNot(BeNil())
 				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
-				Expect(*vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
+				Expect(*vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).To(Equal(compression))
 
-				By("Verifying compression was applied via launcher logs")
-				logs := getSourceLauncherLogs(virtClient, vmi)
-				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
-			})
+				By("Waiting for migration progress to be reported in the source launcher logs")
+				migrationInfoPrefix := fmt.Sprintf("Migration info for %s:", migration.UID)
+				var logs string
+				Eventually(func() string {
+					logs = getSourceLauncherLogs(virtClient, vmi)
+					return logs
+				}, 30*time.Second, time.Second).Should(ContainSubstring(migrationInfoPrefix))
+
+				By("Verifying migration progress retains raw counters without an inferred compression ratio")
+				for _, line := range strings.Split(logs, "\n") {
+					if !strings.Contains(line, migrationInfoPrefix) {
+						continue
+					}
+					Expect(line).To(ContainSubstring("DataProcessed:"))
+					Expect(line).To(ContainSubstring("NormalData:"))
+					Expect(line).NotTo(ContainSubstring("CompressionRatio:"))
+				}
+
+				By("Verifying compression selection through the explicit launcher log")
+				if compression == v1.MigrationCompressionZstd {
+					Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				} else {
+					Expect(logs).NotTo(ContainSubstring("Migration compression enabled:"))
+				}
+			},
+				Entry("with compression disabled", v1.MigrationCompressionNone),
+				Entry("with zstd compression enabled", v1.MigrationCompressionZstd),
+			)
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
