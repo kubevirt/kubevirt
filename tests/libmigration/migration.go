@@ -582,3 +582,12 @@ func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMa
 		return ""
 	}, timeout, 1*time.Second).Should(Equal(expectedMode))
 }
+
+func ExpectMigrationAbortStatusToBe(migration *v1.VirtualMachineInstanceMigration, expectedStatus v1.MigrationAbortStatus, timeout time.Duration) {
+	By(fmt.Sprintf("Verifying migration abort status is %s", expectedStatus))
+	EventuallyWithOffset(1, matcher.ThisMigration(migration), timeout, time.Second).
+		Should(HaveField("Status.MigrationState", And(
+			Not(BeNil()),
+			HaveField("AbortStatus", Equal(expectedStatus)),
+		)))
+}

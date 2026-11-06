@@ -670,6 +670,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
 
+		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
 		if m.allowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
 			logger.Info("completion timeout reached: starting post-copy mode to force convergence")
 			if err := dom.MigrateStartPostCopy(0); err != nil {
@@ -679,9 +680,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 			sd.switchoverInitiated = true
 			return
-		}
-		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
-		if m.options.AllowWorkloadDisruption && completable {
+		} else if m.options.AllowWorkloadDisruption && completable {
 			logger.Infof("completion timeout reached: setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
 			if err := dom.MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, 0); err != nil {
 				logger.Reason(err).Error("setting max downtime failed")
@@ -691,11 +690,18 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 			m.switchOverDeadline = elapsedSeconds + switchoverTimeout
 			sd.switchoverInitiated = true
 			return
+		} else {
+			completionTimeoutFactor := m.options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64()
+			logger.Infof("aborting migration due to completion timeout: "+
+				"total migration time expected to exceed deadline by a factor of more than %.2f (elapsedSec=%d acceptableCompletionSec=%d estimatedDowntimeMs=%d)",
+				completionTimeoutFactor, elapsedSeconds, m.acceptableCompletionTime, estimatedDowntimeMs)
 		}
 
+	} else {
+		logger.Infof("aborting migration due to completion timeout: "+
+			"VM took too long to finish migrating even after forced switchover (elapsedSec=%d acceptableCompletionSec=%d)", elapsedSeconds, m.acceptableCompletionTime)
 	}
 
-	logger.Infof("aborting migration due to completion timeout: elapsedSec=%d acceptableCompletionSec=%d", elapsedSeconds, m.acceptableCompletionTime)
 	m.l.cancelMigration(m.vmi)
 }
 
