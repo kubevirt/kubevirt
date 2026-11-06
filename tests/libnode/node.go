@@ -300,6 +300,22 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 	return nodeList
 }
 
+// GetSchedulableNodeWithCPUManager selects a node for CPU pinning tests.
+func GetSchedulableNodeWithCPUManager(virtClient kubecli.KubevirtClient) (*k8sv1.Node, error) {
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=true,%s=true", v1.NodeSchedulable, v1.CPUManager),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list schedulable nodes with CPU manager enabled: %w", err)
+	}
+	for i := range nodes.Items {
+		if !nodes.Items[i].Spec.Unschedulable {
+			return &nodes.Items[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no schedulable node with CPU manager enabled")
+}
+
 func GetNodeNameWithHandler() string {
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient := kubevirt.Client()
