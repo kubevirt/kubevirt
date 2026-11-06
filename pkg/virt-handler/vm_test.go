@@ -35,6 +35,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -332,6 +334,27 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().DeleteDomain(libvmi.New(libvmi.WithName("testvmi"), libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			sanityExecuteNoDomain()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
+		})
+
+		It("should perform the final cleanup of a migrated domain when the exiting launcher returns Unavailable on delete", func() {
+			vmi := NewRunningVMI(vmiTestUUID, podTestUUID, host)
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+			addVMI(vmi, domain)
+
+			netConf := controller.netConf.(*netConfStub)
+			netConf.vmiUID = vmiTestUUID
+
+			client.EXPECT().DeleteDomain(gomock.Any()).Return(status.Error(codes.Unavailable, "error reading from server: EOF"))
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+
+			testutils.ExpectEvent(recorder, VMISignalDeletion)
+			Expect(netConf.vmiUID).To(BeEmpty())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
 
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
