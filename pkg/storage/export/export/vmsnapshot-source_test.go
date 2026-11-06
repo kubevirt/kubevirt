@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -250,6 +251,9 @@ var _ = Describe("VMSnapshot source", func() {
 						PersistentVolumeClaim: snapshotv1.PersistentVolumeClaim{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "test-snapshot",
+								Labels: map[string]string{
+									backendstorage.PVCPrefix: "test-vm",
+								},
 							},
 							Spec: k8sv1.PersistentVolumeClaimSpec{
 								Resources: k8sv1.VolumeResourceRequirements{
@@ -473,6 +477,7 @@ var _ = Describe("VMSnapshot source", func() {
 				Kind:     "VolumeSnapshot",
 				Name:     testVolumesnapshotName,
 			}))
+			Expect(pvc.Labels).NotTo(HaveKey(backendstorage.PVCPrefix))
 			By("Ensuring the PVC is owned by the vmExport")
 			Expect(pvc.OwnerReferences).To(HaveLen(1))
 			Expect(pvc.OwnerReferences[0]).To(Equal(metav1.OwnerReference{
