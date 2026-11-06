@@ -204,7 +204,7 @@ func createFakeBatchRunningVMWithKWOK(virtClient kubecli.KubevirtClient, vmCount
 
 func newFakeVMISpecWithResources() *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithMemoryRequest("90Mi"),
 		libvmi.WithMemoryLimit("90Mi"),

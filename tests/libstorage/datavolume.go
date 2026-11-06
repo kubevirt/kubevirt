@@ -218,7 +218,7 @@ func renderVMI(ns string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 		// This default can be optimized further to 128Mi on certain setups
 		libvmi.WithMemoryRequest("256Mi"),
 		libvmi.WithNamespace(ns),
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	}
 	return libvmi.New(append(defaultOptions, opts...)...)

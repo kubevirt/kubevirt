@@ -50,7 +50,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create VMI with missing disk target
 			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("8192Ki"),
 				libvmi.WithContainerDisk("testdisk", "dummy"),
@@ -80,7 +80,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 		BeforeEach(func() {
 			// create VMI with missing disk target
 			vmi = libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 			)

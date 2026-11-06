@@ -79,8 +79,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = libvmifact.NewAlpine(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		vmi = libvmifact.NewAlpine(libvmi.WithInterface(
+			libvmi.NewInterface("default", libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithTerminationGracePeriod(30),
 		)
