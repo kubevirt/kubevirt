@@ -59,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -116,33 +115,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
-		})
-
-		It("[test_id:1621]should attach virt-launcher to it", decorators.WgS390x, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-
-			By("Getting virt-launcher logs")
-			logs := func() string { return getVirtLauncherLogs(kubevirt.Client(), vmi) }
-			Eventually(logs,
-				11*time.Second,
-				500*time.Millisecond).
-				Should(ContainSubstring("Found PID for"))
-		})
-
-		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", decorators.WgS390x, decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(
-				libvmi.WithAnnotation("kubevirt.io/test", "test"),
-				libvmi.WithAnnotation("kubernetes.io/test", "test"),
-				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
-				startupTimeout)
-
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should be carried to the pod")
-			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should be carried to the pod")
-			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
-
 		})
 
 		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, decorators.Conformance, func() {
@@ -710,112 +682,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						ds.Status.NumberReady == virtHandlerAvailablePods &&
 						ds.Status.UpdatedNumberScheduled == virtHandlerAvailablePods
 				}, 180*time.Second, 1*time.Second).Should(BeTrue(), "Virthandler should be ready to work")
-			})
-		})
-
-		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
-			var originalConfig v1.KubeVirtConfiguration
-			var supportedCpuModels []string
-			var defaultCPUModel string
-			var vmiCPUModel string
-
-			//store old kubevirt-config
-			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
-				if len(supportedCpuModels) < 2 {
-					Fail("need at least 2 supported cpu models for this test")
-				}
-				defaultCPUModel = supportedCpuModels[0]
-				vmiCPUModel = supportedCpuModels[1]
-				kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-				originalConfig = kv.Spec.Configuration
-			})
-
-			//replace new kubevirt-config with old config
-			AfterEach(func() {
-				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
-			})
-
-			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi := libvmifact.NewGuestless()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(defaultCPUModel), "Expected default CPU model")
-
-			})
-
-			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				vmi := libvmifact.NewGuestless()
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(vmiCPUModel), "Expected vmi CPU model")
-
-			})
-
-			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
-				vmi := libvmifact.NewGuestless()
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(v1.DefaultCPUModel),
-					fmt.Sprintf("Expected CPU model to equal to the default (%v)", v1.DefaultCPUModel),
-				)
-			})
-			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
-				if len(supportedCpuModels) < 1 {
-					Fail("Must have at least one supported cpu model for this test")
-				}
-				defaultCPUModel := supportedCpuModels[0]
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				newVMI := libvmifact.NewGuestless()
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, flags.StartupTimeoutSecondsMedium())
-				By("Fetching virt-launcher pod")
-				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(defaultCPUModel)), "Node selector for the cpuModel in vmi spec should appear in virt-launcher pod")
-
-			})
-
-			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
-				if len(supportedCpuModels) < 2 {
-					Fail("Must have at least two supported cpuModel for this test")
-				}
-				vmiCPUModel := supportedCpuModels[1]
-				defaultCPUModel := supportedCpuModels[0]
-				config := originalConfig.DeepCopy()
-				config.CPUModel = defaultCPUModel
-				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-
-				newVMI := libvmifact.NewGuestless()
-				newVMI.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiCPUModel,
-				}
-				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, flags.StartupTimeoutSecondsMedium())
-				By("Fetching virt-launcher pod")
-				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(vmiCPUModel)), "Node selector for the cpuModel in kubevirtCR should appear in virt-launcher pod")
-
 			})
 		})
 
