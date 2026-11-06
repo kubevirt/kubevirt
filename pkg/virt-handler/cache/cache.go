@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -242,22 +245,37 @@ type domainListWatch struct {
 func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
+	return NewSharedInformerWithAuth(virtShareDir, watchdogTimeoutSeconds, recorder, vmiStore, resyncPeriod, nil)
+}
+
+// NewSharedInformerWithAuth creates a domain SharedInformer that
+// authenticates virt-launcher sockets during the initial List and during
+// resync using projected SA tokens and the TokenReview API.
+// authClient may be nil to skip authentication (backwards compatible).
+func NewSharedInformerWithAuth(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration, authClient kubernetes.Interface) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
+	listFunc := func(ctx context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+		return domainList(ctx, authClient, vmiStore)
+	}
 	lw := domainListWatch{&cache.ListWatch{
-		ListWithContextFunc: List,
+		ListWithContextFunc: listFunc,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails), nil
+			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails, authClient, vmiStore), nil
 		},
 	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
 
-func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+func List(ctx context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+	return domainList(ctx, nil, nil)
+}
+
+func domainList(ctx context.Context, authClient kubernetes.Interface, vmiStore cache.Store) (runtime.Object, error) {
 	log.Log.V(3).Info("Synchronizing domains")
-	domains := listAllKnownDomains()
+	domains := listKnownDomains(ctx, authClient, vmiStore)
 	list := api.DomainList{
 		Items: []api.Domain{},
 	}
@@ -268,15 +286,50 @@ func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 }
 
 func listAllKnownDomains() []*api.Domain {
+	return listKnownDomains(context.Background(), nil, nil)
+}
+
+// listKnownDomains enumerates ghost records. When authClient is set, a
+// socket that still exists must authenticate before GetDomain. A missing
+// socket file is reported as a deletion-marked domain without dialing,
+// because there is no peer to authenticate.
+func listKnownDomains(ctx context.Context, authClient kubernetes.Interface, vmiStore cache.Store) []*api.Domain {
 	var domains []*api.Domain
 
-	ghostRecords := (GhostRecordGlobalStore.list())
-	for _, record := range ghostRecords {
+	for _, record := range GhostRecordGlobalStore.list() {
+		if authClient != nil {
+			exists, err := diskutils.FileExists(record.SocketFile)
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to check launcher socket %s", record.SocketFile)
+				continue
+			}
+			if exists {
+				if err := AuthenticateSocket(ctx, authClient, record.SocketFile, activePodsForGhostRecord(vmiStore, record)); err != nil {
+					log.Log.Reason(err).Errorf("launcher authentication failed for socket %s during domain list, skipping", record.SocketFile)
+					continue
+				}
+			}
+		}
 		if domain := getDomainFromRecord(record); domain != nil {
 			domains = append(domains, domain)
 		}
 	}
 	return domains
+}
+
+func activePodsForGhostRecord(vmiStore cache.Store, record ghostRecord) map[types.UID]string {
+	if vmiStore == nil {
+		return nil
+	}
+	obj, exists, err := vmiStore.GetByKey(record.Namespace + "/" + record.Name)
+	if err != nil || !exists {
+		return nil
+	}
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	if !ok {
+		return nil
+	}
+	return vmi.Status.ActivePods
 }
 
 func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {

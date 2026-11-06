@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -32,9 +33,16 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
+
+	authv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 
+	cmdauth "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/auth"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
@@ -122,6 +130,7 @@ var _ = Describe("Domain Watcher", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil, nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
@@ -476,6 +485,246 @@ var _ = Describe("Domain Watcher", func() {
 		})
 	})
 
+	Context("podUIDFromSocketPath", func() {
+		It("should extract the pod UID from a standard socket path", func() {
+			uid, err := podUIDFromSocketPath("/pods/abc-123-def/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("abc-123-def"))
+		})
+
+		It("should extract the pod UID when there are leading path segments", func() {
+			uid, err := podUIDFromSocketPath("/var/lib/kubelet/pods/real-uid-456/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("real-uid-456"))
+		})
+
+		It("should fail when path has no /volumes/ segment", func() {
+			_, err := podUIDFromSocketPath("/some/random/path/launcher-sock")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("/volumes/"))
+		})
+	})
+
+	Context("podUIDFromTokenReview", func() {
+		It("should extract the pod UID from the extra claims", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"pod-uid-789"},
+						},
+					},
+				},
+			}
+			uid, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("pod-uid-789"))
+		})
+
+		It("should fail when pod UID claim is missing", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not present"))
+		})
+
+		It("should fail when pod UID claim is empty", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {""},
+						},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("empty"))
+		})
+
+		It("should fail when Extra map is nil", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("pod UID mismatch detection", func() {
+		It("should detect when token pod UID does not match socket path", func() {
+			socketPath := "/pods/legitimate-pod-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"attacker-pod-uid"},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).ToNot(Equal(socketUID),
+				"a token from an attacker pod must not match the socket's pod UID")
+		})
+
+		It("should succeed when token pod UID matches socket path", func() {
+			podUID := "matching-pod-uid-abc"
+			socketPath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", podUID)
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {podUID},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).To(Equal(socketUID))
+		})
+	})
+
+	Context("AuthenticateSocket", func() {
+		const launcherUID = "launcher-pod-uid-123"
+		const rogueUID = "rogue-pod-uid-456"
+
+		var (
+			ctx        context.Context
+			cancel     context.CancelFunc
+			socketPath string
+			activePods map[types.UID]string
+		)
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			socketPath = launcherSocketPath(launcherUID)
+			activePods = map[types.UID]string{types.UID(launcherUID): "node-1"}
+		})
+
+		AfterEach(func() {
+			cancel()
+		})
+
+		It("should authenticate a launcher that serves a valid, pod-bound token", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			Expect(AuthenticateSocket(ctx, client, socketPath, activePods)).To(Succeed())
+		})
+
+		It("should be a no-op when the k8s client is nil, so the feature gate stays off", func() {
+			Expect(AuthenticateSocket(ctx, nil, socketPath, nil)).To(Succeed())
+		})
+
+		It("should reject a launcher whose token TokenReview does not authenticate", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "bogus-token"})
+			review := authenticatedReview(launcherUID, cmdauth.Audience)
+			review.Status.Authenticated = false
+
+			err := AuthenticateSocket(ctx, clientReturning(review), socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("not authenticated")))
+		})
+
+		It("should reject a token granted a different audience", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "wrong-audience-token"})
+			client := clientReturning(authenticatedReview(launcherUID, "https://kubernetes.default.svc"))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("audience")))
+		})
+
+		It("should reject a token bound to a different pod than the socket path", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "other-pod-token"})
+			client := clientReturning(authenticatedReview("some-other-pod-uid", cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("pod UID mismatch")))
+		})
+
+		It("should reject a token that carries no pod UID", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "not-pod-bound"})
+			review := authenticatedReview(launcherUID, cmdauth.Audience)
+			review.Status.User.Extra = nil
+
+			err := AuthenticateSocket(ctx, clientReturning(review), socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("pod identity")))
+		})
+
+		It("should reject a pod that is not in the VMI's ActivePods", func() {
+			rogueSocket := launcherSocketPath(rogueUID)
+			serveCmdAuth(ctx, rogueSocket, &fakeAuthServer{token: "rogue-but-valid-token"})
+			client := clientReturning(authenticatedReview(rogueUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, rogueSocket, activePods)
+			Expect(err).To(MatchError(ContainSubstring("not in VMI ActivePods")))
+		})
+
+		// A nil map means the caller could not resolve the owning VMI. Skipping
+		// the check there would let a pod with a valid token of its own pass.
+		It("should fail closed when ActivePods is nil", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, nil)
+			Expect(err).To(MatchError(ContainSubstring("no ActivePods")))
+		})
+
+		It("should fail closed when ActivePods is empty", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, map[types.UID]string{})
+			Expect(err).To(MatchError(ContainSubstring("no ActivePods")))
+		})
+
+		// There is no fallback for launchers predating CmdAuth: an
+		// authentication check a peer can decline is not a check.
+		It("should reject a peer that does not serve CmdAuth, even if it is in ActivePods", func() {
+			serveNothing(ctx, socketPath)
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("Authenticate RPC")))
+		})
+
+		It("should authenticate both launchers during a live migration", func() {
+			const targetUID = "target-pod-uid"
+			migrationPods := map[types.UID]string{
+				types.UID(launcherUID): "node-1",
+				types.UID(targetUID):   "node-2",
+			}
+
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "source-token"})
+			Expect(AuthenticateSocket(ctx, clientReturning(authenticatedReview(launcherUID, cmdauth.Audience)),
+				socketPath, migrationPods)).To(Succeed())
+
+			targetSocket := launcherSocketPath(targetUID)
+			serveCmdAuth(ctx, targetSocket, &fakeAuthServer{token: "target-token"})
+			Expect(AuthenticateSocket(ctx, clientReturning(authenticatedReview(targetUID, cmdauth.Audience)),
+				targetSocket, migrationPods)).To(Succeed())
+		})
+	})
+
 })
 
 // connCountingListener counts the connections it accepted and how many of
@@ -517,4 +766,84 @@ func runConnCountingCmdServer(socketPath string, domainManager virtwrap.DomainMa
 	go func() { _ = server.Serve(counting) }()
 	DeferCleanup(server.Stop)
 	return counting
+}
+
+// fakeAuthServer stands in for the CmdAuth service on virt-launcher.
+type fakeAuthServer struct {
+	token string
+	err   error
+}
+
+func (f *fakeAuthServer) Authenticate(_ context.Context, _ *cmdauth.AuthRequest) (*cmdauth.AuthResponse, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &cmdauth.AuthResponse{Token: f.token}, nil
+}
+
+// launcherSocketPath builds a path shaped like a real launcher socket, so
+// that podUIDFromSocketPath can recover the pod UID from it. The temp dir is
+// kept short because unix socket paths are limited to ~107 bytes.
+func launcherSocketPath(podUID string) string {
+	base, err := os.MkdirTemp("", "ls")
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { os.RemoveAll(base) })
+
+	dir := filepath.Join(base, podUID, "volumes", "sockets")
+	Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+	return filepath.Join(dir, "launcher-sock")
+}
+
+// serveCmdAuth starts a gRPC server on socketPath with the CmdAuth service
+// registered. serveNothing starts one without it, which is how a launcher
+// predating this feature behaves.
+func serveCmdAuth(ctx context.Context, socketPath string, impl cmdauth.CmdAuthServer) {
+	server := grpc.NewServer()
+	cmdauth.RegisterCmdAuthServer(server, impl)
+	startGRPC(ctx, server, socketPath)
+}
+
+func serveNothing(ctx context.Context, socketPath string) {
+	startGRPC(ctx, grpc.NewServer(), socketPath)
+}
+
+func startGRPC(ctx context.Context, server *grpc.Server, socketPath string) {
+	listener, err := net.Listen("unix", socketPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		_ = server.Serve(listener)
+	}()
+	go func() {
+		<-ctx.Done()
+		server.Stop()
+	}()
+	DeferCleanup(server.Stop)
+}
+
+// authenticatedReview is the TokenReview response the API server returns for
+// a valid, pod-bound projected ServiceAccount token.
+func authenticatedReview(podUID string, audiences ...string) *authv1.TokenReview {
+	return &authv1.TokenReview{
+		Status: authv1.TokenReviewStatus{
+			Authenticated: true,
+			Audiences:     audiences,
+			User: authv1.UserInfo{
+				Username: "system:serviceaccount:default:default",
+				Extra: map[string]authv1.ExtraValue{
+					tokenReviewPodUIDKey: {podUID},
+				},
+			},
+		},
+	}
+}
+
+func clientReturning(review *authv1.TokenReview) kubernetes.Interface {
+	client := fake.NewSimpleClientset()
+	client.Fake.PrependReactor("create", "tokenreviews",
+		func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, review, nil
+		})
+	return client
 }
