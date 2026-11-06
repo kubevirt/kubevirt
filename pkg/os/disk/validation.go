@@ -3,6 +3,7 @@ package disk
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"kubevirt.io/client-go/log"
@@ -10,6 +11,9 @@ import (
 
 const (
 	DiskSourceFallbackPath = "/disk"
+
+	// rawSectorSize is the sector size QEMU uses to address raw disks.
+	rawSectorSize = 512
 )
 
 func VerifyQCOW2(diskInfo *DiskInfo) error {
@@ -23,12 +27,27 @@ func VerifyQCOW2(diskInfo *DiskInfo) error {
 	return nil
 }
 
+// VerifyRAW rejects files that cannot be well-formed raw images. Raw has no
+// header, so qemu-img reports any unrecognized file as raw. QEMU addresses
+// raw disks in 512-byte sectors, making every real raw image a positive
+// multiple of 512 bytes, while arbitrary files usually are not.
+func VerifyRAW(diskInfo *DiskInfo) error {
+	if diskInfo.Format != "raw" {
+		return fmt.Errorf("expected a disk format of raw, but got '%v'", diskInfo.Format)
+	}
+
+	if diskInfo.FileSize <= 0 || diskInfo.FileSize%rawSectorSize != 0 {
+		return fmt.Errorf("raw image size %d is not a positive multiple of %d bytes; only RAW or QCOW2 disk images are supported", diskInfo.FileSize, rawSectorSize)
+	}
+	return nil
+}
+
 func VerifyImage(diskInfo *DiskInfo) error {
 	switch diskInfo.Format {
 	case "qcow2":
 		return VerifyQCOW2(diskInfo)
 	case "raw":
-		return nil
+		return VerifyRAW(diskInfo)
 	default:
 		return fmt.Errorf("unsupported image format: %v", diskInfo.Format)
 	}
@@ -51,5 +70,10 @@ func GetDiskInfoWithValidation(imagePath string, diskMemoryLimitBytes int64) (*D
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)
 	}
-	return info, err
+	fileInfo, err := os.Stat(imagePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat image %v: %v", imagePath, err)
+	}
+	info.FileSize = fileInfo.Size()
+	return info, nil
 }
