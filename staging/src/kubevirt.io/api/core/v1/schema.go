@@ -350,16 +350,18 @@ type ResourceRequirements struct {
 // CPU allows specifying the CPU topology.
 type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
-	// Must be a value greater or equal 1.
+	// Defaults to 1 if omitted or set to 0.
 	Cores uint32 `json:"cores,omitempty"`
 	// Sockets specifies the number of sockets inside the vmi.
-	// Must be a value greater or equal 1.
+	// Defaults to 1 if omitted or set to 0.
+	// If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+	// the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
 	Sockets uint32 `json:"sockets,omitempty"`
 	// MaxSockets specifies the maximum amount of sockets that can
 	// be hotplugged
 	MaxSockets uint32 `json:"maxSockets,omitempty"`
 	// Threads specifies the number of threads inside the vmi.
-	// Must be a value greater or equal 1.
+	// Defaults to 1 if omitted or set to 0.
 	Threads uint32 `json:"threads,omitempty"`
 	// Model specifies the CPU model inside the VMI.
 	// List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
