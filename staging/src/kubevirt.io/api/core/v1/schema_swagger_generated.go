@@ -746,13 +746,13 @@ func (Diag288Watchdog) SwaggerDoc() map[string]string {
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
-		"model":       "Interface model.\nOne of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"model":       "Interface model.\nOne of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.\n+kubebuilder:validation:XValidation:rule=\"self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']\",message=\"interface uses a model that is not supported\"",
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
 		"ports":       "List of ports to be forwarded to the virtual machine.\nMutually exclusive with portRanges.",
 		"portRanges":  "List of port ranges to be forwarded to the virtual machine.\nMutually exclusive with ports. Only supported on masquerade interfaces.\nThis feature is in Alpha.\n+optional\n+listType=atomic",
-		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.\n+kubebuilder:validation:MaxLength:=64\n+kubebuilder:validation:XValidation:rule=\"self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\\\\\\\.){2}[0-9a-fA-F]{4}$')\",message=\"interface has a malformed MAC address\"",
 		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
-		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional\n+kubebuilder:validation:MaxLength:=12\n+kubebuilder:validation:XValidation:rule=\"self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\\\\\\\.[0-7]$')\",message=\"interface has a malformed PCI address\"",
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
 		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).\n+optional",

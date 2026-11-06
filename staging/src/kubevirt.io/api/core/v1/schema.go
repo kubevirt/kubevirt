@@ -1456,7 +1456,7 @@ type Interface struct {
 	// Interface model.
 	// One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
 	// Defaults to virtio.
-	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
+	// +kubebuilder:validation:XValidation:rule="self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']",message="interface uses a model that is not supported"
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
 	// Defaults to Bridge.
@@ -1475,6 +1475,8 @@ type Interface struct {
 	// +listType=atomic
 	PortRanges []PortRange `json:"portRanges,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
+	// +kubebuilder:validation:MaxLength:=64
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\\\.){2}[0-9a-fA-F]{4}$')",message="interface has a malformed MAC address"
 	MacAddress string `json:"macAddress,omitempty"`
 	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
 	// Lower values take precedence.
@@ -1484,6 +1486,8 @@ type Interface struct {
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
+	// +kubebuilder:validation:MaxLength:=12
+	// +kubebuilder:validation:XValidation:rule="self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\\\.[0-7]$')",message="interface has a malformed PCI address"
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional

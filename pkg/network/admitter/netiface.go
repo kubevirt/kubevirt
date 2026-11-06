@@ -25,9 +25,7 @@ import (
 	"regexp"
 	"sort"
 
-	"kubevirt.io/kubevirt/pkg/network/link"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
@@ -113,9 +111,6 @@ func validateInterfacesFields(
 	networksByName := vmispec.IndexNetworkSpecByName(spec.Networks)
 	for idx, iface := range spec.Domain.Devices.Interfaces {
 		causes = append(causes, validateInterfaceNameFormat(field, idx, iface)...)
-		causes = append(causes, validateInterfaceModel(field, idx, iface)...)
-		causes = append(causes, validateMacAddress(field, idx, iface)...)
-		causes = append(causes, validatePciAddress(field, idx, iface)...)
 		causes = append(causes, validatePortConfiguration(field, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validatePortRangesConfiguration(field, idx, iface, networksByName[iface.Name], checker)...)
 		causes = append(causes, validateDHCPOptions(field, idx, iface)...)
@@ -132,66 +127,6 @@ func validateInterfaceNameFormat(field *k8sfield.Path, idx int, iface v1.Interfa
 			Message: "Network interface name can only contain alphabetical characters, numbers, dashes (-) or underscores (_)",
 			Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 		}}
-	}
-	return nil
-}
-
-var validInterfaceModels = map[string]struct{}{
-	"e1000":    {},
-	"e1000e":   {},
-	"igb":      {},
-	"ne2k_pci": {},
-	"pcnet":    {},
-	"rtl8139":  {},
-	v1.VirtIO:  {},
-}
-
-func validateInterfaceModel(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.Model != "" {
-		if _, exists := validInterfaceModels[iface.Model]; !exists {
-			return []metav1.StatusCause{{
-				Type: metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf(
-					"interface %s uses model %s that is not supported.",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.Model,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("model").String(),
-			}}
-		}
-	}
-	return nil
-}
-
-func validateMacAddress(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if err := link.ValidateMacAddress(iface.MacAddress); err != nil {
-		return []metav1.StatusCause{{
-			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(
-				"interface %s has %s.",
-				field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				err.Error(),
-			),
-			Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("macAddress").String(),
-		}}
-	}
-	return nil
-}
-
-func validatePciAddress(field *k8sfield.Path, idx int, iface v1.Interface) []metav1.StatusCause {
-	if iface.PciAddress != "" {
-		_, err := hwutil.ParsePciAddress(iface.PciAddress)
-		if err != nil {
-			return []metav1.StatusCause{{
-				Type: metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(
-					"interface %s has malformed PCI address (%s).",
-					field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-					iface.PciAddress,
-				),
-				Field: field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
-			}}
-		}
 	}
 	return nil
 }
