@@ -10,6 +10,7 @@ go_library(
         "sum_generic.go",
         "sum_loong64.s",
         "sum_ppc64x.s",
+        "sum_riscv64.s",
         "sum_s390x.go",
         "sum_s390x.s",
     ],
