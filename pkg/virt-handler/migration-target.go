@@ -954,6 +954,11 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
+		if goerror.Is(err, ErrWaitingForVirtioFSSocket) {
+			c.logger.Object(vmi).Reason(err).Infof("waiting for virtiofs socket to be created")
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			return nil, true
+		}
 		return err, false
 	}
 
