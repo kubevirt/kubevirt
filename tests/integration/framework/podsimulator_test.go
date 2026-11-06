@@ -106,6 +106,42 @@ var _ = Describe("Pod simulator", func() {
 		}).Should(BeZero())
 	}, SpecTimeout(5*time.Second))
 
+	It("cancels a hook delay during shutdown", func(ctx SpecContext) {
+		entered := make(chan struct{})
+		ps := NewPodSimulator(client, informer, testNodeName)
+		ps.SetHook(func(_ *k8sv1.Pod) PodSimulationResult {
+			close(entered)
+			return PodSimulationResult{Delay: time.Hour}
+		})
+		ps.Start(ctx)
+		DeferCleanup(ps.Stop)
+		ps.enqueuePod(pod)
+		Eventually(ctx, entered).Should(BeClosed())
+		stopped := make(chan struct{})
+		go func() {
+			ps.Stop()
+			close(stopped)
+		}()
+		Eventually(ctx, stopped).Should(BeClosed())
+	}, SpecTimeout(5*time.Second))
+
+	It("restores default simulation after resetting the hook", func(ctx SpecContext) {
+		ps := NewPodSimulator(client, informer, testNodeName)
+		DeferCleanup(ps.Stop)
+		ps.SetHook(func(_ *k8sv1.Pod) PodSimulationResult {
+			return PodSimulationResult{Action: ActionSkip}
+		})
+		Expect(ps.bindAndSetReady(ctx, pod)).To(BeTrue())
+		updated, err := client.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updated.Status.Phase).To(BeEmpty())
+		ps.ResetHook()
+		Expect(ps.bindAndSetReady(ctx, pod)).To(BeTrue())
+		updated, err = client.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updated.Status.Phase).To(Equal(k8sv1.PodRunning))
+	}, SpecTimeout(5*time.Second))
+
 	It("waits for an in-flight status update before stopping", func(ctx SpecContext) {
 		patchStarted := make(chan struct{})
 		releasePatch := make(chan struct{})
