@@ -12,7 +12,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
-        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
