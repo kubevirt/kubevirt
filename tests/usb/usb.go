@@ -17,9 +17,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -27,28 +25,18 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const (
-	failedDeleteVMI = "Failed to delete VMI"
-	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
-)
+const cmdNumberUSBs = "dmesg | grep -c idVendor=46f4"
 
 var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 	decorators.Quarantine, decorators.SigCompute, decorators.USB, func() {
 		var virtClient kubecli.KubevirtClient
 		var config v1.KubeVirtConfiguration
-		var vmi *v1.VirtualMachineInstance
-		var fgWasOff bool
+		var createdVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
+			createdVMI = nil
 			virtClient = kubevirt.Client()
-
-			fgWasOff = !checks.HasFeature(featuregate.HostDevicesGate)
-			if fgWasOff {
-				kvconfig.EnableFeatureGate(featuregate.HostDevicesGate)
-			}
-
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			config = kv.Spec.Configuration
+			config = kvconfig.EnableFeatureGate(featuregate.HostDevicesGate).Spec.Configuration
 
 			nodeName := libnode.GetNodeNameWithHandler()
 			Expect(nodeName).ToNot(BeEmpty())
@@ -58,26 +46,11 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 			if strings.Count(stdout, "idVendor=46f4") == 0 {
 				Fail("No emulated USB devices present for functional test.")
 			}
-
-			vmi = libvmifact.NewAlpine()
 		})
 
 		AfterEach(func() {
-			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-			const deleteTimeout = 180
-			err := virtClient.VirtualMachineInstance(
-				testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-
-			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())
-
-			if fgWasOff {
-				kvconfig.DisableFeatureGate(featuregate.HostDevicesGate)
-			}
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			config = kv.Spec.Configuration
-			config.PermittedHostDevices = &v1.PermittedHostDevices{}
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			// Release the USB devices before the suite cleans the namespace and resets the configuration.
+			Expect(cleanupVMI(virtClient, createdVMI, libwait.WaitForVirtualMachineToDisappearWithTimeout)).To(Succeed())
 		})
 
 		Context("with usb storage", func() {
@@ -100,7 +73,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				}
 				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
-				By("Creating a Fedora VMI with the usb host device")
+				By("Creating an Alpine VMI with the usb host device")
 				hostDevs := []v1.HostDevice{}
 				for i, name := range deviceNames {
 					hostDevs = append(hostDevs, v1.HostDevice{
@@ -109,10 +82,11 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 					})
 				}
 
-				var err error
+				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Domain.Devices.HostDevices = hostDevs
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				createdVMI = vmi
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Making sure the usb is present inside the VMI")
@@ -135,3 +109,14 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 			)
 		})
 	})
+
+func cleanupVMI(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, waitForDeletion func(*v1.VirtualMachineInstance, time.Duration) error) error {
+	if vmi == nil {
+		return nil
+	}
+	err := client.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete VMI %s: %w", vmi.Name, err)
+	}
+	return waitForDeletion(vmi, 180*time.Second)
+}
