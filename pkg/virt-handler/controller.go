@@ -108,6 +108,7 @@ type BaseController struct {
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
+	mountRoot                   func(*isolation.RealIsolationResult) (*safepath.Path, error)
 	launcherClients             launcherclients.LauncherClientsManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
@@ -147,6 +148,7 @@ func NewBaseController(
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
 		podIsolationDetector:        podIsolationDetector,
+		mountRoot:                   func(result *isolation.RealIsolationResult) (*safepath.Path, error) { return result.MountRoot() },
 		launcherClients:             launcherClients,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
@@ -324,7 +326,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	virtLauncherRootMount, err := isolationRes.MountRoot()
+	virtLauncherRootMount, err := c.mountRoot(isolationRes)
 	if err != nil {
 		return err
 	}
@@ -424,7 +426,7 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return true, nil
 	} else if isUnresponsive {
-		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+		return true, errors.New("Can not update a VirtualMachineInstance with unresponsive command server.")
 	}
 
 	return false, nil

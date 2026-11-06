@@ -41,10 +41,10 @@ func (m *MockPodIsolationDetector) EXPECT() *MockPodIsolationDetectorMockRecorde
 }
 
 // Detect mocks base method.
-func (m *MockPodIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
+func (m *MockPodIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (*RealIsolationResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Detect", vm)
-	ret0, _ := ret[0].(IsolationResult)
+	ret0, _ := ret[0].(*RealIsolationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -56,10 +56,10 @@ func (mr *MockPodIsolationDetectorMockRecorder) Detect(vm any) *gomock.Call {
 }
 
 // DetectForSocket mocks base method.
-func (m *MockPodIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
+func (m *MockPodIsolationDetector) DetectForSocket(socket string) (*RealIsolationResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetectForSocket", socket)
-	ret0, _ := ret[0].(IsolationResult)
+	ret0, _ := ret[0].(*RealIsolationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

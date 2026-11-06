@@ -44,6 +44,7 @@ import (
 
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
+	mountRoot            func(*isolation.RealIsolationResult) (*safepath.Path, error)
 	serialStopChans      map[types.UID]chan struct{}
 	vncStopChans         map[types.UID]chan struct{}
 	serialLock           *sync.Mutex
@@ -61,6 +62,7 @@ type UsbredirHandlerVMI struct {
 func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, vsockDialer *virtvsock.Dialer) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
+		mountRoot:            func(result *isolation.RealIsolationResult) (*safepath.Path, error) { return result.MountRoot() },
 		serialStopChans:      make(map[types.UID]chan struct{}),
 		vncStopChans:         make(map[types.UID]chan struct{}),
 		serialLock:           &sync.Mutex{},
@@ -262,7 +264,7 @@ func (t *ConsoleHandler) getUnixSocketPath(vmi *v1.VirtualMachineInstance, socke
 	if err != nil {
 		return nil, err
 	}
-	root, err := result.MountRoot()
+	root, err := t.mountRoot(result)
 	if err != nil {
 		return nil, err
 	}
