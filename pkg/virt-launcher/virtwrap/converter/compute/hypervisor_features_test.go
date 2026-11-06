@@ -20,6 +20,8 @@
 package compute_test
 
 import (
+	"encoding/xml"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -179,6 +181,9 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 					Reenlightenment: &v1.FeatureState{Enabled: new(true)},
 					IPI:             &v1.FeatureState{Enabled: new(true)},
 					EVMCS:           &v1.FeatureState{Enabled: new(true)},
+					VSM:             &v1.FeatureState{Enabled: new(true)},
+					XMMInput:        &v1.FeatureState{Enabled: new(true)},
+					XMMOutput:       &v1.FeatureState{Enabled: new(true)},
 					Spinlocks: &v1.FeatureSpinlocks{
 						FeatureState: v1.FeatureState{Enabled: new(true)},
 						Retries:      &retries,
@@ -216,6 +221,9 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 					Reenlightenment: &api.FeatureState{State: "on"},
 					IPI:             &api.FeatureState{State: "on"},
 					EVMCS:           &api.FeatureState{State: "on"},
+					VSM:             &api.FeatureState{State: "on"},
+					XMMInput:        &api.FeatureState{State: "on"},
+					XMMOutput:       &api.FeatureState{State: "on"},
 					Spinlocks:       &api.FeatureSpinlocks{State: "on", Retries: &retries},
 					VendorID:        &api.FeatureVendorID{State: "on", Value: "myvendor"},
 					SyNICTimer: &api.SyNICTimer{
@@ -254,6 +262,144 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 					TLBFlush:   &api.TLBFlush{State: "on"},
 				},
 			})))
+		})
+
+		DescribeTable("should convert the vsm feature", func(enabled *bool, expectedState string) {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					VSM: &v1.FeatureState{Enabled: enabled},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.VSM).To(Equal(&api.FeatureState{State: expectedState}))
+		},
+			Entry("nil (defaults to on)", nil, "on"),
+			Entry("explicitly enabled", new(true), "on"),
+			Entry("explicitly disabled", new(false), "off"),
+		)
+
+		It("should marshal the vsm feature into the domain XML", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					VSM: &v1.FeatureState{Enabled: new(true)},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			out, err := xml.Marshal(domain.Spec.Features.Hyperv)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(out)).To(ContainSubstring(`<vsm state="on">`))
+		})
+
+		It("should not set the vsm feature when unspecified", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.VSM).To(BeNil())
+		})
+
+		DescribeTable("should convert the xmm_input feature", func(enabled *bool, expectedState string) {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					XMMInput: &v1.FeatureState{Enabled: enabled},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.XMMInput).To(Equal(&api.FeatureState{State: expectedState}))
+		},
+			Entry("nil (defaults to on)", nil, "on"),
+			Entry("explicitly enabled", new(true), "on"),
+			Entry("explicitly disabled", new(false), "off"),
+		)
+
+		It("should marshal the xmm_input feature into the domain XML", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					XMMInput: &v1.FeatureState{Enabled: new(true)},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			out, err := xml.Marshal(domain.Spec.Features.Hyperv)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(out)).To(ContainSubstring(`<xmm_input state="on">`))
+		})
+
+		It("should not set the xmm_input feature when unspecified", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.XMMInput).To(BeNil())
+		})
+
+		DescribeTable("should convert the xmm_output feature", func(enabled *bool, expectedState string) {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					XMMOutput: &v1.FeatureState{Enabled: enabled},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.XMMOutput).To(Equal(&api.FeatureState{State: expectedState}))
+		},
+			Entry("nil (defaults to on)", nil, "on"),
+			Entry("explicitly enabled", new(true), "on"),
+			Entry("explicitly disabled", new(false), "off"),
+		)
+
+		It("should marshal the xmm_output feature into the domain XML", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					XMMOutput: &v1.FeatureState{Enabled: new(true)},
+				},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			out, err := xml.Marshal(domain.Spec.Features.Hyperv)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(out)).To(ContainSubstring(`<xmm_output state="on">`))
+		})
+
+		It("should not set the xmm_output feature when unspecified", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				Hyperv: &v1.FeatureHyperv{},
+			}))
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain.Spec.Features.Hyperv.XMMOutput).To(BeNil())
 		})
 
 		It("should convert disabled features to off", func() {

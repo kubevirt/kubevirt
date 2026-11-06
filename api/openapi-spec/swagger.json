@@ -15236,6 +15236,18 @@
      "vpindex": {
       "description": "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors. Defaults to the machine type setting.",
       "$ref": "#/definitions/v1.FeatureState"
+     },
+     "vsm": {
+      "description": "VSM exposes the Virtual Secure Mode enlightenment to the guest. Defaults to the machine type setting.",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "xmminput": {
+      "description": "XMMInput enables passing hypercall input via XMM registers. Defaults to the machine type setting.",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "xmmoutput": {
+      "description": "XMMOutput enables passing hypercall output via XMM registers. Defaults to the machine type setting.",
+      "$ref": "#/definitions/v1.FeatureState"
      }
     }
    },
