@@ -258,7 +258,7 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 	})
 
-	Context("UpdateFromEvent", func() {
+	Context("lifecycle events", func() {
 		var agentPoller *AgentPoller
 
 		BeforeEach(func() {
@@ -273,11 +273,7 @@ var _ = Describe("Qemu agent poller", func() {
 			agentPoller.Start()
 			Expect(agentPoller.agentDone).ToNot(BeNil())
 
-			domainEvent := &libvirt.DomainEventLifecycle{
-				Event:  libvirt.DOMAIN_EVENT_SUSPENDED,
-				Detail: int(libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED),
-			}
-			agentPoller.UpdateFromEvent(domainEvent, nil)
+			agentPoller.OnDomainLifecycle(libvirt.DOMAIN_EVENT_SUSPENDED)
 
 			Expect(agentPoller.agentDone).To(BeNil())
 		})
@@ -285,53 +281,32 @@ var _ = Describe("Qemu agent poller", func() {
 		It("should start agent poller on domain resume event when agent is connected", func() {
 			Expect(agentPoller.agentDone).To(BeNil())
 
-			agentConnectEvent := &libvirt.DomainEventAgentLifecycle{
-				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
-				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
-			}
-			agentPoller.UpdateFromEvent(nil, agentConnectEvent)
+			agentPoller.OnAgentLifecycle(libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED)
 
 			// Stop to simulate domain suspend
 			agentPoller.Stop()
 			Expect(agentPoller.agentDone).To(BeNil())
 
-			domainEvent := &libvirt.DomainEventLifecycle{
-				Event:  libvirt.DOMAIN_EVENT_RESUMED,
-				Detail: int(libvirt.DOMAIN_EVENT_RESUMED_UNPAUSED),
-			}
-			agentPoller.UpdateFromEvent(domainEvent, nil)
+			agentPoller.OnDomainLifecycle(libvirt.DOMAIN_EVENT_RESUMED)
 
 			Expect(agentPoller.agentDone).ToNot(BeNil())
 		})
 
 		It("should not start agent poller on domain resume event when agent is not connected", func() {
 			Expect(agentPoller.agentDone).To(BeNil())
-
 			Expect(agentPoller.agentConnected).To(BeFalse())
 
-			domainEvent := &libvirt.DomainEventLifecycle{
-				Event:  libvirt.DOMAIN_EVENT_RESUMED,
-				Detail: int(libvirt.DOMAIN_EVENT_RESUMED_UNPAUSED),
-			}
-			agentPoller.UpdateFromEvent(domainEvent, nil)
+			agentPoller.OnDomainLifecycle(libvirt.DOMAIN_EVENT_RESUMED)
 
 			Expect(agentPoller.agentDone).To(BeNil())
 		})
 
 		It("should stop agent poller on agent disconnect event", func() {
-			agentConnectEvent := &libvirt.DomainEventAgentLifecycle{
-				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
-				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
-			}
-			agentPoller.UpdateFromEvent(nil, agentConnectEvent)
+			agentPoller.OnAgentLifecycle(libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED)
 			Expect(agentPoller.agentDone).ToNot(BeNil())
 			Expect(agentPoller.agentConnected).To(BeTrue())
 
-			agentDisconnectEvent := &libvirt.DomainEventAgentLifecycle{
-				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED,
-				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
-			}
-			agentPoller.UpdateFromEvent(nil, agentDisconnectEvent)
+			agentPoller.OnAgentLifecycle(libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED)
 
 			Expect(agentPoller.agentDone).To(BeNil())
 			Expect(agentPoller.agentConnected).To(BeFalse())
@@ -341,43 +316,21 @@ var _ = Describe("Qemu agent poller", func() {
 			Expect(agentPoller.agentDone).To(BeNil())
 			Expect(agentPoller.agentConnected).To(BeFalse())
 
-			agentEvent := &libvirt.DomainEventAgentLifecycle{
-				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED,
-				Reason: libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL,
-			}
-			agentPoller.UpdateFromEvent(nil, agentEvent)
+			agentPoller.OnAgentLifecycle(libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED)
 
 			Expect(agentPoller.agentDone).ToNot(BeNil())
 			Expect(agentPoller.agentConnected).To(BeTrue())
 		})
 
-		It("should not start or stop agent poller on unrelated events", func() {
+		It("should not start or stop agent poller on unrelated domain events", func() {
 			agentPoller.Start()
 			originalState := agentPoller.agentDone
 			Expect(originalState).ToNot(BeNil())
 
-			unrelatedDomainEvent := &libvirt.DomainEventLifecycle{
-				Event:  libvirt.DOMAIN_EVENT_STARTED, // Different event
-				Detail: int(libvirt.DOMAIN_EVENT_STARTED_BOOTED),
-			}
-			agentPoller.UpdateFromEvent(unrelatedDomainEvent, nil)
-
-			// State should remain unchanged
+			agentPoller.OnDomainLifecycle(libvirt.DOMAIN_EVENT_STARTED)
 			Expect(agentPoller.agentDone).To(Equal(originalState))
 
-			anotherUnrelatedEvent := &libvirt.DomainEventLifecycle{
-				Event:  libvirt.DOMAIN_EVENT_STOPPED,
-				Detail: int(libvirt.DOMAIN_EVENT_STOPPED_SHUTDOWN),
-			}
-			agentPoller.UpdateFromEvent(anotherUnrelatedEvent, nil)
-
-			// State should still remain unchanged
-			Expect(agentPoller.agentDone).To(Equal(originalState))
-
-			// Test with completely empty events
-			agentPoller.UpdateFromEvent(nil, nil)
-
-			// State should still remain unchanged
+			agentPoller.OnDomainLifecycle(libvirt.DOMAIN_EVENT_STOPPED)
 			Expect(agentPoller.agentDone).To(Equal(originalState))
 		})
 	})
