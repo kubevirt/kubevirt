@@ -46,19 +46,17 @@ import (
 )
 
 func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
-	instancetypeStatusRef, err := h.storeInstancetypeRevision(vm)
-	if err != nil {
+	if err := h.storeInstancetypeRevision(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
 		return err
 	}
 
-	preferenceStatusRef, err := h.storePreferenceRevision(vm)
-	if err != nil {
+	if err := h.storePreferenceRevision(vm); err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
 		return err
 	}
 
-	return h.patchVM(instancetypeStatusRef, preferenceStatusRef, vm)
+	return nil
 }
 
 func syncStatusWithMatcher(
@@ -126,9 +124,9 @@ func syncInferFromVolumeFailurePolicy(matcher virtv1.Matcher, statusRef *virtv1.
 	}
 }
 
-func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeStatusRef, error) {
+func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil {
-		return nil, nil
+		return nil
 	}
 
 	if vm.Status.InstancetypeRef == nil {
@@ -137,15 +135,15 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 	statusRef := vm.Status.InstancetypeRef.DeepCopy()
 
 	if err := syncStatusWithMatcher(vm, vm.Spec.Instancetype, statusRef, h.createInstancetypeRevision); err != nil {
-		return nil, err
+		return err
 	}
 
 	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
-		return nil, nil
+		return nil
 	}
 
 	vm.Status.InstancetypeRef = statusRef
-	return vm.Status.InstancetypeRef, nil
+	return nil
 }
 
 func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
@@ -199,9 +197,9 @@ func (h *revisionHandler) checkForInstancetypeConflicts(
 	return nil
 }
 
-func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeStatusRef, error) {
+func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Preference == nil {
-		return nil, nil
+		return nil
 	}
 
 	if vm.Status.PreferenceRef == nil {
@@ -210,15 +208,15 @@ func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*v
 	statusRef := vm.Status.PreferenceRef.DeepCopy()
 
 	if err := syncStatusWithMatcher(vm, vm.Spec.Preference, statusRef, h.createPreferenceRevision); err != nil {
-		return nil, err
+		return err
 	}
 
 	if equality.Semantic.DeepEqual(vm.Status.PreferenceRef, statusRef) {
-		return nil, nil
+		return nil
 	}
 
 	vm.Status.PreferenceRef = statusRef
-	return vm.Status.PreferenceRef, nil
+	return nil
 }
 
 func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
