@@ -368,7 +368,7 @@ var _ = Describe(SIG("CBT", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			kept := 0
 			for _, volume := range vmi.Spec.Volumes {
-				if !cbt.IsCBTEligibleVolume(&volume) {
+				if !cbt.IsCBTEligibleVolume(&volume, vmi.Spec.Domain.Devices.Disks) {
 					continue
 				}
 				kept++

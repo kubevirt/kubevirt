@@ -274,6 +274,7 @@ var _ = Describe("Changed Block Tracking", func() {
 				pvcVolume,
 				newConfigMapVolume("config-map-volume"),
 			}
+			addPlainDisks(vmi)
 
 			_, keep := buildCBTOverlayKeepPaths(vmi, nil)
 			Expect(keep).To(Equal(sets.New(cbt.GetQCOW2OverlayPath(vmi, &pvcVolume))))
@@ -283,6 +284,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			volume := newPVCVolume("disk-a", "test-pvc", false)
 			vmi.Spec.Volumes = []v1.Volume{volume}
+			addPlainDisks(vmi)
 			cbtDir := cbt.PathForCBT(vmi)
 			legacy := filepath.Join(cbtDir, "claim", "uid", "disk-a.qcow2")
 
@@ -325,6 +327,7 @@ var _ = Describe("Changed Block Tracking", func() {
 				newConfigMapVolume("config-map-volume"),
 				newSecretVolume("secret-volume"),
 			}
+			addPlainDisks(vmi)
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
@@ -340,6 +343,7 @@ var _ = Describe("Changed Block Tracking", func() {
 				dvVolume,
 				newHostDiskVolume("host-disk-volume", "/data/disk.img"),
 			}
+			addPlainDisks(vmi)
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
@@ -355,6 +359,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			pvcVolume := newPVCVolume("pvc-volume", "test-pvc", false)
 			dvVolume := newDVVolume("dv-volume", "test-dv", false)
 			vmi.Spec.Volumes = []v1.Volume{pvcVolume, dvVolume}
+			addPlainDisks(vmi)
 			converterContext.IsBlockPVC["pvc-volume"] = true
 			converterContext.IsBlockDV["dv-volume"] = true
 
@@ -378,6 +383,7 @@ var _ = Describe("Changed Block Tracking", func() {
 				newPVCVolume("hotplug-pvc-volume", "test-hotplug-pvc", true),
 				newDVVolume("hotplug-dv-volume", "test-hotplug-dv", true),
 			}
+			addPlainDisks(vmi)
 			converterContext.IsBlockPVC["hotplug-pvc-volume"] = false
 			converterContext.IsBlockDV["hotplug-dv-volume"] = false
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
@@ -406,6 +412,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("hotplug-block-volume", "test-hotplug-block-pvc", true),
 			}
+			addPlainDisks(vmi)
 			converterContext.IsBlockPVC["hotplug-block-volume"] = true
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-block-volume": {Name: "hotplug-block-volume", Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -429,6 +436,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		It("should apply cbt to domain but skip creation when CBT is already enabled", func() {
 			volume := newPVCVolume("pvc-volume", "test-pvc", false)
 			vmi.Spec.Volumes = []v1.Volume{volume}
+			addPlainDisks(vmi)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 
 			err := ApplyChangedBlockTracking(vmi, converterContext)
@@ -440,6 +448,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		It("should create overlay for hotplug volume when CBT is already enabled", func() {
 			volume := newPVCVolume("hotplug-pvc-volume", "test-pvc", true)
 			vmi.Spec.Volumes = []v1.Volume{volume}
+			addPlainDisks(vmi)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -454,6 +463,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		It("should skip overlay creation for hotplug volume when phase is VolumeReady", func() {
 			volume := newPVCVolume("hotplug-pvc-volume", "test-pvc", true)
 			vmi.Spec.Volumes = []v1.Volume{volume}
+			addPlainDisks(vmi)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 			converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
 				"hotplug-pvc-volume": {Name: "hotplug-pvc-volume", Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
@@ -469,6 +479,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			vmi.Spec.Volumes = []v1.Volume{
 				newPVCVolume("pvc-volume", "test-pvc", false),
 			}
+			addPlainDisks(vmi)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 
 			errMsg := "failed to create overlay"
@@ -525,6 +536,12 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 	})
 })
+
+func addPlainDisks(vmi *v1.VirtualMachineInstance) {
+	for _, volume := range vmi.Spec.Volumes {
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{Name: volume.Name, DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}})
+	}
+}
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := api2.NewMinimalVMIWithNS(namespace, name)

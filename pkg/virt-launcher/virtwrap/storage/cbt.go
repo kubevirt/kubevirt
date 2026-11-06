@@ -206,7 +206,7 @@ func buildCBTOverlayKeepPaths(vmi *v1.VirtualMachineInstance, domainSpec *api.Do
 	cbtDir := cbt.PathForCBT(vmi)
 	desiredPaths := sets.New[string]()
 	for _, volume := range vmi.Spec.Volumes {
-		if !cbt.IsCBTEligibleVolume(&volume) {
+		if !cbt.IsCBTEligibleVolume(&volume, vmi.Spec.Domain.Devices.Disks) {
 			continue
 		}
 		desiredPaths.Insert(cbt.GetQCOW2OverlayPath(vmi, &volume))
@@ -295,7 +295,7 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *convertertypes
 	for _, volume := range vmi.Spec.Volumes {
 		volumeName := volume.Name
 		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
-		if !cbt.IsCBTEligibleVolume(&volume) {
+		if !cbt.IsCBTEligibleVolume(&volume, vmi.Spec.Domain.Devices.Disks) {
 			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
 			continue
 		}
