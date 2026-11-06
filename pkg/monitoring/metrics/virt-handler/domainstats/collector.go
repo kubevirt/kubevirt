@@ -44,10 +44,8 @@ var (
 		filesystemMetrics{},
 	}
 
-	Collector = operatormetrics.Collector{
-		Metrics:         domainStatsMetrics(domainStatsResourceMetrics...),
-		CollectCallback: domainStatsCollectorCallback,
-	}
+	// Collector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
+	Collector operatormetrics.Collector
 
 	settings *collectorSettings
 )
@@ -66,6 +64,16 @@ func SetupDomainStatsCollector(maxRequestsInFlight int, vmiInformer cache.Shared
 	settings = &collectorSettings{
 		maxRequestsInFlight: maxRequestsInFlight,
 		vmiInformer:         vmiInformer,
+	}
+
+	Collector = operatormetrics.Collector{
+		Metrics:         domainStatsMetrics(domainStatsResourceMetrics...),
+		CollectCallback: domainStatsCollectorCallback,
+	}
+
+	DomainDirtyRateStatsCollector = operatormetrics.Collector{
+		Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
+		CollectCallback: domainDirtyRateStatsCollectorCallback,
 	}
 }
 
