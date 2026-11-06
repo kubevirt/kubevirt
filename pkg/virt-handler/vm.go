@@ -133,6 +133,7 @@ type VirtualMachineController struct {
 	cbtHandler               *CBTHandler
 	migrationProxy           proxyCleaner
 	getCgroupManager         cgroupManagerGetter
+	ghostRecordStore         *virtcache.GhostRecordStore
 }
 
 type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error)
@@ -167,6 +168,7 @@ func NewVirtualMachineController(
 	pluginExecutor plugins.NodeHookExecutor,
 	cdMounter containerdisk.Mounter,
 	hvMounter hotplugvolume.VolumeMounter,
+	ghostRecordStore *virtcache.GhostRecordStore,
 ) (*VirtualMachineController, error) {
 
 	logger := log.Log.With("controller", "vm")
@@ -213,6 +215,7 @@ func NewVirtualMachineController(
 		pluginExecutor:           pluginExecutor,
 		migrationProxy:           migrationProxy,
 		getCgroupManager:         newCgroupManager,
+		ghostRecordStore:         ghostRecordStore,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -364,7 +367,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
-		uid := virtcache.GhostRecordGlobalStore.LastKnownUID(key)
+		uid := c.ghostRecordStore.LastKnownUID(key)
 		if uid != "" {
 			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
 			vmi.UID = uid

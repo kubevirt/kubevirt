@@ -110,7 +110,7 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 			_ = os.Unsetenv("NODE_NAME")
 		})
 
-		manager = NewLauncherClientsManager(nil, nil)
+		manager = NewLauncherClientsManager(nil, nil, nil)
 	})
 
 	It("should succeed when Ping succeed without checking the socket", func() {

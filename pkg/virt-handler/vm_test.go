@@ -101,6 +101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 	var mockCgroupManager *cgroup.MockManager
+	var ghostRecordStore *virtcache.GhostRecordStore
 
 	var recorder *record.FakeRecorder
 
@@ -123,7 +124,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiShareDir := GinkgoT().TempDir()
 		ghostCacheDir := GinkgoT().TempDir()
 
-		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
+		ghostRecordStore = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
@@ -177,7 +178,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		fakeDownwardMetricsManager := newFakeManager()
 
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
-			Initialized: true,
+			Initialized:      true,
+			GhostRecordStore: ghostRecordStore,
 		}
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		fakeNodeStore := fakeNodeInformer.GetStore()
@@ -209,6 +211,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&noopNodeHookExecutor{},
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
+			ghostRecordStore,
 		)
 		controller.getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
 			return mockCgroupManager, nil
@@ -2161,7 +2164,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			DeferCleanup(func() {
 				Expect(os.RemoveAll(filepath.Dir(sockFile))).To(Succeed())
 			})
-			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
 
 			// the DeletionTimestamp makes getDomainFromCache report the domain
 			// as non-existing while still exposing its cached UID, which is
@@ -2174,7 +2178,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 			sanityExecuteNoDomain()
 
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
 			Expect(controller.domainStore.List()).To(BeEmpty())
 		})
 
@@ -2199,7 +2203,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				EndTimestamp:   &now,
 				Completed:      true,
 			}
-			Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+			Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 
@@ -2208,7 +2212,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 
 			// neither the domain nor the ghost record must have been cleaned up
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+			Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
 			Expect(controller.domainStore.List()).To(HaveLen(1))
 		})
 
@@ -3703,8 +3707,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			// Model the record the source virt-launcher added on start (GetLauncherClient).
 			By("Planting the SOURCE ghost record, as the source virt-launcher would have")
-			Expect(virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, sockFile, sourceUID)).To(Succeed())
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+			Expect(ghostRecordStore.Add(vmiNs, vmiName, sockFile, sourceUID)).To(Succeed())
+			Expect(ghostRecordStore.Exists(vmiNs, vmiName)).To(BeTrue(),
 				"sanity: the source ghost record must exist before we reconcile")
 
 			// --- STEP 1: source Running, migration in progress --------------------
@@ -3729,7 +3733,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			addVMI(vmi, domain)
 
 			sanityExecute()
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+			Expect(ghostRecordStore.Exists(vmiNs, vmiName)).To(BeTrue(),
 				"a migration in progress must not disturb the source ghost record")
 
 			// --- STEP 2: guest migrates away; source domain is UNDEFINED ----------
@@ -3758,8 +3762,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecuteNoDomain()
 
 			// --- STEP 3: the same-name / new-UID receiver tries to register -------
-			leaked := virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)
-			addErr := virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, receiverSocket, receiverUID)
+			leaked := ghostRecordStore.Exists(vmiNs, vmiName)
+			addErr := ghostRecordStore.Add(vmiNs, vmiName, receiverSocket, receiverUID)
 
 			Expect(addErr).ToNot(HaveOccurred(),
 				"the same-name / new-UID receiver must be able to register its ghost record; "+
