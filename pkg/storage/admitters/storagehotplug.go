@@ -48,6 +48,11 @@ func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks 
 	newPermanentVolumeMap := getPermanentVolumes(newVolumes, volumeStatuses)
 	oldHotplugVolumeMap := getHotplugVolumes(oldVolumes, volumeStatuses)
 	oldPermanentVolumeMap := getPermanentVolumes(oldVolumes, volumeStatuses)
+	// Filesystems cannot be hotplugged, so the volumes backing them are permanent even
+	// before virt-controller has reported a volume status for them.
+	filesystems := newVMI.Spec.Domain.Devices.Filesystems
+	markFilesystemVolumesPermanent(newHotplugVolumeMap, newPermanentVolumeMap, filesystems)
+	markFilesystemVolumesPermanent(oldHotplugVolumeMap, oldPermanentVolumeMap, filesystems)
 	migratedVolumeMap := getMigratedVolumeMaps(newVMI.Status.MigratedVolumes)
 
 	newDiskMap := getDiskMap(newDisks)
@@ -347,6 +352,15 @@ func getPermanentVolumes(volumes []v1.Volume, volumeStatuses []v1.VolumeStatus) 
 		}
 	}
 	return permanentVolumes
+}
+
+func markFilesystemVolumesPermanent(hotplugVolumes, permanentVolumes map[string]v1.Volume, filesystems []v1.Filesystem) {
+	for _, filesystem := range filesystems {
+		if volume, ok := hotplugVolumes[filesystem.Name]; ok {
+			delete(hotplugVolumes, filesystem.Name)
+			permanentVolumes[filesystem.Name] = volume
+		}
+	}
 }
 
 func getMigratedVolumeMaps(migratedDisks []v1.StorageMigratedVolumeInfo) map[string]bool {
