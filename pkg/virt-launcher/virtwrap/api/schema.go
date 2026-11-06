@@ -892,6 +892,7 @@ type IOMMUDriver struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
+	XMLName            xml.Name      `xml:"disk"`
 	Device             string        `xml:"device,attr"`
 	Snapshot           string        `xml:"snapshot,attr,omitempty"`
 	Type               string        `xml:"type,attr"`
