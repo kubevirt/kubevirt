@@ -280,9 +280,28 @@ var _ = Describe(SIG("Backup", func() {
 		By("Verifying incremental backup size matches the amount of data written")
 		// Expected size should be around the amount of data we wrote
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
+
+		By("Waiting for the released checkpoint to be reclaimed")
+		Eventually(func() []string { return listDomainCheckpoints(vmi) }, time.Minute, time.Second).
+			Should(ConsistOf(*incrementalBackup.Status.CheckpointName))
+
+		By("Verifying the next incremental still works after checkpoint cleanup")
+		Expect(console.RunCommand(vmi, "dd if=/dev/urandom of=/root/after-cleanup bs=1M count=1 && sync", time.Minute)).To(Succeed())
+		nextBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(nextBackup.Status.IncludedVolumes).To(HaveLen(1))
+		Expect(nextBackup.Status.IncludedVolumes).To(HaveEach(HaveField("Type", backupv1.Incremental)))
+		Expect(nextBackup.Status.CheckpointName).ToNot(BeNil())
+		Eventually(func() []string { return listDomainCheckpoints(vmi) }, time.Minute, time.Second).
+			Should(ConsistOf(*nextBackup.Status.CheckpointName))
+		By("Verifying released bitmaps were removed from QEMU as well as libvirt")
+		Expect(listDomainBitmapNames(vmi)).To(And(
+			ContainElement(*nextBackup.Status.CheckpointName),
+			Not(ContainElement(firstCheckpoint.Name)),
+			Not(ContainElement(*incrementalBackup.Status.CheckpointName)),
+		))
 	})
 
-	It("Full and Incremental Backup with 2 disks", func() {
+	DescribeTable("Full and Incremental Backup with 2 disks", func(useSecondTracker bool) {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -325,6 +344,9 @@ var _ = Describe(SIG("Backup", func() {
 		blankSize := resource.MustParse(blankDiskSize)
 		totalSize.Add(blankSize)
 		fullBackupPVCSize := getTargetPVCSizeWithOverhead(totalSize.String())
+		if useSecondTracker {
+			fullBackupPVCSize = getDoubleTargetPVCSize(totalSize.String())
+		}
 
 		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
 		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
@@ -351,6 +373,18 @@ var _ = Describe(SIG("Backup", func() {
 		firstCheckpoint := tracker.Status.LatestCheckpoint
 		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
 		Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName), "First checkpoint should match backup checkpoint")
+
+		var secondTracker *backupv1.VirtualMachineBackupTracker
+		var protectedCheckpoint string
+		if useSecondTracker {
+			By("Creating a full backup for a second tracker")
+			secondTracker = createBackupTracker(virtClient, vm)
+			secondFullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, secondTracker.Name, waitBackupSucceeded)
+			Expect(secondFullBackup.Status.IncludedVolumes).To(HaveLen(2))
+			Expect(secondFullBackup.Status.IncludedVolumes).To(HaveEach(HaveField("Type", backupv1.Full)))
+			Expect(secondFullBackup.Status.CheckpointName).ToNot(BeNil())
+			protectedCheckpoint = *secondFullBackup.Status.CheckpointName
+		}
 
 		By(fmt.Sprintf("Writing %dMB of data to boot disk before incremental backup", testDataSizeMB))
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -383,7 +417,52 @@ var _ = Describe(SIG("Backup", func() {
 		// Both disks should have approximately testDataSizeBytes of changed data
 		incrementalExpectedSizes := []int64{testDataSizeBytes, testDataSizeBytes}
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, incrementalExpectedSizes)
-	})
+
+		By("Waiting for the previous checkpoint and its bitmaps to be removed")
+		expectedCheckpoints := []string{*incrementalBackup.Status.CheckpointName}
+		if useSecondTracker {
+			expectedCheckpoints = append(expectedCheckpoints, protectedCheckpoint)
+		}
+		Eventually(func() []string { return listDomainCheckpoints(vmi) }, time.Minute, time.Second).
+			Should(ConsistOf(expectedCheckpoints))
+		Expect(listDomainBitmapNames(vmi)).ToNot(ContainElement(firstCheckpoint.Name))
+		if useSecondTracker {
+			Expect(listDomainBitmapNames(vmi)).To(ContainElement(protectedCheckpoint))
+		}
+
+		By("Writing new data to the second disk after cleanup")
+		Expect(console.RunCommand(vmi, "dd if=/dev/zero bs=1M count=1 | tr '\\000' Z | dd of=/dev/vdc bs=1M seek=64 conv=notrunc && sync", time.Minute)).To(Succeed())
+		nextTracker := tracker
+		if useSecondTracker {
+			nextTracker = secondTracker
+		}
+		nextBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, nextTracker.Name, waitBackupSucceeded)
+		Expect(nextBackup.Status.IncludedVolumes).To(HaveLen(2))
+		Expect(nextBackup.Status.IncludedVolumes).To(HaveEach(HaveField("Type", backupv1.Incremental)))
+		Expect(nextBackup.Status.CheckpointName).ToNot(BeNil())
+
+		By("Checking that the incremental contains the new data")
+		verifyBackupDiskData(incrementalBackupPVC, nextBackup, "disk1", 'Z', 64*1024*1024, 1024*1024)
+		expectedCheckpoints = []string{*nextBackup.Status.CheckpointName}
+		releasedCheckpoint := *incrementalBackup.Status.CheckpointName
+		if useSecondTracker {
+			expectedCheckpoints = append(expectedCheckpoints, *incrementalBackup.Status.CheckpointName)
+			releasedCheckpoint = protectedCheckpoint
+			tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName))
+		}
+		Eventually(func() []string { return listDomainCheckpoints(vmi) }, time.Minute, time.Second).
+			Should(ConsistOf(expectedCheckpoints))
+		Expect(listDomainBitmapNames(vmi)).To(And(
+			ContainElements(expectedCheckpoints),
+			Not(ContainElement(firstCheckpoint.Name)),
+			Not(ContainElement(releasedCheckpoint)),
+		))
+	},
+		Entry("after checkpoint cleanup", false),
+		Entry("with a second tracker", true),
+	)
 
 	It("Incremental Backup after VM shutdown and restart", func() {
 		const (
@@ -1802,6 +1881,31 @@ func corruptBitmap(virtClient kubecli.KubevirtClient, namespace, pvcName, cbtOve
 	Expect(err).ToNot(HaveOccurred())
 }
 
+func verifyBackupDiskData(targetPVC *corev1.PersistentVolumeClaim, backup *backupv1.VirtualMachineBackup, volumeName string, pattern byte, offset, length int64) {
+	pod := createExecutorPod(targetPVC)
+	DeferCleanup(func() {
+		err := kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		if !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+	})
+	output, err := exec.ExecuteCommandOnPod(pod, pod.Spec.Containers[0].Name,
+		[]string{"find", libstorage.DefaultPvcMountPath, "-type", "f", "-name", fmt.Sprintf("%s-%s.qcow2", backup.Name, volumeName)})
+	Expect(err).ToNot(HaveOccurred())
+	files := strings.Fields(output)
+	Expect(files).To(HaveLen(1))
+	// Read the delta without opening its backing file from the launcher.
+	imageOptions, err := json.Marshal(map[string]any{
+		"driver":  "qcow2",
+		"file":    map[string]string{"driver": "file", "filename": files[0]},
+		"backing": nil,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	output, err = exec.ExecuteCommandOnPod(pod, pod.Spec.Containers[0].Name,
+		[]string{"qemu-io", "-r", "-c", fmt.Sprintf("read -P %d %d %d", pattern, offset, length), "json:" + string(imageOptions)})
+	Expect(err).ToNot(HaveOccurred(), output)
+}
+
 func verifyBackupTargetPVCOutput(virtClient kubecli.KubevirtClient, targetPVC *corev1.PersistentVolumeClaim, vmName string, numBackups int, expectedDiskSizes []int64) {
 	By(fmt.Sprintf("Verifying backup target PVC output: expecting %d backup(s) with %d disk(s) each", numBackups, len(expectedDiskSizes)))
 	executorPod := createExecutorPod(targetPVC)
@@ -1871,6 +1975,29 @@ func verifyBackupTargetPVCOutput(virtClient kubecli.KubevirtClient, targetPVC *c
 	Eventually(func() error {
 		return virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
 	}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+}
+
+// Read-only QMP inspection is confined to the test; cleanup uses libvirt checkpoints.
+func listDomainBitmapNames(vmi *v1.VirtualMachineInstance) []string {
+	output := libpod.RunCommandOnVmiPod(vmi, []string{
+		"virsh", "qemu-monitor-command", fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name),
+		`{"execute":"query-named-block-nodes"}`,
+	})
+	var response struct {
+		Return []struct {
+			Bitmaps []struct {
+				Name string `json:"name"`
+			} `json:"dirty-bitmaps"`
+		} `json:"return"`
+	}
+	ExpectWithOffset(1, json.Unmarshal([]byte(output), &response)).To(Succeed())
+	var names []string
+	for _, node := range response.Return {
+		for _, bitmap := range node.Bitmaps {
+			names = append(names, bitmap.Name)
+		}
+	}
+	return names
 }
 
 func listDomainCheckpoints(vmi *v1.VirtualMachineInstance) []string {
