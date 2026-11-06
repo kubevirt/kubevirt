@@ -1,4 +1,4 @@
-//go:build amd64 || s390x
+//go:build amd64 || s390x || ppc64le
 
 /*
  * This file is part of the KubeVirt project
@@ -508,7 +508,44 @@ var _ = Describe("Node-labeller ", func() {
 	},
 		Entry("for amd64", []libvirtxml.CapsGuestMachine{{Name: "q35"}, {Name: "q35-rhel9.6.0"}}, amd64),
 		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, arm64),
+		Entry("for ppc64le", []libvirtxml.CapsGuestMachine{{Name: "pseries"}, {Name: "pseries-rhel10.0.0"}}, ppc64le),
 	)
+
+	Context("on ppc64le", func() {
+		BeforeEach(func() {
+			// libvirt on Power reports host-model and "unknown" usability for the named models,
+			// and there is no supported_features.xml since hypervisor-cpu-baseline is not run.
+			nlController.arch = newArchLabeller(ppc64le)
+			nlController.volumePath = "testdata/ppc64le"
+			nlController.hostCPUModel = hostCPUModel{requiredFeatures: make(map[string]bool)}
+			nlController.supportedFeatures = nil
+			nlController.cpuModelVendor = ""
+			Expect(nlController.loadAll()).To(Succeed())
+		})
+
+		It("should add the host-model, vendor and named CPU model labels", func() {
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			node := retrieveNode(kubeClient)
+			Expect(node.Labels).To(HaveKeyWithValue(v1.HostModelCPULabel+"POWER10", "true"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.CPUModelVendorLabel+"IBM", "true"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.CPUModelLabel+"POWER10", "true"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.CPUModelLabel+"POWER11", "true"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"POWER10", "true"))
+			Expect(node.Labels).To(HaveKeyWithValue(v1.SupportedHostModelMigrationCPU+"POWER11", "true"))
+		})
+
+		It("should not add cpu feature labels", func() {
+			res := nlController.execute()
+			Expect(res).To(BeTrue())
+
+			node := retrieveNode(kubeClient)
+			for key := range node.Labels {
+				Expect(key).ToNot(HavePrefix(v1.CPUFeatureLabel))
+			}
+		})
+	})
 
 })
 

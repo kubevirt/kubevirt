@@ -109,6 +109,17 @@ func WithCapabilities(vmi *v1.VirtualMachineInstance) Option {
 	}
 }
 
+// WithAddedCapabilities appends capabilities on top of the ones set by WithCapabilities,
+// so it has to be applied after it.
+func WithAddedCapabilities(capabilities ...k8sv1.Capability) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		if renderer.capabilities == nil {
+			renderer.capabilities = &k8sv1.Capabilities{}
+		}
+		renderer.capabilities.Add = append(renderer.capabilities.Add, capabilities...)
+	}
+}
+
 func WithDropALLCapabilities() Option {
 	return func(renderer *ContainerSpecRenderer) {
 		if renderer.capabilities == nil {
