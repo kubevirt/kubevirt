@@ -329,6 +329,39 @@ var _ = Describe("VirtualMachine", func() {
 			}, Default)
 		}
 
+		Context("api version annotations", func() {
+			It("should be added with a merge patch that does not clobber concurrent writes", func() {
+				vm, _ := watchtesting.DefaultVirtualMachine(false)
+				delete(vm.Annotations, v1.ControllerAPILatestVersionObservedAnnotation)
+				delete(vm.Annotations, v1.ControllerAPIStorageVersionObservedAnnotation)
+
+				// The stored object carries a label from a concurrent writer
+				// that the controller's informer copy has not observed yet.
+				newer := vm.DeepCopy()
+				newer.Labels = map[string]string{"concurrent": "writer"}
+				_, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), newer, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				patched := false
+				for _, action := range virtFakeClient.Actions() {
+					if patchAction, ok := action.(testing.PatchAction); ok && patchAction.GetResource().Resource == "virtualmachines" {
+						Expect(patchAction.GetPatchType()).To(Equal(types.MergePatchType))
+						patched = true
+					}
+				}
+				Expect(patched).To(BeTrue())
+
+				updated, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPILatestVersionObservedAnnotation, v1.ApiLatestVersion))
+				Expect(updated.Annotations).To(HaveKeyWithValue(v1.ControllerAPIStorageVersionObservedAnnotation, v1.ApiStorageVersion))
+				Expect(updated.Labels).To(HaveKeyWithValue("concurrent", "writer"))
+			})
+		})
+
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
