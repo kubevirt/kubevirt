@@ -331,18 +331,12 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
+	// The backend storage volume is not in the spec, so its status is only
+	// carried forward here. updateStatus calls backendStorage.UpdateVolumeStatus
+	// before this function, which creates the entry under VolumeName.
 	backendStoragePVC := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
 	if backendStoragePVC != nil {
-		backendStorage, ok := oldStatusMap[backendstorage.VolumeName]
-		if !ok {
-			// TODO https://github.com/kubevirt/kubevirt/issues/17369
-			// Fall back to the legacy volume name (the PVC name itself) used by older VMIs
-			backendStorage, ok = oldStatusMap[backendStoragePVC.Name]
-			if ok {
-				backendStorage.Name = backendstorage.VolumeName
-			}
-		}
-		if ok {
+		if backendStorage, ok := oldStatusMap[backendstorage.VolumeName]; ok {
 			newStatus = append(newStatus, backendStorage)
 		}
 	}

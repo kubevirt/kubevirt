@@ -4374,38 +4374,49 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(volumeStatus.PersistentVolumeClaimInfo.ClaimName).To(Equal("filesystem-pvc"))
 		})
 
-		// TODO drop test with legacy code https://github.com/kubevirt/kubevirt/issues/17369
-		It("Should normalize legacy backend storage volume name on upgrade", func() {
-			vmi := newPendingVirtualMachine("testvmi")
-			legacyPVCName := "persistent-state-for-testvmi"
-			// Simulate a VMI whose status was written by an older controller:
-			// the volume status entry uses the PVC name as the Name field.
-			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
-				{
-					Name: legacyPVCName,
-					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
-						ClaimName: legacyPVCName,
+		Context("backend storage volume status", func() {
+			const backendPVCName = "persistent-state-for-testvmi-abcde"
+			var vmi *virtv1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = newPendingVirtualMachine("testvmi")
+				vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+					{
+						Name: backendstorage.VolumeName,
+						PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+							ClaimName: backendPVCName,
+						},
 					},
-				},
-			}
+				}
+			})
 
-			pvc := &k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      legacyPVCName,
-					Namespace: k8sv1.NamespaceDefault,
-					Labels:    map[string]string{backendstorage.PVCPrefix: "testvmi"},
-				},
-			}
-			Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
+			It("should carry the status forward and publish it as VirtualMachineStateVolume", func() {
+				pvc := &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      backendPVCName,
+						Namespace: k8sv1.NamespaceDefault,
+						Labels:    map[string]string{backendstorage.PVCPrefix: vmi.Name},
+					},
+				}
+				Expect(controller.pvcIndexer.Add(pvc)).To(Succeed())
 
-			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
-			Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
 
-			// The legacy entry must be carried forward under the new static name,
-			// so that UpdateVolumeStatus can update it in-place on the same reconcile.
-			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
-			Expect(vmi.Status.VolumeStatus[0].Name).To(Equal(backendstorage.VolumeName))
-			Expect(vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.ClaimName).To(Equal(legacyPVCName))
+				Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
+				Expect(vmi.Status.VolumeStatus[0].Name).To(Equal(backendstorage.VolumeName))
+				Expect(vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.ClaimName).To(Equal(backendPVCName))
+				Expect(vmi.Status.VirtualMachineStateVolume).ToNot(BeNil())
+				Expect(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(backendPVCName))
+			})
+
+			It("should drop the status when the backend storage PVC is gone", func() {
+				virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				Expect(controller.updateVolumeStatus(vmi, virtlauncherPod, nil)).To(Succeed())
+
+				Expect(vmi.Status.VolumeStatus).To(BeEmpty())
+				Expect(vmi.Status.VirtualMachineStateVolume).To(BeNil())
+			})
 		})
 
 		Context("isUtilityVolumeWithBlockPVC", func() {
