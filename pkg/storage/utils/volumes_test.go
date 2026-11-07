@@ -65,7 +65,7 @@ var _ = Describe("GetVolumes", func() {
 			Status: v1.VirtualMachineInstanceStatus{
 				VolumeStatus: []v1.VolumeStatus{
 					{
-						Name: backendVolume + name,
+						Name: backendstorage.VolumeName,
 						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 							ClaimName: backendVolume,
 						},
