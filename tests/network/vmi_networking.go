@@ -311,46 +311,44 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 	})
 
-	Context("VirtualMachineInstance with dhcp options", func() {
-		It("[test_id:1778]should offer extra dhcp options to pod iface", decorators.WgS390x, func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+	It("[test_id:1778]VMI with DHCP options on the pod network", decorators.WgS390x, func() {
+		libnet.SkipWhenClusterNotSupportIpv4()
+		dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
-			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
-			// The leading zero is intentional.
-			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
-			const NTPServerWithLeadingZeros = "0127.0.0.3"
+		// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
+		// The leading zero is intentional.
+		// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+		const NTPServerWithLeadingZeros = "0127.0.0.3"
 
-			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				BootFileName:   "config",
-				TFTPServerName: "tftp.kubevirt.io",
-				NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
-				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
-			}
+		dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+			BootFileName:   "config",
+			TFTPServerName: "tftp.kubevirt.io",
+			NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
+			PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
+		}
 
-			dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
+		dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
 
-			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2 127.0.0.3' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-			}, 15)
+		err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2 127.0.0.3' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+		}, 15)
 
-			Expect(err).ToNot(HaveOccurred())
-		})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("VirtualMachineInstance with custom dns", func() {
