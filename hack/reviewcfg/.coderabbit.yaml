@@ -24,9 +24,49 @@ reviews:
     - path: "pkg/virt-launcher/virtwrap/converter/**"
       instructions: "Follow the rules in pkg/virt-launcher/virtwrap/converter/README.md."
     - path: "pkg/monitoring/**"
-      instructions: "See docs/observability/monitoring-guidelines.md."
+      instructions: |
+        See docs/observability/monitoring-guidelines.md.
+        New Prometheus metrics, recording rules, and alerts must not be added
+        to this repository. KubeVirt observability is externalized to the
+        standalone kubevirt-observability-controller operator
+        (https://github.com/kubevirt/kubevirt-observability-controller). When a
+        change adds a new metric (pkg/monitoring/metrics/), recording rule
+        (pkg/monitoring/rules/recordingrules/), or alert
+        (pkg/monitoring/rules/alerts/), flag it and direct the contributor to
+        add it to kubevirt-observability-controller instead. Modifying, fixing,
+        or removing existing metrics, rules, and alerts is still expected here.
     - path: "{staging/src/kubevirt.io/api,pkg/virt-api/webhooks}/**"
       instructions: "Follow the rules in docs/api/design_guidelines.md."
+  pre_merge_checks:
+    custom_checks:
+      - name: "New metrics, rules, or alerts placement"
+        mode: "warning"
+        instructions: |
+          KubeVirt observability artifacts are externalized to the standalone
+          kubevirt-observability-controller operator
+          (https://github.com/kubevirt/kubevirt-observability-controller),
+          which owns Prometheus metrics, recording rules, and alerts for
+          KubeVirt.
+
+          Fail this check when the pull request adds any of the following to
+          this repository:
+          - A new Prometheus metric: a new operatormetrics.NewCounter,
+            operatormetrics.NewGauge, operatormetrics.NewHistogram, or similar
+            declaration, or a new entry in a []operatormetrics.Metric list,
+            typically under pkg/monitoring/metrics/.
+          - A new alerting rule: a new promv1.Rule entry with an Alert field in
+            pkg/monitoring/rules/alerts/.
+          - A new recording rule: a new promv1.Rule entry with a Record field
+            in pkg/monitoring/rules/recordingrules/.
+
+          When the check fails, direct the contributor to add the new metric,
+          recording rule, or alert to
+          https://github.com/kubevirt/kubevirt-observability-controller instead,
+          and link that repository in the check output.
+
+          Pass this check when the pull request adds none of the above, or only
+          modifies, renames, fixes, or removes existing metrics, recording
+          rules, or alerts.
   tools:
     trufflehog:
       enabled: true
@@ -39,6 +79,13 @@ knowledge_base:
       - CONTRIBUTING.md
       - docs/commit-message-guidelines.md
   linked_repositories:
+    - repository: "kubevirt/kubevirt-observability-controller"
+      instructions: >
+        Standalone operator that externalizes KubeVirt monitoring, metrics,
+        recording rules, and alerts. New observability artifacts belong there,
+        not in kubevirt/kubevirt. When a PR adds or changes metrics, recording
+        rules, or alerts, search this repository for existing or duplicate
+        definitions.
     - repository: "kubevirt/enhancements"
       instructions: >
         Contains VEP design documents and feature gate lifecycle rules
