@@ -357,14 +357,14 @@ type fakeIsolationDetector struct {
 	err       error
 }
 
-func (f *fakeIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
+func (f *fakeIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (*isolation.RealIsolationResult, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
-	return &fakeIsolationResult{pid: f.pidResult}, nil
+	return isolation.NewIsolationResult(f.pidResult, 0).(*isolation.RealIsolationResult), nil
 }
 
-func (f *fakeIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
+func (f *fakeIsolationDetector) DetectForSocket(_ string) (*isolation.RealIsolationResult, error) {
 	panic("should not be called")
 }
 
