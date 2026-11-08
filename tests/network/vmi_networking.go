@@ -351,47 +351,45 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("VirtualMachineInstance with custom dns", func() {
-		It("[test_id:1779]should have custom resolv.conf", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			dnsVMI := libvmifact.NewAlpineWithTestTooling()
+	It("[test_id:1779]VMI with a custom DNS config should be reflected in resolv.conf", func() {
+		libnet.SkipWhenClusterNotSupportIpv4()
+		dnsVMI := libvmifact.NewAlpineWithTestTooling()
 
-			dnsVMI.Spec.DNSPolicy = "None"
+		dnsVMI.Spec.DNSPolicy = "None"
 
-			// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
-			// The leading zero is intentional.
-			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
-			const DNSNameserverWithLeadingZeros = "01.1.1.1"
-			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
-				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
-				Searches:    []string{"example.com"},
-			}
-			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToAlpine)
-			const catResolvConf = "cat /etc/resolv.conf\n"
-			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "search example.com"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "nameserver 8.8.8.8"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "nameserver 4.2.2.1"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
-				&expect.BExp{R: "nameserver 1.1.1.1"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		})
+		// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
+		// The leading zero is intentional.
+		// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+		const DNSNameserverWithLeadingZeros = "01.1.1.1"
+		dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
+			Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
+			Searches:    []string{"example.com"},
+		}
+		dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToAlpine)
+		const catResolvConf = "cat /etc/resolv.conf\n"
+		err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "search example.com"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "nameserver 8.8.8.8"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "nameserver 4.2.2.1"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+			&expect.BExp{R: "nameserver 1.1.1.1"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
