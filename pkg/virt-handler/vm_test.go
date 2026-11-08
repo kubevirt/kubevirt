@@ -169,6 +169,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().Teardown(gomock.Any()).AnyTimes()
 
 		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
@@ -213,7 +214,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockHotplugVolumeMounter,
 			ghostRecordStore,
 		)
-		controller.getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
+		controller.getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool, _ ...isolation.PodIsolationDetector) (cgroup.Manager, error) {
 			return mockCgroupManager, nil
 		}
 
