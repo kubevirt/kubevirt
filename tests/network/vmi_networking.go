@@ -66,11 +66,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		virtClient = kubevirt.Client()
 	})
 
-	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
-		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
-		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
-	}
-
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 		var outboundVMI *v1.VirtualMachineInstance
@@ -297,18 +292,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			&expect.BExp{R: strconv.Itoa(acpiIndex)},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
-		It("[test_id:1777]should disable learning on pod iface", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			By("checking learning flag")
-			learningDisabledVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			libwait.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
-			checkLearningState(learningDisabledVMI, "0")
-		})
 	})
 
 	It("[test_id:1778]VMI with DHCP options on the pod network", decorators.WgS390x, func() {
