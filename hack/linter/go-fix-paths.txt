@@ -64,6 +64,7 @@ pkg/util/trace
 pkg/util/webhooks/validating-webhooks
 pkg/virt-config/featuregate
 pkg/virt-controller/leaderelectionconfig
+pkg/virt-controller/services
 pkg/virt-controller/watch/clone
 pkg/virt-controller/watch/common
 pkg/virt-controller/watch/descheduler
