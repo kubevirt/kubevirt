@@ -57,6 +57,7 @@ var _ = Describe("Backup", func() {
 	)
 
 	const backupName = "test-backup"
+	runningBackupJob := &libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP, Type: libvirt.DOMAIN_JOB_UNBOUNDED}
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
@@ -176,6 +177,7 @@ var _ = Describe("Backup", func() {
 			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
 			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 			mockDomain.EXPECT().Free().Return(nil)
 
 			err := manager.BackupVirtualMachine(vmi, backupOptions)
@@ -244,6 +246,7 @@ var _ = Describe("Backup", func() {
 					DoAndReturn(func(backupXML, _ string, _ libvirt.DomainBackupBeginFlags) error {
 						return xml.Unmarshal([]byte(backupXML), domainBackup)
 					})
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 				return domainBackup
 			}
 
@@ -323,6 +326,7 @@ var _ = Describe("Backup", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
 
 			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 			mockDomain.EXPECT().Free().Return(nil)
 
 			err := manager.BackupVirtualMachine(vmi, backupOptions)
@@ -362,6 +366,7 @@ var _ = Describe("Backup", func() {
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"frozen"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
@@ -380,6 +385,7 @@ var _ = Describe("Backup", func() {
 				Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
 				Expect(backupMetadata.Volumes).ToNot(BeEmpty())
 				Expect(backupMetadata.Volumes).To(ContainSubstring("disk0"))
+				Expect(backupMetadata.JobStarted).To(BeTrue())
 			})
 		})
 
@@ -392,6 +398,7 @@ var _ = Describe("Backup", func() {
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(fmt.Errorf("freeze error"))
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"thawed"}`, nil)
 				mockDomain.EXPECT().Free().Return(nil)
 
@@ -413,6 +420,7 @@ var _ = Describe("Backup", func() {
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().Free().Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 				mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return(`{"return":"frozen"}`, nil)
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(fmt.Errorf("thaw error"))
@@ -463,11 +471,32 @@ var _ = Describe("Backup", func() {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
 				// FSFreeze and FSThaw should NOT be called
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(runningBackupJob, nil)
 				mockDomain.EXPECT().Free().Return(nil)
 
 				err := manager.BackupVirtualMachine(vmi, backupOptions)
 				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+
+		It("should record the result of a job that ended before it was marked started", func() {
+			backupOptions.SkipQuiesce = true
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&libvirt.DomainJobInfo{
+				Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+				Type:      libvirt.DOMAIN_JOB_COMPLETED,
+			}, nil)
+			mockDomain.EXPECT().Free().Return(nil)
+
+			Expect(manager.BackupVirtualMachine(vmi, backupOptions)).To(Succeed())
+
+			backupMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(backupMetadata.Completed).To(BeTrue())
+			Expect(backupMetadata.Failed).To(BeFalse())
 		})
 	})
 
@@ -690,385 +719,84 @@ var _ = Describe("Backup", func() {
 		})
 	})
 
-	Describe("HandleBackupJobCompletedEvent", func() {
-		var (
-			mockDomain *cli.MockVirDomain
-			event      *libvirt.DomainEventJobCompleted
-		)
+	Describe("SyncBackupResult", func() {
+		const earlierWarning = "quiesce warning"
+		completedJobStatsFlags := libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED
+		currentJobStatsFlags := libvirt.DomainGetJobStatsFlags(0)
 
 		BeforeEach(func() {
-			mockDomain = cli.NewMockVirDomain(ctrl)
-			event = &libvirt.DomainEventJobCompleted{
-				Info: libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_COMPLETED,
-				},
-			}
-
-			// Initialize backup metadata
-			backupMetadata := api.BackupMetadata{
-				Name:           "test-backup",
+			metadataCache.Backup.Store(api.BackupMetadata{
+				Name:           backupName,
 				StartTimestamp: backupOptions.BackupStartTime,
-				SkipQuiesce:    false,
-			}
+				JobStarted:     true,
+				BackupMsg:      earlierWarning,
+			})
+		})
+
+		DescribeTable("should record the result of an ended backup job", func(completedJob libvirt.DomainJobInfo, expectFailed bool, expectMsg string) {
+			mockDomain.EXPECT().GetJobStats(currentJobStatsFlags).Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
+			mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&completedJob, nil)
+
+			SyncBackupResult(mockDomain, metadataCache)
+
+			backupMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(backupMetadata.Completed).To(BeTrue())
+			Expect(backupMetadata.EndTimestamp).ToNot(BeNil())
+			Expect(backupMetadata.Failed).To(Equal(expectFailed))
+			Expect(backupMetadata.BackupMsg).To(Equal(expectMsg))
+		},
+			Entry("as succeeded, keeping an earlier warning, when the job completed",
+				libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP, Type: libvirt.DOMAIN_JOB_COMPLETED},
+				false, earlierWarning),
+			Entry("as failed with libvirt's error when the job failed",
+				libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP, Type: libvirt.DOMAIN_JOB_FAILED, ErrorMessageSet: true, ErrorMessage: "I/O error"},
+				true, backupJobFailedMsg+": I/O error"),
+			Entry("as failed when the job was cancelled",
+				libvirt.DomainJobInfo{Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP, Type: libvirt.DOMAIN_JOB_CANCELLED},
+				true, backupAbortedMsg),
+			Entry("as failed when libvirt no longer holds the result",
+				libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE},
+				true, backupResultLostMsg),
+		)
+
+		It("should not record a result while the job is running", func() {
+			mockDomain.EXPECT().GetJobStats(currentJobStatsFlags).Return(&libvirt.DomainJobInfo{
+				Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+				Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
+			}, nil)
+
+			SyncBackupResult(mockDomain, metadataCache)
+
+			backupMetadata, _ := metadataCache.Backup.Load()
+			Expect(backupMetadata.Completed).To(BeFalse())
+		})
+
+		It("should not record a result when libvirt cannot be queried", func() {
+			mockDomain.EXPECT().GetJobStats(currentJobStatsFlags).Return(nil, libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR})
+
+			Expect(SyncBackupResult(mockDomain, metadataCache)).ToNot(Succeed())
+
+			backupMetadata, _ := metadataCache.Backup.Load()
+			Expect(backupMetadata.Completed).To(BeFalse())
+		})
+
+		DescribeTable("should leave the metadata untouched without querying libvirt", func(backupMetadata api.BackupMetadata) {
 			metadataCache.Backup.Store(backupMetadata)
-		})
 
-		Context("when backup completes successfully", func() {
-			completedJobStatsFlags := libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED
+			SyncBackupResult(mockDomain, metadataCache)
 
-			It("should update metadata with completion", func() {
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_COMPLETED,
-				}, nil)
+			got, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(got).To(Equal(backupMetadata))
+		},
+			Entry("before the backup job started", api.BackupMetadata{Name: backupName}),
+			Entry("once the result is recorded", api.BackupMetadata{Name: backupName, JobStarted: true, Completed: true, Failed: true, BackupMsg: backupAbortedMsg}),
+		)
+	})
 
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.EndTimestamp).ToNot(BeNil())
-			})
-
-			It("should treat DOMAIN_JOB_NONE with JobSuccess as a successful completion", func() {
-				event.Info = libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_NONE,
-					JobSuccessSet: true,
-					JobSuccess:    true,
-					Operation:     libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-				}
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_NONE,
-				}, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeFalse())
-				Expect(backupMetadata.BackupMsg).To(BeEmpty())
-				Expect(backupMetadata.EndTimestamp).ToNot(BeNil())
-			})
-
-			It("should treat DOMAIN_JOB_NONE with JobSuccess false as a failed completion", func() {
-				event.Info = libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_NONE,
-					JobSuccessSet: true,
-					JobSuccess:    false,
-					Operation:     libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-				}
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_NONE,
-				}, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeTrue())
-				Expect(backupMetadata.BackupMsg).To(Equal("unknown failure reason"))
-			})
-
-			It("should ignore duplicate events after a successful completion without querying job stats again", func() {
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_COMPLETED,
-				}, nil)
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				firstMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(firstMetadata.Completed).To(BeTrue())
-				Expect(firstMetadata.Failed).To(BeFalse())
-				firstEnd := firstMetadata.EndTimestamp
-
-				// No GetJobStats expectation: successful completion takes the early-return path.
-				duplicateEvent := &libvirt.DomainEventJobCompleted{
-					Info: libvirt.DomainJobInfo{
-						Type:      libvirt.DOMAIN_JOB_FAILED,
-						Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-					},
-				}
-				HandleBackupJobCompletedEvent(mockDomain, duplicateEvent, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeFalse())
-				Expect(backupMetadata.BackupMsg).To(BeEmpty())
-				Expect(backupMetadata.EndTimestamp).To(Equal(firstEnd))
-			})
-
-			It("should not upgrade a Failed result when a later success arrives", func() {
-				failureEvent := &libvirt.DomainEventJobCompleted{
-					Info: libvirt.DomainJobInfo{
-						Type:          libvirt.DOMAIN_JOB_NONE,
-						JobSuccessSet: true,
-						JobSuccess:    false,
-						Operation:     libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-					},
-				}
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_NONE,
-				}, nil)
-				HandleBackupJobCompletedEvent(mockDomain, failureEvent, metadataCache)
-
-				failedMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(failedMetadata.Completed).To(BeTrue())
-				Expect(failedMetadata.Failed).To(BeTrue())
-				firstEnd := failedMetadata.EndTimestamp
-
-				// No GetJobStats: Completed (including Failed) takes the early-return path.
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeTrue())
-				Expect(backupMetadata.EndTimestamp).To(Equal(firstEnd))
-			})
-
-			It("should not overwrite already successful backup metadata", func() {
-				endTime := metav1.Now()
-				metadataCache.Backup.Store(api.BackupMetadata{
-					Name:         "test-backup",
-					Completed:    true,
-					Failed:       false,
-					EndTimestamp: &endTime,
-				})
-
-				event.Info = libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_FAILED,
-				}
-				// No GetJobStats expectation: successful completion takes the early-return path.
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeFalse())
-				Expect(backupMetadata.BackupMsg).To(BeEmpty())
-				Expect(backupMetadata.EndTimestamp).To(Equal(&endTime))
-			})
-		})
-
-		Context("when no backup metadata exists", func() {
-			It("should log warning and return", func() {
-				// Create fresh cache with no metadata
-				freshCache := metadata.NewCache()
-
-				// HandleBackupJobCompletedEvent should not call GetJobStats if metadata doesn't exist
-				HandleBackupJobCompletedEvent(mockDomain, event, freshCache)
-
-				// Should not panic and backup metadata should remain empty
-				backupMetadata, exists := freshCache.Backup.Load()
-				Expect(exists).To(BeFalse())
-				Expect(backupMetadata.Name).To(BeEmpty())
-			})
-		})
-
-		Context("when GetJobStats fails", func() {
-			It("should still complete the backup", func() {
-				mockDomain.EXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(nil, fmt.Errorf("stats error"))
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-			})
-		})
-
-		Context("when domain is nil", func() {
-			It("should still complete the backup", func() {
-				HandleBackupJobCompletedEvent(nil, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-			})
-		})
-
-		Context("backup failure handling", func() {
-			completedJobStatsFlags := libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED
-
-			DescribeTable("should update the metadata correctly for backup failures", func(backupMode backupv1.BackupMode, abortReason string, domainJobInfo libvirt.DomainJobInfo, expectFailed bool, message string) {
-				metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-					backupMetadata.Mode = string(backupMode)
-					backupMetadata.AbortReason = abortReason
-				})
-				event.Info = domainJobInfo
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&domainJobInfo, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(Equal(expectFailed))
-				Expect(backupMetadata.BackupMsg).To(Equal(message))
-			},
-				Entry("with cancellation for a Push mode backup", backupv1.PushMode, string(backupv1.BackupAbortCancel), libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_CANCELLED}, true, backupAbortedMsg),
-				Entry("with cancellation for a Pull mode backup", backupv1.PullMode, string(backupv1.BackupAbortCancel), libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_CANCELLED}, true, backupAbortedMsg),
-				Entry("should finalize a Pull mode backup as Complete", backupv1.PullMode, string(backupv1.BackupAbortFinalize),
-					libvirt.DomainJobInfo{
-						Type:            libvirt.DOMAIN_JOB_CANCELLED,
-						ErrorMessageSet: true,
-						ErrorMessage:    "Operation canceled",
-					},
-					false,
-					"",
-				),
-				Entry("should prefer DOMAIN_JOB_FAILED over an in-flight Finalize", backupv1.PullMode, string(backupv1.BackupAbortFinalize),
-					libvirt.DomainJobInfo{
-						Type:            libvirt.DOMAIN_JOB_FAILED,
-						ErrorMessageSet: true,
-						ErrorMessage:    "disk write failed",
-					},
-					true,
-					"disk write failed",
-				),
-				Entry("should drop the redundant libvirt error message on cancellation", backupv1.PullMode, string(backupv1.BackupAbortCancel),
-					libvirt.DomainJobInfo{
-						Type:            libvirt.DOMAIN_JOB_CANCELLED,
-						ErrorMessageSet: true,
-						ErrorMessage:    "Operation canceled",
-					},
-					true,
-					backupAbortedMsg,
-				),
-				Entry("should treat COMPLETED as cancel when AbortReason is Cancel", backupv1.PullMode, string(backupv1.BackupAbortCancel),
-					libvirt.DomainJobInfo{
-						Type:            libvirt.DOMAIN_JOB_COMPLETED,
-						ErrorMessageSet: true,
-						ErrorMessage:    "Operation canceled",
-					},
-					true,
-					backupAbortedMsg,
-				),
-				Entry("with failure and error message", backupv1.PushMode, "", libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_FAILED, ErrorMessageSet: true, ErrorMessage: "failure"}, true, "failure"),
-				Entry("with failure and no error message", backupv1.PushMode, "", libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_FAILED}, true, "unknown failure reason"),
-				Entry("with an unknown job completion type", backupv1.PushMode, "", libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_BOUNDED}, true, fmt.Sprintf("unexpected job completion type: %d", libvirt.DOMAIN_JOB_BOUNDED)),
-			)
-
-			It("should keep CANCELLED when GetJobStats reports COMPLETED", func() {
-				metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-					backupMetadata.Mode = string(backupv1.PullMode)
-				})
-				event.Info = libvirt.DomainJobInfo{
-					Type:            libvirt.DOMAIN_JOB_CANCELLED,
-					ErrorMessageSet: true,
-					ErrorMessage:    "Operation canceled",
-				}
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_COMPLETED,
-				}, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeTrue())
-				Expect(backupMetadata.BackupMsg).To(Equal(backupAbortedMsg))
-			})
-
-			It("should copy ErrorMessage from GetJobStats when the event has none", func() {
-				metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-					backupMetadata.Mode = string(backupv1.PushMode)
-				})
-				event.Info = libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_FAILED,
-				}
-				mockDomain.EXPECT().GetJobStats(completedJobStatsFlags).Return(&libvirt.DomainJobInfo{
-					Type:            libvirt.DOMAIN_JOB_FAILED,
-					ErrorMessageSet: true,
-					ErrorMessage:    "stats failure detail",
-				}, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeTrue())
-				Expect(backupMetadata.BackupMsg).To(Equal("stats failure detail"))
-			})
-		})
-
-		Context("pull mode completion handling", func() {
-			It("should record failure and retain the error message on true failure", func() {
-				metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
-					backupMetadata.Mode = string(backupv1.PullMode)
-				})
-
-				domainJobInfo := libvirt.DomainJobInfo{
-					Type:            libvirt.DOMAIN_JOB_FAILED,
-					ErrorMessageSet: true,
-					ErrorMessage:    "test error",
-				}
-				event.Info = domainJobInfo
-				mockDomain.EXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&domainJobInfo, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-				Expect(backupMetadata.Failed).To(BeTrue())
-				Expect(backupMetadata.BackupMsg).To(Equal("test error"))
-			})
-		})
-
+	Describe("AbortVirtualMachineBackup", func() {
 		Context("abort backup", func() {
-			DescribeTable("should record AbortReason before AbortJob and honor it on completion",
-				func(abortReason backupv1.BackupAbortReason, expectFailed bool, expectedMsg string) {
-					backupMetadata := api.BackupMetadata{
-						Name:           backupOptions.BackupName,
-						Mode:           string(backupv1.PullMode),
-						StartTimestamp: backupOptions.BackupStartTime,
-					}
-					metadataCache.Backup.Store(backupMetadata)
-					backupOptions.AbortReason = abortReason
-
-					validJob := &libvirt.DomainJobInfo{
-						Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-						Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
-					}
-					mockConn.EXPECT().LookupDomainByName(gomock.Any()).MaxTimes(1).Return(mockDomain, nil)
-					mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(validJob, nil)
-					mockDomain.EXPECT().AbortJob().Return(nil)
-					mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
-
-					Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(Succeed())
-
-					abortedMetadata, exists := metadataCache.Backup.Load()
-					Expect(exists).To(BeTrue())
-					Expect(abortedMetadata.AbortReason).To(Equal(string(abortReason)))
-
-					// AbortJob may complete as DOMAIN_JOB_COMPLETED; AbortReason decides Failed vs Complete.
-					event := &libvirt.DomainEventJobCompleted{
-						Info: libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_COMPLETED},
-					}
-					mockDomain.EXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&libvirt.DomainJobInfo{
-						Type:            libvirt.DOMAIN_JOB_COMPLETED,
-						ErrorMessageSet: true,
-						ErrorMessage:    "Operation canceled",
-					}, nil)
-
-					HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-					newMetadata, exists := metadataCache.Backup.Load()
-					Expect(exists).To(BeTrue())
-					Expect(newMetadata.Failed).To(Equal(expectFailed))
-					Expect(newMetadata.Completed).To(BeTrue())
-					Expect(newMetadata.BackupMsg).To(Equal(expectedMsg))
-				},
-				Entry("Cancel marks the backup Failed", backupv1.BackupAbortCancel, true, backupAbortedMsg),
-				Entry("Finalize marks the backup Complete", backupv1.BackupAbortFinalize, false, ""),
-			)
-
 			DescribeTable("should fail to abort a backup that is not associated with the domain", func(name string, timestamp metav1.Time) {
 				backupMetadata := api.BackupMetadata{
 					Name:           name,
@@ -1178,7 +906,47 @@ var _ = Describe("Backup", func() {
 			},
 				Entry("with wrong job operation", libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN, libvirt.DOMAIN_JOB_UNBOUNDED),
 				Entry("with wrong job type", libvirt.DOMAIN_JOB_OPERATION_BACKUP, libvirt.DOMAIN_JOB_BOUNDED),
+				Entry("with no job before the backup job started", libvirt.DomainJobOperationType(0), libvirt.DOMAIN_JOB_NONE),
 			)
+
+			Context("when the backup job already ended", func() {
+				noJob := &libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}
+
+				BeforeEach(func() {
+					metadataCache.Backup.Store(api.BackupMetadata{
+						Name:           backupOptions.BackupName,
+						StartTimestamp: backupOptions.BackupStartTime,
+						JobStarted:     true,
+					})
+					mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+					mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
+				})
+
+				It("should record its result instead of aborting", func() {
+					mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(noJob, nil).Times(2)
+					mockDomain.EXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&libvirt.DomainJobInfo{
+						Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+						Type:      libvirt.DOMAIN_JOB_COMPLETED,
+					}, nil)
+
+					Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(Succeed())
+
+					md, _ := metadataCache.Backup.Load()
+					Expect(md.Completed).To(BeTrue())
+					Expect(md.Failed).To(BeFalse())
+				})
+
+				It("should return an error when its result cannot be read", func() {
+					queryError := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
+					mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(noJob, nil)
+					mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(nil, queryError)
+
+					Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(MatchError(ContainSubstring(queryError.Error())))
+
+					md, _ := metadataCache.Backup.Load()
+					Expect(md.Completed).To(BeFalse())
+				})
+			})
 
 			It("should return an error when the abort job call fails and restore AbortReason", func() {
 				backupMetadata := api.BackupMetadata{
