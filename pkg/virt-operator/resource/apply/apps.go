@@ -18,6 +18,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -493,6 +494,31 @@ func (r *Reconciler) syncPodDisruptionBudget(namespace string, podDisruptionBudg
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
+	return nil
+}
+
+func (r *Reconciler) deletePodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
+	obj, exists, err := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
+	if err != nil {
+		return err
+	}
+
+	if !exists || obj.(*policyv1.PodDisruptionBudget).DeletionTimestamp != nil {
+		return nil
+	}
+
+	key, err := controller.KeyFunc(podDisruptionBudget)
+	if err != nil {
+		return err
+	}
+	r.expectations.PodDisruptionBudget.AddExpectedDeletion(r.kvKey, key)
+	if err := r.k8sClient.PolicyV1().PodDisruptionBudgets(podDisruptionBudget.Namespace).Delete(context.Background(), podDisruptionBudget.Name, metav1.DeleteOptions{}); err != nil {
+		r.expectations.PodDisruptionBudget.DeletionObserved(r.kvKey, key)
+		return err
+	}
+
+	log.Log.V(2).Infof("poddisruptionbudget %v deleted", podDisruptionBudget.Name)
 	return nil
 }
 
