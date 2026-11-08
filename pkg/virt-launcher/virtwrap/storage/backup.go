@@ -415,10 +415,10 @@ func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstanc
 	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
 		return fmt.Errorf("failed to abort backup: %w", err)
 	}
-	return m.abortBackup(vmi, backupMetadata, backupOptions.AbortReason)
+	return m.abortBackup(vmi, backupMetadata)
 }
 
-func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata, abortReason backupv1.BackupAbortReason) error {
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata) error {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -439,29 +439,7 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 		return fmt.Errorf("cannot abort backup, wrong operation or type: %d, %d", stats.Operation, stats.Type)
 	}
 
-	// Record the abort reason before AbortJob so a completion event cannot race
-	// ahead and treat the cancelled job as a successful COMPLETED backup.
-	// The first reason wins: a TTL Cancel in flight must not be overwritten by a
-	// later Finalize when the backup is deleted.
-	var previousAbortReason string
-	m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
-		if !exists || md.Name != backupMetadata.Name {
-			return
-		}
-		previousAbortReason = md.AbortReason
-		if md.AbortReason != "" {
-			return
-		}
-		md.AbortReason = string(abortReason)
-	})
-
 	if err := dom.AbortJob(); err != nil {
-		m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
-			if !exists || md.Name != backupMetadata.Name {
-				return
-			}
-			md.AbortReason = previousAbortReason
-		})
 		log.Log.Object(vmi).Reason(err).Error("failed to abort backup, error calling abort job on domain")
 		return err
 	}
