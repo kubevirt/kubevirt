@@ -498,6 +498,7 @@ type BackupMetadata struct {
 	Mode           string       `xml:"mode,omitempty"`
 	SkipQuiesce    bool         `xml:"skipQuiesce,omitempty"`
 	StartTimestamp *metav1.Time `xml:"startTimestamp,omitempty"`
+	JobStarted     bool         `xml:"jobStarted,omitempty"`
 	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
 	Completed      bool         `xml:"completed,omitempty"`
 	Failed         bool         `xml:"failed,omitempty"`

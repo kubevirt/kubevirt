@@ -461,7 +461,12 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 		}
 		return false
 	case libvirt.DOMAIN_JOB_OPERATION_BACKUP:
-		storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
+		if d == nil {
+			return false
+		}
+		if err := storage.SyncBackupResult(d, metadataCache); err != nil {
+			log.Log.Reason(err).Warning("Failed to sync backup result")
+		}
 		if value, exists := metadataCache.Backup.Load(); exists {
 			domain.Spec.Metadata.KubeVirt.Backup = &value
 		}
