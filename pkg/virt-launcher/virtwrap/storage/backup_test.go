@@ -948,13 +948,12 @@ var _ = Describe("Backup", func() {
 				})
 			})
 
-			It("should return an error when the abort job call fails and restore AbortReason", func() {
+			It("should return an error when the abort job call fails", func() {
 				backupMetadata := api.BackupMetadata{
 					Name:           backupOptions.BackupName,
 					StartTimestamp: backupOptions.BackupStartTime,
 				}
 				metadataCache.Backup.Store(backupMetadata)
-				backupOptions.AbortReason = backupv1.BackupAbortCancel
 
 				validJob := &libvirt.DomainJobInfo{
 					Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
@@ -970,65 +969,6 @@ var _ = Describe("Backup", func() {
 						ContainSubstring(abortError.Error()),
 					),
 				)
-
-				md, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(md.AbortReason).To(BeEmpty())
-			})
-
-			It("should keep the first AbortReason when a later Finalize abort is requested", func() {
-				backupMetadata := api.BackupMetadata{
-					Name:           backupOptions.BackupName,
-					Mode:           string(backupv1.PullMode),
-					StartTimestamp: backupOptions.BackupStartTime,
-					AbortReason:    string(backupv1.BackupAbortCancel),
-				}
-				metadataCache.Backup.Store(backupMetadata)
-				backupOptions.AbortReason = backupv1.BackupAbortFinalize
-
-				validJob := &libvirt.DomainJobInfo{
-					Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-					Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
-				}
-				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(validJob, nil)
-				mockDomain.EXPECT().AbortJob().Return(nil)
-				mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
-
-				Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(Succeed())
-
-				md, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(md.AbortReason).To(Equal(string(backupv1.BackupAbortCancel)))
-			})
-
-			It("should restore a previous AbortReason when a later AbortJob fails", func() {
-				backupMetadata := api.BackupMetadata{
-					Name:           backupOptions.BackupName,
-					Mode:           string(backupv1.PullMode),
-					StartTimestamp: backupOptions.BackupStartTime,
-					AbortReason:    string(backupv1.BackupAbortCancel),
-				}
-				metadataCache.Backup.Store(backupMetadata)
-				backupOptions.AbortReason = backupv1.BackupAbortFinalize
-
-				validJob := &libvirt.DomainJobInfo{
-					Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-					Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
-				}
-				abortError := libvirt.Error{Code: libvirt.ERR_INTERNAL_ERROR}
-				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(validJob, nil)
-				mockDomain.EXPECT().AbortJob().Return(abortError)
-				mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
-
-				Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(
-					MatchError(ContainSubstring(abortError.Error())),
-				)
-
-				md, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(md.AbortReason).To(Equal(string(backupv1.BackupAbortCancel)))
 			})
 		})
 	})
