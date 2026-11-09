@@ -278,7 +278,6 @@ var _ = Describe("DomainNotifyServer integration", func() {
 
 			recorder = record.NewFakeRecorder(10)
 			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
-			time.Sleep(3)
 			DeferCleanup(func() {
 				close(serverStopChan)
 				<-serverIsStoppedChan
@@ -300,7 +299,6 @@ var _ = Describe("DomainNotifyServer integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
-			time.Sleep(1)
 
 			client := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(pipeDir))
 			defer client.Close()
@@ -345,7 +343,6 @@ var _ = Describe("DomainNotifyServer integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
-			time.Sleep(1)
 
 			// Expect the client to reconnect and succeed despite initial failure
 			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
@@ -362,8 +359,6 @@ var _ = Describe("DomainNotifyServer integration", func() {
 			recorder := record.NewFakeRecorder(10)
 			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
 
-			time.Sleep(3)
-
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
@@ -378,7 +373,6 @@ var _ = Describe("DomainNotifyServer integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
-			time.Sleep(1)
 
 			shortTimeoutNotifier := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClientWithCustomTimeouts(pipeDir,
 				1*time.Second, 1*time.Second, 1*time.Second,
