@@ -43,7 +43,7 @@ func (c *KvmVirtRuntime) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) 
 	if err != nil {
 		return err
 	}
-	qemuProcess, err := GetQEMUProcess(res)
+	qemuProcess, err := GetQEMUProcess(res.PPid())
 	if err != nil {
 		return err
 	}
