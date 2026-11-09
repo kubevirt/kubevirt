@@ -21,7 +21,6 @@ package virthandler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -424,7 +423,7 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return true, nil
 	} else if isUnresponsive {
-		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+		return true, fmt.Errorf("Can not update a VirtualMachineInstance with unresponsive command server.")
 	}
 
 	return false, nil

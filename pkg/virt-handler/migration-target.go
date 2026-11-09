@@ -119,7 +119,7 @@ func NewMigrationTargetController(
 	hvMounter hotplugvolume.VolumeMounter,
 	memoryOverheadCalculators ...memoryOverheadCalculator,
 ) (*MigrationTargetController, error) {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
 	)

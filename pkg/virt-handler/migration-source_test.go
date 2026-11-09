@@ -301,12 +301,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 	Context("setMigrationProgressStatus", func() {
-		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, completed, failed bool, mode v1.MigrationMode) *api.Domain {
+		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, failed bool, mode v1.MigrationMode) *api.Domain {
 			d := api.NewMinimalDomainWithUUID("test", "1234")
 			d.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:          miguid,
 				EndTimestamp: end,
 				Failed:       failed,
+				Mode:         mode,
 			}
 			return d
 		}
@@ -321,30 +322,30 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{}),
 			))), api.NewMinimalDomain("test")),
 			Entry("without any migration state", libvmi.New(libvmistatus.WithStatus(libvmistatus.New())),
-				newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+				newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the source of the migration is running on the other node", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "1234",
 				SourceNode:        "othernode",
 				TargetNodeAddress: host,
 				Completed:         false,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the migration UID in the metadata doesn't correspond to the one in the status", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "4321",
 				SourceNode:        host,
 				TargetNodeAddress: host,
 				Completed:         false,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the migration is marked as completed in the VMI", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "1234",
 				SourceNode:        host,
 				TargetNodeAddress: "othernode",
 				Completed:         true,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, true, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", new(metav1.Now()), false, v1.MigrationPreCopy)),
 		)
 
 		It("should set the vmi migration state to the same state as the metadata", func() {
 			d := newDomainMigrationKubevirtMetadata("1234", new(metav1.NewTime(time.Now())),
-				true, false, v1.MigrationPreCopy)
+				false, v1.MigrationPreCopy)
 			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      "1234",
@@ -361,7 +362,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		It("should send an event if the migration failed", func() {
 			d := newDomainMigrationKubevirtMetadata("1234", new(metav1.NewTime(time.Now())),
-				true, true, v1.MigrationPreCopy)
+				true, v1.MigrationPreCopy)
 			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      "1234",
