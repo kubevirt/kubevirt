@@ -299,6 +299,40 @@ var _ = Describe("MemoryDump", func() {
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "removememorydump")).To(HaveLen(1))
 	})
 
+	Context("WaitForMemoryDumpComplete", func() {
+		setMemoryDumpRequest := func(req *v1.VirtualMachineMemoryDumpRequest) {
+			vm.Status.MemoryDumpRequest = req
+			var err error
+			vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).UpdateStatus(context.Background(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		It("should return the claim name when the memory dump completed", func() {
+			setMemoryDumpRequest(&v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: pvcName,
+				Phase:     v1.MemoryDumpCompleted,
+			})
+
+			claimName, err := memorydump.WaitForMemoryDumpComplete(kubecli.MockKubevirtClientInstance, metav1.NamespaceDefault, vmName, time.Millisecond, time.Second)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(claimName).To(Equal(pvcName))
+		})
+
+		It("should fail immediately with the request message when the memory dump failed", func() {
+			const message = "memory dump stopped before completion"
+			setMemoryDumpRequest(&v1.VirtualMachineMemoryDumpRequest{
+				ClaimName: pvcName,
+				Phase:     v1.MemoryDumpFailed,
+				Message:   message,
+			})
+
+			start := time.Now()
+			_, err := memorydump.WaitForMemoryDumpComplete(kubecli.MockKubevirtClientInstance, metav1.NamespaceDefault, vmName, 10*time.Millisecond, time.Minute)
+			Expect(err).To(MatchError("memory dump failed: " + message))
+			Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+		})
+	})
+
 	Context("Download of memory dump", func() {
 		const (
 			localPort    = uint16(5432)
