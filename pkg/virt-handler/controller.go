@@ -34,7 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
+	clientv1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -102,7 +102,7 @@ type netconf interface {
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
-	virtClient                  kubecli.KubevirtClient
+	vmiClient                   clientv1.VirtualMachineInstancesGetter
 	queue                       workqueue.TypedRateLimitingInterface[string]
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
@@ -123,7 +123,7 @@ func NewBaseController(
 	logger *log.FilteredLogger,
 	host string,
 	recorder record.EventRecorder,
-	virtClient kubecli.KubevirtClient,
+	vmiClient clientv1.VirtualMachineInstancesGetter,
 	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -141,7 +141,7 @@ func NewBaseController(
 		logger:                      logger,
 		host:                        host,
 		recorder:                    recorder,
-		virtClient:                  virtClient,
+		vmiClient:                   vmiClient,
 		queue:                       queue,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
