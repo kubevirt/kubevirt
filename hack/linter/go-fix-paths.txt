@@ -91,6 +91,7 @@ pkg/virt-launcher/virtwrap/converter/network
 pkg/virt-launcher/virtwrap/converter/storage
 pkg/virt-launcher/virtwrap/converter/translate
 pkg/virt-launcher/virtwrap/converter/types
+pkg/virt-launcher/virtwrap/converter/vcpu
 pkg/virt-launcher/virtwrap/converter/virtio
 pkg/virt-launcher/virtwrap/cpudedicated
 pkg/virt-launcher/virtwrap/device/hostdevice/generic
