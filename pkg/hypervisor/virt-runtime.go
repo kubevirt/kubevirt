@@ -40,6 +40,6 @@ func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervi
 	case v1.HyperVDirectHypervisorName:
 		return mshv.NewMshvVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
 	default:
-		return kvm.NewKvmVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
+		return kvm.NewKvmVirtRuntime(kvm.AdaptIsolationDetector(podIsolationDetector), log.Log.With("controller", "vm"))
 	}
 }
