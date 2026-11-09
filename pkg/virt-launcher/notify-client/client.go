@@ -296,21 +296,27 @@ func (n *Notifier) StartDomainNotifier(
 
 	domainConn.SetReconnectChan(reconnectChan)
 
+	poller := agentpoller.CreatePoller(
+		domainConn, vmi.UID, domainName, agentStore,
+		qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval,
+		qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval,
+	)
+	poller.OnGuestInfoQueryStalled = func() {
+		n.sendGuestInfoQueryStallEvent(vmi)
+	}
+
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go n.worker(eventChan, metadataCache, domainConn, deleteNotificationSent, vmi, reconnectChan,
-		agentpoller.CreatePoller(
-			domainConn,
-			vmi.UID,
-			domainName,
-			agentStore,
-			qemuAgentSysInterval,
-			qemuAgentFileInterval,
-			qemuAgentUserInterval,
-			qemuAgentVersionInterval,
-			qemuAgentFSFreezeStatusInterval,
-		), agentStore, nonRoot, domainName)
+		poller, agentStore, nonRoot, domainName)
 
 	return registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
+}
+
+func (n *Notifier) sendGuestInfoQueryStallEvent(vmi *v1.VirtualMachineInstance) {
+	const message = "Guest-agent information query timed out or has not completed. Interface and system data may be stale, even while the VM reports Running and AgentConnected. Collect virt-launcher and guest agent/kernel logs before restarting the VM."
+	if err := n.SendK8sEvent(vmi, k8sv1.EventTypeWarning, "GuestAgentInfoQueryStalled", message); err != nil {
+		log.Log.Reason(err).Warning("Failed to send guest agent information stall event")
+	}
 }
 
 func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) error {

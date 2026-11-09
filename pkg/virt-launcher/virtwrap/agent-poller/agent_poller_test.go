@@ -20,6 +20,7 @@
 package agentpoller
 
 import (
+	"errors"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -63,6 +64,49 @@ var _ = Describe("Qemu agent poller", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLibvirt = testing.NewLibvirt(ctrl)
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+	})
+
+	Context("with a stalled guest-info query", func() {
+		It("reports a pending query once, then allows a new report after recovery", func() {
+			events := make(chan struct{}, 2)
+			poller := &AgentPoller{OnGuestInfoQueryStalled: func() { events <- struct{}{} }}
+			release := make(chan struct{})
+			finished := make(chan struct{})
+			go func() {
+				defer close(finished)
+				_, _ = poller.watchGuestInfoQuery(10*time.Millisecond, func() (*libvirt.DomainGuestInfo, error) {
+					<-release
+					return nil, errors.New("agent unavailable")
+				})
+			}()
+
+			Eventually(events).Should(Receive())
+			close(release)
+			Eventually(finished).Should(BeClosed())
+			_, _ = poller.watchGuestInfoQuery(time.Minute, func() (*libvirt.DomainGuestInfo, error) {
+				return nil, libvirt.Error{Code: libvirt.ERR_OPERATION_TIMEOUT}
+			})
+			Consistently(events).ShouldNot(Receive())
+
+			_, err := poller.watchGuestInfoQuery(time.Minute, func() (*libvirt.DomainGuestInfo, error) {
+				return &libvirt.DomainGuestInfo{}, nil
+			})
+			Expect(err).ToNot(HaveOccurred())
+			_, _ = poller.watchGuestInfoQuery(time.Minute, func() (*libvirt.DomainGuestInfo, error) {
+				return nil, libvirt.Error{Code: libvirt.ERR_OPERATION_TIMEOUT}
+			})
+			Eventually(events).Should(Receive())
+		})
+
+		It("ignores a quick unrelated error", func() {
+			events := make(chan struct{}, 1)
+			poller := &AgentPoller{OnGuestInfoQueryStalled: func() { events <- struct{}{} }}
+			_, err := poller.watchGuestInfoQuery(time.Minute, func() (*libvirt.DomainGuestInfo, error) {
+				return nil, errors.New("domain not found")
+			})
+			Expect(err).To(MatchError("domain not found"))
+			Consistently(events).ShouldNot(Receive())
+		})
 	})
 
 	Context("with libvirt API", func() {
