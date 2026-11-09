@@ -83,6 +83,7 @@ pkg/virt-launcher/virtwrap/api/arch-defaulter
 pkg/virt-launcher/virtwrap/cmd-server
 pkg/virt-launcher/virtwrap/converter/arch
 pkg/virt-launcher/virtwrap/converter/compute
+pkg/virt-launcher/virtwrap/converter/iothreads
 pkg/virt-launcher/virtwrap/converter/kvm
 pkg/virt-launcher/virtwrap/converter/metadata
 pkg/virt-launcher/virtwrap/converter/mshv
