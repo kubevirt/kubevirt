@@ -103,10 +103,7 @@ func (l *launcherClientsManager) verifyLauncherClient(vmi *v1.VirtualMachineInst
 	}
 
 	log.Log.Object(vmi).Warningf("Ping vmi failed with %s", err.Error())
-	if _, socketErr := cmdclient.FindSocket(vmi); socketErr != nil {
-		if errors.Is(socketErr, cmdclient.ErrNoSocketFound) {
-			return markIrrecoverable(socketErr)
-		}
+	if _, socketErr := l.findSocket(vmi); socketErr != nil {
 		return socketErr
 	}
 	return err
@@ -134,11 +131,8 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			return clientInfo.Client, nil
 		}
 
-		socketFile, err := cmdclient.FindSocket(vmi)
+		socketFile, err := l.findSocket(vmi)
 		if err != nil {
-			if errors.Is(err, cmdclient.ErrNoSocketFound) {
-				return nil, markIrrecoverable(err)
-			}
 			return nil, err
 		}
 
@@ -177,6 +171,17 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 	return result.(cmdclient.LauncherClient), nil
 }
 
+func (l *launcherClientsManager) findSocket(vmi *v1.VirtualMachineInstance) (string, error) {
+	socketFile, err := cmdclient.FindSocket(vmi)
+	if err != nil {
+		if errors.Is(err, cmdclient.ErrNoSocketFound) {
+			return "", markIrrecoverable(err)
+		}
+		return "", err
+	}
+	return socketFile, nil
+}
+
 func (l *launcherClientsManager) GetLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo {
 	launcherInfo, exists := l.launcherClients.Load(vmi.UID)
 	if !exists {
@@ -209,7 +214,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 			// use cached socket if we previously established a connection
 			socketFile = clientInfo.SocketFile
 		} else {
-			socketFile, err = cmdclient.FindSocket(vmi)
+			socketFile, err = l.findSocket(vmi)
 			if err != nil {
 				// socket does not exist, but let's see if the pod is still there
 				if _, err = cmdclient.FindPodDirOnHost(vmi, cmdclient.SocketDirectoryOnHost); err != nil {
@@ -232,7 +237,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 		}
 		l.launcherClients.Store(vmi.UID, clientInfo)
 		// attempt to find the socket if the established connection doesn't currently exist.
-		socketFile, err = cmdclient.FindSocket(vmi)
+		socketFile, err = l.findSocket(vmi)
 		// no socket file, no VMI, so it's unresponsive
 		if err != nil {
 			// socket does not exist, but let's see if the pod is still there
