@@ -48,6 +48,7 @@ pkg/storage/oci
 pkg/storage/pod
 pkg/storage/reservation
 pkg/storage/snapshotoverlay
+pkg/storage/utilityvolume
 pkg/storage/velero
 pkg/storage/vmispec
 pkg/storage/volumepath
