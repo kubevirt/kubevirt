@@ -38,7 +38,7 @@ func NewEvacuateCancelCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     "evacuate-cancel (vm <vm-name> | vmi <vmi-name>)",
-		Short:   "Cancel evacuation for a VM, VMI, or all VMIs on a node",
+		Short:   "Cancel evacuation for a VM or VMI",
 		Example: usageEvacuateCancel(),
 		Args:    cobra.ExactArgs(2),
 		RunE:    c.Run,
@@ -57,9 +57,6 @@ func usageEvacuateCancel() string {
 
   # Cancel evacuation for a virtual machine instance
   {{ProgramName}} evacuate-cancel vmi my-vmi
-
-  # Cancel evacuation and also cancel an active migration for the VMI
-  {{ProgramName}} evacuate-cancel vmi my-vmi --migrate-cancel
   `
 }
 

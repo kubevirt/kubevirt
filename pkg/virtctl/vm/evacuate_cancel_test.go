@@ -73,6 +73,23 @@ var _ = Describe("Evacuate cancel command", func() {
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
+	It("should describe supported evacuation cancel resource types in help", func() {
+		cmd := testing.NewRepeatableVirtctlCommandWithOut("--help")
+		out, err := cmd()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(ContainSubstring("Cancel evacuation for a VM or VMI"))
+		Expect(string(out)).ToNot(ContainSubstring("all VMIs on a node"))
+	})
+
+	It("should not advertise an unsupported migration cancel flag in help", func() {
+		cmd := testing.NewRepeatableVirtctlCommandWithOut("evacuate-cancel", "--help")
+		out, err := cmd()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(string(out)).To(ContainSubstring("evacuate-cancel vm my-vm"))
+		Expect(string(out)).To(ContainSubstring("evacuate-cancel vmi my-vmi"))
+		Expect(string(out)).ToNot(ContainSubstring("--migrate-cancel"))
+	})
+
 	It("should fail with missing arguments", func() {
 		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel")
 		Expect(cmd()).To(MatchError("accepts 2 arg(s), received 0"))
@@ -152,5 +169,4 @@ var _ = Describe("Evacuate cancel command", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(string(bytes)).To(ContainSubstring(fmt.Sprintf("VMI %s/%s was canceled evacuation", k8smetav1.NamespaceDefault, vmiName)))
 	})
-
 })

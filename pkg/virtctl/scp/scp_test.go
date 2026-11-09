@@ -1,6 +1,8 @@
 package scp_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -9,6 +11,24 @@ import (
 )
 
 var _ = Describe("SCP", func() {
+	It("should use the requested namespace in the namespaced help example", func() {
+		var example string
+		for _, line := range strings.Split(scp.NewCommand().Example, "\n") {
+			if strings.Contains(line, "mynamespace:") {
+				example = line
+				break
+			}
+		}
+		args := strings.Fields(example)
+		Expect(args).To(HaveLen(4))
+
+		_, remote, toRemote, err := scp.ParseTarget(args[2], args[3])
+		Expect(err).ToNot(HaveOccurred())
+		Expect(remote.Namespace).To(Equal("mynamespace"))
+		Expect(remote.Name).To(Equal("testvmi"))
+		Expect(toRemote).To(BeTrue())
+	})
+
 	DescribeTable("ParseTarget", func(arg0, arg1 string, expLocal *scp.LocalArgument, expRemote *scp.RemoteArgument, expToRemote bool) {
 		local, remote, toRemote, err := scp.ParseTarget(arg0, arg1)
 		Expect(err).ToNot(HaveOccurred())
