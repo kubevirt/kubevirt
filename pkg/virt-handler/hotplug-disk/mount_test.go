@@ -756,7 +756,7 @@ var _ = Describe("HotplugVolume", func() {
 			deviceBasePath = func(podUID types.UID, kubeletPodDir string) (*safepath.Path, error) {
 				return volumeDir, nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func() isolation.SocketPodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: os.Getpid(),
 				}
@@ -800,7 +800,7 @@ var _ = Describe("HotplugVolume", func() {
 		It("getSourcePodFile should return error if iso detection returns error", func() {
 			_, err := newDir(tempDir, "ghfjk", "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func() isolation.SocketPodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: 9999,
 				}
@@ -880,7 +880,7 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func() isolation.SocketPodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: 9999,
 				}
@@ -1012,7 +1012,7 @@ var _ = Describe("HotplugVolume", func() {
 			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
 				return fakeStat(true, 0777, 123456), nil
 			}
-			isolationDetector = func() isolation.PodIsolationDetector {
+			isolationDetector = func() isolation.SocketPodIsolationDetector {
 				return &mockIsolationDetector{
 					pid: os.Getpid(),
 				}
