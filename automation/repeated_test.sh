@@ -43,7 +43,7 @@ export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
 source hack/config-default.sh
 
-GINKGO_TESTS_IMAGE="${GINKGO_TESTS_IMAGE-quay.io/kubevirtci/ginkgo-tests:v20260708-fc5fb56}"
+GINKGO_TESTS_IMAGE="${GINKGO_TESTS_IMAGE-quay.io/kubevirtci/ginkgo-tests:v202611101645-0f94693}"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
@@ -109,7 +109,8 @@ function new_tests() {
         changed "${target_commit_range[@]}" \
         -p /kubevirt \
         -t tests/ \
-        -o /tmp/changed-tests.json > /dev/null 2>&1
+        -o /tmp/changed-tests.json \
+        -l /tmp/changed-tests-labels.json > /dev/null 2>&1
 
     echo "${tmp_dir}/changed-tests.json"
 }
@@ -131,6 +132,48 @@ function should_skip_test_run_due_to_too_many_tests() {
     tests_total_for_all_runs_estimate=$((tests_to_run_estimate * NUM_TESTS))
     echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
     [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
+}
+
+function detect_environment_profile() {
+    local labels_file="$1"
+
+    if [[ ! -f "$labels_file" ]] || [[ ! -s "$labels_file" ]]; then
+        echo "base"
+        return
+    fi
+
+    local all_labels
+    all_labels=$(jq -r '[.[].labels[]] | unique | .[]' "$labels_file" 2>/dev/null || true)
+
+    if [[ -z "$all_labels" ]]; then
+        echo "base"
+        return
+    fi
+
+    local has_network=false
+    local has_gpu=false
+    local has_dra_cpu=false
+
+    while IFS= read -r label; do
+        case "$label" in
+            SRIOV|Multus|DRA-Network|in-place-hotplug-NICs|Istio)
+                has_network=true ;;
+            GPU|VGPU|DRA-GPU)
+                has_gpu=true ;;
+            DRA-CPU)
+                has_dra_cpu=true ;;
+        esac
+    done <<< "$all_labels"
+
+    if $has_network; then
+        echo "network"
+    elif $has_gpu; then
+        echo "gpu"
+    elif $has_dra_cpu; then
+        echo "dra-cpu"
+    else
+        echo "base"
+    fi
 }
 
 ginkgo_params=''
@@ -175,6 +218,10 @@ if [[ -z "${NEW_TESTS}" ]]; then
     echo "Nothing to test"
     exit 0
 fi
+
+LABELS_FILE="${NEW_TESTS%.json}-labels.json"
+ENVIRONMENT_PROFILE=$(detect_environment_profile "${LABELS_FILE}")
+echo "Environment profile: ${ENVIRONMENT_PROFILE}"
 
 tests_changed=$(jq '. | length' "${NEW_TESTS}")
 echo "Tests changed: ${tests_changed}"
@@ -252,15 +299,51 @@ add_feature_gate() {
 add_feature_gate "Plugins"
 add_feature_gate "OCIExport"
 
+case "$ENVIRONMENT_PROFILE" in
+  network)
+    export KUBEVIRT_DEPLOY_ISTIO=true
+    export KUBEVIRT_SECONDARY_IFACES_TO_IP=eth1
+    export KUBEVIRT_DEPLOY_NET_DRA_DRIVER=true
+    export KUBEVIRT_WITH_SRIOV=true
+    export KUBEVIRT_FUNC_TEST_SUITE_ARGS="${KUBEVIRT_FUNC_TEST_SUITE_ARGS:-} -emulated-sriov=true"
+    ;;
+  gpu)
+    export KUBEVIRT_USE_FAKE_VFIO=true
+    export DRA_DRIVER_PROFILE=vfio-gpu
+    export FAKE_PCI_DEVICES=8
+    export DRA_DRIVER_NAME="vfio-gpu.example.com"
+    add_feature_gate "GPUsWithDRA"
+    ;;
+  dra-cpu)
+    export KUBEVIRT_USE_DRA_CPU=true
+    export KUBEVIRT_NUM_NUMA_NODES=2
+    export KUBEVIRT_NUM_VCPU=12
+    add_feature_gate "CPUsWithDRA"
+    ;;
+esac
+
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
-# skip certain tests on flake lane
-add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU,DRA-Network,DRA-CPU))" "&&"
+case "$ENVIRONMENT_PROFILE" in
+  network)
+    add_to_label_filter "(!(Windows,GPU,VGPU,DRA-GPU,DRA-CPU))" "&&"
+    ;;
+  gpu)
+    add_to_label_filter "(!(SRIOV,Multus,Windows,in-place-hotplug-NICs,DRA-Network,DRA-CPU))" "&&"
+    add_to_label_filter '(!Istio)' '&&'
+    ;;
+  dra-cpu)
+    add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU,DRA-Network))" "&&"
+    add_to_label_filter '(!Istio)' '&&'
+    ;;
+  *)
+    add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU,in-place-hotplug-NICs,DRA-GPU,DRA-Network,DRA-CPU))" "&&"
+    add_to_label_filter '(!Istio)' '&&'
+    ;;
+esac
 
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
-# check-tests-for-flake does not support Istio tests, remove this filtering once it does.
-add_to_label_filter '(!Istio)' '&&'
 add_to_label_filter '(!requireHugepages1Gi)' '&&'
 add_to_label_filter '(!USB)' '&&'
 add_to_label_filter '(!requires-arm64)' '&&'
