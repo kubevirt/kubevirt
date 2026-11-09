@@ -26,6 +26,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -399,7 +400,7 @@ func graceHostGINodesByDevice(verifiedDevices []verifiedGraceHostDevice) (map[st
 		}
 
 		anyCorrelated = true
-		sort.Slice(hostGINodes, func(i, j int) bool { return hostGINodes[i] < hostGINodes[j] })
+		slices.Sort(hostGINodes)
 		if len(hostGINodes) != graceGINodesPerGPU {
 			return nil, true, fmt.Errorf("GraceIOVirtualization requires exactly %d host Generic Initiator NUMA nodes for hostdev %q at %s, found %d", graceGINodesPerGPU, verifiedDevice.Alias, verifiedDevice.SourceAddress, len(hostGINodes))
 		}
@@ -620,7 +621,7 @@ func appendGraceGINUMACells(domainSpec *api.DomainSpec, guestGINodes []uint32) {
 
 func allocateGuestGINodes(start uint32, count int) []uint32 {
 	nodes := make([]uint32, 0, count)
-	for index := 0; index < count; index++ {
+	for index := range count {
 		nodes = append(nodes, start+uint32(index))
 	}
 	return nodes
@@ -852,7 +853,7 @@ func (p sysfsGraceRuntimeInfoProvider) memorylessNoCPUNodes() ([]uint32, error) 
 			giNodes = append(giNodes, node)
 		}
 	}
-	sort.Slice(giNodes, func(i, j int) bool { return giNodes[i] < giNodes[j] })
+	slices.Sort(giNodes)
 	return giNodes, nil
 }
 
@@ -974,7 +975,7 @@ func parseHostNUMANodeSet(nodeSet string) ([]uint32, error) {
 		}
 		result = append(result, uint32(node))
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	slices.Sort(result)
 	return result, nil
 }
 
@@ -984,7 +985,7 @@ func (p sysfsGraceRuntimeInfoProvider) isMemorylessNoCPUNode(node uint32) (bool,
 		return false, err
 	}
 	memoryless := false
-	for _, line := range strings.Split(meminfo, "\n") {
+	for line := range strings.SplitSeq(meminfo, "\n") {
 		if !strings.Contains(line, "MemTotal:") {
 			continue
 		}

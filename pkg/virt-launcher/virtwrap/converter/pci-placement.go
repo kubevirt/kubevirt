@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/log"
@@ -356,7 +355,7 @@ func (a *expanderBusAssigner) addDevices(devices []api.HostDevice) error {
 	return nil
 }
 
-func (a *expanderBusAssigner) handlePlacementWarning(format string, args ...interface{}) {
+func (a *expanderBusAssigner) handlePlacementWarning(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	log.Log.Warningf("%s", message)
 	a.addStrictFailure(message)
@@ -490,7 +489,7 @@ func (a *expanderBusAssigner) assignBusNr(topology *numaAwareTopology) {
 	// device is aligned with a NUMA node) and go downwards to leave space for
 	// system controllers and additional expander buses.
 	busNr := maxExpanderBusNr - a.controllerCount + 1
-	topology.expanderBus.Target.BusNr = ptr.To(busNr)
+	topology.expanderBus.Target.BusNr = new(busNr)
 	a.lastAssignedBusNr = busNr
 }
 
