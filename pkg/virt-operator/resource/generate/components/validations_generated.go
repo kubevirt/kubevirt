@@ -8165,7 +8165,11 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example:
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                maxLength: 64
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed MAC address
+                                  rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                               macvtap:
                                 description: |-
                                   DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -8182,6 +8186,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface uses a model that is not supported
+                                  rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -8201,7 +8208,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
+                                maxLength: 12
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed PCI address
+                                  rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
@@ -14831,7 +14842,11 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af
                           or DE-AD-00-00-BE-AF.'
+                        maxLength: 64
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed MAC address
+                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                       macvtap:
                         description: |-
                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -14848,6 +14863,9 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface uses a model that is not supported
+                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -14867,7 +14885,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
+                        maxLength: 12
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed PCI address
+                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
@@ -19445,7 +19467,11 @@ var CRDsValidation map[string]string = map[string]string{
                       macAddress:
                         description: 'Interface MAC address. For example: de:ad:00:00:be:af
                           or DE-AD-00-00-BE-AF.'
+                        maxLength: 64
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed MAC address
+                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                       macvtap:
                         description: |-
                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -19462,6 +19488,9 @@ var CRDsValidation map[string]string = map[string]string{
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface uses a model that is not supported
+                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                       name:
                         description: |-
                           Logical name of the interface as well as a reference to the associated networks.
@@ -19481,7 +19510,11 @@ var CRDsValidation map[string]string = map[string]string{
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
                           PCI address. For example: 0000:81:01.10'
+                        maxLength: 12
                         type: string
+                        x-kubernetes-validations:
+                        - message: interface has a malformed PCI address
+                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                       portRanges:
                         description: |-
                           List of port ranges to be forwarded to the virtual machine.
@@ -22044,7 +22077,11 @@ var CRDsValidation map[string]string = map[string]string{
                               macAddress:
                                 description: 'Interface MAC address. For example:
                                   de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                maxLength: 64
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed MAC address
+                                  rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                               macvtap:
                                 description: |-
                                   DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -22061,6 +22098,9 @@ var CRDsValidation map[string]string = map[string]string{
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface uses a model that is not supported
+                                  rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                               name:
                                 description: |-
                                   Logical name of the interface as well as a reference to the associated networks.
@@ -22080,7 +22120,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
                                   specified PCI address. For example: 0000:81:01.10'
+                                maxLength: 12
                                 type: string
+                                x-kubernetes-validations:
+                                - message: interface has a malformed PCI address
+                                  rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                               portRanges:
                                 description: |-
                                   List of port ranges to be forwarded to the virtual machine.
@@ -27487,7 +27531,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       macAddress:
                                         description: 'Interface MAC address. For example:
                                           de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                        maxLength: 64
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface has a malformed MAC address
+                                          rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                                       macvtap:
                                         description: |-
                                           DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -27505,6 +27553,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                           Defaults to virtio.
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface uses a model that is
+                                            not supported
+                                          rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                                       name:
                                         description: |-
                                           Logical name of the interface as well as a reference to the associated networks.
@@ -27526,7 +27578,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           interface will be placed on the guests pci
                                           address with the specified PCI address.
                                           For example: 0000:81:01.10'
+                                        maxLength: 12
                                         type: string
+                                        x-kubernetes-validations:
+                                        - message: interface has a malformed PCI address
+                                          rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                                       portRanges:
                                         description: |-
                                           List of port ranges to be forwarded to the virtual machine.
@@ -33460,7 +33516,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           macAddress:
                                             description: 'Interface MAC address. For
                                               example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.'
+                                            maxLength: 64
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface has a malformed MAC
+                                                address
+                                              rule: self == '' || self.matches('^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{2}-){5}[0-9a-fA-F]{2}$|^([0-9a-fA-F]{4}\\.){2}[0-9a-fA-F]{4}$')
                                           macvtap:
                                             description: |-
                                               DeprecatedMacvtap is an alias to the deprecated Macvtap interface,
@@ -33478,6 +33539,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                               Defaults to virtio.
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface uses a model that
+                                                is not supported
+                                              rule: self in ['e1000','e1000e','igb','ne2k_pci','pcnet','rtl8139','virtio','']
                                           name:
                                             description: |-
                                               Logical name of the interface as well as a reference to the associated networks.
@@ -33499,7 +33564,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               network interface will be placed on
                                               the guests pci address with the specified
                                               PCI address. For example: 0000:81:01.10'
+                                            maxLength: 12
                                             type: string
+                                            x-kubernetes-validations:
+                                            - message: interface has a malformed PCI
+                                                address
+                                              rule: self == '' || self.matches('^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\\.[0-7]$')
                                           portRanges:
                                             description: |-
                                               List of port ranges to be forwarded to the virtual machine.
