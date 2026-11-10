@@ -13,7 +13,7 @@ import (
 var _ = Describe("SCP", func() {
 	It("should use the requested namespace in the namespaced help example", func() {
 		var example string
-		for _, line := range strings.Split(scp.NewCommand().Example, "\n") {
+		for line := range strings.SplitSeq(scp.NewCommand().Example, "\n") {
 			if strings.Contains(line, "mynamespace:") {
 				example = line
 				break
