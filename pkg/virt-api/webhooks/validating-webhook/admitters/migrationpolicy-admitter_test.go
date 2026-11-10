@@ -341,6 +341,53 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		),
 	)
 
+	DescribeTable("experimental.compression feature gate validation",
+		func(gate string, isUpdate bool, oldCompression, newCompression *v1.MigrationCompression, expectAllowed bool) {
+			if gate == "" {
+				disableFeatureGates()
+			} else {
+				enableFeatureGate(gate)
+			}
+			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if newCompression != nil {
+				newPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					Compression: newCompression,
+				}
+			}
+			if !isUpdate {
+				admitter.admitAndExpect(newPolicy, expectAllowed)
+				return
+			}
+			oldPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			if oldCompression != nil {
+				oldPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+					Compression: oldCompression,
+				}
+			}
+			if expectAllowed {
+				newPolicy.Spec.AllowAutoConverge = pointer.P(true)
+			}
+			admitter.admitUpdateAndExpect(oldPolicy, newPolicy, expectAllowed)
+		},
+		Entry("reject on create without gate", "", false, nil, pointer.P(v1.MigrationCompressionZstd), false),
+		Entry("allow unchanged update without gate", "", true,
+			pointer.P(v1.MigrationCompressionZstd),
+			pointer.P(v1.MigrationCompressionZstd),
+			true,
+		),
+		Entry("reject changing value on update without gate", "", true,
+			pointer.P(v1.MigrationCompressionNone),
+			pointer.P(v1.MigrationCompressionZstd),
+			false,
+		),
+		Entry("allow on create with MigrationCompression", featuregate.MigrationCompression, false, nil, pointer.P(v1.MigrationCompressionZstd), true),
+		Entry("allow changing value on update with MigrationCompression", featuregate.MigrationCompression, true,
+			pointer.P(v1.MigrationCompressionNone),
+			pointer.P(v1.MigrationCompressionZstd),
+			true,
+		),
+	)
+
 })
 
 func createPolicyAdmissionReview(policy *migrationsv1.MigrationPolicy, namespace string) *admissionv1.AdmissionReview {
