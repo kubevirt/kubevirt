@@ -108,7 +108,15 @@ func (p PasstNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*
 
 	domainSpecCopy := domainSpec.DeepCopy()
 	if iface := lookupIfaceByAliasName(domainSpecCopy.Devices.Interfaces, p.vmiSpecIface.Name); iface != nil {
-		*iface = *generatedIface
+		iface.Type = generatedIface.Type
+		iface.Source = generatedIface.Source
+		iface.Model = generatedIface.Model
+		iface.MAC = generatedIface.MAC
+		iface.Address = generatedIface.Address
+		iface.ACPI = generatedIface.ACPI
+		iface.Alias = generatedIface.Alias
+		iface.Backend = generatedIface.Backend
+		iface.PortForward = generatedIface.PortForward
 	} else {
 		domainSpecCopy.Devices.Interfaces = append(domainSpecCopy.Devices.Interfaces, *generatedIface)
 	}
