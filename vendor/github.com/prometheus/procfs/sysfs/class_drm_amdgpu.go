@@ -12,7 +12,6 @@
 // limitations under the License.
 
 //go:build linux
-// +build linux
 
 package sysfs
 
@@ -21,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"syscall"
 
 	"github.com/prometheus/procfs/internal/util"
@@ -47,6 +47,21 @@ type ClassDRMCardAMDGPUStats struct {
 	MemoryVRAMVendor              string // The VRAM vendor name.
 	PowerDPMForcePerformanceLevel string // The current power performance level.
 	UniqueID                      string // The unique ID of the GPU that will persist from machine to machine.
+	DevName                       string // The device name.
+	DevType                       string // The device type.
+}
+
+// readDev reads the device name and type from the "device" symlink in the given directory.
+func readDevInfo(dir string) (string, string, error) {
+	devicePath, devErr := filepath.EvalSymlinks(filepath.Join(dir, "device"))
+	if devErr == nil {
+		devPathPrefix, devName := filepath.Split(devicePath)
+		_, devType := filepath.Split(strings.TrimRight(devPathPrefix, "/"))
+
+		return devName, devType, nil
+	}
+
+	return "", "", devErr
 }
 
 // ClassDRMCardAMDGPUStats returns DRM card metrics for all amdgpu cards.
@@ -65,8 +80,10 @@ func (fs FS) ClassDRMCardAMDGPUStats() ([]ClassDRMCardAMDGPUStats, error) {
 			}
 			return nil, err
 		}
-		cardStats.Name = filepath.Base(card)
-		stats = append(stats, cardStats)
+		if cardStats != (ClassDRMCardAMDGPUStats{}) {
+			cardStats.Name = filepath.Base(card)
+			stats = append(stats, cardStats)
+		}
 	}
 	return stats, nil
 }
@@ -87,6 +104,12 @@ func parseClassDRMAMDGPUCard(card string) (ClassDRMCardAMDGPUStats, error) {
 
 	stats := ClassDRMCardAMDGPUStats{Name: card}
 	// Read only specific files for faster data gathering.
+	if n, t, err := readDevInfo(card); err == nil {
+		stats.DevName = n
+		stats.DevType = t
+	} else {
+		return ClassDRMCardAMDGPUStats{}, err
+	}
 	if v, err := readDRMCardField(card, "gpu_busy_percent"); err == nil {
 		stats.GPUBusyPercent = *util.NewValueParser(v).PUInt64()
 	}

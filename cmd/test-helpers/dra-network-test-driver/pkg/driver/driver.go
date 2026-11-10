@@ -108,3 +108,8 @@ func (d *Driver) HandleError(ctx context.Context, err error, msg string) {
 	}
 	d.cancel()
 }
+
+// WatchHealthStatus opts out of device health reporting.
+func (d *Driver) WatchHealthStatus(ctx context.Context, reports chan<- kubeletplugin.DeviceHealthReport) error {
+	return kubeletplugin.ErrHealthNotSupported
+}

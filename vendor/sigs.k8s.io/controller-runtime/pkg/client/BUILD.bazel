@@ -7,6 +7,7 @@ go_library(
         "client.go",
         "client_rest_resources.go",
         "codec.go",
+        "consistency.go",
         "doc.go",
         "dryrun.go",
         "fieldowner.go",
@@ -26,6 +27,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/evanphx/json-patch/v5:go_default_library",
+        "//vendor/github.com/go-logr/logr:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/meta:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -46,7 +49,11 @@ go_library(
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/util/apply:go_default_library",
         "//vendor/k8s.io/utils/ptr:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/cache/cacheapi:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/client/apiutil:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/client/internal/consistencyhandler:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier:go_default_library",
         "//vendor/sigs.k8s.io/controller-runtime/pkg/log:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/metrics:go_default_library",
     ],
 )

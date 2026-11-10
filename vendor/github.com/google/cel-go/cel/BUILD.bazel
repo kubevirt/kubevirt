@@ -10,6 +10,7 @@ go_library(
         "cel.go",
         "decls.go",
         "env.go",
+        "fieldpaths.go",
         "folding.go",
         "inlining.go",
         "io.go",
@@ -53,4 +54,9 @@ go_library(
         "//vendor/google.golang.org/protobuf/types/dynamicpb:go_default_library",
         "//vendor/google.golang.org/protobuf/types/known/anypb:go_default_library",
     ],
+)
+
+exports_files(
+    ["templates/authoring.tmpl"],
+    visibility = ["//visibility:public"],
 )

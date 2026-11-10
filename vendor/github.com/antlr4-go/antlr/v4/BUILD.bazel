@@ -34,6 +34,7 @@ go_library(
         "lexer_action_executor.go",
         "lexer_atn_simulator.go",
         "ll1_analyzer.go",
+        "mutex.go",
         "nostatistics.go",
         "parser.go",
         "parser_atn_simulator.go",

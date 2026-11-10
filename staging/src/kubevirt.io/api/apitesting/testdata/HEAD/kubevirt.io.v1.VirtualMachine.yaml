@@ -662,6 +662,7 @@ spec:
             value: valueValue
           path: pathValue
           port: portValue
+          protocol: protocolValue
           scheme: schemeValue
         initialDelaySeconds: -19
         periodSeconds: -13
@@ -697,6 +698,7 @@ spec:
             value: valueValue
           path: pathValue
           port: portValue
+          protocol: protocolValue
           scheme: schemeValue
         initialDelaySeconds: -19
         periodSeconds: -13
@@ -852,6 +854,7 @@ spec:
               containerName: containerNameValue
               divisor: "0"
               resource: resourceValue
+            user: 5
           volumeLabel: volumeLabelValue
         downwardMetrics: {}
         emptyDisk:
