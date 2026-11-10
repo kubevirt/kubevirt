@@ -20,6 +20,9 @@
 package eventsserver_test
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,12 +30,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	eventsserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+type errorStore struct {
+	cache.Store
+}
+
+func (s *errorStore) GetByKey(_ string) (any, bool, error) {
+	return nil, false, fmt.Errorf("store error")
+}
 
 var _ = Describe("RunServer", func() {
 	const testWatchInterval = 100 * time.Millisecond
@@ -59,7 +80,6 @@ var _ = Describe("RunServer", func() {
 			defer GinkgoRecover()
 			errChan <- eventsserver.RunServer(virtShareDir, stopChan, eventChan, recorder, vmiStore, testWatchInterval)
 		}()
-		// Wait for socket file to be created before returning
 		sockFile := filepath.Join(virtShareDir, "domain-notify.sock")
 		Eventually(func() bool {
 			_, err := os.Lstat(sockFile)
@@ -93,4 +113,196 @@ var _ = Describe("RunServer", func() {
 		close(stopChan)
 		Eventually(errChan).WithTimeout(15 * time.Second).Should(Receive(BeNil()))
 	})
+})
+
+var _ = Describe("HandleDomainEvent", func() {
+	var (
+		notifyServer *eventsserver.Notify
+		eventChan    chan watch.Event
+	)
+
+	BeforeEach(func() {
+		eventChan = make(chan watch.Event, 10)
+		notifyServer = eventsserver.NewNotify(eventChan, nil, nil)
+	})
+
+	DescribeTable("should push the correct event type to the channel",
+		func(eventType string, expectedType watch.EventType) {
+			domain := &api.Domain{}
+			domain.Name = "test-domain"
+			domainJSON, err := json.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp, err := notifyServer.HandleDomainEvent(context.Background(), &notifyv1.DomainEventRequest{
+				DomainJSON: domainJSON,
+				EventType:  eventType,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Success).To(BeTrue())
+
+			var ev watch.Event
+			Eventually(eventChan).Should(Receive(&ev))
+			Expect(ev.Type).To(Equal(expectedType))
+			Expect(ev.Object.(*api.Domain).Name).To(Equal("test-domain"))
+		},
+		Entry("Added", string(watch.Added), watch.Added),
+		Entry("Modified", string(watch.Modified), watch.Modified),
+		Entry("Deleted", string(watch.Deleted), watch.Deleted),
+	)
+
+	DescribeTable("should acknowledge events without forwarding them",
+		func(makeRequest func() *notifyv1.DomainEventRequest) {
+			resp, err := notifyServer.HandleDomainEvent(context.Background(), makeRequest())
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Success).To(BeTrue())
+			Expect(eventChan).ShouldNot(Receive())
+		},
+		Entry("Error event", func() *notifyv1.DomainEventRequest {
+			domain := &api.Domain{}
+			domainJSON, err := json.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			k8sStatus := &metav1.Status{Message: "domain crashed"}
+			statusJSON, err := json.Marshal(k8sStatus)
+			Expect(err).ToNot(HaveOccurred())
+
+			return &notifyv1.DomainEventRequest{
+				DomainJSON: domainJSON,
+				StatusJSON: statusJSON,
+				EventType:  string(watch.Error),
+			}
+		}),
+		Entry("unknown event type", func() *notifyv1.DomainEventRequest {
+			return &notifyv1.DomainEventRequest{EventType: "UnknownType"}
+		}),
+	)
+
+	It("should succeed with empty DomainJSON and StatusJSON", func() {
+		resp, err := notifyServer.HandleDomainEvent(context.Background(), &notifyv1.DomainEventRequest{
+			EventType: string(watch.Added),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.Success).To(BeTrue())
+
+		var ev watch.Event
+		Eventually(eventChan).Should(Receive(&ev))
+		Expect(ev.Type).To(Equal(watch.Added))
+	})
+
+	DescribeTable("should return InvalidArgument for invalid JSON",
+		func(makeRequest func() *notifyv1.DomainEventRequest, expectedMessage string) {
+			resp, err := notifyServer.HandleDomainEvent(context.Background(), makeRequest())
+			Expect(resp).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			st, ok := status.FromError(err)
+			Expect(ok).To(BeTrue())
+			Expect(st.Code()).To(Equal(codes.InvalidArgument))
+			Expect(st.Message()).To(ContainSubstring(expectedMessage))
+		},
+		Entry("invalid DomainJSON", func() *notifyv1.DomainEventRequest {
+			return &notifyv1.DomainEventRequest{
+				DomainJSON: []byte("not valid json"),
+				EventType:  string(watch.Added),
+			}
+		}, "unmarshal domain json"),
+		Entry("invalid StatusJSON", func() *notifyv1.DomainEventRequest {
+			domain := &api.Domain{}
+			domainJSON, err := json.Marshal(domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			return &notifyv1.DomainEventRequest{
+				DomainJSON: domainJSON,
+				StatusJSON: []byte("not valid json"),
+				EventType:  string(watch.Error),
+			}
+		}, "unmarshal status json"),
+	)
+})
+
+var _ = Describe("HandleK8SEvent", func() {
+	const (
+		vmiName      = "test-vmi"
+		vmiNamespace = "test-ns"
+		vmiUID       = types.UID("test-uid-123")
+	)
+
+	var (
+		notifyServer *eventsserver.Notify
+		eventChan    chan watch.Event
+		fakeRecorder *record.FakeRecorder
+		vmiStore     cache.Store
+	)
+
+	BeforeEach(func() {
+		eventChan = make(chan watch.Event, 10)
+		fakeRecorder = record.NewFakeRecorder(10)
+		vmiStore = cache.NewStore(cache.MetaNamespaceKeyFunc)
+		notifyServer = eventsserver.NewNotify(eventChan, fakeRecorder, vmiStore)
+
+		testVMI := &v1.VirtualMachineInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      vmiName,
+				Namespace: vmiNamespace,
+				UID:       vmiUID,
+			},
+		}
+		Expect(vmiStore.Add(testVMI)).To(Succeed())
+	})
+
+	makeEventJSON := func(namespace, name string, uid types.UID, reason, message string) []byte {
+		event := k8sv1.Event{
+			InvolvedObject: k8sv1.ObjectReference{
+				Name:      name,
+				Namespace: namespace,
+				UID:       uid,
+			},
+			Type:    "Normal",
+			Reason:  reason,
+			Message: message,
+		}
+		data, err := json.Marshal(event)
+		Expect(err).ToNot(HaveOccurred())
+		return data
+	}
+
+	It("should record event when VMI exists and UID matches", func() {
+		eventJSON := makeEventJSON(vmiNamespace, vmiName, vmiUID, "Started", "VM started")
+
+		resp, err := notifyServer.HandleK8SEvent(context.Background(), &notifyv1.K8SEventRequest{
+			EventJSON: eventJSON,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resp.Success).To(BeTrue())
+
+		Eventually(fakeRecorder.Events).Should(Receive(ContainSubstring("Started")))
+	})
+
+	DescribeTable("should return a gRPC status error",
+		func(makeEvent func() []byte, expectedCode codes.Code, expectedMessage string) {
+			resp, err := notifyServer.HandleK8SEvent(context.Background(), &notifyv1.K8SEventRequest{
+				EventJSON: makeEvent(),
+			})
+			Expect(resp).To(BeNil())
+			Expect(err).To(HaveOccurred())
+			st, ok := status.FromError(err)
+			Expect(ok).To(BeTrue())
+			Expect(st.Code()).To(Equal(expectedCode))
+			Expect(st.Message()).To(ContainSubstring(expectedMessage))
+		},
+		Entry("invalid EventJSON", func() []byte {
+			return []byte("not valid json")
+		}, codes.InvalidArgument, "unmarshal k8s event"),
+		Entry("VMI does not exist in store", func() []byte {
+			return makeEventJSON(vmiNamespace, "nonexistent-vmi", vmiUID, "Started", "VM started")
+		}, codes.NotFound, "VMI not found"),
+		Entry("VMI UID does not match", func() []byte {
+			return makeEventJSON(vmiNamespace, vmiName, "wrong-uid", "Started", "VM started")
+		}, codes.NotFound, "VMI not found"),
+		Entry("store returns an error", func() []byte {
+			notifyServer = eventsserver.NewNotify(eventChan, fakeRecorder, &errorStore{
+				Store: cache.NewStore(cache.MetaNamespaceKeyFunc),
+			})
+			return makeEventJSON(vmiNamespace, vmiName, vmiUID, "Started", "VM started")
+		}, codes.Internal, "failed to get VMI"),
+	)
 })
