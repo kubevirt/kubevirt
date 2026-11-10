@@ -20,7 +20,7 @@ func (PluginList) SwaggerDoc() map[string]string {
 func (PluginSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"condition":                   "Condition is a CEL expression that determines whether this plugin applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\nWhen set, this acts as a baseline filter for all hooks in the plugin.\nIndividual hooks may further narrow the scope with their own Condition fields.\nAn empty condition always matches.\n+optional",
-		"failureStrategy":             "FailureStrategy specifies the default behavior when the plugin itself is unhealthy\n(e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).\nIndividual hooks may override this with their own FailureStrategy.\n+optional",
+		"failureStrategy":             "FailureStrategy specifies the default behavior when one of the plugin's launcher or node hooks fails\n(e.g. its socket is unreachable, the call times out, or the hook returns an error).\nIndividual hooks may override this with their own FailureStrategy.\nDefaults to Fail.\nErrors evaluating a plugin or hook Condition always fail the operation, regardless of FailureStrategy.\n+optional",
 		"launcherHooks":               "LauncherHooks defines hooks that run inside the virt-launcher pod at well-defined\npoints in the VM lifecycle.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64",
 		"nodeHooks":                   "NodeHooks defines hooks that execute during VM lifecycle events.\nHooks are applied in declaration order within each plugin.\nAcross plugins, hooks are applied in alphabetical order by plugin name.\n+optional\n+listType=atomic\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64",
 		"mutatingAdmissionPolicies":   "MutatingAdmissionPolicies references MutatingAdmissionPolicy objects managed by the plugin.\n+optional\n+listType=atomic",
@@ -36,7 +36,7 @@ func (LauncherHook) SwaggerDoc() map[string]string {
 		"cel":             "CEL defines a CEL expression hook.\n+optional",
 		"sidecar":         "Sidecar defines a sidecar-based hook that communicates via a Unix socket.\n+optional",
 		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\n+optional",
-		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
+		"failureStrategy": "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).\nDefaults to the plugin-level FailureStrategy, or Fail if neither is set.\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",
 	}
 }
@@ -62,7 +62,7 @@ func (NodeHook) SwaggerDoc() map[string]string {
 		"socket":          "Socket is the path to the Unix socket for hook communication.\nThe CEL rule enforces the 108-byte sun_path limit; this MaxLength marker bounds the cost estimate.\n+kubebuilder:validation:MinLength=1\n+kubebuilder:validation:MaxLength=108",
 		"permittedHooks":  "PermittedHooks lists the VM lifecycle events this hook handles.\n+kubebuilder:validation:MinItems=1\nThe bound gives the CEL cost estimator a finite cardinality; it is not a user-facing limit.\n+kubebuilder:validation:MaxItems=64\n+listType=atomic",
 		"condition":       "Condition is a CEL expression that determines whether this hook applies to a given VM.\nThe expression may reference only `vmi` and must evaluate to a bool.\n+optional",
-		"failureStrategy": "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n+optional",
+		"failureStrategy": "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).\nDefaults to the plugin-level FailureStrategy, or Fail if neither is set.\n+optional",
 		"timeout":         "Timeout specifies the maximum duration to wait for the hook to complete.\n+optional",
 	}
 }
