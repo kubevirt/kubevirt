@@ -54,7 +54,6 @@ import (
 	templateapi "kubevirt.io/virt-template-api/core"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
@@ -354,7 +353,7 @@ func (c *command) initVMExportInfo(vmeInfo *VMExportInfo) error {
 		vmeInfo.OutputFile = ""
 		// Setting standard printer to output into stderr. We can then output
 		// the volume into stdout without any interfering prints.
-		printToOutput = func(format string, a ...interface{}) (int, error) {
+		printToOutput = func(format string, a ...any) (int, error) {
 			return fmt.Fprintf(os.Stderr, format, a...)
 		}
 	}
@@ -860,7 +859,7 @@ func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.Vi
 		Kind:    "VirtualMachineExport",
 	})
 	// This requires more RBAC on certain k8s distributions and isn't really needed
-	ownerRef.BlockOwnerDeletion = pointer.P(false)
+	ownerRef.BlockOwnerDeletion = new(false)
 	secret := &k8sv1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getExportSecretName(vmexport.Name),
