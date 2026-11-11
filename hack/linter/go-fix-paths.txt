@@ -5,6 +5,7 @@ pkg/config
 pkg/downwardmetrics/scraper
 pkg/downwardmetrics/vhostmd/api
 pkg/dra/admitter
+pkg/dra/metadata
 pkg/ephemeral-disk
 pkg/ephemeral-disk-utils
 pkg/filewatcher
