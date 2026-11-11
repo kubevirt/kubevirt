@@ -22,7 +22,7 @@ go_library(
         "//pkg/network/resources:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/storage/cbt:go_default_library",
-        "//pkg/storage/container-disk:go_default_library",
+        "//pkg/storage/container-disk/diskpaths:go_default_library",
         "//pkg/storage/export/export:go_default_library",
         "//pkg/storage/pod/annotations:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
