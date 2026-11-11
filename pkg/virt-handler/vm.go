@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -285,7 +286,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.ioErrorRetryManager.Run(stopCh)
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -494,9 +495,7 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 
 func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.VolumeStatus) {
 	newStatusMapCopy := make(map[string]v1.VolumeStatus)
-	for k, v := range newStatusMap {
-		newStatusMapCopy[k] = v
-	}
+	maps.Copy(newStatusMapCopy, newStatusMap)
 	for _, oldStatus := range vmi.Status.VolumeStatus {
 		newStatus, ok := newStatusMap[oldStatus.Name]
 		if !ok {
@@ -1694,10 +1693,7 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 		return hasExpired, timeLeft
 	}
 
-	timeLeft = gracePeriod - diff
-	if timeLeft < 1 {
-		timeLeft = 1
-	}
+	timeLeft = max(gracePeriod-diff, 1)
 	return hasExpired, timeLeft
 }
 
@@ -2374,7 +2370,7 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	return vmi.Status.Phase, nil
 }
 
-func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
+func (c *VirtualMachineController) addDeleteFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -2382,7 +2378,7 @@ func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
 	}
 }
 
-func (c *VirtualMachineController) updateFunc(_, new interface{}) {
+func (c *VirtualMachineController) updateFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -2390,13 +2386,13 @@ func (c *VirtualMachineController) updateFunc(_, new interface{}) {
 	}
 }
 
-func (c *VirtualMachineController) addDomainFunc(obj interface{}) {
+func (c *VirtualMachineController) addDomainFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
-func (c *VirtualMachineController) deleteDomainFunc(obj interface{}) {
+func (c *VirtualMachineController) deleteDomainFunc(obj any) {
 	domain, ok := obj.(*api.Domain)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -2416,7 +2412,7 @@ func (c *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 		c.queue.Add(key)
 	}
 }
-func (c *VirtualMachineController) updateDomainFunc(_, new interface{}) {
+func (c *VirtualMachineController) updateDomainFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.queue.Add(key)
