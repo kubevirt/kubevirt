@@ -21,7 +21,6 @@ package dra
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -67,7 +66,7 @@ func PodResourceClaimsForVMI(vmi *v1.VirtualMachineInstance, cpusFromDRA bool) [
 
 	return append(claims, k8sv1.PodResourceClaim{
 		Name:              CPUClaimRefName,
-		ResourceClaimName: ptr.To(CPUResourceClaimName(vmi.Name)),
+		ResourceClaimName: new(CPUResourceClaimName(vmi.Name)),
 	})
 }
 
