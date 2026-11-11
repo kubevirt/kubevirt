@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/api/instancetype"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -525,7 +524,7 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 			Name: c.name,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy)),
+			RunStrategy: new(v1.VirtualMachineRunStrategy(c.runStrategy)),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				Spec: v1.VirtualMachineInstanceSpec{
 					TerminationGracePeriodSeconds: &c.terminationGracePeriod,
@@ -666,7 +665,7 @@ func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 		for k := range c.bootOrders {
 			keys = append(keys, k)
 		}
-		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+		slices.Sort(keys)
 		return c.bootOrders[keys[0]], nil
 	}
 
@@ -781,10 +780,11 @@ func (c *createVM) configDriveVolumeSource() (*v1.VolumeSource, error) {
 }
 
 func (c *createVM) buildCloudInitConfig() (string, error) {
-	config := cloudInitConfigHeader
+	var config strings.Builder
+	config.WriteString(cloudInitConfigHeader)
 
 	if c.user != "" {
-		config += "\nuser: " + c.user
+		config.WriteString("\nuser: " + c.user)
 	}
 
 	if c.passwordFile != "" {
@@ -793,22 +793,22 @@ func (c *createVM) buildCloudInitConfig() (string, error) {
 			return "", params.FlagErr(PasswordFileFlag, "%w", err)
 		}
 		if password := strings.TrimSpace(string(data)); password != "" {
-			config += fmt.Sprintf("\npassword: %s\nchpasswd: { expire: False }", password)
+			config.WriteString(fmt.Sprintf("\npassword: %s\nchpasswd: { expire: False }", password))
 		}
 	}
 
 	if len(c.sshKeys) > 0 {
-		config += "\nssh_authorized_keys:"
+		config.WriteString("\nssh_authorized_keys:")
 		for _, key := range c.sshKeys {
-			config += "\n  - " + key
+			config.WriteString("\n  - " + key)
 		}
 	}
 
 	if c.gaManageSSH {
-		config += "\nruncmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]"
+		config.WriteString("\nruncmd:\n  - [ setsebool, -P, 'virt_qemu_ga_manage_ssh', 'on' ]")
 	}
 
-	return config, nil
+	return config.String(), nil
 }
 
 func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
@@ -822,7 +822,7 @@ func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
 
 	for _, runStrategy := range runStrategies {
 		if strings.EqualFold(runStrategy, c.runStrategy) {
-			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(runStrategy))
+			vm.Spec.RunStrategy = new(v1.VirtualMachineRunStrategy(runStrategy))
 			return nil
 		}
 	}

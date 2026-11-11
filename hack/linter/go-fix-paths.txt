@@ -110,8 +110,7 @@ pkg/virtctl/adm
 pkg/virtctl/clientconfig
 pkg/virtctl/configuration
 pkg/virtctl/console
-pkg/virtctl/create/instancetype
-pkg/virtctl/create/preference
+pkg/virtctl/create
 pkg/virtctl/imageupload
 pkg/virtctl/memorydump
 pkg/virtctl/pause

@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -54,7 +52,7 @@ The functions below use reflection to automatically handle such flags.
 
 // Supported returns the list of supported flags for a parameter struct. This is mainly used to show the user the
 // list of supported parameters
-func Supported(obj interface{}) string {
+func Supported(obj any) string {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Struct {
 		panic(errors.New("passed in interface needs to be a struct"))
@@ -62,8 +60,7 @@ func Supported(obj interface{}) string {
 
 	var params []string
 	objValType := objVal.Type()
-	for i := range objValType.NumField() {
-		structField := objValType.Field(i)
+	for structField := range objValType.Fields() {
 
 		tagVal := structField.Tag.Get(paramTag)
 		if tagVal == "" {
@@ -74,9 +71,9 @@ func Supported(obj interface{}) string {
 		switch {
 		case structField.Type.Kind() == reflect.String:
 			fieldType = structField.Type.String()
-		case structField.Type == reflect.TypeOf((*uint)(nil)):
+		case structField.Type == reflect.TypeFor[*uint]():
 			fieldType = structField.Type.Elem().String()
-		case structField.Type == reflect.TypeOf(&resource.Quantity{}):
+		case structField.Type == reflect.TypeFor[*resource.Quantity]():
 			fieldType = structField.Type.Elem().String()
 		case structField.Type.Kind() == reflect.Slice && structField.Type.Elem().Kind() == reflect.String:
 			fieldType = structField.Type.String()
@@ -96,7 +93,7 @@ func Supported(obj interface{}) string {
 // Note that this function may modify the passed in object, even if an error is returned.
 // The reason for this is that we don't know the type of the passed in object and if there is a copy
 // function for it. It is up to the caller to create a copy of the passed in object if required.
-func Map(flagName, paramsStr string, obj interface{}) error {
+func Map(flagName, paramsStr string, obj any) error {
 	params, err := split(paramsStr)
 	if err != nil {
 		return FlagErr(flagName, "%w", err)
@@ -124,7 +121,7 @@ func split(paramsStr string) (map[string]string, error) {
 	}
 
 	paramsMap := map[string]string{}
-	for _, param := range strings.Split(paramsStr, ",") {
+	for param := range strings.SplitSeq(paramsStr, ",") {
 		sParam := strings.SplitN(param, ":", paramSeparatorCount)
 		if len(sParam) != paramSeparatorCount {
 			return nil, fmt.Errorf("params need to have at least one colon: %s", param)
@@ -136,7 +133,7 @@ func split(paramsStr string) (map[string]string, error) {
 }
 
 // apply assigns the different parameters into obj's corresponding fields
-func apply(paramsMap map[string]string, obj interface{}) error {
+func apply(paramsMap map[string]string, obj any) error {
 	objVal := reflect.ValueOf(obj)
 	if objVal.Kind() != reflect.Pointer {
 		return errors.New("passed in interface needs to be a pointer")
@@ -165,13 +162,13 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 		switch {
 		case field.Kind() == reflect.String:
 			field.SetString(paramVal)
-		case field.Type() == reflect.TypeOf((*uint)(nil)):
+		case field.Type() == reflect.TypeFor[*uint]():
 			u64, err := strconv.ParseUint(paramVal, 10, 32)
 			if err != nil {
 				return fmt.Errorf("failed to parse param \"%s\": %w", tagVal, err)
 			}
-			field.Set(reflect.ValueOf(pointer.P(uint(u64))))
-		case field.Type() == reflect.TypeOf(&resource.Quantity{}):
+			field.Set(reflect.ValueOf(new(uint(u64))))
+		case field.Type() == reflect.TypeFor[*resource.Quantity]():
 			quantity, err := resource.ParseQuantity(paramVal)
 			if err != nil {
 				return fmt.Errorf("failed to parse param \"%s\": %w", tagVal, err)
