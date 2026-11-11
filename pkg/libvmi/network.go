@@ -196,6 +196,14 @@ func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 	}
 }
 
+// PodNetwork returns a pod Network with the given name.
+func PodNetwork(name string) *kvirtv1.Network {
+	return &kvirtv1.Network{
+		Name:          name,
+		NetworkSource: kvirtv1.NetworkSource{Pod: &kvirtv1.PodNetwork{}},
+	}
+}
+
 // WithHostname sets the hostname parameter.
 func WithHostname(hostname string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
