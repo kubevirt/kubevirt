@@ -106,6 +106,7 @@ pkg/virt-launcher/virtwrap/storage/diskdriver
 pkg/virt-launcher/virtwrap/testing
 pkg/virt-operator/resource/apply/fake
 pkg/virt-operator/resource/placement
+pkg/virtctl/adm
 pkg/virtctl/clientconfig
 pkg/virtctl/configuration
 pkg/virtctl/console
