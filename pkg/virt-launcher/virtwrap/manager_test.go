@@ -3842,10 +3842,9 @@ var _ = Describe("Manager", func() {
 		var rebootCallback libvirt.DomainEventGenericCallback
 
 		newVMStatsCollectorManager := func() DomainManager {
-			mockLibvirt.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).DoAndReturn(
-				func(callback libvirt.DomainEventGenericCallback) error {
+			mockLibvirt.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).Do(
+				func(callback libvirt.DomainEventGenericCallback) {
 					rebootCallback = callback
-					return nil
 				})
 			manager, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, testDomainName, true, false, false, false, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -3921,12 +3920,6 @@ var _ = Describe("Manager", func() {
 				expectAgentCommand(cmd, cmd+after)
 				expectAgentData(cmd, cmd+after)
 			}
-		})
-
-		It("should fail to create the manager if the reboot event callback cannot be registered", func() {
-			mockLibvirt.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).Return(fmt.Errorf("register failed"))
-			_, err := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, testDomainName, true, false, false, false, nil)
-			Expect(err).To(MatchError(ContainSubstring("failed to register reboot event callback")))
 		})
 	})
 

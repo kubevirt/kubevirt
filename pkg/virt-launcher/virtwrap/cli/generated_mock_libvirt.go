@@ -46,11 +46,9 @@ func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
 }
 
 // AgentEventLifecycleRegister mocks base method.
-func (m *MockConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error {
+func (m *MockConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentEventLifecycleRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "AgentEventLifecycleRegister", callback)
 }
 
 // AgentEventLifecycleRegister indicates an expected call of AgentEventLifecycleRegister.
@@ -90,11 +88,9 @@ func (mr *MockConnectionMockRecorder) DomainDefineXML(xml any) *gomock.Call {
 }
 
 // DomainEventDeviceAddedRegister mocks base method.
-func (m *MockConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error {
+func (m *MockConnection) DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventDeviceAddedRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventDeviceAddedRegister", callback)
 }
 
 // DomainEventDeviceAddedRegister indicates an expected call of DomainEventDeviceAddedRegister.
@@ -104,11 +100,9 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceAddedRegister(callback an
 }
 
 // DomainEventDeviceRemovedRegister mocks base method.
-func (m *MockConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error {
+func (m *MockConnection) DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventDeviceRemovedRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventDeviceRemovedRegister", callback)
 }
 
 // DomainEventDeviceRemovedRegister indicates an expected call of DomainEventDeviceRemovedRegister.
@@ -118,11 +112,9 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceRemovedRegister(callback 
 }
 
 // DomainEventJobCompletedRegister mocks base method.
-func (m *MockConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
+func (m *MockConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventJobCompletedRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventJobCompletedRegister", callback)
 }
 
 // DomainEventJobCompletedRegister indicates an expected call of DomainEventJobCompletedRegister.
@@ -132,11 +124,9 @@ func (mr *MockConnectionMockRecorder) DomainEventJobCompletedRegister(callback a
 }
 
 // DomainEventLifecycleRegister mocks base method.
-func (m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
+func (m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventLifecycleRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventLifecycleRegister", callback)
 }
 
 // DomainEventLifecycleRegister indicates an expected call of DomainEventLifecycleRegister.
@@ -146,11 +136,9 @@ func (mr *MockConnectionMockRecorder) DomainEventLifecycleRegister(callback any)
 }
 
 // DomainEventMemoryDeviceSizeChangeRegister mocks base method.
-func (m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
+func (m *MockConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventMemoryDeviceSizeChangeRegister", callback)
 }
 
 // DomainEventMemoryDeviceSizeChangeRegister indicates an expected call of DomainEventMemoryDeviceSizeChangeRegister.
@@ -174,11 +162,9 @@ func (mr *MockConnectionMockRecorder) DomainEventMigrationIterationRegister(call
 }
 
 // DomainEventRebootRegister mocks base method.
-func (m *MockConnection) DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) error {
+func (m *MockConnection) DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DomainEventRebootRegister", callback)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "DomainEventRebootRegister", callback)
 }
 
 // DomainEventRebootRegister indicates an expected call of DomainEventRebootRegister.

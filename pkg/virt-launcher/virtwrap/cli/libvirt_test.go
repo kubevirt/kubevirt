@@ -60,7 +60,7 @@ var _ = Describe("Libvirt Suite", func() {
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					Expect(conn.DomainEventRebootRegister(noopCallback)).To(Succeed())
+					conn.DomainEventRebootRegister(noopCallback)
 				}()
 			}
 			wg.Wait()
@@ -81,9 +81,9 @@ var _ = Describe("Libvirt Suite", func() {
 			}
 
 			kept := make(chan libvirt.DomainEventType, 10)
-			Expect(conn.DomainEventLifecycleRegister(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+			conn.DomainEventLifecycleRegister(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 				kept <- event.Event
-			})).To(Succeed())
+			})
 			deregistered := make(chan libvirt.DomainEventType, 10)
 			unsubscribe := conn.lifecycle.subscribe(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 				deregistered <- event.Event
