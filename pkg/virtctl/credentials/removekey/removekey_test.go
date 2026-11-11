@@ -24,7 +24,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -92,7 +91,7 @@ var _ = Describe("Credentials remove-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.P(true),
+					Controller: new(true),
 				}},
 			},
 			Data: map[string][]byte{
@@ -197,7 +196,7 @@ var _ = Describe("Credentials remove-ssh-key", func() {
 					Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 					Name:       vm.Name,
 					UID:        vm.UID,
-					Controller: pointer.P(true),
+					Controller: new(true),
 				}},
 			},
 			Data: map[string][]byte{

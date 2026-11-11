@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -118,12 +119,7 @@ func IsOwnedByVM(obj metav1.Object, vm *v1.VirtualMachine) bool {
 }
 
 func ContainsValue(slice []string, value string) bool {
-	for _, val := range slice {
-		if val == value {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, value)
 }
 
 func LineContainsKey(line, key string) bool {
