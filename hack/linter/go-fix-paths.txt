@@ -116,6 +116,7 @@ pkg/virtctl/expose
 pkg/virtctl/guestfs
 pkg/virtctl/imageupload
 pkg/virtctl/memorydump
+pkg/virtctl/objectgraph
 pkg/virtctl/pause
 pkg/virtctl/portforward
 pkg/virtctl/reset
