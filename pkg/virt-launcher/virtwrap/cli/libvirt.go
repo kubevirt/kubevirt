@@ -56,12 +56,11 @@ type Connection interface {
 	DomainEventRebootRegister(callback libvirt.DomainEventGenericCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
-	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error)
+	DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (unsubscribe func())
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
-	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
-	VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (int, error)
+	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (unsubscribe func(), err error)
+	VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (unsubscribe func())
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
-	DomainEventDeregister(registrationID int) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
@@ -136,6 +135,8 @@ type LibvirtConnection struct {
 	deviceRemoved          dispatcher[libvirt.DomainEventDeviceRemovedCallback]
 	agentLifecycle         dispatcher[libvirt.DomainEventAgentLifecycleCallback]
 	memoryDeviceSizeChange dispatcher[libvirt.DomainEventMemoryDeviceSizeChangeCallback]
+	migrationIteration     dispatcher[libvirt.DomainEventMigrationIterationCallback]
+	blockJob               dispatcher[libvirt.DomainEventBlockJobCallback]
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -220,6 +221,8 @@ func (l *LibvirtConnection) registerDispatchers(conn *libvirt.Connect) (ids []in
 	track(registerDispatcher(&l.deviceRemoved, conn.DomainEventDeviceRemovedRegister))
 	track(registerDispatcher(&l.agentLifecycle, conn.DomainEventAgentLifecycleRegister))
 	track(registerDispatcher(&l.memoryDeviceSizeChange, conn.DomainEventMemoryDeviceSizeChangeRegister))
+	track(registerDispatcher(&l.migrationIteration, conn.DomainEventMigrationIterationRegister))
+	track(registerDispatcher(&l.blockJob, conn.DomainEventBlockJob2Register))
 	track(conn.DomainEventRebootRegister(nil, func(c *libvirt.Connect, dom *libvirt.Domain) {
 		for _, callback := range l.reboot.callbacks() {
 			callback(c, dom)
@@ -269,17 +272,8 @@ func (l *LibvirtConnection) DomainEventDeviceRemovedRegister(callback libvirt.Do
 	return nil
 }
 
-func (l *LibvirtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error) {
-	l.reconnectLock.Lock()
-	defer l.reconnectLock.Unlock()
-
-	if err := l.reconnectIfNecessaryLocked(); err != nil {
-		return 0, err
-	}
-
-	registrationID, err := l.Connect.DomainEventMigrationIterationRegister(nil, callback)
-	l.checkConnectionLostLocked(err)
-	return registrationID, err
+func (l *LibvirtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (unsubscribe func()) {
+	return l.migrationIteration.subscribe(callback)
 }
 
 func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error {
@@ -287,34 +281,28 @@ func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainE
 	return nil
 }
 
-func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error) {
-	var dom *libvirt.Domain
-	if domain != nil {
-		dom = domain.(*libvirt.Domain)
+func (l *LibvirtConnection) VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (unsubscribe func(), err error) {
+	if domain == nil {
+		return l.deviceRemoved.subscribe(callback), nil
 	}
-	return l.Connect.DomainEventDeviceRemovedRegister(dom, callback)
+	name, err := domain.GetName()
+	if err != nil {
+		return nil, err
+	}
+	return l.deviceRemoved.subscribe(func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
+		if eventDomain, err := d.GetName(); err == nil && eventDomain == name {
+			callback(c, d, event)
+		}
+	}), nil
 }
 
-func (l *LibvirtConnection) VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (int, error) {
-	l.reconnectLock.Lock()
-	defer l.reconnectLock.Unlock()
-
-	if err := l.reconnectIfNecessaryLocked(); err != nil {
-		return 0, err
-	}
-
-	registrationID, err := l.Connect.DomainEventBlockJob2Register(nil, callback)
-	l.checkConnectionLostLocked(err)
-	return registrationID, err
+func (l *LibvirtConnection) VolatileDomainEventBlockJobRegister(callback libvirt.DomainEventBlockJobCallback) (unsubscribe func()) {
+	return l.blockJob.subscribe(callback)
 }
 
 func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error {
 	l.memoryDeviceSizeChange.subscribe(callback)
 	return nil
-}
-
-func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
-	return l.Connect.DomainEventDeregister(registrationID)
 }
 
 func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err error) {

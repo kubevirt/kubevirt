@@ -26,11 +26,11 @@ import (
 )
 
 type DomainEventDeviceRemoved struct {
-	connection     Connection
-	domain         VirDomain
-	registrationID int
-	callback       libvirt.DomainEventDeviceRemovedCallback
-	eventChan      <-chan interface{}
+	connection  Connection
+	domain      VirDomain
+	unsubscribe func()
+	callback    libvirt.DomainEventDeviceRemovedCallback
+	eventChan   <-chan interface{}
 }
 
 func NewDomainEventDeviceRemoved(
@@ -47,22 +47,20 @@ func NewDomainEventDeviceRemoved(
 }
 
 func (c *DomainEventDeviceRemoved) Register() error {
-	id, err := c.connection.VolatileDomainEventDeviceRemovedRegister(c.domain, c.callback)
+	unsubscribe, err := c.connection.VolatileDomainEventDeviceRemovedRegister(c.domain, c.callback)
 	if err != nil {
 		return fmt.Errorf("register callback failure: %v", err)
 	}
-	c.registrationID = id
+	c.unsubscribe = unsubscribe
 	return nil
 }
 
 func (c *DomainEventDeviceRemoved) Deregister() error {
-	if c.registrationID == 0 {
+	if c.unsubscribe == nil {
 		return fmt.Errorf("deregister callback failure: no registration occur")
 	}
 
-	if err := c.connection.DomainEventDeregister(c.registrationID); err != nil {
-		return fmt.Errorf("deregister callback failure: %v", err)
-	}
+	c.unsubscribe()
 	return nil
 }
 
