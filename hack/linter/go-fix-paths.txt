@@ -103,6 +103,7 @@ pkg/virtctl/clientconfig
 pkg/virtctl/configuration
 pkg/virtctl/console
 pkg/virtctl/create
+pkg/virtctl/credentials
 pkg/virtctl/imageupload
 pkg/virtctl/memorydump
 pkg/virtctl/pause
