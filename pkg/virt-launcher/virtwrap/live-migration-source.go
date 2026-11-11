@@ -1065,14 +1065,19 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
 	}
 
+	autoConvergeInfo := ""
+	if info.AutoConvergeThrottleSet {
+		autoConvergeInfo = fmt.Sprintf(" AutoConvergeThrottle:%d%%", info.AutoConvergeThrottle)
+	}
+
 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB %s `+
-		`DiskMbps:%d%s`,
+		`DiskMbps:%d%s%s`,
 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), downtimeInfo,
-		bpsToMbps(info.DiskBps), compressionInfo,
+		bpsToMbps(info.DiskBps), compressionInfo, autoConvergeInfo,
 	))
 }
 
@@ -1192,6 +1197,9 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		params.CompressionSet = true
 		params.Compression = method
 		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
+	}
+	if options.AllowAutoConverge {
+		log.Log.Object(vmi).Info("Migration autoconverge enabled")
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
