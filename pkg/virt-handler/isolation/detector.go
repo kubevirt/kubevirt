@@ -24,21 +24,18 @@ package isolation
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
 
 	ps "github.com/mitchellh/go-ps"
 	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -96,19 +93,22 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 }
 
 func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !requiresMemoryLock(vmi) {
 		return nil
 	}
 
-	// bump memlock ulimit for virtqemud
+	// virtqemud sets QEMU's memlock limit before exec. The hard ceiling has to
+	// be unlimited first, or libvirt's prlimit fails with EPERM when the
+	// finite value is below N*guest memory + 1GiB.
 	res, err := s.Detect(vmi)
 	if err != nil {
 		return err
 	}
-	launcherPid := res.Pid()
+	return setVirtqemudMemoryLockUnlimited(res.Pid(), vmi)
+}
 
-	processes, err := ps.Processes()
+func setVirtqemudMemoryLockUnlimited(launcherPid int, vmi *v1.VirtualMachineInstance) error {
+	processes, err := listProcesses()
 	if err != nil {
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
@@ -124,22 +124,10 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		var vmiBaseMemory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-		} else {
-			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+		if err := setProcessMemoryLockUnlimited(process.Pid()); err != nil {
+			return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", process.Pid(), err)
 		}
-
-		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
-		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
-		}
+		log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to unlimited", process)
 		// we assume a single process should match
 		break
 	}
@@ -150,7 +138,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
 func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !requiresMemoryLock(vmi) {
 		return nil
 	}
 
@@ -163,30 +151,16 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	if err != nil {
 		return err
 	}
-	qemuProcessID := qemuProcess.Pid()
-	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add max memory assigned to the VM
-	var vmiBaseMemory *resource.Quantity
-
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
+	if err := setProcessMemoryLockUnlimited(qemuProcess.Pid()); err != nil {
+		return fmt.Errorf("failed to set process %d memlock rlimit to unlimited: %v", qemuProcess.Pid(), err)
 	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		qemuProcess, memlockSize.Value())
+	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to unlimited", qemuProcess)
 
 	return nil
+}
+
+func requiresMemoryLock(vmi *v1.VirtualMachineInstance) bool {
+	return util.IsVFIOVMI(vmi) || vmi.IsRealtimeEnabled() || util.IsSEVVMI(vmi)
 }
 
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
@@ -203,14 +177,26 @@ func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error
 	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
 }
 
-// setProcessMemoryLockRLimit Adjusts process MEMLOCK
+// listProcesses is the process listing used when raising memlock limits.
+// Tests replace it so they do not scan the host.
+var listProcesses = ps.Processes
+
+// setMemlockRLimit is the prlimit call used to set RLIMIT_MEMLOCK.
+// Tests replace it to avoid the syscall.
+var setMemlockRLimit = setProcessMemoryLockRLimit
+
+func setProcessMemoryLockUnlimited(pid int) error {
+	return setMemlockRLimit(pid, unix.RLIM_INFINITY)
+}
+
+// setProcessMemoryLockRLimit adjusts process MEMLOCK
 // soft-limit (current) and hard-limit (max) to the given size.
-func setProcessMemoryLockRLimit(pid int, size int64) error {
+func setProcessMemoryLockRLimit(pid int, size uint64) error {
 	// standard golang libraries don't provide API to set runtime limits
 	// for other processes, so we have to directly call to kernel
 	rlimit := unix.Rlimit{
-		Cur: uint64(size),
-		Max: uint64(size),
+		Cur: size,
+		Max: size,
 	}
 	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
 		uintptr(pid),
