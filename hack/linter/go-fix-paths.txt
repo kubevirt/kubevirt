@@ -112,6 +112,7 @@ pkg/virtctl/configuration
 pkg/virtctl/console
 pkg/virtctl/create
 pkg/virtctl/credentials
+pkg/virtctl/expose
 pkg/virtctl/imageupload
 pkg/virtctl/memorydump
 pkg/virtctl/pause
