@@ -129,6 +129,7 @@ pkg/virtctl/testing
 pkg/virtctl/unpause
 pkg/virtctl/usbredir
 pkg/virtctl/version
+pkg/virtctl/vm
 pkg/virtctl/vnc
 pkg/vsock
 tests/integration
