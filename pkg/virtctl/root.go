@@ -55,8 +55,8 @@ var (
 // see https://github.com/kubevirt/kubevirt/issues/2356 for more details
 // see also templates.go
 func GetProgramName(binary string) string {
-	if strings.HasSuffix(binary, "-virt") {
-		return strings.TrimSuffix(binary, "-virt") + " virt"
+	if before, ok := strings.CutSuffix(binary, "-virt"); ok {
+		return before + " virt"
 	}
 	return "virtctl"
 }
