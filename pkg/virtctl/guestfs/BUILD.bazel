@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/guestfs",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/pointer:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/console:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
