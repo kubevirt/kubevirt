@@ -61,7 +61,6 @@ func Supported(obj any) string {
 	var params []string
 	objValType := objVal.Type()
 	for structField := range objValType.Fields() {
-
 		tagVal := structField.Tag.Get(paramTag)
 		if tagVal == "" {
 			continue
