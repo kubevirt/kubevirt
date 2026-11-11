@@ -48,7 +48,9 @@ pkg/storage/oci
 pkg/storage/pod
 pkg/storage/reservation
 pkg/storage/snapshotoverlay
+pkg/storage/utilityvolume
 pkg/storage/velero
+pkg/storage/virtiofs
 pkg/storage/vmispec
 pkg/storage/volumepath
 pkg/synchronizer-com
