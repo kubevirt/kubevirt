@@ -28,15 +28,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/video"
 )
 
+// ConfigureVideoDeviceFunc configures the default video device.
+type ConfigureVideoDeviceFunc func(vmi *v1.VirtualMachineInstance, domain *api.Domain, useBochsForEFIGuests bool)
+
 type GraphicsDomainConfigurator struct {
-	architecture         string
+	defaultVideoDevice   ConfigureVideoDeviceFunc
 	useBochsForEFIGuests bool
 	crossArchEmulation   bool
 }
 
-func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests, crossArchEmulation bool) GraphicsDomainConfigurator {
+func NewGraphicsDomainConfigurator(
+	defaultVideoDevice ConfigureVideoDeviceFunc,
+	useBochsForEFIGuests, crossArchEmulation bool,
+) GraphicsDomainConfigurator {
 	return GraphicsDomainConfigurator{
-		architecture:         architecture,
+		defaultVideoDevice:   defaultVideoDevice,
 		useBochsForEFIGuests: useBochsForEFIGuests,
 		crossArchEmulation:   crossArchEmulation,
 	}
@@ -82,10 +88,7 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 		return
 	}
 
-	switch g.architecture {
-	case "amd64":
-		video.ConfigureAMD64Device(vmi, domain, g.useBochsForEFIGuests)
-	case "arm64", "s390x":
-		video.ConfigureVirtioDevice(vmi, domain)
+	if g.defaultVideoDevice != nil {
+		g.defaultVideoDevice(vmi, domain, g.useBochsForEFIGuests)
 	}
 }

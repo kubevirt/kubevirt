@@ -54,7 +54,7 @@ func ConfigureAMD64Device(vmi *v1.VirtualMachineInstance, domain *api.Domain, us
 	}
 }
 
-func ConfigureVirtioDevice(_ *v1.VirtualMachineInstance, domain *api.Domain) {
+func ConfigureVirtioDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{

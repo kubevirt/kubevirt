@@ -30,30 +30,37 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/video"
 )
 
 var _ = Describe("Graphics Domain Configurator", func() {
 	Context("AutoattachGraphicsDevice", func() {
-		DescribeTable("should not configure video and VNC when AutoattachGraphicsDevice is false", func(arch string) {
+		DescribeTable("should not configure video and VNC when AutoattachGraphicsDevice is false", func(
+			configureVideoDevice compute.ConfigureVideoDeviceFunc,
+		) {
 			vmi := libvmi.New(libvmi.WithAutoattachGraphicsDevice(false))
 
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator(arch, false, false)
+			configurator := compute.NewGraphicsDomainConfigurator(configureVideoDevice, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(api.Domain{}))
 		},
-			Entry("on amd64", "amd64"),
-			Entry("on arm64", "arm64"),
-			Entry("on s390x", "s390x"),
+			Entry("on amd64", video.ConfigureAMD64Device),
+			Entry("on arm64", video.ConfigureVirtioDevice),
+			Entry("on s390x", video.ConfigureVirtioDevice),
 		)
 
-		DescribeTable("should configure video and VNC", func(arch string, autoAttach *bool, expectedVideo api.Video) {
+		DescribeTable("should configure video and VNC", func(
+			configureVideoDevice compute.ConfigureVideoDeviceFunc,
+			autoAttach *bool,
+			expectedVideo api.Video,
+		) {
 			vmi := libvmi.New(libvmi.WithUID("test-uid"))
 			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = autoAttach
 
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator(arch, false, false)
+			configurator := compute.NewGraphicsDomainConfigurator(configureVideoDevice, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -75,12 +82,12 @@ var _ = Describe("Graphics Domain Configurator", func() {
 
 			Expect(domain).To(Equal(expectedDomain))
 		},
-			Entry("amd64 when AutoattachGraphicsDevice is true", "amd64", new(true), newExpectedAMD64VideoDevice()),
-			Entry("arm64 when AutoattachGraphicsDevice is true", "arm64", new(true), newExpectedARM64VideoDevice()),
-			Entry("s390x when AutoattachGraphicsDevice is true", "s390x", new(true), newExpectedS390XVideoDevice()),
-			Entry("amd64 when AutoattachGraphicsDevice is nil", "amd64", nil, newExpectedAMD64VideoDevice()),
-			Entry("arm64 when AutoattachGraphicsDevice is nil", "arm64", nil, newExpectedARM64VideoDevice()),
-			Entry("s390x when AutoattachGraphicsDevice is nil", "s390x", nil, newExpectedS390XVideoDevice()),
+			Entry("amd64 when AutoattachGraphicsDevice is true", video.ConfigureAMD64Device, new(true), newExpectedAMD64VideoDevice()),
+			Entry("arm64 when AutoattachGraphicsDevice is true", video.ConfigureVirtioDevice, new(true), newExpectedARM64VideoDevice()),
+			Entry("s390x when AutoattachGraphicsDevice is true", video.ConfigureVirtioDevice, new(true), newExpectedS390XVideoDevice()),
+			Entry("amd64 when AutoattachGraphicsDevice is nil", video.ConfigureAMD64Device, nil, newExpectedAMD64VideoDevice()),
+			Entry("arm64 when AutoattachGraphicsDevice is nil", video.ConfigureVirtioDevice, nil, newExpectedARM64VideoDevice()),
+			Entry("s390x when AutoattachGraphicsDevice is nil", video.ConfigureVirtioDevice, nil, newExpectedS390XVideoDevice()),
 		)
 	})
 
@@ -88,7 +95,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 		It("should disable graphics when cross-arch emulation is enabled", func() {
 			vmi := libvmi.New()
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", false, true)
+			configurator := compute.NewGraphicsDomainConfigurator(video.ConfigureAMD64Device, false, true)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain.Spec.Devices.Graphics).To(BeNil())
@@ -97,11 +104,14 @@ var _ = Describe("Graphics Domain Configurator", func() {
 	})
 
 	Context("Video device configuration", func() {
-		DescribeTable("Should use user-specified video type when provided", func(arch string, bochsForEFI bool) {
+		DescribeTable("Should use user-specified video type when provided", func(
+			configureVideoDevice compute.ConfigureVideoDeviceFunc,
+			bochsForEFI bool,
+		) {
 			vmi := libvmi.New(libvmi.WithVideo("virtio"))
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator(arch, bochsForEFI, false)
+			configurator := compute.NewGraphicsDomainConfigurator(configureVideoDevice, bochsForEFI, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -131,18 +141,18 @@ var _ = Describe("Graphics Domain Configurator", func() {
 
 			Expect(domain).To(Equal(expectedDomain))
 		},
-			Entry("on amd64 with bochsForEFI", "amd64", true),
-			Entry("on amd64 without bochsForEFI", "amd64", false),
-			Entry("on arm64 with bochsForEFI", "arm64", true),
-			Entry("on arm64 without bochsForEFI", "arm64", false),
-			Entry("on s390x with bochsForEFI", "s390x", true),
-			Entry("on s390x without bochsForEFI", "s390x", false),
+			Entry("on amd64 with bochsForEFI", video.ConfigureAMD64Device, true),
+			Entry("on amd64 without bochsForEFI", video.ConfigureAMD64Device, false),
+			Entry("on arm64 with bochsForEFI", video.ConfigureVirtioDevice, true),
+			Entry("on arm64 without bochsForEFI", video.ConfigureVirtioDevice, false),
+			Entry("on s390x with bochsForEFI", video.ConfigureVirtioDevice, true),
+			Entry("on s390x without bochsForEFI", video.ConfigureVirtioDevice, false),
 		)
 
 		DescribeTable("amd64 defaults to VGA with VRAM", func(vmi *v1.VirtualMachineInstance, bochsForEFI bool) {
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", bochsForEFI, false)
+			configurator := compute.NewGraphicsDomainConfigurator(video.ConfigureAMD64Device, bochsForEFI, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -181,7 +191,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithUefi(true))
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", true, false)
+			configurator := compute.NewGraphicsDomainConfigurator(video.ConfigureAMD64Device, true, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
