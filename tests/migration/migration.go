@@ -97,8 +97,6 @@ import (
 const (
 	fedoraVMSize               = "512Mi"
 	secretDiskSerial           = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize        = "100M"
-	stressLargeVMSize          = "400M"
 	stressDefaultSleepDuration = 15
 )
 
@@ -753,7 +751,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressDefaultVMSize)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -949,7 +947,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Stressing the VMI")
-				runStressTest(vmi, stressDefaultVMSize)
+				runStressTest(vmi)
 
 				By("Starting a first migration")
 				migration1 := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1348,7 +1346,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					runStressTest(vmi, stressDefaultVMSize)
+					runStressTest(vmi)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1532,7 +1530,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					runStressTest(vmi, stressLargeVMSize)
+					runStressTest(vmi)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -2282,7 +2280,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Running stress test to generate memory pressure for postcopy")
-				runStressTest(vmi, stressLargeVMSize)
+				runStressTest(vmi)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -3240,9 +3238,8 @@ func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfigurat
 	return kvc.Spec.Configuration
 }
 
-func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
+func runStressTest(vmi *v1.VirtualMachineInstance) {
 	By("Run a stress test to dirty some pages and slow down the migration")
-	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
@@ -3250,7 +3247,7 @@ func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
-		&expect.BSnd{S: stressCmd},
+		&expect.BSnd{S: "stress-ng --vm 2 --vm-bytes 75% --vm-method write64 --vm-keep &\n"},
 		&expect.BExp{R: ""},
 	}, 15)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 

@@ -150,7 +150,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			runStressTest(vmi, "350M")
+			runStressTest(vmi)
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -194,7 +194,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Running a stress test to dirty pages and trigger post-copy")
-				runStressTest(vmi, "350M")
+				runStressTest(vmi)
 
 				By("Starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -271,7 +271,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, "1G")
+				runStressTest(vmi)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -345,7 +345,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")
-		runStressTest(vmi, stressLargeVMSize)
+		runStressTest(vmi)
 	}
 
 	// execute a migration, wait for finalized state
