@@ -450,8 +450,8 @@ var _ = Describe("Expose", func() {
 					Kind:               expectedKind,
 					Name:               resName,
 					UID:                types.UID(getResUID(resType)),
-					Controller:         pointer.P(true),
-					BlockOwnerDeletion: pointer.P(false),
+					Controller:         new(true),
+					BlockOwnerDeletion: new(false),
 				},
 			))
 		},
