@@ -5,5 +5,8 @@ go_library(
     srcs = ["clientset.go"],
     importpath = "kubevirt.io/kubevirt/tests/framework/kubevirt",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/kubecli:go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
+    ],
 )
