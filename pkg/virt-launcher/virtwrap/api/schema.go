@@ -224,6 +224,13 @@ type DomainList struct {
 // DomainSpec represents the actual conversion to libvirt XML. The fields must be
 // tagged, and they must correspond to the libvirt domain as described in
 // https://libvirt.org/formatdomain.html.
+//
+// Deprecated for new code: prefer the types in libvirt.org/go/libvirtxml and
+// do not extend DomainSpec unless there is no other option. libvirtxml covers
+// the full libvirt XML schema and is maintained by libvirt, while DomainSpec
+// is a partial, hand-written copy that drifts from libvirt and must be updated
+// for every new field. The goal is to use only libvirtxml, see
+// https://github.com/kubevirt/kubevirt/issues/10844.
 type DomainSpec struct {
 	XMLName        xml.Name        `xml:"domain"`
 	Type           string          `xml:"type,attr"`
