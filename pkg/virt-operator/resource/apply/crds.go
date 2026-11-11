@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 
@@ -14,6 +15,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 func getSubresourcesForVersion(crd *extv1.CustomResourceDefinition, version string) *extv1.CustomResourceSubresources {
@@ -45,8 +47,23 @@ func needsSubresourceStatusDisable(crdTargetVersion *extv1.CustomResourceDefinit
 		(crdTargetVersion.Subresources != nil && crdTargetVersion.Subresources.Status != nil)
 }
 
-func patchCRD(client clientset.Interface, crd *extv1.CustomResourceDefinition, ops []patch.PatchOption) (*extv1.CustomResourceDefinition, error) {
+func patchCRD(client clientset.Interface, crd, cachedCrd *extv1.CustomResourceDefinition, ops []patch.PatchOption) (*extv1.CustomResourceDefinition, error) {
 	name := crd.GetName()
+	// Kubernetes requires historical storage versions to remain declared until
+	// their persisted objects have been migrated and storedVersions is updated.
+	if name == components.VIRTUALMACHINEEXPORT &&
+		slices.Contains(cachedCrd.Status.StoredVersions, "v1alpha1") &&
+		!slices.ContainsFunc(crd.Spec.Versions, func(v extv1.CustomResourceDefinitionVersion) bool { return v.Name == "v1alpha1" }) {
+		index := slices.IndexFunc(cachedCrd.Spec.Versions, func(v extv1.CustomResourceDefinitionVersion) bool { return v.Name == "v1alpha1" })
+		if index == -1 {
+			return nil, fmt.Errorf("unable to patch crd %s: v1alpha1 is recorded in status.storedVersions but its definition is missing from spec.versions; restore the version definition before retrying", name)
+		}
+		crd = crd.DeepCopy()
+		alpha := cachedCrd.Spec.Versions[index].DeepCopy()
+		alpha.Served = false
+		alpha.Storage = false
+		crd.Spec.Versions = append(crd.Spec.Versions, *alpha)
+	}
 	ops = append(ops, patch.WithReplace("/spec", crd.Spec))
 	patchBytes, err := patch.New(ops...).GeneratePayload()
 	if err != nil {
@@ -115,7 +132,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 		}
 	}
 	// Add Labels and Annotations Patches
-	crd, err := patchCRD(client, crd, createLabelsAndAnnotationsPatch(&crd.ObjectMeta))
+	crd, err := patchCRD(client, crd, cachedCrd, createLabelsAndAnnotationsPatch(&crd.ObjectMeta))
 	if err != nil {
 		return err
 	}
@@ -155,7 +172,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 			return nil
 		}
 		// enable the status subresources now, in case that they were disabled before
-		if _, err := patchCRD(client, crd, []patch.PatchOption{}); err != nil {
+		if _, err := patchCRD(client, crd, cachedCrd, []patch.PatchOption{}); err != nil {
 			return err
 		}
 
