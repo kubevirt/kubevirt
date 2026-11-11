@@ -274,6 +274,10 @@ func newHandlersToVirtApiNP(namespace string) *networkv1.NetworkPolicy {
 	)
 }
 
+// newVirtOperatorWebhookNP opens virt-operator port 8444 to every source.
+// kube-apiserver is not a selectable pod: it dials from a node IP or from
+// outside the pod network. Ordinary pod clients are rejected by the webhook
+// source guard instead of by this policy.
 func newVirtOperatorWebhookNP(namespace string) *networkv1.NetworkPolicy {
 	return newNetworkPolicy(
 		namespace,

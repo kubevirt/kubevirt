@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "kubevirt-create-admitter.go",
         "kubevirt-update-admitter.go",
+        "sourceguard.go",
         "webhook.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/webhooks",
@@ -25,8 +26,10 @@ go_library(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
 
@@ -35,6 +38,7 @@ go_test(
     srcs = [
         "kubevirt-create-admitter_test.go",
         "kubevirt-update-admitter_test.go",
+        "sourceguard_test.go",
         "webhook_test.go",
         "webhooks_suite_test.go",
     ],
@@ -59,5 +63,6 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
