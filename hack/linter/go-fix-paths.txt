@@ -4,6 +4,7 @@ pkg/cloud-init
 pkg/config
 pkg/downwardmetrics/scraper
 pkg/downwardmetrics/vhostmd/api
+pkg/dra/admitter
 pkg/ephemeral-disk
 pkg/ephemeral-disk-utils
 pkg/filewatcher
