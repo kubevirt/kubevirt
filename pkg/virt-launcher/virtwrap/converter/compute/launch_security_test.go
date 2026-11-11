@@ -20,6 +20,8 @@
 package compute_test
 
 import (
+	"reflect"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -112,6 +114,52 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		)
 	})
 
+	DescribeTable("should reject a VMI with more than one launch security type on amd64",
+		func(options ...libvmi.Option) {
+			vmi := libvmi.New(options...)
+			var domain api.Domain
+
+			configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+			err := configurator.Configure(vmi, &domain)
+
+			Expect(err).To(MatchError(ContainSubstring("only one launchSecurity type may be set")))
+			Expect(domain.Spec.LaunchSecurity).To(BeNil())
+		},
+		Entry("SEV and TDX", libvmi.WithSEV(false, false), withTDXType()),
+		Entry("SNP and TDX", libvmi.WithSEV(false, true), withTDXType()),
+		Entry("SEV and SNP", withSEVAndSNP()),
+		Entry("SEV, SNP and TDX", withSEVAndSNP(), withTDXType()),
+	)
+
+	// Fails if a type is added to v1.LaunchSecurity without a case in amd64LaunchSecurity
+	It("should handle every launchSecurity type defined in the API", func() {
+		launchSecurityType := reflect.TypeOf(v1.LaunchSecurity{})
+
+		for i := range launchSecurityType.NumField() {
+			field := launchSecurityType.Field(i)
+
+			Expect(field.Type.Kind()).To(Equal(reflect.Pointer),
+				"v1.LaunchSecurity.%s must be a pointer type selector: setLaunchSecurityTypes "+
+					"counts non-nil pointer fields to detect conflicting types", field.Name)
+
+			launchSecurity := &v1.LaunchSecurity{}
+			reflect.ValueOf(launchSecurity).Elem().Field(i).Set(reflect.New(field.Type.Elem()))
+
+			vmi := libvmi.New()
+			vmi.Spec.Domain.LaunchSecurity = launchSecurity
+			var domain api.Domain
+
+			configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed(),
+				"launchSecurity type %s is rejected by amd64LaunchSecurity", field.Name)
+			Expect(domain.Spec.LaunchSecurity).NotTo(BeNil(),
+				"launchSecurity type %s produced no domain launch security: add a case to "+
+					"amd64LaunchSecurity and cover it in util.UseLaunchSecurity", field.Name)
+			Expect(domain.Spec.LaunchSecurity.Type).NotTo(BeEmpty(),
+				"launchSecurity type %s produced an empty domain type", field.Name)
+		}
+	})
+
 	It("should configure LaunchSecurity when specified in the VMI on intel", func() {
 		vmi := libvmi.New(withTDX())
 		var domain api.Domain
@@ -145,6 +193,27 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		Expect(domain.Spec.LaunchSecurity.QuoteGenerationService.Path).To(Equal(QGSTestSocketPath))
 	})
 })
+
+// withTDXType sets only the TDX field; libvmi.WithSEV and withTDX replace the whole
+// struct, so they cannot be composed to select two types at once.
+func withTDXType() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		vmi.Spec.Domain.LaunchSecurity.TDX = &v1.TDX{}
+	}
+}
+
+func withSEVAndSNP() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+		vmi.Spec.Domain.LaunchSecurity.SNP = &v1.SEVSNP{}
+	}
+}
 
 func withTDX() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
