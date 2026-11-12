@@ -4,44 +4,37 @@ package v1
 
 func (VirtualMachineExport) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineExport defines the operation of exporting a VM source\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-		"status": "+optional",
+		"": "VirtualMachineExport defines the operation of exporting a VM source",
 	}
 }
 
 func (VirtualMachineExportList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "VirtualMachineExportList is a list of VirtualMachineExport resources\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-		"items": "+listType=atomic",
+		"": "VirtualMachineExportList is a list of VirtualMachineExport resources",
 	}
 }
 
 func (VirtualMachineExportSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "VirtualMachineExportSpec is the spec for a VirtualMachineExport resource",
-		"tokenSecretRef": "+optional\nTokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
-		"ttlDuration":    "ttlDuration limits the lifetime of an export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe export is eligible to be automatically deleted.\nIf this field is omitted, a reasonable default is applied.\n+optional",
+		"tokenSecretRef": "TokenSecretRef is the name of the custom-defined secret that contains the token used by the export server pod",
+		"ttlDuration":    "ttlDuration limits the lifetime of an export\nIf this field is set, after this duration has passed from counting from CreationTimestamp,\nthe export is eligible to be automatically deleted.\nIf this field is omitted, a reasonable default is applied.",
 	}
 }
 
 func (VirtualMachineExportStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "VirtualMachineExportStatus is the status for a VirtualMachineExport resource",
-		"phase":              "+optional",
-		"links":              "+optional",
-		"tokenSecretRef":     "+optional\nTokenSecretRef is the name of the secret that contains the token used by the export server pod",
+		"tokenSecretRef":     "TokenSecretRef is the name of the secret that contains the token used by the export server pod",
 		"ttlExpirationTime":  "The time at which the VM Export will be completely removed according to specified TTL\nFormula is CreationTimestamp + TTL",
-		"serviceName":        "+optional\nServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
-		"virtualMachineName": "+optional\nVirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or\na VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a\nVirtualMachineSnapshot",
-		"conditions":         "+optional\n+listType=atomic",
+		"serviceName":        "ServiceName is the name of the service created associated with the Virtual Machine export. It will be used to\ncreate the internal URLs for downloading the images",
+		"virtualMachineName": "VirtualMachineName shows the name of the source virtual machine if the source is either a VirtualMachine or\na VirtualMachineSnapshot. This is mainly to easily identify the source VirtualMachine in case of a\nVirtualMachineSnapshot",
 	}
 }
 
 func (VirtualMachineExportLinks) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachineExportLinks contains the links that point the exported VM resources",
-		"internal": "+optional",
-		"external": "+optional",
+		"": "VirtualMachineExportLinks contains the links that point the exported VM resources",
 	}
 }
 
@@ -49,9 +42,9 @@ func (VirtualMachineExportLink) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
 		"cert":      "Cert is the public CA certificate base64 encoded",
-		"volumes":   "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
-		"backups":   "Backups is a list of available backups for the export\n+listType=map\n+listMapKey=name\n+optional",
-		"manifests": "Manifests is a list of available manifests for the export\n+listType=map\n+listMapKey=type\n+optional",
+		"volumes":   "Volumes is a list of available volumes to export",
+		"backups":   "Backups is a list of available backups for the export",
+		"manifests": "Manifests is a list of available manifests for the export",
 	}
 }
 
@@ -65,9 +58,8 @@ func (VirtualMachineExportManifest) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportVolume) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "VirtualMachineExportVolume contains the name and available formats for the exported volume",
-		"name":    "Name is the name of the exported volume",
-		"formats": "+listType=map\n+listMapKey=format\n+optional",
+		"":     "VirtualMachineExportVolume contains the name and available formats for the exported volume",
+		"name": "Name is the name of the exported volume",
 	}
 }
 
@@ -81,9 +73,8 @@ func (VirtualMachineExportVolumeFormat) SwaggerDoc() map[string]string {
 
 func (VirtualMachineExportBackup) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "VirtualMachineExportBackup contains the name and available endpoints for the exported backup",
-		"name":      "Name is the name of the exported volume",
-		"endpoints": "+listType=map\n+listMapKey=endpoint\n+optional",
+		"":     "VirtualMachineExportBackup contains the name and available endpoints for the exported backup",
+		"name": "Name is the name of the exported volume",
 	}
 }
 
@@ -97,10 +88,6 @@ func (VirtualMachineExportBackupEndpoint) SwaggerDoc() map[string]string {
 
 func (Condition) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                   "Condition defines conditions",
-		"lastProbeTime":      "+optional\n+nullable",
-		"lastTransitionTime": "+optional\n+nullable",
-		"reason":             "+optional",
-		"message":            "+optional",
+		"": "Condition defines conditions",
 	}
 }
