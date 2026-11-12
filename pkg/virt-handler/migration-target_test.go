@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -55,7 +56,6 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -142,8 +142,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		createVMI(vmi)
 	}
 
+	// Built per call: a few specs override controller.host after construction.
+	arbiter := func() *Arbiter {
+		return newTestArbiter(controller.BaseController, map[role]vmiController{roleTarget: controller})
+	}
+
 	sanityExecute := func() {
-		controllertesting.SanityExecute(controller, []cache.Store{
+		controllertesting.SanityExecute(arbiter(), []cache.Store{
 			controller.domainStore, controller.vmiStore,
 		}, Default)
 	}
@@ -224,6 +229,11 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			virtClient,
 			host,
 			"127.1.1.1", // migration ip address
+			workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[string](),
+				workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
+			),
+			virtcontroller.NewUIDTrackingControllerExpectations(virtcontroller.NewControllerExpectations()),
 			launcherClientManager,
 			vmiInformer,
 			domainInformer,
@@ -740,6 +750,40 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 	})
 
+	It("should release the target node claim when a migration fails before its domain ran", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = "othernode"
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:   host,
+			SourceNode:   "othernode",
+			MigrationUID: "123",
+			Failed:       true,
+			Completed:    true,
+			EndTimestamp: new(metav1.Now()),
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		// The target domain was defined but never ran. finalCleanup still has to be
+		// reached: dropping the migration target node label is how this node hands the
+		// VMI back, and nothing else removes it.
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Shutoff
+		addVMI(vmi, domain)
+
+		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
+		arbiter().Execute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Labels).ToNot(HaveKey(v1.MigrationTargetNodeNameLabel))
+		Expect(migrationTargetOwns(updatedVMI, host)).To(BeFalse())
+	})
+
 	It("should wait for source abort completion before marking migration failed on target", func() {
 		const targetMigrationUID = types.UID("target-migration-uid")
 
@@ -755,7 +799,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmi = addActivePods(vmi, podTestUUID, host)
 		createVMI(vmi)
 
-		controller.Execute()
+		arbiter().Execute()
 
 		inProgressVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -776,7 +820,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		controller.queue.Add(key)
 
 		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
-		controller.Execute()
+		arbiter().Execute()
 
 		testutils.ExpectEvent(recorder, VMIAbortingMigration)
 
@@ -820,7 +864,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		addVMI(vmi, domain)
 
 		client.EXPECT().SignalTargetPodCleanup(gomock.Any())
-		controller.Execute()
+		arbiter().Execute()
 
 		testutils.ExpectEvent(recorder, domainFailureReason)
 		Expect(recorder.Events).NotTo(Receive(ContainSubstring(VMIAbortingMigration)))
@@ -852,7 +896,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		domain.Status.Status = api.Running
 		addVMI(vmi, domain)
 
-		controller.Execute()
+		arbiter().Execute()
 
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
@@ -946,7 +990,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		It("does not finalize target abort until source migration has completed", func() {
 			proxyKey := setupDecentralizedTargetAbortWithProxy()
 
-			controller.Execute()
+			arbiter().Execute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), "testvmi", metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -978,7 +1022,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		It("should keep the migration proxy listening until the source abort has completed", func() {
 			proxyKey := setupDecentralizedTargetAbortWithProxy()
 
-			controller.Execute()
+			arbiter().Execute()
 
 			Expect(controller.migrationProxy.GetTargetListenerPorts(proxyKey)).NotTo(BeEmpty())
 
@@ -1071,7 +1115,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Name: "testvol",
 				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
 					ClaimName:  "testclaim",
-					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					VolumeMode: new(k8sv1.PersistentVolumeFilesystem),
 					Capacity: k8sv1.ResourceList{
 						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
 					},
