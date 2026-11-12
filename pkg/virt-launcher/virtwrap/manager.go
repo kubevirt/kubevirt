@@ -1004,7 +1004,9 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	return size, true
 }
 
-func getUsableDiskSize(path string) (int64, error) {
+var getUsableDiskSize = getUsableDiskSizeFunc
+
+func getUsableDiskSizeFunc(path string) (int64, error) {
 	var statfs syscall.Statfs_t
 	err := syscall.Statfs(path, &statfs)
 	if err != nil {
@@ -1495,12 +1497,7 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
-		if shouldExpandOnline(dom, disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
-			if !ok {
-				logger.Warningf("Failed to get possible guest size from disk %v", disk)
-				break
-			}
+		if ok, possibleGuestSize := shouldExpandOnline(dom, disk); ok {
 			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
@@ -1867,22 +1864,22 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	return false, fmt.Errorf("error checking for block device: %v", err)
 }
 
-func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
+func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) (bool, int64) {
 	if !disk.ExpandDisksEnabled {
 		log.DefaultLogger().V(3).Infof("Not expanding disks, ExpandDisks featuregate disabled")
-		return false
+		return false, 0
 	}
 	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to get block info")
-		return false
+		return false, 0
 	}
 	guestSize := blockInfo.Capacity
 	possibleGuestSize, ok := possibleGuestSize(disk)
 	if !ok || possibleGuestSize <= int64(guestSize) {
-		return false
+		return false, 0
 	}
-	return true
+	return true, possibleGuestSize
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
