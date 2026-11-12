@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -32,9 +33,21 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
+
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	cmdauth "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/auth"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
@@ -122,6 +135,7 @@ var _ = Describe("Domain Watcher", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil, nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
@@ -476,6 +490,646 @@ var _ = Describe("Domain Watcher", func() {
 		})
 	})
 
+	Context("podUIDFromSocketPath", func() {
+		It("should extract the pod UID from a standard socket path", func() {
+			uid, err := podUIDFromSocketPath("/pods/abc-123-def/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("abc-123-def"))
+		})
+
+		It("should extract the pod UID when there are leading path segments", func() {
+			uid, err := podUIDFromSocketPath("/var/lib/kubelet/pods/real-uid-456/volumes/kubernetes.io~empty-dir/sockets/launcher-sock")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("real-uid-456"))
+		})
+
+		It("should fail when path has no /volumes/ segment", func() {
+			_, err := podUIDFromSocketPath("/some/random/path/launcher-sock")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("/volumes/"))
+		})
+	})
+
+	Context("podUIDFromTokenReview", func() {
+		It("should extract the pod UID from the extra claims", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"pod-uid-789"},
+						},
+					},
+				},
+			}
+			uid, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal("pod-uid-789"))
+		})
+
+		It("should fail when pod UID claim is missing", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("not present"))
+		})
+
+		It("should fail when pod UID claim is empty", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {""},
+						},
+					},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("empty"))
+		})
+
+		It("should fail when Extra map is nil", func() {
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{},
+				},
+			}
+			_, err := podUIDFromTokenReview(review)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("pod UID mismatch detection", func() {
+		It("should detect when token pod UID does not match socket path", func() {
+			socketPath := "/pods/legitimate-pod-uid/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {"attacker-pod-uid"},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).ToNot(Equal(socketUID),
+				"a token from an attacker pod must not match the socket's pod UID")
+		})
+
+		It("should succeed when token pod UID matches socket path", func() {
+			podUID := "matching-pod-uid-abc"
+			socketPath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", podUID)
+			socketUID, err := podUIDFromSocketPath(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+
+			review := &authv1.TokenReview{
+				Status: authv1.TokenReviewStatus{
+					User: authv1.UserInfo{
+						Extra: map[string]authv1.ExtraValue{
+							tokenReviewPodUIDKey: {podUID},
+						},
+					},
+				},
+			}
+			tokenUID, err := podUIDFromTokenReview(review)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(tokenUID).To(Equal(socketUID))
+		})
+	})
+
+	Context("AuthenticateSocket", func() {
+		const launcherUID = "launcher-pod-uid-123"
+		const rogueUID = "rogue-pod-uid-456"
+
+		var (
+			ctx        context.Context
+			cancel     context.CancelFunc
+			socketPath string
+			activePods map[types.UID]string
+		)
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+			socketPath = launcherSocketPath(launcherUID)
+			activePods = map[types.UID]string{types.UID(launcherUID): "node-1"}
+		})
+
+		AfterEach(func() {
+			cancel()
+		})
+
+		It("should authenticate a launcher that serves a valid, pod-bound token", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			Expect(AuthenticateSocket(ctx, client, socketPath, activePods)).To(Succeed())
+		})
+
+		It("should be a no-op when the k8s client is nil, so the feature gate stays off", func() {
+			Expect(AuthenticateSocket(ctx, nil, socketPath, nil)).To(Succeed())
+		})
+
+		It("should reject a launcher whose token TokenReview does not authenticate", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "bogus-token"})
+			review := authenticatedReview(launcherUID, cmdauth.Audience)
+			review.Status.Authenticated = false
+
+			err := AuthenticateSocket(ctx, clientReturning(review), socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("not authenticated")))
+		})
+
+		It("should reject a token granted a different audience", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "wrong-audience-token"})
+			client := clientReturning(authenticatedReview(launcherUID, "https://kubernetes.default.svc"))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("audience")))
+		})
+
+		It("should reject a token bound to a different pod than the socket path", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "other-pod-token"})
+			client := clientReturning(authenticatedReview("some-other-pod-uid", cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("pod UID mismatch")))
+		})
+
+		It("should reject a token that carries no pod UID", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "not-pod-bound"})
+			review := authenticatedReview(launcherUID, cmdauth.Audience)
+			review.Status.User.Extra = nil
+
+			err := AuthenticateSocket(ctx, clientReturning(review), socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("pod identity")))
+		})
+
+		It("should reject a pod that is not in the VMI's ActivePods", func() {
+			rogueSocket := launcherSocketPath(rogueUID)
+			serveCmdAuth(ctx, rogueSocket, &fakeAuthServer{token: "rogue-but-valid-token"})
+			client := clientReturning(authenticatedReview(rogueUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, rogueSocket, activePods)
+			Expect(err).To(MatchError(ContainSubstring("not in VMI ActivePods")))
+		})
+
+		// A nil map means the caller could not resolve the owning VMI. Skipping
+		// the check there would let a pod with a valid token of its own pass.
+		It("should fail closed when ActivePods is nil", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, nil)
+			Expect(err).To(MatchError(ContainSubstring("no ActivePods")))
+		})
+
+		It("should fail closed when ActivePods is empty", func() {
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "valid-token"})
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, map[types.UID]string{})
+			Expect(err).To(MatchError(ContainSubstring("no ActivePods")))
+		})
+
+		// There is no fallback for launchers predating CmdAuth: an
+		// authentication check a peer can decline is not a check.
+		It("should reject a peer that does not serve CmdAuth, even if it is in ActivePods", func() {
+			serveNothing(ctx, socketPath)
+			client := clientReturning(authenticatedReview(launcherUID, cmdauth.Audience))
+
+			err := AuthenticateSocket(ctx, client, socketPath, activePods)
+			Expect(err).To(MatchError(ContainSubstring("Authenticate RPC")))
+		})
+
+		It("should authenticate both launchers during a live migration", func() {
+			const targetUID = "target-pod-uid"
+			migrationPods := map[types.UID]string{
+				types.UID(launcherUID): "node-1",
+				types.UID(targetUID):   "node-2",
+			}
+
+			serveCmdAuth(ctx, socketPath, &fakeAuthServer{token: "source-token"})
+			Expect(AuthenticateSocket(ctx, clientReturning(authenticatedReview(launcherUID, cmdauth.Audience)),
+				socketPath, migrationPods)).To(Succeed())
+
+			targetSocket := launcherSocketPath(targetUID)
+			serveCmdAuth(ctx, targetSocket, &fakeAuthServer{token: "target-token"})
+			Expect(AuthenticateSocket(ctx, clientReturning(authenticatedReview(targetUID, cmdauth.Audience)),
+				targetSocket, migrationPods)).To(Succeed())
+		})
+	})
+
+	Context("VMI-based socket discovery (socketsFromVMIStore)", func() {
+		var (
+			vmiStore cache.Store
+			podsDir  string
+		)
+
+		vmiKeyFunc := func(obj interface{}) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+			podsDir = GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+		})
+
+		createSocketForPod := func(podUID string) string {
+			socketDir := cmdclient.SocketDirectoryOnHost(podUID)
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+			return socketPath
+		}
+
+		It("should discover sockets for VMI with ActivePods", func() {
+			podUID := "pod-uid-1"
+			createSocketForPod(podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+					UID:       "vmi-uid-1",
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(podUID): "node-1",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].path).To(Equal(cmdclient.SocketFilePathOnHost(podUID)))
+			Expect(entries[0].activePods).To(HaveKey(types.UID(podUID)))
+		})
+
+		It("should skip pods whose socket does not exist on disk", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-socket-vmi",
+					Namespace: "test-ns",
+					UID:       "vmi-uid-2",
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						"nonexistent-pod": "node-1",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("should discover sockets for multiple VMIs", func() {
+			pod1 := "pod-uid-a"
+			pod2 := "pod-uid-b"
+			createSocketForPod(pod1)
+			createSocketForPod(pod2)
+
+			vmi1 := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi-1", Namespace: "ns", UID: "uid-1"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(pod1): "node-1"},
+				},
+			}
+			vmi2 := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi-2", Namespace: "ns", UID: "uid-2"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(pod2): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi1)).To(Succeed())
+			Expect(vmiStore.Add(vmi2)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(HaveLen(2))
+		})
+
+		It("should handle VMI with no ActivePods", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "empty-vmi", Namespace: "ns", UID: "uid-3"},
+				Status:     v1.VirtualMachineInstanceStatus{},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(BeEmpty())
+		})
+
+		It("should discover only the local pod during migration", func() {
+			localPod := "local-pod"
+			remotePod := "remote-pod"
+			createSocketForPod(localPod)
+			// Do not create socket for remote pod (it's on another node)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "migrating-vmi", Namespace: "ns", UID: "uid-4"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{
+						types.UID(localPod):  "this-node",
+						types.UID(remotePod): "other-node",
+					},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{
+				vmiStore:        vmiStore,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(HaveLen(1))
+			Expect(entries[0].path).To(Equal(cmdclient.SocketFilePathOnHost(localPod)))
+		})
+
+		It("should return nil when vmiStore is nil", func() {
+			d := &domainWatcher{
+				vmiStore:        nil,
+				useVMIDiscovery: true,
+			}
+			entries := d.socketsFromVMIStore()
+			Expect(entries).To(BeNil())
+		})
+	})
+
+	Context("domainFromVMIStoreBySocket", func() {
+		var vmiStore cache.Store
+
+		vmiKeyFunc := func(obj interface{}) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+		})
+
+		It("should find the VMI that owns the socket's pod UID", func() {
+			podUID := "target-pod-uid"
+			socketPath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: "test-ns", UID: "vmi-uid-abc"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			domain := d.domainFromVMIStoreBySocket(socketPath)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Name).To(Equal("test-vmi"))
+			Expect(domain.Namespace).To(Equal("test-ns"))
+			Expect(domain.ObjectMeta.UID).To(Equal(types.UID("vmi-uid-abc")))
+		})
+
+		It("should return nil when no VMI owns the pod UID", func() {
+			socketPath := "/pods/unknown-pod/volumes/kubernetes.io~empty-dir/sockets/launcher-sock"
+
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			domain := d.domainFromVMIStoreBySocket(socketPath)
+			Expect(domain).To(BeNil())
+		})
+
+		It("should return nil for an invalid socket path", func() {
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			domain := d.domainFromVMIStoreBySocket("/bad/path/no-volumes")
+			Expect(domain).To(BeNil())
+		})
+	})
+
+	Context("domainForStaleSocket", func() {
+		It("should use VMI store when useVMIDiscovery is true", func() {
+			vmiStore := cache.NewStore(func(obj interface{}) (string, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				return vmi.Namespace + "/" + vmi.Name, nil
+			})
+			podUID := "stale-pod"
+			socketPath := fmt.Sprintf("/pods/%s/volumes/kubernetes.io~empty-dir/sockets/launcher-sock", podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "stale-vmi", Namespace: "ns", UID: "vmi-uid-stale"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			d := &domainWatcher{vmiStore: vmiStore, useVMIDiscovery: true}
+			domain := d.domainForStaleSocket(socketPath)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Name).To(Equal("stale-vmi"))
+		})
+
+		It("should use ghost records when useVMIDiscovery is false", func() {
+			ghostCacheDir := GinkgoT().TempDir()
+			ghostRecordStore := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()),
+			)
+			socketPath := "/path/to/ghost-socket"
+			err := ghostRecordStore.Add("ns", "ghost-vmi", socketPath, "ghost-uid")
+			Expect(err).ToNot(HaveOccurred())
+
+			d := &domainWatcher{useVMIDiscovery: false}
+			domain := d.domainForStaleSocket(socketPath)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Name).To(Equal("ghost-vmi"))
+		})
+	})
+
+	Context("handleStaleSocketConnections with VMI discovery", func() {
+		var (
+			vmiStore cache.Store
+			podsDir  string
+		)
+
+		vmiKeyFunc := func(obj interface{}) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+			podsDir = GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+		})
+
+		createSocketFile := func(podUID string) string {
+			socketDir := cmdclient.SocketDirectoryOnHost(podUID)
+			Expect(os.MkdirAll(socketDir, 0755)).To(Succeed())
+			socketPath := cmdclient.SocketFilePathOnHost(podUID)
+			f, err := os.Create(socketPath)
+			Expect(err).ToNot(HaveOccurred())
+			f.Close()
+			return socketPath
+		}
+
+		It("should detect stale sockets from VMI store instead of ghost records", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			podUID := "stale-pod-uid"
+			socketPath := createSocketFile(podUID)
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "stale-vmi", Namespace: "ns", UID: "vmi-uid-stale"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			watchdogTimeout := 10
+			oldTime := time.Now().UTC().Unix() - int64(watchdogTimeout) - 5
+			d := &domainWatcher{
+				vmiStore:            vmiStore,
+				useVMIDiscovery:     true,
+				unresponsiveSockets: map[string]int64{socketPath: oldTime},
+				consecutiveFails:    new(int),
+				result:              make(chan watch.Event, 100),
+				cancel:              cancel,
+			}
+
+			err := d.handleStaleSocketConnections(ctx, watchdogTimeout)
+			Expect(err).ToNot(HaveOccurred())
+
+			var receivedEvent watch.Event
+			Eventually(d.result).Should(Receive(&receivedEvent))
+			domain, ok := receivedEvent.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(domain.Name).To(Equal("stale-vmi"))
+			Expect(domain.ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+		})
+	})
+
+	Context("DeleteGhostRecordCheckpoints", func() {
+		It("should remove all checkpoint files and clear cache", func() {
+			checkpointDir := GinkgoT().TempDir()
+			ghostRecordStore := InitializeGhostRecordCache(
+				NewIterableCheckpointManager(checkpointDir, GinkgoT().TempDir()),
+			)
+
+			err := ghostRecordStore.Add("ns", "vmi-1", "/sock1", "uid-1")
+			Expect(err).ToNot(HaveOccurred())
+			err = ghostRecordStore.Add("ns", "vmi-2", "/sock2", "uid-2")
+			Expect(err).ToNot(HaveOccurred())
+
+			entries, err := os.ReadDir(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entries).To(HaveLen(2))
+
+			err = DeleteGhostRecordCheckpoints(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			entries, err = os.ReadDir(checkpointDir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(entries).To(BeEmpty())
+
+			Expect(GhostRecordGlobalStore.Exists("ns", "vmi-1")).To(BeFalse())
+			Expect(GhostRecordGlobalStore.Exists("ns", "vmi-2")).To(BeFalse())
+		})
+
+		It("should handle non-existent directory", func() {
+			err := DeleteGhostRecordCheckpoints("/tmp/nonexistent-ghost-dir-" + fmt.Sprintf("%d", time.Now().UnixNano()))
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should handle empty directory", func() {
+			emptyDir := GinkgoT().TempDir()
+			err := DeleteGhostRecordCheckpoints(emptyDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("listDomainsFromVMIStore", func() {
+		var vmiStore cache.Store
+
+		vmiKeyFunc := func(obj interface{}) (string, error) {
+			vmi := obj.(*v1.VirtualMachineInstance)
+			return vmi.Namespace + "/" + vmi.Name, nil
+		}
+
+		BeforeEach(func() {
+			vmiStore = cache.NewStore(vmiKeyFunc)
+		})
+
+		It("should return nil for nil store", func() {
+			domains := listDomainsFromVMIStore(context.Background(), nil, nil)
+			Expect(domains).To(BeNil())
+		})
+
+		It("should return empty for VMIs with no local sockets", func() {
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi", Namespace: "ns", UID: "uid"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{"nonexistent-pod": "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			domains := listDomainsFromVMIStore(context.Background(), vmiStore, nil)
+			Expect(domains).To(BeEmpty())
+		})
+
+		It("should omit a local socket that fails authentication", func() {
+			podsDir := GinkgoT().TempDir()
+			cmdclient.SetPodsBaseDir(podsDir)
+			defer cmdclient.SetPodsBaseDir("/pods")
+
+			podUID := "pod-uid"
+			Expect(os.MkdirAll(cmdclient.SocketDirectoryOnHost(podUID), 0755)).To(Succeed())
+			Expect(os.WriteFile(cmdclient.SocketFilePathOnHost(podUID), []byte("not-a-socket"), 0644)).To(Succeed())
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi", Namespace: "ns", UID: "uid"},
+				Status: v1.VirtualMachineInstanceStatus{
+					ActivePods: map[types.UID]string{types.UID(podUID): "node-1"},
+				},
+			}
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			domains := listDomainsFromVMIStore(context.Background(), vmiStore, fake.NewSimpleClientset())
+			Expect(domains).To(BeEmpty())
+		})
+	})
+
 })
 
 // connCountingListener counts the connections it accepted and how many of
@@ -517,4 +1171,84 @@ func runConnCountingCmdServer(socketPath string, domainManager virtwrap.DomainMa
 	go func() { _ = server.Serve(counting) }()
 	DeferCleanup(server.Stop)
 	return counting
+}
+
+// fakeAuthServer stands in for the CmdAuth service on virt-launcher.
+type fakeAuthServer struct {
+	token string
+	err   error
+}
+
+func (f *fakeAuthServer) Authenticate(_ context.Context, _ *cmdauth.AuthRequest) (*cmdauth.AuthResponse, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return &cmdauth.AuthResponse{Token: f.token}, nil
+}
+
+// launcherSocketPath builds a path shaped like a real launcher socket, so
+// that podUIDFromSocketPath can recover the pod UID from it. The temp dir is
+// kept short because unix socket paths are limited to ~107 bytes.
+func launcherSocketPath(podUID string) string {
+	base, err := os.MkdirTemp("", "ls")
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { os.RemoveAll(base) })
+
+	dir := filepath.Join(base, podUID, "volumes", "sockets")
+	Expect(os.MkdirAll(dir, 0755)).To(Succeed())
+	return filepath.Join(dir, "launcher-sock")
+}
+
+// serveCmdAuth starts a gRPC server on socketPath with the CmdAuth service
+// registered. serveNothing starts one without it, which is how a launcher
+// predating this feature behaves.
+func serveCmdAuth(ctx context.Context, socketPath string, impl cmdauth.CmdAuthServer) {
+	server := grpc.NewServer()
+	cmdauth.RegisterCmdAuthServer(server, impl)
+	startGRPC(ctx, server, socketPath)
+}
+
+func serveNothing(ctx context.Context, socketPath string) {
+	startGRPC(ctx, grpc.NewServer(), socketPath)
+}
+
+func startGRPC(ctx context.Context, server *grpc.Server, socketPath string) {
+	listener, err := net.Listen("unix", socketPath)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		_ = server.Serve(listener)
+	}()
+	go func() {
+		<-ctx.Done()
+		server.Stop()
+	}()
+	DeferCleanup(server.Stop)
+}
+
+// authenticatedReview is the TokenReview response the API server returns for
+// a valid, pod-bound projected ServiceAccount token.
+func authenticatedReview(podUID string, audiences ...string) *authv1.TokenReview {
+	return &authv1.TokenReview{
+		Status: authv1.TokenReviewStatus{
+			Authenticated: true,
+			Audiences:     audiences,
+			User: authv1.UserInfo{
+				Username: "system:serviceaccount:default:default",
+				Extra: map[string]authv1.ExtraValue{
+					tokenReviewPodUIDKey: {podUID},
+				},
+			},
+		},
+	}
+}
+
+func clientReturning(review *authv1.TokenReview) kubernetes.Interface {
+	client := fake.NewSimpleClientset()
+	client.Fake.PrependReactor("create", "tokenreviews",
+		func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, review, nil
+		})
+	return client
 }

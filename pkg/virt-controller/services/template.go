@@ -840,6 +840,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		pod.Spec.AutomountServiceAccountToken = &automount
 	}
 
+	// The cmd-auth projected token is rejected unless ServiceAccountName is set.
+	// A normal apiserver fills an empty name with "default" in the ServiceAccount
+	// admission plugin. envtest disables that plugin, so set the name here.
+	// Automount stays off unless the VMI asked for a service account volume.
+	if pod.Spec.ServiceAccountName == "" {
+		pod.Spec.ServiceAccountName = "default"
+	}
+
 	pod.Spec.Volumes = append(pod.Spec.Volumes, sidecarVolumes...)
 
 	return &pod, nil
