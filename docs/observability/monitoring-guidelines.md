@@ -62,3 +62,51 @@ When creating a KubeVirt alert rule, please see the following :
      - Info alerts - When a minor problem has been detected. It should be resolved relatively soon and not ignored.
 
 5. Alert `message` must be verbose, since it is being propagated to the [observability/metrics.md](https://github.com/kubevirt/kubevirt/blob/main/docs/observability/metrics.md) file, when running `make-generate`.
+
+#### VM-Scoped Alerts: `vm` Typed Resource Label
+
+VM-scoped alerts (alerts in `vmsAlerts` that target a specific VM) MUST
+include a `vm` typed resource label identifying the VirtualMachine.
+
+**Why:**
+The `vm` label is a typed resource label. It enables the
+monitoring-plugin to navigate from an alert to the VM resource page,
+and lets alert-to-resource correlation resolve the alert to the
+VirtualMachine.
+
+**How:**
+Wrap the PromQL expression with the `withVMLabel()` helper from
+`pkg/monitoring/rules/alerts/vms.go`. It uses `label_replace` to copy
+the `name` label into `vm`:
+
+```go
+Expr: intstr.FromString(withVMLabel("vmi:kubevirt_vmi_guest_queue_length:sum{namespace!=''} > 10")),
+```
+
+For VMI-scoped alerts that identify the workload by a different label,
+use `withVMLabelFrom()` to derive `vm` from that label instead:
+
+```go
+Expr: intstr.FromString(withVMLabelFrom(
+    "sum by (vmi, namespace) (topk by (vmi, namespace, vmim) "
+        "(1, max_over_time(kubevirt_vmi_migration_succeeded[1d]))) >= 12",
+    "vmi",
+)),
+```
+
+The existing `name`/`vmi` labels are preserved for backward
+compatibility; do not remove them.
+
+**Testing:**
+When adding a new VM-scoped alert, add a promtool unit test case in
+`hack/prom-rule-ci/prom-rules-tests.yaml` that asserts `vm` in
+`exp_labels` (see the existing VM alert test cases for the pattern).
+
+**Exemptions:**
+Infrastructure and aggregate alerts that do not target a specific VM
+are exempt:
+
+- `VirtLauncherPodsStuckFailed` (cluster-wide virt-launcher pod count)
+- `OrphanedVirtualMachineInstances` (virt-handler infrastructure)
+- `OutdatedVirtualMachineInstanceWorkloads` (aggregate count of
+  outdated workloads)
