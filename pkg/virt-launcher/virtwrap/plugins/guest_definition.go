@@ -46,11 +46,6 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 		return spec, "", nil
 	}
 
-	domain, err := translate.ToLibvirtDomain(spec)
-	if err != nil {
-		return nil, "", fmt.Errorf("converting DomainSpec to libvirtxml: %w", err)
-	}
-
 	hooks, err := selectHooks(plugins, vmi, pluginv1alpha1.LauncherHookGuestDefinition)
 	if err != nil {
 		return nil, "", err
@@ -61,6 +56,11 @@ func applyGuestDefinitionHooks(plugins []pluginv1alpha1.Plugin, vmi *v1.VirtualM
 	// and it should keep its own domain XML rather than adopting this round-trip.
 	if len(hooks) == 0 {
 		return spec, "", nil
+	}
+
+	domain, err := translate.ToLibvirtDomain(spec)
+	if err != nil {
+		return nil, "", fmt.Errorf("converting DomainSpec to libvirtxml: %w", err)
 	}
 
 	vmiJSON, err := json.Marshal(vmi)

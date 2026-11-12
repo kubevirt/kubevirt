@@ -116,6 +116,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 		const pciAddress1 = "0000:81:01.1"
@@ -124,6 +125,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
@@ -159,6 +161,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress0},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
