@@ -24,6 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
@@ -67,9 +68,13 @@ func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstan
 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 		VCPUs := &api.VCPUs{}
+		// Enabled vCPUs must stay non-hotpluggable when the TSC frequency is
+		// pinned: KVM fails to synchronize the TSC of vCPUs that libvirt
+		// hotplugs after QEMU has started.
+		tscPinned := topology.IsManualTSCFrequencyRequired(vmi)
 		for id := uint32(0); id < cpuCount; id++ {
 			isEnabled := id < enabledCPUCount
-			isHotpluggable := id >= minEnabledCPUCount
+			isHotpluggable := id >= minEnabledCPUCount && !(tscPinned && isEnabled)
 			VCPUs.VCPU = append(VCPUs.VCPU, api.VCPUsVCPU{
 				ID:           id,
 				Enabled:      boolToYesNo(&isEnabled, true),
