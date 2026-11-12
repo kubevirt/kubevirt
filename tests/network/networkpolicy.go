@@ -51,7 +51,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 		serverVMILabels = map[string]string{"type": "test"}
 	})
 
-	Context("when three alpine VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
+	Context("when VMs with default networking are started and serverVMI start an HTTP server on port 80 and 81", func() {
 		var serverVMI, clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -89,58 +89,6 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			It("[test_id:369] should deny http traffic for ports 80/81 from clientVMI to serverVMI", func() {
 				assertHTTPPingFailed(clientVMI, serverVMI, 80)
 				assertHTTPPingFailed(clientVMI, serverVMI, 81)
-			})
-		})
-
-		Context("and vms limited by allow same namespace networkpolicy", func() {
-			var policy *networkv1.NetworkPolicy
-
-			BeforeEach(func() {
-				// allow-same-namespace networkpolicy will only allow the traffic inside the namespace
-				By("Create allow-same-namespace networkpolicy")
-				policy = createNetworkPolicy(serverVMI.Namespace, "allow-same-namespace", metav1.LabelSelector{},
-					[]networkv1.NetworkPolicyIngressRule{
-						{
-							From: []networkv1.NetworkPolicyPeer{
-								{
-									PodSelector: &metav1.LabelSelector{},
-								},
-							},
-						},
-					},
-				)
-			})
-
-			AfterEach(func() {
-				waitForNetworkPolicyDeletion(policy)
-			})
-
-			When("client vmi is on default namespace", func() {
-				BeforeEach(func() {
-					var err error
-					clientVMI, err = createClientVmi(testsuite.NamespaceTestDefault, virtClient)
-					Expect(err).ToNot(HaveOccurred())
-					assertIPsNotEmptyForVMI(clientVMI)
-				})
-
-				It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
-					assertPingSucceed(clientVMI, serverVMI)
-				})
-			})
-
-			When("client vmi is on alternative namespace", func() {
-				var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
-
-				BeforeEach(func() {
-					var err error
-					clientVMIAlternativeNamespace, err = createClientVmi(testsuite.NamespaceTestAlternative, virtClient)
-					Expect(err).ToNot(HaveOccurred())
-					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
-				})
-
-				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
-					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
-				})
 			})
 		})
 
@@ -274,6 +222,64 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
 				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
 				assertHTTPPingFailed(clientVMI, serverVMI, 81)
+			})
+		})
+	})
+
+	Context("when VMs are limited by allow same namespace networkpolicy", func() {
+		var serverVMI, clientVMI *v1.VirtualMachineInstance
+		var policy *networkv1.NetworkPolicy
+
+		BeforeEach(func() {
+			var err error
+			serverVMI, err = createConformanceServerVmi(virtClient, testsuite.NamespaceTestDefault, serverVMILabels)
+			Expect(err).ToNot(HaveOccurred())
+			assertIPsNotEmptyForVMI(serverVMI)
+
+			// allow-same-namespace networkpolicy will only allow the traffic inside the namespace
+			By("Create allow-same-namespace networkpolicy")
+			policy = createNetworkPolicy(serverVMI.Namespace, "allow-same-namespace", metav1.LabelSelector{},
+				[]networkv1.NetworkPolicyIngressRule{
+					{
+						From: []networkv1.NetworkPolicyPeer{
+							{
+								PodSelector: &metav1.LabelSelector{},
+							},
+						},
+					},
+				},
+			)
+		})
+
+		AfterEach(func() {
+			waitForNetworkPolicyDeletion(policy)
+		})
+
+		When("client vmi is on default namespace", func() {
+			BeforeEach(func() {
+				var err error
+				clientVMI, err = createConformanceClientVmi(testsuite.NamespaceTestDefault, virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				assertIPsNotEmptyForVMI(clientVMI)
+			})
+
+			It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
+				assertPingSucceed(clientVMI, serverVMI)
+			})
+		})
+
+		When("client vmi is on alternative namespace", func() {
+			var clientVMIAlternativeNamespace *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				var err error
+				clientVMIAlternativeNamespace, err = createConformanceClientVmi(testsuite.NamespaceTestAlternative, virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
+			})
+
+			It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
+				assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 			})
 		})
 	})
@@ -428,6 +434,21 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 	return clientVMI, nil
 }
 
+func createConformanceClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	clientVMI := libvmifact.NewFedora(
+		libnet.WithConformancePodNetworkCloudInit(),
+		libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+	return clientVMI, nil
+}
+
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
@@ -447,6 +468,29 @@ func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, server
 		return nil, err
 	}
 	serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
+
+	By("Start HTTP server at serverVMI on ports 80 and 81")
+	vmnetserver.HTTPServer.Start(serverVMI, 80)
+	vmnetserver.HTTPServer.Start(serverVMI, 81)
+
+	return serverVMI, nil
+}
+
+func createConformanceServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
+	serverVMI := libvmifact.NewFedora(
+		libnet.WithConformancePodNetworkCloudInit(),
+		libvmi.WithInterface(libnet.ConformancePodNetworkInterface(
+			v1.Port{Name: "http80", Port: 80, Protocol: "TCP"},
+			v1.Port{Name: "http81", Port: 81, Protocol: "TCP"},
+		)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	serverVMI.Labels = serverVMILabels
+	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+	serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 	By("Start HTTP server at serverVMI on ports 80 and 81")
 	vmnetserver.HTTPServer.Start(serverVMI, 80)
