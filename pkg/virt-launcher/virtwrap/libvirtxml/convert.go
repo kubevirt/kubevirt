@@ -20,9 +20,6 @@
 package libvirtxml
 
 import (
-	"fmt"
-	"strconv"
-
 	"libvirt.org/go/libvirtxml"
 
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -47,57 +44,6 @@ func ConvertKubeVirtCPUTopologyToDomainCPUTopology(cpuTopology *api.CPUTopology)
 		Cores:   int(cpuTopology.Cores),
 		Threads: int(cpuTopology.Threads),
 	}
-}
-
-func ConvertKubeVirtNUMACellToDomainDomainCell(cell []api.NUMACell) ([]libvirtxml.DomainCell, error) {
-	ret := []libvirtxml.DomainCell{}
-	for _, c := range cell {
-		v, err := strconv.ParseUint(c.ID, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		id := uint(v)
-		var mem uint
-		if c.Memory != nil {
-			mem = uint(*c.Memory)
-		}
-		domCell := libvirtxml.DomainCell{
-			ID:        &id,
-			CPUs:      c.CPUs,
-			Memory:    mem,
-			Unit:      c.Unit,
-			MemAccess: c.MemoryAccess,
-		}
-		if c.Distances != nil {
-			distances := &libvirtxml.DomainCellDistances{}
-			for _, s := range c.Distances.Siblings {
-				sibID, err := strconv.ParseUint(s.ID, 10, 32)
-				if err != nil {
-					return nil, fmt.Errorf("invalid sibling ID %q in NUMA cell %s: %w", s.ID, c.ID, err)
-				}
-				distances.Siblings = append(distances.Siblings, libvirtxml.DomainCellSibling{
-					ID:    uint(sibID),
-					Value: uint(s.Value),
-				})
-			}
-			domCell.Distances = distances
-		}
-		ret = append(ret, domCell)
-	}
-	return ret, nil
-}
-
-func ConvertKubeVirtNUMAToDomainNUMA(numa *api.NUMA) (*libvirtxml.DomainNuma, error) {
-	if numa == nil {
-		return nil, nil
-	}
-	cell, err := ConvertKubeVirtNUMACellToDomainDomainCell(numa.Cells)
-	if err != nil {
-		return nil, err
-	}
-	return &libvirtxml.DomainNuma{
-		Cell: cell,
-	}, nil
 }
 
 func ConvertKubeVirtVCPUToDomainVCPU(vcpu *api.VCPU) *libvirtxml.DomainVCPU {
@@ -172,54 +118,4 @@ func ConvertKubeVirtNUMATuneToDomainNUMATune(numatune *api.NUMATune) *libvirtxml
 		},
 		MemNodes: ConvertKubeVirtMemNodeToDomainNUMATuneMemNode(numatune.MemNodes),
 	}
-}
-func ConvertKubeVirtHugepageToDomainMemoryHugepages(hugepage *api.HugePages) (*libvirtxml.DomainMemoryHugepages, error) {
-	var h *libvirtxml.DomainMemoryHugepages
-	if hugepage == nil {
-		return nil, nil
-	}
-	h = &libvirtxml.DomainMemoryHugepages{}
-	for _, v := range hugepage.HugePage {
-		s, err := strconv.ParseUint(v.Size, 10, 32)
-		if err != nil {
-			return nil, err
-		}
-		h.Hugepages = append(h.Hugepages, libvirtxml.DomainMemoryHugepage{
-			Size:    uint(s),
-			Unit:    v.Unit,
-			Nodeset: v.NodeSet,
-		})
-	}
-	return h, nil
-}
-
-func ConvertKubeVirtMemoryBackingToDomainMemoryBacking(memBack *api.MemoryBacking) (*libvirtxml.DomainMemoryBacking, error) {
-	var err error
-	domMemBack := &libvirtxml.DomainMemoryBacking{}
-	if memBack == nil {
-		return nil, nil
-	}
-	domMemBack.MemoryHugePages, err = ConvertKubeVirtHugepageToDomainMemoryHugepages(memBack.HugePages)
-	if err != nil {
-		return nil, err
-	}
-	if memBack.Source != nil {
-		domMemBack.MemorySource = &libvirtxml.DomainMemorySource{
-			Type: memBack.Source.Type,
-		}
-	}
-	if memBack.Access != nil {
-		domMemBack.MemoryAccess = &libvirtxml.DomainMemoryAccess{
-			Mode: memBack.Access.Mode,
-		}
-	}
-	if memBack.Allocation != nil {
-		domMemBack.MemoryAllocation = &libvirtxml.DomainMemoryAllocation{
-			Mode: string(memBack.Allocation.Mode),
-		}
-	}
-	if memBack.NoSharePages != nil {
-		domMemBack.MemoryNosharepages = &libvirtxml.DomainMemoryNosharepages{}
-	}
-	return domMemBack, nil
 }

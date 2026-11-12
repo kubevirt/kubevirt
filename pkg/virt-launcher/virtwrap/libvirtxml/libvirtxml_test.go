@@ -10,8 +10,6 @@ import (
 )
 
 var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
-	id := uint(123)
-
 	DescribeTable("ConvertKubeVirtCPUTopologyToDomainCPUTopology", func(v *api.CPUTopology, expected *libvirtxml.DomainCPUTopology) {
 		res := ConvertKubeVirtCPUTopologyToDomainCPUTopology(v)
 		Expect(res).To(Equal(expected))
@@ -124,100 +122,4 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 
 	})
 
-	Context("MemoryBacking", func() {
-
-		hugePage := &api.HugePages{
-			HugePage: []api.HugePage{
-				{Size: "1", Unit: "G", NodeSet: "test1"},
-				{Size: "2", Unit: "G", NodeSet: "test2"},
-			},
-		}
-		dhugePage := &libvirtxml.DomainMemoryHugepages{
-			Hugepages: []libvirtxml.DomainMemoryHugepage{
-				{Size: uint(1), Unit: "G", Nodeset: "test1"},
-				{Size: uint(2), Unit: "G", Nodeset: "test2"},
-			},
-		}
-
-		DescribeTable("ConvertKubeVirtHugepageToDomainMemoryHugepages", func(v *api.HugePages,
-			expected *libvirtxml.DomainMemoryHugepages, expectErr string) {
-			res, err := ConvertKubeVirtHugepageToDomainMemoryHugepages(v)
-			if expectErr != "" {
-				Expect(err).Should(MatchError(ContainSubstring(expectErr)))
-				return
-			}
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(expected))
-		},
-			Entry("empty", nil, nil, nil),
-			Entry("error parsing the size", &api.HugePages{
-				HugePage: []api.HugePage{{Size: "wrongid"}}},
-				nil, "invalid syntax"),
-			Entry("with values", hugePage, dhugePage, nil),
-		)
-
-		DescribeTable("ConvertKubeVirtMemoryBackingToDomainMemoryBacking", func(v *api.MemoryBacking,
-			expected *libvirtxml.DomainMemoryBacking) {
-			res, err := ConvertKubeVirtMemoryBackingToDomainMemoryBacking(v)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(expected))
-		},
-			Entry("empty", nil, nil),
-			Entry("with values", &api.MemoryBacking{
-				HugePages:    hugePage,
-				Source:       &api.MemoryBackingSource{Type: "test"},
-				Access:       &api.MemoryBackingAccess{Mode: "test"},
-				Allocation:   &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
-				NoSharePages: &api.NoSharePages{},
-			}, &libvirtxml.DomainMemoryBacking{
-				MemoryHugePages:    dhugePage,
-				MemorySource:       &libvirtxml.DomainMemorySource{Type: "test"},
-				MemoryAccess:       &libvirtxml.DomainMemoryAccess{Mode: "test"},
-				MemoryAllocation:   &libvirtxml.DomainMemoryAllocation{Mode: "immediate"},
-				MemoryNosharepages: &libvirtxml.DomainMemoryNosharepages{},
-			}),
-		)
-	})
-
-	Context("CPU with NUMA", func() {
-		cellMem := uint64(123)
-		cell := api.NUMACell{ID: "123", CPUs: "1", Memory: &cellMem, Unit: "G", MemoryAccess: "test"}
-		dcell := libvirtxml.DomainCell{ID: &id, CPUs: "1", Memory: uint(123), Unit: "G", MemAccess: "test"}
-
-		DescribeTable("ConvertKubeVirtNUMACellToDomainDomainCell", func(v []api.NUMACell, expected []libvirtxml.DomainCell, expectErr string) {
-			res, err := ConvertKubeVirtNUMACellToDomainDomainCell(v)
-			if expectErr != "" {
-				Expect(err).Should(MatchError(ContainSubstring(expectErr)))
-				return
-			}
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(expected))
-		},
-			Entry("empty", []api.NUMACell{}, []libvirtxml.DomainCell{}, ""),
-			Entry("error parsing the ID", []api.NUMACell{{ID: "wrongid"}}, nil, "invalid syntax"),
-			Entry("set all the field", []api.NUMACell{cell}, []libvirtxml.DomainCell{dcell}, ""),
-			Entry("nil memory defaults to zero", []api.NUMACell{{ID: "123", CPUs: "1", Unit: "G"}},
-				[]libvirtxml.DomainCell{{ID: &id, CPUs: "1", Memory: 0, Unit: "G"}}, ""),
-			Entry("with distances", []api.NUMACell{{ID: "123", CPUs: "1", Memory: &cellMem, Unit: "G", Distances: &api.NUMACellDistances{
-				Siblings: []api.NUMACellSibling{{ID: "0", Value: 10}, {ID: "1", Value: 20}},
-			}}}, []libvirtxml.DomainCell{{ID: &id, CPUs: "1", Memory: uint(123), Unit: "G", Distances: &libvirtxml.DomainCellDistances{
-				Siblings: []libvirtxml.DomainCellSibling{{ID: 0, Value: 10}, {ID: 1, Value: 20}},
-			}}}, ""),
-			Entry("nil distances omitted", []api.NUMACell{cell}, []libvirtxml.DomainCell{dcell}, ""),
-			Entry("invalid sibling ID", []api.NUMACell{{ID: "123", CPUs: "1", Distances: &api.NUMACellDistances{
-				Siblings: []api.NUMACellSibling{{ID: "bad", Value: 10}},
-			}}}, nil, "invalid sibling ID"),
-		)
-
-		DescribeTable("ConvertKubeVirtNUMAToDomainNUMA", func(v *api.NUMA, expected *libvirtxml.DomainNuma) {
-			res, err := ConvertKubeVirtNUMAToDomainNUMA(v)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).To(Equal(expected))
-		},
-			Entry("empty", nil, nil),
-			Entry("with some values", &api.NUMA{Cells: []api.NUMACell{cell}},
-				&libvirtxml.DomainNuma{Cell: []libvirtxml.DomainCell{dcell}}),
-		)
-
-	})
 })
