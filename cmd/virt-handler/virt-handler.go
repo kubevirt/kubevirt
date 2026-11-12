@@ -276,7 +276,10 @@ func (app *virtHandlerApp) Run() {
 	pluginInformer := factory.Plugin()
 
 	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	domainSharedInformer, directChan := virtcache.NewSharedInformer(
+		app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder,
+		vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second,
+	)
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
@@ -387,7 +390,10 @@ func (app *virtHandlerApp) Run() {
 
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
-	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
+	notifyManager := notifymanager.NewUpgradeAwareManager(
+		notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir),
+		notifymanager.NewNotifyV2Manager(directChan, recorder, podIsolationDetector),
+	)
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
