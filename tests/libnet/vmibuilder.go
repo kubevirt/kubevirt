@@ -40,6 +40,14 @@ func ConformancePodNetworkInterface(ports ...v1.Port) v1.Interface {
 	)
 }
 
+func WithConformancePodNetworkCloudInit() libvmi.Option {
+	if flags.PrimaryNetworkBindingPlugin != "" {
+		return func(*v1.VirtualMachineInstance) {}
+	}
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
+	return libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData))
+}
+
 func WithMasqueradeNetworking(ports ...v1.Port) libvmi.Option {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	return func(vmi *v1.VirtualMachineInstance) {
