@@ -31,6 +31,7 @@ cluster/local/certs
 *.crt
 *.csr
 _out
+virt-handler-start-perf-results
 exported-artifacts
 vendor/**/*_test.go
 **/polarion.xml
