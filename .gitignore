@@ -47,3 +47,4 @@ hack/builder/manifests/
 .bazeldnf/
 user.bazelrc
 .vscode/
+rpm/*-compose.yaml

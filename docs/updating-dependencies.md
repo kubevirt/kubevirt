@@ -54,6 +54,28 @@ COPR repo:
 
 More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf).
 
+## Reproducible and Idempotent RPM Resolution
+
+To ensure reproducible RPM dependency resolution across developers, CI runs, and mirror caches:
+
+1. **CentOS Stream Compose Snapshots**:
+   By default, `hack/rpm-deps.sh` uses repository metadata from CentOS Stream. To avoid non-deterministic drift caused by rolling mirror changes, you can pin repository definitions to an immutable production compose snapshot:
+   ```bash
+   # Pin both CS9 and CS10 to specific composes:
+   make CENTOS_STREAM_COMPOSE="latest-CentOS-Stream" rpm-deps-all
+   # Or pin a specific compose release:
+   make CENTOS_STREAM_9_COMPOSE="CentOS-Stream-9-20260908.0" rpm-deps-cs9
+   ```
+
+2. **Solver Best-Candidate Selection**:
+   By default, `hack/rpm-deps.sh` omits `--nobest` during `bazeldnf rpmtree` calls, enforcing that libsolv chooses the highest available candidate version instead of non-deterministic permutations. If loose fallback resolution is needed, set `BAZELDNF_NOBEST=true`.
+
+3. **Anchored Transitive Base Libraries**:
+   Shared base libraries (`glib2`, `gnutls`, `systemd-libs`, `libcap-ng`) are included in `centos_extra` so they are anchored across all container images. You can also override their versions explicitly:
+   ```bash
+   make GLIB2_VERSION="0:2.68.4-29.el9" rpm-deps-cs9
+   ```
+
 ## Updating libvirt and libvirt-devel RPM dependencies
 
 Works the same way like for the RPM test dependencies.
