@@ -72,7 +72,7 @@ type notifyClient struct {
 	totalTimeout    time.Duration
 }
 
-func (n *notifyClient) HandleDomainEvent(event *watch.Event) error {
+func (n *notifyClient) HandleDomainEvent(ctx context.Context, event *watch.Event) error {
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
@@ -98,35 +98,7 @@ func (n *notifyClient) HandleDomainEvent(event *watch.Event) error {
 		EventType:  string(event.Type),
 	}
 
-	var response *notifyv1.Response
-	err = wait.PollImmediately(n.intervalTimeout, n.totalTimeout, func(ctx context.Context) (done bool, err error) {
-		n.connLock.Lock()
-		defer n.connLock.Unlock()
-
-		err = n.connect()
-		if err != nil {
-			log.Log.Reason(err).Errorf("Failed to connect to notify server")
-			return false, nil
-		}
-
-		ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
-		defer cancel()
-		response, err = n.v1client.HandleDomainEvent(ctx, &request)
-		if err != nil {
-			// Retry transient errors (connection issues), propagate other errors immediately
-			if isTransientError(err) {
-				log.Log.Reason(err).Errorf("failed to notify domain event. closing connection.")
-				n.close()
-				return false, nil
-			}
-			log.Log.Reason(err).Errorf("failed to notify domain event")
-			return false, err
-		}
-
-		return true, nil
-
-	})
-
+	response, err := n.sendDomainEvent(ctx, &request)
 	if err != nil {
 		if st, ok := grpcstatus.FromError(err); ok {
 			return fmt.Errorf("failed to send domain notify event with %s: %w", st.Code(), err)
@@ -143,6 +115,24 @@ func (n *notifyClient) HandleDomainEvent(event *watch.Event) error {
 	}
 
 	return nil
+}
+
+// sendDomainEvent makes a single attempt; the caller owns retries.
+func (n *notifyClient) sendDomainEvent(ctx context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+	n.connLock.Lock()
+	defer n.connLock.Unlock()
+
+	if err := n.connect(); err != nil {
+		return nil, fmt.Errorf("failed to connect to the notify server: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, n.sendTimeout)
+	defer cancel()
+	response, err := n.v1client.HandleDomainEvent(ctx, request)
+	if err != nil && isTransientError(err) {
+		n.close()
+	}
+	return response, err
 }
 
 func (n *notifyClient) connect() error {

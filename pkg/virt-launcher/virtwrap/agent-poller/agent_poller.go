@@ -50,26 +50,21 @@ const (
 	repeatingLogLevel = 3
 )
 
-// AgentUpdatedEvent fire up when data is changes in the store
-type AgentUpdatedEvent struct {
-	DomainInfo api.DomainGuestInfo
-}
-
 // AsyncAgentStore stores the agent data converted to api domain objects
 // it offers methods to get the data and fire up an event when there
 // is a change of the data
 type AsyncAgentStore struct {
-	store        sync.Map
-	AgentUpdated chan AgentUpdatedEvent
+	store sync.Map
+	// AgentUpdated signals, without blocking, that the guest OS info,
+	// interfaces or filesystem freeze status changed.
+	AgentUpdated chan struct{}
 }
 
 // NewAsyncAgentStore creates new agent store
 func NewAsyncAgentStore() AsyncAgentStore {
-	const agentUpdatedChanBuffer = 10
-
 	return AsyncAgentStore{
 		store:        sync.Map{},
-		AgentUpdated: make(chan AgentUpdatedEvent, agentUpdatedChanBuffer),
+		AgentUpdated: make(chan struct{}, 1),
 	}
 }
 
@@ -80,19 +75,15 @@ func (s *AsyncAgentStore) Store(key, value any) {
 
 	s.store.Store(key, value)
 
-	domainInfo := api.DomainGuestInfo{}
 	switch key {
 	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
 		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 		if !updated {
 			return
 		}
-		domainInfo.OSInfo = s.GetGuestOSInfo()
-		domainInfo.Interfaces = s.GetInterfaceStatus()
-		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
-
-		s.AgentUpdated <- AgentUpdatedEvent{
-			DomainInfo: domainInfo,
+		select {
+		case s.AgentUpdated <- struct{}{}:
+		default:
 		}
 	}
 }
@@ -365,37 +356,31 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
-// UpdateFromEvent updates the agent poller state based on domain and agent lifecycle events
-func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle, agentEvent *libvirt.DomainEventAgentLifecycle) {
-	switch {
-	case domainEvent != nil:
-		if domainEvent.Event == libvirt.DOMAIN_EVENT_SUSPENDED {
-			log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
-			p.Stop()
-			return
-		}
-		if domainEvent.Event == libvirt.DOMAIN_EVENT_RESUMED {
-			// Only start poller on domain resume if agent is still connected
-			// This prevents starting the poller before agent is ready
-			if p.agentConnected {
-				log.Log.Infof("Starting agent poller for %s due to domain resume (agent connected)", p.domainName)
-				p.Start()
-			}
-			return
-		}
-	case agentEvent != nil:
-		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
-			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
-			p.agentConnected = false
-			p.Stop()
-			return
-		}
-		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
-			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
-			p.agentConnected = true
-			p.Start()
-			return
-		}
+// Store returns the store this poller fills.
+func (p *AgentPoller) Store() *AsyncAgentStore {
+	return p.agentStore
+}
+
+func (p *AgentPoller) OnDomainLifecycle(event libvirt.DomainEventType) {
+	if event == libvirt.DOMAIN_EVENT_SUSPENDED {
+		log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
+		p.Stop()
+	} else if event == libvirt.DOMAIN_EVENT_RESUMED && p.agentConnected {
+		log.Log.Infof("Starting agent poller for %s due to domain resume (agent connected)", p.domainName)
+		p.Start()
+	}
+}
+
+func (p *AgentPoller) OnAgentLifecycle(state libvirt.ConnectDomainEventAgentLifecycleState) {
+	switch state {
+	case libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED:
+		log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
+		p.agentConnected = false
+		p.Stop()
+	case libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED:
+		log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
+		p.agentConnected = true
+		p.Start()
 	}
 }
 

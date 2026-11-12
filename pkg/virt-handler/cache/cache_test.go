@@ -419,18 +419,18 @@ var _ = Describe("Domain informer", func() {
 			client := notifyclient.NewNotifier(shareDir)
 
 			// verify add
-			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			err := client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
 			domain.Spec.UUID = "fakeuuid"
-			err = client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+			err = client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Modified, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 
 			// verify modify
-			err = client.SendDomainEvent(watch.Event{Type: watch.Deleted, Object: domain})
+			err = client.SendDomainEvent(context.Background(), watch.Event{Type: watch.Deleted, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", nil, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 		})

@@ -131,6 +131,20 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceRemovedRegister(callback 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventDeviceRemovedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventDeviceRemovedRegister), callback)
 }
 
+// DomainEventIOErrorReasonRegister mocks base method.
+func (m *MockConnection) DomainEventIOErrorReasonRegister(callback libvirt.DomainEventIOErrorReasonCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventIOErrorReasonRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventIOErrorReasonRegister indicates an expected call of DomainEventIOErrorReasonRegister.
+func (mr *MockConnectionMockRecorder) DomainEventIOErrorReasonRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventIOErrorReasonRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventIOErrorReasonRegister), callback)
+}
+
 // DomainEventJobCompletedRegister mocks base method.
 func (m *MockConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
 	m.ctrl.T.Helper()
@@ -753,21 +767,6 @@ func (m *MockVirDomain) GetBlockJobInfo(disk string, flags libvirt.DomainBlockJo
 func (mr *MockVirDomainMockRecorder) GetBlockJobInfo(disk, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockJobInfo", reflect.TypeOf((*MockVirDomain)(nil).GetBlockJobInfo), disk, flags)
-}
-
-// GetDiskErrors mocks base method.
-func (m *MockVirDomain) GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDiskErrors", flags)
-	ret0, _ := ret[0].([]libvirt.DomainDiskError)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetDiskErrors indicates an expected call of GetDiskErrors.
-func (mr *MockVirDomainMockRecorder) GetDiskErrors(flags any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDiskErrors", reflect.TypeOf((*MockVirDomain)(nil).GetDiskErrors), flags)
 }
 
 // GetGuestInfo mocks base method.
