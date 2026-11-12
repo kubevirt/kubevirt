@@ -761,7 +761,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("Verifying autoconverge via launcher logs")
+				logs := getSourceLauncherLogs(virtClient, vmi)
+				Expect(logs).To(ContainSubstring("Migration autoconverge enabled"))
 			})
 		})
 		Context("with setting guest time", decorators.WgS390x, func() {
@@ -2303,9 +2307,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(mc.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
 				Expect(*mc.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
 
-				By("Verifying compression via launcher logs")
+				By("Verifying compression and autoconverge via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				Expect(logs).To(ContainSubstring("Migration autoconverge enabled"))
 			})
 		})
 
