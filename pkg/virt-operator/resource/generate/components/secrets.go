@@ -672,6 +672,18 @@ func filterValidCertificates(certs []*x509.Certificate, now time.Time, maxCount 
 	return validCerts
 }
 
+// countOtherCerts returns how many of the given certificates differ from the
+// PEM-encoded current certificate.
+func countOtherCerts(certs []*x509.Certificate, current []byte) int {
+	count := 0
+	for _, crt := range certs {
+		if !reflect.DeepEqual(cert.EncodeCertPEM(crt), current) {
+			count++
+		}
+	}
+	return count
+}
+
 func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDuration time.Duration) ([]byte, int, error) {
 	current := cert.EncodeCertPEM(currentCert.Leaf)
 	certs, err := cert.ParseCertsPEM(currentBundle)
@@ -684,17 +696,18 @@ func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDu
 
 	var newBundle []byte
 	certCount := 0
+	dropFrom := len(validCerts)
 	// we check for every cert i > 0, if in context to the certificate i-1 it existed already longer than the overlap
 	// duration. We check the certificate i = 0 against the current certificate.
 	for i, crt := range validCerts {
 		if i == 0 {
 			if currentCert.Leaf.NotBefore.Add(overlapDuration).Before(now) {
-				log.DefaultLogger().Infof("Kept old CA certificates for a duration of at least %v, dropping them now.", overlapDuration)
+				dropFrom = i
 				break
 			}
 		} else {
 			if validCerts[i-1].NotBefore.Add(overlapDuration).Before(now) {
-				log.DefaultLogger().Infof("Kept old CA certificates for a duration of at least %v, dropping them now.", overlapDuration)
+				dropFrom = i
 				break
 			}
 		}
@@ -707,6 +720,13 @@ func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDu
 		}
 		newBundle = append(newBundle, certBytes...)
 		certCount++
+	}
+
+	// Only report a drop when an old CA actually leaves the bundle. Once the
+	// current CA is older than the overlap duration the loop above breaks on
+	// every call, even when the bundle holds nothing but the current CA.
+	if dropped := countOtherCerts(validCerts[dropFrom:], current); dropped > 0 {
+		log.DefaultLogger().Infof("Kept old CA certificates for a duration of at least %v, dropping %d of them now.", overlapDuration, dropped)
 	}
 
 	newBundle = append(current, newBundle...)
