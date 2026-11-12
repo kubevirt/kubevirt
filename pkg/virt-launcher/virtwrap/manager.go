@@ -1498,6 +1498,7 @@ func (l *LibvirtDomainManager) syncDisks(
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
 		if ok, possibleGuestSize := shouldExpandOnline(dom, disk); ok {
+			logger.V(1).Infof("resizing disk %s to size %d", disk.Alias.GetName(), possibleGuestSize)
 			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
@@ -1874,8 +1875,16 @@ func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) (bool, int64) {
 		log.DefaultLogger().Reason(err).Error("Failed to get block info")
 		return false, 0
 	}
+	if blockInfo.Capacity == 0 {
+		log.DefaultLogger().Warningf("domain disk %s returned capacity 0", disk.Alias.GetName())
+	}
 	guestSize := blockInfo.Capacity
 	possibleGuestSize, ok := possibleGuestSize(disk)
+	log.DefaultLogger().V(3).Infof("domain disk: %s, blockInfo reported size: %d, possibleGuestSize: %d",
+		disk.Alias.GetName(),
+		guestSize,
+		possibleGuestSize,
+	)
 	if !ok || possibleGuestSize <= int64(guestSize) {
 		return false, 0
 	}
