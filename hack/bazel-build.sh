@@ -88,15 +88,12 @@ if [[ "${KUBEVIRT_RELEASE}" == "true" || "${CI}" == "true" ]]; then
 
     # darwin
     bazel run \
-        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-darwin -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-amd64
 
     bazel run \
-        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-darwin-arm64 -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-darwin-arm64
 
     # windows
     bazel run \
-        --incompatible_enable_cc_toolchain_resolution=false \
         :build-virtctl-windows -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-windows-amd64.exe
 fi
