@@ -435,23 +435,23 @@ go_repository(
 # Pull go_image_base
 pull(
     name = "go_image_base",
-    digest = "sha256:d2add786f2a5f43d1ab3ae54cd3193de929d0d12c378ff60891921f56f3e47ff",
+    digest = "sha256:986fa8e30097420f735e6eaad7e87934e182b1f9aa5b4f60ac09c3a1710eb19a",
     registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    repository = "distroless/base-debian13",
 )
 
 pull(
     name = "go_image_base_aarch64",
-    digest = "sha256:94d5278016c07e4e328da0a983823b92a2341df326d59de3408b8c6fd50bb4b3",
+    digest = "sha256:6412509b77aafe4111059f2a717be5ebcc9e8ddca2b8eeed6132640494eef2a39",
     registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    repository = "distroless/base-debian13",
 )
 
 pull(
     name = "go_image_base_s390x",
-    digest = "sha256:19daaf0b09ea006981869d1b02664f455627868252d4547724d126de2a765e08",
+    digest = "sha256:adb739754e3f974dbbb8e879cad6d9071a56fea2494a08a20e66dbc6acd7221c",
     registry = "gcr.io",
-    repository = "distroless/base-debian12",
+    repository = "distroless/base-debian13",
 )
 
 # Pull fedora container-disk preconfigured with ci tooling
