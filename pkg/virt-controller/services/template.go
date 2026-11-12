@@ -422,7 +422,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 		nonRootUser := int64(util.NonRootUID)
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
-		psc.RunAsNonRoot = pointer.P(true)
+		psc.RunAsNonRoot = new(true)
 	} else {
 		rootUser := int64(util.RootUser)
 		psc.RunAsUser = &rootUser
@@ -626,7 +626,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
 					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          pointer.P(int32(0755)),
+					DefaultMode:          new(int32(0755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -1152,8 +1152,8 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
-						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: new(false),
+						RunAsNonRoot:             new(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1302,8 +1302,8 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
-						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: new(false),
+						RunAsNonRoot:             new(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1413,7 +1413,7 @@ func (t *TemplateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
+						AllowPrivilegeEscalation: new(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 					Resources: vmExportContainerResourceRequirements(t.clusterConfig),
@@ -1425,10 +1425,8 @@ func (t *TemplateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
-	for _, oldsecret := range secrets {
-		if oldsecret == newsecret {
-			return secrets
-		}
+	if slices.Contains(secrets, newsecret) {
+		return secrets
 	}
 	return append(secrets, newsecret)
 }
@@ -1761,9 +1759,7 @@ func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
 func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]string {
 	labels := map[string]string{}
 
-	for k, v := range vmi.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, vmi.Labels)
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.DeprecatedVirtualMachineNameLabel] = hostName
@@ -1800,12 +1796,7 @@ func hasHugePages(vmi *v1.VirtualMachineInstance) bool {
 
 // isGPUVMIDevicePlugins checks if a VMI has any GPUs configured for device plugins
 func isGPUVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if isGPUDevicePlugin(gpu) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.GPUs, isGPUDevicePlugin)
 }
 
 func isGPUDevicePlugin(gpu v1.GPU) bool {
@@ -1814,12 +1805,7 @@ func isGPUDevicePlugin(gpu v1.GPU) bool {
 
 // isGPUVMIDRA checks if a VMI has any GPUs configured for Dynamic Resource Allocation
 func isGPUVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if drautil.IsGPUDRA(gpu) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.GPUs, drautil.IsGPUDRA)
 }
 
 // isHostDevVMIDevicePlugins checks if a VMI has any HostDevices configured for device plugins

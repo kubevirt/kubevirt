@@ -61,7 +61,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{
 						Spec: k8sv1.PersistentVolumeClaimSpec{},
 					}, true, nil
@@ -122,7 +122,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &hostDisk, true, nil
 				},
 			}
@@ -179,7 +179,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &cloudInitConfig, true, nil
 				},
 			}
@@ -254,7 +254,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{}, true, nil
 				},
 			}
