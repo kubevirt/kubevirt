@@ -459,9 +459,10 @@ pull(
 # TODO build fedora_with_test_tooling for multi-arch
 pull(
     name = "fedora_with_test_tooling",
-    digest = "sha256:a53fd982787799c2d8cfaa37a2b6fbac4f416437768a25d2eb246dff46bb9d79",
+    tag = "nmonline",
     registry = "quay.io",
-    repository = "kubevirtci/fedora-with-test-tooling",
+    repository = "oshoval/fedora-with-test-tooling",
+    unsafe_allow_tag_without_digest = True,
 )
 
 pull(
