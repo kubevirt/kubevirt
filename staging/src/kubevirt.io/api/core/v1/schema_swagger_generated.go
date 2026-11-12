@@ -7,7 +7,7 @@ func (HostDisk) SwaggerDoc() map[string]string {
 		"":         "Represents a disk created on the cluster level",
 		"path":     "The path to HostDisk image located on the cluster",
 		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
-		"capacity": "Capacity of the sparse disk\n+optional",
+		"capacity": "Capacity of the sparse disk",
 		"shared":   "Shared indicate whether the path is shared between nodes",
 	}
 }
@@ -15,8 +15,8 @@ func (HostDisk) SwaggerDoc() map[string]string {
 func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
-		"optional":    "Specify whether the ConfigMap or it's keys must be defined\n+optional",
-		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
+		"optional":    "Specify whether the ConfigMap or it's keys must be defined",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
 	}
 }
 
@@ -24,16 +24,16 @@ func (SecretVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "SecretVolumeSource adapts a Secret into a volume.",
 		"secretName":  "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret",
-		"optional":    "Specify whether the Secret or it's keys must be defined\n+optional",
-		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
+		"optional":    "Specify whether the Secret or it's keys must be defined",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
 	}
 }
 
 func (DownwardAPIVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "DownwardAPIVolumeSource represents a volume containing downward API info.",
-		"fields":      "Fields is a list of downward API volume file\n+optional",
-		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).\n+optional",
+		"fields":      "Fields is a list of downward API volume file",
+		"volumeLabel": "The volume label of the resulting disk inside the VMI.\nDifferent bootstrapping mechanisms require different values.\nTypical values are \"cidata\" (cloud-init), \"config-2\" (cloud-init) or \"OEMDRV\" (kickstart).",
 	}
 }
 
@@ -47,8 +47,8 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 func (ContainerPathVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ContainerPathVolumeSource represents a path from the virt-launcher container\nto be exposed to the VM via virtiofs. The path must correspond to an existing\nvolumeMount in the virt-launcher pod's compute container.",
-		"path":     "Path is the absolute path within the virt-launcher container to expose to the VM.\nThe path must correspond to an existing volumeMount in the compute container.\n+kubebuilder:validation:MaxLength=4096\n+kubebuilder:validation:XValidation:rule=\"self.startsWith('/')\",message=\"path must be absolute (start with '/')\"\n+kubebuilder:validation:XValidation:rule=\"!self.contains('..')\",message=\"path must not contain '..'\"",
-		"readOnly": "ReadOnly controls whether the volume is exposed as read-only to the VM.\nDefaults to true. Write access is not currently supported.\n+optional\n+kubebuilder:default:=true\n+kubebuilder:validation:XValidation:rule=\"self == true\",message=\"readOnly must be true, write access is not supported\"",
+		"path":     "Path is the absolute path within the virt-launcher container to expose to the VM.\nThe path must correspond to an existing volumeMount in the compute container.",
+		"readOnly": "ReadOnly controls whether the volume is exposed as read-only to the VM.\nDefaults to true. Write access is not currently supported.",
 	}
 }
 
@@ -93,18 +93,18 @@ func (CloudInitConfigDriveSource) SwaggerDoc() map[string]string {
 func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"resources":       "Resources describes the Compute Resources required by this vmi.",
-		"cpu":             "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
-		"memory":          "Memory allow specifying the VMI memory features.\n+optional",
-		"machine":         "Machine type.\n+optional",
-		"firmware":        "Firmware.\n+optional",
-		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
-		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
+		"cpu":             "CPU allow specified the detailed CPU topology inside the vmi.",
+		"memory":          "Memory allow specifying the VMI memory features.",
+		"machine":         "Machine type.",
+		"firmware":        "Firmware.",
+		"clock":           "Clock sets the clock and timers of the vmi.",
+		"features":        "Features like acpi, apic, hyperv, smm.",
 		"devices":         "Devices allows adding disks, network interfaces, and others",
-		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto, supplementalPool\n+optional",
-		"ioThreads":       "IOThreads specifies the IOThreads options.\n+optional",
-		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
-		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
-		"rebootPolicy":    "RebootPolicy specifies how the guest should behave on reboot.\nReboot (default): The guest is allowed to reboot silently.\nTerminate: The VMI will be terminated on guest reboot, allowing\nhigher level controllers (such as the VM controller) to recreate\nthe VMI with any updated configuration such as boot order changes.\n+optional",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto, supplementalPool",
+		"ioThreads":       "IOThreads specifies the IOThreads options.",
+		"chassis":         "Chassis specifies the chassis info passed to the domain.",
+		"launchSecurity":  "Launch Security setting of the vmi.",
+		"rebootPolicy":    "RebootPolicy specifies how the guest should behave on reboot.\nReboot (default): The guest is allowed to reboot silently.\nTerminate: The VMI will be terminated on guest reboot, allowing\nhigher level controllers (such as the VM controller) to recreate\nthe VMI with any updated configuration such as boot order changes.",
 	}
 }
 
@@ -117,23 +117,23 @@ func (Chassis) SwaggerDoc() map[string]string {
 func (Bootloader) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.",
-		"bios": "If set (default), BIOS will be used.\n+optional",
-		"efi":  "If set, EFI will be used instead of BIOS.\n+optional",
+		"bios": "If set (default), BIOS will be used.",
+		"efi":  "If set, EFI will be used instead of BIOS.",
 	}
 }
 
 func (BIOS) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "If set (default), BIOS will be used.",
-		"useSerial": "If set, the BIOS output will be transmitted over serial\n+optional",
+		"useSerial": "If set, the BIOS output will be transmitted over serial",
 	}
 }
 
 func (EFI) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "If set, EFI will be used instead of BIOS.",
-		"secureBoot": "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true\n+optional",
-		"persistent": "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false\n+optional",
+		"secureBoot": "If set, SecureBoot will be enabled and the OVMF roms will be swapped for\nSecureBoot-enabled ones.\nRequires SMM to be enabled.\nDefaults to true",
+		"persistent": "If set to true, Persistent will persist the EFI NVRAM across reboots.\nDefaults to false",
 	}
 }
 
@@ -141,10 +141,10 @@ func (KernelBootContainer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "If set, the VM will be booted from the defined kernel / initrd.",
 		"image":           "Image that contains initrd / kernel files.",
-		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
-		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
-		"kernelPath":      "The fully-qualified path to the kernel image in the host OS\n+optional",
-		"initrdPath":      "the fully-qualified path to the ramdisk image in the host OS\n+optional",
+		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
+		"kernelPath":      "The fully-qualified path to the kernel image in the host OS",
+		"initrdPath":      "the fully-qualified path to the ramdisk image in the host OS",
 	}
 }
 
@@ -158,8 +158,8 @@ func (KernelBoot) SwaggerDoc() map[string]string {
 
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
-		"limits":                  "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".",
+		"limits":                  "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".",
 		"overcommitGuestOverhead": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the container's memory limit. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
 	}
 }
@@ -171,19 +171,19 @@ func (CPU) SwaggerDoc() map[string]string {
 		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
 		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can\nbe hotplugged",
 		"threads":               "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
-		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
-		"features":              "Features specifies the CPU features list inside the VMI.\n+optional",
-		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
-		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
-		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
-		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
+		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.",
+		"features":              "Features specifies the CPU features list inside the VMI.",
+		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.",
+		"numa":                  "NUMA allows specifying settings for the guest NUMA topology",
+		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.",
+		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads",
 	}
 }
 
 func (Realtime) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "Realtime holds the tuning knobs specific for realtime workloads.",
-		"mask": "Mask defines the vcpu mask expression that defines which vcpus are used for realtime. Format matches libvirt's expressions.\nExample: \"0-3,^1\",\"0,2,3\",\"2-3\"\n+optional",
+		"mask": "Mask defines the vcpu mask expression that defines which vcpus are used for realtime. Format matches libvirt's expressions.\nExample: \"0-3,^1\",\"0,2,3\",\"2-3\"",
 	}
 }
 
@@ -195,7 +195,7 @@ func (NUMAGuestMappingPassthrough) SwaggerDoc() map[string]string {
 
 func (NUMA) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"guestMappingPassthrough": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.\nThe created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.\nIt is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the\nhost CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.\n+optional",
+		"guestMappingPassthrough": "GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.\nThe created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.\nIt is not supported on a VMI with dedicatedCPUPlacement while the CPUsWithDRA feature gate is enabled, because the\nhost CPUs are then assigned by the DRA driver instead of by kubelet's CPU manager.",
 	}
 }
 
@@ -203,26 +203,26 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "CPUFeature allows specifying a CPU feature.",
 		"name":   "Name of the CPU feature",
-		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require\n+optional",
+		"policy": "Policy is the CPU feature attribute which can have the following attributes:\nforce    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.\nrequire  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.\noptional - The feature will be supported by virtual CPU if and only if it is supported by host CPU.\ndisable  - The feature will not be supported by virtual CPU.\nforbid   - Guest creation will fail if the feature is supported by host CPU.\nDefaults to require",
 	}
 }
 
 func (Memory) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                 "Memory allows specifying the VirtualMachineInstance memory features.",
-		"hugepages":        "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"hugepages":        "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
 		"guest":            "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
 		"maxGuest":         "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
-		"reservedOverhead": "ReservedOverhead configures the memory overhead applied to a VM\nand its characteristics.\n+optional",
+		"reservedOverhead": "ReservedOverhead configures the memory overhead applied to a VM\nand its characteristics.",
 	}
 }
 
 func (MemoryStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"guestAtBoot":    "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.\n+optional",
-		"guestCurrent":   "GuestCurrent specifies how much memory is currently available for the VirtualMachine.\n+optional",
-		"guestRequested": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.\n+optional",
-		"memoryOverhead": "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure\nfor the virt-launcher pod.\n+optional",
+		"guestAtBoot":    "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.",
+		"guestCurrent":   "GuestCurrent specifies how much memory is currently available for the VirtualMachine.",
+		"guestRequested": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.",
+		"memoryOverhead": "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure\nfor the virt-launcher pod.",
 	}
 }
 
@@ -235,23 +235,23 @@ func (Hugepages) SwaggerDoc() map[string]string {
 
 func (ReservedOverhead) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"addedOverhead": "AddedOverhead determines the memory overhead that will be reserved\nfor the VM. It increases the virt-launcher pod memory limit.\n+optional",
-		"memLock":       "RequiresLock determines whether the VM's and its overhead memory\nneed to be locked or not. It is a common practice to enable this\nif vDPA, VFIO or any other specialized hardware that depends on\nDMA is being used by the VM.\nFalse - (Default) memory lock RLimits are not modified.\nTrue - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead\n+optional\n+kubebuilder:validation:Enum=NotRequired;Required",
+		"addedOverhead": "AddedOverhead determines the memory overhead that will be reserved\nfor the VM. It increases the virt-launcher pod memory limit.",
+		"memLock":       "RequiresLock determines whether the VM's and its overhead memory\nneed to be locked or not. It is a common practice to enable this\nif vDPA, VFIO or any other specialized hardware that depends on\nDMA is being used by the VM.\nFalse - (Default) memory lock RLimits are not modified.\nTrue - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead",
 	}
 }
 
 func (Machine) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.\n+optional",
+		"type": "QEMU machine type is the actual chipset of the VirtualMachineInstance.",
 	}
 }
 
 func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
-		"bootloader": "Settings to control the bootloader that is used.\n+optional",
+		"bootloader": "Settings to control the bootloader that is used.",
 		"serial":     "The system-serial-number in SMBIOS",
-		"kernelBoot": "Settings to set the kernel for booting.\n+optional",
+		"kernelBoot": "Settings to set the kernel for booting.",
 		"acpi":       "Information that can be set in the ACPI table",
 	}
 }
@@ -267,29 +267,29 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"useVirtioTransitional":      "Fall back to legacy virtio 0.9 support if virtio bus is selected on devices.\nThis is helpful for old machines like CentOS6 or RHEL6 which\ndo not understand virtio_non_transitional (virtio 1.0).",
 		"disableHotplug":             "DisableHotplug disabled the ability to hotplug disks.",
-		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"disks":                      "Disks describes disks, cdroms and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.\n+kubebuilder:validation:MaxItems:=256",
+		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
 		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 		"autoattachSerialConsole":    "Whether to attach the default virtio-serial console or not.\nSerial console access will not be available if set to false. Defaults to true.",
 		"logSerialConsole":           "Whether to log the auto-attached default serial console or not.\nSerial console logs will be collect to a file and then streamed from a named `guest-console-log`.\nNot relevant if autoattachSerialConsole is disabled.\nDefaults to cluster wide setting on VirtualMachineOptions.",
-		"autoattachMemBalloon":       "Whether to attach the Memory balloon device with default period.\nPeriod can be adjusted in virt-config.\nDefaults to true.\n+optional",
-		"autoattachInputDevice":      "Whether to attach an Input Device.\nDefaults to false.\n+optional",
+		"autoattachMemBalloon":       "Whether to attach the Memory balloon device with default period.\nPeriod can be adjusted in virt-config.\nDefaults to true.",
+		"autoattachInputDevice":      "Whether to attach an Input Device.\nDefaults to false.",
 		"autoattachVSOCK":            "Whether to attach the VSOCK CID to the VM or not.\nVSOCK access will be available if set to true. Defaults to false.",
-		"rng":                        "Whether to have random number generator from host\n+optional",
-		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices.\nDefaults to false.\n+optional",
-		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.\n+optional",
-		"gpus":                       "Whether to attach a GPU device to the vmi.\n+optional\n+listType=atomic",
-		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.\n+optional",
-		"panicDevices":               "PanicDevices provides additional crash information when a guest crashes.\n+optional\n+listtype=atomic",
-		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.\n+optional\n+listType=atomic",
-		"hostDevices":                "Whether to attach a host device to the vmi.\n+optional\n+listType=atomic",
-		"clientPassthrough":          "To configure and access client devices such as redirecting USB\n+optional",
-		"sound":                      "Whether to emulate a sound device.\n+optional",
-		"tpm":                        "Whether to emulate a TPM device.\n+optional",
-		"video":                      "Video describes the video device configuration for the vmi.\n+optional",
+		"rng":                        "Whether to have random number generator from host",
+		"blockMultiQueue":            "Whether or not to enable virtio multi-queue for block devices.\nDefaults to false.",
+		"networkInterfaceMultiqueue": "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.",
+		"gpus":                       "Whether to attach a GPU device to the vmi.",
+		"downwardMetrics":            "DownwardMetrics creates a virtio serials for exposing the downward metrics to the vmi.",
+		"panicDevices":               "PanicDevices provides additional crash information when a guest crashes.\n+listtype=atomic",
+		"filesystems":                "Filesystems describes filesystem which is connected to the vmi.",
+		"hostDevices":                "Whether to attach a host device to the vmi.",
+		"clientPassthrough":          "To configure and access client devices such as redirecting USB",
+		"sound":                      "Whether to emulate a sound device.",
+		"tpm":                        "Whether to emulate a TPM device.",
+		"video":                      "Video describes the video device configuration for the vmi.",
 	}
 }
 
@@ -303,7 +303,7 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "Represents the user's configuration to emulate sound cards in the VMI.",
 		"name":  "User's defined name for this sound device",
-		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
+		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9",
 	}
 }
 
@@ -316,7 +316,7 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 
 func (VideoDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"type": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).\nIf not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).\n+optional",
+		"type": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).\nIf not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
 	}
 }
 
@@ -347,7 +347,7 @@ func (GPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":       "Name of the GPU device as exposed by a device plugin",
 		"deviceName": "DeviceName is the name of the device provisioned by device-plugins",
-		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
 	}
 }
 
@@ -364,37 +364,37 @@ func (VGPUOptions) SwaggerDoc() map[string]string {
 
 func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled": "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
-		"ramFB":   "Enables a boot framebuffer, until the guest OS loads a real GPU driver\nDefaults to true.\n+optional",
+		"enabled": "Enabled determines if a display addapter backed by a vGPU should be enabled or disabled on the guest.\nDefaults to true.",
+		"ramFB":   "Enables a boot framebuffer, until the guest OS loads a real GPU driver\nDefaults to true.",
 	}
 }
 
 func (PanicDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"model": "Model specifies what type of panic device is provided.\nThe panic model used when this attribute is missing depends on the hypervisor and guest arch.\nOne of: isa, hyperv, pvpanic.\n+optional",
+		"model": "Model specifies what type of panic device is provided.\nThe panic model used when this attribute is missing depends on the hypervisor and guest arch.\nOne of: isa, hyperv, pvpanic.",
 	}
 }
 
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"deviceName": "DeviceName is the name of the device provisioned by device-plugins",
-		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
 	}
 }
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":                 "Name is the device name",
-		"bootOrder":            "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":               "Serial provides the ability to specify a serial number for the disk device.\n+optional",
-		"dedicatedIOThread":    "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
-		"cache":                "Cache specifies which kvm disk cache mode should be used.\nSupported values are:\nnone: Guest I/O not cached on the host, but may be kept in a disk cache.\nwritethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.\nwriteback: Guest I/O cached on the host.\ndirectsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.\nDefaults to none if the storage supports O_DIRECT, otherwise writethrough.\n+optional",
-		"io":                   "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
-		"tag":                  "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
-		"blockSize":            "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
-		"shareable":            "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
-		"errorPolicy":          "If specified, it can change the default error policy (stop) for the disk\n+optional",
-		"changedBlockTracking": "ChangedBlockTracking indicates this disk should have CBT option\nDefaults to false.\n+optional",
+		"bootOrder":            "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.",
+		"serial":               "Serial provides the ability to specify a serial number for the disk device.",
+		"dedicatedIOThread":    "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.",
+		"cache":                "Cache specifies which kvm disk cache mode should be used.\nSupported values are:\nnone: Guest I/O not cached on the host, but may be kept in a disk cache.\nwritethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.\nwriteback: Guest I/O cached on the host.\ndirectsync: Guest I/O bypasses the host page cache and is written to the physical medium synchronously.\nDefaults to none if the storage supports O_DIRECT, otherwise writethrough.",
+		"io":                   "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.",
+		"tag":                  "If specified, disk address and its tag will be provided to the guest via config drive metadata",
+		"blockSize":            "If specified, the virtual disk will be presented with the given block sizes.",
+		"shareable":            "If specified the disk is made sharable and multiple write from different VMs are permitted",
+		"errorPolicy":          "If specified, it can change the default error policy (stop) for the disk",
+		"changedBlockTracking": "ChangedBlockTracking indicates this disk should have CBT option\nDefaults to false.",
 	}
 }
 
@@ -423,14 +423,14 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, usb.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
-		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
+		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
 	}
 }
 
 func (LaunchSecurity) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"sev": "AMD Secure Encrypted Virtualization (SEV).",
-		"snp": "AMD SEV-SNP flags defined by the SEV-SNP specifications.\n+optional",
+		"snp": "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
 		"tdx": "Intel Trust Domain Extensions (TDX).",
 	}
 }
@@ -438,7 +438,7 @@ func (LaunchSecurity) SwaggerDoc() map[string]string {
 func (SEV) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"policy":      "Guest policy flags as defined in AMD SEV API specification.\nNote: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.",
-		"attestation": "If specified, run the attestation process for a vmi.\n+optional",
+		"attestation": "If specified, run the attestation process for a vmi.",
 		"session":     "Base64 encoded session blob.",
 		"dhCert":      "Base64 encoded guest owner's Diffie-Hellman key.",
 	}
@@ -446,7 +446,7 @@ func (SEV) SwaggerDoc() map[string]string {
 
 func (SEVPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"encryptedState": "SEV-ES is required.\nDefaults to false.\n+optional",
+		"encryptedState": "SEV-ES is required.\nDefaults to false.",
 	}
 }
 
@@ -474,7 +474,7 @@ func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to true.",
-		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
+		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.",
 	}
 }
 
@@ -488,44 +488,44 @@ func (Volume) SwaggerDoc() map[string]string {
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
-		"hostDisk":              "HostDisk represents a disk created on the cluster level\n+optional",
-		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
-		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
-		"cloudInitConfigDrive":  "CloudInitConfigDrive represents a cloud-init Config Drive user-data source.\nThe Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html\n+optional",
-		"sysprep":               "Represents a Sysprep volume source.\n+optional",
-		"containerDisk":         "ContainerDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk\n+optional",
-		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
-		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk\n+optional",
-		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
-		"configMap":             "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
-		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
-		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume\n+optional",
-		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+		"hostDisk":              "HostDisk represents a disk created on the cluster level",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"cloudInitConfigDrive":  "CloudInitConfigDrive represents a cloud-init Config Drive user-data source.\nThe Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
+		"sysprep":               "Represents a Sysprep volume source.",
+		"containerDisk":         "ContainerDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk",
+		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.",
+		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.io/user-guide/storage/disks_and_volumes/#emptydisk",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.",
+		"configMap":             "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/",
+		"downwardAPI":           "DownwardAPI represents downward API about the pod that should populate this volume",
+		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi\nDeprecated: memory dumps are attached as utility volumes of type MemoryDump.",
-		"containerPath":         "ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.\nThe path must correspond to an existing volumeMount in the compute container.\n+optional",
+		"containerPath":         "ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.\nThe path must correspond to an existing volumeMount in the compute container.",
 	}
 }
 
 func (HotplugVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "HotplugVolumeSource Represents the source of a volume to mount which are capable\nof being hotplugged on a live running VMI.\nOnly one of its members may be specified.",
-		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
-		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.",
 	}
 }
 
 func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":         "Name of both the DataVolume and the PVC in the same namespace.",
-		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
+		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
 	}
 }
 
 func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
-		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
+		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.",
 	}
 }
 
@@ -537,7 +537,7 @@ func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
 	}
 }
 
@@ -554,14 +554,14 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 		"image":           "Image is the name of the image with the embedded disk.",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 		"path":            "Path defines the path to disk file in the container",
-		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
 	}
 }
 
 func (UtilityVolume) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "UtilityVolume's name.\nMust be unique within the vmi, including regular Volumes.",
-		"type": "Type represents the type of the utility volume.\n+optional",
+		"type": "Type represents the type of the utility volume.",
 	}
 }
 
@@ -582,8 +582,8 @@ func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 
 func (Clock) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "Represents the clock and timers of a vmi.\n+kubebuilder:pruning:PreserveUnknownFields",
-		"timer": "Timer specifies whih timers are attached to the vmi.\n+optional",
+		"":      "Represents the clock and timers of a vmi.",
+		"timer": "Timer specifies whih timers are attached to the vmi.",
 	}
 }
 
@@ -601,7 +601,7 @@ func (Timer) SwaggerDoc() map[string]string {
 func (RTCTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\".",
-		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.",
 		"track":      "Track the guest or the wall clock.",
 	}
 }
@@ -609,69 +609,65 @@ func (RTCTimer) SwaggerDoc() map[string]string {
 func (HPETTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\", \"merge\", \"discard\".",
-		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.",
 	}
 }
 
 func (PITTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"tickPolicy": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\", \"discard\".",
-		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
+		"present":    "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.",
 	}
 }
 
 func (KVMTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
+		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.",
 	}
 }
 
 func (HypervTimer) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
+		"present": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.",
 	}
 }
 
 func (HyperVPassthrough) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"enabled": "+optional",
-	}
+	return map[string]string{}
 }
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"acpi":              "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.\n+optional",
-		"apic":              "Defaults to the machine type setting.\n+optional",
-		"hypervPassthrough": "This enables all supported hyperv flags automatically.\nBear in mind that if this enabled hyperV features cannot\nbe enabled explicitly. In addition, a Virtual Machine\nusing it will be non-migratable.\n+optional",
-		"hyperv":            "Defaults to the machine type setting.\n+optional",
-		"smm":               "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
-		"kvm":               "Configure how KVM presence is exposed to the guest.\n+optional",
-		"pvspinlock":        "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.\n+optional",
+		"acpi":              "ACPI enables/disables ACPI inside the guest.\nDefaults to enabled.",
+		"apic":              "Defaults to the machine type setting.",
+		"hypervPassthrough": "This enables all supported hyperv flags automatically.\nBear in mind that if this enabled hyperV features cannot\nbe enabled explicitly. In addition, a Virtual Machine\nusing it will be non-migratable.",
+		"hyperv":            "Defaults to the machine type setting.",
+		"smm":               "SMM enables/disables System Management Mode.\nTSEG not yet implemented.",
+		"kvm":               "Configure how KVM presence is exposed to the guest.",
+		"pvspinlock":        "Notify the guest that the host supports paravirtual spinlocks.\nFor older kernels this feature should be explicitly disabled.",
 	}
 }
 
 func (SyNICTimer) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"direct": "+optional",
-	}
+	return map[string]string{}
 }
 
 func (FeatureState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "Represents if a feature is enabled or disabled.",
-		"enabled": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
+		"enabled": "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.",
 	}
 }
 
 func (FeatureAPIC) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest.\nDefaults to false.\n+optional",
+		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest.\nDefaults to false.",
 	}
 }
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"spinlocks": "Retries indicates the number of retries.\nMust be a value greater or equal 4096.\nDefaults to 4096.\n+optional",
+		"spinlocks": "Retries indicates the number of retries.\nMust be a value greater or equal 4096.\nDefaults to 4096.",
 	}
 }
 
@@ -683,28 +679,28 @@ func (FeatureVendorID) SwaggerDoc() map[string]string {
 
 func (TLBFlush) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"direct":   "Direct allows sending the TLB flush command directly to the hypervisor.\nIt can be useful to optimize performance in nested virtualization cases, such as Windows VBS.\n+optional",
-		"extended": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.\n+optional",
+		"direct":   "Direct allows sending the TLB flush command directly to the hypervisor.\nIt can be useful to optimize performance in nested virtualization cases, such as Windows VBS.",
+		"extended": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.",
 	}
 }
 
 func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "Hyperv specific features.",
-		"relaxed":         "Relaxed instructs the guest OS to disable watchdog timeouts.\nDefaults to the machine type setting.\n+optional",
-		"vapic":           "VAPIC improves the paravirtualized handling of interrupts.\nDefaults to the machine type setting.\n+optional",
-		"spinlocks":       "Spinlocks allows to configure the spinlock retry attempts.\n+optional",
-		"vpindex":         "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.\nDefaults to the machine type setting.\n+optional",
-		"runtime":         "Runtime improves the time accounting to improve scheduling in the guest.\nDefaults to the machine type setting.\n+optional",
-		"synic":           "SyNIC enables the Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
-		"synictimer":      "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.\nDefaults to the machine type setting.\n+optional",
-		"reset":           "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.\n+optional",
-		"vendorid":        "VendorID allows setting the hypervisor vendor id.\nDefaults to the machine type setting.\n+optional",
-		"frequencies":     "Frequencies improves the TSC clock source handling for Hyper-V on KVM.\nDefaults to the machine type setting.\n+optional",
-		"reenlightenment": "Reenlightenment enables the notifications on TSC frequency changes.\nDefaults to the machine type setting.\n+optional",
-		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
-		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
-		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
+		"relaxed":         "Relaxed instructs the guest OS to disable watchdog timeouts.\nDefaults to the machine type setting.",
+		"vapic":           "VAPIC improves the paravirtualized handling of interrupts.\nDefaults to the machine type setting.",
+		"spinlocks":       "Spinlocks allows to configure the spinlock retry attempts.",
+		"vpindex":         "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.\nDefaults to the machine type setting.",
+		"runtime":         "Runtime improves the time accounting to improve scheduling in the guest.\nDefaults to the machine type setting.",
+		"synic":           "SyNIC enables the Synthetic Interrupt Controller.\nDefaults to the machine type setting.",
+		"synictimer":      "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.\nDefaults to the machine type setting.",
+		"reset":           "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.",
+		"vendorid":        "VendorID allows setting the hypervisor vendor id.\nDefaults to the machine type setting.",
+		"frequencies":     "Frequencies improves the TSC clock source handling for Hyper-V on KVM.\nDefaults to the machine type setting.",
+		"reenlightenment": "Reenlightenment enables the notifications on TSC frequency changes.\nDefaults to the machine type setting.",
+		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.",
+		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.",
+		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.",
 	}
 }
 
@@ -724,8 +720,8 @@ func (Watchdog) SwaggerDoc() map[string]string {
 func (WatchdogDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hardware watchdog device.\nExactly one of its members must be set.",
-		"i6300esb": "i6300esb watchdog device.\n+optional",
-		"diag288":  "diag288 watchdog device (specific to s390x architecture).\n+optional",
+		"i6300esb": "i6300esb watchdog device.",
+		"diag288":  "diag288 watchdog device (specific to s390x architecture).",
 	}
 }
 
@@ -749,24 +745,24 @@ func (Interface) SwaggerDoc() map[string]string {
 		"model":       "Interface model.\nOne of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
 		"ports":       "List of ports to be forwarded to the virtual machine.\nMutually exclusive with portRanges.",
-		"portRanges":  "List of port ranges to be forwarded to the virtual machine.\nMutually exclusive with ports. Only supported on masquerade interfaces.\nThis feature is in Alpha.\n+optional\n+listType=atomic",
+		"portRanges":  "List of port ranges to be forwarded to the virtual machine.\nMutually exclusive with ports. Only supported on masquerade interfaces.\nThis feature is in Alpha.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
-		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
-		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
-		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
-		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
-		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).\n+optional",
-		"state":       "State represents the requested operational state of the interface.\nThe supported values are:\n`absent`, expressing a request to remove the interface.\n`down`, expressing a request to set the link down.\n`up`, expressing a request to set the link up.\nEmpty value functions as `up`.\n+optional",
+		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.",
+		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
+		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI",
+		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive",
+		"acpiIndex":   "If specified, the ACPI index is used to provide network interface device naming, that is stable across changes\nin PCI addresses assigned to the device.\nThis value is required to be unique across all devices and be between 1 and (16*1024-1).",
+		"state":       "State represents the requested operational state of the interface.\nThe supported values are:\n`absent`, expressing a request to remove the interface.\n`down`, expressing a request to set the link down.\n`up`, expressing a request to set the link up.\nEmpty value functions as `up`.",
 	}
 }
 
 func (DHCPOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Extra DHCP options to use in the interface.",
-		"bootFileName":   "If specified will pass option 67 to interface's DHCP server\n+optional",
-		"tftpServerName": "If specified will pass option 66 to interface's DHCP server\n+optional",
-		"ntpServers":     "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
-		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
+		"bootFileName":   "If specified will pass option 67 to interface's DHCP server",
+		"tftpServerName": "If specified will pass option 66 to interface's DHCP server",
+		"ntpServers":     "If specified will pass the configured NTP server to the VM via DHCP option 042.",
+		"privateOptions": "If specified will pass extra DHCP options for private use, range: 224-254",
 	}
 }
 
@@ -782,8 +778,8 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "Represents the method which will be used to connect the interface to the guest.\nOnly one of its members may be specified.",
 		"slirp":   "DeprecatedSlirp is an alias to the deprecated Slirp interface\nDeprecated: Removed in v1.3",
-		"macvtap": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3\n+optional",
-		"passt":   "DeprecatedPasst is an alias to the deprecated Passt interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3\n+optional",
+		"macvtap": "DeprecatedMacvtap is an alias to the deprecated Macvtap interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3",
+		"passt":   "DeprecatedPasst is an alias to the deprecated Passt interface,\nplease refer to Kubevirt user guide for alternatives.\nDeprecated: Removed in v1.3",
 	}
 }
 
@@ -839,8 +835,8 @@ func (PluginBinding) SwaggerDoc() map[string]string {
 func (Port) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
-		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
-		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
+		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.",
+		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".",
 		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
 	}
 }
@@ -881,23 +877,23 @@ func (QemuGuestAgentUserPasswordAccessCredentialPropagation) SwaggerDoc() map[st
 
 func (QemuGuestAgentSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"users": "Users represents a list of guest users that should have the ssh public keys\nadded to their authorized_keys file.\n+listType=set",
+		"users": "Users represents a list of guest users that should have the ssh public keys\nadded to their authorized_keys file.",
 	}
 }
 
 func (SSHPublicKeyAccessCredentialSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "SSHPublicKeyAccessCredentialSource represents where to retrieve the ssh key\ncredentials\nOnly one of its members may be specified.",
-		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret",
 	}
 }
 
 func (SSHPublicKeyAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "SSHPublicKeyAccessCredentialPropagationMethod represents the method used to\ninject a ssh public key into the vm guest.\nOnly one of its members may be specified.",
-		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider\n+optional",
-		"noCloud":        "NoCloudPropagation means that the ssh public keys are injected\ninto the VM using metadata using the noCloud cloud-init provider\n+optional",
-		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
+		"configDrive":    "ConfigDrivePropagation means that the ssh public keys are injected\ninto the VM using metadata using the configDrive cloud-init provider",
+		"noCloud":        "NoCloudPropagation means that the ssh public keys are injected\ninto the VM using metadata using the noCloud cloud-init provider",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means ssh public keys are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.",
 	}
 }
 
@@ -912,14 +908,14 @@ func (SSHPublicKeyAccessCredential) SwaggerDoc() map[string]string {
 func (UserPasswordAccessCredentialSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "UserPasswordAccessCredentialSource represents where to retrieve the user password\ncredentials\nOnly one of its members may be specified.",
-		"secret": "Secret means that the access credential is pulled from a kubernetes secret\n+optional",
+		"secret": "Secret means that the access credential is pulled from a kubernetes secret",
 	}
 }
 
 func (UserPasswordAccessCredentialPropagationMethod) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "UserPasswordAccessCredentialPropagationMethod represents the method used to\ninject a user passwords into the vm guest.\nOnly one of its members may be specified.",
-		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.\n+optional",
+		"qemuGuestAgent": "QemuGuestAgentAccessCredentailPropagation means passwords are\ndynamically injected into the vm at runtime via the qemu guest agent.\nThis feature requires the qemu guest agent to be running within the guest.",
 	}
 }
 
@@ -934,8 +930,8 @@ func (UserPasswordAccessCredential) SwaggerDoc() map[string]string {
 func (AccessCredential) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":             "AccessCredential represents a credential source that can be used to\nauthorize remote access to the vm guest\nOnly one of its members may be specified.",
-		"sshPublicKey": "SSHPublicKey represents the source and method of applying a ssh public\nkey into a guest virtual machine.\n+optional",
-		"userPassword": "UserPassword represents the source and method for applying a guest user's\npassword\n+optional",
+		"sshPublicKey": "SSHPublicKey represents the source and method of applying a ssh public\nkey into a guest virtual machine.",
+		"userPassword": "UserPassword represents the source and method for applying a guest user's\npassword",
 	}
 }
 
@@ -986,6 +982,6 @@ func (CPUTopology) SwaggerDoc() map[string]string {
 
 func (DiskIOThreads) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"supplementalPoolThreadCount": "SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.\n+optional",
+		"supplementalPoolThreadCount": "SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.",
 	}
 }

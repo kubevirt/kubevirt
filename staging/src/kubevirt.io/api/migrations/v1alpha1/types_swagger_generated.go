@@ -4,28 +4,18 @@ package v1alpha1
 
 func (MigrationPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true\n+genclient\n+genclient:nonNamespaced",
-		"status": "+nullable",
+		"": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
 	}
 }
 
 func (MigrationPolicySpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"allowAutoConverge":       "+optional",
-		"bandwidthPerMigration":   "+optional",
-		"completionTimeoutPerGiB": "+optional",
-		"maxDowntimeMs":           "+optional\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=2000000",
-		"allowPostCopy":           "+optional",
-		"allowWorkloadDisruption": "+optional",
-		"experimental":            "ExperimentalMigrationOptions is an alpha API. It is intended for experimental\npurposes only and will be removed in the future.\n+optional",
+		"experimental": "ExperimentalMigrationOptions is an alpha API. It is intended for experimental\npurposes only and will be removed in the future.",
 	}
 }
 
 func (Selectors) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"namespaceSelector":              "+optional",
-		"virtualMachineInstanceSelector": "+optional",
-	}
+	return map[string]string{}
 }
 
 func (MigrationPolicyStatus) SwaggerDoc() map[string]string {
@@ -34,7 +24,6 @@ func (MigrationPolicyStatus) SwaggerDoc() map[string]string {
 
 func (MigrationPolicyList) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "MigrationPolicyList is a list of MigrationPolicy\n\n+k8s:openapi-gen=true\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-		"items": "+listType=atomic",
+		"": "MigrationPolicyList is a list of MigrationPolicy",
 	}
 }
