@@ -922,7 +922,7 @@ func (c *VirtualMachineController) updateIsoSizeStatus(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		rootPath, err := res.MountRoot()
+		rootPath, err := c.mountRoot(res)
 		if err != nil {
 			log.DefaultLogger().Reason(err).Warningf("failed to detect VMI %s", vmi.Name)
 			continue

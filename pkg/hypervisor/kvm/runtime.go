@@ -40,13 +40,37 @@ import (
 
 var ListProcesses = ps.Processes
 
+// PodIsolation is the subset of isolation details needed by this package.
+type PodIsolation interface {
+	Pid() int
+	PPid() int
+}
+
+// PodIsolationDetector detects pod isolation for a VMI.
+type PodIsolationDetector interface {
+	Detect(vmi *v1.VirtualMachineInstance) (PodIsolation, error)
+}
+
+type isolationDetectorAdapter struct {
+	detector isolation.PodIsolationDetector
+}
+
+func (a isolationDetectorAdapter) Detect(vmi *v1.VirtualMachineInstance) (PodIsolation, error) {
+	return a.detector.Detect(vmi)
+}
+
+// AdaptIsolationDetector adapts isolation.PodIsolationDetector to the local PodIsolationDetector contract.
+func AdaptIsolationDetector(detector isolation.PodIsolationDetector) PodIsolationDetector {
+	return isolationDetectorAdapter{detector: detector}
+}
+
 type KvmVirtRuntime struct {
-	podIsolationDetector isolation.PodIsolationDetector
+	podIsolationDetector PodIsolationDetector
 	logger               *log.FilteredLogger
 	KvmHypervisorBackend
 }
 
-func NewKvmVirtRuntime(podIsoDetector isolation.PodIsolationDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
+func NewKvmVirtRuntime(podIsoDetector PodIsolationDetector, logger *log.FilteredLogger) *KvmVirtRuntime {
 	return &KvmVirtRuntime{
 		podIsolationDetector: podIsoDetector,
 		logger:               logger,
@@ -238,8 +262,13 @@ func (k *KvmVirtRuntime) configureHousekeepingCgroup(vmi *v1.VirtualMachineInsta
 
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
+// qemuProcessParent provides the parent PID used to locate the isolated QEMU process.
+type qemuProcessParent interface {
+	PPid() int
+}
+
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func GetQEMUProcess(r isolation.IsolationResult) (ps.Process, error) {
+func GetQEMUProcess(r qemuProcessParent) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
@@ -251,7 +280,7 @@ func GetQEMUProcess(r isolation.IsolationResult) (ps.Process, error) {
 	return qemuProcess, nil
 }
 
-func KvmPitPid(r isolation.IsolationResult) (int, error) {
+func KvmPitPid(r qemuProcessParent) (int, error) {
 	qemuprocess, err := GetQEMUProcess(r)
 	if err != nil {
 		return -1, err

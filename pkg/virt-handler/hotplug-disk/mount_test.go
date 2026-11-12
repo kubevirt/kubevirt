@@ -1407,13 +1407,13 @@ type mockIsolationDetector struct {
 	err  error
 }
 
-func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {
-	return isolation.NewIsolationResult(i.pid, i.ppid), i.err
+func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (*isolation.RealIsolationResult, error) {
+	return isolation.NewIsolationResult(i.pid, i.ppid).(*isolation.RealIsolationResult), i.err
 }
 
-func (i *mockIsolationDetector) DetectForSocket(_ string) (isolation.IsolationResult, error) {
+func (i *mockIsolationDetector) DetectForSocket(_ string) (*isolation.RealIsolationResult, error) {
 	if i.pid != 9999 {
-		return isolation.NewIsolationResult(i.pid, i.ppid), nil
+		return isolation.NewIsolationResult(i.pid, i.ppid).(*isolation.RealIsolationResult), nil
 	}
 	return nil, fmt.Errorf("isolation error")
 }

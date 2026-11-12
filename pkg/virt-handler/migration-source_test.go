@@ -167,14 +167,11 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(f.Close()).To(Succeed())
 
-		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
-		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
 		rootDir, err := safepath.JoinAndResolveWithRelativeRoot(vmiShareDir)
 		Expect(err).ToNot(HaveOccurred())
-		mockIsolationResult.EXPECT().MountRoot().Return(rootDir, nil).AnyTimes()
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(isolation.NewIsolationResult(1, 0).(*isolation.RealIsolationResult), nil).AnyTimes()
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
@@ -198,6 +195,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil,
 			nil,
 		)
+		controller.mountRoot = func(_ *isolation.RealIsolationResult) (*safepath.Path, error) {
+			return rootDir, nil
+		}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()

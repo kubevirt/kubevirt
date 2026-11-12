@@ -492,7 +492,7 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 	if err != nil {
 		return err
 	}
-	mountRoot, err := res.MountRoot()
+	mountRoot, err := c.mountRoot(res)
 	if err != nil {
 		return err
 	}

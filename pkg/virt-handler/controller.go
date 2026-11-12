@@ -108,6 +108,7 @@ type BaseController struct {
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
+	mountRoot                   func(*isolation.RealIsolationResult) (*safepath.Path, error)
 	launcherClients             launcherclients.LauncherClientsManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
@@ -147,6 +148,7 @@ func NewBaseController(
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
 		podIsolationDetector:        podIsolationDetector,
+		mountRoot:                   func(result *isolation.RealIsolationResult) (*safepath.Path, error) { return result.MountRoot() },
 		launcherClients:             launcherClients,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
@@ -324,7 +326,7 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	virtLauncherRootMount, err := isolationRes.MountRoot()
+	virtLauncherRootMount, err := c.mountRoot(isolationRes)
 	if err != nil {
 		return err
 	}

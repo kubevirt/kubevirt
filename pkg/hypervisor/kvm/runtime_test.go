@@ -23,7 +23,6 @@ import (
 	"github.com/mitchellh/go-ps"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -32,7 +31,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 type processStub struct {
@@ -45,40 +43,51 @@ func (p processStub) Pid() int           { return p.pid }
 func (p processStub) PPid() int          { return p.ppid }
 func (p processStub) Executable() string { return p.binary }
 
+type fakePodIsolation struct {
+	pid  int
+	ppid int
+}
+
+func (f fakePodIsolation) Pid() int  { return f.pid }
+func (f fakePodIsolation) PPid() int { return f.ppid }
+
+type fakePodIsolationDetector struct {
+	result       kvm.PodIsolation
+	err          error
+	detectCalled bool
+}
+
+func (f *fakePodIsolationDetector) Detect(vmi *v1.VirtualMachineInstance) (kvm.PodIsolation, error) {
+	f.detectCalled = true
+	return f.result, f.err
+}
+
 var _ = Describe("AdjustResources", func() {
 	var (
-		ctrl                  *gomock.Controller
-		mockIsolationDetector *isolation.MockPodIsolationDetector
-		mockIsolationResult   *isolation.MockIsolationResult
-		runtime               *kvm.KvmVirtRuntime
-		config                *v1.KubeVirtConfiguration
+		fakeDetector *fakePodIsolationDetector
+		runtime      *kvm.KvmVirtRuntime
+		config       *v1.KubeVirtConfiguration
 	)
 
 	const launcherPid = 1000
 
 	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
-		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
-		runtime = kvm.NewKvmVirtRuntime(mockIsolationDetector, nil)
+		fakeDetector = &fakePodIsolationDetector{
+			result: fakePodIsolation{pid: launcherPid, ppid: 0},
+		}
+		runtime = kvm.NewKvmVirtRuntime(fakeDetector, nil)
 		config = &v1.KubeVirtConfiguration{}
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
 	})
 
 	Context("guard conditions", func() {
 		It("should return nil without calling Detect when no features require memlock", func() {
 			vmi := libvmi.New(libvmi.WithMemoryRequest("1Gi"))
 			Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
+			Expect(fakeDetector.detectCalled).To(BeFalse())
 		})
 
 		DescribeTable("should call Detect when memlock is required",
 			func(vmi *v1.VirtualMachineInstance) {
-				mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-				mockIsolationResult.EXPECT().Pid().Return(launcherPid)
-
 				origListProcesses := kvm.ListProcesses
 				kvm.ListProcesses = func() ([]ps.Process, error) {
 					return []ps.Process{}, nil
@@ -86,6 +95,7 @@ var _ = Describe("AdjustResources", func() {
 				DeferCleanup(func() { kvm.ListProcesses = origListProcesses })
 
 				Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
+				Expect(fakeDetector.detectCalled).To(BeTrue())
 			},
 			Entry("with VFIO GPU",
 				libvmi.New(
@@ -127,9 +137,6 @@ var _ = Describe("AdjustResources", func() {
 				libvmi.WithGPU(v1.GPU{Name: "gpu1"}),
 			)
 
-			mockIsolationDetector.EXPECT().Detect(vmi).Return(mockIsolationResult, nil)
-			mockIsolationResult.EXPECT().Pid().Return(launcherPid)
-
 			virtqemudPid := 1001
 			origListProcesses := kvm.ListProcesses
 			kvm.ListProcesses = func() ([]ps.Process, error) {
@@ -150,6 +157,7 @@ var _ = Describe("AdjustResources", func() {
 			DeferCleanup(func() { common.SetMemlockRLimitFunc = origMemlock })
 
 			Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
+			Expect(fakeDetector.detectCalled).To(BeTrue())
 			Expect(capturedPid).To(Equal(virtqemudPid))
 			Expect(capturedSize).To(Equal(uint64(unix.RLIM_INFINITY)))
 		})
