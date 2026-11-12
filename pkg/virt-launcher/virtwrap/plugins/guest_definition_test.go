@@ -174,6 +174,7 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 
 	Context("no-op hooks", func() {
 		It("should preserve all domain fields through a no-op pipeline round-trip", func() {
+			spec.Devices.IOMMU = []virtwrapApi.IOMMUDevice{{Model: "smmuv3", Driver: &virtwrapApi.IOMMUDriver{PCIBus: "1", Accel: "on", ATS: "on", RIL: "off", SSIDSize: "20", OAS: "48"}}}
 			spec.Devices.Inputs = []virtwrapApi.Input{{Type: v1.InputTypeTablet, Bus: "usb"}}
 			spec.Devices.Watchdogs = []virtwrapApi.Watchdog{{Model: "i6300esb", Action: "none"}}
 			spec.Devices.HostDevices = []virtwrapApi.HostDevice{{
@@ -202,6 +203,9 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 			Expect(xmlStr).NotTo(BeEmpty())
 			Expect(result.Type).To(Equal("kvm"))
 			Expect(result.Name).To(Equal("test-vm"))
+			Expect(xmlStr).To(ContainSubstring(`ssidsize="20"`))
+			Expect(result.Devices.IOMMU).To(HaveLen(1))
+			Expect(result.Devices.IOMMU[0].Driver).To(Equal(spec.Devices.IOMMU[0].Driver))
 			Expect(result.Devices.Inputs).To(HaveLen(1))
 			Expect(result.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 			Expect(result.Devices.Watchdogs).To(HaveLen(1))

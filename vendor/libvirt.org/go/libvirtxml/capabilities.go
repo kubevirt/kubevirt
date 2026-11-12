@@ -221,6 +221,7 @@ type CapsHost struct {
 	NUMA              *CapsHostNUMATopology      `xml:"topology"`
 	Cache             *CapsHostCache             `xml:"cache"`
 	MemoryBandwidth   *CapsHostMemoryBandwidth   `xml:"memory_bandwidth"`
+	Energy            *CapsHostEnergy            `xml:"energy"`
 	SecModel          []CapsHostSecModel         `xml:"secmodel"`
 }
 
@@ -297,6 +298,19 @@ type CapsHostMemoryBandwidthMonitorFeature struct {
 	Name string `xml:"name,attr"`
 }
 
+type CapsHostEnergy struct {
+	Monitor *CapsHostEnergyMonitor `xml:"monitor"`
+}
+
+type CapsHostEnergyMonitor struct {
+	MaxMonitors uint                           `xml:"maxMonitors,attr"`
+	Features    []CapsHostEnergyMonitorFeature `xml:"feature"`
+}
+
+type CapsHostEnergyMonitorFeature struct {
+	Name string `xml:"name,attr"`
+}
+
 type CapsGuestMachine struct {
 	Name       string `xml:",chardata"`
 	MaxCPUs    int    `xml:"maxCpus,attr,omitempty"`
@@ -349,15 +363,19 @@ type CapsGuestFeatureACPI struct {
 type CapsGuestFeatureIA64BE struct {
 }
 
+type CapsGuestFeatureExternalSnapshot struct {
+}
+
 type CapsGuestFeatures struct {
-	CPUSelection *CapsGuestFeatureCPUSelection `xml:"cpuselection"`
-	DeviceBoot   *CapsGuestFeatureDeviceBoot   `xml:"deviceboot"`
-	DiskSnapshot *CapsGuestFeatureDiskSnapshot `xml:"disksnapshot"`
-	PAE          *CapsGuestFeaturePAE          `xml:"pae"`
-	NonPAE       *CapsGuestFeatureNonPAE       `xml:"nonpae"`
-	APIC         *CapsGuestFeatureAPIC         `xml:"apic"`
-	ACPI         *CapsGuestFeatureACPI         `xml:"acpi"`
-	IA64BE       *CapsGuestFeatureIA64BE       `xml:"ia64_be"`
+	CPUSelection     *CapsGuestFeatureCPUSelection     `xml:"cpuselection"`
+	DeviceBoot       *CapsGuestFeatureDeviceBoot       `xml:"deviceboot"`
+	DiskSnapshot     *CapsGuestFeatureDiskSnapshot     `xml:"disksnapshot"`
+	PAE              *CapsGuestFeaturePAE              `xml:"pae"`
+	NonPAE           *CapsGuestFeatureNonPAE           `xml:"nonpae"`
+	APIC             *CapsGuestFeatureAPIC             `xml:"apic"`
+	ACPI             *CapsGuestFeatureACPI             `xml:"acpi"`
+	IA64BE           *CapsGuestFeatureIA64BE           `xml:"ia64_be"`
+	ExternalSnapshot *CapsGuestFeatureExternalSnapshot `xml:"externalSnapshot"`
 }
 
 type CapsGuest struct {
