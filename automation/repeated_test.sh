@@ -245,9 +245,11 @@ if [[ -n ${PROW_JOB_ID:-} && ${JOB_TYPE} == "batch" ]]; then
   ginkgo_params="$ginkgo_params --fail-fast"
 fi
 
-# for some tests we need three nodes aka two nodes with cpu manager installed
-# TODO: check whether no test with label `RequiresTwoWorkerNodesWithCPUManager` is present, in that case use two nodes
-KUBEVIRT_NUM_NODES=3
+if [[ -f "${LABELS_FILE}" ]] && jq -e '[.[].labels[] | select(. == "requires-two-worker-nodes-with-cpu-manager" or . == "requires-three-schedulable-nodes")] | length > 0' "${LABELS_FILE}" > /dev/null 2>&1; then
+    KUBEVIRT_NUM_NODES=3
+else
+    KUBEVIRT_NUM_NODES=2
+fi
 
 trap '{ ret=$?; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM
 
