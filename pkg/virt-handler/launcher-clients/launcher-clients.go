@@ -60,17 +60,20 @@ type launcherClientsManager struct {
 	launcherClients      virtcache.LauncherClientInfoByVMI
 	podIsolationDetector isolation.PodIsolationDetector
 	notifyManager        notifyManager
+	ghostRecordStore     *virtcache.GhostRecordStore
 }
 
 func NewLauncherClientsManager(
 	podIsolationDetector isolation.PodIsolationDetector,
 	notifyManager notifyManager,
+	ghostRecordStore *virtcache.GhostRecordStore,
 ) *launcherClientsManager {
 
 	l := &launcherClientsManager{
 		launcherClients:      virtcache.LauncherClientInfoByVMI{},
 		podIsolationDetector: podIsolationDetector,
 		notifyManager:        notifyManager,
+		ghostRecordStore:     ghostRecordStore,
 	}
 
 	return l
@@ -142,7 +145,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 			return nil, err
 		}
 
-		err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+		err = l.ghostRecordStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +199,7 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 		clientInfo.Close()
 	}
 
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	l.ghostRecordStore.Delete(vmi.Namespace, vmi.Name)
 	l.launcherClients.Delete(vmi.UID)
 }
 

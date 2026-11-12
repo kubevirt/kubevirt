@@ -88,6 +88,7 @@ type MigrationTargetController struct {
 	pluginExecutor            plugins.NodeHookExecutor
 	vmiExpectations           *controller.UIDTrackingControllerExpectations
 	migrationProxy            targetProxyManager
+	getCgroupManager          cgroupManagerGetter
 }
 
 type targetProxyManager interface {
@@ -118,7 +119,7 @@ func NewMigrationTargetController(
 	hvMounter hotplugvolume.VolumeMounter,
 	memoryOverheadCalculators ...memoryOverheadCalculator,
 ) (*MigrationTargetController, error) {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
 	)
@@ -130,7 +131,7 @@ func NewMigrationTargetController(
 		logger,
 		host,
 		recorder,
-		virtClient,
+		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -159,6 +160,7 @@ func NewMigrationTargetController(
 		pluginExecutor:            pluginExecutor,
 		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationProxy:            migrationProxy,
+		getCgroupManager:          newCgroupManager,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -492,7 +494,7 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 		if shouldExpect {
 			c.vmiExpectations.SetExpectations(key, 1, 0)
 		}
-		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.vmiClient.VirtualMachineInstances(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			if shouldExpect {
 				c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -817,7 +819,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+		cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
@@ -840,7 +842,7 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 
 	// Unmount all hotplug volumes
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+		cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
@@ -1058,7 +1060,7 @@ func (c *MigrationTargetController) updateDomainFunc(old, new any) {
 }
 
 func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err != nil {
 		return err
 	}

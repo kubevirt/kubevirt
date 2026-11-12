@@ -117,6 +117,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		networkBindingPluginMemoryCalculator *stubMemoryOverheadCalculator
 		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
+
+		ghostRecordStore *virtcache.GhostRecordStore
 	)
 
 	const host = "master"
@@ -164,7 +166,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmiShareDir := GinkgoT().TempDir()
 		ghostCacheDir := GinkgoT().TempDir()
 
-		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
+		ghostRecordStore = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
@@ -188,7 +190,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtfakeClient).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
 				FeatureGates: []string{featuregate.PasstBinding},
@@ -215,7 +217,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
-			Initialized: true,
+			Initialized:      true,
+			GhostRecordStore: ghostRecordStore,
 		}
 		migrationTargetPasstRepairHandler = &stubTargetPasstRepairHandler{isHandleMigrationTargetCalled: false}
 
@@ -1168,13 +1171,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			EndTimestamp:   new(metav1.Now()),
 		}
 
-		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
 		addVMI(vmi, domain)
 
 		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any()).Return(nil)
 		sanityExecute()
 
-		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
 	})
 
 	It("should remove ghost record on failed migration cleanup", func() {
@@ -1195,13 +1198,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
-		Expect(virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+		Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
 		createVMI(vmi)
 
 		client.EXPECT().SignalTargetPodCleanup(vmi)
 		sanityExecute()
 
-		Expect(virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+		Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
 	})
 
 	It("should remove CreateMigrationTarget annotation on successful migration cleanup", func() {

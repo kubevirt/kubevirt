@@ -201,7 +201,7 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 }
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
-	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
+	data := fmt.Appendf(nil, `{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable)
 	_, err := app.k8sClient.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Unable to mark node as unschedulable")
@@ -275,9 +275,6 @@ func (app *virtHandlerApp) Run() {
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 	pluginInformer := factory.Plugin()
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
-
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
 	err = util.MkdirAllWithNosec(checkpointPath)
@@ -292,7 +289,10 @@ func (app *virtHandlerApp) Run() {
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
-	_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
+	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
+
+	// Wire Domain controller
+	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -388,7 +388,7 @@ func (app *virtHandlerApp) Run() {
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
@@ -522,6 +522,7 @@ func (app *virtHandlerApp) Run() {
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
+		ghostRecordStore,
 	)
 	if err != nil {
 		panic(err)

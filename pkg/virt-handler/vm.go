@@ -114,7 +114,6 @@ type proxyCleaner interface {
 type VirtualMachineController struct {
 	*BaseController
 	capabilities             *libvirtxml.Caps
-	virtClient               kubecli.KubevirtClient
 	containerDiskMounter     containerdisk.Mounter
 	downwardMetricsManager   downwardMetricsManager
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
@@ -132,9 +131,13 @@ type VirtualMachineController struct {
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
 	migrationProxy           proxyCleaner
+	getCgroupManager         cgroupManagerGetter
+	ghostRecordStore         *virtcache.GhostRecordStore
 }
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
+type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error)
+
+func newCgroupManager(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
 	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation)
 }
 
@@ -164,6 +167,7 @@ func NewVirtualMachineController(
 	pluginExecutor plugins.NodeHookExecutor,
 	cdMounter containerdisk.Mounter,
 	hvMounter hotplugvolume.VolumeMounter,
+	ghostRecordStore *virtcache.GhostRecordStore,
 ) (*VirtualMachineController, error) {
 
 	logger := log.Log.With("controller", "vm")
@@ -174,7 +178,7 @@ func NewVirtualMachineController(
 		logger,
 		host,
 		recorder,
-		virtClient,
+		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -194,7 +198,6 @@ func NewVirtualMachineController(
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
-		virtClient:               virtClient,
 		containerDiskMounter:     cdMounter,
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hvMounter,
@@ -209,6 +212,8 @@ func NewVirtualMachineController(
 		cbtHandler:               cbtHandler,
 		pluginExecutor:           pluginExecutor,
 		migrationProxy:           migrationProxy,
+		getCgroupManager:         newCgroupManager,
+		ghostRecordStore:         ghostRecordStore,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -360,7 +365,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
-		uid := virtcache.GhostRecordGlobalStore.LastKnownUID(key)
+		uid := c.ghostRecordStore.LastKnownUID(key)
 		if uid != "" {
 			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
 			vmi.UID = uid
@@ -1050,7 +1055,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.vmiClient.VirtualMachineInstances(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
@@ -1596,7 +1601,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, _ := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -1914,7 +1919,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
 
-	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err != nil {
 		return err
 	}

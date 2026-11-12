@@ -90,7 +90,7 @@ func NewMigrationSourceController(
 	pluginExecutor plugins.NodeHookExecutor,
 ) (*MigrationSourceController, error) {
 
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-source"},
 	)
@@ -102,7 +102,7 @@ func NewMigrationSourceController(
 		logger,
 		host,
 		recorder,
-		virtClient,
+		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -262,13 +262,13 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			// No TargetNode → cannot hand off; fail so the cluster controller cleans up.
 			c.failPostMigration(vmi)
 			c.logger.Object(vmi).Warning("the vmi migrated to an unknown host")
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "The VirtualMachineInstance migrated to unknown host.")
 		} else if !targetNodeDetectedDomain {
 			if timeLeft <= 0 {
 				// Target never ACK'd the domain within the grace window.
 				c.failPostMigration(vmi)
 				c.logger.Object(vmi).Warning("the domain was never observed on the target after the migration completed within the timeout period")
-				c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
+				c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period.")
 			}
 			// else: still waiting for target ACK (requeued by hasTargetDetectedReadyDomain).
 		}
@@ -298,7 +298,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 			vmi.Status.MigrationState.Failed = true
 		}
 		c.logger.Object(vmi).Warning("the decentralized migration failed due to the source VMI being failed")
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's decentralized migration failed due to the source VMI being failed."))
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), "The VirtualMachineInstance's decentralized migration failed due to the source VMI being failed.")
 	}
 
 	return nil
@@ -391,7 +391,7 @@ func (c *MigrationSourceController) sync(vmi *v1.VirtualMachineInstance, domain 
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.vmiClient.VirtualMachineInstances(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
