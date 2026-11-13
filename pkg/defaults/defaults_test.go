@@ -24,6 +24,23 @@ import (
 )
 
 var _ = Describe("Defaults", func() {
+	DescribeTable("should preserve block multi-queue settings during defaulting",
+		func(setting, expected *bool) {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec)).To(Succeed())
+			Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(expected))
+			// Defaulting a second time must preserve the resolved setting.
+			Expect(defaults.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec)).To(Succeed())
+			Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(expected))
+		},
+		Entry("omitted remains unset", nil, nil),
+		Entry("explicit true remains true", pointer.P(true), pointer.P(true)),
+		Entry("explicit false remains false", pointer.P(false), pointer.P(false)),
+	)
+
 	Context("Architecture", func() {
 		Context("VirtualMachine", func() {
 			var (

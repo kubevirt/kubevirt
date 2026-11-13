@@ -1417,8 +1417,11 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 			if controller.Driver == nil {
 				domain.Spec.Devices.Controllers[i].Driver = &api.ControllerDriver{}
 			}
-			domain.Spec.Devices.Controllers[i].Driver.IOThread = pointer.P(currentAutoThread)
-			domain.Spec.Devices.Controllers[i].Driver.Queues = pointer.P(vcpus)
+			driver := domain.Spec.Devices.Controllers[i].Driver
+			driver.IOThread = pointer.P(currentAutoThread)
+			if driver.Queues == nil {
+				driver.Queues = pointer.P(vcpus)
+			}
 		}
 	}
 }
@@ -1595,13 +1598,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	var numBlkQueues *uint
-	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
+	blockMultiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue
+	blockMultiQueueDisabled := blockMultiQueue != nil && !*blockMultiQueue
 	vcpus := uint(cpuCount)
 	if vcpus == 0 {
 		vcpus = uint(1)
 	}
 
-	if virtioBlkMQRequested {
+	if blockMultiQueue != nil && *blockMultiQueue {
 		numBlkQueues = &vcpus
 	}
 
@@ -1640,6 +1644,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		if err != nil {
 			return err
+		}
+
+		// Volume conversion can replace the disk driver, so apply the opt-out after it.
+		if blockMultiQueueDisabled && newDisk.Target.Bus == v1.DiskBusVirtio {
+			newDisk.Driver.Queues = pointer.P(uint(1))
 		}
 
 		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
@@ -1717,6 +1726,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if needsSCSIController(vmi) {
 		scsiController := c.Architecture.ScsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
+		if blockMultiQueueDisabled {
+			// Keep the queue setting local to SCSI when the driver is shared with virtio-serial.
+			scsiController.Driver = scsiController.Driver.DeepCopy()
+			if scsiController.Driver == nil {
+				scsiController.Driver = &api.ControllerDriver{}
+			}
+			scsiController.Driver.Queues = pointer.P(uint(1))
+		}
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 

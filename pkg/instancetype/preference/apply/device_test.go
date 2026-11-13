@@ -328,4 +328,63 @@ var _ = Describe("Preference.Devices", func() {
 			),
 		)
 	})
+
+	DescribeTable("PreferredBlockMultiQueue should", func(preferenceValue, vmiValue, expected *bool) {
+		preferenceSpec.Devices.PreferredBlockMultiQueue = preferenceValue
+		vmi.Spec.Domain.Devices.BlockMultiQueue = vmiValue
+
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(expected))
+	},
+		Entry("apply true when VMI value is nil", pointer.P(true), nil, pointer.P(true)),
+		Entry("apply false when VMI value is nil", pointer.P(false), nil, pointer.P(false)),
+		Entry("leave unset when both values are nil", nil, nil, nil),
+		Entry("preserve true without a preference", nil, pointer.P(true), pointer.P(true)),
+		Entry("preserve false without a preference", nil, pointer.P(false), pointer.P(false)),
+		Entry("preserve explicit false over preference true", pointer.P(true), pointer.P(false), pointer.P(false)),
+		Entry("preserve explicit true over preference false", pointer.P(false), pointer.P(true), pointer.P(true)),
+	)
+
+	DescribeTable("PreferredAutoAttach should", func(preferenceValue, vmiValue, expected *bool) {
+		type autoAttachField struct {
+			preference **bool
+			vmi        **bool
+		}
+		autoAttachFields := map[string]autoAttachField{
+			"PreferredAutoattachGraphicsDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachGraphicsDevice,
+				&vmi.Spec.Domain.Devices.AutoattachGraphicsDevice,
+			},
+			"PreferredAutoattachMemBalloon": {
+				&preferenceSpec.Devices.PreferredAutoattachMemBalloon,
+				&vmi.Spec.Domain.Devices.AutoattachMemBalloon,
+			},
+			"PreferredAutoattachPodInterface": {
+				&preferenceSpec.Devices.PreferredAutoattachPodInterface,
+				&vmi.Spec.Domain.Devices.AutoattachPodInterface,
+			},
+			"PreferredAutoattachSerialConsole": {
+				&preferenceSpec.Devices.PreferredAutoattachSerialConsole,
+				&vmi.Spec.Domain.Devices.AutoattachSerialConsole,
+			},
+			"PreferredAutoattachInputDevice": {
+				&preferenceSpec.Devices.PreferredAutoattachInputDevice,
+				&vmi.Spec.Domain.Devices.AutoattachInputDevice,
+			},
+		}
+		for name, f := range autoAttachFields {
+			*f.preference = preferenceValue
+			*f.vmi = vmiValue
+			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(*f.vmi).To(Equal(expected), "%s not applied correctly", name)
+		}
+	},
+		Entry("apply true when VMI value is nil", pointer.P(true), nil, pointer.P(true)),
+		Entry("apply false when VMI value is nil", pointer.P(false), nil, pointer.P(false)),
+		Entry("not apply nil when VMI value is nil", nil, nil, nil),
+		Entry("not apply nil when VMI value is true", nil, pointer.P(true), pointer.P(true)),
+		Entry("not apply nil when VMI value is false", nil, pointer.P(false), pointer.P(false)),
+		Entry("not apply true when VMI value is false", pointer.P(true), pointer.P(false), pointer.P(false)),
+		Entry("not apply false when VMI value is true", pointer.P(false), pointer.P(true), pointer.P(true)),
+	)
 })

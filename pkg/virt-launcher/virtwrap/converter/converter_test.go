@@ -815,6 +815,29 @@ var _ = Describe("Converter", func() {
 			Expect(xml).To(ContainSubstring(`<panic model="hyperv"></panic>`))
 		})
 
+		Context("with ephemeral disk", func() {
+			DescribeTable("a scsi controller should ", func(enabled bool, expectedType, expectedModel, arch string) {
+				c.Architecture = archconverter.NewConverter(arch)
+				vmi.Spec.Domain.Devices.DisableHotplug = !enabled
+
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).ToNot(HaveOccurred())
+				expectedController := api.Controller{Type: expectedType, Index: "0", Model: expectedModel}
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(expectedController))
+				if !enabled {
+					Expect(domain.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
+				}
+			},
+				Entry("appear if enabled for amd64", true, "scsi", "virtio-non-transitional", amd64),
+				Entry("appear if enabled for arm64", true, "scsi", "virtio-non-transitional", arm64),
+				Entry("appear if enabled for s390x", true, "scsi", "virtio-scsi", s390x),
+				Entry("NOT appear if disabled for amd64", false, "virtio-serial", "virtio-non-transitional", amd64),
+				Entry("NOT appear if disabled for arm64", false, "virtio-serial", "virtio-non-transitional", arm64),
+				Entry("NOT appear if disabled for s390x", false, "virtio-serial", "virtio", s390x),
+			)
+		})
+
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
@@ -1265,11 +1288,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
 			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
-			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(api.Controller{
-				Type:  "scsi",
-				Index: "0",
-				Model: "virtio-non-transitional",
-			}))
+			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 		})
 
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
@@ -2365,7 +2384,7 @@ var _ = Describe("Converter", func() {
 		var context *ConverterContext
 
 		BeforeEach(func() {
-			context = &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), UseVirtioTransitional: false}
+			context = &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, UseVirtioTransitional: false}
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -2402,6 +2421,106 @@ var _ = Describe("Converter", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
 			}
 		})
+
+		DescribeTable("should respect block multi-queue settings on disks",
+			func(setting *bool, bus v1.DiskBus, sockets uint32, expectedQueues *uint) {
+				const diskName = "mypvc"
+				vmi := libvmi.New(libvmi.WithPersistentVolumeClaim(diskName, "my-claim"), libvmi.WithCPUCount(2, 1, sockets))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = bus
+				context.Architecture = archconverter.NewConverter(amd64)
+
+				domain := &api.Domain{}
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, context)).To(Succeed())
+				expectedDisk := api.Disk{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{File: GetFilesystemVolumePath(diskName)},
+					Target: api.DiskTarget{Bus: bus, Device: "sda"},
+					Driver: &api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: expectedQueues,
+					},
+					Alias: api.NewUserDefinedAlias(diskName),
+				}
+				if bus == v1.DiskBusVirtio {
+					expectedDisk.Target.Device = "vda"
+					expectedDisk.Model = "virtio-non-transitional"
+				}
+				if bus == v1.DiskBusSCSI {
+					expectedDisk.Address = &api.Address{Type: "drive", Controller: "0", Bus: "0", Unit: "0"}
+				}
+				Expect(domain.Spec.Devices.Disks).To(ConsistOf(expectedDisk))
+			},
+			Entry("enabled with two vCPUs", pointer.P(true), v1.DiskBusVirtio, uint32(1), pointer.P(uint(2))),
+			Entry("omitted keeps queues unspecified", nil, v1.DiskBusVirtio, uint32(3), nil),
+			Entry("false requests one virtio-blk queue", pointer.P(false), v1.DiskBusVirtio, uint32(3), pointer.P(uint(1))),
+			Entry("true uses the complete CPU topology", pointer.P(true), v1.DiskBusVirtio, uint32(3), pointer.P(uint(6))),
+			Entry("false adds no queues to a SCSI disk", pointer.P(false), v1.DiskBusSCSI, uint32(3), nil),
+			Entry("true adds no queues to a SCSI disk", pointer.P(true), v1.DiskBusSCSI, uint32(3), nil),
+			Entry("false adds no queues to a SATA disk", pointer.P(false), v1.DiskBusSATA, uint32(3), nil),
+		)
+
+		DescribeTable("should respect an explicit block multi-queue opt-out after volume conversion",
+			func(setting *bool, expectedQueues *uint) {
+				vmi := libvmi.New(libvmi.WithDownwardMetricsVolume("metrics"), libvmi.WithCPUCount(2, 1, 1))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				context.Architecture = archconverter.NewConverter(amd64)
+
+				domain := vmiToDomain(vmi, context)
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues))
+			},
+			Entry("omitted keeps queues unspecified", nil, nil),
+			Entry("true keeps existing driver replacement behavior", pointer.P(true), nil),
+			Entry("false requests one queue", pointer.P(false), pointer.P(uint(1))),
+		)
+
+		DescribeTable("should respect block multi-queue settings on the SCSI controller",
+			func(setting *bool, dedicatedThread, autoPolicy, launchSecurity bool, expectedDriver *api.ControllerDriver) {
+				vmi.Spec.Domain.CPU = &v1.CPU{Cores: 2, Threads: 1, Sockets: 3}
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusSCSI
+				vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = pointer.P(dedicatedThread)
+				if autoPolicy {
+					vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicyAuto)
+				}
+				context.Architecture = archconverter.NewConverter(amd64)
+				context.UseLaunchSecurity = launchSecurity
+
+				domain := vmiToDomain(vmi, context)
+				var controller api.Controller
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(HaveField("Type", "scsi"), &controller))
+				Expect(controller.Driver).To(Equal(expectedDriver))
+				if launchSecurity {
+					Expect(domain.Spec.Devices.Controllers).To(ContainElement(And(
+						HaveField("Type", "virtio-serial"),
+						HaveField("Driver", &api.ControllerDriver{IOMMU: "on"}),
+					)))
+				}
+			},
+			Entry("omitted without a dedicated IOThread keeps queues unspecified", nil, false, true, false, nil),
+			Entry("true without a dedicated IOThread keeps queues unspecified", pointer.P(true), false, true, false, nil),
+			Entry("false without a dedicated IOThread requests one queue", pointer.P(false), false, true, false,
+				&api.ControllerDriver{Queues: pointer.P(uint(1))}),
+			Entry("false requests one queue with a dedicated IOThread", pointer.P(false), true, true, false,
+				&api.ControllerDriver{Queues: pointer.P(uint(1)), IOThread: pointer.P(uint(1))}),
+			Entry("true with a dedicated IOThread retains queues for the full CPU topology", pointer.P(true), true, true, false,
+				&api.ControllerDriver{Queues: pointer.P(uint(6)), IOThread: pointer.P(uint(1))}),
+			Entry("omitted retains the existing queue and IOThread configuration", nil, true, true, false,
+				&api.ControllerDriver{Queues: pointer.P(uint(6)), IOThread: pointer.P(uint(1))}),
+			Entry("omitted without a policy keeps queues unspecified", nil, false, false, false, nil),
+			Entry("true without a policy keeps queues unspecified", pointer.P(true), false, false, false, nil),
+			Entry("false without a policy requests one queue", pointer.P(false), false, false, false,
+				&api.ControllerDriver{Queues: pointer.P(uint(1))}),
+			Entry("omitted preserves IOMMU without adding queues", nil, false, true, true,
+				&api.ControllerDriver{IOMMU: "on"}),
+			Entry("true preserves IOMMU without adding queues", pointer.P(true), false, true, true,
+				&api.ControllerDriver{IOMMU: "on"}),
+			Entry("false preserves IOMMU with one queue", pointer.P(false), false, true, true,
+				&api.ControllerDriver{IOMMU: "on", Queues: pointer.P(uint(1))}),
+			Entry("false preserves IOMMU and one queue with a dedicated IOThread", pointer.P(false), true, true, true,
+				&api.ControllerDriver{IOMMU: "on", Queues: pointer.P(uint(1)), IOThread: pointer.P(uint(1))}),
+		)
 
 		It("should assign queues to a device if requested", func() {
 			expectedQueues := uint(2)
@@ -3324,15 +3443,10 @@ var _ = Describe("Converter", func() {
 				c.Architecture = archconverter.NewConverter(arch)
 				domain := vmiToDomain(vmi, c)
 				Expect(domain.Spec.Devices.Controllers).To(HaveLen(3))
-				foundScsiController := false
-				for _, controller := range domain.Spec.Devices.Controllers {
-					if controller.Type == "scsi" {
-						foundScsiController = true
-						Expect(controller.Model).To(Equal(expectedModel))
-
-					}
-				}
-				Expect(foundScsiController).To(BeTrue(), "did not find SCSI controller when expected")
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(And(
+					HaveField("Type", "scsi"),
+					HaveField("Model", expectedModel),
+				)))
 			},
 				Entry("on amd64", amd64, "virtio-non-transitional"),
 				Entry("on arm64", arm64, "virtio-non-transitional"),
