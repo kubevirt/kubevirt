@@ -31,6 +31,7 @@ go_test(
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
+        "//pkg/storage/container-disk/diskpaths:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/vmitrait:go_default_library",

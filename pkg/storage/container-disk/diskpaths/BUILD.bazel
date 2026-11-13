@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -7,5 +7,18 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/util:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "paths_suite_test.go",
+        "paths_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
     ],
 )
