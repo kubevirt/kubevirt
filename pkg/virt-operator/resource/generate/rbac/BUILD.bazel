@@ -38,6 +38,7 @@ go_test(
         "cluster_test.go",
         "controller_test.go",
         "exportproxy_test.go",
+        "handler_test.go",
         "operator_test.go",
         "rbac_suite_test.go",
         "synchronizationcontroller_test.go",
