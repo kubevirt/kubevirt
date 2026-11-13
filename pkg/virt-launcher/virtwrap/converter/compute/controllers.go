@@ -33,7 +33,6 @@ import (
 type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string
-	totalThreads              uint
 	useLaunchSecuritySEV      bool
 	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
@@ -64,7 +63,7 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	}
 
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := c.assignSCSIControllerIOThread(vmi, c.totalThreads, controllerDriver.DeepCopy())
+		scsiControllerDriver := c.assignSCSIControllerIOThread(vmi, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
@@ -92,12 +91,6 @@ func ControllersWithUSBNeeded(isUSBNeeded bool) controllersOption {
 func ControllersWithSCSIModel(scsiModel string) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.scsiModel = scsiModel
-	}
-}
-
-func ControllersWithSCSIIOThreads(totalThreads uint) controllersOption {
-	return func(c *ControllersDomainConfigurator) {
-		c.totalThreads = totalThreads
 	}
 }
 
@@ -239,11 +232,28 @@ func (c ControllersDomainConfigurator) shouldConfigSCSIThread(vmi *v1.VirtualMac
 	}
 }
 
+func (c ControllersDomainConfigurator) scsiControllerThreads(vmi *v1.VirtualMachineInstance) uint {
+	// only want to assign threads if the feature gate is enabled and an iothreads policy is set
+	if !c.scsiMultiIOThreadEnabled || !iothreads.HasIOThreads(vmi) || vmi.Spec.Domain.IOThreadsPolicy == nil {
+		return 0
+	}
+
+	ioThreadCount, autoThreads := iothreads.GetIOThreadsCountType(vmi)
+	if *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+		return uint(ioThreadCount)
+	}
+
+	// when supplemental pool is not set, limit the number of threads to the number of vCPUs
+	// this is to avoid over-allocating threads and causing performance degradation
+	vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+	return uint(iothreads.AutoPoolSize(autoThreads, vcpus))
+}
+
 func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
 	vmi *v1.VirtualMachineInstance,
-	totalThreads uint,
 	scsiControllerDriver *api.ControllerDriver,
 ) *api.ControllerDriver {
+	totalThreads := c.scsiControllerThreads(vmi)
 	if totalThreads == 0 || !c.shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
 	}
@@ -258,10 +268,6 @@ func (c ControllersDomainConfigurator) assignSCSIControllerIOThread(
 	}
 
 	scsiControllerDriver.Queues = new(vcpus)
-
-	// we don't want to allocate more threads than the controller needs
-	// totalThreads should never exceed the number of created virtqueues (1 per vCPU)
-	totalThreads = min(totalThreads, vcpus)
 
 	// if we just have single thread, we don't need to populate thread list
 	if totalThreads == 1 {

@@ -23,26 +23,62 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 var _ = Describe("IOThreads Configurator", func() {
-	DescribeTable("Should", func(totalThreads uint, expectedDomain api.Domain) {
-		vmi := libvmi.New()
+	DescribeTable("should configure domain IOThreads from the VMI", func(
+		vmi *v1.VirtualMachineInstance,
+		scsiMultiIOEnabled bool,
+		multiIOAutoEnabled bool,
+		expectedThreads *api.IOThreads,
+	) {
 		var domain api.Domain
-		configurator := compute.NewIOThreadsDomainConfigurator(totalThreads)
-		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-		Expect(domain).To(Equal(expectedDomain))
+		Expect(compute.NewIOThreadsDomainConfigurator(
+			compute.IOThreadsWithSCSIMultiIOThreadEnabled(scsiMultiIOEnabled),
+			compute.IOThreadsWithMultiIOThreadAutoPolicyEnabled(multiIOAutoEnabled),
+		).Configure(vmi, &domain)).To(Succeed())
+		Expect(domain.Spec.IOThreads).To(Equal(expectedThreads))
 	},
-		Entry("configure IOThreads in the domain when they're specified", uint(4),
-			api.Domain{
-				Spec: api.DomainSpec{
-					IOThreads: &api.IOThreads{IOThreads: 4},
-				},
-			},
+		Entry("when the VMI has no IOThreads",
+			libvmi.New(),
+			false, false,
+			nil,
 		),
-		Entry("not configure IOThreads in the domain when they're not specified", uint(0), api.Domain{}),
+		Entry("when auto policy is set",
+			libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithCPURequest("2"),
+				libvmi.WithDisk("disk0", v1.DiskBusVirtio),
+				libvmi.WithDisk("disk1", v1.DiskBusVirtio),
+			),
+			false, false,
+			&api.IOThreads{IOThreads: 2},
+		),
+		Entry("when supplemental pool policy is set",
+			libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{SupplementalPoolThreadCount: new(uint32(5))}),
+			),
+			false, false,
+			&api.IOThreads{IOThreads: 5},
+		),
+		Entry("when multi-IO auto policy caps the auto pool",
+			libvmi.New(
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),
+				libvmi.WithCPURequest("2"),
+				libvmi.WithDisk("disk0", v1.DiskBusVirtio),
+				libvmi.WithDisk("disk1", v1.DiskBusVirtio),
+				libvmi.WithDisk("disk2", v1.DiskBusVirtio),
+				libvmi.WithDisk("dedicated", v1.DiskBusVirtio, libvmi.WithDedicatedIOThreads(true)),
+			),
+			true, true,
+			// auto pool will be capped to 2 but then 1 additional thread will be added for the dedicated disk
+			&api.IOThreads{IOThreads: 3},
+		),
 	)
 })
