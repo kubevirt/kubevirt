@@ -204,6 +204,49 @@ var _ = Describe("cgroup manager", func() {
 	)
 })
 
+var _ = Describe("GetMiscCapacity", func() {
+	var originalMiscCapacityPath string
+	var tempDir string
+
+	BeforeEach(func() {
+		tempDir = GinkgoT().TempDir()
+		originalMiscCapacityPath = miscCapacityPath
+		miscCapacityPath = filepath.Join(tempDir, "misc.capacity")
+	})
+
+	AfterEach(func() {
+		miscCapacityPath = originalMiscCapacityPath
+	})
+
+	DescribeTable("should return correct capacity",
+		func(fileContent string, key string, expectedCapacity int, expectError bool) {
+			if fileContent != "" {
+				err := os.WriteFile(filepath.Join(tempDir, "misc.capacity"), []byte(fileContent), 0644)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			capacity, err := GetMiscCapacity(key)
+			Expect(capacity).To(Equal(expectedCapacity))
+			if expectError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+		Entry("returns capacity for matching key",
+			"tdx 10\nsev 5\n", "tdx", 10, false,
+		),
+		Entry("produces error when key not found",
+			"tdx 10\nsev 5\n", "nonexistent", 0, true,
+		),
+		Entry("produces error for malformed line",
+			"tdx\n", "tdx", 0, true,
+		),
+		Entry("produces error for non-numeric capacity",
+			"tdx abc\n", "tdx", 0, true,
+		),
+	)
+})
+
 var _ = Describe("generateDeviceRulesForVMI", func() {
 	var (
 		ctrl    *gomock.Controller
