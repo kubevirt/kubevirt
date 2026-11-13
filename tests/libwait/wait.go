@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,7 +60,7 @@ type Waiting struct {
 // If no context is provided, a new one will be created.
 func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, opts ...Option) *v1.VirtualMachineInstance {
 	wp := watcher.WarningsPolicy{FailOnWarnings: true}
-	gomega.ExpectWithOffset(1, phases).ToNot(gomega.BeEmpty())
+	ExpectWithOffset(1, phases).ToNot(BeEmpty())
 	waiting := Waiting{timeout: flags.VMIStartupTimeout(), wp: &wp, phases: phases}
 	for _, f := range opts {
 		f(&waiting)
@@ -73,6 +73,22 @@ func WaitForVMIPhase(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineI
 	}
 
 	WithWarningsIgnoreList(testsuite.TestRunConfiguration.WarningToIgnoreList)(&waiting)
+
+	// Ensure the VMI exists and has a resourceVersion before watching. Retry briefly since
+	// VM-created VMIs could be delayed.
+	// FIXME: This may start watching too late and we may miss some warnings
+	if vmi.ResourceVersion == "" {
+		virtClient := kubevirt.Client()
+		EventuallyWithOffset(1, func() error {
+			fetched, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			vmi = fetched
+			return nil
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
+	}
+
 	return waiting.watchVMIForPhase(vmi)
 }
 
@@ -131,14 +147,7 @@ func WithWaitForFail(waitForFail bool) Option {
 // watchVMIForPhase looks at the vmi object and, after it is started, waits for it to satisfy the phases with the passed parameters
 func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	virtClient, err := kubecli.GetKubevirtClient()
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-
-	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
-	// FIXME: This may start watching too late and we may miss some warnings
-	if vmi.ResourceVersion == "" {
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	}
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	const offset = 2
 	objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(w.timeout+offset) * time.Second)
@@ -158,9 +167,9 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 
 	var retrievedVMI *v1.VirtualMachineInstance
 	// FIXME the event order is wrong. First the document should be updated
-	gomega.EventuallyWithOffset(1, func(g gomega.Gomega) v1.VirtualMachineInstancePhase {
+	EventuallyWithOffset(1, func(g Gomega) v1.VirtualMachineInstancePhase {
 		retrievedVMI, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		g.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
+		g.ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		g.Expect(retrievedVMI).ToNot(matcher.HaveSucceeded(),
 			"VMI %s unexpectedly stopped. State: %s",
@@ -174,7 +183,7 @@ func (w *Waiting) watchVMIForPhase(vmi *v1.VirtualMachineInstance) *v1.VirtualMa
 				retrievedVMI.Status.Phase)
 		}
 		return retrievedVMI.Status.Phase
-	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(gomega.BeElementOf(w.phases),
+	}, time.Duration(w.timeout)*time.Second, 1*time.Second).Should(BeElementOf(w.phases),
 		fmt.Sprintf("Timed out waiting for VMI %s to enter %s phase(s)", vmi.Name, w.phases))
 
 	return retrievedVMI
@@ -196,11 +205,11 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 		[]v1.VirtualMachineInstancePhase{v1.Running},
 		opts...,
 	)
-	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
+	Expect(loginTo(vmi)).To(Succeed())
 
 	var err error
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	return vmi
 }
