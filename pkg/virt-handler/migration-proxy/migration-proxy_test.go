@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -78,7 +79,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123")
+				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123", nil)
 				defer sourceProxy.Stop()
 
 				err = sourceProxy.Start()
@@ -135,7 +136,7 @@ var _ = Describe("MigrationProxy", func() {
 					mountRoot,
 					virtqemudRelativePath,
 					"123")
-				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123")
+				sourceProxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", tlsConfig, "123", nil)
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
 
@@ -198,7 +199,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
-				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, mountRoot)
+				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")
@@ -281,7 +282,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)
-				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, mountRoot)
+				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 				Expect(err).ShouldNot(HaveOccurred())
 
 				defer manager.StopTargetListener(key1)
@@ -299,7 +300,7 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
-				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, mountRoot)
+				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
@@ -484,7 +485,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -504,7 +505,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -524,7 +525,7 @@ var _ = Describe("MigrationProxy", func() {
 			It("fails when mount root is unavailable", func() {
 				const sourceRelativePath = "/source.sock"
 
-				proxy := NewSourceProxy(nil, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(nil, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err := proxy.Start()
@@ -547,7 +548,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -568,7 +569,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -590,7 +591,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -611,7 +612,7 @@ var _ = Describe("MigrationProxy", func() {
 				tcpPort := tcpListener.Addr().(*net.TCPAddr).Port
 				targetAddr := fmt.Sprintf("127.0.0.1:%d", tcpPort)
 
-				proxy := NewSourceProxy(mountRoot, sourceRelativePath, targetAddr, nil, "123")
+				proxy := NewSourceProxy(mountRoot, sourceRelativePath, targetAddr, nil, "123", nil)
 				defer proxy.Stop()
 
 				err = proxy.Start()
@@ -644,7 +645,7 @@ var _ = Describe("MigrationProxy", func() {
 				mountRoot, err := safepath.JoinAndResolveWithRelativeRoot(tmpDir)
 				Expect(err).ShouldNot(HaveOccurred())
 
-				proxy1 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123")
+				proxy1 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12345", nil, "123", nil)
 				err = proxy1.Start()
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -655,7 +656,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				proxy1.Stop()
 
-				proxy2 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12346", nil, "456")
+				proxy2 := NewSourceProxy(mountRoot, sourceRelativePath, "127.0.0.1:12346", nil, "456", nil)
 				defer proxy2.Stop()
 
 				err = proxy2.Start()

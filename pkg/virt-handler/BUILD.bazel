@@ -97,6 +97,7 @@ go_test(
     srcs = [
         "cbt_test.go",
         "controller_test.go",
+        "generated_mock_migration_source_test.go",
         "migration-source_test.go",
         "migration-target_test.go",
         "migration_test.go",
