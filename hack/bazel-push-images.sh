@@ -94,7 +94,7 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
     fi
     for target in ${targets[@]}; do
 
-        bazel run \
+        run_with_retry bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
             //:push-${target} -- --registry ${docker_prefix} --repository ${image_prefix}${target} --tag ${tag}
 
@@ -105,7 +105,7 @@ done
 if [[ $image_prefix_alt ]]; then
     for target in ${ALT_TARGETS[@]}; do
 
-        bazel run \
+        run_with_retry bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
             //:push-${target} -- --registry ${docker_prefix} --repository ${image_prefix_alt}${target} --tag ${docker_tag}
 
