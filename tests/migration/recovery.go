@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Stressing")
-		runStressTest(vmi, stressDefaultVMSize)
+		runStressTest(vmi)
 
 		By("Starting a slow migration")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)

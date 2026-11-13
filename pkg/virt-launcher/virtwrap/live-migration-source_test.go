@@ -870,6 +870,34 @@ var _ = Describe("Live migration source", func() {
 				Expect(sd.switchoverInitiated).To(BeTrue())
 			})
 
+			It("should not process stall boundary actions before MemIteration 2", func() {
+				monitor.options.MaxDowntimeMs = testMaxDowntimeMs
+				sd.allowWorkloadDisruption = true
+				sd.allowPostCopy = true
+				sd.initialMaxDowntimeSet = true
+				sd.ewmaBandwidthBps = 1000
+				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
+
+				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), gomock.Any()).Times(0)
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+
+				stats := &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemainingSet: true,
+					DataRemaining:    1000,
+					TimeElapsedSet:   true,
+					TimeElapsed:      30_000,
+					MemIterationSet:  true,
+					MemIteration:     1,
+					MemBpsSet:        true,
+					MemBps:           1000,
+				}
+				monitor.processInflightMigration(mockDomain, stats, true, monitor.logger)
+				Expect(sd.stallDetected).To(BeFalse())
+				Expect(sd.switchoverInitiated).To(BeFalse())
+			})
+
 		})
 
 		Describe("shouldTriggerTimeout", func() {
@@ -892,12 +920,28 @@ var _ = Describe("Live migration source", func() {
 		Describe("shouldAssistMigrationToComplete", func() {
 			It("should always return false when stall detection is enabled", func() {
 				monitor.options.AllowWorkloadDisruption = true
+				monitor.iterationRecord.iterationNumber = 2
 				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
 
 				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs(), monitor.logger)).To(BeFalse())
 
 				monitor.stallDetectionEnabled = false
 				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs(), monitor.logger)).To(BeTrue())
+			})
+
+			It("should return false before MemIteration 2", func() {
+				monitor.stallDetectionEnabled = false
+				monitor.options.AllowWorkloadDisruption = true
+				monitor.iterationRecord.iterationNumber = 1
+				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs(), monitor.logger)).To(BeFalse())
+			})
+
+			It("should return false when MemIteration was never reported", func() {
+				monitor.stallDetectionEnabled = false
+				monitor.options.AllowWorkloadDisruption = true
+				// iterationNumber stays 0 when stats never set MemIterationSet
+				Expect(monitor.iterationRecord.iterationNumber).To(BeZero())
+				Expect(monitor.shouldAssistMigrationToComplete(pastTimeoutNs(), monitor.logger)).To(BeFalse())
 			})
 		})
 
@@ -1422,6 +1466,7 @@ var _ = Describe("Live migration source", func() {
 				ctrl = gomock.NewController(GinkgoT())
 				mockDomain = cli.NewMockVirDomain(ctrl)
 				monitor.l.updateVMIMigrationMode(v1.MigrationPreCopy)
+				monitor.iterationRecord.iterationNumber = 2
 			})
 
 			It("should not trigger abort when timeout has not been reached", func() {
@@ -1469,6 +1514,34 @@ var _ = Describe("Live migration source", func() {
 				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
 				Expect(monitor.isMigrationPostCopy()).To(BeTrue())
 				Expect(sd.switchoverInitiated).To(BeTrue())
+			})
+
+			It("should abort instead of switchover before MemIteration 2", func() {
+				monitor.options.AllowPostCopy = true
+				monitor.options.AllowWorkloadDisruption = true
+				sd.ewmaBandwidthBps = 1000
+				monitor.iterationRecord.iterationNumber = 1
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), gomock.Any()).Times(0)
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
+			})
+
+			It("should abort instead of switchover when MemIteration was never reported", func() {
+				monitor.options.AllowPostCopy = true
+				monitor.options.AllowWorkloadDisruption = true
+				sd.ewmaBandwidthBps = 1000
+				monitor.iterationRecord.iterationNumber = 0
+
+				mockDomain.EXPECT().MigrateStartPostCopy(gomock.Any()).Times(0)
+				mockDomain.EXPECT().MigrateSetMaxDowntime(gomock.Any(), gomock.Any()).Times(0)
+				setupSuccessfulAbortContext(mockDomain)
+				monitor.processCompletionTimeouts(mockDomain, pastTimeoutNs(), 500, monitor.logger)
+				Expect(monitor.isAbortInProgress()).To(BeTrue())
+				expectMigrationAbortSucceeded()
 			})
 
 			It("should force switchover when AllowWorkloadDisruption is true and migration can finish by deadline", func() {
