@@ -7800,7 +7800,9 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: |-
                             Whether or not to enable virtio multi-queue for block devices.
-                            Defaults to false.
+                            Explicit false configures a single request queue.
+                            When omitted, the queue count depends on device and IOThread
+                            configuration, falling back to hypervisor defaults when unspecified.
                           type: boolean
                         clientPassthrough:
                           description: To configure and access client devices such
@@ -14471,7 +14473,9 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: |-
                     Whether or not to enable virtio multi-queue for block devices.
-                    Defaults to false.
+                    Explicit false configures a single request queue.
+                    When omitted, the queue count depends on device and IOThread
+                    configuration, falling back to hypervisor defaults when unspecified.
                   type: boolean
                 clientPassthrough:
                   description: To configure and access client devices such as redirecting
@@ -19085,7 +19089,9 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: |-
                     Whether or not to enable virtio multi-queue for block devices.
-                    Defaults to false.
+                    Explicit false configures a single request queue.
+                    When omitted, the queue count depends on device and IOThread
+                    configuration, falling back to hypervisor defaults when unspecified.
                   type: boolean
                 clientPassthrough:
                   description: To configure and access client devices such as redirecting
@@ -21679,7 +21685,9 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: |-
                             Whether or not to enable virtio multi-queue for block devices.
-                            Defaults to false.
+                            Explicit false configures a single request queue.
+                            When omitted, the queue count depends on device and IOThread
+                            configuration, falling back to hypervisor defaults when unspecified.
                           type: boolean
                         clientPassthrough:
                           description: To configure and access client devices such
@@ -27110,7 +27118,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 blockMultiQueue:
                                   description: |-
                                     Whether or not to enable virtio multi-queue for block devices.
-                                    Defaults to false.
+                                    Explicit false configures a single request queue.
+                                    When omitted, the queue count depends on device and IOThread
+                                    configuration, falling back to hypervisor defaults when unspecified.
                                   type: boolean
                                 clientPassthrough:
                                   description: To configure and access client devices
@@ -33076,7 +33086,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     blockMultiQueue:
                                       description: |-
                                         Whether or not to enable virtio multi-queue for block devices.
-                                        Defaults to false.
+                                        Explicit false configures a single request queue.
+                                        When omitted, the queue count depends on device and IOThread
+                                        configuration, falling back to hypervisor defaults when unspecified.
                                       type: boolean
                                     clientPassthrough:
                                       description: To configure and access client

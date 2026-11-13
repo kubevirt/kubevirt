@@ -153,6 +153,12 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
+		// Volume conversion may replace the driver. Apply the explicit opt-out
+		// afterwards so every virtio-blk disk gets a single request queue.
+		if multiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue; multiQueue != nil && !*multiQueue && newDisk.Target.Bus == v1.DiskBusVirtio {
+			newDisk.Driver.Queues = new(uint(1))
+		}
+
 		if err := convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, d.architecture, d.detectOptimalBlockIO); err != nil {
 			return err
 		}

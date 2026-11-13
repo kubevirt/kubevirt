@@ -21272,7 +21272,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"blockMultiQueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
+							Description: "Whether or not to enable virtio multi-queue for block devices. Explicit false configures a single request queue. When omitted, the queue count depends on device and IOThread configuration, falling back to hypervisor defaults when unspecified.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
