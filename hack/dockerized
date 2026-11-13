@@ -12,16 +12,16 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2610291047-177548615f"
-kubevirt_cs10_builder_version="2610291053-177548615f"
+kubevirt_builder_version="2611121716-5d13866833"
+kubevirt_cs10_builder_version="2611121716-5d13866833"
 
 # CentOS Stream 9 builder images (default)
-default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
-kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
+default_kubevirt_builder_image="quay.io/ffossemo/builder:${kubevirt_builder_version}"
+kubevirt_cross_compile_image="quay.io/ffossemo/builder-cross:${kubevirt_builder_version}"
 
 # CentOS Stream 10 builder images
-default_kubevirt_cs10_builder_image="quay.io/kubevirt/builder-cs10:${kubevirt_cs10_builder_version}"
-kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cs10-cross:${kubevirt_cs10_builder_version}"
+default_kubevirt_cs10_builder_image="quay.io/ffossemo/builder-cs10:${kubevirt_cs10_builder_version}"
+kubevirt_cs10_cross_compile_image="quay.io/ffossemo/builder-cs10-cross:${kubevirt_cs10_builder_version}"
 
 # Select builder based on KUBEVIRT_CENTOS_STREAM_VERSION
 # If KUBEVIRT_BUILDER_IMAGE is already set, use it directly (user override)
