@@ -217,6 +217,12 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 		info.ports = []k8sv1.ServicePort{{Name: c.portName, Protocol: c.protocol, Port: c.port, TargetPort: c.targetPort}}
 	}
 
+	if c.strTargetPort != "" {
+		for i := range info.ports {
+			info.ports[i].TargetPort = c.targetPort
+		}
+	}
+
 	if len(info.ports) == 0 {
 		return nil, fmt.Errorf("couldn't find port via --port flag or introspection")
 	}
