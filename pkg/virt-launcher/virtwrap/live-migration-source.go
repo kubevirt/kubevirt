@@ -1060,8 +1060,8 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 	}
 
 	compressionInfo := ""
-	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
-		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
+	if info.MemProcessed > 0 && info.MemNormalBytes > info.MemProcessed {
+		ratio := float64(info.MemNormalBytes) / float64(info.MemProcessed)
 		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
 	}
 
