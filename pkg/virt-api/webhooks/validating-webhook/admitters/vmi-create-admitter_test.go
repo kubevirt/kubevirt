@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
@@ -1549,6 +1548,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {
+			withDisabledFeatureGates(featuregate.HostDevicesGate)
+
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
 				{
@@ -1564,7 +1565,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
 			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
-			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1599,8 +1599,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
-			defer disableFeatureGates()
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesWithDRAGate)
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
 				{
@@ -1636,7 +1635,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -1659,7 +1657,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept permitted host devices", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -4367,10 +4364,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a DRA-GPU when the feature-gate is NOT enabled", func() {
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.GPUsWithDRAGate}
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			defer disableFeatureGates()
+			withDisabledFeatureGates(featuregate.GPUsWithDRAGate)
 
 			vmi := libvmi.New()
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
