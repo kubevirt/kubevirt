@@ -21,6 +21,7 @@ package vmi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -33,6 +34,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
+	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -1059,6 +1061,82 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
 			Expect(patch.IsEmpty()).To(BeFalse(), "Patch should not be empty")
+		})
+	})
+
+	Context("prepareVMIPatch per-key map operations", func() {
+		It("should use per-key add for activePods during migration", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA"}
+			newVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA", "uid-target": "nodeB"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("add"))
+			Expect(patches[0].Path).To(Equal("/status/activePods/uid-target"))
+		})
+
+		It("should apply an activePods add despite an unrelated concurrent map change", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA"}
+			newVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA", "uid-target": "nodeB"}
+
+			concurrentVMI := oldVMI.DeepCopy()
+			concurrentVMI.Status.ActivePods["uid-source"] = "nodeA-concurrent"
+
+			patchBytes, err := prepareVMIPatch(oldVMI, newVMI).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+
+			currentBytes, err := json.Marshal(concurrentVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			decodedPatch, err := jsonpatch.DecodePatch(patchBytes)
+			Expect(err).ToNot(HaveOccurred())
+
+			patchedBytes, err := decodedPatch.Apply(currentBytes)
+			Expect(err).ToNot(HaveOccurred())
+
+			patchedVMI := &virtv1.VirtualMachineInstance{}
+			Expect(json.Unmarshal(patchedBytes, patchedVMI)).To(Succeed())
+			Expect(patchedVMI.Status.ActivePods).To(Equal(map[types.UID]string{
+				"uid-source": "nodeA-concurrent",
+				"uid-target": "nodeB",
+			}))
+		})
+
+		It("should use per-key remove for activePods after migration", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Status.ActivePods = map[types.UID]string{"uid-source": "nodeA", "uid-target": "nodeB"}
+			newVMI.Status.ActivePods = map[types.UID]string{"uid-target": "nodeB"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("remove"))
+			Expect(patches[0].Path).To(Equal("/status/activePods/uid-source"))
+		})
+
+		It("should use per-key operations for labels", func() {
+			oldVMI := newPendingVirtualMachine("testvmi")
+			newVMI := oldVMI.DeepCopy()
+			oldVMI.Labels = map[string]string{"existing": "val"}
+			newVMI.Labels = map[string]string{"existing": "val", "kubevirt.io/nodeName": "node1"}
+
+			p := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(p.IsEmpty()).To(BeFalse())
+			patches := p.GetPatches()
+			Expect(patches).To(HaveLen(1))
+			Expect(patches[0].Op).To(Equal("add"))
+			Expect(patches[0].Path).To(Equal("/metadata/labels/kubevirt.io~1nodeName"))
 		})
 	})
 
