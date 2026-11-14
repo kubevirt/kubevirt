@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -497,6 +498,78 @@ var _ = Describe("CPU Domain Configurator", func() {
 					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 4, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 5, Enabled: "no", Hotpluggable: "yes"},
+				}},
+			}}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should keep enabled vCPUs non-hotpluggable when the TSC frequency is pinned", func() {
+			vmi := libvmi.New(
+				libvmi.WithCPUCount(1, 1, 2),
+				libvmi.WithMaxSockets(4),
+				libvmi.WithCPUFeature("invtsc", "require"),
+				libvmistatus.WithStatus(libvmistatus.New(withTSCFrequency(1234567890))),
+			)
+			var domain api.Domain
+
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{Spec: api.DomainSpec{
+				CPU: api.CPU{
+					Mode:     v1.CPUModeHostModel,
+					Features: []api.CPUFeature{{Name: "invtsc", Policy: "require"}},
+					Topology: &api.CPUTopology{Sockets: 4, Cores: 1, Threads: 1},
+				},
+				VCPU: &api.VCPU{Placement: "static", CPUs: 4},
+				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
+					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
+				}},
+			}}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should keep all boot sockets in the initial CPU set when the TSC frequency is pinned", func() {
+			vmi := libvmi.New(
+				libvmi.WithCPUCount(2, 1, 2),
+				libvmi.WithMaxSockets(4),
+				libvmi.WithCPUFeature("invtsc", "require"),
+				libvmistatus.WithStatus(libvmistatus.New(withTSCFrequency(1234567890))),
+			)
+			var domain api.Domain
+
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{Spec: api.DomainSpec{
+				CPU: api.CPU{
+					Mode:     v1.CPUModeHostModel,
+					Features: []api.CPUFeature{{Name: "invtsc", Policy: "require"}},
+					Topology: &api.CPUTopology{Sockets: 4, Cores: 2, Threads: 1},
+				},
+				VCPU: &api.VCPU{Placement: "static", CPUs: 8},
+				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
+					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 2, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 3, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 4, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 5, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 6, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 7, Enabled: "no", Hotpluggable: "yes"},
 				}},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
