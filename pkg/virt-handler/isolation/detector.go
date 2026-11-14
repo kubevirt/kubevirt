@@ -41,7 +41,11 @@ type PodIsolationDetector interface {
 	// Detect takes a vm, looks up a socket based the VM and detects pid, cgroups and namespaces of the owner of that socket.
 	// It returns an IsolationResult containing all isolation information
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
+}
 
+type SocketPodIsolationDetector interface {
+	// Detect takes a socket and detects pid, cgroups and namespaces of the owner of that socket.
+	// It returns an IsolationResult containing all isolation information
 	DetectForSocket(socket string) (IsolationResult, error)
 }
 
@@ -52,7 +56,7 @@ type socketBasedIsolationDetector struct {
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
 // It returns a PodIsolationDetector which detects pid, cgroups and namespaces of the socket owner.
-func NewSocketBasedIsolationDetector() PodIsolationDetector {
+func NewSocketBasedIsolationDetector() *socketBasedIsolationDetector {
 	return &socketBasedIsolationDetector{}
 }
 

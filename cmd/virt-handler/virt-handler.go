@@ -553,6 +553,7 @@ func (app *virtHandlerApp) Run() {
 		recorder,
 		vmiSourceInformer.GetStore(),
 		app.VirtShareDir,
+		launcherClientsManager,
 	)
 
 	go app.servercertmanager.Start()

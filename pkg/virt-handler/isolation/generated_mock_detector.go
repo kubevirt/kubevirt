@@ -55,8 +55,32 @@ func (mr *MockPodIsolationDetectorMockRecorder) Detect(vm any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Detect", reflect.TypeOf((*MockPodIsolationDetector)(nil).Detect), vm)
 }
 
+// MockSocketPodIsolationDetector is a mock of SocketPodIsolationDetector interface.
+type MockSocketPodIsolationDetector struct {
+	ctrl     *gomock.Controller
+	recorder *MockSocketPodIsolationDetectorMockRecorder
+	isgomock struct{}
+}
+
+// MockSocketPodIsolationDetectorMockRecorder is the mock recorder for MockSocketPodIsolationDetector.
+type MockSocketPodIsolationDetectorMockRecorder struct {
+	mock *MockSocketPodIsolationDetector
+}
+
+// NewMockSocketPodIsolationDetector creates a new mock instance.
+func NewMockSocketPodIsolationDetector(ctrl *gomock.Controller) *MockSocketPodIsolationDetector {
+	mock := &MockSocketPodIsolationDetector{ctrl: ctrl}
+	mock.recorder = &MockSocketPodIsolationDetectorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSocketPodIsolationDetector) EXPECT() *MockSocketPodIsolationDetectorMockRecorder {
+	return m.recorder
+}
+
 // DetectForSocket mocks base method.
-func (m *MockPodIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
+func (m *MockSocketPodIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DetectForSocket", socket)
 	ret0, _ := ret[0].(IsolationResult)
@@ -65,7 +89,7 @@ func (m *MockPodIsolationDetector) DetectForSocket(socket string) (IsolationResu
 }
 
 // DetectForSocket indicates an expected call of DetectForSocket.
-func (mr *MockPodIsolationDetectorMockRecorder) DetectForSocket(socket any) *gomock.Call {
+func (mr *MockSocketPodIsolationDetectorMockRecorder) DetectForSocket(socket any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockPodIsolationDetector)(nil).DetectForSocket), socket)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockSocketPodIsolationDetector)(nil).DetectForSocket), socket)
 }

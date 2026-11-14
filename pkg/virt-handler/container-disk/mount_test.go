@@ -80,15 +80,15 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
-	detectsSocket := func(detector *isolation.MockPodIsolationDetector) {
+	detectsSocket := func(detector *isolation.MockSocketPodIsolationDetector) {
 		detector.EXPECT().DetectForSocket("someting").Return(nil, nil)
 	}
 
-	noSocketDetected := func(detector *isolation.MockPodIsolationDetector) {
+	noSocketDetected := func(detector *isolation.MockSocketPodIsolationDetector) {
 		detector.EXPECT().DetectForSocket("someting").Return(nil, fmt.Errorf("Not Found"))
 	}
 
-	detectForSocketNotCalled := func(detector *isolation.MockPodIsolationDetector) {
+	detectForSocketNotCalled := func(detector *isolation.MockSocketPodIsolationDetector) {
 		detector.EXPECT().DetectForSocket(gomock.Any()).Times(0)
 	}
 
@@ -104,13 +104,13 @@ var _ = Describe("ContainerDisk", func() {
 
 		DescribeTable("should", func(
 			pathGetter containerdisk.SocketPathGetter,
-			mockSetup func(*isolation.MockPodIsolationDetector),
+			mockSetup func(*isolation.MockSocketPodIsolationDetector),
 			addedDelay time.Duration,
 			errorMatcher gomega_types.GomegaMatcher,
 			shouldBeReady bool,
 		) {
 			ctrl := gomock.NewController(GinkgoT())
-			mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+			mockIsolationDetector := isolation.NewMockSocketPodIsolationDetector(ctrl)
 			m.podIsolationDetector = mockIsolationDetector
 			mockSetup(mockIsolationDetector)
 
@@ -180,13 +180,13 @@ var _ = Describe("ContainerDisk", func() {
 
 			DescribeTable("should", func(
 				pathGetter containerdisk.KernelBootSocketPathGetter,
-				mockSetup func(*isolation.MockPodIsolationDetector),
+				mockSetup func(*isolation.MockSocketPodIsolationDetector),
 				addedDelay time.Duration,
 				errorMatcher gomega_types.GomegaMatcher,
 				shouldBeReady bool,
 			) {
 				ctrl := gomock.NewController(GinkgoT())
-				mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+				mockIsolationDetector := isolation.NewMockSocketPodIsolationDetector(ctrl)
 				m.podIsolationDetector = mockIsolationDetector
 				mockSetup(mockIsolationDetector)
 
