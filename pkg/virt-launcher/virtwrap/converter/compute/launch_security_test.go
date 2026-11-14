@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/launchsecurity"
 )
 
 const QGSTestSocketPath = "/test/qgs.socket"
@@ -37,7 +38,7 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		configurator := compute.NewLaunchSecurityDomainConfigurator(architecture)
+		configurator := compute.NewLaunchSecurityDomainConfigurator(launchsecurity.NewConfigurator(architecture))
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
 	},
@@ -50,7 +51,7 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		vmi := libvmi.New(libvmi.WithSEV(true, true))
 		var domain api.Domain
 
-		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+		configurator := compute.NewLaunchSecurityDomainConfigurator(launchsecurity.NewConfigurator("amd64"))
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
@@ -72,7 +73,7 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		vmi := libvmi.New(withTDX())
 		var domain api.Domain
 
-		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+		configurator := compute.NewLaunchSecurityDomainConfigurator(launchsecurity.NewConfigurator("amd64"))
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
@@ -92,7 +93,7 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		vmi := libvmi.New(withTDX())
 		var domain api.Domain
 
-		configurator := compute.NewLaunchSecurityDomainConfigurator("amd64")
+		configurator := compute.NewLaunchSecurityDomainConfigurator(launchsecurity.NewConfigurator("amd64"))
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain.Spec.LaunchSecurity).NotTo(BeNil())
