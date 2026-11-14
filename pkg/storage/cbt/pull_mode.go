@@ -29,10 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -40,24 +42,28 @@ import (
 const (
 	failedExportCreate             = "failed to create backup export: %w"
 	exportExistsWithDifferentOwner = "VMExport %s already exists but is not owned by backup %s"
-	defaultPullModeDurationTTL     = 2 * time.Hour
-	backupTTLExpiredMsg            = "pull mode backup TTL has expired"
+	defaultBackupTTL               = 2 * time.Hour
+	backupTTLExpiredMsg            = "backup TTL has expired"
 )
 
 func isPullMode(backup *backupv1.VirtualMachineBackup) bool {
 	return backup.Spec.Mode != nil && *backup.Spec.Mode == backupv1.PullMode
 }
 
-func getPullBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	ttl := &metav1.Duration{Duration: defaultPullModeDurationTTL}
+// getBackupTTL returns the expiration duration for a backup. Both pull and push
+// mode backups share a 2h default when Spec.TTLDuration is omitted.
+func getBackupTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
+	ttl := &metav1.Duration{Duration: defaultBackupTTL}
 	if backup.Spec.TTLDuration != nil {
 		ttl = backup.Spec.TTLDuration
 	}
 	return ttl
 }
 
+// getPullBackupRemainingTTL returns the time left until the backup TTL deadline.
+// Used for pull-mode export TTL and for scheduling the next reconcile at expiry.
 func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Duration {
-	totalTTL := getPullBackupTTL(backup)
+	totalTTL := getBackupTTL(backup)
 	creationTime := backup.CreationTimestamp.Time
 
 	if creationTime.IsZero() {
@@ -74,13 +80,37 @@ func getPullBackupRemainingTTL(backup *backupv1.VirtualMachineBackup) *metav1.Du
 	return &metav1.Duration{Duration: remaining}
 }
 
-func isPullBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
-	ttl := getPullBackupTTL(backup)
+// enqueueBackupAfterRemainingTTL schedules a reconcile at the backup TTL
+// deadline so expiry is handled without waiting for an unrelated event.
+func (ctrl *VMBackupController) enqueueBackupAfterRemainingTTL(backup *backupv1.VirtualMachineBackup) {
+	if backup.CreationTimestamp.Time.IsZero() {
+		return
+	}
+	remaining := getPullBackupRemainingTTL(backup).Duration
+	if remaining <= 0 {
+		return
+	}
+	key, err := cache.MetaNamespaceKeyFunc(backup)
+	if err != nil {
+		log.Log.Object(backup).Reason(err).Error("failed to get key for TTL requeue")
+		return
+	}
+	ctrl.backupQueue.AddAfter(key, remaining)
+}
+
+// isBackupTTLExpired reports whether a backup is past its expiration for either
+// pull or push mode. A zero CreationTimestamp is treated as not expired so it
+// matches getPullBackupRemainingTTL (full TTL remaining until creation is known).
+func isBackupTTLExpired(backup *backupv1.VirtualMachineBackup) bool {
+	if backup.CreationTimestamp.Time.IsZero() {
+		return false
+	}
+	ttl := getBackupTTL(backup)
 	return time.Since(backup.CreationTimestamp.Time) >= ttl.Duration
 }
 
 func pullBackupTTLDeadline(backup *backupv1.VirtualMachineBackup) time.Time {
-	return backup.CreationTimestamp.Time.Add(getPullBackupTTL(backup).Duration)
+	return backup.CreationTimestamp.Time.Add(getBackupTTL(backup).Duration)
 }
 
 // shouldFinalizePullBackupOnDelete reports whether deleting a pull-mode backup
@@ -98,10 +128,6 @@ func shouldFinalizePullBackupOnDelete(backup *backupv1.VirtualMachineBackup) boo
 }
 
 func (ctrl *VMBackupController) handlePullMode(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
-	if isPullBackupTTLExpired(backup) {
-		return ctrl.handlePullModeTTLExpiry(backup, vmi)
-	}
-
 	vmExport, err := ctrl.getOrCreateBackupExport(backup)
 	if err != nil || vmExport == nil {
 		return err
@@ -221,7 +247,7 @@ func toBackupLink(link *exportv1.VirtualMachineExportLink) *backupv1.BackupLink 
 	return bl
 }
 
-func (ctrl *VMBackupController) handlePullModeTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
+func (ctrl *VMBackupController) handleBackupTTLExpiry(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	if hasVMIBackupStatus(vmi) && !vmi.Status.ChangedBlockTracking.BackupStatus.Completed {
 		if err := ctrl.handleAbort(backup, vmi, backupv1.BackupAbortCancel); err != nil {
 			return err
