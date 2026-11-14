@@ -1,13 +1,95 @@
+ARG GIMME_GO_VERSION=1.26.10
+ARG ENVTEST_K8S_VERSION=1.37.0
+ARG SETUP_ENVTEST_VERSION=v0.24.1
+
+# Go tools are cross-compiled on the native build platform: running the Go
+# toolchain under QEMU user emulation intermittently hangs foreign-arch builds.
+FROM --platform=linux/${BUILDARCH} quay.io/centos/centos:stream9 AS gotools
+
+ARG GIMME_GO_VERSION
+ARG ENVTEST_K8S_VERSION
+ARG SETUP_ENVTEST_VERSION
+ARG TARGETARCH
+
+ENV GIMME_GO_VERSION=${GIMME_GO_VERSION} GOPATH="/go" GO111MODULE="on"
+
+RUN dnf install -y git && dnf clean -y all
+
+# reference to master is for an external repo and can't yet be changed
+RUN mkdir -p /gimme && curl -sL \
+    https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | \
+    HOME=/gimme bash >> /etc/profile.d/gimme.sh
+
+# Without GOBIN, go install puts native binaries in ${GOPATH}/bin and
+# cross-compiled ones in ${GOPATH}/bin/linux_${TARGETARCH}
+RUN set -x && \
+    test -n "${TARGETARCH}" && \
+    source /etc/profile.d/gimme.sh && \
+    export GOOS=linux GOARCH="${TARGETARCH}" CGO_ENABLED=0 && \
+    go install -v golang.org/x/tools/cmd/goimports@d5fe738 && \
+    go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
+    go install -v k8s.io/code-generator/cmd/conversion-gen@v0.32.5  && \
+    go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.32.5 && \
+    go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.32.5  && \
+    go install -v k8s.io/kube-openapi/cmd/openapi-gen@v0.0.0-20260330154417-16be699c7b31 && \
+    go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
+    go install -v k8s.io/code-generator/cmd/client-gen@v0.32.5 && \
+    go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
+    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 && \
+    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@a4b5158 && \
+    go clean -cache -modcache
+
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    export GOOS=linux GOARCH="${TARGETARCH}" CGO_ENABLED=0 && \
+    go install -v github.com/mattn/goveralls@21feffdfd && \
+    go install -v go.uber.org/mock/mockgen@v0.6.0 && \
+    go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
+    go install -v mvdan.cc/gofumpt@v0.8.0 && \
+    go install -v sigs.k8s.io/controller-runtime/tools/setup-envtest@${SETUP_ENVTEST_VERSION} && \
+    go clean -cache -modcache
+
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    export GOOS=linux GOARCH="${TARGETARCH}" CGO_ENABLED=0 && \
+    git clone https://github.com/kubernetes/test-infra.git && \
+    cd /test-infra && \
+    git checkout f2693aba912dd40c974304caca999d45ee8dce33 && \
+    cd /test-infra/robots/pr-creator && \
+    go install && \
+    cd /test-infra/robots/issue-creator && \
+    go install && \
+    cd /test-infra/robots/pr-labeler && \
+    go install && \
+    go clean -cache -modcache -r && \
+    rm -rf /test-infra
+
+RUN mkdir -p /gotools && \
+    if [ -d "${GOPATH}/bin/linux_${TARGETARCH}" ]; then \
+        mv "${GOPATH}/bin/linux_${TARGETARCH}"/* /gotools/; \
+    else \
+        mv "${GOPATH}/bin"/* /gotools/; \
+    fi
+
+# setup-envtest only downloads prebuilt binaries, so a native build of it can
+# fetch the ones for the target architecture
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    GOBIN=/tmp/envtest go install sigs.k8s.io/controller-runtime/tools/setup-envtest@${SETUP_ENVTEST_VERSION} && \
+    ENVTEST_ASSETS=$(/tmp/envtest/setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir /usr/local/kubebuilder --arch "${TARGETARCH}" -p path) && \
+    ln -sfn "${ENVTEST_ASSETS}" /usr/local/kubebuilder/bin && \
+    go clean -cache -modcache && \
+    rm -rf /tmp/envtest
+
 FROM quay.io/centos/centos:stream9
 
 ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
-ARG ENVTEST_K8S_VERSION=1.37.0
-ARG SETUP_ENVTEST_VERSION=v0.24.1
+ARG GIMME_GO_VERSION
 
 ENV BAZEL_VERSION=9.3.1
-ENV GIMME_GO_VERSION=1.26.10
+ENV GIMME_GO_VERSION=${GIMME_GO_VERSION}
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v2.12.2
@@ -72,58 +154,17 @@ RUN mkdir -p /gimme && curl -sL \
 
 ENV GOPATH="/go" GOBIN="/usr/bin" GO111MODULE="on"
 
-# Install persistent go packages
-RUN set -x && \
-    mkdir -p /go && \
-    source /etc/profile.d/gimme.sh && \
-    go install -v golang.org/x/tools/cmd/goimports@d5fe738 && \
-    go install -v mvdan.cc/sh/v3/cmd/shfmt@v3.1.1 && \
-    go install -v k8s.io/code-generator/cmd/conversion-gen@v0.32.5  && \
-    go install -v k8s.io/code-generator/cmd/deepcopy-gen@v0.32.5 && \
-    go install -v k8s.io/code-generator/cmd/defaulter-gen@v0.32.5  && \
-    go install -v k8s.io/kube-openapi/cmd/openapi-gen@v0.0.0-20260330154417-16be699c7b31 && \
-    go install -v github.com/golang/protobuf/protoc-gen-go@1643683 && \
-    go install -v k8s.io/code-generator/cmd/client-gen@v0.32.5 && \
-    go install -v github.com/securego/gosec/v2/cmd/gosec@0ce48a5 && \
-    go install -v sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1 && \
-    go install -v github.com/kubevirt/monitoring/monitoringlinter/cmd/monitoringlinter@a4b5158 && \
-    go clean -cache -modcache
+RUN mkdir -p /go
+
+COPY --from=gotools /gotools/ /usr/bin/
 
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
-    go install -v github.com/mattn/goveralls@21feffdfd && \
-    go install -v go.uber.org/mock/mockgen@v0.6.0 && \
-    go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
-    go clean -cache -modcache
-
-RUN set -x && \
-    source /etc/profile.d/gimme.sh && \
-    git clone https://github.com/kubernetes/test-infra.git && \
-    cd /test-infra && \
-    git checkout f2693aba912dd40c974304caca999d45ee8dce33 && \
-    cd /test-infra/robots/pr-creator && \
-    go install && \
-    cd /test-infra/robots/issue-creator && \
-    go install && \
-    cd /test-infra/robots/pr-labeler && \
-    go install && \
-    go clean -cache -modcache -r && \
-    rm -rf /test-infra && \
-    rm -rf /go && mkdir /go
-
-RUN set -x && \
-    source /etc/profile.d/gimme.sh && \
-    go install -v mvdan.cc/gofumpt@v0.8.0 && \
     curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
 ENV KUBEBUILDER_ASSETS=/usr/local/kubebuilder/bin
 
-RUN set -x && \
-    source /etc/profile.d/gimme.sh && \
-    go install sigs.k8s.io/controller-runtime/tools/setup-envtest@${SETUP_ENVTEST_VERSION} && \
-    ENVTEST_ASSETS=$(setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir /usr/local/kubebuilder -p path) && \
-    ln -sfn "${ENVTEST_ASSETS}" "${KUBEBUILDER_ASSETS}" && \
-    go clean -cache -modcache
+COPY --from=gotools /usr/local/kubebuilder/ /usr/local/kubebuilder/
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 
