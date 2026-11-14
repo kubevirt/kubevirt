@@ -20,8 +20,12 @@
 package nmstate_test
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	vishnetlink "github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 
@@ -38,6 +42,23 @@ const (
 	ip6Addr0   = "2001::1"
 	ip6Prefix0 = 64
 )
+
+type addrListTestAdapter struct {
+	*testAdapter
+	addrList func(vishnetlink.Link, int) ([]vishnetlink.Addr, error)
+	addrDel  func(vishnetlink.Link, *vishnetlink.Addr) error
+}
+
+func (a *addrListTestAdapter) AddrList(link vishnetlink.Link, family int) ([]vishnetlink.Addr, error) {
+	return a.addrList(link, family)
+}
+
+func (a *addrListTestAdapter) AddrDel(link vishnetlink.Link, addr *vishnetlink.Addr) error {
+	if a.addrDel != nil {
+		return a.addrDel(link, addr)
+	}
+	return a.testAdapter.AddrDel(link, addr)
+}
 
 // The test strategy is to setup and read the state of the network configuration through the nmstate API.
 // Then, assert that the returned (nmstate) status is indeed as expected.
@@ -123,6 +144,87 @@ var _ = Describe("NMState Spec interfaces", func() {
 			},
 		),
 	)
+
+	Context("when listing IP addresses", func() {
+		newSpec := func() *nmstate.Spec {
+			return &nmstate.Spec{Interfaces: []nmstate.Interface{{
+				Name:     dummyName,
+				TypeName: nmstate.TypeDummy,
+			}}}
+		}
+
+		DescribeTable("retries interrupted dumps and discards partial results", func(interruptedErr error) {
+			addrListCalls := 0
+			addrDelCalls := 0
+			adapter := &addrListTestAdapter{
+				testAdapter: newTestAdapter(),
+				addrList: func(vishnetlink.Link, int) ([]vishnetlink.Addr, error) {
+					addrListCalls++
+					if addrListCalls == 1 {
+						return []vishnetlink.Addr{{}}, interruptedErr
+					}
+					return nil, nil
+				},
+				addrDel: func(vishnetlink.Link, *vishnetlink.Addr) error {
+					addrDelCalls++
+					return nil
+				},
+			}
+			nmState = nmstate.New(nmstate.WithAdapter(adapter))
+
+			Expect(nmState.Apply(newSpec())).To(Succeed())
+			Expect(addrListCalls).To(Equal(2))
+			Expect(addrDelCalls).To(BeZero())
+		},
+			Entry("when the dump is interrupted", vishnetlink.ErrDumpInterrupted),
+			Entry("when the system call is interrupted", unix.EINTR),
+		)
+
+		DescribeTable("stops after a bounded number of interrupted dumps", func(interruptedErr error) {
+			addrListCalls := 0
+			addrDelCalls := 0
+			adapter := &addrListTestAdapter{
+				testAdapter: newTestAdapter(),
+				addrList: func(vishnetlink.Link, int) ([]vishnetlink.Addr, error) {
+					addrListCalls++
+					return []vishnetlink.Addr{{}}, interruptedErr
+				},
+				addrDel: func(vishnetlink.Link, *vishnetlink.Addr) error {
+					addrDelCalls++
+					return nil
+				},
+			}
+			nmState = nmstate.New(nmstate.WithAdapter(adapter))
+
+			err := nmState.Apply(newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, interruptedErr)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("failed to list IP addresses on link " + dummyName))
+			Expect(addrListCalls).To(Equal(5))
+			Expect(addrDelCalls).To(BeZero())
+		},
+			Entry("when the dump is interrupted", vishnetlink.ErrDumpInterrupted),
+			Entry("when the system call is interrupted", unix.EINTR),
+		)
+
+		It("does not retry a non-interruption error", func() {
+			addrListErr := errors.New("address list failed")
+			addrListCalls := 0
+			adapter := &addrListTestAdapter{
+				testAdapter: newTestAdapter(),
+				addrList: func(vishnetlink.Link, int) ([]vishnetlink.Addr, error) {
+					addrListCalls++
+					return nil, addrListErr
+				},
+			}
+			nmState = nmstate.New(nmstate.WithAdapter(adapter))
+
+			err := nmState.Apply(newSpec())
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, addrListErr)).To(BeTrue())
+			Expect(addrListCalls).To(Equal(1))
+		})
+	})
 
 	Context("given an existing interface", func() {
 		BeforeEach(func() {
