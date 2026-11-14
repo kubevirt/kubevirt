@@ -2,7 +2,9 @@ package framework
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -85,8 +87,11 @@ type Framework struct {
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
 
-	podSimulator *PodSimulator
-	kvConfig     *v1.KubeVirtConfiguration
+	podSimulator    *PodSimulator
+	kvConfig        *v1.KubeVirtConfiguration
+	webhooksEnabled bool
+	webhookServer   *http.Server
+	webhookDone     chan struct{}
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -106,10 +111,14 @@ func New(opts ...Option) *Framework {
 			CRDs:               crds,
 			UseExistingCluster: new(bool),
 		},
-		kvConfig: &v1.KubeVirtConfiguration{},
+		kvConfig:        &v1.KubeVirtConfiguration{},
+		webhooksEnabled: true,
 	}
 	for _, opt := range opts {
 		opt(f)
+	}
+	if f.webhooksEnabled {
+		f.configureWebhooks()
 	}
 	return f
 }
@@ -144,6 +153,11 @@ func (f *Framework) Start(ctx context.Context) {
 	}
 	Expect(cache.WaitForCacheSync(f.ctx.Done(), syncs...)).To(BeTrue(), "failed to sync informer caches")
 
+	if f.webhooksEnabled {
+		f.startWebhookServer(clusterConfig, factory)
+		f.waitForWebhookAdmission()
+	}
+
 	f.wg.Go(func() { f.vmiController.Run(controllerWorkers, f.ctx.Done()) })
 	f.wg.Go(func() { f.vmController.Run(controllerWorkers, f.ctx.Done()) })
 	f.podSimulator.Start(f.ctx)
@@ -158,9 +172,14 @@ func (f *Framework) Stop() {
 		f.podSimulator.Stop()
 	}
 	f.wg.Wait()
-	if f.env != nil {
-		Expect(f.env.Stop()).To(Succeed())
+	var webhookErr, envErr error
+	if f.webhookServer != nil {
+		webhookErr = f.stopWebhookServer()
 	}
+	if f.env != nil {
+		envErr = f.env.Stop()
+	}
+	Expect(stderrors.Join(webhookErr, envErr)).NotTo(HaveOccurred(), "failed to stop integration framework")
 }
 
 func (f *Framework) VirtClient() kubecli.KubevirtClient {
