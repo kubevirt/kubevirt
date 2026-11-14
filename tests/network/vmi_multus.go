@@ -106,19 +106,15 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	linuxBridgeNetwork := v1.Network{
 		Name: linuxBridgeIfaceName,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: linuxBridgeVlan100Network,
-			},
+		Multus: &v1.MultusNetwork{
+			NetworkName: linuxBridgeVlan100Network,
 		},
 	}
 
 	linuxBridgeWithIPAMNetwork := v1.Network{
 		Name: linuxBridgeWithIPAMIfaceName,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: linuxBridgeVlan100WithIPAMNetwork,
-			},
+		Multus: &v1.MultusNetwork{
+			NetworkName: linuxBridgeVlan100WithIPAMNetwork,
 		},
 	}
 
@@ -221,11 +217,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithInterface(libvmi.NewInterface("ptp", libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(&v1.Network{
 						Name: "ptp",
-						NetworkSource: v1.NetworkSource{
-							Multus: &v1.MultusNetwork{
-								NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
-								Default:     true,
-							},
+						Multus: &v1.MultusNetwork{
+							NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
+							Default:     true,
 						},
 					}),
 				)
@@ -723,7 +717,7 @@ func indexInterfaceStatusByName(vmi *v1.VirtualMachineInstance) map[string]v1.Vi
 	return interfaceStatusByName
 }
 
-func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
+func createBridgeNetworkAttachmentDefinition(namespace, networkName, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool) error {
 	netAttachDef := libnet.NewBridgeNetAttachDef(
 		networkName,
 		bridgeName,

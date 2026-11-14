@@ -150,7 +150,7 @@ func ApplyRawManifest(object unstructured.Unstructured) error {
 	}
 	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
 	if err != nil {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n, err: %#v", object, err))
+		fmt.Printf("ERROR: Can not apply %s\n, err: %#v", object, err)
 		return err
 	}
 	status := unstructured.Unstructured{}

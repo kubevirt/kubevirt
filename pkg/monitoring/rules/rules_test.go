@@ -66,7 +66,8 @@ var _ = Describe("Rules Validation", func() {
 			testutil.ValidateAlertRunbookURLAnnotation,
 			testutil.ValidateAlertHealthImpactLabel,
 			testutil.ValidateAlertPartOfAndComponentLabels,
-			validateAlertNamespaceLabel)
+			validateAlertNamespaceLabel,
+		)
 
 		problems := linter.LintAlerts(rules.ListAlerts())
 		Expect(problems).To(BeEmpty())

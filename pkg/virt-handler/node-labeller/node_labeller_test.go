@@ -80,10 +80,8 @@ var _ = Describe("Node-labeller ", func() {
 		fakeNodeStore = fakeNodeInformer.GetStore()
 		fakeNodeStore.Add(node)
 		initNodeLabeller(&v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
@@ -231,10 +229,8 @@ var _ = Describe("Node-labeller ", func() {
 
 	It("should add native vm-arch label when feature gate is enabled", func() {
 		initNodeLabeller(&v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
@@ -270,10 +266,8 @@ var _ = Describe("Node-labeller ", func() {
 		}
 
 		initNodeLabeller(&v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
@@ -514,12 +508,10 @@ var _ = Describe("Node-labeller ", func() {
 
 func newNode(name string) *k8sv1.Node {
 	return &k8sv1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{},
-			Labels:      map[string]string{"INeedToBeHere": "trustme"},
-			Name:        name,
-		},
-		Spec: k8sv1.NodeSpec{},
+		Annotations: map[string]string{},
+		Labels:      map[string]string{"INeedToBeHere": "trustme"},
+		Name:        name,
+		Spec:        k8sv1.NodeSpec{},
 	}
 }
 

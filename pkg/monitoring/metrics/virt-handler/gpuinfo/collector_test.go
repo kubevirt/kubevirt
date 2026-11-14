@@ -24,15 +24,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
 func newVMI(namespace, name, hostname string) *v1.VirtualMachineInstance {
 	return &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
-		Spec:       v1.VirtualMachineInstanceSpec{Hostname: hostname},
+		Namespace: namespace, Name: name,
+		Spec: v1.VirtualMachineInstanceSpec{Hostname: hostname},
 	}
 }
 

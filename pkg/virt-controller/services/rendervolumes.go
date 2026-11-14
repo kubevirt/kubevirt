@@ -114,23 +114,20 @@ func mountPathWithPropagation(name string, path string, propagation k8sv1.MountP
 
 func emptyDirVolume(name string) k8sv1.Volume {
 	return k8sv1.Volume{
-		Name: name,
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+		Name:     name,
+		EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 	}
 }
 
 func downwardAPIDirVolume(name, path, fieldPath string) k8sv1.Volume {
 	return k8sv1.Volume{
 		Name: name,
-		VolumeSource: k8sv1.VolumeSource{
-			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
-				Items: []k8sv1.DownwardAPIVolumeFile{
-					{
-						Path: path,
-						FieldRef: &k8sv1.ObjectFieldSelector{
-							FieldPath: fieldPath,
-						},
+		DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+			Items: []k8sv1.DownwardAPIVolumeFile{
+				{
+					Path: path,
+					FieldRef: &k8sv1.ObjectFieldSelector{
+						FieldPath: fieldPath,
 					},
 				},
 			},
@@ -257,10 +254,8 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 			volumeName := volume.Name + "-udata"
 			vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 				Name: volumeName,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
-					},
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: volume.CloudInitConfigDrive.UserDataSecretRef.Name,
 				},
 			})
 			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
@@ -281,10 +276,8 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 			volumeName := volume.Name + "-ndata"
 			vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 				Name: volumeName,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
-					},
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: volume.CloudInitConfigDrive.NetworkDataSecretRef.Name,
 				},
 			})
 			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
@@ -356,10 +349,8 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 			volumeName := secretName + "-access-cred"
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
-				VolumeSource: k8sv1.VolumeSource{
-					Secret: &k8sv1.SecretVolumeSource{
-						SecretName: secretName,
-					},
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: secretName,
 				},
 			})
 			renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
@@ -381,11 +372,9 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 		volumeName := "vm-state"
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: backendStoragePVCName,
-					ReadOnly:  false,
-				},
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: backendStoragePVCName,
+				ReadOnly:  false,
 			},
 		})
 
@@ -513,10 +502,8 @@ func withHugepages() VolumeRendererOption {
 
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: "hugepages",
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{
-					Medium: k8sv1.StorageMediumHugePages,
-				},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{
+				Medium: k8sv1.StorageMediumHugePages,
 			},
 		})
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
@@ -526,10 +513,8 @@ func withHugepages() VolumeRendererOption {
 
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: "hugetblfs-dir",
-			VolumeSource: k8sv1.VolumeSource{
-				EmptyDir: &k8sv1.EmptyDirVolumeSource{
-					Medium: k8sv1.StorageMediumHugePages,
-				},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{
+				Medium: k8sv1.StorageMediumHugePages,
 			},
 		})
 		renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
@@ -617,11 +602,9 @@ func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: volume.PersistentVolumeClaim.ClaimName,
-				ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
-			},
+		PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			ClaimName: volume.PersistentVolumeClaim.ClaimName,
+			ReadOnly:  volume.PersistentVolumeClaim.ReadOnly,
 		},
 	})
 	return nil
@@ -633,10 +616,8 @@ func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache
 		return err
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
-		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
-		},
+		Name:                  volume.Name,
+		PersistentVolumeClaim: volume.Ephemeral.PersistentVolumeClaim,
 	})
 	return nil
 }
@@ -648,10 +629,8 @@ func (vr *VolumeRenderer) handleDataVolume(volume v1.Volume, pvcStore cache.Stor
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			},
+		PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+			ClaimName: claimName,
 		},
 	})
 	return nil
@@ -673,11 +652,9 @@ func (vr *VolumeRenderer) handleHostDisk(volume v1.Volume) {
 	})
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Dir(volume.HostDisk.Path),
-				Type: &hostPathType,
-			},
+		HostPath: &k8sv1.HostPathVolumeSource{
+			Path: filepath.Dir(volume.HostDisk.Path),
+			Type: &hostPathType,
 		},
 	})
 }
@@ -685,11 +662,9 @@ func (vr *VolumeRenderer) handleHostDisk(volume v1.Volume) {
 func (vr *VolumeRenderer) addSecretVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			Secret: &k8sv1.SecretVolumeSource{
-				SecretName: volume.Secret.SecretName,
-				Optional:   volume.Secret.Optional,
-			},
+		Secret: &k8sv1.SecretVolumeSource{
+			SecretName: volume.Secret.SecretName,
+			Optional:   volume.Secret.Optional,
 		},
 	})
 }
@@ -705,11 +680,9 @@ func (vr *VolumeRenderer) addSecretVolumeMount(volume v1.Volume) {
 func (vr *VolumeRenderer) addConfigMapVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			ConfigMap: &k8sv1.ConfigMapVolumeSource{
-				LocalObjectReference: volume.ConfigMap.LocalObjectReference,
-				Optional:             volume.ConfigMap.Optional,
-			},
+		ConfigMap: &k8sv1.ConfigMapVolumeSource{
+			LocalObjectReference: volume.ConfigMap.LocalObjectReference,
+			Optional:             volume.ConfigMap.Optional,
 		},
 	})
 }
@@ -725,10 +698,8 @@ func (vr *VolumeRenderer) addConfigMapVolumeMount(volume v1.Volume) {
 func (vr *VolumeRenderer) addDownwardAPIVolume(volume v1.Volume) {
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
-				Items: volume.DownwardAPI.Fields,
-			},
+		DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+			Items: volume.DownwardAPI.Fields,
 		},
 	})
 }
@@ -748,11 +719,9 @@ func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			Image: &k8sv1.ImageVolumeSource{
-				Reference:  diskContainerImage,
-				PullPolicy: volume.ContainerDisk.ImagePullPolicy,
-			},
+		Image: &k8sv1.ImageVolumeSource{
+			Reference:  diskContainerImage,
+			PullPolicy: volume.ContainerDisk.ImagePullPolicy,
 		},
 	})
 }
@@ -772,11 +741,9 @@ func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
 	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: containerdisk.KernelBootVolumeName,
-		VolumeSource: k8sv1.VolumeSource{
-			Image: &k8sv1.ImageVolumeSource{
-				Reference:  kernelBootContainerImage,
-				PullPolicy: kbc.ImagePullPolicy,
-			},
+		Image: &k8sv1.ImageVolumeSource{
+			Reference:  kernelBootContainerImage,
+			PullPolicy: kbc.ImagePullPolicy,
 		},
 	})
 }
@@ -795,10 +762,8 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 		volumeName := volume.Name + "-udata"
 		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
-				},
+			Secret: &k8sv1.SecretVolumeSource{
+				SecretName: volume.CloudInitNoCloud.UserDataSecretRef.Name,
 			},
 		})
 		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
@@ -819,10 +784,8 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 		volumeName := volume.Name + "-ndata"
 		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 			Name: volumeName,
-			VolumeSource: k8sv1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
-					SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
-				},
+			Secret: &k8sv1.SecretVolumeSource{
+				SecretName: volume.CloudInitNoCloud.NetworkDataSecretRef.Name,
 			},
 		})
 		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
@@ -844,11 +807,9 @@ func (vr *VolumeRenderer) handleDownwardMetrics(volume v1.Volume) {
 	sizeLimit := resource.MustParse("1Mi")
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
-		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{
-				Medium:    "Memory",
-				SizeLimit: &sizeLimit,
-			},
+		EmptyDir: &k8sv1.EmptyDirVolumeSource{
+			Medium:    "Memory",
+			SizeLimit: &sizeLimit,
 		},
 	})
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{

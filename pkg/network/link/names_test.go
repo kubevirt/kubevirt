@@ -36,18 +36,18 @@ var _ = Describe("Common Methods", func() {
 			Expect(virtnetlink.GenerateTapDeviceName("eth0", network)).To(Equal("tap0"))
 		},
 			Entry("When connected to pod network",
-				v1.Network{Name: "somenet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				v1.Network{Name: "somenet", Pod: &v1.PodNetwork{}},
 			),
 			Entry("When connected to default Multus network",
-				v1.Network{Name: "somenet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{Default: true}}},
+				v1.Network{Name: "somenet", Multus: &v1.MultusNetwork{Default: true}},
 			),
 		)
 		It("Should return an ordinal name when using ordinal naming scheme", func() {
-			secondaryNet := v1.Network{Name: "secondary", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}
+			secondaryNet := v1.Network{Name: "secondary", Multus: &v1.MultusNetwork{}}
 			Expect(virtnetlink.GenerateTapDeviceName("net1", secondaryNet)).To(Equal("tap1"))
 		})
 		It("Should return hashed name when using hanshed naming scheme", func() {
-			secondaryNet := v1.Network{Name: "secondary", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}
+			secondaryNet := v1.Network{Name: "secondary", Multus: &v1.MultusNetwork{}}
 			hashedIfaceName := virtnetlink.GenerateTapDeviceName("pod16477688c0e", secondaryNet)
 			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
 			Expect(hashedIfaceName).To(Equal("tap16477688c0e"))

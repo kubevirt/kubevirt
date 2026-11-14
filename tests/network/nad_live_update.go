@@ -84,7 +84,8 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
-			time.Minute)
+			time.Minute,
+		)
 	})
 
 	BeforeEach(func() {
@@ -223,7 +224,8 @@ func updateNADNameAndAffinity(vm *v1.VirtualMachine, targetNAD, targetPeer strin
 		return err
 	}
 	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(
-		context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		context.Background(), vm.Name, types.JSONPatchType, patchData, metav1.PatchOptions{},
+	)
 	return err
 }
 

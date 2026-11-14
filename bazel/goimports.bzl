@@ -31,7 +31,7 @@ def _goimports_impl(ctx):
         "@@PREFIX_BASE_NAME@@": shell.quote(paths.basename(ctx.attr.prefix)),
         "@@ARGS@@": shell.array_literal(args),
         "@@GOIMPORTS_SHORT_PATH@@": shell.quote(ctx.executable._goimports.short_path),
-        "@@GO_SHORT_PATH@@": shell.quote(go.go.short_path),
+        "@@GO_SHORT_PATH@@": shell.quote(go.sdk.go.short_path),
         "@@EXCLUDE_PATHS@@": exclude_paths_str,
         "@@EXCLUDE_FILES@@": exclude_files_str,
     }
@@ -41,7 +41,7 @@ def _goimports_impl(ctx):
         substitutions = substitutions,
         is_executable = True,
     )
-    runfiles = ctx.runfiles(files = [ctx.executable._goimports, go.go])
+    runfiles = ctx.runfiles(files = [ctx.executable._goimports, go.sdk.go])
     return [DefaultInfo(
         files = depset([out_file]),
         runfiles = runfiles,

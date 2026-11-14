@@ -40,7 +40,8 @@ var _ = Describe("Validating VMI network spec", func() {
 			libvmi.WithInterface(libvmi.NewInterface(
 				"foo",
 				libvmi.WithBridgeBinding(),
-				libvmi.WithState(value)),
+				libvmi.WithState(value),
+			),
 			),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foo", "net")),
 		)
@@ -62,8 +63,8 @@ var _ = Describe("Validating VMI network spec", func() {
 				libvmi.WithState("foo"),
 			)),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
@@ -72,7 +73,8 @@ var _ = Describe("Validating VMI network spec", func() {
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface state value is unsupported: foo",
 				Field:   "fake.domain.devices.interfaces[0].state",
-			}))
+			}),
+		)
 	})
 
 	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex types.GomegaMatcher) {
@@ -105,8 +107,8 @@ var _ = Describe("Validating VMI network spec", func() {
 				libvmi.WithState(v1.InterfaceStateAbsent),
 			)),
 			libvmi.WithNetwork(&v1.Network{
-				Name:          "foo",
-				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				Name: "foo",
+				Pod:  &v1.PodNetwork{},
 			}),
 		)
 		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
@@ -117,6 +119,7 @@ var _ = Describe("Validating VMI network spec", func() {
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
 				Field:   "fake.domain.devices.interfaces[0].state",
-			}))
+			}),
+		)
 	})
 })

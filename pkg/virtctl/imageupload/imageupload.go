@@ -543,9 +543,7 @@ func (c *command) uploadData(initToken string, file *os.File) error {
 
 func (c *command) getUploadToken() (string, error) {
 	request := &uploadcdiv1.UploadTokenRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "token-for-virtctl-",
-		},
+		GenerateName: "token-for-virtctl-",
 		Spec: uploadcdiv1.UploadTokenRequestSpec{
 			PvcName: c.name,
 		},
@@ -702,11 +700,9 @@ func (c *command) createUploadDataVolume() (*cdiv1.DataVolume, error) {
 	}
 
 	dv := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        c.name,
-			Namespace:   c.namespace,
-			Annotations: annotations,
-		},
+		Name:        c.name,
+		Namespace:   c.namespace,
+		Annotations: annotations,
 		Spec: cdiv1.DataVolumeSpec{
 			Source: &cdiv1.DataVolumeSource{
 				Upload: &cdiv1.DataVolumeSourceUpload{},
@@ -995,11 +991,9 @@ func (c *command) handleDataSource() error {
 
 func (c *command) createNewDataSource() error {
 	ds := &cdiv1.DataSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.name,
-			Namespace: c.namespace,
-			Labels:    map[string]string{},
-		},
+		Name:      c.name,
+		Namespace: c.namespace,
+		Labels:    map[string]string{},
 		Spec: cdiv1.DataSourceSpec{
 			Source: cdiv1.DataSourceSource{
 				PVC: &cdiv1.DataVolumeSourcePVC{

@@ -493,9 +493,7 @@ var getCdiHeaderSecret = func(token, name string) *corev1.Secret {
 
 	data["token"] = fmt.Sprintf("x-kubevirt-export-token:%s", token)
 	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
+		Name:       name,
 		StringData: data,
 	}
 }
@@ -850,11 +848,9 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 
 func resourceToBytesJson(resources []runtime.Object) ([]byte, error) {
 	list := corev1.List{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "List",
-			APIVersion: "v1",
-		},
-		ListMeta: metav1.ListMeta{},
+		Kind:       "List",
+		APIVersion: "v1",
+		ListMeta:   metav1.ListMeta{},
 	}
 	for _, resource := range resources {
 		list.Items = append(list.Items, runtime.RawExtension{Object: resource})

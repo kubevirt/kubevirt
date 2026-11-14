@@ -77,8 +77,8 @@ var _ = Describe("Pod Network", func() {
 				vmi = newVMIMasqueradeInterface("testnamespace", "testVmName")
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = specMAC
 				mtuVal, _ := strconv.Atoi(mtu)
-				iface := &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}}
-				tapInterface = &netlink.GenericLink{LinkAttrs: netlink.LinkAttrs{Name: tapName}}
+				iface := &netlink.GenericLink{Name: primaryPodIfaceName, MTU: mtuVal, HardwareAddr: fakeMac}
+				tapInterface = &netlink.GenericLink{Name: tapName}
 				mockNetwork.EXPECT().LinkByName(primaryPodIfaceName).Return(iface, nil)
 				specGenerator = NewTapLibvirtSpecGenerator(
 					&vmi.Spec.Domain.Devices.Interfaces[0],
@@ -124,7 +124,9 @@ func verifyTapDomain(domainIfaces []api.Interface, expectedTargetName, expectedM
 			&api.InterfaceTarget{
 				Device:  expectedTargetName,
 				Managed: "no",
-			}), "should have an unmanaged interface")
+			},
+		), "should have an unmanaged interface",
+	)
 	ExpectWithOffset(1, domainIfaces[0].MAC).To(Equal(&api.MAC{MAC: expectedMAC}), "should have the expected MAC address")
 	ExpectWithOffset(1, domainIfaces[0].MTU).To(Equal(&api.MTU{Size: expectedMTU}), "should have the expected MTU")
 }

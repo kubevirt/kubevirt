@@ -1084,8 +1084,7 @@ type virtLauncherCriticalSecurebootError struct {
 func (e *virtLauncherCriticalSecurebootError) Error() string { return e.msg }
 
 func (c *VirtualMachineController) handleSyncError(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager, syncError error) {
-	var criticalNetErr *neterrors.CriticalNetworkError
-	if goerror.As(syncError, &criticalNetErr) {
+	if _, ok := goerror.AsType[*neterrors.CriticalNetworkError](syncError); ok {
 		c.logger.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
 	}

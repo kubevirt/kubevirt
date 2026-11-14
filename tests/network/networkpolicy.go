@@ -151,10 +151,8 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				// deny-by-label networkpolicy will deny the traffic for the vm which have the same label
 				By("Create deny-by-label networkpolicy")
 				policy = &networkv1.NetworkPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: serverVMI.Namespace,
-						Name:      "deny-by-label",
-					},
+					Namespace: serverVMI.Namespace,
+					Name:      "deny-by-label",
 					Spec: networkv1.NetworkPolicySpec{
 						PodSelector: metav1.LabelSelector{
 							MatchLabels: serverVMILabels,
@@ -327,10 +325,8 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 
 func createNetworkPolicy(namespace, name string, labelSelector metav1.LabelSelector, ingress []networkv1.NetworkPolicyIngressRule) *networkv1.NetworkPolicy {
 	policy := &networkv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      name,
-		},
+		Namespace: namespace,
+		Name:      name,
 		Spec: networkv1.NetworkPolicySpec{
 			PodSelector: labelSelector,
 			Ingress:     ingress,

@@ -132,34 +132,26 @@ func WithLogSerialConsole(enable bool) Option {
 func newSecretVolume(secretName, volumeName, label string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName:  secretName,
-				VolumeLabel: label,
-			},
+		Secret: &v1.SecretVolumeSource{
+			SecretName:  secretName,
+			VolumeLabel: label,
 		},
 	}
 }
 
 func newSysprepVolume(volumeName string, source *v1.SysprepSource) v1.Volume {
 	return v1.Volume{
-		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			Sysprep: source,
-		},
+		Name:    volumeName,
+		Sysprep: source,
 	}
 }
 
 func newConfigMapVolume(configMapName, volumeName, label string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapVolumeSource{
-				LocalObjectReference: k8sv1.LocalObjectReference{
-					Name: configMapName,
-				},
-				VolumeLabel: label,
-			},
+		ConfigMap: &v1.ConfigMapVolumeSource{
+			Name:        configMapName,
+			VolumeLabel: label,
 		},
 	}
 }
@@ -167,10 +159,8 @@ func newConfigMapVolume(configMapName, volumeName, label string) v1.Volume {
 func newServiceAccountVolume(serviceAccountName, volumeName string) v1.Volume {
 	return v1.Volume{
 		Name: volumeName,
-		VolumeSource: v1.VolumeSource{
-			ServiceAccount: &v1.ServiceAccountVolumeSource{
-				ServiceAccountName: serviceAccountName,
-			},
+		ServiceAccount: &v1.ServiceAccountVolumeSource{
+			ServiceAccountName: serviceAccountName,
 		},
 	}
 }
@@ -178,18 +168,16 @@ func newServiceAccountVolume(serviceAccountName, volumeName string) v1.Volume {
 func newDownwardAPIVolume(name string) v1.Volume {
 	return v1.Volume{
 		Name: name,
-		VolumeSource: v1.VolumeSource{
-			DownwardAPI: &v1.DownwardAPIVolumeSource{
-				Fields: []k8sv1.DownwardAPIVolumeFile{
-					{
-						Path: "labels",
-						FieldRef: &k8sv1.ObjectFieldSelector{
-							FieldPath: "metadata.labels",
-						},
+		DownwardAPI: &v1.DownwardAPIVolumeSource{
+			Fields: []k8sv1.DownwardAPIVolumeFile{
+				{
+					Path: "labels",
+					FieldRef: &k8sv1.ObjectFieldSelector{
+						FieldPath: "metadata.labels",
 					},
 				},
-				VolumeLabel: "",
 			},
+			VolumeLabel: "",
 		},
 	}
 }

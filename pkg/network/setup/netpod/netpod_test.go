@@ -85,8 +85,8 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       defaultPodNetworkName,
+				Masquerade: &v1.InterfaceMasquerade{},
 			}},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{readErr: errNMStateRead}),
@@ -99,8 +99,8 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       defaultPodNetworkName,
+				Masquerade: &v1.InterfaceMasquerade{},
 			}},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{
@@ -150,8 +150,8 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       defaultPodNetworkName,
+				Masquerade: &v1.InterfaceMasquerade{},
 			}},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstateStub{status: nmstate.Status{
@@ -216,8 +216,8 @@ var _ = Describe("netpod", func() {
 		masqstub := masqueradeStub{}
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Name:       defaultPodNetworkName,
+			Masquerade: &v1.InterfaceMasquerade{},
 		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
@@ -335,8 +335,8 @@ var _ = Describe("netpod", func() {
 		}}
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   defaultPodNetworkName,
+			Bridge: &v1.InterfaceBridge{},
 		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
@@ -484,8 +484,8 @@ var _ = Describe("netpod", func() {
 		}}
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   defaultPodNetworkName,
+			Bridge: &v1.InterfaceBridge{},
 		}
 		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultPodNetworkName, PodInterfaceName: customPrimaryIfaceName},
@@ -601,8 +601,8 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
 			[]v1.Interface{{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+				Name:   defaultPodNetworkName,
+				Bridge: &v1.InterfaceBridge{},
 			}},
 			vmiUID, 0, 0, 0, state,
 			netpod.WithNMStateAdapter(&nmstatestub),
@@ -670,8 +670,8 @@ var _ = Describe("netpod", func() {
 		}}
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}},
+			Name:         defaultPodNetworkName,
+			PasstBinding: &v1.InterfacePasstBinding{},
 		}
 		netPod := netpod.NewNetPod(
 			[]v1.Network{*v1.DefaultPodNetwork()},
@@ -756,20 +756,18 @@ var _ = Describe("netpod", func() {
 			specNetworks = []v1.Network{
 				*v1.DefaultPodNetwork(),
 				{
-					Name: secondaryNetworkName,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "somenad"},
-					},
+					Name:   secondaryNetworkName,
+					Multus: &v1.MultusNetwork{NetworkName: "somenad"},
 				},
 			}
 			specInterfaces = []v1.Interface{
 				{
-					Name:                   defaultPodNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       defaultPodNetworkName,
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
 				{
-					Name:                   secondaryNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+					Name:   secondaryNetworkName,
+					Bridge: &v1.InterfaceBridge{},
 				},
 			}
 		})
@@ -1079,8 +1077,8 @@ var _ = Describe("netpod", func() {
 		)
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   defaultPodNetworkName,
+			Bridge: &v1.InterfaceBridge{},
 		}
 
 		vmiIfaceStatuses := []v1.VirtualMachineInstanceNetworkInterface{
@@ -1179,8 +1177,8 @@ var _ = Describe("netpod", func() {
 		}}
 
 		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   defaultPodNetworkName,
+			Bridge: &v1.InterfaceBridge{},
 		}
 
 		// VMI interface statuses with the ORIGINAL MAC (preserved from before migration)
@@ -1225,8 +1223,8 @@ var _ = Describe("netpod", func() {
 		netPod := netpod.NewNetPod(
 			[]v1.Network{
 				{
-					Name:          "somenet",
-					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+					Name: "somenet",
+					Pod:  &v1.PodNetwork{},
 				},
 			},
 			[]v1.Interface{{Name: "somenet", InterfaceBindingMethod: binding}},
@@ -1254,17 +1252,17 @@ var _ = Describe("netpod", func() {
 
 		BeforeEach(func() {
 			specNetworks = []v1.Network{
-				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
-				{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
+				{Name: testNet1, Multus: &v1.MultusNetwork{}},
+				{Name: testNet2, Multus: &v1.MultusNetwork{}},
 			}
 			specInterfaces = []v1.Interface{
 				{
-					Name:                   defaultPodNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       defaultPodNetworkName,
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
-				{Name: testNet1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: testNet1, Bridge: &v1.InterfaceBridge{}},
+				{Name: testNet2, Bridge: &v1.InterfaceBridge{}},
 			}
 
 			nmstatestub = &nmstateStub{status: nmstate.Status{
@@ -1413,8 +1411,8 @@ var _ = Describe("netpod", func() {
 			_, _, finished, err := state.PendingStartedFinished(specNetworks)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(finished).To(Equal([]v1.Network{
-				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
+				{Name: testNet2, Multus: &v1.MultusNetwork{}},
 			}))
 		})
 
@@ -1510,7 +1508,7 @@ var _ = Describe("netpod", func() {
 			_, _, finished, err := state.PendingStartedFinished(specNetworks)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(finished).To(Equal([]v1.Network{
-				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
 			}))
 		})
 
@@ -1623,8 +1621,8 @@ var _ = Describe("netpod", func() {
 			_, _, finished, err := state.PendingStartedFinished(specNetworks)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(finished).To(Equal([]v1.Network{
-				{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+				{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
+				{Name: testNet1, Multus: &v1.MultusNetwork{}},
 			}))
 		})
 	})
@@ -1642,17 +1640,17 @@ var _ = Describe("netpod", func() {
 		)
 
 		specNetworks := []v1.Network{
-			{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-			{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
-			{Name: testNet2, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
+			{Name: testNet1, Multus: &v1.MultusNetwork{}},
+			{Name: testNet2, Multus: &v1.MultusNetwork{}},
 		}
 		specInterfaces := []v1.Interface{
 			{
-				Name:                   defaultPodNetworkName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       defaultPodNetworkName,
+				Masquerade: &v1.InterfaceMasquerade{},
 			},
-			{Name: testNet1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-			{Name: testNet2, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			{Name: testNet1, Bridge: &v1.InterfaceBridge{}},
+			{Name: testNet2, Bridge: &v1.InterfaceBridge{}},
 		}
 
 		nmstatestub := &nmstateStub{status: nmstate.Status{
@@ -1813,8 +1811,8 @@ var _ = Describe("netpod", func() {
 		_, _, finished, err = state.PendingStartedFinished(specNetworks)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(finished).To(Equal([]v1.Network{
-			{Name: defaultPodNetworkName, NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-			{Name: testNet1, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
+			{Name: defaultPodNetworkName, Pod: &v1.PodNetwork{}},
+			{Name: testNet1, Multus: &v1.MultusNetwork{}},
 		}))
 	})
 

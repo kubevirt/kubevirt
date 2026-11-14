@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -42,10 +41,8 @@ var _ = Describe("NodeHookManager", func() {
 	BeforeEach(func() {
 		pluginStore = cache.NewStore(cache.MetaNamespaceKeyFunc)
 		vmi = &virtv1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vmi",
-				Namespace: "default",
-			},
+			Name:      "test-vmi",
+			Namespace: "default",
 			Status: virtv1.VirtualMachineInstanceStatus{
 				NodeName: "test-node",
 			},
@@ -173,9 +170,7 @@ var _ = Describe("NodeHookManager", func() {
 
 func newPlugin(name string, hookPoints ...pluginv1alpha1.NodeHookPoint) *pluginv1alpha1.Plugin {
 	return &pluginv1alpha1.Plugin{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
+		Name: name,
 		Spec: pluginv1alpha1.PluginSpec{
 			NodeHooks: []pluginv1alpha1.NodeHook{
 				{

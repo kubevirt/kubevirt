@@ -63,7 +63,7 @@ var _ = Describe("VM Network Controller", func() {
 		Entry(
 			"the VMI is marked for deletion",
 			newEmptyVM(),
-			&v1.VirtualMachineInstance{ObjectMeta: k8smetav1.ObjectMeta{DeletionTimestamp: &k8smetav1.Time{}}},
+			&v1.VirtualMachineInstance{DeletionTimestamp: &k8smetav1.Time{}},
 		),
 		Entry("the VM & VMI have no interfaces", newEmptyVM(), libvmi.New()),
 		Entry(
@@ -107,7 +107,8 @@ var _ = Describe("VM Network Controller", func() {
 			"virtualmachineinstances",
 			func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 				return true, nil, injectedPatchError
-			})
+			},
+		)
 
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
@@ -161,18 +162,14 @@ var _ = Describe("VM Network Controller", func() {
 		Entry("when the plugged interface uses bridge binding", libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 		Entry("when the plugged interface uses SR-IOV binding", libvmi.NewInterface(secondaryNetName1, libvmi.WithSRIOVBinding())),
 		Entry("when the plugged interface has link state down", v1.Interface{
-			Name: secondaryNetName1,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				Bridge: &v1.InterfaceBridge{},
-			},
-			State: v1.InterfaceStateLinkDown,
+			Name:   secondaryNetName1,
+			Bridge: &v1.InterfaceBridge{},
+			State:  v1.InterfaceStateLinkDown,
 		}),
 		Entry("when the plugged interface has link state up", v1.Interface{
-			Name: secondaryNetName1,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				Bridge: &v1.InterfaceBridge{},
-			},
-			State: v1.InterfaceStateLinkUp,
+			Name:   secondaryNetName1,
+			Bridge: &v1.InterfaceBridge{},
+			State:  v1.InterfaceStateLinkUp,
 		}),
 	)
 
@@ -188,9 +185,9 @@ var _ = Describe("VM Network Controller", func() {
 		vm := libvmi.NewVirtualMachine(originalVMI)
 
 		absentIfaceToPlug := v1.Interface{
-			Name:                   "absentIface",
-			State:                  v1.InterfaceStateAbsent,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			Name:   "absentIface",
+			State:  v1.InterfaceStateAbsent,
+			Bridge: &v1.InterfaceBridge{},
 		}
 
 		vm = plugNetworkInterface(vm, absentIfaceToPlug)
@@ -410,11 +407,9 @@ var _ = Describe("VM Network Controller", func() {
 		const defaultNetName = "default"
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:  defaultNetName,
-				State: fromState,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
+				Name:   defaultNetName,
+				State:  fromState,
+				Bridge: &v1.InterfaceBridge{},
 			}),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmistatus.WithStatus(
@@ -440,7 +435,8 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(
-			Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces))
+			Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces),
+		)
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 	},
@@ -464,11 +460,9 @@ var _ = Describe("VM Network Controller", func() {
 		const defaultNetName = "default"
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
-				Name:  defaultNetName,
-				State: v1.InterfaceStateAbsent,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
+				Name:   defaultNetName,
+				State:  v1.InterfaceStateAbsent,
+				Bridge: &v1.InterfaceBridge{},
 			}),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmistatus.WithStatus(

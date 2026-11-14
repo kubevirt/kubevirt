@@ -893,18 +893,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Completed:    true,
 				EndTimestamp: &now,
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         host,
-						SyncAddress:  &syncAddress,
-						MigrationUID: "source-migration-uid",
-					},
+					Node:         host,
+					SyncAddress:  &syncAddress,
+					MigrationUID: "source-migration-uid",
 				},
 				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         "othernode",
-						SyncAddress:  &syncAddress,
-						MigrationUID: "target-migration-uid",
-					},
+					Node:                 "othernode",
+					SyncAddress:          &syncAddress,
+					MigrationUID:         "target-migration-uid",
 					DomainDetected:       true,
 					DomainReadyTimestamp: &now,
 				},
@@ -937,18 +933,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Completed:    false,
 				EndTimestamp: &now,
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         host,
-						SyncAddress:  &syncAddress,
-						MigrationUID: "source-migration-uid",
-					},
+					Node:         host,
+					SyncAddress:  &syncAddress,
+					MigrationUID: "source-migration-uid",
 				},
 				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         "othernode",
-						SyncAddress:  &syncAddress,
-						MigrationUID: "target-migration-uid",
-					},
+					Node:                 "othernode",
+					SyncAddress:          &syncAddress,
+					MigrationUID:         "target-migration-uid",
 					DomainDetected:       true,
 					DomainReadyTimestamp: &now,
 				},
@@ -977,18 +969,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				Failed:       true,
 				EndTimestamp: &now,
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         host,
-						SyncAddress:  &syncAddress,
-						MigrationUID: "source-migration-uid",
-					},
+					Node:         host,
+					SyncAddress:  &syncAddress,
+					MigrationUID: "source-migration-uid",
 				},
 				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						Node:         "othernode",
-						SyncAddress:  &syncAddress,
-						MigrationUID: "target-migration-uid",
-					},
+					Node:                 "othernode",
+					SyncAddress:          &syncAddress,
+					MigrationUID:         "target-migration-uid",
 					DomainDetected:       true,
 					DomainReadyTimestamp: &now,
 				},
@@ -1011,14 +999,10 @@ var _ = Describe("IsDecentralizedMigration", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress: sourceSync,
-					},
+					SyncAddress: sourceSync,
 				},
 				TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-						SyncAddress: targetSync,
-					},
+					SyncAddress: targetSync,
 				},
 			}
 			Expect(vmi.IsDecentralizedMigration()).To(Equal(expected))
@@ -1033,9 +1017,7 @@ var _ = Describe("IsDecentralizedMigration", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 			TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-				VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: new("10.0.0.1:9185"),
-				},
+				SyncAddress: new("10.0.0.1:9185"),
 			},
 		}
 		Expect(vmi.IsDecentralizedMigration()).To(BeFalse())

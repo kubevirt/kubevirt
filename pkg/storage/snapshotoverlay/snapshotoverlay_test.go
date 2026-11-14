@@ -53,8 +53,8 @@ var _ = Describe("Snapshot overlay", func() {
 			}
 			for _, name := range utilityVolumes {
 				vmi.Spec.UtilityVolumes = append(vmi.Spec.UtilityVolumes, v1.UtilityVolume{
-					Name:                              name,
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: name},
+					Name:      name,
+					ClaimName: name,
 				})
 			}
 			return vmi

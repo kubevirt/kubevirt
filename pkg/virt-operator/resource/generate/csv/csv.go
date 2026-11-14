@@ -22,8 +22,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/coreos/go-semver/semver"
-	csvv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	semver "github.com/blang/semver/v4"
+	"github.com/operator-framework/api/pkg/lib/version"
+	csvv1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -211,6 +212,16 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		return nil, err
 	}
 
+	var installStrategySpec csvv1.StrategyDetailsDeployment
+	if err := json.Unmarshal(strategySpecJsonBytes, &installStrategySpec); err != nil {
+		return nil, err
+	}
+
+	csvVersion, err := semver.Parse(data.CsvVersion)
+	if err != nil {
+		return nil, err
+	}
+
 	almExampleFmt := `
       [
         {
@@ -254,7 +265,7 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 			DisplayName: "KubeVirt",
 			Description: description,
 			Keywords:    []string{"KubeVirt", "Virtualization"},
-			Version:     *semver.New(data.CsvVersion),
+			Version:     version.OperatorVersion{Version: csvVersion},
 			Maturity:    "alpha",
 			Replaces:    data.ReplacesCsvVersion,
 			Maintainers: []csvv1.Maintainer{{
@@ -307,8 +318,8 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 				},
 			},
 			InstallStrategy: csvv1.NamedInstallStrategy{
-				StrategyName:    "deployment",
-				StrategySpecRaw: json.RawMessage(strategySpecJsonBytes),
+				StrategyName: "deployment",
+				StrategySpec: installStrategySpec,
 			},
 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
 

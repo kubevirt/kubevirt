@@ -104,7 +104,8 @@ var _ = Describe("Log Verbosity", func() {
 				err = json.Unmarshal(modifiedKvJSON, kv)
 				Expect(err).ToNot(HaveOccurred())
 				return kv, nil
-			}).AnyTimes()
+			},
+		).AnyTimes()
 	})
 
 	When("with erroneous running environment", func() {
@@ -125,7 +126,8 @@ var _ = Describe("Log Verbosity", func() {
 				kvInterface.EXPECT().List(context.Background(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, _ any) (*v1.KubeVirt, error) {
 						return nil, errors.New("List error")
-					}).AnyTimes()
+					},
+				).AnyTimes()
 			}
 
 			It("should fail", func() {
@@ -147,7 +149,8 @@ var _ = Describe("Log Verbosity", func() {
 					func(ctx context.Context, name string, _ any) (*v1.KubeVirt, error) {
 						Expect(name).To(Equal(kvs.Items[0].Name))
 						return nil, errors.New("Get error")
-					}).AnyTimes()
+					},
+				).AnyTimes()
 			}
 
 			It("should fail", func() {
@@ -174,7 +177,8 @@ var _ = Describe("Log Verbosity", func() {
 				func(ctx context.Context, name string, _ any) (*v1.KubeVirt, error) {
 					Expect(name).To(Equal(kvs.Items[0].Name))
 					return &kvs.Items[0], nil
-				}).AnyTimes()
+				},
+			).AnyTimes()
 		}
 
 		It("show: should succeed", func() {

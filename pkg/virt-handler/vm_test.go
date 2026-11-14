@@ -1597,11 +1597,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.Phase = v1.Scheduled
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "test",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name:         "test",
-							Hotpluggable: true,
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name:         "test",
+						Hotpluggable: true,
 					},
 				})
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
@@ -2289,8 +2287,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// create a test block pvc
 			mode := k8sv1.PersistentVolumeBlock
 			testBlockPvc = &k8sv1.PersistentVolumeClaim{
-				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault, Name: "testblock"},
+				Kind: "PersistentVolumeClaim", APIVersion: "v1",
+				Namespace: k8sv1.NamespaceDefault, Name: "testblock",
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode:  &mode,
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
@@ -2304,21 +2302,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						Ephemeral: &v1.EphemeralVolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "testclaim",
-							},
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
@@ -2334,21 +2328,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testblock",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testblock"},
 				},
 			}
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -2371,21 +2360,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testblock",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testblock"},
 				},
 			}
 
@@ -2410,20 +2394,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "testblock",
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name: "testblock",
 					},
 				},
 			}
@@ -2449,37 +2429,28 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 				{
 					Name: "mydisk1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testblock",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testblock"},
 				},
 				{
 					Name: "myvolume1",
-					VolumeSource: v1.VolumeSource{
-						Ephemeral: &v1.EphemeralVolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "testclaim",
-							},
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
@@ -2504,39 +2475,30 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 				{
 					Name: "mydisk1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume1",
-					VolumeSource: v1.VolumeSource{
-						Ephemeral: &v1.EphemeralVolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "testclaim",
-							},
+					Ephemeral: &v1.EphemeralVolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testclaim",
 						},
 					},
 				},
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testblock",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testblock"},
 				},
 			}
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
@@ -2559,23 +2521,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "myvolume",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-							Shared:   &_true,
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
+						Shared:   &_true,
 					},
 				},
 			}
@@ -2591,42 +2549,34 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "mydisk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 				{
 					Name: "mydisk1",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
 					Name: "myvolume",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-							Shared:   &_true,
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
+						Shared:   &_true,
 					},
 				},
 				{
 					Name: "myvolume1",
-					VolumeSource: v1.VolumeSource{
-						HostDisk: &v1.HostDisk{
-							Path:     "/var/run/kubevirt-private/vmi-disks/volume31/disk.img",
-							Type:     v1.HostDiskExistsOrCreate,
-							Capacity: resource.MustParse("1Gi"),
-							Shared:   &_false,
-						},
+					HostDisk: &v1.HostDisk{
+						Path:     "/var/run/kubevirt-private/vmi-disks/volume31/disk.img",
+						Type:     v1.HostDiskExistsOrCreate,
+						Capacity: resource.MustParse("1Gi"),
+						Shared:   &_false,
 					},
 				},
 			}
@@ -3086,11 +3036,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
 					Name: "scsi0",
-					DiskDevice: v1.DiskDevice{
-						LUN: &v1.LunTarget{
-							Bus:         "scsi",
-							Reservation: true,
-						},
+					LUN: &v1.LunTarget{
+						Bus:         "scsi",
+						Reservation: true,
 					},
 				})
 			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
@@ -3105,11 +3053,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
 				v1.Disk{
 					Name: "scsi0",
-					DiskDevice: v1.DiskDevice{
-						LUN: &v1.LunTarget{
-							Bus:         "scsi",
-							Reservation: true,
-						},
+					LUN: &v1.LunTarget{
+						Bus:         "scsi",
+						Reservation: true,
 					},
 				})
 			condition := controller.calculateLiveStorageMigrationCondition(vmi)
@@ -3185,16 +3131,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interfaceName,
-						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+						Name: interfaceName,
+						Pod:  &v1.PodNetwork{},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interfaceName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
+						Name:   interfaceName,
+						Bridge: &v1.InterfaceBridge{},
 					},
 				}
 
@@ -3207,16 +3151,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interfaceName,
-						NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+						Name: interfaceName,
+						Pod:  &v1.PodNetwork{},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interfaceName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Masquerade: &v1.InterfaceMasquerade{},
-						},
+						Name:       interfaceName,
+						Masquerade: &v1.InterfaceMasquerade{},
 					},
 				}
 
@@ -3230,16 +3172,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				vmi.Spec.Networks = []v1.Network{
 					{
-						Name:          interfaceName,
-						NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+						Name:   interfaceName,
+						Multus: &v1.MultusNetwork{},
 					},
 				}
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{
-						Name: interfaceName,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
+						Name:   interfaceName,
+						Bridge: &v1.InterfaceBridge{},
 					},
 				}
 
@@ -3252,11 +3192,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			const volumeAndDiskName = "volume-disk-name"
 
 			getCDRomDisk := func(isReadOnly *bool) v1.Disk {
-				return v1.Disk{Name: volumeAndDiskName, DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{ReadOnly: isReadOnly}}}
+				return v1.Disk{Name: volumeAndDiskName, CDRom: &v1.CDRomTarget{ReadOnly: isReadOnly}}
 			}
 
 			getContainerDiskVolume := func() v1.Volume {
-				return v1.Volume{Name: volumeAndDiskName, VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}}
+				return v1.Volume{Name: volumeAndDiskName, ContainerDisk: &v1.ContainerDiskSource{}}
 			}
 
 			DescribeTable("using", func(disk v1.Disk, volume v1.Volume, migrationMethod v1.VirtualMachineInstanceMigrationMethod) {
@@ -3309,10 +3249,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
-					Name: "test-utility-volume",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-pvc",
-					},
+					Name:      "test-utility-volume",
+					ClaimName: "test-pvc",
 				},
 			}
 
@@ -3689,18 +3627,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 					SourceNode:     host,
 					MigrationUID:   migrationUID,
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							Node:         host,
-							MigrationUID: migrationUID,
-						},
+						Node:         host,
+						MigrationUID: migrationUID,
 					},
 					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							Node:         "targetnode",
-							MigrationUID: migrationUID,
-							SyncAddress:  &targetSyncAddr,
-						},
-						NodeAddress: &targetNodeAddr,
+						Node:         "targetnode",
+						MigrationUID: migrationUID,
+						SyncAddress:  &targetSyncAddr,
+						NodeAddress:  &targetNodeAddr,
 					},
 				}
 			}
@@ -4214,10 +4148,8 @@ func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostna
 	vmi := NewScheduledVMI(vmiUID, podUID, hostname)
 
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "test",
-		VolumeSource: v1.VolumeSource{
-			ContainerDisk: testutils.NewFakeContainerDiskSource(),
-		},
+		Name:          "test",
+		ContainerDisk: testutils.NewFakeContainerDiskSource(),
 	})
 	return vmi
 }
@@ -4348,20 +4280,18 @@ var _ = Describe("detectDiskWriteLockError", func() {
 
 func withUtilityVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
 	vmi.Spec.UtilityVolumes = append(vmi.Spec.UtilityVolumes, v1.UtilityVolume{
-		Name:                              volumeStatus.Name,
-		PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
+		Name:      volumeStatus.Name,
+		ClaimName: volumeStatus.Name,
 	})
 }
 
 func withMemoryDumpVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeStatus.Name,
-		VolumeSource: v1.VolumeSource{
-			MemoryDump: &v1.MemoryDumpVolumeSource{
-				PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
-					Hotpluggable:                      true,
-				},
+		MemoryDump: &v1.MemoryDumpVolumeSource{
+			PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
+				Hotpluggable:                      true,
 			},
 		},
 	})
@@ -4375,11 +4305,9 @@ func withMemoryDumpStatusOnly(_ *v1.VirtualMachineInstance, volumeStatus *v1.Vol
 func withDiskVolume(vmi *v1.VirtualMachineInstance, volumeStatus *v1.VolumeStatus) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeStatus.Name,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: volumeStatus.Name},
-				Hotpluggable:                      true,
-			},
+		PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+			ClaimName:    volumeStatus.Name,
+			Hotpluggable: true,
 		},
 	})
 }

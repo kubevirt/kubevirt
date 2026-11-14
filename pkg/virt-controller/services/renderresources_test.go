@@ -9,7 +9,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	kubev1 "k8s.io/api/core/v1"
@@ -146,14 +145,10 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 			userSpecifiedMemory = kubev1.ResourceList{kubev1.ResourceMemory: baseMemory}
 			namespaceWithCustomMemoryRatio := kubev1.Namespace{
-				TypeMeta: metav1.TypeMeta{
-					Kind: "Namespace",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: customRatioNamespace,
-					Labels: map[string]string{
-						v1.AutoMemoryLimitsRatioLabel: fmt.Sprintf("%f", customRatioValue),
-					},
+				Kind: "Namespace",
+				Name: customRatioNamespace,
+				Labels: map[string]string{
+					v1.AutoMemoryLimitsRatioLabel: fmt.Sprintf("%f", customRatioValue),
 				},
 			}
 			err := namespaceStore.Add(&namespaceWithCustomMemoryRatio)
@@ -423,18 +418,14 @@ var _ = Describe("Resource pod spec renderer", func() {
 			networks := []v1.Network{
 				{
 					Name: "dra-net",
-					NetworkSource: v1.NetworkSource{
-						ResourceClaim: &v1.ClaimRequest{
-							ClaimName:   "net-claim",
-							RequestName: "net-request",
-						},
+					ResourceClaim: &v1.ClaimRequest{
+						ClaimName:   "net-claim",
+						RequestName: "net-request",
 					},
 				},
 				{
 					Name: "pod-net",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
+					Pod:  &v1.PodNetwork{},
 				},
 			}
 
@@ -504,11 +495,9 @@ var _ = Describe("Resource pod spec renderer", func() {
 			networks := []v1.Network{
 				{
 					Name: "dra-net",
-					NetworkSource: v1.NetworkSource{
-						ResourceClaim: &v1.ClaimRequest{
-							ClaimName:   "net-claim",
-							RequestName: "net-request",
-						},
+					ResourceClaim: &v1.ClaimRequest{
+						ClaimName:   "net-claim",
+						RequestName: "net-request",
 					},
 				},
 			}
@@ -737,10 +726,8 @@ var _ = Describe("validatePermittedHostDevices", func() {
 
 	BeforeEach(func() {
 		kv = &v1.KubeVirt{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kubevirt",
-				Namespace: "kubevirt",
-			},
+			Name:      "kubevirt",
+			Namespace: "kubevirt",
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					PermittedHostDevices: &v1.PermittedHostDevices{

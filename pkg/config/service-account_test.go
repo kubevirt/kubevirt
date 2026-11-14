@@ -66,10 +66,8 @@ var _ = Describe("ServiceAccount", func() {
 		vmi := libvmi.New()
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "serviceaccount-volume",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: "testaccount",
-				},
+			ServiceAccount: &v1.ServiceAccountVolumeSource{
+				ServiceAccountName: "testaccount",
 			},
 		})
 

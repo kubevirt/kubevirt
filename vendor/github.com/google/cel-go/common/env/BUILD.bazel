@@ -21,11 +21,15 @@ package(
 
 go_library(
     name = "go_default_library",
-    srcs = ["env.go"],
+    srcs = [
+        "env.go",
+        "io.go",
+    ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/env",
     importpath = "github.com/google/cel-go/common/env",
     deps = [
         "//vendor/github.com/google/cel-go/common/decls:go_default_library",
         "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/go.yaml.in/yaml/v3:go_default_library",
     ],
 )

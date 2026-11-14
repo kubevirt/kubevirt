@@ -67,10 +67,8 @@ var _ = Describe("Secret", func() {
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "test-secret",
-				},
+			Secret: &v1.SecretVolumeSource{
+				SecretName: "test-secret",
 			},
 		})
 

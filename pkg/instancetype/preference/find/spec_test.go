@@ -79,13 +79,16 @@ var _ = Describe("Preference SpecFinder", func() {
 		fakeClientset = fake.NewSimpleClientset()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterPreferences(),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(metav1.NamespaceDefault).Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		preferenceInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachinePreference{})
 		preferenceInformerStore = preferenceInformer.GetStore()
@@ -123,9 +126,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		BeforeEach(func() {
 			preferredCPUTopology := v1beta1.Cores
 			clusterPreference = &v1beta1.VirtualMachineClusterPreference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-cluster-preference",
-				},
+				Name: "test-cluster-preference",
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
@@ -265,7 +266,8 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), controllerRevision, metav1.CreateOptions{})
+				context.Background(), controllerRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the spec points to the original clusterInstancetype
@@ -292,10 +294,8 @@ var _ = Describe("Preference SpecFinder", func() {
 		BeforeEach(func() {
 			preferredCPUTopology := v1beta1.Cores
 			preference = &v1beta1.VirtualMachinePreference{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-preference",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-preference",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
@@ -304,7 +304,8 @@ var _ = Describe("Preference SpecFinder", func() {
 			}
 
 			_, err := virtClient.VirtualMachinePreference(metav1.NamespaceDefault).Create(
-				context.Background(), preference, metav1.CreateOptions{})
+				context.Background(), preference, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = preferenceInformerStore.Add(preference)
@@ -433,7 +434,8 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), controllerRevision, metav1.CreateOptions{})
+				context.Background(), controllerRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the spec points to the original clusterInstancetype

@@ -452,8 +452,8 @@ func resetIfaceStatusForComparison(iface *nmstate.Interface) {
 
 func createVeth(name string) error {
 	link := &vishnetlink.Veth{
-		LinkAttrs: vishnetlink.LinkAttrs{Name: name},
-		PeerName:  name + "peer",
+		Name:     name,
+		PeerName: name + "peer",
 	}
 	return vishnetlink.LinkAdd(link)
 }

@@ -180,20 +180,23 @@ func (c *controller) handleExpand(
 	// Only update the VM if we have changed something by applying an instance type and preference
 	if !equality.Semantic.DeepEqual(vm, expandVMCopy) {
 		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(
-			context.Background(), expandVMCopy, metav1.UpdateOptions{})
+			context.Background(), expandVMCopy, metav1.UpdateOptions{},
+		)
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine: %v", err)
 		}
 		updatedVM.Status = expandVMCopy.Status
 		updatedVM, err = c.clientset.VirtualMachine(updatedVM.Namespace).UpdateStatus(
-			context.Background(), updatedVM, metav1.UpdateOptions{})
+			context.Background(), updatedVM, metav1.UpdateOptions{},
+		)
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine Status: %v", err)
 		}
 		// We should clean up any instance type or preference controllerRevisions after successfully expanding the VM
 		if revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
 			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-				context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
+				context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+			); err != nil {
 				return nil, common.NewSyncError(
 					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, vm.Name, err),
 					common.FailedCreateVirtualMachineReason,
@@ -203,7 +206,8 @@ func (c *controller) handleExpand(
 
 		if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
 			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-				context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
+				context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{},
+			); err != nil {
 				return nil, common.NewSyncError(
 					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.PreferenceRef.ControllerRevisionRef.Name, vm.Name, err),
 					common.FailedCreateVirtualMachineReason,

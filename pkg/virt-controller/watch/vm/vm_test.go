@@ -113,14 +113,10 @@ var _ = Describe("VirtualMachine", func() {
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 
 			ns1 := &k8sv1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "ns1",
-				},
+				Name: "ns1",
 			}
 			ns2 := &k8sv1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "default",
-				},
+				Name: "default",
 			}
 			Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 			Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
@@ -298,18 +294,16 @@ var _ = Describe("VirtualMachine", func() {
 
 		createVMRevision := func(vm *v1.VirtualMachine) *appsv1.ControllerRevision {
 			return &appsv1.ControllerRevision{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      getVMRevisionName(vm.UID, vm.Generation),
-					Namespace: vm.Namespace,
-					OwnerReferences: []metav1.OwnerReference{{
-						APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-						Kind:               v1.VirtualMachineGroupVersionKind.Kind,
-						Name:               vm.ObjectMeta.Name,
-						UID:                vm.ObjectMeta.UID,
-						Controller:         &t,
-						BlockOwnerDeletion: &t,
-					}},
-				},
+				Name:      getVMRevisionName(vm.UID, vm.Generation),
+				Namespace: vm.Namespace,
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+					Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+					Name:               vm.ObjectMeta.Name,
+					UID:                vm.ObjectMeta.UID,
+					Controller:         &t,
+					BlockOwnerDeletion: &t,
+				}},
 				Data:     patchVMRevision(vm),
 				Revision: vm.Generation,
 			}
@@ -333,16 +327,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -371,32 +361,24 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv2",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels:      map[string]string{"my": "label"},
-					Annotations: map[string]string{"my": "annotation"},
-					Name:        "dv1",
-				},
+				Labels:      map[string]string{"my": "label"},
+				Annotations: map[string]string{"my": "annotation"},
+				Name:        "dv1",
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
@@ -718,10 +700,8 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Status.Ready = true
 					volume := v1.Volume{
 						Name: "vol1",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "random",
-							},
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "random",
 						},
 					}
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
@@ -729,9 +709,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					disk := v1.Disk{
 						Name: "vol1",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{},
-						},
+						Disk: &v1.DiskTarget{},
 					}
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
 					vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
@@ -775,19 +753,15 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 						v1.Volume{
 							Name: "vol1",
-							VolumeSource: v1.VolumeSource{
-								ContainerDisk: &v1.ContainerDiskSource{
-									Image: "random",
-								},
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "random",
 							},
 						},
 					)
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
 						v1.Disk{
 							Name: "vol1",
-							DiskDevice: v1.DiskDevice{
-								Disk: &v1.DiskTarget{},
-							},
+							Disk: &v1.DiskTarget{},
 						},
 					)
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -820,19 +794,15 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 						v1.Volume{
 							Name: "vol1",
-							VolumeSource: v1.VolumeSource{
-								ContainerDisk: &v1.ContainerDiskSource{
-									Image: "random",
-								},
+							ContainerDisk: &v1.ContainerDiskSource{
+								Image: "random",
 							},
 						},
 					)
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
 						v1.Disk{
 							Name: "vol1",
-							DiskDevice: v1.DiskDevice{
-								Disk: &v1.DiskTarget{},
-							},
+							Disk: &v1.DiskTarget{},
 						},
 					)
 					vm.Status.VolumeRequests = []v1.VirtualMachineVolumeRequest{
@@ -877,11 +847,8 @@ var _ = Describe("VirtualMachine", func() {
 				})
 				vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "vol1",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testpvcdiskclaim",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim"},
 				})
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -929,11 +896,8 @@ var _ = Describe("VirtualMachine", func() {
 				})
 				vm.Spec.Template.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: "vol1",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "testpvcdiskclaim",
-						}},
-					},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim"},
 				})
 
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -1009,30 +973,22 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv2",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 			})
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -1063,30 +1019,22 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv2",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 			})
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -1112,30 +1060,22 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv2",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 			})
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
@@ -1164,16 +1104,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm.Spec.Running = nil
 			vm.Spec.RunStrategy = &runStrategy
@@ -1231,16 +1167,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			dvt := v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			}
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, dvt, vm)
@@ -1273,16 +1205,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -1313,16 +1241,12 @@ var _ = Describe("VirtualMachine", func() {
 			vm, vmi := watchtesting.DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 
 			existingDataVolume, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
@@ -1358,30 +1282,22 @@ var _ = Describe("VirtualMachine", func() {
 			}
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv2",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv2",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
@@ -1412,17 +1328,13 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 			})
 
 			vm.Status.PrintableStatus = v1.VirtualMachineStatusStopped
@@ -1431,11 +1343,9 @@ var _ = Describe("VirtualMachine", func() {
 			addVirtualMachine(vm)
 
 			pvc := k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "dv1",
-					Namespace:   vm.Namespace,
-					Annotations: annotations,
-				},
+				Name:        "dv1",
+				Namespace:   vm.Namespace,
+				Annotations: annotations,
 				Status: k8sv1.PersistentVolumeClaimStatus{
 					Phase: k8sv1.ClaimBound,
 				},
@@ -1465,17 +1375,13 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 				Spec: cdiv1.DataVolumeSpec{
 					PriorityClassName: dvPriorityClass,
 				},
@@ -1727,9 +1633,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		Context("clone authorization tests", func() {
 			dv1 := &v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
+				Name: "dv1",
 				Spec: cdiv1.DataVolumeSpec{
 					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
@@ -1741,9 +1645,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			dv2 := &v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv2",
-				},
+				Name: "dv2",
 				Spec: cdiv1.DataVolumeSpec{
 					Source: &cdiv1.DataVolumeSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
@@ -1754,10 +1656,8 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			ds := &cdiv1.DataSource{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "ns2",
-					Name:      "source-ref",
-				},
+				Namespace: "ns2",
+				Name:      "source-ref",
 				Spec: cdiv1.DataSourceSpec{
 					Source: cdiv1.DataSourceSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
@@ -1769,9 +1669,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 
 			dv3 := &v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv3",
-				},
+				Name: "dv3",
 				Spec: cdiv1.DataVolumeSpec{
 					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Kind:      "DataSource",
@@ -1783,10 +1681,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			serviceAccountVol := &v1.Volume{
 				Name: "sa",
-				VolumeSource: v1.VolumeSource{
-					ServiceAccount: &v1.ServiceAccountVolumeSource{
-						ServiceAccountName: "sa",
-					},
+				ServiceAccount: &v1.ServiceAccountVolumeSource{
+					ServiceAccountName: "sa",
 				},
 			}
 
@@ -1795,10 +1691,8 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 					v1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name: dv.Name,
-							},
+						DataVolume: &v1.DataVolumeSource{
+							Name: dv.Name,
 						},
 					},
 				)
@@ -2795,18 +2689,14 @@ var _ = Describe("VirtualMachine", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(false)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
+				DataVolume: &v1.DataVolumeSource{
+					Name: "dv1",
 				},
 			})
 
 			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dv1",
-					Namespace: vm.Namespace,
-				},
+				Name:      "dv1",
+				Namespace: vm.Namespace,
 			})
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -3580,7 +3470,7 @@ var _ = Describe("VirtualMachine", func() {
 
 						// Create old and new KubeVrt objects with different CBT selectors
 						oldKV := &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Name: "kubevirt", Namespace: "kubevirt",
 							Spec: v1.KubeVirtSpec{
 								Configuration: v1.KubeVirtConfiguration{
 									ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
@@ -3593,7 +3483,7 @@ var _ = Describe("VirtualMachine", func() {
 						}
 
 						newKV := &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Name: "kubevirt", Namespace: "kubevirt",
 							Spec: v1.KubeVirtSpec{
 								Configuration: v1.KubeVirtConfiguration{
 									ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
@@ -3638,7 +3528,7 @@ var _ = Describe("VirtualMachine", func() {
 						}
 
 						oldKV := &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Name: "kubevirt", Namespace: "kubevirt",
 							Spec: v1.KubeVirtSpec{
 								Configuration: v1.KubeVirtConfiguration{
 									ChangedBlockTrackingLabelSelectors: cbtSelectors,
@@ -3647,7 +3537,7 @@ var _ = Describe("VirtualMachine", func() {
 						}
 
 						newKV := &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Name: "kubevirt", Namespace: "kubevirt",
 							Spec: v1.KubeVirtSpec{
 								Configuration: v1.KubeVirtConfiguration{
 									ChangedBlockTrackingLabelSelectors: cbtSelectors,
@@ -3684,11 +3574,9 @@ var _ = Describe("VirtualMachine", func() {
 							ChangedBlockTrackingLabelSelectors: cbtConfig,
 						}
 						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:            "kubevirt",
-								Namespace:       "kubevirt",
-								ResourceVersion: "1",
-							},
+							Name:            "kubevirt",
+							Namespace:       "kubevirt",
+							ResourceVersion: "1",
 							Spec: v1.KubeVirtSpec{
 								Configuration: *kvConfig,
 							},
@@ -3710,20 +3598,16 @@ var _ = Describe("VirtualMachine", func() {
 
 						// Create old namespace without CBT label (doesn't match selector)
 						oldNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:   "test-ns",
-								Labels: map[string]string{"other-label": "value"},
-							},
+							Name:   "test-ns",
+							Labels: map[string]string{"other-label": "value"},
 						}
 
 						// Create new namespace with CBT label (matches selector)
 						newNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "test-ns",
-								Labels: map[string]string{
-									"other-label": "value",
-									"cbt-enabled": "true",
-								},
+							Name: "test-ns",
+							Labels: map[string]string{
+								"other-label": "value",
+								"cbt-enabled": "true",
 							},
 						}
 
@@ -3754,22 +3638,18 @@ var _ = Describe("VirtualMachine", func() {
 
 						// Create old and new namespaces that both match the selector
 						oldNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "test-ns",
-								Labels: map[string]string{
-									"cbt-enabled": "true",
-									"other-label": "old-value",
-								},
+							Name: "test-ns",
+							Labels: map[string]string{
+								"cbt-enabled": "true",
+								"other-label": "old-value",
 							},
 						}
 
 						newNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "test-ns",
-								Labels: map[string]string{
-									"cbt-enabled": "true",
-									"other-label": "new-value",
-								},
+							Name: "test-ns",
+							Labels: map[string]string{
+								"cbt-enabled": "true",
+								"other-label": "new-value",
 							},
 						}
 
@@ -3793,11 +3673,9 @@ var _ = Describe("VirtualMachine", func() {
 						// Override cluster config to have no CBT selectors
 						kvConfigNoCBT := &v1.KubeVirtConfiguration{}
 						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:            "kubevirt",
-								Namespace:       "kubevirt",
-								ResourceVersion: "2",
-							},
+							Name:            "kubevirt",
+							Namespace:       "kubevirt",
+							ResourceVersion: "2",
 							Spec: v1.KubeVirtSpec{
 								Configuration: *kvConfigNoCBT,
 							},
@@ -3813,17 +3691,13 @@ var _ = Describe("VirtualMachine", func() {
 
 						// Create namespace update
 						oldNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:   "test-ns",
-								Labels: map[string]string{"old-label": "old-value"},
-							},
+							Name:   "test-ns",
+							Labels: map[string]string{"old-label": "old-value"},
 						}
 
 						newNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:   "test-ns",
-								Labels: map[string]string{"new-label": "new-value"},
-							},
+							Name:   "test-ns",
+							Labels: map[string]string{"new-label": "new-value"},
 						}
 
 						// Clear any existing items in the queue
@@ -3854,17 +3728,13 @@ var _ = Describe("VirtualMachine", func() {
 						// Create old and new namespaces with same labels
 						labels := map[string]string{"cbt-enabled": "true"}
 						oldNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:   "test-ns",
-								Labels: labels,
-							},
+							Name:   "test-ns",
+							Labels: labels,
 						}
 
 						newNS := &k8sv1.Namespace{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:   "test-ns",
-								Labels: labels,
-							},
+							Name:   "test-ns",
+							Labels: labels,
 						}
 
 						// Clear any existing items in the queue
@@ -3950,14 +3820,12 @@ var _ = Describe("VirtualMachine", func() {
 
 			deprecatedMemoryDumpVolume := v1.Volume{
 				Name: testPVCName,
-				VolumeSource: v1.VolumeSource{
-					MemoryDump: &v1.MemoryDumpVolumeSource{
-						PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: testPVCName,
-							},
-							Hotpluggable: true,
+				MemoryDump: &v1.MemoryDumpVolumeSource{
+					PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: testPVCName,
 						},
+						Hotpluggable: true,
 					},
 				},
 			}
@@ -4192,18 +4060,14 @@ var _ = Describe("VirtualMachine", func() {
 					vm, vmi = watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name: "dv1",
-							},
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
 						},
 					})
 
 					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "dv1",
-							Namespace: vm.Namespace,
-						},
+						Name:      "dv1",
+						Namespace: vm.Namespace,
 					})
 				})
 
@@ -4223,10 +4087,8 @@ var _ = Describe("VirtualMachine", func() {
 					controller.dataVolumeStore.Add(dv)
 
 					pvc := k8sv1.PersistentVolumeClaim{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      dv.Name,
-							Namespace: dv.Namespace,
-						},
+						Name:      dv.Name,
+						Namespace: dv.Namespace,
 						Status: k8sv1.PersistentVolumeClaimStatus{
 							Phase: k8sv1.ClaimPending,
 						},
@@ -4339,18 +4201,14 @@ var _ = Describe("VirtualMachine", func() {
 				It("Should set a Provisioning status when one DataVolume is ready and another isn't", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test2",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name: "dv2",
-							},
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv2",
 						},
 					})
 
 					vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "dv2",
-							Namespace: vm.Namespace,
-						},
+						Name:      "dv2",
+						Namespace: vm.Namespace,
 					})
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4423,11 +4281,8 @@ var _ = Describe("VirtualMachine", func() {
 					vm, _ = watchtesting.DefaultVirtualMachine(true)
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "pvc1",
-							}},
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc1"},
 					})
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4437,10 +4292,8 @@ var _ = Describe("VirtualMachine", func() {
 
 				DescribeTable("Should set a WaitingForVolumeBinding status when PersistentVolumeClaim exists but unbound", func(pvcPhase k8sv1.PersistentVolumeClaimPhase) {
 					pvc := k8sv1.PersistentVolumeClaim{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pvc1",
-							Namespace: vm.Namespace,
-						},
+						Name:      "pvc1",
+						Namespace: vm.Namespace,
 						Status: k8sv1.PersistentVolumeClaimStatus{
 							Phase: pvcPhase,
 						},
@@ -4469,11 +4322,8 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Status.RunStrategy = v1.RunStrategyRerunOnFailure
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "test1",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "pvc1",
-							}},
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "pvc1"},
 					})
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4481,10 +4331,8 @@ var _ = Describe("VirtualMachine", func() {
 					addVirtualMachine(vm)
 
 					pvc := k8sv1.PersistentVolumeClaim{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "pvc1",
-							Namespace: vm.Namespace,
-						},
+						Name:      "pvc1",
+						Namespace: vm.Namespace,
 						Status: k8sv1.PersistentVolumeClaimStatus{
 							Phase: k8sv1.ClaimPending,
 						},
@@ -4839,16 +4687,12 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "instancetype",
-						Namespace:  vm.Namespace,
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					Kind:       "VirtualMachineInstancetype",
+					Name:       "instancetype",
+					Namespace:  vm.Namespace,
+					UID:        resourceUID,
+					Generation: resourceGeneration,
 					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 						CPU: instancetypev1beta1.CPUInstancetype{
 							Guest: uint32(2),
@@ -4865,16 +4709,12 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				preference = &instancetypev1beta1.VirtualMachinePreference{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "preference",
-						Namespace:  vm.Namespace,
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
+					Name:       "preference",
+					Namespace:  vm.Namespace,
+					UID:        resourceUID,
+					Generation: resourceGeneration,
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					Kind:       "VirtualMachinePreference",
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
 							DeprecatedPreferredUseEfi: new(true),
@@ -4995,15 +4835,11 @@ var _ = Describe("VirtualMachine", func() {
 
 				BeforeEach(func() {
 					clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "clusterPreference",
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachineClusterPreference",
-						},
+						Name:       "clusterPreference",
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineClusterPreference",
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1beta1.FirmwarePreferences{
 								DeprecatedPreferredUseEfi: new(true),
@@ -5055,12 +4891,10 @@ var _ = Describe("VirtualMachine", func() {
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
 
 					autoattachPodInterfacePreference := &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "autoattachPodInterfacePreference",
-							Namespace:  vm.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
+						Name:       "autoattachPodInterfacePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredAutoattachPodInterface: new(false),
@@ -5111,10 +4945,8 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
 						{
 							Name: presentVolumeName,
-							DiskDevice: v1.DiskDevice{
-								Disk: &v1.DiskTarget{
-									Bus: v1.DiskBusSATA,
-								},
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusSATA,
 							},
 						},
 					}
@@ -5184,12 +5016,10 @@ var _ = Describe("VirtualMachine", func() {
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
 
 					autoattachInputDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "autoattachInputDevicePreference",
-							Namespace:  vm.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
+						Name:       "autoattachInputDevicePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredAutoattachInputDevice: new(true),
@@ -5230,12 +5060,10 @@ var _ = Describe("VirtualMachine", func() {
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
 
 					autoattachInputDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "preferredAutoattachInputDevicePreference",
-							Namespace:  vm.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
+						Name:       "preferredAutoattachInputDevicePreference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredAutoattachInputDevice: new(false),
@@ -6176,10 +6004,8 @@ var _ = Describe("VirtualMachine", func() {
 						Name: "vol1"})
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "vol3",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "updated-vol3"}},
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "updated-vol3"},
 					})
 					vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 					vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems,
@@ -6191,10 +6017,8 @@ var _ = Describe("VirtualMachine", func() {
 						v1.Volume{Name: "vol2"},
 						v1.Volume{
 							Name: "vol3",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "vol3"}},
-							},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "vol3"},
 						},
 					)
 					controller.handleVolumeUpdateRequest(vm, vmi)
@@ -6362,16 +6186,12 @@ var _ = Describe("VirtualMachine", func() {
 					controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
 					originalInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachineInstancetype",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "instancetype",
-							Namespace:  originalVM.Namespace,
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachineInstancetype",
+						Name:       "instancetype",
+						Namespace:  originalVM.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
 						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 							CPU: instancetypev1beta1.CPUInstancetype{
 								Guest: uint32(2),
@@ -6726,9 +6546,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					disk := v1.Disk{
 						Name: "hotplug",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-						}}
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI}}
 					vm.Status.VolumeRequests = append(vm.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{
 						AddVolumeOptions: &v1.AddVolumeOptions{
 							Name:         "hotplug",
@@ -6777,18 +6595,14 @@ var _ = Describe("VirtualMachine", func() {
 					By("Adding hotpluggable DataVolume to VM spec")
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "hotplug-vol",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name:         "hotplug-dv",
-								Hotpluggable: true,
-							},
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "hotplug-dv",
+							Hotpluggable: true,
 						},
 					})
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 						Name: "hotplug-vol",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-						},
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
 					})
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -6823,20 +6637,14 @@ var _ = Describe("VirtualMachine", func() {
 					By("Adding hotpluggable PVC volume to VM spec")
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "hotplug-pvc",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "hotplug-claim",
-								},
-								Hotpluggable: true,
-							},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName:    "hotplug-claim",
+							Hotpluggable: true,
 						},
 					})
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 						Name: "hotplug-pvc",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-						},
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
 					})
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -6871,18 +6679,14 @@ var _ = Describe("VirtualMachine", func() {
 					By("Adding non-hotpluggable volume to VM spec")
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 						Name: "regular-vol",
-						VolumeSource: v1.VolumeSource{
-							DataVolume: &v1.DataVolumeSource{
-								Name:         "regular-dv",
-								Hotpluggable: false,
-							},
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "regular-dv",
+							Hotpluggable: false,
 						},
 					})
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
 						Name: "regular-vol",
-						DiskDevice: v1.DiskDevice{
-							Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
-						},
+						Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 					})
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -6918,35 +6722,27 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
 						v1.Volume{
 							Name: "hotplug-vol",
-							VolumeSource: v1.VolumeSource{
-								DataVolume: &v1.DataVolumeSource{
-									Name:         "hotplug-dv",
-									Hotpluggable: true,
-								},
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "hotplug-dv",
+								Hotpluggable: true,
 							},
 						},
 						v1.Volume{
 							Name: "regular-vol",
-							VolumeSource: v1.VolumeSource{
-								DataVolume: &v1.DataVolumeSource{
-									Name:         "regular-dv",
-									Hotpluggable: false,
-								},
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "regular-dv",
+								Hotpluggable: false,
 							},
 						},
 					)
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
 						v1.Disk{
 							Name: "hotplug-vol",
-							DiskDevice: v1.DiskDevice{
-								Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-							},
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
 						},
 						v1.Disk{
 							Name: "regular-vol",
-							DiskDevice: v1.DiskDevice{
-								Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
-							},
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 						},
 					)
 
@@ -7023,16 +6819,12 @@ var _ = Describe("VirtualMachine", func() {
 				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
 				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 					Name: "test1",
-					VolumeSource: v1.VolumeSource{
-						DataVolume: &v1.DataVolumeSource{
-							Name: "dv1",
-						},
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
 					},
 				})
 				vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "dv1",
-					},
+					Name: "dv1",
 				})
 
 				shouldFailDataVolumeCreationNoResourceFound()
@@ -7428,7 +7220,7 @@ var _ = Describe("VirtualMachine", func() {
 			)
 
 			newPVC := func(name string, uid types.UID) *k8sv1.PersistentVolumeClaim {
-				return &k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: metav1.NamespaceDefault, UID: uid}}
+				return &k8sv1.PersistentVolumeClaim{Name: name, Namespace: metav1.NamespaceDefault, UID: uid}
 			}
 
 			addPVC := func(pvc *k8sv1.PersistentVolumeClaim) {
@@ -7455,7 +7247,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(reference).To(Equal(&storagetypes.SnapshotOverlayReference{ContentUID: contentUID, ScratchPVCUID: scratchUID}))
 				Expect(vmi.Spec.UtilityVolumes).To(ConsistOf(v1.UtilityVolume{
-					Name: scratchName, PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: scratchName}, Type: pointer.P(v1.SnapshotOverlay),
+					Name: scratchName, ClaimName: scratchName, Type: pointer.P(v1.SnapshotOverlay),
 				}))
 				stored, err := k8sClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Get(context.TODO(), scratchName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -7470,11 +7262,11 @@ var _ = Describe("VirtualMachine", func() {
 				vm.UID = vmUID
 
 				content = &snapshotv1.VirtualMachineSnapshotContent{
-					ObjectMeta: metav1.ObjectMeta{Name: "content", Namespace: metav1.NamespaceDefault, UID: contentUID},
+					Name: "content", Namespace: metav1.NamespaceDefault, UID: contentUID,
 					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 						Source: snapshotv1.SourceSpec{VirtualMachine: &snapshotv1.VirtualMachine{
-							ObjectMeta: metav1.ObjectMeta{Name: vm.Name, Namespace: vm.Namespace, UID: vmUID},
-							Spec:       *vm.Spec.DeepCopy(),
+							Name: vm.Name, Namespace: vm.Namespace, UID: vmUID,
+							Spec: *vm.Spec.DeepCopy(),
 						}},
 						VolumeBackups: []snapshotv1.VolumeBackup{{
 							VolumeName:            "data",
@@ -7699,10 +7491,8 @@ var _ = Describe("VirtualMachine", func() {
 					Completed:    true,
 					TargetState:  &v1.VirtualMachineInstanceMigrationTargetState{},
 					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
-						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-							MigrationUID: "123",
-							SyncAddress:  new("127.0.0.1:5900"),
-						},
+						MigrationUID: "123",
+						SyncAddress:  new("127.0.0.1:5900"),
 					},
 				}
 				vmi.Status.Phase = v1.Succeeded
@@ -7786,13 +7576,9 @@ var _ = Describe("VirtualMachine", func() {
 		createPVCVol := func(volName, claimName string, hotpluggable bool) v1.Volume {
 			return v1.Volume{
 				Name: volName,
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						Hotpluggable: hotpluggable,
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: claimName,
-						},
-					},
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					Hotpluggable: hotpluggable,
+					ClaimName:    claimName,
 				}}
 		}
 		createDisk := func(name string) v1.Disk {
@@ -7802,10 +7588,8 @@ var _ = Describe("VirtualMachine", func() {
 		}
 		createCDRom := func(name string) v1.Disk {
 			return v1.Disk{
-				Name: name,
-				DiskDevice: v1.DiskDevice{
-					CDRom: &v1.CDRomTarget{},
-				},
+				Name:  name,
+				CDRom: &v1.CDRomTarget{},
 			}
 		}
 		DescribeTable("should be validated for volume updates", func(oldVols, newVols []v1.Volume, expectValid bool) {
@@ -7817,8 +7601,8 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(validLiveUpdateVolumes(&oldVm.Spec, newVm)).To(Equal(expectValid))
 		},
 			Entry("without changes", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test1", false)}, true),
-			Entry("for container disks", []v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test1"}}}},
-				[]v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test2"}}}}, false),
+			Entry("for container disks", []v1.Volume{{Name: "vol1", ContainerDisk: &v1.ContainerDiskSource{Image: "test1"}}},
+				[]v1.Volume{{Name: "vol1", ContainerDisk: &v1.ContainerDiskSource{Image: "test2"}}}, false),
 			Entry("for a replaced pvc", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test2", false)}, false),
 			Entry("for an added pvc", []v1.Volume{}, []v1.Volume{createPVCVol("vol1", "test1", false)}, false),
 			Entry("for a removed pvc", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{}, false),
@@ -7839,8 +7623,8 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(validLiveUpdateDisks(&oldVm.Spec, newVm)).To(Equal(expectValid))
 		},
 			Entry("without changes", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Disk{createDisk("vol1")}, []v1.Disk{createDisk("vol1")}, true),
-			Entry("for container disks", []v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test1"}}}},
-				[]v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test2"}}}},
+			Entry("for container disks", []v1.Volume{{Name: "vol1", ContainerDisk: &v1.ContainerDiskSource{Image: "test1"}}},
+				[]v1.Volume{{Name: "vol1", ContainerDisk: &v1.ContainerDiskSource{Image: "test2"}}},
 				[]v1.Disk{createDisk("vol1")}, []v1.Disk{createDisk("vol2")}, false),
 			Entry("for a replaced pvc", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol2", "test2", false)},
 				[]v1.Disk{createDisk("vol1")}, []v1.Disk{createDisk("vol2")}, false),
@@ -8067,7 +7851,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		addPVCToStore := func(name, namespace string) {
 			pvcStore.Add(&k8sv1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Name: name, Namespace: namespace,
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},

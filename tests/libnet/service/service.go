@@ -21,7 +21,6 @@ package service
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -41,9 +40,7 @@ func BuildIPv6Spec(serviceName string, exposedPort, portToExpose int32, selector
 
 func BuildSpec(serviceName string, exposedPort, portToExpose int32, selectorKey, selectorValue string) *k8sv1.Service {
 	return &k8sv1.Service{
-		ObjectMeta: k8smetav1.ObjectMeta{
-			Name: serviceName,
-		},
+		Name: serviceName,
 		Spec: k8sv1.ServiceSpec{
 			Selector: map[string]string{
 				selectorKey: selectorValue,

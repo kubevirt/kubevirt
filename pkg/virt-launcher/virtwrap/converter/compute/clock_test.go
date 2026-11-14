@@ -53,9 +53,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 		},
 		Entry("timezone offset",
 			libvmi.New(libvmi.WithClock(v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					Timezone: pointer.P(v1.ClockOffsetTimezone("America/New_York")),
-				},
+				Timezone: pointer.P(v1.ClockOffsetTimezone("America/New_York")),
 			})),
 			&api.Clock{
 				Offset:   "timezone",
@@ -64,9 +62,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 		),
 		Entry("utc offset with adjustment=reset when no offset seconds",
 			libvmi.New(libvmi.WithClock(v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					UTC: &v1.ClockOffsetUTC{},
-				},
+				UTC: &v1.ClockOffsetUTC{},
 			})),
 			&api.Clock{
 				Offset:     "utc",
@@ -75,10 +71,8 @@ var _ = Describe("Clock Domain Configurator", func() {
 		),
 		Entry("utc offset with seconds adjustment",
 			libvmi.New(libvmi.WithClock(v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					UTC: &v1.ClockOffsetUTC{
-						OffsetSeconds: new(3600),
-					},
+				UTC: &v1.ClockOffsetUTC{
+					OffsetSeconds: new(3600),
 				},
 			})),
 			&api.Clock{
@@ -160,9 +154,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 		),
 		Entry("all timers together",
 			libvmi.New(libvmi.WithClock(v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					UTC: &v1.ClockOffsetUTC{},
-				},
+				UTC: &v1.ClockOffsetUTC{},
 				Timer: &v1.Timer{
 					RTC:    &v1.RTCTimer{Track: v1.TrackWall, TickPolicy: v1.RTCTickPolicyDelay},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyCatchup},
@@ -197,9 +189,7 @@ var _ = Describe("Clock Domain Configurator", func() {
 		Entry("TSC timer appended to existing clock timers",
 			libvmi.New(
 				libvmi.WithClock(v1.Clock{
-					ClockOffset: v1.ClockOffset{
-						UTC: &v1.ClockOffsetUTC{},
-					},
+					UTC: &v1.ClockOffsetUTC{},
 					Timer: &v1.Timer{
 						KVM: &v1.KVMTimer{},
 					},

@@ -234,19 +234,19 @@ var _ = Describe("Passt Network Domain Configurator", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.NewInterface("default", libvmi.WithPasstBinding())),
 				libvmi.WithInterface(v1.Interface{
-					Name: multusSecondaryNetworkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Bridge: &v1.InterfaceBridge{},
-					},
+					Name:   multusSecondaryNetworkName,
+					Bridge: &v1.InterfaceBridge{},
 				}),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(multusSecondaryNetworkName, nadName)),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(
-							v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+							v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"},
+						),
 						libvmistatus.WithInterfaceStatus(
-							v1.VirtualMachineInstanceNetworkInterface{Name: multusSecondaryNetworkName, PodInterfaceName: "eth1"}),
+							v1.VirtualMachineInstanceNetworkInterface{Name: multusSecondaryNetworkName, PodInterfaceName: "eth1"},
+						),
 					),
 				),
 			)
