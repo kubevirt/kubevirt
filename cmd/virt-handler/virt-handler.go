@@ -76,7 +76,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
-	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
+	"kubevirt.io/kubevirt/pkg/storage/container-disk/diskpaths"
 	"kubevirt.io/kubevirt/pkg/util"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -295,7 +295,7 @@ func (app *virtHandlerApp) Run() {
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
 
 	cmdclient.SetPodsBaseDir("/pods")
-	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
+	diskpaths.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {
 		logger.Criticalf("Error preparing the certificate manager: %v", err)
