@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -13,8 +14,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -32,7 +35,7 @@ func CheckVMLogsAfterTest(specReport types.SpecReport) {
 	}
 
 	testName := specReport.FullText()
-	foundErrors := getVMILogErrors(testName)
+	foundErrors := getVMILogErrors(kubevirt.Client(), &specReport)
 	if len(foundErrors) == 0 {
 		return
 	}
@@ -44,8 +47,9 @@ func CheckVMLogsAfterTest(specReport types.SpecReport) {
 	}
 }
 
-func getVMILogErrors(testName string) []string {
-	virtCli := kubevirt.Client()
+func getVMILogErrors(virtCli kubecli.KubevirtClient, specReport *types.SpecReport) []string {
+	testName := specReport.FullText()
+	sharedFixture := slices.Contains(specReport.Labels(), decorators.OncePerOrderedCleanup[0])
 
 	var foundErrors []string
 
@@ -61,7 +65,7 @@ func getVMILogErrors(testName string) []string {
 				continue
 			}
 			createdBy, ok := vmi.Annotations[testAnnotationKey]
-			if !ok || createdBy != testName {
+			if !ok || (createdBy != testName && !sharedFixture) {
 				continue
 			}
 
@@ -82,9 +86,11 @@ func getVMILogErrors(testName string) []string {
 					continue
 				}
 
-				logsRaw, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
-					Container: "compute",
-				}).DoRaw(context.Background())
+				logOptions := &v1.PodLogOptions{Container: "compute"}
+				if createdBy != testName {
+					logOptions.SinceTime = &metav1.Time{Time: specReport.StartTime}
+				}
+				logsRaw, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, logOptions).DoRaw(context.Background())
 				if err != nil {
 					log.DefaultLogger().Reason(err).Errorf("Failed to get logs for pod %s/%s", pod.Namespace, pod.Name)
 					continue
