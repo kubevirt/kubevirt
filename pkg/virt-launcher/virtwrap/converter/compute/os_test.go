@@ -54,16 +54,20 @@ var _ = Describe("OS Domain Configurator", func() {
 		Entry("SMBIOS is enabled", smbiosEnabled, &api.SMBios{Mode: "sysinfo"}),
 	)
 
-	It("should set machine type when specified on the VMI", func() {
-		const testMachineType = "test"
+	DescribeTable("should preserve the specified machine type in the domain", func(arch, testMachineType string) {
 		vmi := libvmi.New(withMachineType(testMachineType))
+		vmi.Spec.Architecture = arch
 		var domain api.Domain
 
 		Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, nil).Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := newDomainWithOS(api.OS{Type: api.OSType{Machine: testMachineType}})
 		Expect(domain).To(Equal(expectedDomain))
-	})
+	},
+		Entry("amd64", "amd64", "pc-q35-9.0"),
+		Entry("arm64", "arm64", "virt-9.0"),
+		Entry("s390x", "s390x", "s390-ccw-virtio-9.0"),
+	)
 
 	DescribeTable("configures boot menu based on VMI start strategy", func(vmi *v1.VirtualMachineInstance, expectedBootMenu *api.BootMenu) {
 		var domain api.Domain
