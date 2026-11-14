@@ -424,7 +424,11 @@ func (app *VirtOperatorApp) Run() {
 
 	caManager := kvtls.NewKubernetesClientCAManager(apiAuthConfig.GetStore())
 
+	// Client certificates stay optional. kube-apiserver does not present one
+	// to admission webhooks unless --admission-control-config-file is set, and
+	// these webhooks fail closed. PodSourceGuard rejects ordinary pod clients.
 	tlsConfig := kvtls.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
+	sourceGuard := operator_webhooks.NewPodSourceGuard(app.k8sClient, stop)
 
 	webhookServer := &http.Server{
 		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 8444),
@@ -432,15 +436,15 @@ func (app *VirtOperatorApp) Run() {
 	}
 
 	var mux http.ServeMux
-	mux.HandleFunc("/kubevirt-validate-delete", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/kubevirt-validate-delete", sourceGuard.Handler(func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.virtClient))
-	})
-	mux.HandleFunc(components.KubeVirtUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc(components.KubeVirtUpdateValidatePath, sourceGuard.Handler(func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtUpdateAdmitter(app.k8sClient, app.clusterConfig))
-	})
-	mux.HandleFunc(components.KubeVirtCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc(components.KubeVirtCreateValidatePath, sourceGuard.Handler(func(w http.ResponseWriter, r *http.Request) {
 		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtCreateAdmitter(app.virtClient))
-	})
+	}))
 	webhookServer.Handler = &mux
 	go func() {
 		err := webhookServer.ListenAndServeTLS("", "")
