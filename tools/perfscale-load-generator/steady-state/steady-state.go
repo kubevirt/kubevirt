@@ -158,7 +158,7 @@ func (b *SteadyStateJob) DeleteWorkloads(count int) {
 
 func (b *SteadyStateJob) DeleteNamespaces() {
 	log.Log.V(2).Infof("Clean up, deleting all created namespaces")
-	objUtil.CleanupNamespaces(b.virtClient, 30*time.Minute, config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
+	objUtil.CleanupNamespaces(b.virtClient, config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
 	objUtil.WaitForDeleteNamespaces(b.virtClient, 30*time.Minute, *config.GetListOpts(config.WorkloadUUIDLabel, b.UUID))
 }
 
