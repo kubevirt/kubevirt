@@ -346,10 +346,9 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			}, 5*time.Minute, 10*time.Second).Should(Succeed())
 		})
 
-		// NoReadyVirtHandler no longer fires when the app metric is absent (false-positive fix).
-		// Replacing the container with a non-KubeVirt binary causes ready_status to go stale,
-		// so the NoReady expression returns empty. VirtHandlerDaemonSetRolloutFailing covers this scenario.
-		It("NoReadyVirtHandler should not fire when handler has no app metrics", func() {
+		// A Running virt-handler whose own scrape is down counts as not ready,
+		// see the "own scrape down" case in hack/prom-rule-ci/prom-rules-tests.yaml.
+		It("NoReadyVirtHandler should be triggered when virt-handler is not ready", func() {
 			daemonSet, getErr := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(
 				context.Background(), virtHandler.deploymentName, metav1.GetOptions{},
 			)
@@ -367,18 +366,14 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			err = patchDaemonSetFirstContainer(virtClient, daemonSet.Name, badContainer)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for virt-handler pods to be running but not ready")
-			Eventually(func(g Gomega) {
-				ready, errReady := libmonitoring.GetMetricValueWithLabels(virtClient, "cluster:kubevirt_virt_handler_ready:sum", nil)
-				running, errRunning := libmonitoring.GetMetricValueWithLabels(virtClient, "cluster:kubevirt_virt_handler_pods_running:count", nil)
-				g.Expect(errReady).ToNot(HaveOccurred())
-				g.Expect(errRunning).ToNot(HaveOccurred())
-				g.Expect(ready).To(BeNumerically("==", 0))
-				g.Expect(running).To(BeNumerically(">", 0))
-			}, 5*time.Minute, 2*time.Second).Should(Succeed())
+			waitForRunningButNotReady(
+				virtClient,
+				"cluster:kubevirt_virt_handler_ready:sum",
+				"cluster:kubevirt_virt_handler_pods_running:count",
+			)
 
-			By("Verifying the NoReady alert does NOT fire (absent app metrics)")
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtHandler.noReadyAlert)
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, virtHandler.noReadyAlert)
 		})
 	})
 
