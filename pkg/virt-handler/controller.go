@@ -426,5 +426,8 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		return true, fmt.Errorf("Can not update a VirtualMachineInstance with unresponsive command server.")
 	}
 
+	// The launcher socket exists, so virtqemud is up. Libvirt reads the
+	// capability cache on the first domain define, which happens after this.
+	c.copyQEMUCapabilities(vmi)
 	return false, nil
 }
