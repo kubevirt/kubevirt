@@ -46,6 +46,9 @@ const (
 	busTypeArg      = "bus"
 	concurrentError = "the server rejected our request due to an error in our request"
 	maxRetries      = 15
+
+	maxVirtioBlkSerialLen = 20
+	maxSCSISerialLen      = 36
 )
 
 var (
@@ -180,11 +183,20 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 		return fmt.Errorf("Invalid disk type '%s'. Only LUN and Disk are supported.", diskType)
 	}
 
-	if serial != "" {
-		hotplugRequest.Disk.Serial = serial
-	} else {
-		hotplugRequest.Disk.Serial = hotplugName
+	diskSerial := serial
+	if diskSerial == "" {
+		diskSerial = hotplugName
 	}
+	maxLen := getMaxDiskSerialLength(bus)
+	if len(diskSerial) > maxLen {
+		// if no explicit serial is provided, the volume name is used
+		if diskSerial == hotplugName {
+			return fmt.Errorf("Volume name %s exceeds the maximum character limit of %d for bus type %s. Provide an explicit valid serial number using --serial", diskSerial, maxLen, bus)
+		}
+		return fmt.Errorf("Invalid serial %s, must not exceed the maximum character limit of %d for bus type %s", diskSerial, maxLen, bus)
+	}
+	hotplugRequest.Disk.Serial = diskSerial
+
 	if cache != "" {
 		c := v1.DriverCache(cache)
 		if c != v1.CacheNone && c != v1.CacheWriteThrough && c != v1.CacheWriteBack && c != v1.CacheDirectSync {
@@ -218,4 +230,13 @@ func addVolume(vmiName, volumeName, diskName, namespace string, virtClient kubec
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
+}
+
+func getMaxDiskSerialLength(bus v1.DiskBus) int {
+	switch bus {
+	case v1.DiskBusVirtio:
+		return maxVirtioBlkSerialLen
+	default:
+		return maxSCSISerialLen
+	}
 }
