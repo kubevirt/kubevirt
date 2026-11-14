@@ -206,6 +206,17 @@ After a successful build you can run the *unit tests*:
 ```
 
 They do not need a running KubeVirt environment to succeed.
+
+To run the *integration tests* against an isolated API server and etcd, without
+starting a cluster:
+
+```bash
+make test-integration
+```
+
+The [integration test developer guide](devel/integration-tests.md) explains when
+to use this layer, how to write tests, and which components the framework runs.
+
 To run the *functional tests*, make sure you have set
 up a dockerized environment. Then run
 
