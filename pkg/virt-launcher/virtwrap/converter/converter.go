@@ -29,6 +29,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/input"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/kvm"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
@@ -94,7 +95,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.RNGWithVirtioModel(virtioModel),
 		),
-		compute.NewInputDeviceDomainConfigurator(architecture),
+		compute.NewInputDeviceDomainConfigurator(input.NewDeviceConfigurator(architecture)),
 		compute.NewBalloonDomainConfigurator(
 			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),

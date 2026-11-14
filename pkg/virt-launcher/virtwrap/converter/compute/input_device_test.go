@@ -28,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute/input"
 )
 
 var _ = Describe("Input Device Configurator", func() {
@@ -36,7 +37,7 @@ var _ = Describe("Input Device Configurator", func() {
 			vmi := libvmi.New(libvmi.WithTablet("my-tablet", bus), libvmi.WithAutoattachGraphicsDevice(false))
 			var domain api.Domain
 
-			configurator := compute.NewInputDeviceDomainConfigurator(arch)
+			configurator := compute.NewInputDeviceDomainConfigurator(input.NewDeviceConfigurator(arch))
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -74,7 +75,7 @@ var _ = Describe("Input Device Configurator", func() {
 			}
 			var domain api.Domain
 
-			configurator := compute.NewInputDeviceDomainConfigurator("amd64")
+			configurator := compute.NewInputDeviceDomainConfigurator(input.NewDeviceConfigurator("amd64"))
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(expectedError))
@@ -91,7 +92,7 @@ var _ = Describe("Input Device Configurator", func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = autoattachGraphicsDevice
 				var domain api.Domain
 
-				configurator := compute.NewInputDeviceDomainConfigurator(arch)
+				configurator := compute.NewInputDeviceDomainConfigurator(input.NewDeviceConfigurator(arch))
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				expectedDomain := api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Inputs: expectedInputDevices}}}
@@ -121,7 +122,7 @@ var _ = Describe("Input Device Configurator", func() {
 				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = new(false)
 				var domain api.Domain
 
-				configurator := compute.NewInputDeviceDomainConfigurator(arch)
+				configurator := compute.NewInputDeviceDomainConfigurator(input.NewDeviceConfigurator(arch))
 				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 				Expect(domain).To(Equal(api.Domain{}))
