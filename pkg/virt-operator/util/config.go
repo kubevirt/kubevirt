@@ -85,6 +85,9 @@ const (
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesMigrationNetwork = "MigrationNetwork"
 
+	// lookup key in AdditionalProperties: presence means migration network fallback is allowed
+	AdditionalPropertiesAllowMigrationNetworkFallback = "AllowMigrationNetworkFallback"
+
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesCrossClusterMigrationNetwork = "CrossClusterMigrationNetwork"
 
@@ -194,6 +197,15 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	if kv.Spec.Configuration.MigrationConfiguration != nil &&
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
+	}
+
+	// virt-handler and the synchronization controllers read allowMigrationNetworkFallback once at
+	// startup. Record it in AdditionalProperties so that flipping it changes the install-strategy
+	// ID and rolls those pods, the same way a migration network change does.
+	if kv.Spec.Configuration.MigrationConfiguration != nil &&
+		kv.Spec.Configuration.MigrationConfiguration.AllowMigrationNetworkFallback != nil &&
+		*kv.Spec.Configuration.MigrationConfiguration.AllowMigrationNetworkFallback {
+		additionalProperties[AdditionalPropertiesAllowMigrationNetworkFallback] = ""
 	}
 
 	// TODO: consider passing in clusterconfig and use it's existing persistent reservation enabled state
@@ -639,9 +651,8 @@ func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	value, enabled := c.AdditionalProperties[AdditionalPropertiesMigrationNetwork]
 	if enabled {
 		return &value
-	} else {
-		return nil
 	}
+	return nil
 }
 
 func (c *KubeVirtDeploymentConfig) GetCrossClusterMigrationNetwork() *string {
