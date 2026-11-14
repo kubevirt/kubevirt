@@ -53,7 +53,7 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) {
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string, onExit func()) {
 	report := newMetricsReporter(nodeName, launcherSocketPath)
 
 	server := downwardMetricsServer{
@@ -62,7 +62,10 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 		virtioSerialSocket: channelSocketPath,
 		reportFn:           report,
 	}
-	go server.start(ctx)
+	go func() {
+		defer onExit()
+		server.start(ctx)
+	}()
 }
 
 type metricsReporter func() (*api.Metrics, error)
@@ -96,6 +99,11 @@ func (s *downwardMetricsServer) start(ctx context.Context) {
 	}
 
 	s.serve(ctx, conn)
+	if ctx.Err() != nil {
+		log.Log.Infof("DownwardMetrics virtio-serial server stopped: %v", ctx.Err())
+	} else {
+		log.Log.Warning("DownwardMetrics virtio-serial server exited: guest closed the connection")
+	}
 }
 
 func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
