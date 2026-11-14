@@ -2,8 +2,15 @@
 
 Go clients for talking to [KubeVirt](https://github.com/kubevirt/kubevirt).
 
+> [!WARNING]
+> This client is not intended for use outside of the [kubevirt/kubevirt](https://github.com/kubevirt/kubevirt) repository due to a versioning issue in Go modules - see [kubevirt-dev Google Groups discussion](https://groups.google.com/g/kubevirt-dev/c/4PVEOrvJ2eI) for further details.
+>
+> Work is in progress to improve the client library - see: [#16916](https://github.com/kubevirt/kubevirt/issues/16916) and [#15657](https://github.com/kubevirt/kubevirt/issues/15657).
+
+
+
 ## How to use it
-please refer to some of [examples here](examples/README.md)
+Please refer to some examples [here](examples/README.md).
 
 -----
 KubeVirt client-go is maintained at https://github.com/kubevirt/kubevirt/tree/main/staging/src/kubevirt.io/client-go.  
