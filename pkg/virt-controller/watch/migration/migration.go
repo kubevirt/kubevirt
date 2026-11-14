@@ -1383,17 +1383,12 @@ func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMach
 		return fmt.Errorf("migration state is nil when trying to mark migration abortion in vmi status")
 	}
 
-	vmiCopy := vmi.DeepCopy()
-
-	vmiCopy.Status.MigrationState.AbortRequested = true
-	if !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) {
-
-		newStatus := vmiCopy.Status
-		oldStatus := vmi.Status
-		patchBytes, err := patch.New(
-			patch.WithTest("/status", oldStatus),
-			patch.WithReplace("/status", newStatus),
-		).GeneratePayload()
+	if !vmi.Status.MigrationState.AbortRequested {
+		patchSet := patch.New(
+			patch.WithTest("/status/migrationState/migrationUid", string(migration.UID)),
+			patch.WithAdd("/status/migrationState/abortRequested", true),
+		)
+		patchBytes, err := patchSet.GeneratePayload()
 		if err != nil {
 			return err
 		}
@@ -1964,6 +1959,12 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 			!vmi.Status.MigrationState.Completed {
 
 			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
+			if err != nil {
+				return err
+			}
+		}
+		if migration.DeletionTimestamp != nil && vmi.IsMigrationSynchronized(migration) {
+			err = c.markMigrationAbortInVmiStatus(migration, vmi)
 			if err != nil {
 				return err
 			}
