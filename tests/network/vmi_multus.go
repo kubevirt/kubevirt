@@ -101,8 +101,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
-	linuxBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeIfaceName)
-	linuxBridgeInterfaceWithIPAM := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithIPAMIfaceName)
+	linuxBridgeInterface := libvmi.NewInterface(linuxBridgeIfaceName, libvmi.WithBridgeBinding())
+	linuxBridgeInterfaceWithIPAM := libvmi.NewInterface(linuxBridgeWithIPAMIfaceName, libvmi.WithBridgeBinding())
 
 	linuxBridgeNetwork := v1.Network{
 		Name: linuxBridgeIfaceName,
