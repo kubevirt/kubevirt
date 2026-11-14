@@ -1874,6 +1874,21 @@ func (in *FeatureHyperv) DeepCopyInto(out *FeatureHyperv) {
 		*out = new(FeatureState)
 		**out = **in
 	}
+	if in.VSM != nil {
+		in, out := &in.VSM, &out.VSM
+		*out = new(FeatureState)
+		**out = **in
+	}
+	if in.XMMInput != nil {
+		in, out := &in.XMMInput, &out.XMMInput
+		*out = new(FeatureState)
+		**out = **in
+	}
+	if in.XMMOutput != nil {
+		in, out := &in.XMMOutput, &out.XMMOutput
+		*out = new(FeatureState)
+		**out = **in
+	}
 	return
 }
 

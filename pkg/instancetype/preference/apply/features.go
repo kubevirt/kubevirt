@@ -120,4 +120,16 @@ func applyHyperVFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePrefere
 	if preferenceSpec.Features.PreferredHyperv.VendorID != nil && vmiSpec.Domain.Features.Hyperv.VendorID == nil {
 		vmiSpec.Domain.Features.Hyperv.VendorID = preferenceSpec.Features.PreferredHyperv.VendorID.DeepCopy()
 	}
+
+	if preferenceSpec.Features.PreferredHyperv.VSM != nil && vmiSpec.Domain.Features.Hyperv.VSM == nil {
+		vmiSpec.Domain.Features.Hyperv.VSM = preferenceSpec.Features.PreferredHyperv.VSM.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredHyperv.XMMInput != nil && vmiSpec.Domain.Features.Hyperv.XMMInput == nil {
+		vmiSpec.Domain.Features.Hyperv.XMMInput = preferenceSpec.Features.PreferredHyperv.XMMInput.DeepCopy()
+	}
+
+	if preferenceSpec.Features.PreferredHyperv.XMMOutput != nil && vmiSpec.Domain.Features.Hyperv.XMMOutput == nil {
+		vmiSpec.Domain.Features.Hyperv.XMMOutput = preferenceSpec.Features.PreferredHyperv.XMMOutput.DeepCopy()
+	}
 }
