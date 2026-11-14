@@ -69,6 +69,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	architecture := c.Architecture.GetArchitecture()
+	archConfigurators := newArchitectureConfigurators(architecture)
 	virtioModel := virtio.InterpretTransitionalModelType(
 		vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		architecture,
@@ -102,7 +103,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 			compute.BalloonWithVirtioModel(virtioModel),
 		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests, c.AllowCrossArchEmulation),
+		compute.NewGraphicsDomainConfigurator(
+			archConfigurators.video,
+			c.BochsForEFIGuests,
+			c.AllowCrossArchEmulation,
+		),
 		compute.SoundDomainConfigurator{},
 		compute.NewHostDeviceDomainConfigurator(
 			c.GenericHostDevices,

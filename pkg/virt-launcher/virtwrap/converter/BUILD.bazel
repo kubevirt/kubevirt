@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "architecture.go",
         "converter.go",
         "grace.go",
         "pci-placement.go",
@@ -14,6 +15,7 @@ go_library(
         "//pkg/util/hardware:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/compute/video:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/iothreads:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/kvm:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/metadata:go_default_library",
