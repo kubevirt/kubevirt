@@ -87,6 +87,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		vmStore:                           vmInformer.GetStore(),
 		podIndexer:                        podInformer.GetIndexer(),
 		pvcIndexer:                        pvcInformer.GetIndexer(),
+		storageClassStore:                 storageClassInformer.GetStore(),
 		migrationIndexer:                  migrationInformer.GetIndexer(),
 		recorder:                          recorder,
 		clientset:                         clientset,
@@ -225,6 +226,7 @@ type Controller struct {
 	vmStore                           cache.Store
 	podIndexer                        cache.Indexer
 	pvcIndexer                        cache.Indexer
+	storageClassStore                 cache.Store
 	migrationIndexer                  cache.Indexer
 	topologyHinter                    topology.Hinter
 	recorder                          record.EventRecorder
