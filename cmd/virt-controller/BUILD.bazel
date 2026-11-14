@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-controller",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/coveragehttp:go_default_library",
         "//pkg/virt-controller/watch:go_default_library",
     ],
 )
