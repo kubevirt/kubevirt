@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/api/core"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -46,19 +47,26 @@ type vmRestoreConfigChecker interface {
 	SnapshotEnabled() bool
 }
 
+// expandHandler resolves instancetype/preference references on a VM.
+type expandHandler interface {
+	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
 	config            vmRestoreConfigChecker
 	client            kubecli.KubevirtClient
 	vmRestoreInformer cache.SharedIndexInformer
+	expandHandler     expandHandler
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer, expandHandler expandHandler) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
 		config:            config,
 		client:            client,
 		vmRestoreInformer: vmRestoreInformer,
+		expandHandler:     expandHandler,
 	}
 }
 
@@ -222,7 +230,17 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 			return nil, fmt.Errorf("unexpected snapshot source")
 		}
 
-		if backendstorage.HasLegacyBackendStorage(snapshotVM) {
+		// Expand the snapshot VM spec so preference-applied backend storage
+		// (e.g. persistent TPM/EFI) is visible here too.
+		expandedVM, err := admitter.expandHandler.Expand(&virtv1.VirtualMachine{
+			ObjectMeta: snapshotVM.ObjectMeta,
+			Spec:       snapshotVM.Spec,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if backendstorage.HasLegacyBackendStorage(expandedVM) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)",
