@@ -1562,6 +1562,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
 		})
 
+		It("should accept DRA host devices without the HostDevices feature gate", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+				{
+					Name: "hostdev1",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "claim1",
+						RequestName: "req1",
+					},
+				},
+			}
+			vmi.Spec.ResourceClaims = []v1.VirtualMachineInstanceResourceClaim{
+				{Name: "claim1", ResourceClaimName: pointer.P("claim1")},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
 		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
 			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
 			defer disableFeatureGates()
@@ -1599,7 +1618,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
 			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
