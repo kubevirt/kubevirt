@@ -195,6 +195,43 @@ var _ = Describe("Credentials remove-ssh-key", func() {
 		expectSecretToBeEmpty(kubeClient, secretName)
 	})
 
+	It("should remove key from secret with key from file ending with a newline", func() {
+		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
+		Expect(os.WriteFile(filename, []byte(testKey+"\n"), 0o600)).To(Succeed())
+
+		err := runRemoveKeyCommand(
+			"--user", userName,
+			"--file", filename,
+			vmName,
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		expectSecretToBeEmpty(kubeClient, secretName)
+	})
+
+	DescribeTable("should fail and keep all keys if the key is empty", func(keyArgs func() []string) {
+		secret.Data["other-keys"] = []byte(testKey + "-2\n" + testKey + "-3")
+		patchSecret(kubeClient, secret.Name, patch.WithReplace("/data", secret.Data))
+		dataBefore := secret.Data
+
+		err := runRemoveKeyCommand(append(append([]string{"--user", userName}, keyArgs()...), vmName)...)
+		Expect(err).To(MatchError(ContainSubstring("SSH public key is empty")))
+
+		secret, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(secret.Data).To(Equal(dataBefore))
+	},
+		Entry("with an empty key file", func() []string {
+			return []string{"--file", writeKeyFile("")}
+		}),
+		Entry("with a key file containing only whitespace", func() []string {
+			return []string{"--file", writeKeyFile(" \n\t\n")}
+		}),
+		Entry("with a key value containing only whitespace", func() []string {
+			return []string{"--value", "   "}
+		}),
+	)
+
 	It("should patch the secret specified by parameter", func() {
 		const secondSecretName = "second-secret"
 		secondSecret := &corev1.Secret{
@@ -287,6 +324,12 @@ func expectSecretToBeEmpty(kubeClient kubernetes.Interface, name string) {
 	secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(secret.Data).To(BeEmpty())
+}
+
+func writeKeyFile(contents string) string {
+	filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
+	Expect(os.WriteFile(filename, []byte(contents), 0o600)).To(Succeed())
+	return filename
 }
 
 func runRemoveKeyCommand(args ...string) error {

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -53,18 +54,26 @@ func (s *SSHCommandFlags) AddToCommand(cmd *cobra.Command) {
 }
 
 func GetSSHKey(flags *SSHCommandFlags) (string, error) {
-	if flags.SSHPubKeyLiteral != "" {
-		return flags.SSHPubKeyLiteral, nil
+	key := flags.SSHPubKeyLiteral
+	if key == "" {
+		if flags.SSHPubKeyFile == "" {
+			return "", fmt.Errorf("one of --%s, or --%s must be specified", keyFileFlag, keyValueFlag)
+		}
+		data, err := os.ReadFile(flags.SSHPubKeyFile)
+		if err != nil {
+			return "", err
+		}
+		key = string(data)
 	}
 
-	if flags.SSHPubKeyFile == "" {
-		return "", fmt.Errorf("one of --%s, or --%s must be specified", keyFileFlag, keyValueFlag)
+	// Lines of a secret are trimmed before they are compared with the key, so an untrimmed key,
+	// e.g. with the trailing newline of a .pub file, never matches.
+	key = strings.TrimSpace(key)
+	// An empty key is a prefix of every line, so it would match, and remove, every key in a secret.
+	if key == "" {
+		return "", errors.New("the SSH public key is empty")
 	}
-	data, err := os.ReadFile(flags.SSHPubKeyFile)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return key, nil
 }
 
 func GetSSHSecretsForUser(accessCredentials []v1.AccessCredential, user string) []string {
