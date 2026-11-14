@@ -107,6 +107,14 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		}
 	}
 
+	if vm.Spec.Template == nil {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("missing virtual machine template."),
+			Field:   k8sfield.NewPath("spec", "template").String(),
+		}})
+	}
+
 	// We apply any referenced instancetype and preferences early here to the VirtualMachine in order to
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
@@ -288,14 +296,6 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 
 func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-
-	if spec.Template == nil {
-		return append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("missing virtual machine template."),
-			Field:   field.Child("template").String(),
-		})
-	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, isKubeVirtServiceAccount)...)
 	causes = append(causes, validateGraceIOVirtualizationAnnotations(field.Child("template", "metadata"), &spec.Template.Spec, spec.Template.ObjectMeta.Annotations, config)...)

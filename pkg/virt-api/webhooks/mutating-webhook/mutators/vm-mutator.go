@@ -79,6 +79,12 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
+	if vm.Spec.Template == nil {
+		return &admissionv1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
 	if response := mutator.instancetypeMutator.Mutate(vm, oldVM, ar); response != nil {
 		return response
 	}
@@ -90,7 +96,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, mutator.virtClient)
 
-	if ar.Request.Operation == admissionv1.Create {
+	if ar.Request.Operation == admissionv1.Create && vm.Spec.Template != nil {
 		if defaults.SupportsPCIeHotplug(&vm.Spec.Template.Spec) {
 			setDefaultPciTopologyVersion(&vm.Spec.Template.ObjectMeta)
 		}
@@ -120,6 +126,9 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 }
 
 func setFirmwareDefaultsIfEmpty(vm *v1.VirtualMachine) {
+	if vm.Spec.Template == nil {
+		return
+	}
 	if vm.Spec.Template.Spec.Domain.Firmware == nil {
 		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 	}
