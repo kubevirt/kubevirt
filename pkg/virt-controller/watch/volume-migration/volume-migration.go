@@ -25,8 +25,10 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -221,21 +223,85 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 	return nil
 }
 
-// VolumeMigrationCancel cancels the volume migraton
+// VolumeMigrationCancel handles a request to restore the original volume set.
 func VolumeMigrationCancel(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) (bool, error) {
-	if !IsVolumeMigrating(vmi) || !changeMigratedVolumes(vmi, vm) {
+	if !IsVolumeMigrating(vmi) {
 		return false, nil
 	}
-	// A volumem migration can be canceled only if the original set of volumes is restored
-	if revertedToOldVolumes(vmi, vm) {
-		vmiCopy, err := PatchVMIVolumes(clientset, vmi, vm)
-		if err != nil {
-			return true, err
+	cancelRequested := IsCancellationRequested(vmi)
+	if cancelRequested && !MigratedVolumesMatchVMSpec(vmi.Status.MigratedVolumes, &vmi.Spec) {
+		// The source claims were restored. Finish cleanup even if the VM changed again.
+		return true, cancelVolumeMigration(clientset, vmi)
+	}
+	if !changeMigratedVolumes(vmi, vm) {
+		if cancelRequested {
+			// The VM requests the destination again. Resume normal migration reconciliation.
+			return true, SetVolumesChangeCondition(clientset, vmi, k8sv1.ConditionTrue, "migrate volumes")
 		}
-		return true, cancelVolumeMigration(clientset, vmiCopy)
+		return false, nil
+	}
+	if !revertedToOldVolumes(vmi, vm) {
+		return true, fmt.Errorf(InvalidUpdateErrMsg)
 	}
 
-	return true, fmt.Errorf(InvalidUpdateErrMsg)
+	if !cancelRequested {
+		// Stop the workload updater from creating another migration while the abort settles.
+		return true, setVolumesChangeCondition(clientset, vmi, k8sv1.ConditionTrue,
+			virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation, "Cancelling volume migration")
+	}
+
+	active, err := abortVolumeMigration(clientset, vmi)
+	if active || err != nil {
+		return true, err
+	}
+	// Keep migratedVolumes for admission of the spec update. The resulting VMI
+	// event resumes reconciliation above to clear it.
+	_, err = PatchVMIVolumes(clientset, vmi, vm)
+	return true, err
+}
+
+// abortVolumeMigration reports whether a migration still owns the target disks.
+func abortVolumeMigration(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance) (bool, error) {
+	migrations := clientset.VirtualMachineInstanceMigration(vmi.Namespace)
+	opts := metav1.ListOptions{}
+	// Longer VMI names cannot be used as label values. Match those by spec below.
+	if len(vmi.Name) <= validation.DNS1035LabelMaxLength {
+		opts.LabelSelector = fmt.Sprintf("%s=%s", virtv1.MigrationSelectorLabel, vmi.Name)
+	}
+	list, err := migrations.List(context.Background(), opts)
+	if err != nil {
+		return false, err
+	}
+	for _, migration := range list.Items {
+		if migration.Spec.VMIName != vmi.Name || migration.IsFinal() {
+			continue
+		}
+		// Leave the live destination in the VMI through finalization. The VM
+		// controller will see the difference and start the reverse migration.
+		state := vmi.Status.MigrationState
+		if state != nil && state.MigrationUID == migration.UID &&
+			(state.TargetNodeDomainReadyTimestamp != nil || state.Mode == virtv1.MigrationPostCopy) {
+			return true, nil
+		}
+		if migration.DeletionTimestamp != nil || !metav1.HasAnnotation(migration.ObjectMeta, virtv1.WorkloadUpdateMigrationAnnotation) ||
+			!metav1.HasLabel(migration.ObjectMeta, virtv1.VolumesUpdateMigration) {
+			return true, nil
+		}
+		err := migrations.Delete(context.Background(), migration.Name, metav1.DeleteOptions{
+			Preconditions: &metav1.Preconditions{UID: &migration.UID},
+		})
+		if apierrors.IsNotFound(err) {
+			err = nil
+		}
+		return true, err
+	}
+	return false, nil
+}
+
+// IsCancellationRequested reports whether reconciliation is waiting for the volume migration to stop.
+func IsCancellationRequested(vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue, virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation)
 }
 
 func changeMigratedVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) bool {
@@ -461,6 +527,7 @@ func PatchVMIVolumes(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachin
 		return vmiCopy, nil
 	}
 	patch, err := patch.New(
+		patch.WithTest("/status/migratedVolumes", vmi.Status.MigratedVolumes),
 		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
 		patch.WithReplace("/spec/volumes", vmiCopy.Spec.Volumes),
 	).GeneratePayload()
@@ -548,6 +615,11 @@ func patchConditions(clientset kubecli.KubevirtClient, vmi, vmiCopy *virtv1.Virt
 
 func SetVolumesChangeCondition(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance,
 	status k8sv1.ConditionStatus, msg string) error {
+	return setVolumesChangeCondition(clientset, vmi, status, "", msg)
+}
+
+func setVolumesChangeCondition(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance,
+	status k8sv1.ConditionStatus, reason, msg string) error {
 	if vmi == nil {
 		return fmt.Errorf("vmi is empty")
 	}
@@ -556,6 +628,7 @@ func SetVolumesChangeCondition(clientset kubecli.KubevirtClient, vmi *virtv1.Vir
 		Type:               virtv1.VirtualMachineInstanceVolumesChange,
 		LastTransitionTime: metav1.Now(),
 		Status:             status,
+		Reason:             reason,
 		Message:            msg,
 	})
 

@@ -223,6 +223,7 @@ var _ = Describe("Volume Migration", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			fakeClientset = fake.NewSimpleClientset()
 			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
+			virtClient.EXPECT().VirtualMachineInstanceMigration(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstanceMigrations(ns)).AnyTimes()
 		})
 
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
@@ -238,34 +239,36 @@ var _ = Describe("Volume Migration", func() {
 			}
 			vm := libvmi.NewVirtualMachine(libvmi.New(append(addVMIOptionsForVolumes(vmVols), libvmi.WithNamespace(ns))...))
 
-			_, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			instances := fakeClientset.KubevirtV1().VirtualMachineInstances(ns)
+			_, err := instances.Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			_, err = fakeClientset.KubevirtV1().VirtualMachines(ns).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Clear actions to easy check the length later
-			fakeClientset.ClearActions()
 			res, err := volumemigration.VolumeMigrationCancel(virtClient, vmi, vm)
 
 			if expectCancellation {
-				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				updatedVMI, err := instances.Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Expect(volumemigration.IsCancellationRequested(updatedVMI)).To(BeTrue())
+				Expect(updatedVMI.Spec.Volumes).To(Equal(vmi.Spec.Volumes))
+				Expect(updatedVMI.Status.MigratedVolumes).To(Equal(vmi.Status.MigratedVolumes))
+
+				handled, err := volumemigration.VolumeMigrationCancel(virtClient, updatedVMI, vm)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handled).To(BeTrue())
+				updatedVMI, err = instances.Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Spec.Volumes).To(Equal(vm.Spec.Template.Spec.Volumes))
+				Expect(updatedVMI.Status.MigratedVolumes).To(Equal(vmi.Status.MigratedVolumes))
+				handled, err = volumemigration.VolumeMigrationCancel(virtClient, updatedVMI, vm)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(handled).To(BeTrue())
+				updatedVMI, err = instances.Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
 				Expect(updatedVMI.Status.MigratedVolumes).To(BeEmpty())
-				Expect(updatedVMI.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras,
-					Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceVolumesChange),
-						"Status": Equal(k8sv1.ConditionFalse),
-					},
-				)))
-				Expect(fakeClientset.Actions()).To(WithTransform(func(actions []testing.Action) []testing.Action {
-					var patchOperations []testing.Action
-					for _, action := range actions {
-						if action.GetVerb() == "patch" && action.GetResource().Resource == "virtualmachineinstances" {
-							patchOperations = append(patchOperations, action)
-						}
-					}
-					return patchOperations
-				}, HaveLen(2)))
+				Expect(updatedVMI.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+					"Type":   Equal(v1.VirtualMachineInstanceVolumesChange),
+					"Status": Equal(k8sv1.ConditionFalse),
+					"Reason": Equal(v1.VirtualMachineInstanceReasonVolumesChangeCancellation),
+				})))
 			}
 			if expectErr != nil {
 				Expect(err).To(Equal(expectErr))
@@ -282,6 +285,53 @@ var _ = Describe("Volume Migration", func() {
 			Entry("with invalid partial update", []string{"dst0", "dst1", "dst2"}, []string{"src0", "dst1", "dst2"}, []migVolumes{
 				{generateDiskNameFromIndex(0), "src0", "dst0"}, {generateDiskNameFromIndex(1), "src1", "dst1"}, {generateDiskNameFromIndex(2), "src2", "dst2"}},
 				true, fmt.Errorf(volumemigration.InvalidUpdateErrMsg), false),
+		)
+
+		DescribeTable("should keep the destination until the migration settles", func(state v1.VirtualMachineInstanceMigrationState, automated, expectDelete bool) {
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithPersistentVolumeClaim("data", "dst"))
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+				Type:   v1.VirtualMachineInstanceVolumesChange,
+				Status: k8sv1.ConditionTrue,
+				Reason: v1.VirtualMachineInstanceReasonVolumesChangeCancellation,
+			}}
+			vmi.Status.MigrationState = &state
+			vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{{
+				VolumeName: "data", SourcePVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+			}}
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("data", "src")))
+			migration := &v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{Name: "migration", Namespace: ns, UID: "current",
+					Labels: map[string]string{v1.MigrationSelectorLabel: vmi.Name}},
+				Spec:   v1.VirtualMachineInstanceMigrationSpec{VMIName: vmi.Name},
+				Status: v1.VirtualMachineInstanceMigrationStatus{Phase: v1.MigrationRunning},
+			}
+			if automated {
+				migration.Annotations = map[string]string{v1.WorkloadUpdateMigrationAnnotation: ""}
+				migration.Labels[v1.VolumesUpdateMigration] = vmi.Name
+			}
+			client := fakeClientset.KubevirtV1().VirtualMachineInstanceMigrations(ns)
+			_, err := client.Create(context.Background(), migration, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			fakeClientset.ClearActions()
+
+			handled, err := volumemigration.VolumeMigrationCancel(virtClient, vmi, vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			actions := fakeClientset.Actions()
+			Expect(actions[0].Matches("list", "virtualmachineinstancemigrations")).To(BeTrue())
+			if expectDelete {
+				Expect(actions).To(HaveLen(2))
+				Expect(actions[1].(testing.DeleteAction).GetName()).To(Equal(migration.Name))
+			} else {
+				Expect(actions).To(HaveLen(1))
+			}
+		},
+			Entry("aborting a running block copy", v1.VirtualMachineInstanceMigrationState{MigrationUID: "current"}, true, true),
+			Entry("after the target takes over", v1.VirtualMachineInstanceMigrationState{MigrationUID: "current", TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now())}, true, false),
+			Entry("during post-copy", v1.VirtualMachineInstanceMigrationState{MigrationUID: "current", Mode: v1.MigrationPostCopy}, true, false),
+			Entry("ignoring readiness from a previous migration", v1.VirtualMachineInstanceMigrationState{MigrationUID: "previous", TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now())}, true, true),
+			Entry("waiting for a user-created migration", v1.VirtualMachineInstanceMigrationState{MigrationUID: "current"}, false, false),
 		)
 	})
 
@@ -704,6 +754,22 @@ var _ = Describe("Volume Migration", func() {
 						}),
 				}),
 			))
+		})
+
+		It("should reject a stale volume revert after the target has finalized", func() {
+			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("data", "dst"))
+			client := fakeClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace)
+			_, err := client.Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			stale := vmi.DeepCopy()
+			stale.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{{VolumeName: "data"}}
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithPersistentVolumeClaim("data", "src")))
+			_, err = volumemigration.PatchVMIVolumes(virtClient, stale, vm)
+			Expect(err).To(HaveOccurred())
+			current, err := client.Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(current.Spec.Volumes).To(Equal(vmi.Spec.Volumes))
 		})
 
 		DescribeTable("should not patch the VMI volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine) {

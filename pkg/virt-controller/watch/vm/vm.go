@@ -898,8 +898,9 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 	// Abort the volume migration if any of the previous migrated volumes
 	// has changed
 	if volMigAbort, err := volumemig.VolumeMigrationCancel(c.clientset, vmi, vm); volMigAbort {
-		if err == nil {
-			log.Log.Object(vm).Infof("Cancel volume migration")
+		if err == nil && volumemig.IsCancellationRequested(vmi) {
+			// A migration cancelled before handoff can disappear without updating the VMI.
+			c.Queue.AddAfter(controller.VirtualMachineKey(vm), 5*time.Second)
 		}
 		return err
 	}
