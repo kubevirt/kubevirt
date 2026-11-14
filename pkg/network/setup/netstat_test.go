@@ -50,6 +50,128 @@ var _ = Describe("netstat", func() {
 		Expect(setup.NetStat.UpdateStatus(setup.Vmi, nil)).To(Succeed())
 	})
 
+	// Regression test for: masquerade interface gets wrong IP (guest-side NAT address)
+	// after Guest Agent connects, specifically when the pod interface cache is not yet
+	// populated (race with GPU passthrough / many guest interfaces causing virt-handler
+	// to process domain status before the pod cache is written).
+	//
+	// Conditions that expose the bug:
+	//   - masquerade binding on the pod network
+	//   - QEMU Guest Agent active, reporting the guest-side masquerade IP (e.g. 10.0.2.2)
+	//   - pod interface cache empty (PodIP / PodIPs not yet populated)
+	//   - more than 10 guest interfaces (GPU passthrough + Cilium adds extra interfaces
+	//     that exhaust the guest-only interface limit and alter interface enumeration order)
+	//
+	// Expected: status.interfaces[0].ipAddress must remain the reachable pod IP (10.244.1.120),
+	// NOT the internal masquerade guest address (10.0.2.2).
+	It("regression: masquerade interface keeps pod IP when guest-agent reports internal NAT address and pod cache is empty", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryMAC         = "52:54:00:00:BE:EF"
+			primaryIfaceName   = "eth0"
+
+			// The virt-launcher pod IP — the only reachable address from the cluster.
+			podIP = "10.244.1.120"
+
+			// The guest-side masquerade address — internal to the NAT, NOT reachable from outside.
+			masqueradeGuestIP = "10.0.2.2"
+		)
+
+		// Add the masquerade interface to VMI spec and domain spec, but intentionally
+		// do NOT populate the pod interface cache (no podIPs argument to addNetworkInterface).
+		// This simulates the race where virt-handler processes the guest-agent report before
+		// the cache file has been written (observed with GPU passthrough + many interfaces).
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				// No pod IPs: the cache is intentionally empty to simulate the race.
+			),
+		).To(Succeed())
+
+		// Simulate >10 guest interfaces: the primary masquerade NIC plus many guest-only
+		// interfaces (GPU passthrough + Cilium veth pairs appear as extra NICs in the guest).
+		// These exhaust the guest-only interface limit and reproduce the ordering conditions.
+		guestAgentIfaces := []api.InterfaceStatus{
+			// The masquerade NIC as seen from inside the guest: it reports the NAT address.
+			newDomainStatusIface([]string{masqueradeGuestIP}, primaryMAC, primaryIfaceName),
+		}
+		const extraGuestInterfaces = 12 // > guestOnlyInterfaceLimit (10)
+		for i := 1; i <= extraGuestInterfaces; i++ {
+			guestAgentIfaces = append(guestAgentIfaces, newDomainStatusIface(
+				nil,
+				fmt.Sprintf("00:00:00:00:00:%02X", i),
+				fmt.Sprintf("eth%d", i),
+			))
+		}
+		setup.addGuestAgentInterfaces(guestAgentIfaces...)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		// The primary interface must have an empty IP (not the masquerade guest address).
+		// When the pod cache is empty, there is no routable IP to report yet;
+		// the internal 10.0.2.2 must NEVER appear in the VMI status.
+		Expect(setup.Vmi.Status.Interfaces).To(HaveLen(1 + 10)) // primary + 10 guest-only (limit)
+		primaryStatus := setup.Vmi.Status.Interfaces[0]
+		Expect(primaryStatus.Name).To(Equal(primaryNetworkName))
+		Expect(primaryStatus.IP).NotTo(Equal(masqueradeGuestIP),
+			"masquerade guest-side address must not appear as the interface IP")
+		Expect(primaryStatus.IPs).NotTo(ContainElement(masqueradeGuestIP),
+			"masquerade guest-side address must not appear in the IPs list")
+	})
+
+	// Companion regression test: with the pod cache populated, the masquerade pod IP must be
+	// preserved and the internal guest address must not appear — even with >10 guest interfaces.
+	It("regression: masquerade interface retains pod IP when pod cache is populated and guest-agent reports internal NAT address", func() {
+		const (
+			primaryNetworkName = "primary"
+			primaryMAC         = "52:54:00:00:BE:EF"
+			primaryIfaceName   = "eth0"
+
+			podIP             = "10.244.1.120"
+			masqueradeGuestIP = "10.0.2.2"
+		)
+
+		// Pod cache IS populated with the reachable pod IP.
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				podIP, // pod cache populated with the real pod IP
+			),
+		).To(Succeed())
+
+		// GA reports a bridge with the same MAC but NO IP (processed first),
+		// and then the actual masquerade NIC with the internal masquerade address.
+		// Plus many extra guest interfaces to ensure guestOnly limits don't mask it.
+		guestAgentIfaces := []api.InterfaceStatus{
+			newDomainStatusIface(nil, primaryMAC, "br0"),
+			newDomainStatusIface([]string{masqueradeGuestIP}, primaryMAC, primaryIfaceName),
+		}
+		for i := 1; i <= 11; i++ {
+			guestAgentIfaces = append(guestAgentIfaces, newDomainStatusIface(
+				nil,
+				fmt.Sprintf("00:00:00:00:00:%02X", i),
+				fmt.Sprintf("eth%d", i),
+			))
+		}
+		setup.addGuestAgentInterfaces(guestAgentIfaces...)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		primaryStatus := setup.Vmi.Status.Interfaces[0]
+		Expect(primaryStatus.Name).To(Equal(primaryNetworkName))
+		Expect(primaryStatus.IP).To(Equal(podIP),
+			"pod IP must be reported as the primary IP for masquerade interfaces")
+		Expect(primaryStatus.IPs).To(ContainElement(podIP),
+			"pod IP must be present in the IPs list")
+		Expect(primaryStatus.IPs).NotTo(ContainElement(masqueradeGuestIP),
+			"internal masquerade guest address must not appear in the IPs list")
+		Expect(primaryStatus.InfoSource).To(Equal(netvmispec.InfoSourceDomainAndGA))
+	})
+
 	It("volatile cache is updated based on non-volatile cache", func() {
 		const (
 			primaryNetworkName = "primary"
