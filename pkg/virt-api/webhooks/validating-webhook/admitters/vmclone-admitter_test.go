@@ -44,7 +44,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var vmClone *clone.VirtualMachineClone
 
 	BeforeEach(func() {
-		admitter = NewVMCloneAdmitter(stubClusterConfigurer{snapshotEnabled: true})
+		admitter = NewVMCloneAdmitter()
 		vmClone = newValidClone()
 	})
 
@@ -127,11 +127,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			vmClone.Spec.Target.Name = vmClone.Spec.Source.Name
 			admitter.admitAndExpect(vmClone, true)
 		})
-	})
-
-	It("Should reject if snapshot feature gate is not enabled", func() {
-		admitter := NewVMCloneAdmitter(stubClusterConfigurer{snapshotEnabled: false})
-		admitter.admitAndExpect(vmClone, false)
 	})
 
 	It("should allow if vmsnapshot contents don't include a volume's backup", func() {
@@ -266,12 +261,4 @@ func newValidObjReference() *k8sv1.TypedLocalObjectReference {
 		Kind:     virtualMachineKind,
 		Name:     "clone-source-vm",
 	}
-}
-
-type stubClusterConfigurer struct {
-	snapshotEnabled bool
-}
-
-func (s stubClusterConfigurer) SnapshotEnabled() bool {
-	return s.snapshotEnabled
 }
