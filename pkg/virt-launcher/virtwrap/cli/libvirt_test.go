@@ -20,6 +20,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -29,6 +30,27 @@ import (
 
 	"libvirt.org/go/libvirt"
 )
+
+type dirtyRateCalculationCall struct {
+	seconds int
+	flags   libvirt.DomainDirtyRateCalcFlags
+}
+
+type fakeDirtyRateCalculator struct {
+	errors []error
+	calls  []dirtyRateCalculationCall
+}
+
+func (c *fakeDirtyRateCalculator) StartDirtyRateCalc(seconds int, flags libvirt.DomainDirtyRateCalcFlags) error {
+	c.calls = append(c.calls, dirtyRateCalculationCall{seconds: seconds, flags: flags})
+	if len(c.errors) == 0 {
+		return nil
+	}
+
+	err := c.errors[0]
+	c.errors = c.errors[1:]
+	return err
+}
 
 var _ = Describe("Libvirt Suite", func() {
 	Context("Upon attempt to connect to Libvirt", func() {
@@ -95,6 +117,29 @@ var _ = Describe("Libvirt Suite", func() {
 			wg.Wait()
 
 			Expect(conn.domainRebootEventCallbacks).To(HaveLen(registrations))
+		})
+	})
+
+	Context("when starting dirty-rate calculation", func() {
+		It("falls back to page sampling when dirty bitmap mode is unsupported", func() {
+			calculator := &fakeDirtyRateCalculator{errors: []error{errors.New("dirty bitmap mode is unsupported"), nil}}
+
+			startDirtyRateCalc(calculator, 1, libvirt.DOMAIN_DIRTYRATE_MODE_DIRTY_BITMAP)
+
+			Expect(calculator.calls).To(Equal([]dirtyRateCalculationCall{
+				{seconds: 1, flags: libvirt.DOMAIN_DIRTYRATE_MODE_DIRTY_BITMAP},
+				{seconds: 1, flags: libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING},
+			}))
+		})
+
+		It("does not retry a non-bitmap calculation", func() {
+			calculator := &fakeDirtyRateCalculator{errors: []error{errors.New("dirty rate calculation failed")}}
+
+			startDirtyRateCalc(calculator, 1, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING)
+
+			Expect(calculator.calls).To(Equal([]dirtyRateCalculationCall{
+				{seconds: 1, flags: libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING},
+			}))
 		})
 	})
 })
