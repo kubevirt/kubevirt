@@ -33,7 +33,6 @@ func ConvertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) er
 	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
 	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
 	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
-	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
 
 	return nil
 }
