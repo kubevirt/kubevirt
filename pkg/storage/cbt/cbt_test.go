@@ -566,7 +566,8 @@ var _ = Describe("CBT", func() {
 		DescribeTable("should return correct eligibility for volume types",
 			func(volumeSource v1.VolumeSource, expected bool) {
 				volume := &v1.Volume{Name: "test-volume", VolumeSource: volumeSource}
-				Expect(cbt.IsCBTEligibleVolume(volume)).To(Equal(expected))
+				disks := []v1.Disk{{Name: "test-volume", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}}}
+				Expect(cbt.IsCBTEligibleVolume(volume, disks)).To(Equal(expected))
 			},
 			Entry("PVC", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"}}}, true),
 			Entry("DataVolume", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-dv"}}, true),
@@ -578,6 +579,23 @@ var _ = Describe("CBT", func() {
 			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
 		)
 
+		DescribeTable("should only track PVCs backing a plain writable disk",
+			func(vmi *v1.VirtualMachineInstance, expected bool) {
+				Expect(cbt.IsCBTEligibleVolume(&vmi.Spec.Volumes[0], vmi.Spec.Domain.Devices.Disks)).To(Equal(expected))
+			},
+			Entry("writable disk",
+				libvmi.New(libvmi.WithPersistentVolumeClaim("vol", "pvc")), true),
+			Entry("read-only disk",
+				libvmi.New(libvmi.WithPersistentVolumeClaim("vol", "pvc", func(d *v1.Disk) { d.Disk.ReadOnly = true })), false),
+			Entry("shareable disk",
+				libvmi.New(libvmi.WithPersistentVolumeClaim("vol", "pvc", libvmi.WithDiskShareable())), false),
+			Entry("CD-ROM",
+				libvmi.New(libvmi.WithCDRom("vol", v1.DiskBusSATA, "pvc")), false),
+			Entry("LUN",
+				libvmi.New(libvmi.WithPersistentVolumeClaimLun("vol", "pvc", false)), false),
+			Entry("virtiofs filesystem",
+				libvmi.New(libvmi.WithFilesystemPVC("pvc")), false),
+		)
 	})
 
 	Context("PathForCBT", func() {
