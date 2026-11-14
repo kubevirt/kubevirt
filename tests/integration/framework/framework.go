@@ -171,6 +171,10 @@ func (f *Framework) K8sClient() kubernetes.Interface {
 	return f.k8sClient
 }
 
+func (f *Framework) PodSimulator() *PodSimulator {
+	return f.podSimulator
+}
+
 func (f *Framework) CreateNamespace(ctx context.Context) string {
 	GinkgoHelper()
 	ns := fmt.Sprintf("test-%s", rand.String(namespaceSuffixLen))
