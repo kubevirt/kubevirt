@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -153,6 +155,42 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 				&expect.BExp{R: "\\$"},
 			}, 3*time.Minute)).To(Succeed())
 
+		})
+
+		Context("with a deleted access credential secret", func() {
+			It("should still live migrate the VMI", decorators.WgS390x, func() {
+				virtClient := kubevirt.Client()
+
+				By("Creating a secret with ssh keys")
+				Expect(createNewSecret(testsuite.GetTestNamespace(nil), pubKeySecretID, keysSecretData)).To(Succeed())
+
+				By("Launching a VMI with an access credential backed by the secret")
+				vmi := libvmops.RunVMIAndExpectLaunch(
+					libvmifact.NewFedora(
+						libnet.WithMasqueradeNetworking(),
+						withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+							QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+								Users: []string{"fedora"},
+							},
+						})), flags.StartupTimeoutSecondsLarge())
+
+				By("Waiting for agent to connect")
+				Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+				By("Waiting on access credentials to sync")
+				Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+
+				By("Deleting the access credential secret")
+				err := virtClient.CoreV1().Secrets(vmi.Namespace).Delete(context.Background(), pubKeySecretID, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Migrating the VMI")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+				By("Verifying the VMI is running on the target node")
+				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+			})
 		})
 
 		DescribeTable("should update to unsupported agent", func(secretID string, secretData libsecret.DataBytes, options ...libvmi.Option) {
