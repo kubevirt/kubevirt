@@ -1660,8 +1660,15 @@ var CRDsValidation map[string]string = map[string]string{
               description: Deprecated. Use architectureConfiguration instead.
               type: string
             permittedHostDevices:
-              description: PermittedHostDevices holds information about devices allowed
-                for passthrough
+              description: |-
+                PermittedHostDevices holds information about devices allowed for passthrough.
+
+                virt-handler registers a device plugin for each entry. The host-device
+                ValidatingAdmissionPolicy (managedHostDeviceNamesExpr in
+                pkg/virt-operator/resource/generate/components/validatingadmissionpolicies)
+                must name every JSON field of this struct. A new device category that is
+                missing from that expression is still registered by virt-handler and becomes
+                allocatable by any pod.
               properties:
                 mediatedDevices:
                   items:

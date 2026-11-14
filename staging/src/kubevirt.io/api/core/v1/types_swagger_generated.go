@@ -1179,7 +1179,7 @@ func (LogVerbosity) SwaggerDoc() map[string]string {
 
 func (PermittedHostDevices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "PermittedHostDevices holds information about devices allowed for passthrough",
+		"":                "PermittedHostDevices holds information about devices allowed for passthrough.\n\nvirt-handler registers a device plugin for each entry. The host-device\nValidatingAdmissionPolicy (managedHostDeviceNamesExpr in\npkg/virt-operator/resource/generate/components/validatingadmissionpolicies)\nmust name every JSON field of this struct. A new device category that is\nmissing from that expression is still registered by virt-handler and becomes\nallocatable by any pod.",
 		"pciHostDevices":  "+listType=atomic",
 		"mediatedDevices": "+listType=atomic",
 		"usb":             "+listType=atomic",
