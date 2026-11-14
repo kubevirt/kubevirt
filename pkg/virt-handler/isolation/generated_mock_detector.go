@@ -69,3 +69,15 @@ func (mr *MockPodIsolationDetectorMockRecorder) DetectForSocket(socket any) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DetectForSocket", reflect.TypeOf((*MockPodIsolationDetector)(nil).DetectForSocket), socket)
 }
+
+// Teardown mocks base method.
+func (m *MockPodIsolationDetector) Teardown(vm *v1.VirtualMachineInstance) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Teardown", vm)
+}
+
+// Teardown indicates an expected call of Teardown.
+func (mr *MockPodIsolationDetectorMockRecorder) Teardown(vm any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Teardown", reflect.TypeOf((*MockPodIsolationDetector)(nil).Teardown), vm)
+}

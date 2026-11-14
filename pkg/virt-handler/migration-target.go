@@ -561,6 +561,7 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 			return err
 		}
 		c.launcherClients.CloseLauncherClient(vmi)
+		c.podIsolationDetector.Teardown(vmi)
 	} else {
 		options := &cmdv1.VirtualMachineOptions{}
 		options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
@@ -678,6 +679,7 @@ func (c *MigrationTargetController) execute(key string) error {
 		_ = c.netConf.Teardown(vmi)
 		c.netStat.Teardown(vmi)
 		c.launcherClients.CloseLauncherClient(vmi)
+		c.podIsolationDetector.Teardown(vmi)
 		return nil
 	}
 

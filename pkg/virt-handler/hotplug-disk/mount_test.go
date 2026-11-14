@@ -1418,6 +1418,8 @@ func (i *mockIsolationDetector) DetectForSocket(_ string) (isolation.IsolationRe
 	return nil, fmt.Errorf("isolation error")
 }
 
+func (i *mockIsolationDetector) Teardown(_ *v1.VirtualMachineInstance) {}
+
 func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDetector {
 	return i
 }

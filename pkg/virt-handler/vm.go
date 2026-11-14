@@ -135,10 +135,10 @@ type VirtualMachineController struct {
 	ghostRecordStore         *virtcache.GhostRecordStore
 }
 
-type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error)
+type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool, detector ...isolation.PodIsolationDetector) (cgroup.Manager, error)
 
-func newCgroupManager(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation)
+func newCgroupManager(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool, detector ...isolation.PodIsolationDetector) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation, detector...)
 }
 
 func NewVirtualMachineController(
@@ -959,7 +959,7 @@ func (c *VirtualMachineController) updateSELinuxContext(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if present {
-		context, err := selinux.GetVirtLauncherContext(vmi)
+		context, err := selinux.GetVirtLauncherContext(vmi, c.podIsolationDetector)
 		if err != nil {
 			return err
 		}
@@ -1601,7 +1601,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, _ := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation(), c.podIsolationDetector)
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -1612,6 +1612,8 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// Watch dog file and command client must be the last things removed here
 	c.launcherClients.CloseLauncherClient(vmi)
+
+	c.podIsolationDetector.Teardown(vmi)
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
@@ -1919,7 +1921,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
 
-	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation(), c.podIsolationDetector)
 	if err != nil {
 		return err
 	}
