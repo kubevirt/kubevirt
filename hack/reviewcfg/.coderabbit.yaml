@@ -14,7 +14,8 @@ reviews:
         docs/gosec.md, and docs/deprecation.md.
     - path: "tests/**"
       instructions: >
-        See tests/README.md, docs/conformance.md, and docs/quarantine.md.
+        See tests/README.md, docs/conformance.md, docs/quarantine.md, and
+        docs/tests/functional-test-guidelines.md.
     - path: "pkg/libvmi/**"
       instructions: "Follow the rules in pkg/libvmi/README.md."
     - path: "tests/libvmifact/**"
