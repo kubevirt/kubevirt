@@ -20,7 +20,6 @@
 package cli
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -39,48 +38,20 @@ var _ = Describe("Libvirt Suite", func() {
 	})
 
 	Context("Upon registering event callbacks", func() {
-		const registrations = 50
-
-		var conn *LibvirtConnection
-
-		noopCallback := func(_ *libvirt.Connect, _ *libvirt.Domain) {}
-
-		BeforeEach(func() {
-			conn = &LibvirtConnection{
-				alive:         true,
-				reconnectLock: &sync.Mutex{},
-			}
-		})
-
-		It("should store the callback before registering it and hold the reconnect lock for both", func() {
-			registerErr := fmt.Errorf("register failed")
-			register := func(_ libvirt.DomainEventGenericCallback) (int, error) {
-				Expect(conn.reconnectLock.TryLock()).To(BeFalse())
-				Expect(conn.domainRebootEventCallbacks).To(HaveLen(1))
-				return 0, registerErr
-			}
-
-			Expect(registerEventCallback(conn, &conn.domainRebootEventCallbacks, noopCallback, register)).To(MatchError(registerErr))
-			Expect(conn.domainRebootEventCallbacks).To(HaveLen(1))
-		})
-
-		It("should not race with callback replay", func() {
-			register := func(_ libvirt.DomainEventGenericCallback) (int, error) {
-				return 0, nil
-			}
+		It("should not race with event dispatch", func() {
+			const registrations = 50
+			conn := &LibvirtConnection{}
+			noopCallback := func(_ *libvirt.Connect, _ *libvirt.Domain) {}
 
 			var wg sync.WaitGroup
 			wg.Add(1)
-			// Mimic the replay loop of reconnectIfNecessaryLocked.
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
 				for range registrations {
-					conn.reconnectLock.Lock()
-					for _, callback := range conn.domainRebootEventCallbacks {
+					for _, callback := range conn.reboot.callbacks() {
 						Expect(callback).ToNot(BeNil())
 					}
-					conn.reconnectLock.Unlock()
 				}
 			}()
 
@@ -89,12 +60,68 @@ var _ = Describe("Libvirt Suite", func() {
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					Expect(registerEventCallback(conn, &conn.domainRebootEventCallbacks, noopCallback, register)).To(Succeed())
+					conn.DomainEventRebootRegister(noopCallback)
 				}()
 			}
 			wg.Wait()
 
-			Expect(conn.domainRebootEventCallbacks).To(HaveLen(registrations))
+			Expect(conn.reboot.callbacks()).To(HaveLen(registrations))
+		})
+	})
+
+	Context("Upon reconnect", func() {
+		It("should deliver events to current subscribers through the new connection", func() {
+			Expect(libvirt.EventRegisterDefaultImpl()).To(Succeed())
+
+			unusable := &libvirt.Connect{}
+			conn := &LibvirtConnection{
+				Connect:       unusable,
+				uri:           "test:///default",
+				reconnectLock: &sync.Mutex{},
+			}
+
+			kept := make(chan libvirt.DomainEventType, 10)
+			conn.DomainEventLifecycleRegister(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+				kept <- event.Event
+			})
+			deregistered := make(chan libvirt.DomainEventType, 10)
+			unsubscribe := conn.lifecycle.subscribe(func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+				deregistered <- event.Event
+			})
+
+			dom, err := conn.LookupDomainByName("test")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(conn.Connect.Close)
+			DeferCleanup(dom.Free)
+			Expect(conn.Connect).ToNot(BeIdenticalTo(unusable))
+
+			unsubscribe()
+
+			Expect(dom.Suspend()).To(Succeed())
+			DeferCleanup(dom.Resume)
+
+			timer, err := libvirt.EventAddTimeout(0, func(int) {})
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(libvirt.EventRemoveTimeout, timer)
+			Expect(libvirt.EventRunDefaultImpl()).To(Succeed())
+
+			Expect(kept).To(HaveLen(1))
+			Expect(kept).To(Receive(Equal(libvirt.DOMAIN_EVENT_SUSPENDED)))
+			Expect(deregistered).To(BeEmpty())
+		})
+
+		It("should keep a connection that is still alive after a failed call", func() {
+			Expect(libvirt.EventRegisterDefaultImpl()).To(Succeed())
+
+			conn, err := NewConnection("test:///default", "", "", time.Hour)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(conn.Close)
+
+			lvConn := conn.(*LibvirtConnection)
+			previous := lvConn.Connect
+			_, err = conn.LookupDomainByName("missing")
+			Expect(err).To(HaveOccurred())
+			Expect(lvConn.current()).To(BeIdenticalTo(previous))
 		})
 	})
 })

@@ -939,7 +939,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	}
 }
 
-func (m *migrationMonitor) registerIterationCallback(domName string) (int, error) {
+func (m *migrationMonitor) registerIterationCallback(domName string) (unsubscribe func()) {
 	return m.l.virConn.DomainEventMigrationIterationRegister(func(_ *libvirt.Connect, domain *libvirt.Domain, event *libvirt.DomainEventMigrationIteration) {
 		name, err := domain.GetName()
 		if err != nil || name != domName {
@@ -976,18 +976,8 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 	close(ready) // signal we're ready to monitor migration
 
 	if m.stallDetectionEnabled {
-		registrationID, registerErr := m.registerIterationCallback(domName)
-		if registerErr != nil {
-			m.logger.Reason(registerErr).Error("failed to register migration iteration callback, falling back to legacy stall handling")
-			m.stallDetectionEnabled = false
-		} else {
-			m.logger.V(3).Infof("registered migration iteration callback")
-			defer func() {
-				if err := m.l.virConn.DomainEventDeregister(registrationID); err != nil {
-					m.logger.Reason(err).V(3).Info("failed to deregister migration iteration callback")
-				}
-			}()
-		}
+		defer m.registerIterationCallback(domName)()
+		m.logger.V(3).Infof("registered migration iteration callback")
 	}
 
 	logInterval := 0

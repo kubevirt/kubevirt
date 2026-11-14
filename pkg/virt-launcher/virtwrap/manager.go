@@ -469,13 +469,10 @@ func newLibvirtDomainManager(
 
 		// A guest OS reboot does not recreate virt-launcher, so drop cached
 		// agent data to not serve stale data from before the reboot.
-		err = connection.DomainEventRebootRegister(func(_ *libvirt.Connect, _ *libvirt.Domain) {
+		connection.DomainEventRebootRegister(func(_ *libvirt.Connect, _ *libvirt.Domain) {
 			log.Log.Infof("Domain %s rebooted, resetting agent data caches", domainName)
 			manager.resetAgentDataCaches()
 		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to register reboot event callback: %w", err)
-		}
 	}
 
 	return &manager, nil

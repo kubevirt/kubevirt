@@ -280,7 +280,7 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 	nonRoot bool,
-) error {
+) {
 
 	eventChan := make(chan libvirtEvent, 10)
 
@@ -302,10 +302,10 @@ func (n *Notifier) StartDomainNotifier(
 			qemuAgentFSFreezeStatusInterval,
 		), agentStore, nonRoot, domainName)
 
-	return registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
+	registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
 }
 
-func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) error {
+func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metadata.Cache, domainName string, domainConn cli.Connection) {
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
 
 		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
@@ -373,32 +373,11 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 		}
 	}
 
-	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
-		return err
-	}
-
-	err = domainConn.DomainEventDeviceAddedRegister(domainEventDeviceAddedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register device added event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register device removed event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register memory device size change event callback with libvirt")
-		return err
-	}
-	err = domainConn.DomainEventJobCompletedRegister(domainEventJobCompletedCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event job completed callback with libvirt")
-		return err
-	}
+	domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
+	domainConn.DomainEventDeviceAddedRegister(domainEventDeviceAddedCallback)
+	domainConn.DomainEventDeviceRemovedRegister(domainEventDeviceRemovedCallback)
+	domainConn.DomainEventMemoryDeviceSizeChangeRegister(domainEventMemoryDeviceSizeChange)
+	domainConn.DomainEventJobCompletedRegister(domainEventJobCompletedCallback)
 
 	agentEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventAgentLifecycle) {
 		log.Log.Infof("GuestAgentLifecycle event state %d with reason %d received", event.State, event.Reason)
@@ -412,14 +391,9 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 			log.Log.Infof(libvirtEventChannelFull)
 		}
 	}
-	err = domainConn.AgentEventLifecycleRegister(agentEventLifecycleCallback)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
-		return err
-	}
+	domainConn.AgentEventLifecycleRegister(agentEventLifecycleCallback)
 
 	log.Log.Infof("Registered libvirt event notify callback")
-	return nil
 }
 
 //nolint:dupl
