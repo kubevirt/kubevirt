@@ -6218,6 +6218,28 @@ var _ = Describe("VirtualMachine", func() {
 					return &v1.VolumeUpdateState{VolumeMigrationState: migState(src, dst)}
 				}
 
+				It("should migrate back from the live destination when the forward migration finishes before cancellation", func() {
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithPersistentVolumeClaim(diskName, "dst"))
+					vm := libvmi.NewVirtualMachine(vmi.DeepCopy(), libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+					vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "src"
+					vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{Completed: true}
+					vm.Status.VolumeUpdateState = volUpdateState("src", "dst")
+					for _, name := range []string{"src", "dst"} {
+						Expect(controller.pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+							ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+						})).To(Succeed())
+					}
+					instances := virtFakeClient.KubevirtV1().VirtualMachineInstances(ns)
+					vmi, err := instances.Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(controller.handleVolumeUpdateRequest(vm, vmi)).To(Succeed())
+					vmi, err = instances.Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vmi.Status.MigratedVolumes).To(Equal(migVols("dst", "src")))
+					Expect(vm.Status.VolumeUpdateState).To(Equal(volUpdateState("dst", "src")))
+				})
+
 				DescribeTable("should handle migratedVolumes propagation from VMI to VM", func(
 					volClaim string,
 					vmiMigratedVols []v1.StorageMigratedVolumeInfo,

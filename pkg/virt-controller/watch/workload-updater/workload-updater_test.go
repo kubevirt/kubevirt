@@ -662,6 +662,21 @@ var _ = Describe("Workload Updater", func() {
 	})
 
 	Context("workload volumes update", func() {
+		It("should wait for a cancelled volume update to settle before creating another migration", func() {
+			vmi := newVirtualMachineInstance("testvm", true, expectedImage)
+			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue,
+				Reason: v1.VirtualMachineInstanceReasonVolumesChangeCancellation,
+			})
+			Expect(controller.vmiStore.Add(vmi)).To(Succeed())
+			kv := newKubeVirt(0)
+			kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate}
+			addKubeVirt(kv)
+
+			sanityExecute()
+			Expect(fakeVirtClient.Actions()).To(BeEmpty())
+		})
+
 		DescribeTable("should use correct label value for filtering", func(vmName, expectedLabelValue string) {
 			vmi := newVirtualMachineInstance(vmName, true, "madeup")
 			condition := v1.VirtualMachineInstanceCondition{
