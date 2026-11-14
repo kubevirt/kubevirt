@@ -385,7 +385,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
+	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride, recorder)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
