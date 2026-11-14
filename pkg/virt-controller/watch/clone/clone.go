@@ -35,7 +35,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
 )
 
@@ -139,12 +138,6 @@ func (ctrl *VMCloneController) sync(vmClone *clone.VirtualMachineClone) (syncInf
 				event:          SourceDoesNotExist,
 				reason:         err.Error(),
 			}, nil
-		case ErrSourceWithBackendStorage:
-			return syncInfoType{
-				isCloneFailing: true,
-				event:          SourceWithBackendStorageInvalid,
-				reason:         err.Error(),
-			}, nil
 		default:
 			return syncInfoType{}, err
 		}
@@ -172,9 +165,6 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.HasLegacyBackendStorage(sourceVM) {
-			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
-		}
 		cloneInfo.sourceVm = sourceVM
 
 	case sourceTypeSnapshot:
@@ -486,10 +476,6 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 
 	if vm.Spec.Template == nil {
 		return nil
-	}
-
-	if backendstorage.HasLegacyBackendStorage(vm) {
-		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 
 	var volumesNotBackedUpErr error
