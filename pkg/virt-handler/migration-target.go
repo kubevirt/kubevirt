@@ -53,7 +53,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -89,6 +88,7 @@ type MigrationTargetController struct {
 	pluginExecutor            plugins.NodeHookExecutor
 	vmiExpectations           *controller.UIDTrackingControllerExpectations
 	migrationProxy            targetProxyManager
+	getCgroupManager          cgroupManagerGetter
 }
 
 type targetProxyManager interface {
@@ -119,7 +119,7 @@ func NewMigrationTargetController(
 	hvMounter hotplugvolume.VolumeMounter,
 	memoryOverheadCalculators ...memoryOverheadCalculator,
 ) (*MigrationTargetController, error) {
-	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-target"},
 	)
@@ -131,7 +131,7 @@ func NewMigrationTargetController(
 		logger,
 		host,
 		recorder,
-		virtClient,
+		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -160,6 +160,7 @@ func NewMigrationTargetController(
 		pluginExecutor:            pluginExecutor,
 		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationProxy:            migrationProxy,
+		getCgroupManager:          newCgroupManager,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -346,7 +347,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		// record the moment we detected the domain is running.
 		// This is used as a trigger to help coordinate when CNI drivers
 		// fail over the IP to the new pod.
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = pointer.P(metav1.Now())
+		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp = new(metav1.Now())
 		if vmi.Status.MigrationState.TargetState != nil {
 			vmi.Status.MigrationState.TargetState.DomainReadyTimestamp = vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp
 		}
@@ -409,7 +410,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		vmi.Status.MigrationState.TargetNodeAddress = c.migrationIpAddress
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPortsMap
 		if vmi.Status.MigrationState.TargetState != nil {
-			vmi.Status.MigrationState.TargetState.NodeAddress = pointer.P(c.migrationIpAddress)
+			vmi.Status.MigrationState.TargetState.NodeAddress = new(c.migrationIpAddress)
 			vmi.Status.MigrationState.TargetState.DirectMigrationNodePorts = destSrcPortsMap
 		}
 	}
@@ -454,7 +455,7 @@ func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -493,7 +494,7 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 		if shouldExpect {
 			c.vmiExpectations.SetExpectations(key, 1, 0)
 		}
-		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.vmiClient.VirtualMachineInstances(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			if shouldExpect {
 				c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -818,7 +819,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+		cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
@@ -841,7 +842,7 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 
 	// Unmount all hotplug volumes
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+		cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 		if err != nil {
 			return err
 		}
@@ -989,7 +990,7 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	return nil, false
 }
 
-func (c *MigrationTargetController) addFunc(obj interface{}) {
+func (c *MigrationTargetController) addFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -997,7 +998,7 @@ func (c *MigrationTargetController) addFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) deleteFunc(obj interface{}) {
+func (c *MigrationTargetController) deleteFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -1005,7 +1006,7 @@ func (c *MigrationTargetController) deleteFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) updateFunc(_, new interface{}) {
+func (c *MigrationTargetController) updateFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -1013,14 +1014,14 @@ func (c *MigrationTargetController) updateFunc(_, new interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) addDomainFunc(obj interface{}) {
+func (c *MigrationTargetController) addDomainFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
 
-func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
+func (c *MigrationTargetController) deleteDomainFunc(obj any) {
 	domain, ok := obj.(*api.Domain)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -1041,7 +1042,7 @@ func (c *MigrationTargetController) deleteDomainFunc(obj interface{}) {
 	}
 }
 
-func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
+func (c *MigrationTargetController) updateDomainFunc(old, new any) {
 	newDomain := new.(*api.Domain)
 	oldDomain := old.(*api.Domain)
 	if oldDomain.Status.Status != newDomain.Status.Status || oldDomain.Status.Reason != newDomain.Status.Reason {
@@ -1059,7 +1060,7 @@ func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 }
 
 func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err != nil {
 		return err
 	}

@@ -131,10 +131,7 @@ func (f *FailRetryManager) ShouldDelay(key string, isFailure func() bool) (bool,
 	}
 
 	// Backoff ended. Increase it and do not delay the processing.
-	state.waitInterval = state.waitInterval * 2
-	if state.waitInterval > f.maxWait {
-		state.waitInterval = f.maxWait
-	}
+	state.waitInterval = min(state.waitInterval*2, f.maxWait)
 	state.nextRun = now.Add(state.waitInterval)
 	state.lastRun = now
 	state.lastRunFailed = false

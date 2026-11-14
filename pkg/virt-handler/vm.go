@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -113,7 +114,6 @@ type proxyCleaner interface {
 type VirtualMachineController struct {
 	*BaseController
 	capabilities             *libvirtxml.Caps
-	virtClient               kubecli.KubevirtClient
 	containerDiskMounter     containerdisk.Mounter
 	downwardMetricsManager   downwardMetricsManager
 	hotplugVolumeMounter     hotplugvolume.VolumeMounter
@@ -131,9 +131,13 @@ type VirtualMachineController struct {
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
 	migrationProxy           proxyCleaner
+	getCgroupManager         cgroupManagerGetter
+	ghostRecordStore         *virtcache.GhostRecordStore
 }
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
+type cgroupManagerGetter func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error)
+
+func newCgroupManager(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation, allowEmulation bool) (cgroup.Manager, error) {
 	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice(), allowEmulation)
 }
 
@@ -163,6 +167,7 @@ func NewVirtualMachineController(
 	pluginExecutor plugins.NodeHookExecutor,
 	cdMounter containerdisk.Mounter,
 	hvMounter hotplugvolume.VolumeMounter,
+	ghostRecordStore *virtcache.GhostRecordStore,
 ) (*VirtualMachineController, error) {
 
 	logger := log.Log.With("controller", "vm")
@@ -173,7 +178,7 @@ func NewVirtualMachineController(
 		logger,
 		host,
 		recorder,
-		virtClient,
+		virtClient.GeneratedKubeVirtClient().KubevirtV1(),
 		queue,
 		vmiInformer,
 		domainInformer,
@@ -193,7 +198,6 @@ func NewVirtualMachineController(
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
 		capabilities:             capabilities,
-		virtClient:               virtClient,
 		containerDiskMounter:     cdMounter,
 		downwardMetricsManager:   downwardMetricsManager,
 		hotplugVolumeMounter:     hvMounter,
@@ -208,6 +212,8 @@ func NewVirtualMachineController(
 		cbtHandler:               cbtHandler,
 		pluginExecutor:           pluginExecutor,
 		migrationProxy:           migrationProxy,
+		getCgroupManager:         newCgroupManager,
+		ghostRecordStore:         ghostRecordStore,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -285,7 +291,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.ioErrorRetryManager.Run(stopCh)
 
 	// Start the actual work
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -359,7 +365,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
-		uid := virtcache.GhostRecordGlobalStore.LastKnownUID(key)
+		uid := c.ghostRecordStore.LastKnownUID(key)
 		if uid != "" {
 			c.logger.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
 			vmi.UID = uid
@@ -411,6 +417,25 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	if vmiExists && !c.isVMIOwnedByNode(vmi) {
+		// Only clean up leftover local state (cached domain, ghost record) once
+		// the VMI's migration away from this node has terminated. NodeName and
+		// the NodeNameLabel are moved to the target node only in
+		// ackMigrationCompletion(), in the same VMI update that sets
+		// MigrationState.EndTimestamp. During an in-flight migration this node
+		// may be the migration target: !isVMIOwnedByNode(vmi) then holds for
+		// the whole migration while the incoming domain is cached locally, so
+		// relying on the isMigrationInProgress() check above (or on the domain
+		// carrying in-progress migration metadata) would be fragile. Requiring
+		// a terminated migration keeps this cleanup from ever racing a running
+		// source or target.
+		if string(domainCachedUID) != "" &&
+			!domainExists &&
+			domain == nil &&
+			vmi.Status.MigrationState != nil &&
+			vmi.Status.MigrationState.EndTimestamp != nil {
+			c.logger.Object(vmi).Info("cleaning up stale local state for vmi that migrated to another node")
+			return c.processVmCleanup(vmi)
+		}
 		c.logger.Object(vmi).V(4).Info("ignoring vmi as it is not owned by this node")
 		return nil
 	}
@@ -475,9 +500,7 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 
 func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.VolumeStatus) {
 	newStatusMapCopy := make(map[string]v1.VolumeStatus)
-	for k, v := range newStatusMap {
-		newStatusMapCopy[k] = v
-	}
+	maps.Copy(newStatusMapCopy, newStatusMap)
 	for _, oldStatus := range vmi.Status.VolumeStatus {
 		newStatus, ok := newStatusMap[oldStatus.Name]
 		if !ok {
@@ -1032,7 +1055,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err := c.virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+		_, err := c.vmiClient.VirtualMachineInstances(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
@@ -1578,7 +1601,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, _ := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -1675,10 +1698,7 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 		return hasExpired, timeLeft
 	}
 
-	timeLeft = gracePeriod - diff
-	if timeLeft < 1 {
-		timeLeft = 1
-	}
+	timeLeft = max(gracePeriod-diff, 1)
 	return hasExpired, timeLeft
 }
 
@@ -1899,7 +1919,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
 
-	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
+	cgroupManager, err := c.getCgroupManager(vmi, c.host, c.hypervisorNodeInfo, c.clusterConfig.AllowEmulation())
 	if err != nil {
 		return err
 	}
@@ -2355,7 +2375,7 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 	return vmi.Status.Phase, nil
 }
 
-func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
+func (c *VirtualMachineController) addDeleteFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -2363,7 +2383,7 @@ func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
 	}
 }
 
-func (c *VirtualMachineController) updateFunc(_, new interface{}) {
+func (c *VirtualMachineController) updateFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -2371,13 +2391,13 @@ func (c *VirtualMachineController) updateFunc(_, new interface{}) {
 	}
 }
 
-func (c *VirtualMachineController) addDomainFunc(obj interface{}) {
+func (c *VirtualMachineController) addDomainFunc(obj any) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
 		c.queue.Add(key)
 	}
 }
-func (c *VirtualMachineController) deleteDomainFunc(obj interface{}) {
+func (c *VirtualMachineController) deleteDomainFunc(obj any) {
 	domain, ok := obj.(*api.Domain)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -2397,7 +2417,7 @@ func (c *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 		c.queue.Add(key)
 	}
 }
-func (c *VirtualMachineController) updateDomainFunc(_, new interface{}) {
+func (c *VirtualMachineController) updateDomainFunc(_, new any) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		c.queue.Add(key)

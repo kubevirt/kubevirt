@@ -57,12 +57,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			resourceClaimTemplateName = "dra-net-claim-template"
 			resourceClaimName         = "dra-net-claim"
 			requestName               = "netdev"
-
-			guestAgentTimeout   = 5 * time.Minute
-			connectivityTimeout = 30 * time.Second
-			pollingInterval     = 5 * time.Second
-
-			draPort = 5201
+			draPort                   = 5201
 		)
 
 		var (
@@ -120,9 +115,9 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for the guest agent to connect on both VMs")
-			Eventually(matcher.ThisVM(serverVM)).WithTimeout(guestAgentTimeout).WithPolling(pollingInterval).
+			Eventually(matcher.ThisVM(serverVM)).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-			Eventually(matcher.ThisVM(clientVM)).WithTimeout(guestAgentTimeout).WithPolling(pollingInterval).
+			Eventually(matcher.ThisVM(clientVM)).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(clientVM.Namespace).
@@ -142,7 +137,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 				g.Expect(vmispec.ContainsInfoSource(infoSource, vmispec.InfoSourceGuestAgent)).To(BeTrue())
 				g.Expect(vmispec.ContainsInfoSource(infoSource, vmispec.InfoSourcePodStatus)).To(BeTrue())
 				g.Expect(serverVMI.Status.Interfaces[0].IPs).ToNot(BeEmpty())
-			}).WithTimeout(guestAgentTimeout).WithPolling(pollingInterval).Should(Succeed())
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 			serverIP = serverVMI.Status.Interfaces[0].IPs[0]
 
 			By("Starting a TCP server on the server VM")
@@ -151,7 +146,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 		It("should communicate over TCP with another DRA based VM", func() {
 			Eventually(connectClientToServer).WithArguments(clientVMI, serverIP, draPort).
-				WithTimeout(connectivityTimeout).WithPolling(pollingInterval).
+				WithTimeout(30 * time.Second).WithPolling(5 * time.Second).
 				Should(Succeed())
 		})
 
@@ -160,7 +155,7 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
 
 			Eventually(connectClientToServer).WithArguments(clientVMI, serverIP, draPort).
-				WithTimeout(connectivityTimeout).WithPolling(pollingInterval).
+				WithTimeout(30 * time.Second).WithPolling(5 * time.Second).
 				Should(Succeed())
 		})
 	}))

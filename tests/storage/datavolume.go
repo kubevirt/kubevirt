@@ -900,7 +900,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				// We check if the VM is successfully created
 				By("Creating VM")
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 					return err
 				}, 90*time.Second, 1*time.Second).Should(Succeed())
 
@@ -913,7 +913,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, e := range events.Items {
-						if e.Reason == "SourcePVCNotAvailabe" {
+						if e.Reason == "SourcePVCNotAvailabe" && e.InvolvedObject.UID == vm.UID {
 							return true
 						}
 					}

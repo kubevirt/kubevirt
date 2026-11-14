@@ -80,9 +80,19 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
 fi
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
+if [[ -v PUSH_TARGETS_ALT ]]; then
+    ALT_TARGETS=(${PUSH_TARGETS_ALT})
+else
+    ALT_TARGETS=(${PUSH_TARGETS[@]})
+fi
 
 for tag in ${docker_tag} ${docker_tag_alt}; do
-    for target in ${PUSH_TARGETS[@]}; do
+    if [[ ${tag} == "${docker_tag}" ]]; then
+        targets=(${PUSH_TARGETS[@]})
+    else
+        targets=(${ALT_TARGETS[@]})
+    fi
+    for target in ${targets[@]}; do
 
         bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
@@ -93,7 +103,7 @@ done
 
 # for the imagePrefix operator test
 if [[ $image_prefix_alt ]]; then
-    for target in ${PUSH_TARGETS[@]}; do
+    for target in ${ALT_TARGETS[@]}; do
 
         bazel run \
             --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \

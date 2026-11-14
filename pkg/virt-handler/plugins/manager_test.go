@@ -96,21 +96,40 @@ var _ = Describe("NodeHookManager", func() {
 			Expect(err.Error()).To(ContainSubstring("failed to dial plugin"))
 		})
 
-		It("should ignore errors when FailureStrategy is Ignore", func() {
+		DescribeTable("should resolve the failure strategy", func(pluginStrategy, hookStrategy pluginv1alpha1.FailureStrategy, expectErr bool) {
 			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.NodeHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyIgnore
-			Expect(pluginStore.Add(plugin)).To(Succeed())
-
-			Expect(manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")).To(Succeed())
-		})
-
-		It("should fail on error when FailureStrategy is Fail", func() {
-			plugin := newPlugin("test-plugin", pluginv1alpha1.NodeHookPreVMStart)
-			plugin.Spec.NodeHooks[0].FailureStrategy = pluginv1alpha1.FailureStrategyFail
+			plugin.Spec.FailureStrategy = pluginStrategy
+			plugin.Spec.NodeHooks[0].FailureStrategy = hookStrategy
 			Expect(pluginStore.Add(plugin)).To(Succeed())
 
 			err := manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")
-			Expect(err).To(HaveOccurred())
+			if expectErr {
+				Expect(err).To(MatchError(ContainSubstring("failed to dial plugin")))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("should fail on error when the hook strategy is Fail", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyFail, true),
+			Entry("should ignore errors when the hook strategy is Ignore", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategyIgnore, false),
+			Entry("should default to Fail when no strategy is set", pluginv1alpha1.FailureStrategy(""), pluginv1alpha1.FailureStrategy(""), true),
+			Entry("should fall back to the plugin-level Ignore when the hook has none", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategy(""), false),
+			Entry("should let the hook-level Fail override the plugin-level Ignore", pluginv1alpha1.FailureStrategyIgnore, pluginv1alpha1.FailureStrategyFail, true),
+			Entry("should let the hook-level Ignore override the plugin-level Fail", pluginv1alpha1.FailureStrategyFail, pluginv1alpha1.FailureStrategyIgnore, false),
+		)
+
+		It("should resolve the failure strategy per plugin", func() {
+			pluginA := newPlugin("alpha", pluginv1alpha1.NodeHookPreVMStart)
+			pluginA.Spec.FailureStrategy = pluginv1alpha1.FailureStrategyIgnore
+			pluginB := newPlugin("bravo", pluginv1alpha1.NodeHookPreVMStart)
+
+			Expect(pluginStore.Add(pluginA)).To(Succeed())
+			Expect(pluginStore.Add(pluginB)).To(Succeed())
+
+			// alpha's failure is ignored through its plugin-level strategy, so the
+			// error comes from bravo, which defaults to Fail.
+			err := manager.CallNodeHooks(pluginv1alpha1.NodeHookPreVMStart, vmi, "test-node")
+			Expect(err).To(MatchError(ContainSubstring("bravo")))
+			Expect(err).To(MatchError(Not(ContainSubstring("alpha"))))
 		})
 
 		It("should skip plugin when plugin-level condition does not match", func() {

@@ -1,4 +1,4 @@
-package integration_test
+package storage_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ var _ = BeforeSuite(func() {
 	f.Start(context.Background())
 })
 
-func TestIntegration(t *testing.T) {
+func TestStorageIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Integration Tests")
+	RunSpecs(t, "Storage Integration Tests")
 }

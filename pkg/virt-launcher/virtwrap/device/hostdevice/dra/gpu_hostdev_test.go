@@ -124,6 +124,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			dev := hostDevices[0]
 			Expect(dev.Type).To(Equal(api.HostDevicePCI))
 			Expect(dev.Managed).To(Equal("no"))
+			Expect(dev.Mode).To(Equal("subsystem"))
 			Expect(dev.Alias).ToNot(BeNil())
 			Expect(dev.Alias.GetName()).To(Equal(AliasPrefix + "gpu1"))
 			Expect(dev.Source.Address).ToNot(BeNil())
@@ -357,10 +358,12 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 			Expect(pciDev).ToNot(BeNil(), "expected a PCI host device for the pGPU")
 			Expect(pciDev.Alias.GetName()).To(Equal(AliasPrefix + "pgpu0"))
 			Expect(pciDev.Managed).To(Equal("no"))
+			Expect(pciDev.Mode).To(Equal("subsystem"))
 
 			Expect(mdevDev).ToNot(BeNil(), "expected an mdev host device for the vGPU")
 			Expect(mdevDev.Alias.GetName()).To(Equal(AliasPrefix + "vgpu0"))
 			Expect(mdevDev.Source.Address.UUID).To(Equal(mdevUUID))
+			Expect(mdevDev.Mode).To(Equal("subsystem"))
 		})
 	})
 

@@ -606,6 +606,44 @@ func (vca *VirtControllerApp) Run() {
 	panic("unreachable")
 }
 
+var startControllers = func(vca *VirtControllerApp, stop <-chan struct{}) {
+	go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
+	go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
+	go vca.nodeController.Run(vca.nodeControllerThreads, stop)
+	go vca.vmiController.Run(vca.vmiControllerThreads, stop)
+	go vca.rsController.Run(vca.rsControllerThreads, stop)
+	go vca.poolController.Run(vca.poolControllerThreads, stop)
+	go vca.vmController.Run(vca.vmControllerThreads, stop)
+	go vca.migrationController.Run(vca.migrationControllerThreads, stop)
+	go func() {
+		if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
+			log.Log.Warningf("error running the snapshot controller: %v", err)
+		}
+	}()
+	go func() {
+		if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
+			log.Log.Warningf("error running the restore controller: %v", err)
+		}
+	}()
+	go func() {
+		if err := vca.exportController.Run(vca.exportControllerThreads, stop); err != nil {
+			log.Log.Warningf("error running the export controller: %v", err)
+		}
+	}()
+	go vca.workloadUpdateController.Run(stop)
+	go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
+	go func() {
+		if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {
+			log.Log.Warningf("error running the clone controller: %v", err)
+		}
+	}()
+	go func() {
+		if err := vca.vmBackupController.Run(vca.backupControllerThreads, stop); err != nil {
+			log.Log.Warningf("error running the backup controller: %v", err)
+		}
+	}()
+}
+
 func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 	return func(ctx context.Context) {
 		stop := ctx.Done()
@@ -635,41 +673,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 			golog.Fatalf("failed to add vmi phase transition time handler: %v", err)
 		}
 
-		go vca.evacuationController.Run(vca.evacuationControllerThreads, stop)
-		go vca.disruptionBudgetController.Run(vca.disruptionBudgetControllerThreads, stop)
-		go vca.nodeController.Run(vca.nodeControllerThreads, stop)
-		go vca.vmiController.Run(vca.vmiControllerThreads, stop)
-		go vca.rsController.Run(vca.rsControllerThreads, stop)
-		go vca.poolController.Run(vca.poolControllerThreads, stop)
-		go vca.vmController.Run(vca.vmControllerThreads, stop)
-		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
-		go func() {
-			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the snapshot controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the restore controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.exportController.Run(vca.exportControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the export controller: %v", err)
-			}
-		}()
-		go vca.workloadUpdateController.Run(stop)
-		go vca.nodeTopologyUpdater.Run(vca.nodeTopologyUpdatePeriod, stop)
-		go func() {
-			if err := vca.vmCloneController.Run(vca.cloneControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the clone controller: %v", err)
-			}
-		}()
-		go func() {
-			if err := vca.vmBackupController.Run(vca.backupControllerThreads, stop); err != nil {
-				log.Log.Warningf("error running the backup controller: %v", err)
-			}
-		}()
+		startControllers(vca, stop)
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)

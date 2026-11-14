@@ -611,7 +611,7 @@ var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
 			xmlBytes, err := xml.Marshal(iommuDevice)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidSize="20" oas="48"></driver></iommu>`
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidsize="20" oas="48"></driver></iommu>`
 			Expect(string(xmlBytes)).To(Equal(expectedXML))
 
 			var unmarshalled IOMMUDevice

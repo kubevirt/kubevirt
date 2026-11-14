@@ -84,7 +84,11 @@ var _ = Describe(SIG("Slow QEMU startup", func() {
 				FieldSelector: fmt.Sprintf("involvedObject.name=%s,reason=SignalDeletion", vmi.Name),
 			})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(eventList.Items).To(BeEmpty())
+		for _, event := range eventList.Items {
+			if event.InvolvedObject.UID == vmi.UID {
+				Fail(fmt.Sprintf("Found unexpected SignalDeletion event %v", event))
+			}
+		}
 
 		By("Resuming qemu-kvm via virt-handler exec")
 		virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, targetNode)

@@ -1471,7 +1471,7 @@ libguestfs.org/libnbd
 # libvirt.org/go/libvirt v1.12003.0
 ## explicit; go 1.11
 libvirt.org/go/libvirt
-# libvirt.org/go/libvirtxml v1.12002.0
+# libvirt.org/go/libvirtxml v1.12007.0
 ## explicit; go 1.11
 libvirt.org/go/libvirtxml
 # mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2

@@ -604,7 +604,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(console.LoginToFedora(sourceVMI)).To(Succeed())
-			runStressTest(sourceVMI, stressLargeVMSize)
+			runStressTest(sourceVMI)
 			By("creating a receiver VM")
 			createReceiverVMFromVMISpec(targetVMI)
 			By("creating the migration")
