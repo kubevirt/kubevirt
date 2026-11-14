@@ -375,7 +375,7 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
 
 	configMap.Data = map[string]string{components.CABundleKey: ""}
-	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
+	obj, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 	if !exists {
 		_, err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -383,6 +383,13 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 			return fmt.Errorf("unable to create configMap %s: %v", configMap.Name, err)
 		}
 	} else {
+		existing := obj.(*corev1.ConfigMap)
+		modified := resourcemerge.BoolPtr(false)
+		resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+		if !*modified && isExternalCABundleCleared(existing) {
+			log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
+			return nil
+		}
 		_, err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
 			log.Log.V(2).Infof("failed to update configMap %s: %+v", configMap.Name, configMap)
@@ -390,6 +397,17 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 		}
 	}
 	return nil
+}
+
+// isExternalCABundleCleared reports whether the external CA config map already
+// holds exactly what cleanupExternalCACerts writes: an empty CA bundle and no
+// other data. Together with an unchanged ObjectMeta this lets the cleanup skip
+// a PUT on every reconcile when nobody has added an external CA.
+func isExternalCABundleCleared(existing *corev1.ConfigMap) bool {
+	bundle, ok := existing.Data[components.CABundleKey]
+	return ok && bundle == "" &&
+		len(existing.Data) == 1 &&
+		len(existing.BinaryData) == 0
 }
 
 func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
