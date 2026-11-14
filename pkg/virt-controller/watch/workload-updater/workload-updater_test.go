@@ -722,6 +722,29 @@ var _ = Describe("Workload Updater", func() {
 		}, "user-triggered"),
 	)
 
+	It("should not panic when evicting an outdated VMI that has no active pod in podIndexer", func() {
+		vmiWithoutPod := newVirtualMachineInstance("testvm-no-pod", false, "madeup")
+		vmiWithoutPod.UID = "no-pod-uid"
+		vmiWithPod := newVirtualMachineInstance("testvm-with-pod", false, "madeup")
+		pod := newLauncherPodForVMI(vmiWithPod)
+
+		controller.vmiStore.Add(vmiWithoutPod)
+		controller.vmiStore.Add(vmiWithPod)
+		controller.podIndexer.Add(pod)
+
+		waitForNumberOfInstancesOnVMIInformerCache(controller, 2)
+		kv := newKubeVirt(2)
+		kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodEvict}
+		addKubeVirt(kv)
+
+		evictionCount := 0
+		shouldExpectMultiplePodEvictions(&evictionCount)
+
+		sanityExecute()
+		testutils.ExpectEvent(recorder, SuccessfulEvictVirtualMachineInstanceReason)
+		Expect(evictionCount).To(Equal(1))
+	})
+
 	AfterEach(func() {
 		Expect(recorder.Events).To(BeEmpty())
 	})
