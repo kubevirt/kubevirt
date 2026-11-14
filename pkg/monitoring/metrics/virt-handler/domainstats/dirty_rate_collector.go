@@ -26,10 +26,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 )
 
-var DomainDirtyRateStatsCollector = operatormetrics.Collector{
-	Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
-	CollectCallback: domainDirtyRateStatsCollectorCallback,
-}
+// DomainDirtyRateStatsCollector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
+var DomainDirtyRateStatsCollector operatormetrics.Collector
 
 func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := settings.vmiInformer.GetStore().List()
