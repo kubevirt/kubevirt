@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "grace.go",
         "hw_utils.go",
+        "pcihole64.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/util/hardware",
     visibility = ["//visibility:public"],
@@ -20,6 +21,7 @@ go_test(
         "grace_test.go",
         "hw_utils_suite_test.go",
         "hw_utils_test.go",
+        "pcihole64_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
