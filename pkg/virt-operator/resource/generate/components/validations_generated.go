@@ -8139,8 +8139,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
                                     items:
+                                      maxLength: 15
                                       type: string
+                                    maxItems: 32
                                     type: array
+                                    x-kubernetes-validations:
+                                    - message: NTP servers must be a list of valid
+                                        IPv4 addresses
+                                      rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                                   privateOptions:
                                     description: 'If specified will pass extra DHCP
                                       options for private use, range: 224-254'
@@ -14807,8 +14813,13 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
                             items:
+                              maxLength: 15
                               type: string
+                            maxItems: 32
                             type: array
+                            x-kubernetes-validations:
+                            - message: NTP servers must be a list of valid IPv4 addresses
+                              rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                           privateOptions:
                             description: 'If specified will pass extra DHCP options
                               for private use, range: 224-254'
@@ -19423,8 +19434,13 @@ var CRDsValidation map[string]string = map[string]string{
                             description: If specified will pass the configured NTP
                               server to the VM via DHCP option 042.
                             items:
+                              maxLength: 15
                               type: string
+                            maxItems: 32
                             type: array
+                            x-kubernetes-validations:
+                            - message: NTP servers must be a list of valid IPv4 addresses
+                              rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                           privateOptions:
                             description: 'If specified will pass extra DHCP options
                               for private use, range: 224-254'
@@ -22024,8 +22040,14 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: If specified will pass the configured
                                       NTP server to the VM via DHCP option 042.
                                     items:
+                                      maxLength: 15
                                       type: string
+                                    maxItems: 32
                                     type: array
+                                    x-kubernetes-validations:
+                                    - message: NTP servers must be a list of valid
+                                        IPv4 addresses
+                                      rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                                   privateOptions:
                                     description: 'If specified will pass extra DHCP
                                       options for private use, range: 224-254'
@@ -27468,8 +27490,14 @@ var CRDsValidation map[string]string = map[string]string{
                                               configured NTP server to the VM via
                                               DHCP option 042.
                                             items:
+                                              maxLength: 15
                                               type: string
+                                            maxItems: 32
                                             type: array
+                                            x-kubernetes-validations:
+                                            - message: NTP servers must be a list
+                                                of valid IPv4 addresses
+                                              rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                                           privateOptions:
                                             description: 'If specified will pass extra
                                               DHCP options for private use, range:
@@ -33443,8 +33471,14 @@ var CRDsValidation map[string]string = map[string]string{
                                                   the configured NTP server to the
                                                   VM via DHCP option 042.
                                                 items:
+                                                  maxLength: 15
                                                   type: string
+                                                maxItems: 32
                                                 type: array
+                                                x-kubernetes-validations:
+                                                - message: NTP servers must be a list
+                                                    of valid IPv4 addresses
+                                                  rule: self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))
                                               privateOptions:
                                                 description: 'If specified will pass
                                                   extra DHCP options for private use,

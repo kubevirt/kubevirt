@@ -1526,6 +1526,9 @@ type DHCPOptions struct {
 	TFTPServerName string `json:"tftpServerName,omitempty"`
 	// If specified will pass the configured NTP server to the VM via DHCP option 042.
 	// +optional
+	// +kubebuilder:validation:MaxItems:=32
+	// +kubebuilder:validation:items:MaxLength:=15
+	// +kubebuilder:validation:XValidation:rule="self.all(x, x.matches('^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$'))",message="NTP servers must be a list of valid IPv4 addresses"
 	NTPServers []string `json:"ntpServers,omitempty"`
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional
