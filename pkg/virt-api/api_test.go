@@ -20,12 +20,14 @@
 package virt_api
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -285,6 +287,21 @@ var _ = Describe("Virt-api", func() {
 			Entry("for subresources.kubevirt.io/v1", "v1"),
 			Entry("for subresources.kubevirt.io/v1alpha3", "v1alpha3"),
 		)
+
+		It("should configure HTTP server with ReadHeaderTimeout and disabled HTTP/2", func() {
+			app.BindAddress = "127.0.0.1"
+			app.Port = 8443
+			app.tlsConfig = &tls.Config{MinVersion: tls.VersionTLS13}
+
+			httpServer := app.createHTTPServer()
+			Expect(httpServer).ToNot(BeNil())
+			Expect(httpServer.Addr).To(Equal("127.0.0.1:8443"))
+			Expect(httpServer.ReadHeaderTimeout).To(Equal(defaultReadHeaderTimeout))
+			Expect(httpServer.ReadHeaderTimeout).To(Equal(10 * time.Second))
+			Expect(httpServer.TLSConfig).To(Equal(app.tlsConfig))
+			Expect(httpServer.TLSNextProto).ToNot(BeNil())
+			Expect(httpServer.TLSNextProto).To(BeEmpty())
+		})
 	})
 
 	AfterEach(func() {
