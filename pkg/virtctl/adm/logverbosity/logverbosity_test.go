@@ -359,7 +359,7 @@ func expectAllComponentVerbosity(kv *v1.KubeVirt, output []uint) {
 func createOutputMessage(output []uint) *string {
 	var message string
 	components := []string{"virt-api", "virt-controller", "virt-handler", "virt-launcher", "virt-operator"}
-	for component := 0; component < len(components); component++ {
+	for component := range components {
 		if output[component] == logverbosity.NoFlag {
 			continue
 		}

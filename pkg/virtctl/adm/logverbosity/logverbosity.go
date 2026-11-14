@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 
@@ -244,9 +245,7 @@ func createShowMessage(currentLv map[string]uint) []string {
 	}
 
 	// update the verbosity based on the existing verbosity in the KubeVirt CR
-	for key, value := range currentLv {
-		verbosityVal[key] = value
-	}
+	maps.Copy(verbosityVal, currentLv)
 
 	lines := createOutputLines(verbosityVal)
 

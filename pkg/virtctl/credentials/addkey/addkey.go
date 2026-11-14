@@ -14,7 +14,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -249,7 +248,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 				Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 				Name:       vm.Name,
 				UID:        vm.UID,
-				Controller: pointer.P(true),
+				Controller: new(true),
 			}},
 		},
 		Data: map[string][]byte{
@@ -260,8 +259,8 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 
 func secretContainsKey(secretData map[string][]byte, key string) bool {
 	for _, data := range secretData {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(string(data), "\n")
+		for line := range lines {
 			if common.LineContainsKey(line, key) {
 				return true
 			}
