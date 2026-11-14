@@ -394,6 +394,40 @@ var _ = Describe("pod network configurator", func() {
 
 			Expect(testMutator.Mutate(mutatedDomSpec)).To(Equal(mutatedDomSpec))
 		})
+		It("should preserve existing interface configuration", func() {
+			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
+			ifaceStatuses := []vmschema.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: defaultPrimaryPodIfaceName}}
+
+			testMutator, err := domain.NewPasstNetworkConfigurator(
+				ifaces,
+				networks,
+				ifaceStatuses,
+				"passt-plugin",
+				domain.NetworkConfiguratorOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			bootOrder := uint(1)
+			driverQueues := uint(4)
+			existingIface := domainschema.Interface{
+				Alias:     domainschema.NewUserDefinedAlias("default"),
+				BootOrder: &domainschema.BootOrder{Order: bootOrder},
+				LinkState: &domainschema.LinkState{State: "down"},
+				Driver:    &domainschema.InterfaceDriver{Name: "qemu", Queues: &driverQueues},
+			}
+			testDomSpec := &domainschema.DomainSpec{
+				Devices: domainschema.Devices{
+					Interfaces: []domainschema.Interface{existingIface},
+				},
+			}
+
+			mutatedDomSpec, err := testMutator.Mutate(testDomSpec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mutatedDomSpec.Devices.Interfaces[0].BootOrder).To(Equal(existingIface.BootOrder))
+			Expect(mutatedDomSpec.Devices.Interfaces[0].LinkState).To(Equal(existingIface.LinkState))
+			Expect(mutatedDomSpec.Devices.Interfaces[0].Driver).To(Equal(existingIface.Driver))
+		})
 		It("should set domain interface source link to the optional one if exists", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt-plugin"}}}
