@@ -39,10 +39,12 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -79,6 +81,7 @@ import (
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-handler/plugins"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
@@ -91,10 +94,15 @@ func (n *noopNodeHookExecutor) CallNodeHooks(_ pluginv1alpha1.NodeHookPoint, _ *
 
 var _ plugins.NodeHookExecutor = &noopNodeHookExecutor{}
 
+type migrationDomainListerFunc func() ([]*api.Domain, error)
+
+func (f migrationDomainListerFunc) ListAllDomains() ([]*api.Domain, error) { return f() }
+
 var _ = Describe("VirtualMachineInstance", func() {
 	var client *cmdclient.MockLauncherClient
 	var virtClient *kubecli.MockKubevirtClient
 	var virtfakeClient *kubevirtfake.Clientset
+	var k8sfakeClient *fake.Clientset
 
 	var controller *VirtualMachineController
 	var mockQueue *testutils.MockWorkQueue[string]
@@ -145,7 +153,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
-		k8sfakeClient := fake.NewSimpleClientset()
+		k8sfakeClient = fake.NewSimpleClientset()
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -3584,6 +3592,269 @@ var _ = Describe("VirtualMachineInstance", func() {
 				),
 			))
 		})
+	})
+
+	Context("migration source cleanup handoff", func() {
+		var vmi *v1.VirtualMachineInstance
+		var domain *api.Domain
+		var target *k8sv1.Pod
+
+		BeforeEach(func() {
+			controller.containerDiskMounter = mockContainerDiskMounter
+			now := metav1.Now()
+			vmi = libvmi.New(libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace("default"), libvmi.WithName("testvmi"))
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "target-node"
+			vmi.Labels = map[string]string{v1.NodeNameLabel: "target-node"}
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "migration", SourceNode: host, TargetNode: "target-node",
+				TargetPod: "target-pod", SourcePod: "source-pod", EndTimestamp: &now, Completed: true,
+			}
+			domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{UID: "migration", EndTimestamp: &now}
+			target = &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "target-pod", Namespace: vmi.Namespace,
+					Labels: map[string]string{v1.CreatedByLabel: string(vmi.UID), v1.MigrationJobLabel: "migration"},
+				},
+				Spec: k8sv1.PodSpec{NodeName: "target-node"},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+					PodIP: "10.0.0.2", PodIPs: []k8sv1.PodIP{{IP: "10.0.0.2"}, {IP: "fd00::2"}},
+					Conditions: []k8sv1.PodCondition{
+						{Type: v1.VirtualMachineUnpaused, Status: k8sv1.ConditionTrue},
+						{Type: k8sv1.ContainersReady, Status: k8sv1.ConditionTrue},
+						{Type: k8sv1.PodReady, Status: k8sv1.ConditionFalse},
+					},
+				},
+			}
+			source := target.DeepCopy()
+			source.Name = "source-pod"
+			source.UID = podTestUUID
+			source.Status.Conditions[2].Status = k8sv1.ConditionTrue
+			source.Spec.NodeName = host
+			delete(source.Labels, v1.MigrationJobLabel)
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), source, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("keeps the source domain and disks until aggregate target Pod readiness propagates", func() {
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			addVMI(vmi, domain)
+			Expect(controller.execute(virtcontroller.VirtualMachineInstanceKey(vmi))).To(Succeed())
+			Expect(controller.domainStore.List()).To(HaveLen(1))
+
+			By("keeping launcher and hooks alive while the handler retains the migrated domain")
+			observed := make(chan struct{}, 1)
+			launcherStopped := make(chan struct{})
+			stop := make(chan struct{})
+			DeferCleanup(func() {
+				close(stop)
+				Eventually(launcherStopped).Should(BeClosed())
+			})
+			go func() {
+				virtlauncher.WaitForMigrationSourceCleanup(vmi, migrationDomainListerFunc(func() ([]*api.Domain, error) {
+					select {
+					case observed <- struct{}{}:
+					default:
+					}
+					// Model the persistent source domain, removed by handler teardown.
+					var domains []*api.Domain
+					for _, obj := range controller.domainStore.List() {
+						domains = append(domains, obj.(*api.Domain))
+					}
+					return domains, nil
+				}), stop)
+				close(launcherStopped)
+			}()
+			Eventually(observed).Should(Receive())
+			Consistently(launcherStopped, 10*time.Millisecond, time.Millisecond).ShouldNot(BeClosed())
+
+			By("allowing teardown once the target Pod Ready condition is true")
+			target.Status.Conditions[2].Status = k8sv1.ConditionTrue
+			_, err = k8sfakeClient.CoreV1().Pods(vmi.Namespace).Patch(context.Background(), target.Name,
+				types.StrategicMergePatchType, []byte(`{"status":{"conditions":[{"type":"Ready","status":"True"}]}}`), metav1.PatchOptions{}, "status")
+			Expect(err).NotTo(HaveOccurred())
+			gomock.InOrder(
+				client.EXPECT().DeleteDomain(gomock.Any()).Return(nil),
+				mockContainerDiskMounter.EXPECT().Unmount(gomock.Any()).Return(nil),
+			)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			Expect(controller.execute(virtcontroller.VirtualMachineInstanceKey(vmi))).To(Succeed())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			_, waiting := controller.migrationCleanupWait.Load(vmi.UID)
+			Expect(waiting).To(BeFalse())
+			Eventually(launcherStopped, 2*time.Second).Should(BeClosed())
+			expectEvent(VMISignalDeletion, true)
+		})
+
+		DescribeTable("waits for a valid target Pod acknowledgment", func(change func()) {
+			change()
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeTrue())
+		},
+			Entry("missing Ready condition", func() { target.Status.Conditions = target.Status.Conditions[:2] }),
+			Entry("Ready Unknown", func() { target.Status.Conditions[2].Status = k8sv1.ConditionUnknown }),
+			Entry("pending Pod with stale readiness", func() {
+				target.Status.Phase = k8sv1.PodPending
+				target.Status.Conditions[2].Status = k8sv1.ConditionTrue
+			}),
+		)
+
+		It("skips overlap when a missing target prevents proving preserved addresses", func() {
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceReady, Status: k8sv1.ConditionTrue}}
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+		})
+
+		It("retains a confirmed preserved-IP source on API errors within the deadline", func() {
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeTrue())
+			k8sfakeClient.PrependReactor("get", "pods", func(k8stesting.Action) (bool, k8sruntime.Object, error) {
+				return true, nil, errors.New("API unavailable")
+			})
+			addVMI(vmi, domain)
+			Expect(controller.execute(virtcontroller.VirtualMachineInstanceKey(vmi))).To(Succeed())
+			Expect(controller.domainStore.List()).To(HaveLen(1))
+		})
+
+		DescribeTable("releases cleanup for an unavailable target", func(change func()) {
+			change()
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+		},
+			Entry("deleting target", func() { target.DeletionTimestamp = new(metav1.Now()) }),
+			Entry("failed target", func() { target.Status.Phase = k8sv1.PodFailed }),
+			Entry("completed target", func() { target.Status.Phase = k8sv1.PodSucceeded }),
+			Entry("wrong VMI owner", func() { target.Labels[v1.CreatedByLabel] = "other-vmi" }),
+			Entry("wrong migration", func() { target.Labels[v1.MigrationJobLabel] = "other-migration" }),
+			Entry("wrong target node", func() { target.Spec.NodeName = "other-node" }),
+			Entry("missing target name", func() { vmi.Status.MigrationState.TargetPod = "" }),
+			Entry("missing source name", func() { vmi.Status.MigrationState.SourcePod = "" }),
+			Entry("different IPv4 address", func() { target.Status.PodIPs[0].IP = "10.0.0.3" }),
+			Entry("different IPv6 address", func() { target.Status.PodIPs[1].IP = "fd00::3" }),
+			Entry("partially preserved dual stack", func() { target.Status.PodIPs = target.Status.PodIPs[:1] }),
+			Entry("unknown target addresses", func() { target.Status.PodIPs = nil; target.Status.PodIP = "" }),
+			Entry("malformed target address", func() { target.Status.PodIPs[0].IP = "bad-address" }),
+			Entry("host networking", func() { target.Spec.HostNetwork = true }),
+			Entry("stale source Pod UID", func() { vmi.Status.ActivePods = map[types.UID]string{"other-uid": host} }),
+		)
+
+		It("cleans up immediately when migration changes Pod addresses", func() {
+			target.Status.PodIP = "10.0.0.3"
+			target.Status.PodIPs = []k8sv1.PodIP{{IP: "10.0.0.3"}, {IP: "fd00::3"}}
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			addVMI(vmi, domain)
+			client.EXPECT().DeleteDomain(gomock.Any()).Return(nil)
+			mockContainerDiskMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			Expect(controller.execute(virtcontroller.VirtualMachineInstanceKey(vmi))).To(Succeed())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			expectEvent(VMISignalDeletion, true)
+		})
+
+		It("skips overlap if API failure prevents confirming address preservation", func() {
+			k8sfakeClient.PrependReactor("get", "pods", func(k8stesting.Action) (bool, k8sruntime.Object, error) {
+				return true, nil, errors.New("API unavailable")
+			})
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+		})
+
+		It("supports scalar PodIP when the address list is absent", func() {
+			target.Status.PodIPs = nil
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = k8sfakeClient.CoreV1().Pods(vmi.Namespace).Patch(context.Background(), "source-pod",
+				types.MergePatchType, []byte(`{"status":{"podIPs":null}}`), metav1.PatchOptions{}, "status")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeTrue())
+		})
+
+		DescribeTable("rejects an invalid source identity or address", func(patch string) {
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = k8sfakeClient.CoreV1().Pods(vmi.Namespace).Patch(context.Background(), "source-pod",
+				types.MergePatchType, []byte(patch), metav1.PatchOptions{}, "status")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+		},
+			Entry("wrong owner", `{"metadata":{"labels":{"kubevirt.io/created-by":"other-vmi"}}}`),
+			Entry("wrong node", `{"spec":{"nodeName":"other-node"}}`),
+			Entry("invalid address", `{"status":{"podIPs":[{"ip":"invalid"}]}}`),
+		)
+
+		DescribeTable("compares full normalized Pod IP sets", func(change func()) {
+			change()
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeTrue())
+		},
+			Entry("address order differs", func() {
+				target.Status.PodIPs[0], target.Status.PodIPs[1] = target.Status.PodIPs[1], target.Status.PodIPs[0]
+			}),
+			Entry("IPv6 spelling differs", func() { target.Status.PodIPs[1].IP = "fd00:0:0:0:0:0:0:2" }),
+		)
+
+		DescribeTable("bounds the wait even across handler restarts", func(useDomainTimestamp bool) {
+			expired := metav1.NewTime(time.Now().Add(-2 * time.Minute))
+			if useDomainTimestamp {
+				domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp = &expired
+				vmi.Status.MigrationState.EndTimestamp = nil
+			} else {
+				vmi.Status.MigrationState.EndTimestamp = &expired
+				domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp = nil
+			}
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+			// A new process has no local first-observation record.
+			controller.migrationCleanupWait.Delete(vmi.UID)
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+			Expect(vmi.Status.Phase).To(Equal(v1.Running))
+			Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+		},
+			Entry("durable source completion", true),
+			Entry("durable VMI completion", false),
+		)
+
+		It("bounds the initial wait before completion timestamps arrive", func() {
+			_, err := k8sfakeClient.CoreV1().Pods(vmi.Namespace).Create(context.Background(), target, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp = nil
+			vmi.Status.MigrationState.EndTimestamp = nil
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeTrue())
+			controller.migrationCleanupWait.Store(vmi.UID, time.Now().Add(-2*time.Minute))
+			Expect(controller.shouldDelayMigrationSourceCleanup(vmi, domain)).To(BeFalse())
+		})
+
+		DescribeTable("does not postpone explicit or failed teardown", func(change func()) {
+			change()
+			addVMI(vmi, domain)
+			client.EXPECT().DeleteDomain(gomock.Any()).Return(nil)
+			mockContainerDiskMounter.EXPECT().Unmount(gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			Expect(controller.execute(virtcontroller.VirtualMachineInstanceKey(vmi))).To(Succeed())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+			expectEvent(VMISignalDeletion, true)
+		},
+			Entry("VMI deletion", func() { vmi.DeletionTimestamp = new(metav1.Now()) }),
+			Entry("VMI failure", func() { vmi.Status.Phase = v1.Failed }),
+			Entry("migration failure", func() { vmi.Status.MigrationState.Failed = true }),
+			Entry("missing migration state", func() { vmi.Status.MigrationState = nil }),
+			Entry("stale domain migration", func() { domain.Spec.Metadata.KubeVirt.Migration.UID = "old-migration" }),
+			Entry("another source node", func() { vmi.Status.MigrationState.SourceNode = "other-source" }),
+			Entry("decentralized source", func() {
+				address := "remote.example:1234"
+				vmi.Status.MigrationState.SourceState = &v1.VirtualMachineInstanceMigrationSourceState{}
+				vmi.Status.MigrationState.TargetState = &v1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{SyncAddress: &address},
+				}
+			}),
+		)
 	})
 
 	Context("on post-copy migration failure", func() {
