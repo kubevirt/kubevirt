@@ -2204,7 +2204,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		})
 
 		It("on an online VM", func() {
-			vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithNodeSelectorFor(nodeName))
+			vmi = libvmifact.NewAlpineWithTestTooling(libvmi.WithNodeSelectorFor(nodeName))
 
 			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to create VirtualMachine")
@@ -2219,19 +2219,25 @@ var _ = Describe(SIG("Hotplug", func() {
 			By(verifyingVolumeDiskInVM)
 			verifyVolumeAndDiskVMAdded(virtClient, vm, "testvolume")
 
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
 			libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, "testvolume")
 			libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, "testvolume")
+
 			getAlpineVmiConsoleAndLogin(vmi)
-			verifyVolumeAccessible(vmi, device)
-			verifyCreateData(vmi, device, "testvolume")
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "failed to get VirtualMachineInstance %s/%s", vm.Namespace, vm.Name)
+			target := libstorage.LookupVolumeTargetPath(vmi, "testvolume")
+			Expect(target).NotTo(BeEmpty())
+			verifyVolumeAccessible(vmi, target)
+			verifyCreateData(vmi, target, "testvolume")
 			verifySingleAttachmentPod(virtClient, vmi)
+
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
 			By(verifyingVolumeNotExist)
 			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
-			verifyVolumeNolongerAccessible(vmi, device)
+			verifyVolumeNolongerAccessible(vmi, target)
 		})
 	})
 
