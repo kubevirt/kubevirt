@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 )
 
 var (
@@ -37,6 +38,13 @@ var (
 )
 
 func init() {
+	// The perfscale object tests import object, which imports config, which
+	// imports this package. Replacing flag.CommandLine and parsing here would
+	// reject the go test harness's -test.* flags and exit before those tests run.
+	if testing.Testing() {
+		return
+	}
+
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	flag.StringVar(&Kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")

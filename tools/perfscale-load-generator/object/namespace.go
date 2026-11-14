@@ -55,17 +55,18 @@ func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLab
 // CleanupNamespaces deletes a collection of namespaces with the given selector
 func CleanupNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts *metav1.ListOptions) error {
 	log.Log.V(2).Infof("Deleting namespaces with label %s", listOpts.LabelSelector)
-	ns, _ := virtCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
-	if len(ns.Items) > 0 {
-		for _, ns := range ns.Items {
-			err := virtCli.CoreV1().Namespaces().Delete(context.TODO(), ns.Name, metav1.DeleteOptions{})
-			if errors.IsNotFound(err) {
-				log.Log.V(2).Infof("Namespace %s not found", ns.Name)
-				continue
-			}
-			if err != nil {
-				return err
-			}
+	ns, err := virtCli.CoreV1().Namespaces().List(context.TODO(), *listOpts)
+	if err != nil {
+		return err
+	}
+	for _, item := range ns.Items {
+		err = virtCli.CoreV1().Namespaces().Delete(context.TODO(), item.Name, metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			log.Log.V(2).Infof("Namespace %s not found", item.Name)
+			continue
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil
