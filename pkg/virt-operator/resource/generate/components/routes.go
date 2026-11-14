@@ -43,6 +43,10 @@ func NewExportProxyRoute(namespace string) *routev1.Route {
 	route.Namespace = namespace
 	route.Name = VirtExportProxyName
 
+	route.Annotations = map[string]string{
+		"haproxy.router.openshift.io/timeout": "10m",
+	}
+
 	route.Spec.To.Kind = "Service"
 	route.Spec.To.Name = VirtExportProxyName
 	route.Spec.TLS = &routev1.TLSConfig{
