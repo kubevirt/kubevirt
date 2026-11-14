@@ -4,7 +4,7 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-default_test_query='tests(//staging/src/kubevirt.io/... + //pkg/... + //cmd/... + //tools/... + //tests/framework/... + //tests/vmlogchecker/... + //tests/operator/version/...)'
+default_test_query='tests(//staging/src/kubevirt.io/... + //pkg/... + //cmd/... + //tools/... + //tests/framework/... + //tests/vmlogchecker/... + //tests/operator/version/... + //tests/testsuite/...)'
 
 if [[ -n "${WHAT}" ]]; then
     read -r -a bazel_test_targets <<<"${WHAT}"

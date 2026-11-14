@@ -80,6 +80,11 @@ var (
 
 var Arch string
 
+// SynchronizedBeforeSuite and the final SynchronizedAfterSuite callback both
+// run on Ginkgo process #1. Keep the manifests loaded for this run so cleanup
+// removes the same objects even if the rendered files change meanwhile.
+var testingInfrastructureRunObjects []unstructured.Unstructured
+
 func SynchronizedAfterTestSuiteCleanup() {
 	RestoreKubeVirtResource()
 
@@ -88,7 +93,9 @@ func SynchronizedAfterTestSuiteCleanup() {
 	}
 
 	if flags.DeployTestingInfrastructureFlag {
-		WipeTestingInfrastructure()
+		if len(testingInfrastructureRunObjects) > 0 {
+			WipeTestingInfrastructure(testingInfrastructureRunObjects)
+		}
 	}
 
 	libnode.CleanNodes()
@@ -110,14 +117,17 @@ func SynchronizedBeforeTestSetup() []byte {
 	if flags.KubeVirtInstallNamespace == "" {
 		detectInstallNamespace()
 	}
+	EnsureCDIReady(5 * time.Minute)
 
 	if flags.DeployTestingInfrastructureFlag {
-		manifests := GetListOfManifests()
-		Expect(manifests).NotTo(BeEmpty(),
-			fmt.Sprintf("-deploy-testing-infra: no *.yaml found (resolved from -path-to-testing-infra-manifests=%q; see testsuite/manifest.go)",
-				flags.PathToTestingInfrastrucureManifests))
-		WipeTestingInfrastructure()
-		DeployTestingInfrastructure()
+		objects := testingInfrastructureObjects()
+		Expect(objects).NotTo(BeEmpty(),
+			fmt.Sprintf("-deploy-testing-infra: no testing infrastructure objects found (-path-to-testing-infra-manifests=%q, -testing-manifest-path=%q; see testsuite/manifest.go)",
+				flags.PathToTestingInfrastrucureManifests, flags.TestingManifestPath))
+		Expect(validateTestingInfrastructureObjects(objects)).To(Succeed())
+		testingInfrastructureRunObjects = objects
+		WipeTestingInfrastructure(objects)
+		DeployTestingInfrastructure(objects)
 	}
 
 	if flags.DeployFakeKWOKNodesFlag {
@@ -401,72 +411,28 @@ func getKWOKNodeCount() int {
 	return vmCount
 }
 
-func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
-	// Deploy / delete test infrastructure / dependencies
+func testingInfrastructureObjects() []unstructured.Unstructured {
 	manifests := GetListOfManifests()
+	var objects []unstructured.Unstructured
 	for _, manifest := range manifests {
-		objects := ReadManifestYamlFile(manifest)
-		for _, obj := range objects {
-			Expect(actionOnObject(obj)).To(Succeed())
-		}
+		objects = append(objects, ReadManifestYamlFile(manifest)...)
 	}
-
-	waitForAllDaemonSetsReady(3 * time.Minute)
-	waitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
+	return objects
 }
 
-func DeployTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(ApplyRawManifest)
-}
-
-func WipeTestingInfrastructure() {
-	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
-}
-
-func waitForAllDaemonSetsReady(timeout time.Duration) {
-	checkForDaemonSetsReady := func() []string {
-		dsNotReady := make([]string, 0)
-		virtClient := kubevirt.Client()
-
-		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		for _, ds := range dsList.Items {
-			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
-				dsNotReady = append(dsNotReady, ds.Name)
-			}
-		}
-		return dsNotReady
-
+func deployOrWipeTestingInfrastrucure(objects []unstructured.Unstructured, actionOnObject func(unstructured.Unstructured) error) {
+	for _, object := range objects {
+		Expect(actionOnObject(object)).To(Succeed())
 	}
-	Eventually(checkForDaemonSetsReady, timeout, 2*time.Second).Should(BeEmpty(), "There are daemonsets in system which are not ready.")
 }
 
-func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
-	checkForPodsToBeReady := func() []string {
-		podsNotReady := make([]string, 0)
-		virtClient := kubevirt.Client()
+func DeployTestingInfrastructure(objects []unstructured.Unstructured) {
+	deployOrWipeTestingInfrastrucure(objects, ApplyRawManifest)
+	waitForTestingInfrastructureReady(objects, 3*time.Minute)
+}
 
-		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, pod := range podsList.Items {
-			for _, status := range pod.Status.ContainerStatuses {
-				if status.State.Terminated != nil {
-					break // We don't care about terminated pods
-				} else if status.State.Running != nil {
-					if !status.Ready { // We need to wait for this one
-						podsNotReady = append(podsNotReady, pod.Name)
-						break
-					}
-				} else {
-					// It is in Waiting state, We need to wait for this one
-					podsNotReady = append(podsNotReady, pod.Name)
-					break
-				}
-			}
-		}
-		return podsNotReady
-	}
-	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "There are pods in system which are not ready.")
+func WipeTestingInfrastructure(objects []unstructured.Unstructured) {
+	deployOrWipeTestingInfrastrucure(objects, DeleteRawManifest)
 }
 
 func WaitExportProxyReady() {
