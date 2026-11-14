@@ -131,6 +131,9 @@ The `hooks.kubevirt.io/hookSidecars` annotation is a JSON array that defines one
 | `configMap.name` | `string` | Yes | Name of the ConfigMap in the same namespace containing a script to execute. | `"name": "my-config-map"` |
 | `configMap.key` | `string` | Yes | Key in the ConfigMap that contains the script. | `"key": "my_script.sh"` |
 | `configMap.hookPath` | `string` | Yes | Path where the script will be mounted. Must be either `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso`. | `"hookPath": "/usr/bin/onDefineDomain"` |
+| `configMap.checksum` | `object` | No | Expected checksum of the mounted hook script. The KubeVirt sidecar shim verifies it immediately before executing the hook. | See nested fields below |
+| `configMap.checksum.algorithm` | `string` | Yes | Checksum algorithm. Currently, only `sha256` is supported. | `"algorithm": "sha256"` |
+| `configMap.checksum.value` | `string` | Yes | Hex-encoded checksum of the hook script contents. | `"value": "2cf24dba..."` |
 | `pvc` | `object` | No | Reference to a PersistentVolumeClaim to mount in the sidecar container, optionally shared with the compute container. See nested fields below. | See nested fields below |
 | `pvc.name` | `string` | Yes | Name of the PVC in the same namespace to mount in the sidecar container. | `"name": "my-pvc"` |
 | `pvc.volumePath` | `string` | Yes | Mount path in the sidecar container. | `"volumePath": "/debug"` |
@@ -153,7 +156,11 @@ annotations:
         "configMap": {
           "name": "my-config-map",
           "key": "my_script.sh",
-          "hookPath": "/usr/bin/onDefineDomain"
+          "hookPath": "/usr/bin/onDefineDomain",
+          "checksum": {
+            "algorithm": "sha256",
+            "value": "<hex-encoded SHA-256 checksum>"
+          }
         }
       },
       {
@@ -255,8 +262,18 @@ the annotations:
 ```yaml
 annotations:
   hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"],
-    "configMap": {"name": "my-config-map", "key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
+    "configMap": {"name": "my-config-map", "key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain",
+    "checksum": {"algorithm": "sha256", "value": "<hex-encoded SHA-256 checksum>"}}}]'
 ```
+
+Generate the checksum from the exact script contents stored in the ConfigMap:
+
+```shell
+sha256sum my_script.sh
+```
+
+Checksum verification is performed by KubeVirt's `sidecar-shim`. A custom sidecar command does not use the shim and therefore
+does not receive this verification guarantee.
 
 Please notice that annotations set on VMs are not automatically propagated to VMIs so,
 in the case of a VM, the VM owner should configure it on `/spec/template/metadata/annotations`
