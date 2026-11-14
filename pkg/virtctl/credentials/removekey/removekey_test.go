@@ -138,6 +138,14 @@ var _ = Describe("Credentials remove-ssh-key", func() {
 		Expect(err).To(MatchError(ContainSubstring("required flag(s) \"user\" not set")))
 	})
 
+	It("should fail if no VM is specified", func() {
+		err := runRemoveKeyCommand(
+			"--user", userName,
+			"--value", testKey,
+		)
+		Expect(err).To(MatchError(ContainSubstring("accepts 1 arg(s), received 0")))
+	})
+
 	It("should remove key from secret", func() {
 		err := runRemoveKeyCommand(
 			"--user", userName,
