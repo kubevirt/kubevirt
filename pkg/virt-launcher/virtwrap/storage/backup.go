@@ -54,6 +54,8 @@ const (
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
 	backupAbortedMsg                  = "backup aborted"
+	backupJobFailedMsg                = "backup job failed"
+	backupResultLostMsg               = "backup job ended without a recorded result"
 )
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
@@ -224,7 +226,16 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		})
 	}
 
-	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
+	if err := dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0); err != nil {
+		return err
+	}
+	m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
+		backupMetadata.JobStarted = true
+	})
+	if err := SyncBackupResult(dom, m.metadataCache); err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to sync backup result")
+	}
+	return nil
 }
 
 func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
@@ -337,126 +348,66 @@ func isIncrementalBackup(backupOptions *backupv1.BackupOptions) bool {
 	return backupOptions.Incremental != nil && *backupOptions.Incremental != ""
 }
 
-func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) {
+// SyncBackupResult records the result of a backup job that libvirt reports as ended.
+func SyncBackupResult(dom cli.VirDomain, metadataCache *metadata.Cache) error {
 	backupMetadata, exists := metadataCache.Backup.Load()
-	if !exists {
-		log.Log.Warning("Received backup job completed event, but no active backup metadata found in cache. Ignoring event.")
-		return
-	}
-	backupName := backupMetadata.Name
-	logger := log.Log.With("backupName", backupName)
-
-	// Fast path for duplicate delivery once a terminal result is recorded. The locked
-	// update below still re-checks Completed so a concurrent first write is handled safely.
-	if backupMetadata.Completed {
-		logger.V(2).Info("Ignoring duplicate backup job completed event; backup already finalized")
-		return
+	if !exists || !backupMetadata.JobStarted || backupMetadata.Completed {
+		return nil
 	}
 
-	jobType := event.Info.Type
-	errorMessageSet := event.Info.ErrorMessageSet
-	errorMessage := event.Info.ErrorMessage
-
-	if domain != nil {
-		// KEEP_COMPLETED preserves stats so a duplicate post-reconnect callback can still
-		// observe DOMAIN_JOB_COMPLETED instead of DOMAIN_JOB_NONE.
-		finalStats, err := domain.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
-		if err != nil {
-			logger.Reason(err).Error("Failed to get final job stats for completed backup.")
-		} else if finalStats != nil {
-			// GetJobStats can report COMPLETED for aborted jobs. Keep an explicit
-			// cancelled/failed type from the event when present. Also do not overwrite
-			// a usable event type with DOMAIN_JOB_NONE (stats may already be gone even
-			// with KEEP_COMPLETED if the domain is torn down).
-			if jobType != libvirt.DOMAIN_JOB_CANCELLED && jobType != libvirt.DOMAIN_JOB_FAILED &&
-				finalStats.Type != libvirt.DOMAIN_JOB_NONE {
-				jobType = finalStats.Type
-			}
-			if !errorMessageSet && finalStats.ErrorMessageSet {
-				errorMessageSet = true
-				errorMessage = finalStats.ErrorMessage
-			}
-		}
+	ended, failure, err := backupJobOutcome(dom)
+	if err != nil || !ended {
+		return err
 	}
 
-	// After a libvirt reconnect, completed job events may arrive with DOMAIN_JOB_NONE.
-	// Prefer the event's JobSuccess flag when stats no longer report a terminal type.
-	if jobType == libvirt.DOMAIN_JOB_NONE && event.Info.JobSuccessSet {
-		if event.Info.JobSuccess {
-			jobType = libvirt.DOMAIN_JOB_COMPLETED
-		} else {
-			jobType = libvirt.DOMAIN_JOB_FAILED
-		}
-	}
-
-	// Prefer AbortReason (set before AbortJob) and job type over matching libvirt
-	// error strings, which are locale- and version-dependent. AbortJob may also
-	// surface as DOMAIN_JOB_COMPLETED; AbortReason covers that case.
-	// DOMAIN_JOB_FAILED wins over an in-flight Finalize so a real job failure is
-	// not reported as Complete.
-	finalizing := backupMetadata.AbortReason == string(backupv1.BackupAbortFinalize)
-	cancelling := backupMetadata.AbortReason == string(backupv1.BackupAbortCancel) ||
-		(!finalizing && jobType == libvirt.DOMAIN_JOB_CANCELLED)
-	jobFailed := jobType == libvirt.DOMAIN_JOB_FAILED
-
-	var failed bool
-	var message string
-	switch {
-	case jobFailed:
-		logger.Info("Backup has failed")
-		failed = true
-	case finalizing:
-		// Pull-mode delete after a successful client pull: end Complete.
-		logger.Info("Backup has been finalized")
-	case cancelling:
-		logger.Info("Backup has been aborted")
-		failed = true
-		message = backupAbortedMsg
-	case jobType == libvirt.DOMAIN_JOB_COMPLETED:
-		logger.Info("Backup has been completed successfully")
-	default:
-		message = fmt.Sprintf("unexpected job completion type: %d", jobType)
-		failed = true
-	}
-
-	// On cancel (and successful finalize) keep the dedicated outcome message;
-	// otherwise merge any libvirt error text from the event / GetJobStats.
-	if errorMessageSet && !cancelling && (!finalizing || jobFailed) {
-		if message == "" {
-			message = errorMessage
-		} else {
-			message = fmt.Sprintf("%s: %s", message, errorMessage)
-		}
-	}
-	if failed && message == "" {
-		message = "unknown failure reason"
-	}
-
-	updated := false
-	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
-		if !exists || backupMetadata.Name != backupName {
-			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
+	metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
+		if !exists || md.Name != backupMetadata.Name || md.Completed {
 			return
 		}
-		// First terminal result wins. Do not upgrade Failed→Success: the controller
-		// treats ConditionFailed as terminal and would not flip the VirtualMachineBackup
-		// to Complete if a later duplicate event "corrected" launcher metadata.
-		if backupMetadata.Completed {
-			logger.V(2).Info("Ignoring duplicate backup job completed event; backup already finalized")
-			return
+		md.Completed = true
+		md.Failed = failure != ""
+		if md.Failed {
+			md.BackupMsg = failure
 		}
-
-		backupMetadata.Failed = failed
-		backupMetadata.Completed = true
-		backupMetadata.BackupMsg = message
-		now := metav1.Now()
-		backupMetadata.EndTimestamp = &now
-		updated = true
+		md.EndTimestamp = new(metav1.Now())
 	})
+	log.Log.With("backupName", backupMetadata.Name).Infof("Backup job ended, failure: %q", failure)
+	return nil
+}
 
-	if updated {
-		log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+func backupJobOutcome(dom cli.VirDomain) (ended bool, failure string, err error) {
+	current, err := dom.GetJobStats(0)
+	if err != nil {
+		return false, "", err
 	}
+	if current.Type != libvirt.DOMAIN_JOB_NONE {
+		return false, "", nil
+	}
+
+	completed, err := dom.GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED | libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED)
+	if err != nil {
+		return false, "", err
+	}
+	if completed.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP {
+		return true, backupResultLostMsg, nil
+	}
+	switch completed.Type {
+	case libvirt.DOMAIN_JOB_COMPLETED:
+		return true, "", nil
+	case libvirt.DOMAIN_JOB_CANCELLED:
+		return true, jobFailure(backupAbortedMsg, completed), nil
+	case libvirt.DOMAIN_JOB_FAILED:
+		return true, jobFailure(backupJobFailedMsg, completed), nil
+	default:
+		return true, backupResultLostMsg, nil
+	}
+}
+
+func jobFailure(reason string, job *libvirt.DomainJobInfo) string {
+	if job.ErrorMessageSet {
+		return fmt.Sprintf("%s: %s", reason, job.ErrorMessage)
+	}
+	return reason
 }
 
 func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
@@ -464,10 +415,10 @@ func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstanc
 	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
 		return fmt.Errorf("failed to abort backup: %w", err)
 	}
-	return m.abortBackup(vmi, backupMetadata, backupOptions.AbortReason)
+	return m.abortBackup(vmi, backupMetadata)
 }
 
-func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata, abortReason backupv1.BackupAbortReason) error {
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata) error {
 	domName := api.VMINamespaceKeyFunc(vmi)
 	dom, err := m.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -481,33 +432,14 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 		log.Log.Object(vmi).Reason(err).Error("failed to get domain job stats")
 		return err
 	}
+	if stats.Type == libvirt.DOMAIN_JOB_NONE && backupMetadata.JobStarted {
+		return SyncBackupResult(dom, m.metadataCache)
+	}
 	if stats.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP || stats.Type != libvirt.DOMAIN_JOB_UNBOUNDED {
 		return fmt.Errorf("cannot abort backup, wrong operation or type: %d, %d", stats.Operation, stats.Type)
 	}
 
-	// Record the abort reason before AbortJob so a completion event cannot race
-	// ahead and treat the cancelled job as a successful COMPLETED backup.
-	// The first reason wins: a TTL Cancel in flight must not be overwritten by a
-	// later Finalize when the backup is deleted.
-	var previousAbortReason string
-	m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
-		if !exists || md.Name != backupMetadata.Name {
-			return
-		}
-		previousAbortReason = md.AbortReason
-		if md.AbortReason != "" {
-			return
-		}
-		md.AbortReason = string(abortReason)
-	})
-
 	if err := dom.AbortJob(); err != nil {
-		m.metadataCache.Backup.WithSafeBlock(func(md *api.BackupMetadata, exists bool) {
-			if !exists || md.Name != backupMetadata.Name {
-				return
-			}
-			md.AbortReason = previousAbortReason
-		})
 		log.Log.Object(vmi).Reason(err).Error("failed to abort backup, error calling abort job on domain")
 		return err
 	}

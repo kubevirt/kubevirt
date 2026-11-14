@@ -11241,9 +11241,8 @@ var CRDsValidation map[string]string = map[string]string{
         mode:
           description: |-
             Mode specifies the way the backup output will be received.
-            Deleting an in-progress Pull backup finalizes it as Complete (client finished
-            pulling). TTL expiry, or deleting an in-progress Push backup, cancels the
-            job and marks the backup Failed.
+            Deleting an in-progress backup aborts it. A Pull backup deleted before its
+            TTL expires is marked Complete; any other aborted backup is marked Failed.
           enum:
           - Push
           - Pull
@@ -11302,11 +11301,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         ttlDuration:
           description: |-
-            TTLDuration limits the lifetime of a pull mode backup and its export.
-            When set, an in-progress backup past this duration (counting from
-            CreationTimestamp) is cancelled and marked as Failed.
-            Deleting the VirtualMachineBackup after a successful client pull still
-            finalizes the backup as Complete.
+            TTLDuration limits the lifetime of a pull mode backup and its export,
+            counting from CreationTimestamp. An in-progress backup that outlives it
+            is aborted and marked Failed.
             When omitted, a reasonable default is applied.
           type: string
       required:

@@ -400,10 +400,11 @@ var _ = Describe("Notify", func() {
 			mockLibvirt.DomainEXPECT().Free()
 			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(&libvirt.DomainJobInfo{Type: libvirt.DOMAIN_JOB_NONE}, nil)
 			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DOMAIN_JOB_STATS_COMPLETED|libvirt.DOMAIN_JOB_STATS_KEEP_COMPLETED).Return(&domainJobInfo, nil)
 
 			metadataCache := metadata.NewCache()
-			metadataCache.Backup.Store(api.BackupMetadata{})
+			metadataCache.Backup.Store(api.BackupMetadata{Name: "test-backup", JobStarted: true})
 			libvirtEvent := libvirtEvent{
 				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
 					Info: domainJobInfo,
