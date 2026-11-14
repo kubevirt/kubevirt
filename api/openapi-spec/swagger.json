@@ -13999,7 +13999,7 @@
     "type": "object",
     "properties": {
      "cores": {
-      "description": "Cores specifies the number of cores inside the vmi. Must be a value greater or equal 1.",
+      "description": "Cores specifies the number of cores inside the vmi. Defaults to 1 if omitted or set to 0.",
       "type": "integer",
       "format": "int64"
      },
@@ -14037,12 +14037,12 @@
       "$ref": "#/definitions/v1.Realtime"
      },
      "sockets": {
-      "description": "Sockets specifies the number of sockets inside the vmi. Must be a value greater or equal 1.",
+      "description": "Sockets specifies the number of sockets inside the vmi. Defaults to 1 if omitted or set to 0. If cores, sockets and threads are all omitted or set to 0, sockets defaults to the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.",
       "type": "integer",
       "format": "int64"
      },
      "threads": {
-      "description": "Threads specifies the number of threads inside the vmi. Must be a value greater or equal 1.",
+      "description": "Threads specifies the number of threads inside the vmi. Defaults to 1 if omitted or set to 0.",
       "type": "integer",
       "format": "int64"
      }
