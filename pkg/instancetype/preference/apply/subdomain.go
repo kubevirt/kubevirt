@@ -19,11 +19,23 @@
 package apply
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-func applySubdomain(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+type subdomainPreferences struct{}
+
+func (subdomainPreferences) Apply(
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
+) {
+	if preferenceSpec == nil {
+		return
+	}
+
 	if vmiSpec.Subdomain == "" && preferenceSpec.PreferredSubdomain != nil {
 		vmiSpec.Subdomain = *preferenceSpec.PreferredSubdomain
 	}

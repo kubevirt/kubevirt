@@ -246,12 +246,11 @@ func (c *controller) ApplyToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMa
 	annotations.Set(vm, vmi)
 	preferenceannotations.Set(vm, vmi)
 
-	if conflicts := apply.NewVMIApplier().ApplyToVMI(
+	if conflicts := apply.NewVMI().Apply(
 		k8sfield.NewPath("spec"),
 		instancetypeSpec,
 		preferenceSpec,
-		&vmi.Spec,
-		&vmi.ObjectMeta,
+		vmi,
 	); len(conflicts) > 0 {
 		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}

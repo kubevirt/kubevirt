@@ -35,7 +35,7 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec
 
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 		field      = k8sfield.NewPath("spec", "template", "spec")
 	)
 
@@ -52,14 +52,14 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 
 	Context("Instancetype.Spec.Annotations", func() {
 		It("should apply to VMI", func() {
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, nil, vmi)).To(Succeed())
 			Expect(vmi.Annotations).To(Equal(instancetypeSpec.Annotations))
 		})
 
 		It("should not detect conflict when annotation with the same value already exists", func() {
 			vmi.Annotations = instancetypeSpec.Annotations
 
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, nil, vmi)).To(Succeed())
 			Expect(vmi.Annotations).To(Equal(instancetypeSpec.Annotations))
 		})
 
@@ -68,7 +68,7 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 				"annotation-1": "conflict",
 			}
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, nil, &vmi.Spec, &vmi.ObjectMeta)
+			conflicts := vmiApplier.Apply(field, instancetypeSpec, nil, vmi)
 			Expect(conflicts).To(HaveLen(1))
 			Expect(conflicts[0].String()).To(Equal("annotations.annotation-1"))
 		})

@@ -40,7 +40,7 @@ var _ = Describe("Preference.Firmware", func() {
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 	)
 
 	BeforeEach(func() {
@@ -57,7 +57,7 @@ var _ = Describe("Preference.Firmware", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(HaveValue(Equal(*preferenceSpec.Firmware.PreferredUseBiosSerial)))
 	})
@@ -72,7 +72,7 @@ var _ = Describe("Preference.Firmware", func() {
 			},
 		}
 
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(Equal(*preferenceSpec.Firmware.DeprecatedPreferredUseSecureBoot)))
 	})
@@ -91,7 +91,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).To(BeNil())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(HaveValue(BeFalse()))
 	})
@@ -110,7 +110,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial).To(HaveValue(BeFalse()))
 	})
 
@@ -128,7 +128,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).To(BeNil())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeFalse()))
 	})
@@ -147,7 +147,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeFalse()))
 	})
 
@@ -160,7 +160,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(HaveValue(BeNil()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(HaveValue(BeTrue()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeTrue()))
@@ -176,7 +176,7 @@ var _ = Describe("Preference.Firmware", func() {
 				DeprecatedPreferredUseSecureBoot: pointer.P(false),
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(HaveValue(BeNil()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(HaveValue(BeTrue()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeNil())
@@ -198,7 +198,7 @@ var _ = Describe("Preference.Firmware", func() {
 				},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeFalse()))
@@ -216,7 +216,7 @@ var _ = Describe("Preference.Firmware", func() {
 				PreferredEfi: &virtv1.EFI{},
 			},
 		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).To(BeNil())
 	})
