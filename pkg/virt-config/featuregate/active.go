@@ -297,6 +297,18 @@ const (
 	// migration convergence via the ExperimentalMigrationOptions.DowntimeTuning field.
 	MigrationDowntimeTuning = "MigrationDowntimeTuning"
 
+	// Owner: sig-compute / @jean-edouard
+	// Alpha: v1.11.0
+	//
+	// LauncherSocketAuthentication makes virt-handler authenticate
+	// virt-launcher command sockets. When enabled, virt-handler reads a
+	// projected ServiceAccount token from each launcher over the CmdAuth
+	// gRPC service and validates it through the TokenReview API before
+	// issuing any other RPC on that socket. It is a prerequisite for
+	// replacing the on-disk ghost record cache with discovery driven by
+	// VMI.Status.ActivePods.
+	LauncherSocketAuthentication = "LauncherSocketAuthentication"
+
 	// Owner: sig-compute / @lyarwood
 	// Alpha: v1.9.0
 	//
@@ -405,4 +417,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LauncherSocketAuthentication, State: Alpha})
 }

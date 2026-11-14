@@ -291,9 +291,6 @@ func (app *virtHandlerApp) Run() {
 	// is completely torn down.
 	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
-
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
@@ -311,6 +308,13 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.installKubevirtSeccompProfile)
+
+	// Wire launcher authentication when the feature gate is enabled.
+	var authClient kubernetes.Interface
+	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
+		authClient = app.k8sClient
+	}
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, authClient)
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -388,7 +392,7 @@ func (app *virtHandlerApp) Run() {
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, authClient)
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
@@ -397,6 +401,19 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 
 	factory.Start(stop)
+	if authClient != nil {
+		// Authenticating a socket requires checking its pod UID against the
+		// owning VMI's ActivePods, which reads the VMI store. Starting the
+		// domain informer concurrently was safe while List only needed ghost
+		// records, which are loaded from disk before either informer starts.
+		// An early List against an empty VMI store would now fail every
+		// socket, so wait for the VMI informer first.
+		logger.Info("LauncherSocketAuthentication enabled: waiting for VMI informer sync before domain list")
+		if !cache.WaitForCacheSync(stop, vmiInformer.HasSynced) {
+			logger.Criticalf("failed to sync VMI informer before starting the domain informer")
+			return
+		}
+	}
 	go domainSharedInformer.Run(stop)
 	go nodeInformer.Run(stop)
 	cache.WaitForCacheSync(
