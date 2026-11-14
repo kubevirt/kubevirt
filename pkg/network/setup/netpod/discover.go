@@ -103,7 +103,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 }
 
 func (n NetPod) storePodInterfaceData(vmiSpecIface v1.Interface, ifaceState nmstate.Interface) error {
-	ifCache, err := cache.ReadPodInterfaceCache(n.cacheCreator, n.vmiUID, vmiSpecIface.Name)
+	ifCache, err := cache.ReadPodInterfaceCache(n.cacheCreator, n.podPID, vmiSpecIface.Name)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("failed to read pod interface cache for %s: %v", vmiSpecIface.Name, err)
@@ -130,7 +130,7 @@ func (n NetPod) storePodInterfaceData(vmiSpecIface v1.Interface, ifaceState nmst
 	}
 	ifCache.PodIP = ifCache.PodIPs[0]
 
-	if err := cache.WritePodInterfaceCache(n.cacheCreator, n.vmiUID, vmiSpecIface.Name, ifCache); err != nil {
+	if err := cache.WritePodInterfaceCache(n.cacheCreator, n.podPID, vmiSpecIface.Name, ifCache); err != nil {
 		log.Log.Reason(err).Errorf("failed to write pod interface data to cache")
 		return err
 	}
