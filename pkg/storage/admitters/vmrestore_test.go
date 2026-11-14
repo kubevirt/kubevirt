@@ -541,6 +541,51 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeOwnershipPolicy"))
 			})
 
+			Context("when the VirtualMachineSnapshot has no status yet", func() {
+				var snapshotWithoutStatus *snapshotv1.VirtualMachineSnapshot
+
+				BeforeEach(func() {
+					snapshotWithoutStatus = snapshot.DeepCopy()
+					snapshotWithoutStatus.Status = nil
+				})
+
+				newRestore := func(targetName string) *snapshotv1.VirtualMachineRestore {
+					return &snapshotv1.VirtualMachineRestore{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "restore",
+							Namespace: "default",
+						},
+						Spec: snapshotv1.VirtualMachineRestoreSpec{
+							Target: corev1.TypedLocalObjectReference{
+								APIGroup: &apiGroup,
+								Kind:     "VirtualMachine",
+								Name:     targetName,
+							},
+							VirtualMachineSnapshotName: vmSnapshotName,
+						},
+					}
+				}
+
+				It("should allow restore to an existing VM", func() {
+					ar := createRestoreAdmissionReview(newRestore(vmName))
+					admitter := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshotWithoutStatus)
+
+					var resp *admissionv1.AdmissionResponse
+					Expect(func() { resp = admitter.Admit(context.Background(), ar) }).ToNot(Panic())
+					Expect(resp.Allowed).To(BeTrue())
+				})
+
+				It("should reject restore to a new VM without panicking", func() {
+					ar := createRestoreAdmissionReview(newRestore("new-test-vm"))
+					admitter := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, vm, snapshotWithoutStatus)
+
+					var resp *admissionv1.AdmissionResponse
+					Expect(func() { resp = admitter.Admit(context.Background(), ar) }).ToNot(Panic())
+					Expect(resp.Allowed).To(BeFalse())
+					Expect(resp.Result.Message).To(ContainSubstring("snapshot content name is nil"))
+				})
+			})
+
 			DescribeTable("Should reject restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
 				const targetVMName = "new-test-vm"
 				targetVM := &v1.VirtualMachine{}
