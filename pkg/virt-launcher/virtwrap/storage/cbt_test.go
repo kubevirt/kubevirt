@@ -58,7 +58,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			IsBlockDV:  make(map[string]bool),
 		}
 		createQCOW2OverlayCalled = 0
-		CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+		CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
 			createQCOW2OverlayCalled++
 			return nil
 		}
@@ -95,7 +95,15 @@ var _ = Describe("Changed Block Tracking", func() {
 			overlay := filepath.Join(dir, "disk0.qcow2")
 			Expect(os.WriteFile(overlay, []byte("overlay"), 0o600)).To(Succeed())
 
-			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).To(Succeed())
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"), 0)).To(Succeed())
+			Expect(os.ReadFile(overlay)).To(Equal([]byte("overlay")))
+		})
+
+		It("should reuse an existing overlay even when an explicit size is provided", func() {
+			overlay := filepath.Join(dir, "disk0.qcow2")
+			Expect(os.WriteFile(overlay, []byte("overlay"), 0o600)).To(Succeed())
+
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"), 6442450944)).To(Succeed())
 			Expect(os.ReadFile(overlay)).To(Equal([]byte("overlay")))
 		})
 
@@ -105,7 +113,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			overlay := filepath.Join(dir, "disk0.qcow2")
 			Expect(os.Symlink(target, overlay)).To(Succeed())
 
-			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"))).ToNot(Succeed())
+			Expect(createQCOW2Overlay(overlay, filepath.Join(dir, "missing.img"), 0)).ToNot(Succeed())
 			Expect(os.ReadFile(target)).To(Equal([]byte("target")))
 		})
 	})
@@ -359,7 +367,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			converterContext.IsBlockDV["dv-volume"] = true
 
 			var capturedPaths []string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
 				createQCOW2OverlayCalled++
 				capturedPaths = append(capturedPaths, imagePath)
 				return nil
@@ -386,7 +394,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPaths []string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
 				createQCOW2OverlayCalled++
 				capturedPaths = append(capturedPaths, imagePath)
 				return nil
@@ -412,7 +420,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 
 			var capturedPath string
-			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
 				createQCOW2OverlayCalled++
 				capturedPath = imagePath
 				return nil
@@ -473,7 +481,7 @@ var _ = Describe("Changed Block Tracking", func() {
 
 			errMsg := "failed to create overlay"
 			// Mock createQCOW2Overlay to return error
-			CreateQCOW2Overlay = func(overlayPath, imagePath string) error {
+			CreateQCOW2Overlay = func(overlayPath, imagePath string, size int64) error {
 				createQCOW2OverlayCalled++
 				return fmt.Errorf("%s", errMsg)
 			}

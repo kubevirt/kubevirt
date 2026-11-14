@@ -25,6 +25,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -34,10 +35,16 @@ import (
 
 // CBTOverlayHook creates the CBT overlays the incoming domain references,
 // each at the path of the claim the target VMI names for its volume.
+// The overlay virtual size must match the source image size (qemu mirror
+// requires equal sizes). The source size is required in kubevirt DestXML
+// metadata (migrationDiskSizes); guessing from destination PVC/disk info is
+// unreliable across filesystem and block volumes.
 func CBTOverlayHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	if domain.Devices == nil {
 		return nil
 	}
+
+	logger := log.Log.Object(vmi)
 	for i := range domain.Devices.Disks {
 		d := &domain.Devices.Disks[i]
 		if d.Source == nil || d.Source.DataStore == nil || d.Source.File == nil {
@@ -51,11 +58,29 @@ func CBTOverlayHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineIn
 		if volume == nil {
 			return fmt.Errorf("no target volume for CBT overlay %s", d.Source.File.File)
 		}
-		d.Source.File.File = cbt.GetQCOW2OverlayPath(vmi, volume)
-		if err := storage.CreateQCOW2Overlay(d.Source.File.File, dataPath); err != nil {
-			return fmt.Errorf("failed to create CBT overlay %s: %w", d.Source.File.File, err)
+
+		overlaySize, ok := storage.MigrationDiskSize(domain, volume.Name)
+		if !ok {
+			return fmt.Errorf("CBT overlay hook: volume %s: missing source virtual size in DestXML metadata", volume.Name)
+		}
+
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volume)
+		logger.Infof("Creating CBT overlay for migration target: volume=%s overlay=%s dataStore=%s size=%d",
+			volume.Name, overlayPath, dataPath, overlaySize)
+
+		d.Source.File.File = overlayPath
+		// Defensive: CBT disks must not keep slices (rejected on dataStore; invalid on overlay).
+		d.Source.Slices = nil
+		if d.Source.DataStore.Source != nil {
+			d.Source.DataStore.Source.Slices = nil
+		}
+
+		if err := storage.CreateQCOW2Overlay(overlayPath, dataPath, overlaySize); err != nil {
+			return fmt.Errorf("failed to create CBT overlay %s: %w", overlayPath, err)
 		}
 	}
+
+	storage.ClearMigrationDiskSizes(domain)
 	return nil
 }
 
