@@ -725,6 +725,16 @@ var _ = Describe("Notify", func() {
 			Expect(recorder.Events).To(Receive(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage))))
 		})
 
+		It("Should warn on a stalled guest-info query", func() {
+			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+
+			client.sendGuestInfoQueryStallEvent(vmi)
+
+			Expect(recorder.Events).To(Receive(ContainSubstring("Warning GuestAgentInfoQueryStalled Guest-agent information query timed out or has not completed")))
+		})
+
 		It("Should generate a k8s event on IO errors", func() {
 			faultDisk := []libvirt.DomainDiskError{
 				{

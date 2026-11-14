@@ -19,6 +19,7 @@
 package agentpoller
 
 import (
+	"errors"
 	"math"
 	"sync"
 	"time"
@@ -45,7 +46,8 @@ const (
 	GetAgent          AgentCommand = "guest-info"
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
-	pollInitialInterval = 10 * time.Second
+	pollInitialInterval     = 10 * time.Second
+	guestInfoStallThreshold = 60 * time.Second
 
 	repeatingLogLevel = 3
 )
@@ -272,13 +274,18 @@ func incrementPollInterval(interval, maxInterval time.Duration) time.Duration {
 }
 
 type AgentPoller struct {
-	Connection     cli.Connection
-	VmiUID         types.UID
-	domainName     string
-	agentDone      chan struct{}
-	agentConnected bool
-	workers        []PollerWorker
-	agentStore     *AsyncAgentStore
+	Connection               cli.Connection
+	VmiUID                   types.UID
+	domainName               string
+	agentDone                chan struct{}
+	agentConnected           bool
+	workers                  []PollerWorker
+	agentStore               *AsyncAgentStore
+	OnGuestInfoQueryStalled  func()
+	guestInfoQueryMu         sync.Mutex
+	guestInfoQueryGeneration uint64
+	guestInfoQueryActive     bool
+	guestInfoQueryStalled    bool
 }
 
 // CreatePoller creates the new structure that holds guest agent pollers
@@ -459,7 +466,14 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 	// is invalid, neither of which is the case here.
 	defer func() { _ = domain.Free() }()
 
-	guestInfo, err := domain.GetGuestInfo(infoTypes, 0)
+	var guestInfo *libvirt.DomainGuestInfo
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_INTERFACES != 0 {
+		guestInfo, err = agentPoller.watchGuestInfoQuery(guestInfoStallThreshold, func() (*libvirt.DomainGuestInfo, error) {
+			return domain.GetGuestInfo(infoTypes, 0)
+		})
+	} else {
+		guestInfo, err = domain.GetGuestInfo(infoTypes, 0)
+	}
 	if err != nil {
 		log.Log.Errorf("Fetching guest info failed: %v", err)
 		return
@@ -487,6 +501,64 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
+	}
+}
+
+// watchGuestInfoQuery reports a stalled libvirt call while leaving that call running.
+// Libvirt can also return a timeout before the elapsed-time threshold, for example
+// while waiting for another agent job to release the domain lock.
+func (p *AgentPoller) watchGuestInfoQuery(threshold time.Duration, query func() (*libvirt.DomainGuestInfo, error)) (*libvirt.DomainGuestInfo, error) {
+	p.guestInfoQueryMu.Lock()
+	p.guestInfoQueryGeneration++
+	generation := p.guestInfoQueryGeneration
+	p.guestInfoQueryActive = true
+	p.guestInfoQueryMu.Unlock()
+
+	started := time.Now()
+	timer := time.AfterFunc(threshold, func() {
+		p.reportGuestInfoQueryStall(generation)
+	})
+
+	result, err := query()
+	timer.Stop()
+
+	var libvirtErr libvirt.Error
+	timedOut := time.Since(started) >= threshold ||
+		(errors.As(err, &libvirtErr) && libvirtErr.Code == libvirt.ERR_OPERATION_TIMEOUT)
+
+	p.guestInfoQueryMu.Lock()
+	if generation != p.guestInfoQueryGeneration {
+		p.guestInfoQueryMu.Unlock()
+		return result, err
+	}
+	shouldReport := timedOut && !p.guestInfoQueryStalled
+	p.guestInfoQueryActive = false
+	if !timedOut && err == nil {
+		p.guestInfoQueryStalled = false
+	}
+	p.guestInfoQueryMu.Unlock()
+	if shouldReport {
+		p.notifyGuestInfoQueryStall()
+	}
+
+	return result, err
+}
+
+func (p *AgentPoller) reportGuestInfoQueryStall(generation uint64) {
+	p.guestInfoQueryMu.Lock()
+	if generation != p.guestInfoQueryGeneration || !p.guestInfoQueryActive || p.guestInfoQueryStalled {
+		p.guestInfoQueryMu.Unlock()
+		return
+	}
+	p.guestInfoQueryStalled = true
+	p.guestInfoQueryMu.Unlock()
+	p.notifyGuestInfoQueryStall()
+}
+
+func (p *AgentPoller) notifyGuestInfoQueryStall() {
+	log.Log.Warningf("Guest agent information query stalled for domain %s", p.domainName)
+	if p.OnGuestInfoQueryStalled != nil {
+		p.OnGuestInfoQueryStalled()
 	}
 }
 
