@@ -26,6 +26,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -245,6 +246,29 @@ var _ = Describe("MemoryDump", func() {
 
 		Expect(vm.Status.MemoryDumpRequest.Phase).To(Equal(v1.MemoryDumpDissociating))
 	})
+
+	DescribeTable("CalcExpectedSize should size the dump for the guest memory", func(memory *v1.Memory, requests k8score.ResourceList, expectedSize string) {
+		vmi := &v1.VirtualMachineInstance{
+			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Memory: memory,
+					Resources: v1.ResourceRequirements{
+						Requests: requests,
+					},
+				},
+			},
+		}
+
+		Expect(CalcExpectedSize(vmi).Cmp(resource.MustParse(expectedSize))).To(BeZero())
+	},
+		Entry("with memory requests only", nil, k8score.ResourceList{k8score.ResourceMemory: resource.MustParse("1Gi")}, "1124Mi"),
+		Entry("with guest memory only", &v1.Memory{Guest: pointer.P(resource.MustParse("8Gi"))}, nil, "8292Mi"),
+		Entry("with guest memory higher than the overcommitted requests",
+			&v1.Memory{Guest: pointer.P(resource.MustParse("8Gi"))},
+			k8score.ResourceList{k8score.ResourceMemory: resource.MustParse("4Gi")},
+			"8292Mi",
+		),
+	)
 
 	Context("with a dump that started on a deprecated MemoryDump volume", func() {
 		createVMIWithDeprecatedVolume := func(phase v1.MemoryDumpPhase) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
