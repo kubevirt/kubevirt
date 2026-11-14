@@ -95,6 +95,14 @@ const (
 	// are put in place, and the VolumeSnapshots are then taken of the read-only base images.
 	ExternalVMSnapshotGate = "ExternalVMSnapshot"
 
+	// Owner: sig-compute
+	// Alpha: v1.10.0
+	//
+	// VMHibernation enables saving the memory and device state of a running
+	// VirtualMachine to a PVC, stopping it, and resuming it from that state on
+	// the next start instead of booting it.
+	VMHibernation = "VMHibernation"
+
 	// Owner: @alromeros
 	// Alpha: v1.10.0
 	//
@@ -405,4 +413,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMHibernation, State: Alpha})
 }

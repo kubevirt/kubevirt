@@ -747,6 +747,10 @@
         ],
         "evictionStrategy": "evictionStrategyValue",
         "startStrategy": "startStrategyValue",
+        "savedStateSource": {
+          "claimName": "claimNameValue",
+          "fileName": "fileNameValue"
+        },
         "terminationGracePeriodSeconds": -29,
         "volumes": [
           {
@@ -1404,6 +1408,30 @@
       "startTimestamp": "1986-01-01T01:01:01Z",
       "endTimestamp": "1988-01-01T01:01:01Z",
       "fileName": "fileNameValue",
+      "message": "messageValue"
+    },
+    "savedState": {
+      "phase": "phaseValue",
+      "claimName": "claimNameValue",
+      "storageClassName": "storageClassNameValue",
+      "fileName": "fileNameValue",
+      "sourceUID": "sourceUIDValue",
+      "requestTimestamp": "1984-01-01T01:01:01Z",
+      "runStrategy": "runStrategyValue",
+      "sourceNodeSelector": {
+        "sourceNodeSelectorKey": "sourceNodeSelectorValue"
+      },
+      "specHash": "specHashValue",
+      "volumeClaimUIDs": {
+        "volumeClaimUIDsKey": "volumeClaimUIDsValue"
+      },
+      "restoreUID": "restoreUIDValue",
+      "supersededUID": "supersededUIDValue",
+      "saveStartTimestamp": "1982-01-01T01:01:01Z",
+      "saveEndTimestamp": "1984-01-01T01:01:01Z",
+      "restoreStartTimestamp": "1979-01-01T01:01:01Z",
+      "restoreEndTimestamp": "1981-01-01T01:01:01Z",
+      "discard": true,
       "message": "messageValue"
     },
     "observedGeneration": -18,

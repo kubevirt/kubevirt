@@ -9386,6 +9386,25 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-map-keys:
                   - name
                   x-kubernetes-list-type: map
+                savedStateSource:
+                  description: |-
+                    SavedStateSource, when set, makes the VirtualMachineInstance resume from
+                    a previously saved memory and device state instead of booting.
+                    It is set by the VirtualMachine controller when a hibernated
+                    VirtualMachine is started and requires the VMHibernation feature gate.
+                  properties:
+                    claimName:
+                      description: ClaimName is the name of the PVC holding the saved
+                        state.
+                      type: string
+                    fileName:
+                      description: FileName is the name of the saved state file at
+                        the root of the PVC.
+                      type: string
+                  required:
+                  - claimName
+                  - fileName
+                  type: object
                 schedulerName:
                   description: |-
                     If specified, the VMI will be dispatched by specified scheduler.
@@ -10640,6 +10659,107 @@ var CRDsValidation map[string]string = map[string]string{
             RunStrategy tracks the last recorded RunStrategy used by the VM.
             This is needed to correctly process the next strategy (for now only the RerunOnFailure)
           type: string
+        savedState:
+          description: |-
+            SavedState tracks the memory and device state saved by a hibernation
+            request, from the request until the VirtualMachine resumed from it or
+            the state was discarded.
+          nullable: true
+          properties:
+            claimName:
+              description: ClaimName is the PVC holding the saved state. It is owned
+                by the VirtualMachine.
+              type: string
+            discard:
+              description: |-
+                Discard requests the saved state to be deleted. The next start boots the VirtualMachine.
+                Set while Pending, it cancels the hibernation and the VirtualMachine keeps running.
+              type: boolean
+            fileName:
+              description: FileName is the saved state file at the root of the PVC.
+              type: string
+            message:
+              description: Message is a human readable detail about the phase.
+              type: string
+            phase:
+              description: Phase of the hibernation.
+              type: string
+            requestTimestamp:
+              description: |-
+                RequestTimestamp is when the hibernation was requested.
+                A Pending hibernation times out from it.
+              format: date-time
+              type: string
+            restoreEndTimestamp:
+              description: RestoreEndTimestamp is when the domain resumed from the
+                saved state.
+              format: date-time
+              type: string
+            restoreStartTimestamp:
+              description: RestoreStartTimestamp is when the domain started to resume
+                from the saved state.
+              format: date-time
+              type: string
+            restoreUID:
+              description: RestoreUID is the UID of the VirtualMachineInstance resuming
+                from the saved state.
+              type: string
+            runStrategy:
+              description: |-
+                RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested.
+                It is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs,
+                and when the hibernated VirtualMachine is started.
+              type: string
+            saveEndTimestamp:
+              description: SaveEndTimestamp is when the state was written.
+              format: date-time
+              type: string
+            saveStartTimestamp:
+              description: SaveStartTimestamp is when the state started to be written.
+              format: date-time
+              type: string
+            sourceNodeSelector:
+              additionalProperties:
+                type: string
+              description: |-
+                SourceNodeSelector holds the node labels a node needs to resume the
+                state, e.g. the host-model CPU of the node the state was saved on.
+              type: object
+            sourceUID:
+              description: SourceUID is the UID of the VirtualMachineInstance the
+                state was saved from.
+              type: string
+            specHash:
+              description: |-
+                SpecHash identifies the VirtualMachine spec the state was saved from.
+                A start with a different spec discards the saved state.
+              type: string
+            storageClassName:
+              description: StorageClassName used to provision the PVC. Empty means
+                the default storage class.
+              type: string
+            supersededUID:
+              description: |-
+                SupersededUID is the UID of the VirtualMachineInstance that failed to
+                resume from the saved state and that a start request retrying the
+                resume superseded. The VM controller replaces it, whatever the run strategy.
+              type: string
+            volumeClaimUIDs:
+              additionalProperties:
+                description: |-
+                  UID is a type that holds unique ID values, including UUIDs.  Because we
+                  don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                  intent and helps make sure that UIDs and names do not get conflated.
+                type: string
+              description: |-
+                VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to
+                their UIDs at save time. A start with a replaced PVC discards the saved state.
+              type: object
+          required:
+          - claimName
+          - phase
+          - sourceUID
+          type: object
         snapshotInProgress:
           description: SnapshotInProgress is the name of the VirtualMachineSnapshot
             currently executing
@@ -16042,6 +16162,24 @@ var CRDsValidation map[string]string = map[string]string{
           x-kubernetes-list-map-keys:
           - name
           x-kubernetes-list-type: map
+        savedStateSource:
+          description: |-
+            SavedStateSource, when set, makes the VirtualMachineInstance resume from
+            a previously saved memory and device state instead of booting.
+            It is set by the VirtualMachine controller when a hibernated
+            VirtualMachine is started and requires the VMHibernation feature gate.
+          properties:
+            claimName:
+              description: ClaimName is the name of the PVC holding the saved state.
+              type: string
+            fileName:
+              description: FileName is the name of the saved state file at the root
+                of the PVC.
+              type: string
+          required:
+          - claimName
+          - fileName
+          type: object
         schedulerName:
           description: |-
             If specified, the VMI will be dispatched by specified scheduler.
@@ -17954,6 +18092,33 @@ var CRDsValidation map[string]string = map[string]string{
             launcher
           format: int64
           type: integer
+        savedState:
+          description: |-
+            SavedState reports the save of the memory and device state of the
+            VirtualMachineInstance, or its resume from a saved state.
+          nullable: true
+          properties:
+            endTimestamp:
+              description: EndTimestamp is when the save or restore ended.
+              format: date-time
+              type: string
+            fileName:
+              description: FileName is the name of the saved state file at the root
+                of the volume.
+              type: string
+            message:
+              description: Message is a human readable detail, set on failure.
+              type: string
+            phase:
+              description: Phase of the save or restore.
+              type: string
+            startTimestamp:
+              description: StartTimestamp is when the save or restore started.
+              format: date-time
+              type: string
+          required:
+          - phase
+          type: object
         selinuxContext:
           description: SELinuxContext is the actual SELinux context of the virt-launcher
             pod
@@ -23271,6 +23436,25 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-map-keys:
                   - name
                   x-kubernetes-list-type: map
+                savedStateSource:
+                  description: |-
+                    SavedStateSource, when set, makes the VirtualMachineInstance resume from
+                    a previously saved memory and device state instead of booting.
+                    It is set by the VirtualMachine controller when a hibernated
+                    VirtualMachine is started and requires the VMHibernation feature gate.
+                  properties:
+                    claimName:
+                      description: ClaimName is the name of the PVC holding the saved
+                        state.
+                      type: string
+                    fileName:
+                      description: FileName is the name of the saved state file at
+                        the root of the PVC.
+                      type: string
+                  required:
+                  - claimName
+                  - fileName
+                  type: object
                 schedulerName:
                   description: |-
                     If specified, the VMI will be dispatched by specified scheduler.
@@ -28733,6 +28917,25 @@ var CRDsValidation map[string]string = map[string]string{
                           x-kubernetes-list-map-keys:
                           - name
                           x-kubernetes-list-type: map
+                        savedStateSource:
+                          description: |-
+                            SavedStateSource, when set, makes the VirtualMachineInstance resume from
+                            a previously saved memory and device state instead of booting.
+                            It is set by the VirtualMachine controller when a hibernated
+                            VirtualMachine is started and requires the VMHibernation feature gate.
+                          properties:
+                            claimName:
+                              description: ClaimName is the name of the PVC holding
+                                the saved state.
+                              type: string
+                            fileName:
+                              description: FileName is the name of the saved state
+                                file at the root of the PVC.
+                              type: string
+                          required:
+                          - claimName
+                          - fileName
+                          type: object
                         schedulerName:
                           description: |-
                             If specified, the VMI will be dispatched by specified scheduler.
@@ -34714,6 +34917,25 @@ var CRDsValidation map[string]string = map[string]string{
                               x-kubernetes-list-map-keys:
                               - name
                               x-kubernetes-list-type: map
+                            savedStateSource:
+                              description: |-
+                                SavedStateSource, when set, makes the VirtualMachineInstance resume from
+                                a previously saved memory and device state instead of booting.
+                                It is set by the VirtualMachine controller when a hibernated
+                                VirtualMachine is started and requires the VMHibernation feature gate.
+                              properties:
+                                claimName:
+                                  description: ClaimName is the name of the PVC holding
+                                    the saved state.
+                                  type: string
+                                fileName:
+                                  description: FileName is the name of the saved state
+                                    file at the root of the PVC.
+                                  type: string
+                              required:
+                              - claimName
+                              - fileName
+                              type: object
                             schedulerName:
                               description: |-
                                 If specified, the VMI will be dispatched by specified scheduler.
@@ -36004,6 +36226,110 @@ var CRDsValidation map[string]string = map[string]string{
                         RunStrategy tracks the last recorded RunStrategy used by the VM.
                         This is needed to correctly process the next strategy (for now only the RerunOnFailure)
                       type: string
+                    savedState:
+                      description: |-
+                        SavedState tracks the memory and device state saved by a hibernation
+                        request, from the request until the VirtualMachine resumed from it or
+                        the state was discarded.
+                      nullable: true
+                      properties:
+                        claimName:
+                          description: ClaimName is the PVC holding the saved state.
+                            It is owned by the VirtualMachine.
+                          type: string
+                        discard:
+                          description: |-
+                            Discard requests the saved state to be deleted. The next start boots the VirtualMachine.
+                            Set while Pending, it cancels the hibernation and the VirtualMachine keeps running.
+                          type: boolean
+                        fileName:
+                          description: FileName is the saved state file at the root
+                            of the PVC.
+                          type: string
+                        message:
+                          description: Message is a human readable detail about the
+                            phase.
+                          type: string
+                        phase:
+                          description: Phase of the hibernation.
+                          type: string
+                        requestTimestamp:
+                          description: |-
+                            RequestTimestamp is when the hibernation was requested.
+                            A Pending hibernation times out from it.
+                          format: date-time
+                          type: string
+                        restoreEndTimestamp:
+                          description: RestoreEndTimestamp is when the domain resumed
+                            from the saved state.
+                          format: date-time
+                          type: string
+                        restoreStartTimestamp:
+                          description: RestoreStartTimestamp is when the domain started
+                            to resume from the saved state.
+                          format: date-time
+                          type: string
+                        restoreUID:
+                          description: RestoreUID is the UID of the VirtualMachineInstance
+                            resuming from the saved state.
+                          type: string
+                        runStrategy:
+                          description: |-
+                            RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested.
+                            It is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs,
+                            and when the hibernated VirtualMachine is started.
+                          type: string
+                        saveEndTimestamp:
+                          description: SaveEndTimestamp is when the state was written.
+                          format: date-time
+                          type: string
+                        saveStartTimestamp:
+                          description: SaveStartTimestamp is when the state started
+                            to be written.
+                          format: date-time
+                          type: string
+                        sourceNodeSelector:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            SourceNodeSelector holds the node labels a node needs to resume the
+                            state, e.g. the host-model CPU of the node the state was saved on.
+                          type: object
+                        sourceUID:
+                          description: SourceUID is the UID of the VirtualMachineInstance
+                            the state was saved from.
+                          type: string
+                        specHash:
+                          description: |-
+                            SpecHash identifies the VirtualMachine spec the state was saved from.
+                            A start with a different spec discards the saved state.
+                          type: string
+                        storageClassName:
+                          description: StorageClassName used to provision the PVC.
+                            Empty means the default storage class.
+                          type: string
+                        supersededUID:
+                          description: |-
+                            SupersededUID is the UID of the VirtualMachineInstance that failed to
+                            resume from the saved state and that a start request retrying the
+                            resume superseded. The VM controller replaces it, whatever the run strategy.
+                          type: string
+                        volumeClaimUIDs:
+                          additionalProperties:
+                            description: |-
+                              UID is a type that holds unique ID values, including UUIDs.  Because we
+                              don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                              intent and helps make sure that UIDs and names do not get conflated.
+                            type: string
+                          description: |-
+                            VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to
+                            their UIDs at save time. A start with a replaced PVC discards the saved state.
+                          type: object
+                      required:
+                      - claimName
+                      - phase
+                      - sourceUID
+                      type: object
                     snapshotInProgress:
                       description: SnapshotInProgress is the name of the VirtualMachineSnapshot
                         currently executing

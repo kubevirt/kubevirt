@@ -471,6 +471,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.GuestAgentPing{}.OpenAPIModelName():                                                        schema_kubevirtio_api_core_v1_GuestAgentPing(ref),
 		corev1.HPETTimer{}.OpenAPIModelName():                                                             schema_kubevirtio_api_core_v1_HPETTimer(ref),
 		corev1.Handler{}.OpenAPIModelName():                                                               schema_kubevirtio_api_core_v1_Handler(ref),
+		corev1.HibernateOptions{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_HibernateOptions(ref),
 		corev1.HostDevice{}.OpenAPIModelName():                                                            schema_kubevirtio_api_core_v1_HostDevice(ref),
 		corev1.HostDisk{}.OpenAPIModelName():                                                              schema_kubevirtio_api_core_v1_HostDisk(ref),
 		corev1.HotplugVolumeSource{}.OpenAPIModelName():                                                   schema_kubevirtio_api_core_v1_HotplugVolumeSource(ref),
@@ -572,6 +573,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.SSHPublicKeyAccessCredential{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredential(ref),
 		corev1.SSHPublicKeyAccessCredentialPropagationMethod{}.OpenAPIModelName():                         schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialPropagationMethod(ref),
 		corev1.SSHPublicKeyAccessCredentialSource{}.OpenAPIModelName():                                    schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref),
+		corev1.SavedStateSource{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_SavedStateSource(ref),
 		corev1.ScreenshotOptions{}.OpenAPIModelName():                                                     schema_kubevirtio_api_core_v1_ScreenshotOptions(ref),
 		corev1.SeccompConfiguration{}.OpenAPIModelName():                                                  schema_kubevirtio_api_core_v1_SeccompConfiguration(ref),
 		corev1.SecretVolumeSource{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_SecretVolumeSource(ref),
@@ -647,12 +649,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.VirtualMachineInstanceReplicaSetSpec{}.OpenAPIModelName():                                  schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetSpec(ref),
 		corev1.VirtualMachineInstanceReplicaSetStatus{}.OpenAPIModelName():                                schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetStatus(ref),
 		corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName():                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceResourceClaim(ref),
+		corev1.VirtualMachineInstanceSavedStateStatus{}.OpenAPIModelName():                                schema_kubevirtio_api_core_v1_VirtualMachineInstanceSavedStateStatus(ref),
 		corev1.VirtualMachineInstanceSpec{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref),
 		corev1.VirtualMachineInstanceStatus{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref),
 		corev1.VirtualMachineInstanceTemplateSpec{}.OpenAPIModelName():                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceTemplateSpec(ref),
 		corev1.VirtualMachineList{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_VirtualMachineList(ref),
 		corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName():                                       schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref),
 		corev1.VirtualMachineOptions{}.OpenAPIModelName():                                                 schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref),
+		corev1.VirtualMachineSavedState{}.OpenAPIModelName():                                              schema_kubevirtio_api_core_v1_VirtualMachineSavedState(ref),
 		corev1.VirtualMachineSpec{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
 		corev1.VirtualMachineStartFailure{}.OpenAPIModelName():                                            schema_kubevirtio_api_core_v1_VirtualMachineStartFailure(ref),
 		corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName():                                      schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref),
@@ -22698,6 +22702,46 @@ func schema_kubevirtio_api_core_v1_Handler(ref common.ReferenceCallback) common.
 	}
 }
 
+func schema_kubevirtio_api_core_v1_HibernateOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "HibernateOptions are provided when hibernating a VirtualMachine: its memory and device state are saved to a PVC and the VirtualMachine is stopped. The next start resumes it from the saved state.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName of the PVC holding the saved state. Defaults to the default storage class.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dryRun": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26911,6 +26955,36 @@ func schema_kubevirtio_api_core_v1_SSHPublicKeyAccessCredentialSource(ref common
 	}
 }
 
+func schema_kubevirtio_api_core_v1_SavedStateSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SavedStateSource references a memory and device state saved by a hibernation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the PVC holding the saved state.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FileName is the name of the saved state file at the root of the PVC.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName", "fileName"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ScreenshotOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30342,6 +30416,56 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceResourceClaim(ref commo
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSavedStateStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceSavedStateStatus reports a save of the memory and device state of a VirtualMachineInstance, or its resume from one.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the save or restore.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FileName is the name of the saved state file at the root of the volume.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartTimestamp is when the save or restore started.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndTimestamp is when the save or restore ended.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message is a human readable detail, set on failure.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"phase"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30450,6 +30574,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							Description: "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"savedStateSource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SavedStateSource, when set, makes the VirtualMachineInstance resume from a previously saved memory and device state instead of booting. It is set by the VirtualMachine controller when a hibernated VirtualMachine is started and requires the VMHibernation feature gate.",
+							Ref:         ref(corev1.SavedStateSource{}.OpenAPIModelName()),
 						},
 					},
 					"terminationGracePeriodSeconds": {
@@ -30615,7 +30745,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.VirtualMachineStateSpec{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
+			v1.Affinity{}.OpenAPIModelName(), v1.PodDNSConfig{}.OpenAPIModelName(), v1.Toleration{}.OpenAPIModelName(), v1.TopologySpreadConstraint{}.OpenAPIModelName(), corev1.AccessCredential{}.OpenAPIModelName(), corev1.DomainSpec{}.OpenAPIModelName(), corev1.Network{}.OpenAPIModelName(), corev1.Probe{}.OpenAPIModelName(), corev1.SavedStateSource{}.OpenAPIModelName(), corev1.UtilityVolume{}.OpenAPIModelName(), corev1.VirtualMachineInstanceResourceClaim{}.OpenAPIModelName(), corev1.VirtualMachineStateSpec{}.OpenAPIModelName(), corev1.Volume{}.OpenAPIModelName()},
 	}
 }
 
@@ -30875,6 +31005,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Ref:         ref(corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName()),
 						},
 					},
+					"savedState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SavedState reports the save of the memory and device state of the VirtualMachineInstance, or its resume from a saved state.",
+							Ref:         ref(corev1.VirtualMachineInstanceSavedStateStatus{}.OpenAPIModelName()),
+						},
+					},
 					"virtualMachineStateVolume": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineStateVolume tracks the live VirtualMachineState PVC (persistent UEFI, TPM and CBT state). It is the source of truth for the PVC name, which may differ from the referenced source after a migration. It is populated for both the declarative and the implicit paths.",
@@ -30885,7 +31021,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			corev1.CPUTopology{}.OpenAPIModelName(), corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.KernelBootStatus{}.OpenAPIModelName(), corev1.Machine{}.OpenAPIModelName(), corev1.MemoryStatus{}.OpenAPIModelName(), corev1.StorageMigratedVolumeInfo{}.OpenAPIModelName(), corev1.TopologyHints{}.OpenAPIModelName(), corev1.VirtualMachineInstanceCondition{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceMigrationState{}.OpenAPIModelName(), corev1.VirtualMachineInstanceNetworkInterface{}.OpenAPIModelName(), corev1.VirtualMachineInstancePhaseTransitionTimestamp{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName()},
+			corev1.CPUTopology{}.OpenAPIModelName(), corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.KernelBootStatus{}.OpenAPIModelName(), corev1.Machine{}.OpenAPIModelName(), corev1.MemoryStatus{}.OpenAPIModelName(), corev1.StorageMigratedVolumeInfo{}.OpenAPIModelName(), corev1.TopologyHints{}.OpenAPIModelName(), corev1.VirtualMachineInstanceCondition{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceMigrationState{}.OpenAPIModelName(), corev1.VirtualMachineInstanceNetworkInterface{}.OpenAPIModelName(), corev1.VirtualMachineInstancePhaseTransitionTimestamp{}.OpenAPIModelName(), corev1.VirtualMachineInstanceSavedStateStatus{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName()},
 	}
 }
 
@@ -31053,6 +31189,164 @@ func schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref common.ReferenceCal
 		},
 		Dependencies: []string{
 			corev1.DisableFreePageReporting{}.OpenAPIModelName(), corev1.DisableSerialConsoleLog{}.OpenAPIModelName()},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineSavedState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineSavedState tracks a hibernation of a VirtualMachine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase of the hibernation.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the PVC holding the saved state. It is owned by the VirtualMachine.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName used to provision the PVC. Empty means the default storage class.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"fileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FileName is the saved state file at the root of the PVC.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceUID is the UID of the VirtualMachineInstance the state was saved from.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestTimestamp is when the hibernation was requested. A Pending hibernation times out from it.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"runStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested. It is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs, and when the hibernated VirtualMachine is started.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceNodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceNodeSelector holds the node labels a node needs to resume the state, e.g. the host-model CPU of the node the state was saved on.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"specHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SpecHash identifies the VirtualMachine spec the state was saved from. A start with a different spec discards the saved state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumeClaimUIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to their UIDs at save time. A start with a replaced PVC discards the saved state.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"restoreUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestoreUID is the UID of the VirtualMachineInstance resuming from the saved state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"supersededUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SupersededUID is the UID of the VirtualMachineInstance that failed to resume from the saved state and that a start request retrying the resume superseded. The VM controller replaces it, whatever the run strategy.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"saveStartTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SaveStartTimestamp is when the state started to be written.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"saveEndTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SaveEndTimestamp is when the state was written.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"restoreStartTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestoreStartTimestamp is when the domain started to resume from the saved state.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"restoreEndTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RestoreEndTimestamp is when the domain resumed from the saved state.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"discard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Discard requests the saved state to be deleted. The next start boots the VirtualMachine. Set while Pending, it cancels the hibernation and the VirtualMachine keeps running.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message is a human readable detail about the phase.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"phase", "claimName", "sourceUID"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -31372,6 +31666,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref(corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName()),
 						},
 					},
+					"savedState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SavedState tracks the memory and device state saved by a hibernation request, from the request until the VirtualMachine resumed from it or the state was discarded.",
+							Ref:         ref(corev1.VirtualMachineSavedState{}.OpenAPIModelName()),
+						},
+					},
 					"observedGeneration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ObservedGeneration is the generation observed by the vmi when started.",
@@ -31427,7 +31727,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
+			corev1.ChangedBlockTrackingStatus{}.OpenAPIModelName(), corev1.InstancetypeStatusRef{}.OpenAPIModelName(), corev1.VirtualMachineCondition{}.OpenAPIModelName(), corev1.VirtualMachineMemoryDumpRequest{}.OpenAPIModelName(), corev1.VirtualMachineSavedState{}.OpenAPIModelName(), corev1.VirtualMachineStartFailure{}.OpenAPIModelName(), corev1.VirtualMachineStateChangeRequest{}.OpenAPIModelName(), corev1.VirtualMachineVolumeRequest{}.OpenAPIModelName(), corev1.VolumeSnapshotStatus{}.OpenAPIModelName(), corev1.VolumeStatus{}.OpenAPIModelName(), corev1.VolumeUpdateState{}.OpenAPIModelName()},
 	}
 }
 

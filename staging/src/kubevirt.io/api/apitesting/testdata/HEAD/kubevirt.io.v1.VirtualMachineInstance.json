@@ -687,6 +687,10 @@
     ],
     "evictionStrategy": "evictionStrategyValue",
     "startStrategy": "startStrategyValue",
+    "savedStateSource": {
+      "claimName": "claimNameValue",
+      "fileName": "fileNameValue"
+    },
     "terminationGracePeriodSeconds": -29,
     "volumes": [
       {
@@ -1305,6 +1309,13 @@
         ],
         "quiesceStatus": "quiesceStatusValue"
       }
+    },
+    "savedState": {
+      "phase": "phaseValue",
+      "fileName": "fileNameValue",
+      "startTimestamp": "1986-01-01T01:01:01Z",
+      "endTimestamp": "1988-01-01T01:01:01Z",
+      "message": "messageValue"
     },
     "virtualMachineStateVolume": {
       "name": "nameValue",

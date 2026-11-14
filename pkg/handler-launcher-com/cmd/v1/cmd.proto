@@ -41,6 +41,7 @@ service Cmd {
   rpc GetVMStats(VMStatsRequest) returns (VMStatsResponse) {}
   rpc ExternalSnapshot(ExternalSnapshotRequest) returns (Response) {}
   rpc CommitSnapshot(CommitSnapshotRequest) returns (Response) {}
+  rpc SaveVirtualMachine(SaveVirtualMachineRequest) returns (Response) {}
 }
 
 message QemuVersionResponse {
@@ -204,6 +205,12 @@ message FreezeRequest {
 message MemoryDumpRequest {
   VMI vmi = 1;
   string dumpPath = 2;
+}
+
+message SaveVirtualMachineRequest {
+  VMI vmi = 1;
+  // savePath is the saved state file, on a utility volume mounted in the launcher
+  string savePath = 2;
 }
 
 message SEVInfoResponse {

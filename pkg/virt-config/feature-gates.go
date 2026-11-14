@@ -257,6 +257,10 @@ func (config *ClusterConfig) FirmwareAutoSelectionEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.FirmwareAutoSelection)
 }
 
+func (config *ClusterConfig) VMHibernationEnabled() bool {
+	return config.IsFeatureGateEnabled(featuregate.VMHibernation)
+}
+
 func (config *ClusterConfig) MigrationStallDetectionEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.MigrationStallDetection)
 }

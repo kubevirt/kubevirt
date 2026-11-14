@@ -73,6 +73,28 @@ var _ = Describe("RBAC", func() {
 			expectExactRuleDoesntExists(clusterRole.Rules, "", "secrets", "get", "list", "watch")
 		})
 
+		It("holds every permission of the cluster roles it installs", func() {
+			// Kubernetes refuses to let the operator create or update a role
+			// granting more than the operator holds itself.
+			clusterRole := getFirstItemOfType(forOperator, reflect.TypeOf(&rbacv1.ClusterRole{})).(*rbacv1.ClusterRole)
+			Expect(clusterRole).ToNot(BeNil())
+			for _, obj := range GetAllCluster() {
+				role, ok := obj.(*rbacv1.ClusterRole)
+				if !ok {
+					continue
+				}
+				for _, rule := range role.Rules {
+					for _, apiGroup := range rule.APIGroups {
+						for _, resource := range rule.Resources {
+							expectRuleIsGranted(clusterRole.Rules, apiGroup, resource, rule.Verbs...)
+						}
+					}
+				}
+			}
+			expectRuleIsGranted(clusterRole.Rules, "subresources.kubevirt.io", "virtualmachines/hibernate", "update")
+			expectRuleIsGranted(clusterRole.Rules, "subresources.kubevirt.io", "virtualmachines/discardsavedstate", "update")
+		})
+
 		It("holds every permission granted by the monitoring role", func() {
 			clusterRole := getFirstItemOfType(forOperator, reflect.TypeOf(&rbacv1.ClusterRole{})).(*rbacv1.ClusterRole)
 			Expect(clusterRole).ToNot(BeNil())
