@@ -133,6 +133,24 @@ func (cc *ConcurrentCollector) releaseKey(key string) {
 	cc.clientsPerKey[key] -= 1
 }
 
+// VMIStatsSkipReason reports why stats must not be collected for vmi.
+// An empty string means collection is safe.
+//
+// StartDirtyRateCalc requires a running guest and conflicts with an active
+// migration, which already provides MemDirtyRate via DomainJobInfo.
+// StartTimestamp distinguishes an active migration from one that is still
+// pending or scheduling. Guest-agent commands also hang while qemu-ga is
+// unavailable, so the same rule covers every stats category.
+func VMIStatsSkipReason(vmi *k6tv1.VirtualMachineInstance) string {
+	if vmi == nil || vmi.Status.Phase != k6tv1.Running {
+		return "VMI is not running"
+	}
+	if ms := vmi.Status.MigrationState; ms != nil && ms.StartTimestamp != nil && !ms.Completed && !ms.Failed {
+		return "VMI has an active migration"
+	}
+	return ""
+}
+
 func newvmiSocketMapFromVMIs(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 	if len(vmis) == 0 {
 		return nil
