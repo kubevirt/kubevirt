@@ -192,6 +192,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			))
 		})
 
+		It("should return nil and not panic if spec.template is nil", func() {
+			vm.Spec.Template = nil
+			instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
+			Expect(instancetypeSpec).To(BeNil())
+			Expect(preferenceSpec).To(BeNil())
+			Expect(causes).To(BeNil())
+		})
+
 		DescribeTable("should reject if instancetype and VM define conflicting resources",
 			func(resources virtv1.ResourceRequirements, expectedField string) {
 				vm.Spec.Template.Spec.Domain.Resources = resources

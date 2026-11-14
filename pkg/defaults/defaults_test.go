@@ -224,6 +224,15 @@ var _ = Describe("Defaults", func() {
 				}).NotTo(Panic())
 				Expect(vm.Spec.Template.Spec.Architecture).To(Equal(configProvidedArch))
 			})
+
+			It("should not panic when spec.template is nil", func() {
+				vm := &v1.VirtualMachine{
+					Spec: v1.VirtualMachineSpec{},
+				}
+				Expect(func() {
+					defaults.SetVirtualMachineDefaults(vm, clusterConfig, nil)
+				}).NotTo(Panic())
+			})
 		})
 	})
 

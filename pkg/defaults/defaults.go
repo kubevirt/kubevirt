@@ -56,6 +56,9 @@ type ClusterConfigProvider interface {
 var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
 
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider, virtClient kubecli.KubevirtClient) {
+	if vm.Spec.Template == nil {
+		return
+	}
 	setDefaultArchitectureFromDataSource(vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
 	setVMDefaultMachineType(vm, clusterConfig)
@@ -355,7 +358,7 @@ func setDefaultArchitectureFromDataSource(vm *v1.VirtualMachine, virtClient kube
 		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
 		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
 	)
-	if virtClient == nil || vm.Spec.Template.Spec.Architecture != "" {
+	if virtClient == nil || vm.Spec.Template == nil || vm.Spec.Template.Spec.Architecture != "" {
 		return
 	}
 	for _, template := range vm.Spec.DataVolumeTemplates {
