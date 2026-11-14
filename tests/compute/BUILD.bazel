@@ -13,6 +13,7 @@ go_library(
         "framework.go",
         "guest_agent.go",
         "guest_agent_probe_pause.go",
+        "memory.go",
         "pcihole64.go",
         "vm_lifecycle.go",
         "vmi_memory_overhead.go",
