@@ -2172,6 +2172,45 @@ var _ = Describe("Migration watcher", func() {
 			})))
 		})
 
+		DescribeTable("should abort the migration when deleted in preparation phases", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration := newMigration("testmigration", vmi.Name, phase)
+			condition := v1.VirtualMachineInstanceMigrationCondition{
+				Type:          v1.VirtualMachineInstanceMigrationAbortRequested,
+				Status:        k8sv1.ConditionTrue,
+				LastProbeTime: metav1.Now(),
+			}
+			migration.Status.Conditions = append(migration.Status.Conditions, condition)
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			migration.DeletionTimestamp = new(metav1.Now())
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+			}
+			controller.addHandOffKey(virtcontroller.MigrationKey(migration))
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulAbortMigrationReason)
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
+				"TargetNode":     Equal(vmi.Status.MigrationState.TargetNode),
+				"SourceNode":     Equal(vmi.Status.MigrationState.SourceNode),
+				"MigrationUID":   Equal(vmi.Status.MigrationState.MigrationUID),
+				"AbortRequested": BeTrue(),
+			})))
+		},
+			Entry("during MigrationPreparingTarget", v1.MigrationPreparingTarget),
+			Entry("during MigrationTargetReady", v1.MigrationTargetReady),
+		)
+
 		DescribeTable("should finalize migration on VMI if target pod fails before migration starts", func(phase v1.VirtualMachineInstanceMigrationPhase, hasPod bool, podPhase k8sv1.PodPhase, initializeMigrationState bool) {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			addNodeNameToVMI(vmi, "node02")
