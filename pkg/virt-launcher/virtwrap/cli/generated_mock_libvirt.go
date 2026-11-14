@@ -74,6 +74,20 @@ func (mr *MockConnectionMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockConnection)(nil).Close))
 }
 
+// DeleteDomainCheckpoint mocks base method.
+func (m *MockConnection) DeleteDomainCheckpoint(domainName, checkpointName string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteDomainCheckpoint", domainName, checkpointName)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteDomainCheckpoint indicates an expected call of DeleteDomainCheckpoint.
+func (mr *MockConnectionMockRecorder) DeleteDomainCheckpoint(domainName, checkpointName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteDomainCheckpoint", reflect.TypeOf((*MockConnection)(nil).DeleteDomainCheckpoint), domainName, checkpointName)
+}
+
 // DomainDefineXML mocks base method.
 func (m *MockConnection) DomainDefineXML(xml string) (VirDomain, error) {
 	m.ctrl.T.Helper()
