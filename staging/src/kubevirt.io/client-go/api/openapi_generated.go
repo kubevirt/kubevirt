@@ -25082,6 +25082,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"allowMigrationNetworkFallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the configured migration network (Network) does not provide a usable IP. When false or unset, virt-handler and the synchronization controllers fail to start in that case. When true, they use the pod network instead. The value is read once at startup, so changing it rolls the virt-handler and synchronization-controller pods. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"matchSELinuxLevelOnMigration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher. When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target. That will ensure the target virt-launcher doesn't share categories with another pod on the node. However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
