@@ -22,7 +22,6 @@ package backendstorage
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -342,9 +341,7 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 }
 
 func IsBackendStorageVolume(v corev1.VolumeStatus) bool {
-	// TODO https://github.com/kubevirt/kubevirt/issues/17369
-	// simplify to volume.Name == VolumeName
-	return strings.HasPrefix(v.Name, PVCPrefix)
+	return v.Name == VolumeName
 }
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
@@ -641,7 +638,6 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 	}
 	for i := range vmi.Status.VolumeStatus {
 		if IsBackendStorageVolume(vmi.Status.VolumeStatus[i]) {
-			vmi.Status.VolumeStatus[i].Name = VolumeName
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}

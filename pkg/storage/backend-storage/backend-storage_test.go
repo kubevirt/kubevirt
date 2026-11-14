@@ -456,6 +456,14 @@ var _ = Describe("Backend Storage", func() {
 			Expect(pvc.Labels).To(HaveKeyWithValue(PVCPrefix, vmiName))
 		})
 	})
+	DescribeTable("IsBackendStorageVolume", func(name string, expected bool) {
+		Expect(IsBackendStorageVolume(virtv1.VolumeStatus{Name: name})).To(Equal(expected))
+	},
+		Entry("matches the backend storage volume name", VolumeName, true),
+		Entry("does not match the PVC name of a VMI", PVCPrefix+"-testvmi", false),
+		Entry("does not match another volume", "rootdisk", false),
+	)
+
 	Context("IsBackendStorageNeeded", func() {
 		var vm *virtv1.VirtualMachine
 		var vmi *virtv1.VirtualMachineInstance
