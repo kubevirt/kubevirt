@@ -101,6 +101,10 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		return nil, nil, spreadConflict.StatusCauses()
 	}
 
+	if vm.Spec.Template == nil {
+		return nil, nil, nil
+	}
+
 	conflicts := a.ApplyToVMI(
 		k8sfield.NewPath("spec", "template", "spec"),
 		instancetypeSpec,

@@ -107,6 +107,12 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		}
 	}
 
+	if vm.Spec.Template == nil {
+		_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+		causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	// We apply any referenced instancetype and preferences early here to the VirtualMachine in order to
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
