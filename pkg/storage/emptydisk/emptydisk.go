@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/storage/disksize"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -40,6 +39,7 @@ const emptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
 type emptyDiskCreator struct {
 	emptyDiskBaseDir string
 	discCreateFunc   func(filePath string, size string) error
+	chownQemuFunc    func(path string) error
 }
 
 func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) error {
@@ -67,7 +67,7 @@ func (c *emptyDiskCreator) CreateTemporaryDisks(vmi *v1.VirtualMachineInstance) 
 			} else if err != nil {
 				return err
 			}
-			if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(file); err != nil {
+			if err := c.chownQemuFunc(file); err != nil {
 				return err
 			}
 		}
@@ -89,9 +89,24 @@ func createQCOW(file string, size string) error {
 	return exec.Command("qemu-img", "create", "-f", "qcow2", file, size).Run()
 }
 
+// NewEmptyDiskCreator uses the virt-launcher empty disk directory.
 func NewEmptyDiskCreator() *emptyDiskCreator {
+	return NewEmptyDiskCreatorWith(emptyDiskBaseDir, createQCOW, chownToQemu)
+}
+
+// NewEmptyDiskCreatorWith uses a custom directory, disk creation function, and ownership function.
+func NewEmptyDiskCreatorWith(directory string, discCreateFunc func(filePath string, size string) error, chownQemuFunc func(path string) error) *emptyDiskCreator {
 	return &emptyDiskCreator{
-		emptyDiskBaseDir: emptyDiskBaseDir,
-		discCreateFunc:   createQCOW,
+		emptyDiskBaseDir: directory,
+		discCreateFunc:   discCreateFunc,
+		chownQemuFunc:    chownQemuFunc,
 	}
+}
+
+// chownToQemu is needed if virt-launcher runs as featuregate.Root
+func chownToQemu(path string) error {
+	if os.Geteuid() != 0 {
+		return nil
+	}
+	return os.Chown(path, util.NonRootUID, util.NonRootUID)
 }

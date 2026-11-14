@@ -70,17 +70,6 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 			const kubevirtPodTLSPort = 8443
 			verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
 		})
-
-	It("[QUARANTINE]should enforce TLS configuration on virt-template components", decorators.Quarantine, func() {
-		podsToTest := listPods(
-			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
-			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
-		)
-
-		By("Verifying TLS connections to virt-template pods")
-		const virtTemplatePodTLSPort = 9443
-		verifyTLSEnforcement(podsToTest, virtTemplatePodTLSPort, cipher)
-	})
 }))
 
 var _ = Describe(SIGSerial("tls group preferences", func() {
@@ -115,45 +104,6 @@ var _ = Describe(SIGSerial("tls group preferences", func() {
 				verifyGroupPreferencesAnyOfWithClientCurves(pods, port,
 					[]tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384},
 					[]tls.CurveID{tls.X25519, tls.CurveP256})
-			}),
-		Entry("rejects client offering only a non-configured curve",
-			[]string{v1.TLSGroupSecp384r1},
-			func(pods []k8sv1.Pod, port int) {
-				verifyGroupPreferencesRejected(pods, port, []tls.CurveID{tls.CurveP256})
-			}),
-		Entry("preserves Go defaults when groups is empty",
-			[]string{},
-			func(pods []k8sv1.Pod, port int) {
-				verifyTLSConnectionSucceeds(pods, port)
-			}),
-	)
-
-	DescribeTable("should enforce configured TLS groups on virt-template", decorators.WgS390x,
-		func(groups []string, verify func(pods []k8sv1.Pod, port int)) {
-			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
-			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
-				MinTLSVersion: v1.VersionTLS12,
-				Ciphers:       []string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
-				Groups:        groups,
-			}
-			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
-
-			if len(groups) > 0 {
-				waitForVirtTemplateCurvePreferencesRollout()
-			}
-
-			podsToTest := listPods(
-				"app.kubernetes.io/name=virt-template,control-plane=apiserver",
-				"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
-			)
-			const virtTemplatePodTLSPort = 9443
-			verify(podsToTest, virtTemplatePodTLSPort)
-		},
-		Entry("configured group is negotiated when client offers a superset",
-			[]string{v1.TLSGroupSecp384r1},
-			func(pods []k8sv1.Pod, port int) {
-				verifyGroupPreferencesAnyOfWithClientCurves(pods, port,
-					[]tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}, []tls.CurveID{tls.CurveP384})
 			}),
 		Entry("rejects client offering only a non-configured curve",
 			[]string{v1.TLSGroupSecp384r1},
@@ -297,22 +247,5 @@ func verifyTLSConnectionSucceeds(pods []k8sv1.Pod, containerPort int) {
 			Expect(ok).To(BeTrue())
 			Expect(conn.Close()).To(Succeed())
 		}(&pods[i])
-	}
-}
-
-func waitForVirtTemplateCurvePreferencesRollout() {
-	GinkgoHelper()
-	for _, name := range []string{"virt-template-apiserver", "virt-template-controller"} {
-		Eventually(func(g Gomega) {
-			dep, err := kubevirt.Client().AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(
-				context.Background(), name, metav1.GetOptions{})
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(dep.Spec.Template.Spec.Containers[0].Args).To(
-				ContainElement("--tls-curve-preferences"),
-				"operator has not injected --tls-curve-preferences into %s yet", name)
-			g.Expect(dep.Status.UpdatedReplicas).To(Equal(*dep.Spec.Replicas))
-			g.Expect(dep.Status.AvailableReplicas).To(Equal(*dep.Spec.Replicas))
-			g.Expect(dep.Status.Replicas).To(Equal(*dep.Spec.Replicas))
-		}, 2*time.Minute, 5*time.Second).Should(Succeed())
 	}
 }

@@ -31,6 +31,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/network/link"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	netutils "k8s.io/utils/net"
@@ -41,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -65,11 +66,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
-
-	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
-		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
-		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
-	}
 
 	Describe("Multiple virtual machines connectivity using bridge binding interface", func() {
 		var inboundVMI *v1.VirtualMachineInstance
@@ -299,101 +295,85 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
-		It("[test_id:1777]should disable learning on pod iface", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			By("checking learning flag")
-			learningDisabledVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+	It("[test_id:1778]VMI with DHCP options on the pod network", decorators.WgS390x, func() {
+		libnet.SkipWhenClusterNotSupportIpv4()
+		dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
-			libwait.WaitUntilVMIReady(learningDisabledVMI, console.LoginToAlpine)
-			checkLearningState(learningDisabledVMI, "0")
-		})
+		// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
+		// The leading zero is intentional.
+		// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+		const NTPServerWithLeadingZeros = "0127.0.0.3"
+
+		dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+			BootFileName:   "config",
+			TFTPServerName: "tftp.kubevirt.io",
+			NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
+			PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
+		}
+
+		dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
+
+		err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2 127.0.0.3' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+			&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
+			&expect.BExp{R: console.RetValue("0")},
+		}, 15)
+
+		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("VirtualMachineInstance with dhcp options", func() {
-		It("[test_id:1778]should offer extra dhcp options to pod iface", decorators.WgS390x, func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			dhcpVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+	It("[test_id:1779]VMI with a custom DNS config should be reflected in resolv.conf", func() {
+		libnet.SkipWhenClusterNotSupportIpv4()
+		dnsVMI := libvmifact.NewAlpineWithTestTooling()
 
-			// This IPv4 address tests backwards compatibility of the "DHCPOptions.NTPServers" field.
-			// The leading zero is intentional.
-			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
-			const NTPServerWithLeadingZeros = "0127.0.0.3"
+		dnsVMI.Spec.DNSPolicy = "None"
 
-			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				BootFileName:   "config",
-				TFTPServerName: "tftp.kubevirt.io",
-				NTPServers:     []string{"127.0.0.1", "127.0.0.2", NTPServerWithLeadingZeros},
-				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "private.options.kubevirt.io"}},
-			}
-
-			dhcpVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dhcpVMI)).Create(context.Background(), dhcpVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dhcpVMI = libwait.WaitUntilVMIReady(dhcpVMI, console.LoginToFedora)
-
-			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_ntp_servers=127.0.0.1 127.0.0.2 127.0.0.3' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-				&expect.BSnd{S: "grep -q 'new_unknown_240=private.options.kubevirt.io' /dhcp-env; echo $?\n"},
-				&expect.BExp{R: console.RetValue("0")},
-			}, 15)
-
-			Expect(err).ToNot(HaveOccurred())
-		})
-	})
-
-	Context("VirtualMachineInstance with custom dns", func() {
-		It("[test_id:1779]should have custom resolv.conf", func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
-			dnsVMI := libvmifact.NewAlpineWithTestTooling()
-
-			dnsVMI.Spec.DNSPolicy = "None"
-
-			// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
-			// The leading zero is intentional.
-			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
-			const DNSNameserverWithLeadingZeros = "01.1.1.1"
-			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
-				Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
-				Searches:    []string{"example.com"},
-			}
-			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToAlpine)
-			const catResolvConf = "cat /etc/resolv.conf\n"
-			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "search example.com"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "nameserver 8.8.8.8"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: catResolvConf},
-				&expect.BExp{R: "nameserver 4.2.2.1"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
-				&expect.BExp{R: "nameserver 1.1.1.1"},
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ""},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		})
+		// This IPv4 address tests backwards compatibility of the "DNSConfig.Nameservers" field.
+		// The leading zero is intentional.
+		// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
+		const DNSNameserverWithLeadingZeros = "01.1.1.1"
+		dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
+			Nameservers: []string{"8.8.8.8", "4.2.2.1", DNSNameserverWithLeadingZeros},
+			Searches:    []string{"example.com"},
+		}
+		dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToAlpine)
+		const catResolvConf = "cat /etc/resolv.conf\n"
+		err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "search example.com"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "nameserver 8.8.8.8"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: catResolvConf},
+			&expect.BExp{R: "nameserver 4.2.2.1"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+			&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+			&expect.BExp{R: "nameserver 1.1.1.1"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: ""},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
@@ -473,7 +453,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
 
 				if networkCIDR == "" && flags.PrimaryNetworkBindingPlugin == "" {
-					networkCIDR = api.DefaultVMCIDR
+					networkCIDR = link.DefaultVMCIDR
 				}
 
 				if networkCIDR != "" {
@@ -487,34 +467,12 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("basic connectivity [IPv4]",
 					conformanceVMI(), conformanceVMI(), 8080, ""),
 				Entry("with a specific port number [IPv4]", decorators.InterfacePorts,
-					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI([]v1.Port{{Name: "http", Port: 8080}}, ""), 8080, api.DefaultVMCIDR),
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI([]v1.Port{{Name: "http", Port: 8080}}, ""), 8080, link.DefaultVMCIDR),
 				Entry("with a specific port used by live migration", decorators.InterfacePorts,
-					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI(portsUsedByLiveMigration(), ""), LibvirtDirectMigrationPort, api.DefaultVMCIDR),
+					masqueradeVMI([]v1.Port{}, ""), masqueradeVMI(portsUsedByLiveMigration(), ""), LibvirtDirectMigrationPort, link.DefaultVMCIDR),
 				Entry("with custom CIDR [IPv4] containing leading zeros", decorators.NetworkCIDR,
 					masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), masqueradeVMI([]v1.Port{}, cidrWithLeadingZeros), 8080, cidrWithLeadingZeros),
 			)
-
-			It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-				ipv4Address := "8.8.8.8"
-				if flags.IPV4ConnectivityCheckAddress != "" {
-					ipv4Address = flags.IPV4ConnectivityCheckAddress
-				}
-				dns := "google.com"
-				if flags.ConnectivityCheckDNS != "" {
-					dns = flags.ConnectivityCheckDNS
-				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-					context.Background(), conformanceVMI(), metav1.CreateOptions{},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-				By("Checking ping (IPv4)")
-				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
-				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
-			})
 
 			DescribeTable("IPv6", decorators.IPv6, func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
@@ -546,8 +504,32 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, cloudinit.DefaultIPv6CIDR),
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
+		})
 
-			It("should be able to reach the outside world", decorators.IPv6, Label("RequiresOutsideConnectivity"), func() {
+		Context("when connecting to the outside world", Label("RequiresOutsideConnectivity"), func() {
+			It("over IPv4", func() {
+				libnet.SkipWhenClusterNotSupportIpv4()
+				ipv4Address := "8.8.8.8"
+				if flags.IPV4ConnectivityCheckAddress != "" {
+					ipv4Address = flags.IPV4ConnectivityCheckAddress
+				}
+				dns := "google.com"
+				if flags.ConnectivityCheckDNS != "" {
+					dns = flags.ConnectivityCheckDNS
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), masqueradeVMI([]v1.Port{}, ""), metav1.CreateOptions{},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+				By("Checking ping (IPv4)")
+				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
+				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
+			})
+
+			It("over IPv6", decorators.IPv6, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -679,7 +661,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 
 			configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
-				networkCIDR := api.DefaultVMIpv6CIDR
+				networkCIDR := link.DefaultVMIpv6CIDR
 
 				err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
 				if err != nil {

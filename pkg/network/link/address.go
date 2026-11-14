@@ -30,10 +30,13 @@ import (
 
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/netmachinery"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const bridgeFakeIP = "169.254.75.1%d/32"
+const (
+	bridgeFakeIP      = "169.254.75.1%d/32"
+	DefaultVMCIDR     = "10.0.2.0/24"
+	DefaultVMIpv6CIDR = "fd10:0:2::/120"
+)
 
 func getMasqueradeGwAndHostAddressesFromCIDR(s string) (string, string, error) {
 	ip, ipnet, err := net.ParseCIDR(s)
@@ -59,7 +62,7 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion
 	var cidrToConfigure string
 	if ipVersion == netdriver.IPv4 {
 		if vmiSpecNetwork.Pod.VMNetworkCIDR == "" {
-			cidrToConfigure = api.DefaultVMCIDR
+			cidrToConfigure = DefaultVMCIDR
 		} else {
 			cidrToConfigure = vmiSpecNetwork.Pod.VMNetworkCIDR
 		}
@@ -68,7 +71,7 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion
 
 	if ipVersion == netdriver.IPv6 {
 		if vmiSpecNetwork.Pod.VMIPv6NetworkCIDR == "" {
-			cidrToConfigure = api.DefaultVMIpv6CIDR
+			cidrToConfigure = DefaultVMIpv6CIDR
 		} else {
 			cidrToConfigure = vmiSpecNetwork.Pod.VMIPv6NetworkCIDR
 		}

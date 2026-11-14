@@ -39,6 +39,10 @@ type cacheCreator interface {
 	New(filePath string) *cache.Cache
 }
 
+type libvirtSpecGenerator interface {
+	Generate() error
+}
+
 type DHCPConfiguratorFactory func(iface *v1.Interface, network *v1.Network, podInterfaceName string) dhcpconfigurator.Configurator
 
 type VMNetworkConfigurator struct {
@@ -95,7 +99,7 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		if n.domainAttachments[iface.Name] != string(v1.Tap) {
+		if n.domainAttachments[iface.Name] != string(v1.Tap) && iface.PasstBinding == nil {
 			continue
 		}
 
@@ -104,10 +108,23 @@ func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networ
 			return err
 		}
 
-		n.enrichTapDomainInterface(domain, iface, &networks[i], podIfaceName)
+		var generator libvirtSpecGenerator
 
-		if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
-			return err
+		switch {
+		case n.domainAttachments[iface.Name] == string(v1.Tap):
+			generator = domainspec.NewTapLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
+		case iface.PasstBinding != nil:
+			generator = domainspec.NewPasstLibvirtSpecGenerator(iface, networks[i], domain, podIfaceName, n.handler)
+		}
+
+		if err = generator.Generate(); err != nil {
+			log.Log.Reason(err).Critical("failed to create libvirt configuration")
+		}
+
+		if n.domainAttachments[iface.Name] == string(v1.Tap) {
+			if err := n.ensureDHCP(iface, &networks[i], podIfaceName); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -122,18 +139,6 @@ func (n *VMNetworkConfigurator) discoverPodInterfaceName(network *v1.Network) (s
 		return "", nil
 	}
 	return ifaceLink.Attrs().Name, nil
-}
-
-func (n *VMNetworkConfigurator) enrichTapDomainInterface(
-	domain *api.Domain,
-	iface *v1.Interface,
-	network *v1.Network,
-	podIfaceName string,
-) {
-	generator := domainspec.NewTapLibvirtSpecGenerator(iface, *network, domain, podIfaceName, n.handler)
-	if err := generator.Generate(); err != nil {
-		log.Log.Reason(err).Critical("failed to create libvirt configuration")
-	}
 }
 
 func (n *VMNetworkConfigurator) ensureDHCP(iface *v1.Interface, network *v1.Network, podIfaceName string) error {

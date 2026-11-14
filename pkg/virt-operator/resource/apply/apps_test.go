@@ -215,6 +215,103 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
+	Context("on calling deletePodDisruptionBudgetForDeployment", func() {
+		var deployment *appsv1.Deployment
+		var virtClient *kubecli.MockKubevirtClient
+		var kv *v1.KubeVirt
+		var expectations *util.Expectations
+		var stores util.Stores
+		var mockPodDisruptionBudgetCacheStore *MockStore
+		var k8sClient *fake.Clientset
+		var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
+		var deleted bool
+		var shouldDeleteFail bool
+		var ctrl *gomock.Controller
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+
+			deleted = false
+			shouldDeleteFail = false
+
+			k8sClient = fake.NewSimpleClientset()
+			k8sClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				_, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+				if shouldDeleteFail {
+					return true, nil, fmt.Errorf("Delete failed!")
+				}
+				deleted = true
+				return true, nil, nil
+			})
+
+			stores = util.Stores{}
+			mockPodDisruptionBudgetCacheStore = &MockStore{}
+			stores.PodDisruptionBudgetCache = mockPodDisruptionBudgetCacheStore
+
+			expectations = &util.Expectations{}
+			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
+
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			kv = &v1.KubeVirt{}
+
+			virtSyncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			deployment = components.NewSynchronizationControllerDeployment(virtSyncConfig, "", "", "")
+			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
+		})
+
+		It("should delete an existing PDB", func() {
+			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(Succeed())
+			Expect(deleted).To(BeTrue())
+		})
+
+		It("should no-op when the PDB is already absent", func() {
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(Succeed())
+			Expect(deleted).To(BeFalse())
+		})
+
+		It("should return delete error", func() {
+			shouldDeleteFail = true
+			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(HaveOccurred())
+			Expect(deleted).To(BeFalse())
+		})
+	})
+
 	Describe("on updating/creating virt-handler", func() {
 		var daemonSet *appsv1.DaemonSet
 		var err error

@@ -883,7 +883,7 @@ type IOMMUDriver struct {
 	Accel    string `xml:"accel,attr,omitempty"`
 	ATS      string `xml:"ats,attr,omitempty"`
 	RIL      string `xml:"ril,attr,omitempty"`
-	SSIDSize string `xml:"ssidSize,attr,omitempty"`
+	SSIDSize string `xml:"ssidsize,attr,omitempty"`
 	OAS      string `xml:"oas,attr,omitempty"`
 }
 
@@ -1083,6 +1083,7 @@ type Interface struct {
 	ACPI                *ACPI                  `xml:"acpi,omitempty"`
 	Backend             *InterfaceBackend      `xml:"backend,omitempty"`
 	PortForward         []InterfacePortForward `xml:"portForward,omitempty"`
+	IPs                 []InterfaceIP          `xml:"ip,omitempty"`
 }
 
 type InterfacePortForward struct {
@@ -1102,6 +1103,12 @@ type InterfacePortForwardRange struct {
 type InterfaceBackend struct {
 	Type    string `xml:"type,attr,omitempty"`
 	LogFile string `xml:"logFile,attr,omitempty"`
+}
+
+type InterfaceIP struct {
+	Family  string `xml:"family,attr"`
+	Address string `xml:"address,attr"`
+	Prefix  string `xml:"prefix,attr,omitempty"`
 }
 
 type ACPI struct {

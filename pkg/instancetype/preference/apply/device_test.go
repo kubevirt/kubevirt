@@ -356,6 +356,22 @@ var _ = Describe("Preference.Devices", func() {
 		)
 	})
 
+	DescribeTable("PreferredBlockMultiQueue should", func(preferenceValue, vmiValue, expected *bool) {
+		preferenceSpec.Devices.PreferredBlockMultiQueue = preferenceValue
+		vmi.Spec.Domain.Devices.BlockMultiQueue = vmiValue
+
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(expected))
+	},
+		Entry("apply true when VMI value is nil", new(true), nil, new(true)),
+		Entry("apply false when VMI value is nil", new(false), nil, new(false)),
+		Entry("leave unset when both values are nil", nil, nil, nil),
+		Entry("preserve true without a preference", nil, new(true), new(true)),
+		Entry("preserve false without a preference", nil, new(false), new(false)),
+		Entry("preserve explicit false over preference true", new(true), new(false), new(false)),
+		Entry("preserve explicit true over preference false", new(false), new(true), new(true)),
+	)
+
 	DescribeTable("PreferredAutoAttach should", func(preferenceValue, vmiValue *bool, match types.GomegaMatcher) {
 		type autoAttachField struct {
 			preference **bool

@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -369,9 +370,7 @@ func WithIOMMUFD() ResourceRendererOption {
 }
 
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
-	for key, value := range srcResources {
-		dstResources[key] = value
-	}
+	maps.Copy(dstResources, srcResources)
 }
 
 // Request a resource by name. This function bumps the number of resources,

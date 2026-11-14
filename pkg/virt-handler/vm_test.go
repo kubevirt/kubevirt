@@ -101,6 +101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 	var mockCgroupManager *cgroup.MockManager
+	var ghostRecordStore *virtcache.GhostRecordStore
 
 	var recorder *record.FakeRecorder
 
@@ -111,10 +112,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	const migratableNetworkBindingPlugin = "mig_plug"
 	const host = "master"
 	const interfaceName = "interface_name"
-
-	getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
-		return mockCgroupManager, nil
-	}
 
 	BeforeEach(func() {
 		diskutils.MockDefaultOwnershipManager()
@@ -127,7 +124,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiShareDir := GinkgoT().TempDir()
 		ghostCacheDir := GinkgoT().TempDir()
 
-		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
+		ghostRecordStore = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)).To(Succeed())
 
@@ -152,7 +149,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtfakeClient).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{}
 		kv.NetworkConfiguration = &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
 			migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
@@ -181,7 +178,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		fakeDownwardMetricsManager := newFakeManager()
 
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
-			Initialized: true,
+			Initialized:      true,
+			GhostRecordStore: ghostRecordStore,
 		}
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		fakeNodeStore := fakeNodeInformer.GetStore()
@@ -213,7 +211,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&noopNodeHookExecutor{},
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
+			ghostRecordStore,
 		)
+		controller.getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
+			return mockCgroupManager, nil
+		}
 
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
@@ -2139,6 +2141,109 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 		})
 
+		It("should clean up orphaned VM for VMI that migrated to another node", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+			now := metav1.Now()
+			// the target node acked the migration completion and took over the VMI
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   "testmigration",
+				SourceNode:     host,
+				TargetNode:     "othernode",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Completed:      true,
+			}
+			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(os.RemoveAll(filepath.Dir(sockFile))).To(Succeed())
+			})
+
+			Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			// the DeletionTimestamp makes getDomainFromCache report the domain
+			// as non-existing while still exposing its cached UID, which is
+			// the leftover local state the cleanup has to act on
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.ObjectMeta.DeletionTimestamp = &now
+
+			addDomain(domain)
+			createVMI(vmi)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			sanityExecuteNoDomain()
+
+			Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeFalse())
+			Expect(controller.domainStore.List()).To(BeEmpty())
+		})
+
+		It("should not clean up orphaned VM while a domain still exists on this node", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+			now := metav1.Now()
+			// the migration is terminated and the target node took over the
+			// VMI, but this node still has a live domain (no DeletionTimestamp)
+			// in its cache, so the stale-state cleanup must not fire and tear
+			// it down
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   "testmigration",
+				SourceNode:     host,
+				TargetNode:     "othernode",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Completed:      true,
+			}
+			Expect(ghostRecordStore.Add(vmi.Namespace, vmi.Name, sockFile, vmi.UID)).To(Succeed())
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+
+			addDomain(domain)
+			createVMI(vmi)
+			sanityExecute()
+
+			// neither the domain nor the ghost record must have been cleaned up
+			Expect(ghostRecordStore.Exists(vmi.Namespace, vmi.Name)).To(BeTrue())
+			Expect(controller.domainStore.List()).To(HaveLen(1))
+		})
+
+		It("should not clean up orphaned VM while the vmi is migrating to this node", func() {
+			vmi := clientgoapi.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			// during the migration the vmi is still owned by the source node
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels = make(map[string]string)
+			vmi.Labels[v1.NodeNameLabel] = "othernode"
+			// this node is the migration target; the source has not started
+			// transferring yet, so the migration is not in progress and the
+			// freshly defined incoming domain carries no migration metadata
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "testmigration",
+				SourceNode:   "othernode",
+				TargetNode:   host,
+			}
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+
+			addDomain(domain)
+			createVMI(vmi)
+			sanityExecute()
+
+			// the incoming target domain must not be torn down
+			Expect(controller.domainStore.List()).To(HaveLen(1))
+		})
+
 		It("should not try to migrate a vmi twice", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -3173,14 +3278,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 			},
 				Entry("CDROM", getCDRomDisk(nil), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=true", getCDRomDisk(pointer.P(true)), getContainerDiskVolume(), v1.LiveMigration),
-				Entry("CDROM with read-only=false", getCDRomDisk(pointer.P(false)), getContainerDiskVolume(), v1.BlockMigration),
+				Entry("CDROM with read-only=true", getCDRomDisk(new(true)), getContainerDiskVolume(), v1.LiveMigration),
+				Entry("CDROM with read-only=false", getCDRomDisk(new(false)), getContainerDiskVolume(), v1.BlockMigration),
 			)
 		})
 
 		It("HyperV reenlightenment shouldn't be migratable when tsc frequency is missing", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: pointer.P(true)}}}
+			vmi.Spec.Domain.Features = &v1.Features{Hyperv: &v1.FeatureHyperv{Reenlightenment: &v1.FeatureState{Enabled: new(true)}}}
 			vmi.Status.TopologyHints = nil
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
@@ -3191,7 +3296,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("HyperV passthrough shouldn't be migratable", func() {
 			vmi := clientgoapi.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: pointer.P(true)}}
+			vmi.Spec.Domain.Features = &v1.Features{HypervPassthrough: &v1.HyperVPassthrough{Enabled: new(true)}}
 
 			cond, _ := controller.calculateLiveMigrationCondition(vmi)
 			Expect(cond).ToNot(BeNil())
@@ -3385,7 +3490,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Memory.GuestCurrent).To(Equal(pointer.P(resource.MustParse("512Ki"))))
+			Expect(updatedVMI.Status.Memory.GuestCurrent).To(Equal(new(resource.MustParse("512Ki"))))
 		})
 	})
 
@@ -3602,8 +3707,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			// Model the record the source virt-launcher added on start (GetLauncherClient).
 			By("Planting the SOURCE ghost record, as the source virt-launcher would have")
-			Expect(virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, sockFile, sourceUID)).To(Succeed())
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+			Expect(ghostRecordStore.Add(vmiNs, vmiName, sockFile, sourceUID)).To(Succeed())
+			Expect(ghostRecordStore.Exists(vmiNs, vmiName)).To(BeTrue(),
 				"sanity: the source ghost record must exist before we reconcile")
 
 			// --- STEP 1: source Running, migration in progress --------------------
@@ -3628,7 +3733,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			addVMI(vmi, domain)
 
 			sanityExecute()
-			Expect(virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)).To(BeTrue(),
+			Expect(ghostRecordStore.Exists(vmiNs, vmiName)).To(BeTrue(),
 				"a migration in progress must not disturb the source ghost record")
 
 			// --- STEP 2: guest migrates away; source domain is UNDEFINED ----------
@@ -3657,8 +3762,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecuteNoDomain()
 
 			// --- STEP 3: the same-name / new-UID receiver tries to register -------
-			leaked := virtcache.GhostRecordGlobalStore.Exists(vmiNs, vmiName)
-			addErr := virtcache.GhostRecordGlobalStore.Add(vmiNs, vmiName, receiverSocket, receiverUID)
+			leaked := ghostRecordStore.Exists(vmiNs, vmiName)
+			addErr := ghostRecordStore.Add(vmiNs, vmiName, receiverSocket, receiverUID)
 
 			Expect(addErr).ToNot(HaveOccurred(),
 				"the same-name / new-UID receiver must be able to register its ghost record; "+
