@@ -3310,6 +3310,11 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		vmCopy.Spec = syncedVM.Spec
 	}
 
+	if volumemig.HasVolumeMigrationCompleted(vmCopy, vmi) {
+		log.Log.Object(vm).Info("Volume migration has completed, removing updateVolumesStrategy")
+		vmCopy.Spec.UpdateVolumesStrategy = nil
+	}
+
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
 	}
