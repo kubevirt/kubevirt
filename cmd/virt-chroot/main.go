@@ -167,7 +167,7 @@ func main() {
 		Use:   "set-cgroups-resources",
 		Short: "Set cgroups resources",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			marshalledPathsHash := cmd.Flag("subsystem-paths").Value.String()
+			marshalledPathsHash := cmd.Flag("cgroup-paths").Value.String()
 			if marshalledPathsHash == "" {
 				return fmt.Errorf("path argument cannot be empty")
 			}
@@ -176,10 +176,6 @@ func main() {
 			isRootless, err := strconv.ParseBool(cmd.Flag("rootless").Value.String())
 			if err != nil {
 				return fmt.Errorf("cannot convert rootless into bool. err: %v", err)
-			}
-			isV2, err := strconv.ParseBool(cmd.Flag("isV2").Value.String())
-			if err != nil {
-				return fmt.Errorf("cannot convert isV2 into bool. err: %v", err)
 			}
 
 			unmarshalledResources, err := decodeResources(marshalledResourcesHash)
@@ -192,7 +188,7 @@ func main() {
 				return err
 			}
 
-			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless, isV2); err != nil {
+			if err = setCgroupResources(unmarshalledPaths, unmarshalledResources, isRootless); err != nil {
 				return err
 			}
 
@@ -200,11 +196,11 @@ func main() {
 		},
 	}
 
-	cgroupsCmd.Flags().String("subsystem-paths", "", "marshalled map[string]string type, encoded to base64 format. "+
-		"For v1 key is cgroup subsystem and value is its path, for v2 the only key is an empty string and the value is cgroup dir path.")
+	cgroupsCmd.Flags().String("cgroup-paths", "", "marshalled []string type, encoded to base64 format. "+
+		"A list of absolute cgroup directory paths to apply resources to. "+
+		"Typically one path; two for crun dual-cgroup setups (container + scope).")
 	cgroupsCmd.Flags().String("resources", "", "marshalled Resources type (defined in github.com/opencontainers/cgroups/config_linux.go), encoded to base64 format")
 	cgroupsCmd.Flags().Bool("rootless", false, "true to run rootless")
-	cgroupsCmd.Flags().Bool("isV2", false, "true to run rootless")
 
 	rootCmd.AddCommand(
 		execCmd,
