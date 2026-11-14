@@ -59,7 +59,7 @@ requires a `--version` parameter (e.g: v1alpha2)
 
 ## Example
 
-Using the current [smbios sidecar](../example-hook-sidecar/) as example. The `smbios.go` is compiled
+Using the current [smbios sidecar](./smbios/) as example. The `smbios.go` is compiled
 as a binary named `onDefineDomain` and installed under `/usr/bin` in a container that uses
 `sidecar-shim-image` as base with an entrypoint of `/sidecar-shim`.
 
