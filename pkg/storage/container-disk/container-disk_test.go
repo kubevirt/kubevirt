@@ -405,6 +405,21 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "rubbish"`))
 			})
 
+			It("should fail if the imageID is a bare sha256 with no repo digest", func() {
+				By("Creating a new VMI with a container disk")
+				vmi := libvmi.New(
+					libvmi.WithContainerDisk("disk1", someImage),
+				)
+
+				By("Creating a migration source pod whose imageID is only the node-local config digest")
+				pod := createMigrationSourcePod(vmi)
+				pod.Status.ContainerStatuses[0].ImageID = "sha256:8e59d7ab6f7feaeec375a3be439157dcfc178fb7a58055c97a8e905e1938268c"
+
+				_, err := ExtractImageIDsFromSourcePod(vmi, pod, false)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(`failed to identify image digest for container "someimage:v1.2.3.4" with id "sha256:8e59d7ab6f7feaeec375a3be439157dcfc178fb7a58055c97a8e905e1938268c"`))
+			})
+
 			Context("with imageVolumeEnabled", func() {
 				var expectedDigests map[string]string
 
@@ -486,20 +501,23 @@ var _ = Describe("ContainerDisk", func() {
 				res, err := toImageWithDigest("myregistry.io/myimage", imageID)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(expected))
-				res, err = toImageWithDigest("myregistry.io/myimage", imageID)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).To(Equal(expected))
-				res, err = toImageWithDigest("myregistry.io/myimage", imageID)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res).To(Equal(expected))
 			},
-				Entry("docker", "docker://sha256:4gjffGJlg4"),
-				Entry("dontainerd", "sha256:4gjffGJlg4"),
+				Entry("docker", "docker-pullable://myregistry.io/myimage@sha256:4gjffGJlg4"),
+				Entry("containerd", "myregistry.io/myimage@sha256:4gjffGJlg4"),
 				Entry("cri-o", "myregistry/myimage@sha256:4gjffGJlg4"),
 			)
 
+			DescribeTable("It should fail to detect a reproducible digest from", func(imageID string) {
+				_, err := toImageWithDigest("myregistry.io/myimage", imageID)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal(fmt.Sprintf(`failed to identify image digest for container "myregistry.io/myimage" with id %q`, imageID)))
+			},
+				Entry("docker image ID without a repo digest", "docker://sha256:4gjffGJlg4"),
+				Entry("containerd image ID without a repo digest", "sha256:4gjffGJlg4"),
+			)
+
 			DescribeTable("It should detect the base image from", func(given, expected string) {
-				res, err := toImageWithDigest(given, "docker://sha256:4gjffGJlg4")
+				res, err := toImageWithDigest(given, "docker-pullable://myregistry.io/myimage@sha256:4gjffGJlg4")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(strings.Split(res, "@sha256:")[0]).To(Equal(expected))
 			},

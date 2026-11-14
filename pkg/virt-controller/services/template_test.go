@@ -4527,7 +4527,7 @@ var _ = Describe("Template", func() {
 								{
 									Name:    "volumer0",
 									Image:   "someImage",
-									ImageID: "docker://sha256:abcd1234567890",
+									ImageID: "docker-pullable://someImage@sha256:abcd1234567890",
 								},
 							},
 						},
@@ -4555,7 +4555,7 @@ var _ = Describe("Template", func() {
 								{
 									Name:    "volumekernel-boot-volume",
 									Image:   "kernelImage",
-									ImageID: "docker://sha256:efgh5678901234",
+									ImageID: "docker-pullable://kernelImage@sha256:efgh5678901234",
 								},
 							},
 						},
@@ -4584,12 +4584,12 @@ var _ = Describe("Template", func() {
 								{
 									Name:    "volumer0",
 									Image:   "someImage",
-									ImageID: "docker://sha256:abcd1234567890",
+									ImageID: "docker-pullable://someImage@sha256:abcd1234567890",
 								},
 								{
 									Name:    "volumekernel-boot-volume",
 									Image:   "kernelImage",
-									ImageID: "docker://sha256:efgh5678901234",
+									ImageID: "docker-pullable://kernelImage@sha256:efgh5678901234",
 								},
 							},
 						},
