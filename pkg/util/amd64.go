@@ -62,3 +62,22 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 func IsTDXVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.TDX != nil
 }
+
+func LaunchSecurityTypes(launchSec *v1.LaunchSecurity) []string {
+	if launchSec == nil {
+		return nil
+	}
+
+	var types []string
+	if launchSec.SEV != nil {
+		types = append(types, "SEV")
+	}
+	if launchSec.SNP != nil {
+		types = append(types, "SNP")
+	}
+	if launchSec.TDX != nil {
+		types = append(types, "TDX")
+	}
+
+	return types
+}

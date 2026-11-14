@@ -28,6 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -79,19 +80,13 @@ func isOnlyI6300ESBWatchdog(watchdog *v1.Watchdog) bool {
 func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	launchSecurity := spec.Domain.LaunchSecurity
+	selectedTypes := util.LaunchSecurityTypes(launchSecurity)
 
 	fg := ""
-	var selectedTypes []string
-	if launchSecurity.SEV != nil {
-		selectedTypes = append(selectedTypes, "SEV")
-		fg = featuregate.WorkloadEncryptionSEV
-	}
-	if launchSecurity.SNP != nil {
-		selectedTypes = append(selectedTypes, "SNP")
+	if launchSecurity.SEV != nil || launchSecurity.SNP != nil {
 		fg = featuregate.WorkloadEncryptionSEV
 	}
 	if launchSecurity.TDX != nil {
-		selectedTypes = append(selectedTypes, "TDX")
 		fg = featuregate.WorkloadEncryptionTDX
 	}
 

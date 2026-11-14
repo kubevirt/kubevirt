@@ -1344,6 +1344,7 @@ type Entry struct {
 
 type LaunchSecurity struct {
 	Type                   string `xml:"type,attr"`
+	KernelHashes           string `xml:"kernelHashes,attr,omitempty"`
 	DHCert                 string `xml:"dhCert,omitempty"`
 	Session                string `xml:"session,omitempty"`
 	Cbitpos                string `xml:"cbitpos,omitempty"`

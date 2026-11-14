@@ -20,6 +20,7 @@
 package compute
 
 import (
+	"fmt"
 	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 type LaunchSecurityDomainConfigurator struct {
@@ -46,7 +48,11 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 
 	switch l.architecture {
 	case "amd64":
-		domain.Spec.LaunchSecurity = amd64LaunchSecurity(vmi)
+		launchSecurity, err := amd64LaunchSecurity(vmi)
+		if err != nil {
+			return err
+		}
+		domain.Spec.LaunchSecurity = launchSecurity
 	case "arm64":
 		domain.Spec.LaunchSecurity = nil
 	case "s390x":
@@ -59,36 +65,45 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 	return nil
 }
 
-func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) (*api.LaunchSecurity, error) {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
-	if launchSec.SEV == nil && launchSec.SNP != nil {
-		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
-		domain := &api.LaunchSecurity{
-			Type: "sev-snp",
-		}
-		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		return domain
-	} else if launchSec.SEV != nil {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
-		domain := &api.LaunchSecurity{
-			Type:   "sev",
-			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-		}
-		if launchSec.SEV.DHCert != "" {
-			domain.DHCert = launchSec.SEV.DHCert
-		}
-		if launchSec.SEV.Session != "" {
-			domain.Session = launchSec.SEV.Session
-		}
-		return domain
-	} else if launchSec.TDX != nil {
-		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
-		return &api.LaunchSecurity{
-			Type:                   "tdx",
-			QuoteGenerationService: &api.QGS{Path: qgsSocketPath},
-		}
+
+	// Admission already guarantees the types are mutually exclusive, but re-check
+	if types := util.LaunchSecurityTypes(launchSec); len(types) > 1 {
+		return nil, fmt.Errorf("only one launchSecurity type may be set, got %v", types)
 	}
 
-	return nil
+	switch {
+	case launchSec.SEV != nil:
+		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
+		return &api.LaunchSecurity{
+			Type:    "sev",
+			Policy:  "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+			DHCert:  launchSec.SEV.DHCert,
+			Session: launchSec.SEV.Session,
+		}, nil
+	case launchSec.SNP != nil:
+		// The AMD firmware rejects a direct kernel boot unless the kernel, initrd
+		// and cmdline hashes are measured into the launch digest.
+		kernelHashes := ""
+		if vmitrait.HasDirectKernelBoot(vmi) {
+			kernelHashes = "yes"
+		}
+
+		// Use Default Policy
+		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
+		return &api.LaunchSecurity{
+			Type:         "sev-snp",
+			Policy:       "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16),
+			KernelHashes: kernelHashes,
+		}, nil
+	case launchSec.TDX != nil:
+		return &api.LaunchSecurity{
+			Type:                   "tdx",
+			QuoteGenerationService: &api.QGS{Path: vmi.Annotations[v1.QGSSocketPathAnnotation]},
+		}, nil
+	}
+
+	// Fail closed: never return a domain without the requested launch security
+	return nil, fmt.Errorf("no launchSecurity type set")
 }

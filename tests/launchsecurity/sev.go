@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -53,15 +54,37 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		diskSecret = "qwerty123"
 	)
 
-	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	sevOptions := func(withES, withSNP bool) []libvmi.Option {
 		const secureBoot = false
-		sevOptions := []libvmi.Option{
+		return []libvmi.Option{
 			libvmi.WithUefi(secureBoot),
 			libvmi.WithSEV(withES, withSNP),
 			libvmi.WithCPUModel("EPYC-v4"),
 		}
-		opts = append(sevOptions, opts...)
-		return libvmifact.NewFedora(opts...)
+	}
+
+	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+		return libvmifact.NewFedora(append(sevOptions(withES, withSNP), opts...)...)
+	}
+
+	// The alpine-ext-kernel-boot-demo image keeps its rootfs in the initramfs, so
+	// no disk is attached: the VM can only boot the kernel handed to OVMF through
+	// fw_cfg, with nothing to fall back to.
+	newSNPKernelBoot := func(opts ...libvmi.Option) *v1.VirtualMachineInstance {
+		const (
+			withES  = false
+			withSNP = true
+		)
+		kernelBootOptions := append(sevOptions(withES, withSNP),
+			libvmi.WithMemoryRequest("512Mi"),
+			libvmi.WithKernelBoot(
+				cd.ContainerDiskFor(cd.KernelBoot),
+				"/boot/vmlinuz-virt",
+				"/boot/initramfs-virt",
+				"console=ttyS0",
+			),
+		)
+		return libvmi.New(append(kernelBootOptions, opts...)...)
 	}
 
 	// As per section 6.5 LAUNCH_MEASURE of the AMD SEV specification the launch
@@ -324,12 +347,19 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
+				By("Verifying that kernel hashes are not requested without a direct kernel boot")
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domainSpec.OS.Kernel).To(BeEmpty())
+				Expect(domainSpec.LaunchSecurity).ToNot(BeNil())
+				Expect(domainSpec.LaunchSecurity.KernelHashes).To(BeEmpty())
+
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Verifying that SEV is enabled in the guest")
 				const consoleTimeout = 60
-				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+				err = console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
@@ -346,6 +376,18 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-SNP enabled
 			Entry("It should launch with SEV-SNP features enabled", decorators.SEVSNP, false, true, "SEV SEV-ES SEV-SNP"),
 		)
+
+		It("should request kernel hashes for a direct kernel boot", decorators.SEVSNP, func() {
+			vmi := newSNPKernelBoot()
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
+
+			By("Verifying that the domain measures the direct kernel boot")
+			domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domainSpec.OS.Kernel).ToNot(BeEmpty())
+			Expect(domainSpec.LaunchSecurity).ToNot(BeNil())
+			Expect(domainSpec.LaunchSecurity.KernelHashes).To(Equal("yes"))
+		})
 
 		It("[QUARANTINE] should run guest attestation", decorators.Quarantine, func() {
 			var (
