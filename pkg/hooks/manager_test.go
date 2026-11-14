@@ -320,6 +320,11 @@ var _ = Describe("HooksManager", func() {
 				Expect(t.callback.countPreCloudInitIso).To(Equal(1))
 				Expect(initData).To(Equal(resultInitData))
 
+				By("Calling PreCloudInitIso without a cloud-init volume")
+				resultInitData, err = manager.PreCloudInitIso(vmi, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resultInitData).To(BeNil())
+
 				By("Calling Shutdown")
 				Expect(t.callback.countShutdown).To(Equal(0))
 				err = manager.Shutdown()

@@ -304,53 +304,27 @@ func (m *hookManager) onDefineDomainCallback(callback *callBackClient, domainSpe
 	return domainSpecXML, nil
 }
 
-func preCloudInitIsoDataToJSON(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) ([]byte, []byte, []byte, error) {
+func preCloudInitIsoDataToJSON(vmi *v1.VirtualMachineInstance, cloudInitData *cloudinit.CloudInitData) ([]byte, []byte, error) {
 	vmiJSON, err := json.Marshal(vmi)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to marshal VMI spec, err: %v", err)
-	}
-
-	// To be backward compatible to sidecar hooks still expecting to receive the cloudinit data as a
-	// CloudInitNoCloudSource object,
-	// we need to construct a CloudInitNoCloudSource object with the user- and networkdata from the
-	// cloudInitData object.
-	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{
-		UserData:    cloudInitData.UserData,
-		NetworkData: cloudInitData.NetworkData,
-	}
-	cloudInitNoCloudSourceJSON, err := json.Marshal(cloudInitNoCloudSource)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to marshal CloudInitNoCloudSource: %v, err: %v", cloudInitNoCloudSource, err)
+		return nil, nil, fmt.Errorf("failed to marshal VMI spec, err: %v", err)
 	}
 
 	cloudInitDataJSON, err := json.Marshal(cloudInitData)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to marshal CloudInitData, err: %v", err)
+		return nil, nil, fmt.Errorf("failed to marshal CloudInitData, err: %v", err)
 	}
 
-	return cloudInitDataJSON, cloudInitNoCloudSourceJSON, vmiJSON, nil
+	return cloudInitDataJSON, vmiJSON, nil
 }
 
-func preCloudInitIsoValidateResult(dataSource cloudinit.DataSourceType, initData, noCloudSource []byte) (*cloudinit.CloudInitData, error) {
+func preCloudInitIsoResultFromJSON(initData []byte) (*cloudinit.CloudInitData, error) {
 	var resultData *cloudinit.CloudInitData
 	if err := json.Unmarshal(initData, &resultData); err != nil {
 		log.Log.Reason(err).Error("Failed to unmarshal CloudInitData result")
 		return nil, err
 	}
 
-	if !cloudinit.IsValidCloudInitData(resultData) {
-		// Be backwards compatible for hook sidecars still working on CloudInitNoCloudSource objects instead of CloudInitData
-		var resultNoCloudSourceData *v1.CloudInitNoCloudSource
-		if err := json.Unmarshal(noCloudSource, &resultNoCloudSourceData); err != nil {
-			log.Log.Reason(err).Error("Failed to unmarshal CloudInitNoCloudSource result")
-			return nil, err
-		}
-		resultData = &cloudinit.CloudInitData{
-			DataSource:  dataSource,
-			UserData:    resultNoCloudSourceData.UserData,
-			NetworkData: resultNoCloudSourceData.NetworkData,
-		}
-	}
 	return resultData, nil
 }
 
@@ -360,7 +334,7 @@ func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitD
 		return cloudInitData, nil
 	}
 
-	cloudInitDataJSON, cloudInitNoCloudSourceJSON, vmiJSON, err := preCloudInitIsoDataToJSON(vmi, cloudInitData)
+	cloudInitDataJSON, vmiJSON, err := preCloudInitIsoDataToJSON(vmi, cloudInitData)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to run PreCloudInitIso")
 		return cloudInitData, err
@@ -381,15 +355,14 @@ func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitD
 			defer cancel()
 
 			result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
-				CloudInitData:          cloudInitDataJSON,
-				CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
-				Vmi:                    vmiJSON,
+				CloudInitData: cloudInitDataJSON,
+				Vmi:           vmiJSON,
 			})
 			if err != nil {
 				log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
 				return cloudInitData, err
 			}
-			return preCloudInitIsoValidateResult(cloudInitData.DataSource, result.GetCloudInitData(), result.GetCloudInitNoCloudSource())
+			return preCloudInitIsoResultFromJSON(result.GetCloudInitData())
 		case hooksV1alpha3.Version:
 			conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 			if err != nil {
@@ -403,15 +376,14 @@ func (m *hookManager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitD
 			defer cancel()
 
 			result, err := client.PreCloudInitIso(ctx, &hooksV1alpha3.PreCloudInitIsoParams{
-				CloudInitData:          cloudInitDataJSON,
-				CloudInitNoCloudSource: cloudInitNoCloudSourceJSON,
-				Vmi:                    vmiJSON,
+				CloudInitData: cloudInitDataJSON,
+				Vmi:           vmiJSON,
 			})
 			if err != nil {
 				log.Log.Reason(err).Error("Failed to call PreCloudInitIso")
 				return cloudInitData, err
 			}
-			return preCloudInitIsoValidateResult(cloudInitData.DataSource, result.GetCloudInitData(), result.GetCloudInitNoCloudSource())
+			return preCloudInitIsoResultFromJSON(result.GetCloudInitData())
 		default:
 			log.Log.Errorf("Unsupported callback version: %s", callback.Version)
 		}
