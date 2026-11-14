@@ -453,6 +453,40 @@ var _ = Describe("Domain translation", func() {
 			}
 			assertDomainSpecRoundTrip(spec)
 		})
+
+		It("should round-trip a DomainSpec with host devices", func() {
+			spec := api.NewMinimalDomainSpec("test-vm")
+			spec.Devices.HostDevices = []api.HostDevice{
+				{
+					Type:    api.HostDevicePCI,
+					Mode:    "subsystem",
+					Managed: "no",
+					Source: api.HostDeviceSource{
+						Address: &api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"},
+					},
+					Alias: api.NewUserDefinedAlias("hostdevice-pci0"),
+				},
+				{
+					Type:  api.HostDeviceMDev,
+					Mode:  "subsystem",
+					Model: "vfio-pci",
+					Source: api.HostDeviceSource{
+						Address: &api.Address{UUID: "c3ad0ea3-1a2c-4b4c-9b4e-6b4f3b3c5a7d"},
+					},
+					Alias: api.NewUserDefinedAlias("hostdevice-mdev0"),
+				},
+				{
+					Type:    api.HostDeviceUSB,
+					Mode:    "subsystem",
+					Managed: "no",
+					Source: api.HostDeviceSource{
+						Address: &api.Address{Bus: "1", Device: "2"},
+					},
+					Alias: api.NewUserDefinedAlias("hostdevice-usb0"),
+				},
+			}
+			assertDomainSpecRoundTrip(spec)
+		})
 	})
 })
 
@@ -477,6 +511,14 @@ func normalizeForComparison(spec *api.DomainSpec) {
 
 	for i := range spec.Devices.Interfaces {
 		spec.Devices.Interfaces[i].XMLName.Local = ""
+	}
+
+	for i := range spec.Devices.HostDevices {
+		spec.Devices.HostDevices[i].XMLName.Local = ""
+		// libvirtxml has no type attribute on a hostdev source address
+		if addr := spec.Devices.HostDevices[i].Source.Address; addr != nil {
+			addr.Type = ""
+		}
 	}
 
 	// KubeVirt-only fields not present in libvirt XML are lost in round-trip
