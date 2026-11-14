@@ -302,18 +302,34 @@ func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
 
 // GetSchedulableNodeWithCPUManager selects a node for CPU pinning tests.
 func GetSchedulableNodeWithCPUManager(virtClient kubecli.KubevirtClient) (*k8sv1.Node, error) {
-	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
+	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=true,%s=true", v1.NodeSchedulable, v1.CPUManager),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedulable nodes with CPU manager enabled: %w", err)
 	}
-	for i := range nodes.Items {
-		if !nodes.Items[i].Spec.Unschedulable {
-			return &nodes.Items[i], nil
+	for i := range nodeList.Items {
+		if !nodeList.Items[i].Spec.Unschedulable {
+			return &nodeList.Items[i], nil
 		}
 	}
 	return nil, fmt.Errorf("no schedulable node with CPU manager enabled")
+}
+
+// SelectMigrationNodes chooses distinct, uncordoned source and target nodes from the KubeVirt-schedulable candidates.
+func SelectMigrationNodes(candidates []k8sv1.Node) (source, target *k8sv1.Node, err error) {
+	for i := range candidates {
+		node := &candidates[i]
+		if node.Spec.Unschedulable {
+			continue
+		}
+		if source == nil {
+			source = node
+		} else if node.Name != source.Name {
+			return source, node, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("migration requires two distinct schedulable nodes")
 }
 
 func GetNodeNameWithHandler() string {

@@ -35,7 +35,10 @@ import (
 
 func TestGetSchedulableNodeWithCPUManager(t *testing.T) {
 	eligible := func(name string) *corev1.Node {
-		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{v1.NodeSchedulable: "true", v1.CPUManager: "true"}}}
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{v1.NodeSchedulable: "true", v1.CPUManager: "true"},
+		}}
 	}
 	cordoned := eligible("cordoned")
 	cordoned.Spec.Unschedulable = true
@@ -84,6 +87,36 @@ func TestGetSchedulableNodeWithCPUManager(t *testing.T) {
 			}
 			if err != nil || node == nil || node.Name != tc.want {
 				t.Fatalf("got node %v, error %v; want %s", node, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestSelectMigrationNodes(t *testing.T) {
+	first := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "first"}}
+	second := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "second"}}
+	cordoned := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "cordoned"}, Spec: corev1.NodeSpec{Unschedulable: true}}
+	for _, tc := range []struct {
+		name       string
+		candidates []corev1.Node
+		wantPair   bool
+	}{
+		{name: "no candidates"},
+		{name: "only the source", candidates: []corev1.Node{first}},
+		{name: "cordoned target", candidates: []corev1.Node{first, cordoned}},
+		{name: "same node twice", candidates: []corev1.Node{first, first}},
+		{name: "distinct uncordoned nodes", candidates: []corev1.Node{cordoned, first, second}, wantPair: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source, target, err := SelectMigrationNodes(tc.candidates)
+			if !tc.wantPair {
+				if err == nil || !strings.Contains(err.Error(), "two distinct schedulable nodes") || source != nil || target != nil {
+					t.Fatalf("expected a migration prerequisite error, got source %v, target %v, error %v", source, target, err)
+				}
+				return
+			}
+			if err != nil || source == nil || target == nil || source.Name != first.Name || target.Name != second.Name {
+				t.Fatalf("expected first and second, got source %v, target %v, error %v", source, target, err)
 			}
 		})
 	}

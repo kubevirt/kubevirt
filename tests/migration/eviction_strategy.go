@@ -449,8 +449,9 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmis = append(vmis, vmi)
 				}
 
-				By("selecting a node as the source")
-				sourceNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
+				By("selecting distinct source and target nodes for migration")
+				sourceNode, targetNode, err := libnode.SelectMigrationNodes(libnode.GetAllSchedulableNodes(virtClient).Items)
+				Expect(err).NotTo(HaveOccurred())
 				libnode.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(vmis[0].Namespace), "target")
 
 				By("starting four VMIs on that node")
@@ -466,8 +467,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					)
 				}
 
-				By("selecting a node as the target")
-				targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[1]
+				By("labeling the target node for migration")
 				libnode.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(vmis[0].Namespace), "target")
 
 				By("tainting the source node as non-schedulabele")
