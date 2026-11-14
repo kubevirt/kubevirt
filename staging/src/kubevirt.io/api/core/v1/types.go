@@ -2217,6 +2217,9 @@ const (
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
+	// VirtualMachineStatusErrorPodSandbox indicates that the kubelet failed to create the virtual
+	// machine's pod sandbox, e.g. due to a CNI ADD failure.
+	VirtualMachineStatusErrorPodSandbox VirtualMachinePrintableStatus = "ErrorPodSandboxNotReady"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes

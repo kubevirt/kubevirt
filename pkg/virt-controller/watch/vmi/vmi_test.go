@@ -2282,6 +2282,261 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ErrImagePull --> ImagePullBackOff", kvcontroller.ErrImagePullReason, kvcontroller.ImagePullBackOffReason),
 			Entry("ImagePullBackOff --> ErrImagePull", kvcontroller.ImagePullBackOffReason, kvcontroller.ErrImagePullReason),
 		)
+
+		Context("when the pod sandbox fails to be created", func() {
+			const sandboxEventMsg = "failed to setup network for sandbox: CNI ADD failed: no bridge mapping"
+
+			createSandboxEvent := func(pod *k8sv1.Pod, reason, message string) {
+				_, err := kubeClient.CoreV1().Events(pod.Namespace).Create(context.Background(), &k8sv1.Event{
+					ObjectMeta: metav1.ObjectMeta{Name: pod.Name + ".sandbox", Namespace: pod.Namespace},
+					InvolvedObject: k8sv1.ObjectReference{
+						Kind: "Pod", Name: pod.Name, Namespace: pod.Namespace, UID: pod.UID,
+					},
+					Reason:        reason,
+					Message:       message,
+					Type:          k8sv1.EventTypeWarning,
+					LastTimestamp: metav1.Now(),
+				}, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// newSandboxPod returns a pending pod created the given duration ago that has been
+			// scheduled to a node (so sandbox creation has been attempted). The container waiting
+			// reason is intentionally PodInitializing (not ContainerCreating): detection must rely
+			// on the pod event, not a runtime-specific waiting reason.
+			newSandboxPod := func(vmi *virtv1.VirtualMachineInstance, age time.Duration) *k8sv1.Pod {
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
+				pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-age))
+				pod.Status.ContainerStatuses[0].State = k8sv1.ContainerState{
+					Waiting: &k8sv1.ContainerStateWaiting{Reason: "PodInitializing"},
+				}
+				pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionTrue,
+				})
+				return pod
+			}
+
+			hasSandboxReason := ContainElement(MatchFields(IgnoreExtras, Fields{
+				"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
+				"Reason": Equal(kvcontroller.FailedPodSandboxCreationReason),
+			}))
+
+			It("should surface the kubelet event as a Synchronized=False condition", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, sandboxEventMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+						"Status":  Equal(k8sv1.ConditionFalse),
+						"Reason":  Equal(kvcontroller.FailedPodSandboxCreationReason),
+						"Message": Equal(sandboxEventMsg),
+					})),
+				)
+				// discover-then-stop: once the event is found the VMI is not re-polled
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+			})
+
+			It("should not surface a failure while within the grace period", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, 0)
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, sandboxEventMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(hasSandboxReason))
+			})
+
+			It("should re-poll to discover the event when none exists yet", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(hasSandboxReason))
+				Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">=", 1))
+			})
+
+			It("should prefer a container image error over a sandbox failure", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				pod.Status.InitContainerStatuses = []k8sv1.ContainerStatus{{
+					State: k8sv1.ContainerState{
+						Waiting: &k8sv1.ContainerStateWaiting{Reason: kvcontroller.ErrImagePullReason},
+					},
+				}}
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, sandboxEventMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
+						"Reason": Equal(kvcontroller.ErrImagePullReason),
+					})),
+				)
+			})
+
+			It("should clear the condition and proceed once the sandbox is created", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{{
+					Type:    virtv1.VirtualMachineInstanceSynchronized,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  kvcontroller.FailedPodSandboxCreationReason,
+					Message: sandboxEventMsg,
+				}}
+				// The sandbox has now been created: the pod is ready and running.
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIScheduledState(vmi)
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(hasSandboxReason))
+			})
+
+			It("should keep the condition without re-listing once already reported", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				// The pod is still stuck and no event exists in the API: the condition must be
+				// kept from its recorded message rather than re-listing events and clearing it.
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{{
+					Type:   virtv1.VirtualMachineInstanceSynchronized,
+					Status: k8sv1.ConditionFalse,
+					Reason: kvcontroller.FailedPodSandboxCreationReason,
+					// Recorded during this pod's lifetime, so the message is reused as-is.
+					LastTransitionTime: metav1.NewTime(pod.CreationTimestamp.Add(time.Second)),
+					Message:            sandboxEventMsg,
+				}}
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+						"Status":  Equal(k8sv1.ConditionFalse),
+						"Reason":  Equal(kvcontroller.FailedPodSandboxCreationReason),
+						"Message": Equal(sandboxEventMsg),
+					})),
+				)
+			})
+
+			It("should clear the condition once the pod reports PodReadyToStartContainers", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{{
+					Type:    virtv1.VirtualMachineInstanceSynchronized,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  kvcontroller.FailedPodSandboxCreationReason,
+					Message: sandboxEventMsg,
+				}}
+				// The sandbox and network are configured and only the images are still being
+				// pulled, so the pod stays Pending but is no longer a sandbox failure.
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+					Type:   k8sv1.PodReadyToStartContainers,
+					Status: k8sv1.ConditionTrue,
+				})
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(hasSandboxReason))
+			})
+
+			It("should not surface a failure for a pod that has not been scheduled", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				// The pod has not been scheduled to a node, so sandbox creation is never attempted
+				// and no sandbox-failure event can exist; the controller must not surface a failure
+				// (nor poll events) even if a stray event is present.
+				pod.Status.Conditions = []k8sv1.PodCondition{{
+					Type:   k8sv1.PodScheduled,
+					Status: k8sv1.ConditionFalse,
+				}}
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, sandboxEventMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(hasSandboxReason))
+			})
+
+			It("should refresh the message when a recreated pod reports a different failure", func() {
+				const newEventMsg = "failed to setup network for sandbox: CNI ADD failed: no IPAM config"
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				// The recorded condition predates this pod (e.g. discovered for a previous pod),
+				// so its message must not be reused: a fresh list drives the refresh.
+				vmi.Status.Conditions = []virtv1.VirtualMachineInstanceCondition{{
+					Type:               virtv1.VirtualMachineInstanceSynchronized,
+					Status:             k8sv1.ConditionFalse,
+					Reason:             kvcontroller.FailedPodSandboxCreationReason,
+					LastTransitionTime: metav1.NewTime(pod.CreationTimestamp.Add(-time.Second)),
+					Message:            sandboxEventMsg,
+				}}
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, newEventMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+						"Status":  Equal(k8sv1.ConditionFalse),
+						"Reason":  Equal(kvcontroller.FailedPodSandboxCreationReason),
+						"Message": Equal(newEventMsg),
+					})),
+				)
+			})
+
+			It("should truncate an oversized event message on the condition", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Scheduling
+				pod := newSandboxPod(vmi, sandboxFailureGracePeriod+time.Second)
+				longMsg := strings.Repeat("a", maxConditionMessageLen+1024)
+				createSandboxEvent(pod, kvcontroller.FailedPodSandboxCreationReason, longMsg)
+
+				addVirtualMachine(vmi)
+				addPod(pod)
+
+				sanityExecute()
+				expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+					Fields{
+						"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+						"Reason":  Equal(kvcontroller.FailedPodSandboxCreationReason),
+						"Message": WithTransform(func(s string) int { return len(s) }, Equal(maxConditionMessageLen)),
+					})),
+				)
+			})
+		})
+
 		It("should add MigrationTransport to VMI status", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduling

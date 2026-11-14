@@ -633,6 +633,8 @@ rules:
   resources:
   - events
   verbs:
+  - get
+  - list
   - update
   - create
   - patch
