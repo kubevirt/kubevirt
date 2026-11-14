@@ -31,6 +31,7 @@ cluster/local/certs
 *.crt
 *.csr
 _out
+.cluster-resync-state/
 exported-artifacts
 vendor/**/*_test.go
 **/polarion.xml
