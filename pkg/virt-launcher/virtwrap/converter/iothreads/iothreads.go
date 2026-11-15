@@ -71,11 +71,9 @@ func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 	threadPoolLimit := getThreadPoolLimit(vmi)
 
 	if (autoThreads + dedicatedThreads) > threadPoolLimit {
-		autoThreads = threadPoolLimit - dedicatedThreads
-		// We need at least one shared thread
-		if autoThreads < 1 {
-			autoThreads = 1
-		}
+		autoThreads = max(
+			// We need at least one shared thread
+			threadPoolLimit-dedicatedThreads, 1)
 	}
 
 	ioThreadCount = autoThreads + dedicatedThreads

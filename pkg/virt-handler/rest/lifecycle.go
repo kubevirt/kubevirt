@@ -325,7 +325,7 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, response *restful.Response) (*v1.VirtualMachineInstance, cmdclient.LauncherClient, error) {
 	vmi, code, err := getVMI(request, lh.vmiStore)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedRetrieveVMI)
+		log.Log.Reason(err).Error(failedRetrieveVMI)
 		response.WriteError(code, err)
 		return nil, nil, err
 	}

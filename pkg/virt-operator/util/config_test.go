@@ -25,11 +25,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "kubevirt.io/api/core/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 	handlerimage "kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -713,5 +714,72 @@ var _ = Describe("Operator Config", func() {
 			"pkg/virt-operator/util.VirtHandlerImageEnvName (%q) and pkg/util.VirtHandlerImageEnvName (%q) "+
 				"have drifted apart; virt-handler would silently stop learning its own image via this env var. "+
 				"Update both constants to match.", VirtHandlerImageEnvName, handlerimage.VirtHandlerImageEnvName)
+	})
+
+	Describe("Migration network configuration", func() {
+		DescribeTable("GetTargetConfigFromKV with MigrationConfiguration", func(kv *v1.KubeVirt, expectNetwork string) {
+			config := GetTargetConfigFromKV(kv)
+			if expectNetwork == "" {
+				Expect(config.GetMigrationNetwork()).To(BeNil())
+			} else {
+				Expect(config.GetMigrationNetwork()).ToNot(BeNil())
+				Expect(*config.GetMigrationNetwork()).To(Equal(expectNetwork))
+			}
+		},
+			Entry("no migration config", &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{},
+				},
+			}, ""),
+			Entry("network set", &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MigrationConfiguration: &v1.MigrationConfiguration{
+							Network: pointer.P("mynet"),
+						},
+					},
+				},
+			}, "mynet"),
+		)
+
+		DescribeTable("GetTargetConfigFromKV should record allowMigrationNetworkFallback in AdditionalProperties", func(allowFallback *bool, expectRecorded bool) {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MigrationConfiguration: &v1.MigrationConfiguration{
+							Network:                       pointer.P("mynet"),
+							AllowMigrationNetworkFallback: allowFallback,
+						},
+					},
+				},
+			}
+
+			config := GetTargetConfigFromKV(kv)
+			_, recorded := config.AdditionalProperties[AdditionalPropertiesAllowMigrationNetworkFallback]
+			Expect(recorded).To(Equal(expectRecorded))
+		},
+			Entry("when unset", nil, false),
+			Entry("when false", pointer.P(false), false),
+			Entry("when true", pointer.P(true), true),
+		)
+
+		It("should change the deployment ID when allowMigrationNetworkFallback is flipped, so virt-handler rolls", func() {
+			newKv := func(allowFallback *bool) *v1.KubeVirt {
+				return &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							MigrationConfiguration: &v1.MigrationConfiguration{
+								Network:                       pointer.P("mynet"),
+								AllowMigrationNetworkFallback: allowFallback,
+							},
+						},
+					},
+				}
+			}
+
+			disabledID := GetTargetConfigFromKV(newKv(nil)).GetDeploymentID()
+			Expect(GetTargetConfigFromKV(newKv(pointer.P(false))).GetDeploymentID()).To(Equal(disabledID))
+			Expect(GetTargetConfigFromKV(newKv(pointer.P(true))).GetDeploymentID()).ToNot(Equal(disabledID))
+		})
 	})
 })

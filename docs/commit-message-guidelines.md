@@ -15,6 +15,12 @@ Optional subject prefixes (area) are described in [Providing additional context]
 
 All commits need a `Signed-off-by` line for [DCO compliance](../CONTRIBUTING.md#contributor-compliance-with-developer-certificate-of-origin-dco).
 
+If AI tools materially contributed to a commit, disclose it with an `Assisted-by`,
+`Co-authored-by`, or `Generated-by` trailer naming the tool, placed before
+`Signed-off-by`. See the [KubeVirt AI Contribution
+Policy](https://github.com/kubevirt/community/blob/main/ai-contribution-policy.md)
+for the full disclosure requirements.
+
 ## Examples
 
 ### Prefer

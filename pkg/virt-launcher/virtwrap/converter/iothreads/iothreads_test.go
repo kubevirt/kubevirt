@@ -36,7 +36,7 @@ var _ = Describe("GetIOThreadsCountType", func() {
 					IOThreadsPolicy: pointer.P(v1.IOThreadsPolicySupplementalPool),
 					Devices: v1.Devices{
 						Disks: []v1.Disk{
-							{Name: "disk0", DedicatedIOThread: pointer.P(true)},
+							{Name: "disk0", DedicatedIOThread: new(true)},
 						},
 					},
 				},

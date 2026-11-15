@@ -3274,6 +3274,27 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return makePodWithVirtlauncher(virtlauncherPod, indexes...)
 		}
 
+		// Mutating admission webhooks (e.g. Dynatrace) can inject extra
+		// non-PVC volumes into attachment pods.
+		injectedVolumes := []k8sv1.Volume{
+			{
+				Name:         "injected-emptydir",
+				VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			},
+			{
+				Name: "injected-configmap",
+				VolumeSource: k8sv1.VolumeSource{ConfigMap: &k8sv1.ConfigMapVolumeSource{
+					LocalObjectReference: k8sv1.LocalObjectReference{Name: "injected-config"},
+				}},
+			},
+		}
+
+		makePodWithInjectedVolumes := func(index int) *k8sv1.Pod {
+			pod := makePods(index)[0]
+			pod.Spec.Volumes = append(pod.Spec.Volumes, injectedVolumes...)
+			return pod
+		}
+
 		makePodsWithDeletion := func(indexes ...int) []*k8sv1.Pod {
 			attachmentPods := makePods(indexes...)
 			for _, pod := range attachmentPods {
@@ -3675,6 +3696,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				},
 			}, makePods(0), BeTrue()),
 			Entry("matching volume, multiple attachmentPods", makeVolumes(0), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, BeTrue()),
+			Entry("matching volume, single attachmentPod with injected non-PVC volumes", makeVolumes(0), []*k8sv1.Pod{makePodWithInjectedVolumes(0)}, BeFalse()),
+			Entry("mismatched volume, single attachmentPod with injected non-PVC volumes", makeVolumes(1), []*k8sv1.Pod{makePodWithInjectedVolumes(0)}, BeTrue()),
 		)
 
 		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
@@ -3688,6 +3711,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("matching volume, nil attachmentPods since marked for deletion", makeVolumes(0), makePodsWithDeletion(0), nil, []*k8sv1.Pod{}),
 			Entry("matching volume, multiple attachmentPods, first pod matches", makeVolumes(0), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(0)[0], makePods(1)),
 			Entry("matching volume, multiple attachmentPods, second pod matches", makeVolumes(1), []*k8sv1.Pod{makePods(0)[0], makePods(1)[0]}, makePods(1)[0], makePods(0)),
+			Entry("matching volume, single attachmentPod with injected non-PVC volumes", makeVolumes(0), []*k8sv1.Pod{makePodWithInjectedVolumes(0)}, makePodWithInjectedVolumes(0), []*k8sv1.Pod{}),
 		)
 
 		It("Should get default filesystem overhead if there are multiple CDI instances", func() {

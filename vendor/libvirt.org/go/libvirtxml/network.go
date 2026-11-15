@@ -81,6 +81,7 @@ type NetworkVirtualPortParamsMidoNet struct {
 type NetworkDomain struct {
 	Name      string `xml:"name,attr,omitempty"`
 	LocalOnly string `xml:"localOnly,attr,omitempty"`
+	Register  string `xml:"register,attr,omitempty"`
 }
 
 type NetworkForwardNATAddress struct {

@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -30,6 +31,8 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
@@ -89,4 +92,28 @@ var _ = Describe("Snapshot overlay request", func() {
 
 		Expect(err).To(HaveOccurred())
 	})
+})
+
+var _ = Describe("Lifecycle handler", func() {
+	DescribeTable("should return not found for a VMI missing from the store",
+		func(handler func(*LifecycleHandler) restful.RouteFunction) {
+			lh := NewLifecycleHandler(nil, cache.NewStore(cache.MetaNamespaceKeyFunc), "")
+
+			httpRequest, err := http.NewRequest(http.MethodPut, "/", nil)
+			Expect(err).ToNot(HaveOccurred())
+			request := restful.NewRequest(httpRequest)
+			request.PathParameters()["namespace"] = "default"
+			request.PathParameters()["name"] = "testvm"
+			recorder := httptest.NewRecorder()
+			response := restful.NewResponse(recorder)
+
+			Expect(func() { handler(lh)(request, response) }).ToNot(Panic())
+			Expect(recorder.Code).To(Equal(http.StatusNotFound))
+		},
+		Entry("pause", func(lh *LifecycleHandler) restful.RouteFunction { return lh.PauseHandler }),
+		Entry("unpause", func(lh *LifecycleHandler) restful.RouteFunction { return lh.UnpauseHandler }),
+		Entry("freeze", func(lh *LifecycleHandler) restful.RouteFunction { return lh.FreezeHandler }),
+		Entry("reset", func(lh *LifecycleHandler) restful.RouteFunction { return lh.ResetHandler }),
+		Entry("guest info", func(lh *LifecycleHandler) restful.RouteFunction { return lh.GetGuestInfo }),
+	)
 })

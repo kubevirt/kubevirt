@@ -14717,7 +14717,7 @@
       "type": "boolean"
      },
      "blockMultiQueue": {
-      "description": "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
+      "description": "Whether or not to enable virtio multi-queue for block devices. Explicit false configures a single request queue. When omitted, the queue count depends on device and IOThread configuration, falling back to hypervisor defaults when unspecified.",
       "type": "boolean"
      },
      "clientPassthrough": {
@@ -16751,6 +16751,10 @@
     "properties": {
      "allowAutoConverge": {
       "description": "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
+      "type": "boolean"
+     },
+     "allowMigrationNetworkFallback": {
+      "description": "AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the configured migration network (Network) does not provide a usable IP. When false or unset, virt-handler and the synchronization controllers fail to start in that case. When true, they use the pod network instead. The value is read once at startup, so changing it rolls the virt-handler and synchronization-controller pods. Defaults to false.",
       "type": "boolean"
      },
      "allowPostCopy": {

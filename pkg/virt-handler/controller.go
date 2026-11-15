@@ -21,7 +21,6 @@ package virthandler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -34,7 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
+	clientv1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -102,7 +101,7 @@ type netconf interface {
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
-	virtClient                  kubecli.KubevirtClient
+	vmiClient                   clientv1.VirtualMachineInstancesGetter
 	queue                       workqueue.TypedRateLimitingInterface[string]
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
@@ -123,7 +122,7 @@ func NewBaseController(
 	logger *log.FilteredLogger,
 	host string,
 	recorder record.EventRecorder,
-	virtClient kubecli.KubevirtClient,
+	vmiClient clientv1.VirtualMachineInstancesGetter,
 	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -141,7 +140,7 @@ func NewBaseController(
 		logger:                      logger,
 		host:                        host,
 		recorder:                    recorder,
-		virtClient:                  virtClient,
+		vmiClient:                   vmiClient,
 		queue:                       queue,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
@@ -424,7 +423,7 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return true, nil
 	} else if isUnresponsive {
-		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+		return true, fmt.Errorf("Can not update a VirtualMachineInstance with unresponsive command server.")
 	}
 
 	return false, nil

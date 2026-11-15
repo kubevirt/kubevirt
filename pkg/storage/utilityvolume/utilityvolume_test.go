@@ -31,7 +31,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Utility volumes", func() {
@@ -44,7 +43,7 @@ var _ = Describe("Utility volumes", func() {
 			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: name + "-pvc",
 			},
-			Type: pointer.P(volumeType),
+			Type: new(volumeType),
 		}
 	}
 

@@ -9,7 +9,7 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
 ## Updating Go Version
 ### Updating builder image
 
-* Change the `GIMME_GO_VERSION` in the [hack/builder/Dockerfile](../hack/builder/Dockerfile) to the desired Go version.
+* Change `GIMME_GO_VERSION` in [hack/builder/Dockerfile](../hack/builder/Dockerfile) and [hack/builder/Dockerfile.cs10](../hack/builder/Dockerfile.cs10) to the desired Go version.
 * Rebuild the builder image by executing `make builder-build`.
   
 ### Publishing builder image
@@ -29,27 +29,18 @@ In addition, [go rules for bazel](https://github.com/bazelbuild/rules_go) have t
     + rm manifests/ -rf
     ```
   * The image tag is `2103210933-9be558add`
-* Change `KUBEVIRT_BUILDER_IMAGE` variable in [hack/dockerized](../hack/dockerized) to the tag from the previous step.
-* In [WORKSPACE](../WORKSPACE) change `go_version` to the desired Go version.
-  * Should look similar to:
-    ```shell
-    go_register_toolchains(
-        go_version = "1.14.14",
-        nogo = "@//:nogo_vet",
-    )
-    ```
+* Update `kubevirt_builder_version` (and `kubevirt_cs10_builder_version` for the CentOS Stream 10 builder image) in [hack/dockerized](../hack/dockerized) to the published image tags.
+* In [MODULE.bazel](../MODULE.bazel), update `version` in `go_sdk.download(...)` alongside `GIMME_GO_VERSION` to the desired Go version:
+  ```starlark
+  go_sdk = use_extension("@io_bazel_rules_go//go:extensions.bzl", "go_sdk")
+  go_sdk.download(version = "1.26.10")
+  ```
+* Refresh [MODULE.bazel.lock](../MODULE.bazel.lock) by running `./hack/dockerized bazel mod deps`.
 
 ## Update go rules for bazel
-* In [WORKSPACE](../WORKSPACE) find current Bazel release's SHA ID which can be found under `io_bazel_rules_go`.
-  * Should look similar to:
-    ```shell
-    http_archive(
-      name = "io_bazel_rules_go",
-      sha256 = "52d0a57ea12139d727883c2fef03597970b89f2cc2a05722c42d1d7d41ec065b",
-      urls = [
-        ...
-      ],
-    )
-    ```
-* Visit [Bazel's releases page](https://github.com/bazelbuild/rules_go/releases) and check whether the current Bazel version supports the new Go version.
-  * If it is not supported, replace the `io_bazel_rules_go` definition with the one provided in Bazel's page.
+* In [MODULE.bazel](../MODULE.bazel), check the current `rules_go` version:
+  ```starlark
+  bazel_dep(name = "rules_go", version = "0.60.0", repo_name = "io_bazel_rules_go")
+  ```
+* Visit [Bazel's releases page](https://github.com/bazel-contrib/rules_go/releases) and check whether the current `rules_go` version supports the new Go version.
+  * If it is not supported, update `version` in `bazel_dep(name = "rules_go", ...)` to a supporting release on the [Bazel Central Registry](https://registry.bazel.build/modules/rules_go) and run `./hack/dockerized bazel mod deps` to update [MODULE.bazel.lock](../MODULE.bazel.lock).

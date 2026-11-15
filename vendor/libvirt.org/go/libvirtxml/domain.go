@@ -1520,6 +1520,7 @@ type DomainVideoModel struct {
 	Primary    string                 `xml:"primary,attr,omitempty"`
 	Blob       string                 `xml:"blob,attr,omitempty"`
 	EDID       string                 `xml:"edid,attr,omitempty"`
+	Device     string                 `xml:"device,attr,omitempty"`
 	Accel      *DomainVideoAccel      `xml:"acceleration"`
 	Resolution *DomainVideoResolution `xml:"resolution"`
 }
@@ -2087,6 +2088,12 @@ type DomainIOMMUDriver struct {
 	Passthrough    string                    `xml:"passthrough,attr,omitempty"`
 	XTSup          string                    `xml:"xtsup,attr,omitempty"`
 	PCIBus         uint                      `xml:"pciBus,attr,omitempty"`
+	Accel          string                    `xml:"accel,attr,omitempty"`
+	CMDQV          string                    `xml:"cmdqv,attr,omitempty"`
+	ATS            string                    `xml:"ats,attr,omitempty"`
+	RIL            string                    `xml:"ril,attr,omitempty"`
+	SSIDSize       string                    `xml:"ssidsize,attr,omitempty"`
+	OAS            string                    `xml:"oas,attr,omitempty"`
 	Granule        *DomainIOMMUDriverGranule `xml:"granule"`
 }
 
@@ -3024,6 +3031,16 @@ type DomainCPUMemoryTuneMonitor struct {
 	VCPUs string `xml:"vcpus,attr,omitempty"`
 }
 
+type DomainCPUEnergyTuneMonitor struct {
+	VCPUs string `xml:"vcpus,attr"`
+}
+
+type DomainCPUEnergyTune struct {
+	VCPUs   string                       `xml:"vcpus,attr"`
+	ID      string                       `xml:"id,attr,omitempty"`
+	Monitor []DomainCPUEnergyTuneMonitor `xml:"monitor"`
+}
+
 type DomainCPUTune struct {
 	Shares         *DomainCPUTuneShares         `xml:"shares"`
 	Period         *DomainCPUTunePeriod         `xml:"period"`
@@ -3042,6 +3059,7 @@ type DomainCPUTune struct {
 	IOThreadSched  []DomainCPUTuneIOThreadSched `xml:"iothreadsched"`
 	CacheTune      []DomainCPUCacheTune         `xml:"cachetune"`
 	MemoryTune     []DomainCPUMemoryTune        `xml:"memorytune"`
+	EnergyTune     []DomainCPUEnergyTune        `xml:"energytune"`
 }
 
 type DomainQEMUCommandlineArg struct {
@@ -3193,6 +3211,7 @@ type DomainIOThreadPoll struct {
 	Max    *uint `xml:"max,attr"`
 	Grow   *uint `xml:"grow,attr"`
 	Shrink *uint `xml:"shrink,attr"`
+	Weight *uint `xml:"weight,attr"`
 }
 
 type DomainIOThread struct {

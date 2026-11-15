@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 // Find reports whether volumeName is in the VMI spec as a utility volume of
@@ -55,7 +54,7 @@ func AddPatch(vmi *v1.VirtualMachineInstance, volumeName, claimName string, volu
 	volumes := append(slices.Clone(vmi.Spec.UtilityVolumes), v1.UtilityVolume{
 		Name:                              volumeName,
 		PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
-		Type:                              pointer.P(volumeType),
+		Type:                              new(volumeType),
 	})
 	patchSet := patch.New(
 		patch.WithTest("/metadata/uid", vmi.UID),

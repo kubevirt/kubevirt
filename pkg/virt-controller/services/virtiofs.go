@@ -121,8 +121,8 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		SecurityContext: &k8sv1.SecurityContext{
 			RunAsUser:                pointer.P(int64(util.NonRootUID)),
 			RunAsGroup:               pointer.P(int64(util.NonRootUID)),
-			RunAsNonRoot:             pointer.P(true),
-			AllowPrivilegeEscalation: pointer.P(false),
+			RunAsNonRoot:             new(true),
+			AllowPrivilegeEscalation: new(false),
 			Capabilities: &k8sv1.Capabilities{
 				Drop: []k8sv1.Capability{
 					"ALL",

@@ -268,6 +268,11 @@ var _ = ginkgo.Describe("Schema", func() {
 		newDomain.XMLName.Local = ""
 		newDomain.XmlNS = "http://libvirt.org/schemas/domain/qemu/1.0"
 
+		// XMLName is applied during unmarshal but not in original domain
+		for i := range newDomain.Devices.Disks {
+			newDomain.Devices.Disks[i].XMLName.Local = ""
+		}
+
 		Expect(newDomain).To(Equal(domain.Spec))
 	}
 
@@ -611,7 +616,7 @@ var _ = ginkgo.Describe("IOMMU SMMUv3 device", func() {
 			xmlBytes, err := xml.Marshal(iommuDevice)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidSize="20" oas="48"></driver></iommu>`
+			expectedXML := `<iommu model="smmuv3"><driver pciBus="1" accel="on" ats="on" ril="off" ssidsize="20" oas="48"></driver></iommu>`
 			Expect(string(xmlBytes)).To(Equal(expectedXML))
 
 			var unmarshalled IOMMUDevice

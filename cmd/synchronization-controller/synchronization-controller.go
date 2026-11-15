@@ -203,11 +203,6 @@ func (app *synchronizationControllerApp) Run() {
 	defer cancel()
 	app.ctx = ctx
 
-	envIP, _ := os.LookupEnv("MY_POD_IP")
-	app.podIP = envIP
-	ip, err := virthandler.FindMigrationIP(envIP)
-	app.ip = ip
-
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtHandlerBurst))
@@ -284,11 +279,23 @@ func (app *synchronizationControllerApp) Run() {
 		cancel()
 	}()
 
+	go app.clientcertmanager.Start()
+	go app.servercertmanager.Start()
+
 	// ClusterConfig is backed by informers; start and sync before reading Proxy
 	// datapath / Multus requirements, otherwise we always see defaults (Direct).
 	factory.Start(stop)
 	if !cache.WaitForCacheSync(stop, factory.CRD().HasSynced, factory.KubeVirt().HasSynced) {
 		panic("timed out waiting for KubeVirt configuration caches to sync")
+	}
+
+	// Resolve migration IP after cache sync so GetMigrationConfiguration has the actual KubeVirt CR
+	envIP, _ := os.LookupEnv("MY_POD_IP")
+	app.podIP = envIP
+	allowFallback := virthandler.IsMigrationNetworkFallbackAllowed(app.clusterConfig.GetMigrationConfiguration())
+	app.ip, err = virthandler.FindMigrationIP(envIP, allowFallback)
+	if err != nil {
+		panic(err)
 	}
 
 	// Derive Proxy mode from the pod template env (set only when virt-handler
@@ -320,9 +327,6 @@ func (app *synchronizationControllerApp) Run() {
 		go app.migrationservercertmanager.Start()
 		controllerIP = app.podIP
 	}
-
-	go app.clientcertmanager.Start()
-	go app.servercertmanager.Start()
 
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,

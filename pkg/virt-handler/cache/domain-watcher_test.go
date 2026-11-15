@@ -122,6 +122,7 @@ var _ = Describe("Domain Watcher", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
@@ -165,6 +166,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			// Call handleStaleSocketConnections - the socket is now responsive
@@ -194,6 +196,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			watchdogTimeout := 10
@@ -225,6 +228,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			err = d.handleStaleSocketConnections(ctx, watchdogTimeout)
@@ -250,6 +254,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			err = d.handleStaleSocketConnections(ctx, 10)
@@ -294,6 +299,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			err = d.handleStaleSocketConnections(ctx, 10)
@@ -328,6 +334,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			err = d.handleStaleSocketConnections(ctx, watchdogTimeout)
@@ -360,6 +367,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			// Should not panic or error when ghost record doesn't exist
@@ -405,6 +413,7 @@ var _ = Describe("Domain Watcher", func() {
 				consecutiveFails:    new(int),
 				result:              make(chan watch.Event, 100),
 				cancel:              cancel,
+				ghostRecordStore:    ghostRecordStore,
 			}
 
 			// Call handleStaleSocketConnections - all sockets are now responsive
@@ -457,7 +466,7 @@ var _ = Describe("Domain Watcher", func() {
 			// Nobody reads the unbuffered result channel until we do, so
 			// handleResync waits on every send like it does when the
 			// informer is slow.
-			d := &domainWatcher{result: make(chan watch.Event)}
+			d := &domainWatcher{result: make(chan watch.Event), ghostRecordStore: ghostRecordStore}
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			done := make(chan struct{})

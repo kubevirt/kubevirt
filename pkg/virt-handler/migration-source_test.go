@@ -53,7 +53,6 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -155,7 +154,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().GeneratedKubeVirtClient().Return(virtfakeClient).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
 				FeatureGates: []string{featuregate.PasstBinding},
@@ -250,12 +249,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			// are set by the older migration controller can be read by the updated virt-handler, without
 			// panic.
 			var migrationConfiguration = &v1.VMIMConfigurationOptions{
-				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
-				ProgressTimeout:         pointer.P(int64(150)),
-				AllowAutoConverge:       pointer.P(false),
-				CompletionTimeoutPerGiB: pointer.P(int64(50)),
-				UnsafeMigrationOverride: pointer.P(false),
-				AllowPostCopy:           pointer.P(true),
+				BandwidthPerMigration:   new(resource.MustParse("0Mi")),
+				ProgressTimeout:         new(int64(150)),
+				AllowAutoConverge:       new(false),
+				CompletionTimeoutPerGiB: new(int64(50)),
+				UnsafeMigrationOverride: new(false),
+				AllowPostCopy:           new(true),
 			}
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
@@ -294,7 +293,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				AllowWorkloadDisruption:  true,
 				AllowAutoConverge:        false,
 				StallDetectorOptions:     nil,
-				ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
+				ParallelMigrationThreads: new(parallelMultifdMigrationThreads),
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, expectedOptions)
 			sanityExecute()
@@ -302,12 +301,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 	})
 	Context("setMigrationProgressStatus", func() {
-		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, completed, failed bool, mode v1.MigrationMode) *api.Domain {
+		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, failed bool, mode v1.MigrationMode) *api.Domain {
 			d := api.NewMinimalDomainWithUUID("test", "1234")
 			d.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:          miguid,
 				EndTimestamp: end,
 				Failed:       failed,
+				Mode:         mode,
 			}
 			return d
 		}
@@ -322,30 +322,30 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{}),
 			))), api.NewMinimalDomain("test")),
 			Entry("without any migration state", libvmi.New(libvmistatus.WithStatus(libvmistatus.New())),
-				newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+				newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the source of the migration is running on the other node", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "1234",
 				SourceNode:        "othernode",
 				TargetNodeAddress: host,
 				Completed:         false,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the migration UID in the metadata doesn't correspond to the one in the status", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "4321",
 				SourceNode:        host,
 				TargetNodeAddress: host,
 				Completed:         false,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, v1.MigrationPreCopy)),
 			Entry("when the migration is marked as completed in the VMI", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 				MigrationUID:      "1234",
 				SourceNode:        host,
 				TargetNodeAddress: "othernode",
 				Completed:         true,
-			})))), newDomainMigrationKubevirtMetadata("1234", nil, true, false, v1.MigrationPreCopy)),
+			})))), newDomainMigrationKubevirtMetadata("1234", new(metav1.Now()), false, v1.MigrationPreCopy)),
 		)
 
 		It("should set the vmi migration state to the same state as the metadata", func() {
-			d := newDomainMigrationKubevirtMetadata("1234", pointer.P(metav1.NewTime(time.Now())),
-				true, false, v1.MigrationPreCopy)
+			d := newDomainMigrationKubevirtMetadata("1234", new(metav1.NewTime(time.Now())),
+				false, v1.MigrationPreCopy)
 			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      "1234",
@@ -361,8 +361,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		})
 
 		It("should send an event if the migration failed", func() {
-			d := newDomainMigrationKubevirtMetadata("1234", pointer.P(metav1.NewTime(time.Now())),
-				true, true, v1.MigrationPreCopy)
+			d := newDomainMigrationKubevirtMetadata("1234", new(metav1.NewTime(time.Now())),
+				true, v1.MigrationPreCopy)
 			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
 				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 					MigrationUID:      "1234",
@@ -693,7 +693,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				testutils.ExpectEvent(recorder, VMIMigrating)
 			},
 				Entry("with a nil CPU quantity", nil),
-				Entry("with a zero CPU quantity", pointer.P(resource.MustParse("0"))),
+				Entry("with a zero CPU quantity", new(resource.MustParse("0"))),
 			)
 
 			DescribeTable("should not configure multiple threads", func(vmiLimits k8sv1.ResourceList, cpu *v1.CPU) {
@@ -791,16 +791,16 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			MigrationUID:                   "123",
 			TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
 			VMIMConfigurationOptions: &v1.VMIMConfigurationOptions{
-				BandwidthPerMigration:   pointer.P(resource.MustParse("0Mi")),
-				ProgressTimeout:         pointer.P(int64(150)),
-				CompletionTimeoutPerGiB: pointer.P(int64(150)),
-				UnsafeMigrationOverride: pointer.P(false),
-				AllowAutoConverge:       pointer.P(false),
-				AllowPostCopy:           pointer.P(false),
+				BandwidthPerMigration:   new(resource.MustParse("0Mi")),
+				ProgressTimeout:         new(int64(150)),
+				CompletionTimeoutPerGiB: new(int64(150)),
+				UnsafeMigrationOverride: new(false),
+				AllowAutoConverge:       new(false),
+				AllowPostCopy:           new(false),
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
 					DowntimeTuning: &v1.DowntimeTuningOptions{
-						InitialMs: pointer.P(int64(10)),
-						Steps:     pointer.P(int32(5)),
+						InitialMs: new(int64(10)),
+						Steps:     new(int32(5)),
 					},
 				},
 			},
@@ -868,7 +868,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			MaxDowntimeMs:            virtconfig.DefaultMigrationMaxDowntimeMs,
 			UnsafeMigration:          virtconfig.DefaultUnsafeMigrationOverride,
 			AllowPostCopy:            virtconfig.MigrationAllowPostCopy,
-			ParallelMigrationThreads: pointer.P(parallelMultifdMigrationThreads),
+			ParallelMigrationThreads: new(parallelMultifdMigrationThreads),
 		}
 		client.EXPECT().MigrateVirtualMachine(vmi, options)
 		sanityExecute()
@@ -1023,9 +1023,9 @@ var _ = Describe("IsDecentralizedMigration", func() {
 			}
 			Expect(vmi.IsDecentralizedMigration()).To(Equal(expected))
 		},
-		Entry("source-only SyncAddress (pre-sync source)", pointer.P("10.0.0.1:9185"), nil, true),
-		Entry("target-only SyncAddress (pre-sync target)", nil, pointer.P("10.0.0.2:9185"), true),
-		Entry("both SyncAddresses set (post-sync)", pointer.P("10.0.0.1:9185"), pointer.P("10.0.0.1:9185"), true),
+		Entry("source-only SyncAddress (pre-sync source)", new("10.0.0.1:9185"), nil, true),
+		Entry("target-only SyncAddress (pre-sync target)", nil, new("10.0.0.2:9185"), true),
+		Entry("both SyncAddresses set (post-sync)", new("10.0.0.1:9185"), new("10.0.0.1:9185"), true),
 		Entry("neither SyncAddress set", nil, nil, false),
 	)
 
@@ -1034,7 +1034,7 @@ var _ = Describe("IsDecentralizedMigration", func() {
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 			TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
 				VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
-					SyncAddress: pointer.P("10.0.0.1:9185"),
+					SyncAddress: new("10.0.0.1:9185"),
 				},
 			},
 		}

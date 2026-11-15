@@ -21272,7 +21272,7 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 					},
 					"blockMultiQueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether or not to enable virtio multi-queue for block devices. Defaults to false.",
+							Description: "Whether or not to enable virtio multi-queue for block devices. Explicit false configures a single request queue. When omitted, the queue count depends on device and IOThread configuration, falling back to hypervisor defaults when unspecified.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -25079,6 +25079,13 @@ func schema_kubevirtio_api_core_v1_MigrationConfiguration(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "Network is the name of the CNI network to use for live migrations. By default, migrations go through the pod network. When decentralizedLiveMigrationDatapath is Proxy, this network is also used for virt-handler ↔ synchronization-controller migration listeners (omit = pod IP). If set with Proxy, synchronization controllers require the migration0 interface at startup and will fail to start if it is missing.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"allowMigrationNetworkFallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the configured migration network (Network) does not provide a usable IP. When false or unset, virt-handler and the synchronization controllers fail to start in that case. When true, they use the pod network instead. The value is read once at startup, so changing it rolls the virt-handler and synchronization-controller pods. Defaults to false.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
@@ -34549,7 +34556,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_LauncherHook(ref common.ReferenceCall
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore). Defaults to the plugin-level FailureStrategy, or Fail if neither is set.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},
@@ -34614,7 +34621,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_NodeHook(ref common.ReferenceCallback
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies how to handle hook failures (Fail or Ignore).\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies how to handle failures of this hook (Fail or Ignore). Defaults to the plugin-level FailureStrategy, or Fail if neither is set.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},
@@ -34753,7 +34760,7 @@ func schema_kubevirtio_api_plugin_v1alpha1_PluginSpec(ref common.ReferenceCallba
 					},
 					"failureStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FailureStrategy specifies the default behavior when the plugin itself is unhealthy (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable). Individual hooks may override this with their own FailureStrategy.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
+							Description: "FailureStrategy specifies the default behavior when one of the plugin's launcher or node hooks fails (e.g. its socket is unreachable, the call times out, or the hook returns an error). Individual hooks may override this with their own FailureStrategy. Defaults to Fail. Errors evaluating a plugin or hook Condition always fail the operation, regardless of FailureStrategy.\n\nPossible enum values:\n - `\"Fail\"`\n - `\"Ignore\"`",
 							Type:        []string{"string"},
 							Format:      "",
 							Enum:        []interface{}{"Fail", "Ignore"},

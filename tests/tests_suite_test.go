@@ -28,9 +28,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
@@ -223,7 +226,6 @@ func testCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
-	testsuite.EnsureKubevirtReady()
 	GinkgoWriter.Println("Global test cleanup ended.")
 }
 
@@ -234,6 +236,10 @@ func resetToDefaultConfig() {
 	if !CurrentSpecReport().IsSerial {
 		// Tests which alter the global kubevirt config must be run serial, therefore, if we run in parallel
 		// we can just skip the restore step.
+		return
+	}
+	current := libkubevirt.GetCurrentKv(kubevirt.Client())
+	if equality.Semantic.DeepEqual(current.Spec.Configuration, testsuite.KubeVirtDefaultConfig) {
 		return
 	}
 	config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)

@@ -85,7 +85,7 @@ require (
 	kubevirt.io/virt-template-engine v0.2.0
 	libguestfs.org/libnbd v1.25.2-5-g48df7c4d2b
 	libvirt.org/go/libvirt v1.12003.0
-	libvirt.org/go/libvirtxml v1.12002.0
+	libvirt.org/go/libvirtxml v1.12007.0
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0

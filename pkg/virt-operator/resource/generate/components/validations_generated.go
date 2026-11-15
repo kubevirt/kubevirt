@@ -1428,6 +1428,14 @@ var CRDsValidation map[string]string = map[string]string{
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
                     guarantee successful VMI live migrations. Defaults to false
                   type: boolean
+                allowMigrationNetworkFallback:
+                  description: |-
+                    AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+                    configured migration network (Network) does not provide a usable IP. When false or unset,
+                    virt-handler and the synchronization controllers fail to start in that case. When true, they
+                    use the pod network instead. The value is read once at startup, so changing it rolls the
+                    virt-handler and synchronization-controller pods. Defaults to false.
+                  type: boolean
                 allowPostCopy:
                   description: |-
                     AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
@@ -5441,9 +5449,11 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         failureStrategy:
           description: |-
-            FailureStrategy specifies the default behavior when the plugin itself is unhealthy
-            (e.g. a referenced webhook is not ready, or a sidecar socket is unreachable).
+            FailureStrategy specifies the default behavior when one of the plugin's launcher or node hooks fails
+            (e.g. its socket is unreachable, the call times out, or the hook returns an error).
             Individual hooks may override this with their own FailureStrategy.
+            Defaults to Fail.
+            Errors evaluating a plugin or hook Condition always fail the operation, regardless of FailureStrategy.
           type: string
           x-kubernetes-validations:
           - message: 'failureStrategy must be one of: Fail, Ignore'
@@ -5490,8 +5500,9 @@ var CRDsValidation map[string]string = map[string]string{
                   The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
-                description: FailureStrategy specifies how to handle hook failures
-                  (Fail or Ignore).
+                description: |-
+                  FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).
+                  Defaults to the plugin-level FailureStrategy, or Fail if neither is set.
                 type: string
                 x-kubernetes-validations:
                 - message: 'failureStrategy must be one of: Fail, Ignore'
@@ -5602,8 +5613,9 @@ var CRDsValidation map[string]string = map[string]string{
                   The expression may reference only 'vmi' and must evaluate to a bool.
                 type: string
               failureStrategy:
-                description: FailureStrategy specifies how to handle hook failures
-                  (Fail or Ignore).
+                description: |-
+                  FailureStrategy specifies how to handle failures of this hook (Fail or Ignore).
+                  Defaults to the plugin-level FailureStrategy, or Fail if neither is set.
                 type: string
                 x-kubernetes-validations:
                 - message: 'failureStrategy must be one of: Fail, Ignore'
@@ -7796,7 +7808,9 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: |-
                             Whether or not to enable virtio multi-queue for block devices.
-                            Defaults to false.
+                            Explicit false configures a single request queue.
+                            When omitted, the queue count depends on device and IOThread
+                            configuration, falling back to hypervisor defaults when unspecified.
                           type: boolean
                         clientPassthrough:
                           description: To configure and access client devices such
@@ -14467,7 +14481,9 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: |-
                     Whether or not to enable virtio multi-queue for block devices.
-                    Defaults to false.
+                    Explicit false configures a single request queue.
+                    When omitted, the queue count depends on device and IOThread
+                    configuration, falling back to hypervisor defaults when unspecified.
                   type: boolean
                 clientPassthrough:
                   description: To configure and access client devices such as redirecting
@@ -19081,7 +19097,9 @@ var CRDsValidation map[string]string = map[string]string{
                 blockMultiQueue:
                   description: |-
                     Whether or not to enable virtio multi-queue for block devices.
-                    Defaults to false.
+                    Explicit false configures a single request queue.
+                    When omitted, the queue count depends on device and IOThread
+                    configuration, falling back to hypervisor defaults when unspecified.
                   type: boolean
                 clientPassthrough:
                   description: To configure and access client devices such as redirecting
@@ -21675,7 +21693,9 @@ var CRDsValidation map[string]string = map[string]string{
                         blockMultiQueue:
                           description: |-
                             Whether or not to enable virtio multi-queue for block devices.
-                            Defaults to false.
+                            Explicit false configures a single request queue.
+                            When omitted, the queue count depends on device and IOThread
+                            configuration, falling back to hypervisor defaults when unspecified.
                           type: boolean
                         clientPassthrough:
                           description: To configure and access client devices such
@@ -27106,7 +27126,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 blockMultiQueue:
                                   description: |-
                                     Whether or not to enable virtio multi-queue for block devices.
-                                    Defaults to false.
+                                    Explicit false configures a single request queue.
+                                    When omitted, the queue count depends on device and IOThread
+                                    configuration, falling back to hypervisor defaults when unspecified.
                                   type: boolean
                                 clientPassthrough:
                                   description: To configure and access client devices
@@ -33072,7 +33094,9 @@ var CRDsValidation map[string]string = map[string]string{
                                     blockMultiQueue:
                                       description: |-
                                         Whether or not to enable virtio multi-queue for block devices.
-                                        Defaults to false.
+                                        Explicit false configures a single request queue.
+                                        When omitted, the queue count depends on device and IOThread
+                                        configuration, falling back to hypervisor defaults when unspecified.
                                       type: boolean
                                     clientPassthrough:
                                       description: To configure and access client

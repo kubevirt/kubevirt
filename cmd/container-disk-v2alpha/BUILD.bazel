@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_test")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 cc_binary(
     name = "container-disk",

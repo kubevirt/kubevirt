@@ -83,8 +83,6 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var GhostRecordGlobalStore GhostRecordStore
-
 type GhostRecordStore struct {
 	cache             map[string]ghostRecord
 	checkpointManager checkpoint.CheckpointManager
@@ -93,7 +91,7 @@ type GhostRecordStore struct {
 
 func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
 
-	GhostRecordGlobalStore = GhostRecordStore{
+	store := &GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
 		checkpointManager: iterableCPManager,
 	}
@@ -101,15 +99,15 @@ func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *Gh
 	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		if err := store.checkpointManager.Get(key, &ghostRecord); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		GhostRecordGlobalStore.cache[key] = ghostRecord
+		store.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return &GhostRecordGlobalStore
+	return store
 }
 
 func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
@@ -241,23 +239,23 @@ type domainListWatch struct {
 
 func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
+func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration, ghostRecordStore *GhostRecordStore) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
 	lw := domainListWatch{&cache.ListWatch{
-		ListWithContextFunc: List,
+		ListWithContextFunc: ghostRecordStore.List,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails), nil
+			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails, ghostRecordStore), nil
 		},
 	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
 
-func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+func (store *GhostRecordStore) List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 	log.Log.V(3).Info("Synchronizing domains")
-	domains := listAllKnownDomains()
+	domains := store.listAllKnownDomains()
 	list := api.DomainList{
 		Items: []api.Domain{},
 	}
@@ -267,10 +265,10 @@ func List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
 	return &list, nil
 }
 
-func listAllKnownDomains() []*api.Domain {
+func (store *GhostRecordStore) listAllKnownDomains() []*api.Domain {
 	var domains []*api.Domain
 
-	ghostRecords := (GhostRecordGlobalStore.list())
+	ghostRecords := store.list()
 	for _, record := range ghostRecords {
 		if domain := getDomainFromRecord(record); domain != nil {
 			domains = append(domains, domain)

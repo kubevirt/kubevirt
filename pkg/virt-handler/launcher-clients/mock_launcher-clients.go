@@ -35,6 +35,7 @@ type MockLauncherClientManager struct {
 	Initialized       bool
 	UnResponsiveError error
 	IrrecoverableErr  bool
+	GhostRecordStore  *virtcache.GhostRecordStore
 }
 
 func (m *MockLauncherClientManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
@@ -56,7 +57,9 @@ func (m *MockLauncherClientManager) GetLauncherClientInfo(vmi *v1.VirtualMachine
 }
 
 func (m *MockLauncherClientManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) {
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	if m.GhostRecordStore != nil {
+		m.GhostRecordStore.Delete(vmi.Namespace, vmi.Name)
+	}
 }
 
 func (m *MockLauncherClientManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {

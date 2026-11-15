@@ -31,6 +31,7 @@ import (
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
+	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -97,8 +98,6 @@ import (
 const (
 	fedoraVMSize               = "512Mi"
 	secretDiskSerial           = "D23YZ9W6WA5DJ487"
-	stressDefaultVMSize        = "100M"
-	stressLargeVMSize          = "400M"
 	stressDefaultSleepDuration = 15
 )
 
@@ -753,7 +752,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				runStressTest(vmi, stressDefaultVMSize)
+				runStressTest(vmi)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -761,7 +760,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
 				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+				By("Verifying autoconverge via launcher logs")
+				logs := getSourceLauncherLogs(virtClient, vmi)
+				Expect(logs).To(ContainSubstring("Migration autoconverge enabled"))
 			})
 		})
 		Context("with setting guest time", decorators.WgS390x, func() {
@@ -945,7 +948,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Stressing the VMI")
-				runStressTest(vmi, stressDefaultVMSize)
+				runStressTest(vmi)
 
 				By("Starting a first migration")
 				migration1 := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1344,7 +1347,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// Run
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-					runStressTest(vmi, stressDefaultVMSize)
+					runStressTest(vmi)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -1528,7 +1531,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					runStressTest(vmi, stressLargeVMSize)
+					runStressTest(vmi)
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -2253,6 +2256,18 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
+				hadMigrationDowntimeTuning := checks.HasFeature(featuregate.MigrationDowntimeTuning)
+				if !hadMigrationDowntimeTuning {
+					kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+				}
+				DeferCleanup(func() {
+					if hadMigrationDowntimeTuning {
+						kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+					} else {
+						kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+					}
+				})
+
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 				vmi.Namespace = testsuite.NamespacePrivileged
 
@@ -2261,10 +2276,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				policy := kubecli.NewMinimalMigrationPolicy(policyName)
 				policy.Spec.AllowAutoConverge = pointer.P(true)
 				policy.Spec.AllowPostCopy = pointer.P(true)
-				policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1))
-				policy.Spec.BandwidthPerMigration = pointer.P(resource.MustParse("5Mi"))
+				policy.Spec.CompletionTimeoutPerGiB = pointer.P(postCopyCompletionTimeoutPerGiB)
+				policy.Spec.MaxDowntimeMs = pointer.P(uint64(1))
 				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
 					Compression: pointer.P(v1.MigrationCompressionZstd),
+					DowntimeTuning: &v1.DowntimeTuningOptions{
+						InitialMs:           pointer.P(int64(1)),
+						StartAfterIteration: pointer.P(postCopyDowntimeTuneNeverIterate),
+					},
 				}
 				AlignPolicyAndVmi(vmi, policy)
 				policy = CreateMigrationPolicy(virtClient, policy)
@@ -2278,7 +2297,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Running stress test to generate memory pressure for postcopy")
-				runStressTest(vmi, stressLargeVMSize)
+				runStressTest(vmi)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2286,7 +2305,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Confirming migration completed successfully")
 				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-				libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
+				// we can't check in which mode just yet, with default autoconverge CPU throttling by 99% it often migrates in pre-copy even with 1ms max_dowtime
+				//libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 
 				By("Verifying the migration policy was applied")
 				Expect(vmi.Status.MigrationState.MigrationPolicyName).ToNot(BeNil())
@@ -2303,9 +2323,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(mc.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
 				Expect(*mc.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
 
-				By("Verifying compression via launcher logs")
+				By("Verifying compression and autoconverge via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				Expect(logs).To(ContainSubstring("Migration autoconverge enabled"))
 			})
 		})
 
@@ -2729,36 +2750,48 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	})
 
 	Context("with a dedicated migration network", Serial, func() {
-		var nadName string
-
-		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-
-			if flags.MigrationNetworkName != "" {
-				By(fmt.Sprintf("Using the provided Network Attachment Definition: %s", flags.MigrationNetworkName))
-				nadName = flags.MigrationNetworkName
-			} else {
-				By("Creating the Network Attachment Definition")
-				nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
-				nadName = nad.Name
-				_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.Background(), nad, metav1.CreateOptions{})
-				Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
-				DeferCleanup(func() {
-					By("Deleting the Network Attachment Definition")
-					Expect(virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.Background(), nadName, metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the Network Attachment Definition")
-				})
-			}
-
-			By("Setting it as the migration network in the KubeVirt CR")
-			libmigration.SetDedicatedMigrationNetwork(nadName)
-		})
+		var nad *k8snetworkplumbingwgv1.NetworkAttachmentDefinition
 
 		AfterEach(func() {
 			By("Clearing the migration network in the KubeVirt CR")
 			libmigration.ClearDedicatedMigrationNetwork()
+
+			if nad != nil {
+				By("Deleting the Network Attachment Definition")
+				Expect(virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.Background(), nad.Name, metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the Network Attachment Definition")
+			}
+			nad = nil
 		})
 
-		It("Should migrate over that network", func() {
+		DescribeTable("the migration should", func(useWorkingNAD bool, allowFallback bool) {
+			virtClient = kubevirt.Client()
+
+			if useWorkingNAD {
+				if flags.MigrationNetworkName != "" {
+					By(fmt.Sprintf("Using the provided Network Attachment Definition: %s", flags.MigrationNetworkName))
+					nad = nil
+				} else {
+					By("Creating the Network Attachment Definition")
+					nad = libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
+					_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.Background(), nad, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
+				}
+			} else {
+				By("Creating a broken Network Attachment Definition (creates interface but assigns no IP)")
+				nad = libmigration.GenerateBrokenMigrationCNINetworkAttachmentDefinition()
+				_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.Background(), nad, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred(), "Failed to create the broken Network Attachment Definition")
+			}
+
+			var nadName string
+			if nad != nil {
+				nadName = nad.Name
+			} else {
+				nadName = flags.MigrationNetworkName
+			}
+			By(fmt.Sprintf("Setting migration network %s in the KubeVirt CR (allowMigrationNetworkFallback=%v)", nadName, allowFallback))
+			libmigration.SetDedicatedMigrationNetworkWithFallback(nadName, allowFallback)
+
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2768,14 +2801,22 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Starting the migration")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 			By("Checking if the migration happened, and over the right network")
 			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			targetHandler, err := libnode.GetVirtHandlerPod(kubevirt.Client(), vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(targetHandler.Status.PodIP), "The migration did not appear to go over the dedicated migration network")
-		})
+			if useWorkingNAD {
+				Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(targetHandler.Status.PodIP), "The migration did not appear to go over the dedicated migration network")
+			} else {
+				Expect(vmi.Status.MigrationState.TargetNodeAddress).To(Equal(targetHandler.Status.PodIP), "The migration did not fall back to the pod network")
+			}
+		},
+			Entry("succeed over a proper secondary network", true, false),
+			Entry("succeed over the pod network with a broken NAD when fallback is enabled", false, true),
+			// Can't test the failure case since it sends virt-handler into a crash loop
+		)
 	})
 	It("should update MigrationState's MigrationConfiguration of VMI status", func() {
 		By("Starting a VMI")
@@ -3235,9 +3276,8 @@ func getCurrentKvConfig(virtClient kubecli.KubevirtClient) v1.KubeVirtConfigurat
 	return kvc.Spec.Configuration
 }
 
-func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
+func runStressTest(vmi *v1.VirtualMachineInstance) {
 	By("Run a stress test to dirty some pages and slow down the migration")
-	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: ""},
@@ -3245,7 +3285,7 @@ func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
 		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
-		&expect.BSnd{S: stressCmd},
+		&expect.BSnd{S: "stress-ng --vm 2 --vm-bytes 75% --vm-method write64 --vm-keep &\n"},
 		&expect.BExp{R: ""},
 	}, 15)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 

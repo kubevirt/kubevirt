@@ -68,10 +68,7 @@ func (c *cell) GetFragmentedThreads() []uint32 {
 // GetFragmentedThreads will allocate as many threads as possible
 // and return them, even if it can only satisfy parts of the request.
 func (c *cell) GetFragmentedThreadsUpTo(threads int) []uint32 {
-	selector := threads
-	if threads > len(c.fragmentedCoresList) {
-		selector = len(c.fragmentedCoresList)
-	}
+	selector := min(threads, len(c.fragmentedCoresList))
 	selected := c.fragmentedCoresList[:selector]
 	c.fragmentedCoresList = c.fragmentedCoresList[selector:]
 	return selected

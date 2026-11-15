@@ -55,3 +55,11 @@ def virt_template_images():
         registry = "quay.io",
         repository = "kubevirt/virt-template-controller",
     )
+
+def _virt_template_ext_impl(ctx):
+    virt_template_images()
+    return ctx.extension_metadata(reproducible = True)
+
+virt_template_ext = module_extension(
+    implementation = _virt_template_ext_impl,
+)

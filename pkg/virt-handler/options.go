@@ -183,7 +183,7 @@ func cpuToCPU(cpu libvirtxml.CapsHostNUMACPU) *cmdv1.CPU {
 
 func convertListOfIntStringToSlice(siblings string) []uint32 {
 	var convertedSiblings []uint32
-	for _, sibling := range strings.Split(siblings, ",") {
+	for sibling := range strings.SplitSeq(siblings, ",") {
 		num, err := strconv.ParseUint(sibling, 10, 32)
 		if err != nil {
 			// Sibling must be int, otherwise skip
