@@ -21,7 +21,6 @@ package admitter
 
 import (
 	"fmt"
-	"net"
 	"regexp"
 	"sort"
 
@@ -411,7 +410,6 @@ func validateDHCPOptions(field *k8sfield.Path, idx int, iface v1.Interface) []me
 	var causes []metav1.StatusCause
 	if iface.DHCPOptions != nil {
 		causes = append(causes, validateDHCPExtraOptions(field, iface)...)
-		causes = append(causes, validateDHCPNTPServersAreValidIPv4Addresses(field, iface, idx)...)
 	}
 	return causes
 }
@@ -429,22 +427,6 @@ func validateDHCPExtraOptions(field *k8sfield.Path, iface v1.Interface) []metav1
 
 	for _, DHCPPrivateOption := range privateOptions {
 		causes = append(causes, validateDHCPPrivateOptionsWithinRange(field, DHCPPrivateOption)...)
-	}
-	return causes
-}
-
-func validateDHCPNTPServersAreValidIPv4Addresses(field *k8sfield.Path, iface v1.Interface, idx int) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if iface.DHCPOptions != nil {
-		for index, ip := range iface.DHCPOptions.NTPServers {
-			if net.ParseIP(ip).To4() == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
-				})
-			}
-		}
 	}
 	return causes
 }

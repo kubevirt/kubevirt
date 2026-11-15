@@ -466,19 +466,6 @@ var _ = Describe("Validating VMI network spec", func() {
 					Field:   "fake",
 				}},
 			),
-			Entry(
-				"non-IPv4 NTP servers",
-				v1.DHCPOptions{NTPServers: []string{"::1", "hostname"}},
-				[]metav1.StatusCause{{
-					Type:    "FieldValueInvalid",
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
-					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[0]",
-				}, {
-					Type:    "FieldValueInvalid",
-					Message: "NTP servers must be a list of valid IPv4 addresses.",
-					Field:   "fake.domain.devices.interfaces[0].dhcpOptions.ntpServers[1]",
-				}},
-			),
 		)
 
 		DescribeTable("should accept interface DHCP options with", func(dhcpOpts v1.DHCPOptions) {
@@ -497,7 +484,6 @@ var _ = Describe("Validating VMI network spec", func() {
 			Entry("  valid DHCPPrivateOptions", v1.DHCPOptions{
 				PrivateOptions: []v1.DHCPPrivateOptions{{Option: 240, Value: "extra.options.kubevirt.io"}},
 			}),
-			Entry(" valid NTP servers", v1.DHCPOptions{NTPServers: []string{"127.0.0.1", "127.0.0.2"}}),
 			Entry(
 				"unique DHCPPrivateOptions",
 				v1.DHCPOptions{
