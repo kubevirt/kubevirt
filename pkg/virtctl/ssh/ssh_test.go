@@ -1,11 +1,14 @@
 package ssh_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
@@ -72,6 +75,51 @@ var _ = Describe("SSH", func() {
 		Entry("kind vm with name with dot and username", "user@vm/testvm.default", "", "testvm.default", "vm", "user", ""),
 	)
 
+	DescribeTable("GlobalFlagsFromCmd", func(args, expected []string) {
+		root := &cobra.Command{Use: "virtctl"}
+		root.PersistentFlags().String("context", "", "")
+		root.PersistentFlags().String("kubeconfig", "", "")
+		root.PersistentFlags().String("token", "", "")
+		root.PersistentFlags().String("password", "", "")
+		root.PersistentFlags().Bool("insecure-skip-tls-verify", false, "")
+		root.PersistentFlags().StringArray("as-group", nil, "")
+		child := &cobra.Command{Use: "ssh", Run: func(cmd *cobra.Command, _ []string) {
+			Expect(ssh.GlobalFlagsFromCmd(cmd)).To(ConsistOf(expected))
+		}}
+		child.Flags().String("local-only", "", "")
+		root.AddCommand(child)
+		root.SetArgs(args)
+		Expect(root.Execute()).To(Succeed())
+	},
+		Entry("omits unset flags", []string{"ssh"}, []string(nil)),
+		Entry("context before subcommand", []string{"--context=selected", "ssh"}, []string{"--context=selected"}),
+		Entry("context after subcommand", []string{"ssh", "--context=selected"}, []string{"--context=selected"}),
+		Entry("kubeconfig", []string{"ssh", "--kubeconfig=config"}, []string{"--kubeconfig=config"}),
+		Entry("token override", []string{"ssh", "--token=example"}, []string{"--token=example"}),
+		Entry("empty password override", []string{"ssh", "--password="}, []string{"--password="}),
+		Entry("boolean override", []string{"ssh", "--insecure-skip-tls-verify"}, []string{"--insecure-skip-tls-verify=true"}),
+		Entry("explicit false", []string{"--insecure-skip-tls-verify=false", "ssh"}, []string{"--insecure-skip-tls-verify=false"}),
+		Entry("repeated groups", []string{"ssh", "--as-group=one,two", "--as-group=three"}, []string{"--as-group=one,two", "--as-group=three"}),
+		Entry("omits local flags", []string{"ssh", "--local-only=value"}, []string(nil)),
+		Entry("password override", []string{"--password=example", "ssh"}, []string{"--password=example"}),
+		Entry("empty token override", []string{"ssh", "--token="}, []string{"--token="}),
+	)
+
+	It("replaces a stale proxy payload when no flags are set", func() {
+		GinkgoT().Setenv("VIRTCTL_PROXY_FLAGS", `["--token=stale"]`)
+		cmd := ssh.LocalClientCmd("ssh", "vmi", "default", "test", &ssh.SSHOptions{}, nil)
+		var payload string
+		for _, entry := range cmd.Env {
+			if strings.HasPrefix(entry, "VIRTCTL_PROXY_FLAGS=") {
+				payload = strings.TrimPrefix(entry, "VIRTCTL_PROXY_FLAGS=")
+			}
+		}
+		var flags []string
+		Expect(json.Unmarshal([]byte(payload), &flags)).To(Succeed())
+		Expect(flags).To(BeEmpty())
+		Expect(flags).NotTo(BeNil())
+	})
+
 	Context("Wrapped SSH", func() {
 		const (
 			fakeKind      = "fake-kind"
@@ -88,18 +136,19 @@ var _ = Describe("SSH", func() {
 			Entry("without SSH username", ssh.SSHOptions{}, "fake-kind.fake-name.fake-ns"),
 		)
 
+		const commandSSH = "ssh"
 		DescribeTable("LocalClientCmd",
-			func(kind string, opts ssh.SSHOptions, expectedProxyCmd string) {
+			func(kind string, opts ssh.SSHOptions, expectedProxyCmd string, globalFlags ...string) {
 				c := ssh.NewSSH(&opts)
 				clientArgs := c.BuildSSHTarget(kind, fakeNamespace, fakeName)
-				cmd := ssh.LocalClientCmd("ssh", kind, fakeNamespace, fakeName, &opts, clientArgs)
+				cmd := ssh.LocalClientCmd(commandSSH, kind, fakeNamespace, fakeName, &opts, clientArgs, globalFlags...)
 				Expect(cmd).ToNot(BeNil())
-				Expect(cmd.Args).To(HaveLen(4))
-				Expect(cmd.Args[0]).To(Equal("ssh"))
-				Expect(cmd.Args[1]).To(Equal("-o"))
-				Expect(cmd.Args[2]).To(Equal(expectedProxyCmd))
-				Expect(cmd.Args[3]).To(Equal(clientArgs[0]))
+				Expect(cmd.Args).To(HaveExactElements(commandSSH, "-o", expectedProxyCmd, clientArgs[0]))
 			},
+			Entry("with context",
+				fakeKind, ssh.SSHOptions{SSHPort: 12345},
+				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true %s/%s/%s %d",
+					os.Args[0], fakeKind, fakeName, fakeNamespace, 12345), "--context=selected"),
 			Entry("without vsock",
 				fakeKind, ssh.SSHOptions{SSHPort: 12345},
 				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true %s/%s/%s %d",

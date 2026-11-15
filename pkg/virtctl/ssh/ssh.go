@@ -21,6 +21,7 @@ package ssh
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -141,7 +142,7 @@ func (o *ssh) run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.BuildSSHTarget(kind, namespace, name)
-	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
+	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs, GlobalFlagsFromCmd(cmd)...).Run()
 }
 
 func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
@@ -242,7 +243,7 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 	return kind, namespace, name, username, err
 }
 
-func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string, globalFlags ...string) *exec.Cmd {
 	subcommand := "port-forward --stdio=true"
 	if options.UseVsock {
 		// SSH encrypts traffic end-to-end, so VSOCK TLS is not needed
@@ -259,6 +260,12 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	args = append(args, clientArgs...)
 
 	cmd := exec.CommandContext(context.Background(), command, args...)
+	// Always replace an inherited payload, including when no flags were set.
+	if globalFlags == nil {
+		globalFlags = []string{}
+	}
+	payload, _ := json.Marshal(globalFlags) // []string cannot fail to marshal.
+	cmd.Env = append(os.Environ(), "VIRTCTL_PROXY_FLAGS="+string(payload))
 	const logLevel = 3
 	log.Log.V(logLevel).Infof("running: %v", cmd)
 	cmd.Stdout = os.Stdout
@@ -266,6 +273,26 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	cmd.Stdin = os.Stdin
 
 	return cmd
+}
+
+// GlobalFlagsFromCmd returns explicitly set inherited flags for the proxy process.
+func GlobalFlagsFromCmd(cmd *cobra.Command) []string {
+	var args []string
+	// InheritedFlags().Visit does not track flags parsed by the child command;
+	// the shared Changed state does, including flags before the subcommand.
+	cmd.InheritedFlags().VisitAll(func(flag *pflag.Flag) {
+		if !flag.Changed {
+			return
+		}
+		if flag.Value.Type() == "stringArray" {
+			for _, value := range flag.Value.(pflag.SliceValue).GetSlice() {
+				args = append(args, "--"+flag.Name+"="+value)
+			}
+			return
+		}
+		args = append(args, "--"+flag.Name+"="+flag.Value.String())
+	})
+	return args
 }
 
 func BuildProxyCommandOption(subcommand, kind, namespace, name string, port int) string {

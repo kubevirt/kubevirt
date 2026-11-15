@@ -3,9 +3,13 @@ package virtctl_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -38,6 +42,95 @@ var _ = Describe("virtctl", func() {
 	},
 		Entry("regular flag", "--v=2"),
 		Entry("shorthand flag", "-v=2"),
+	)
+
+	DescribeTable("should pass client flags to the SSH proxy command", func(command string, vsock bool, credential string) {
+		if runtime.GOOS == "windows" {
+			Skip("requires a POSIX shell")
+		}
+		dir := GinkgoT().TempDir()
+		capture := filepath.Join(dir, "proxy-args")
+		envCapture := filepath.Join(dir, "proxy-env")
+		recorder := filepath.Join(dir, "virtctl-recorder")
+		Expect(os.WriteFile(recorder, []byte("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$PROXY_ARGS\"\nprintf '%s' \"$VIRTCTL_PROXY_FLAGS\" > \"$PROXY_ENV\"\n"), 0o700)).To(Succeed())
+		// Execute the ProxyCommand just as the local SSH client would, without
+		// requiring a running VM or making any API requests.
+		client := []byte("#!/bin/sh\neval \"${2#ProxyCommand=}\"\n")
+		Expect(os.WriteFile(filepath.Join(dir, command), client, 0o700)).To(Succeed())
+		GinkgoT().Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		GinkgoT().Setenv("PROXY_ARGS", capture)
+		GinkgoT().Setenv("PROXY_ENV", envCapture)
+		GinkgoT().Setenv("VIRTCTL_PROXY_FLAGS", `["--token=stale"]`)
+		originalArg := os.Args[0]
+		os.Args[0] = recorder
+		DeferCleanup(func() { os.Args[0] = originalArg })
+
+		config := filepath.Join(dir, "kube config's file")
+		Expect(os.WriteFile(config, []byte(`apiVersion: v1
+kind: Config
+current-context: default
+clusters:
+- name: test
+  cluster:
+    server: https://selected.example.invalid
+contexts:
+- name: default
+  context:
+    cluster: test
+    namespace: default
+    user: test
+- name: selected
+  context:
+    cluster: test
+    namespace: selected-namespace
+    user: test
+users:
+- name: test
+  user:
+    token: test-token
+`), 0o600)).To(Succeed())
+		if credential == "password" {
+			data, err := os.ReadFile(config)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.WriteFile(config, bytes.ReplaceAll(data, []byte("token: test-token"), []byte("username: test-user")), 0o600)).To(Succeed())
+		}
+		credentialFlag := "--" + credential + "=example's value"
+		args := []string{"--insecure-skip-tls-verify=false", command, "--kubeconfig=" + config, "--context=selected", credentialFlag,
+			"--as=test-user", "--as-group=one,two", "--as-group=three"}
+		if vsock {
+			args = append(args, "--vsock")
+		}
+		if command == "scp" {
+			args = append(args, "local-file", "vmi/test-vmi:remote-file")
+		} else {
+			args = append(args, "vmi/test-vmi")
+		}
+		cmd := virtctl.NewVirtctlCommand()
+		cmd.SetArgs(args)
+		Expect(cmd.Execute()).To(Succeed())
+		output, err := os.ReadFile(capture)
+		Expect(err).ToNot(HaveOccurred())
+		payload, err := os.ReadFile(envCapture)
+		Expect(err).ToNot(HaveOccurred())
+		var flags []string
+		Expect(json.Unmarshal(payload, &flags)).To(Succeed())
+		Expect(flags).To(ContainElements(credentialFlag, "--insecure-skip-tls-verify=false", "--as-group=one,two", "--as-group=three", "--context=selected", "--kubeconfig="+config))
+		Expect(flags).NotTo(ContainElement("--token=stale"))
+		Expect(string(output)).NotTo(ContainSubstring(credentialFlag))
+		Expect(strings.Join(flags, "\n")).To(ContainSubstring("--as-group=one,two\n--as-group=three"))
+		Expect(string(output)).To(ContainSubstring("vmi/test-vmi/selected-namespace\n22\n"))
+		if vsock {
+			Expect(string(output)).To(ContainSubstring("--vsock\n--vsock-tls=false\n"))
+		}
+	},
+		Entry("for SSH over TCP with token", "ssh", false, "token"),
+		Entry("for SSH over VSOCK with token", "ssh", true, "token"),
+		Entry("for SCP over TCP with token", "scp", false, "token"),
+		Entry("for SCP over VSOCK with token", "scp", true, "token"),
+		Entry("for SSH over TCP with password", "ssh", false, "password"),
+		Entry("for SSH over VSOCK with password", "ssh", true, "password"),
+		Entry("for SCP over TCP with password", "scp", false, "password"),
+		Entry("for SCP over VSOCK with password", "scp", true, "password"),
 	)
 
 	It("Execute should print a message if and error occurred and server and client virtctl versions are different", func() {
