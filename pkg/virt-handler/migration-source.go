@@ -112,7 +112,7 @@ func NewMigrationSourceController(
 		virtLauncherFSRunDirPattern,
 		netStat,
 		hypervisor.NewHypervisorNodeInformation(hypervisorName),
-		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
+		hypervisor.GetVirtRuntime(hypervisorName),
 		pluginStore,
 	)
 	if err != nil {
