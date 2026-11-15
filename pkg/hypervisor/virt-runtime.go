@@ -35,11 +35,16 @@ type VirtRuntime interface {
 	AdjustResources(vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error
 }
 
-func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervisorName string) VirtRuntime {
+func GetVirtRuntime(hypervisorName string) VirtRuntime {
+	detector := isolation.NewSocketBasedIsolationDetector()
+	logger := log.Log.With("controller", "vm")
 	switch hypervisorName {
 	case v1.HyperVDirectHypervisorName:
-		return mshv.NewMshvVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
+		return mshv.NewMshvVirtRuntime(detector, logger)
 	default:
-		return kvm.NewKvmVirtRuntime(kvm.AdaptIsolationDetector(podIsolationDetector), log.Log.With("controller", "vm"))
+		detect := func(vmi *v1.VirtualMachineInstance) (kvm.PodIsolation, error) {
+			return detector.Detect(vmi)
+		}
+		return kvm.NewKvmVirtRuntime(detect, logger)
 	}
 }

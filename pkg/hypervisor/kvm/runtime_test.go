@@ -51,20 +51,9 @@ type fakePodIsolation struct {
 func (f fakePodIsolation) Pid() int  { return f.pid }
 func (f fakePodIsolation) PPid() int { return f.ppid }
 
-type fakePodIsolationDetector struct {
-	result       kvm.PodIsolation
-	err          error
-	detectCalled bool
-}
-
-func (f *fakePodIsolationDetector) Detect(vmi *v1.VirtualMachineInstance) (kvm.PodIsolation, error) {
-	f.detectCalled = true
-	return f.result, f.err
-}
-
 var _ = Describe("AdjustResources", func() {
 	var (
-		fakeDetector *fakePodIsolationDetector
+		detectCalled bool
 		runtime      *kvm.KvmVirtRuntime
 		config       *v1.KubeVirtConfiguration
 	)
@@ -72,10 +61,12 @@ var _ = Describe("AdjustResources", func() {
 	const launcherPid = 1000
 
 	BeforeEach(func() {
-		fakeDetector = &fakePodIsolationDetector{
-			result: fakePodIsolation{pid: launcherPid, ppid: 0},
+		detectCalled = false
+		detect := func(vmi *v1.VirtualMachineInstance) (kvm.PodIsolation, error) {
+			detectCalled = true
+			return fakePodIsolation{pid: launcherPid, ppid: 0}, nil
 		}
-		runtime = kvm.NewKvmVirtRuntime(fakeDetector, nil)
+		runtime = kvm.NewKvmVirtRuntime(detect, nil)
 		config = &v1.KubeVirtConfiguration{}
 	})
 
@@ -83,7 +74,7 @@ var _ = Describe("AdjustResources", func() {
 		It("should return nil without calling Detect when no features require memlock", func() {
 			vmi := libvmi.New(libvmi.WithMemoryRequest("1Gi"))
 			Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
-			Expect(fakeDetector.detectCalled).To(BeFalse())
+			Expect(detectCalled).To(BeFalse())
 		})
 
 		DescribeTable("should call Detect when memlock is required",
@@ -95,7 +86,7 @@ var _ = Describe("AdjustResources", func() {
 				DeferCleanup(func() { kvm.ListProcesses = origListProcesses })
 
 				Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
-				Expect(fakeDetector.detectCalled).To(BeTrue())
+				Expect(detectCalled).To(BeTrue())
 			},
 			Entry("with VFIO GPU",
 				libvmi.New(
@@ -157,7 +148,7 @@ var _ = Describe("AdjustResources", func() {
 			DeferCleanup(func() { common.SetMemlockRLimitFunc = origMemlock })
 
 			Expect(runtime.AdjustResources(vmi, config)).To(Succeed())
-			Expect(fakeDetector.detectCalled).To(BeTrue())
+			Expect(detectCalled).To(BeTrue())
 			Expect(capturedPid).To(Equal(virtqemudPid))
 			Expect(capturedSize).To(Equal(uint64(unix.RLIM_INFINITY)))
 		})

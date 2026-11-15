@@ -47,22 +47,7 @@ type PodIsolation interface {
 }
 
 // PodIsolationDetector detects pod isolation for a VMI.
-type PodIsolationDetector interface {
-	Detect(vmi *v1.VirtualMachineInstance) (PodIsolation, error)
-}
-
-type isolationDetectorAdapter struct {
-	detector isolation.PodIsolationDetector
-}
-
-func (a isolationDetectorAdapter) Detect(vmi *v1.VirtualMachineInstance) (PodIsolation, error) {
-	return a.detector.Detect(vmi)
-}
-
-// AdaptIsolationDetector adapts isolation.PodIsolationDetector to the local PodIsolationDetector contract.
-func AdaptIsolationDetector(detector isolation.PodIsolationDetector) PodIsolationDetector {
-	return isolationDetectorAdapter{detector: detector}
-}
+type PodIsolationDetector func(vmi *v1.VirtualMachineInstance) (PodIsolation, error)
 
 type KvmVirtRuntime struct {
 	podIsolationDetector PodIsolationDetector
@@ -83,7 +68,7 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 		return nil
 	}
 
-	isolationResult, err := k.podIsolationDetector.Detect(vmi)
+	isolationResult, err := k.podIsolationDetector(vmi)
 	if err != nil {
 		return err
 	}
@@ -151,7 +136,7 @@ func (k *KvmVirtRuntime) HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgro
 }
 
 func (k *KvmVirtRuntime) affinePitThread(vmi *v1.VirtualMachineInstance) error {
-	res, err := k.podIsolationDetector.Detect(vmi)
+	res, err := k.podIsolationDetector(vmi)
 	if err != nil {
 		return err
 	}
