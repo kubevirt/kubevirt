@@ -48,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -300,9 +301,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		var podInformer cache.SharedIndexInformer
 		var podSource *framework.FakeControllerSource
 		var volumeSnapshotInformer cache.SharedIndexInformer
-		var volumeSnapshotSource *framework.FakeControllerSource
 		var volumeSnapshotClassInformer cache.SharedIndexInformer
-		var volumeSnapshotClassSource *framework.FakeControllerSource
 		var storageClassInformer cache.SharedIndexInformer
 		var storageClassSource *framework.FakeControllerSource
 		var storageProfileInformer cache.SharedIndexInformer
@@ -310,7 +309,6 @@ var _ = Describe("Snapshot controlleer", func() {
 		var pvcInformer cache.SharedIndexInformer
 		var pvcSource *framework.FakeControllerSource
 		var crdInformer cache.SharedIndexInformer
-		var crdSource *framework.FakeControllerSource
 		var dvInformer cache.SharedIndexInformer
 		var crInformer cache.SharedIndexInformer
 		var crSource *framework.FakeControllerSource
@@ -356,6 +354,13 @@ var _ = Describe("Snapshot controlleer", func() {
 			)).To(BeTrue())
 		}
 
+		// Create a mock queue, assign it to the controller, and return it for use in tests.
+		newMockQueue := func(name string, controllerQueue *workqueue.TypedRateLimitingInterface[string]) *testutils.MockWorkQueue[string] {
+			queue := testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue(name))
+			*controllerQueue = queue
+			return queue
+		}
+
 		BeforeEach(func() {
 			stop = make(chan struct{})
 			ctrl = gomock.NewController(GinkgoT())
@@ -369,12 +374,12 @@ var _ = Describe("Snapshot controlleer", func() {
 			vmInformer, vmSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			podInformer, podSource = testutils.NewFakeInformerFor(&corev1.Pod{})
-			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshot{})
-			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshotClass{})
+			volumeSnapshotInformer, _ = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshot{})
+			volumeSnapshotClassInformer, _ = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			storageProfileInformer, storageProfileSource = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
-			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+			crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 
 			recorder = record.NewFakeRecorder(100)
@@ -394,22 +399,20 @@ var _ = Describe("Snapshot controlleer", func() {
 				DVInformer:                dvInformer,
 				CRInformer:                crInformer,
 				Recorder:                  recorder,
-				ResyncPeriod:              60 * time.Second,
 			}
-			controller.Init()
 
-			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockVMSnapshotQueue = testutils.NewMockWorkQueue(controller.vmSnapshotQueue)
-			controller.vmSnapshotQueue = mockVMSnapshotQueue
+			// Initialize the mock queus and the controller's workqueues with mock queues.
+			mockVMSnapshotQueue = newMockQueue("virt-controller-snapshot-vmsnapshot", &controller.vmSnapshotQueue)
+			mockVMSnapshotContentQueue = newMockQueue("virt-controller-snapshot-vmsnapshotcontent", &controller.vmSnapshotContentQueue)
+			newMockQueue("virt-controller-snapshot-vmsnapshotstatus", &controller.vmSnapshotStatusQueue)
+			mockCRDQueue = newMockQueue("virt-controller-snapshot-crd", &controller.crdQueue)
+			mockVMQueue = newMockQueue("virt-controller-snapshot-vm", &controller.vmQueue)
 
-			mockVMSnapshotContentQueue = testutils.NewMockWorkQueue(controller.vmSnapshotContentQueue)
-			controller.vmSnapshotContentQueue = mockVMSnapshotContentQueue
-
-			mockCRDQueue = testutils.NewMockWorkQueue(controller.crdQueue)
-			controller.crdQueue = mockCRDQueue
-
-			mockVMQueue = testutils.NewMockWorkQueue(controller.vmQueue)
-			controller.vmQueue = mockVMQueue
+			// Init() is not called in unit tests, so initialize the dynamic informer map explicitly.
+			controller.dynamicInformerMap = map[string]*dynamicInformer{
+				volumeSnapshotCRD:      {informerFunc: virtcontroller.VolumeSnapshotInformer},
+				volumeSnapshotClassCRD: {informerFunc: virtcontroller.VolumeSnapshotClassInformer},
+			}
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachine(testNamespace).Return(vmInterface).AnyTimes()
@@ -446,38 +449,46 @@ var _ = Describe("Snapshot controlleer", func() {
 
 		addVirtualMachineSnapshot := func(s *snapshotv1.VirtualMachineSnapshot) {
 			syncCaches(stop)
-			mockVMSnapshotQueue.ExpectAdds(1)
 			vmSnapshotSource.Add(s)
-			mockVMSnapshotQueue.Wait()
+			Expect(vmSnapshotInformer.GetStore().Add(s)).To(Succeed())
+			mockVMSnapshotQueue.Add(cacheKeyFunc(s.Namespace, s.Name))
 		}
 
 		addVirtualMachineSnapshotContent := func(s *snapshotv1.VirtualMachineSnapshotContent) {
 			syncCaches(stop)
-			mockVMSnapshotContentQueue.ExpectAdds(1)
 			vmSnapshotContentSource.Add(s)
-			mockVMSnapshotContentQueue.Wait()
+			Expect(vmSnapshotContentInformer.GetStore().Add(s)).To(Succeed())
+			if s.Spec.VirtualMachineSnapshotName != nil {
+				mockVMSnapshotQueue.Add(cacheKeyFunc(s.Namespace, *s.Spec.VirtualMachineSnapshotName))
+			}
+			mockVMSnapshotContentQueue.Add(cacheKeyFunc(s.Namespace, s.Name))
 		}
 
 		addVolumeSnapshot := func(s *vsv1.VolumeSnapshot) {
 			syncCaches(stop)
-			mockVMSnapshotContentQueue.ExpectAdds(1)
-			volumeSnapshotSource.Add(s)
-			mockVMSnapshotContentQueue.Wait()
+			Expect(volumeSnapshotInformer.GetStore().Add(s)).To(Succeed())
+			key := cacheKeyFunc(s.Namespace, s.Name)
+			contentKeys, err := vmSnapshotContentInformer.GetIndexer().IndexKeys("volumeSnapshot", key)
+			Expect(err).To(Succeed())
+			for _, contentKey := range contentKeys {
+				mockVMSnapshotContentQueue.Add(contentKey)
+			}
 		}
 
 		addCRD := func(crd *extv1.CustomResourceDefinition) {
 			syncCaches(stop)
-			mockCRDQueue.ExpectAdds(1)
-			crdSource.Add(crd)
-			mockCRDQueue.Wait()
+			Expect(crdInformer.GetStore().Add(crd)).To(Succeed())
+			mockCRDQueue.Add(crd.Name)
 		}
 
 		addVolumeSnapshotClass := func(volumeSnapshotClasses ...vsv1.VolumeSnapshotClass) {
 			syncCaches(stop)
 			for i := range volumeSnapshotClasses {
-				mockVMQueue.ExpectAdds(1)
-				volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				mockVMQueue.Wait()
+				volumeSnapshotClass := &volumeSnapshotClasses[i]
+				Expect(volumeSnapshotClassInformer.GetStore().Add(volumeSnapshotClass)).To(Succeed())
+				for _, vmKey := range vmInformer.GetStore().ListKeys() {
+					mockVMQueue.Add(vmKey)
+				}
 			}
 		}
 
@@ -485,8 +496,6 @@ var _ = Describe("Snapshot controlleer", func() {
 
 			BeforeEach(func() {
 				stopCh := make(chan struct{})
-				volumeSnapshotInformer.AddEventHandler(controller.eventHandlerMap[volumeSnapshotCRD])
-				volumeSnapshotClassInformer.AddEventHandler(controller.eventHandlerMap[volumeSnapshotClassCRD])
 				controller.dynamicInformerMap[volumeSnapshotCRD].stopCh = stopCh
 				controller.dynamicInformerMap[volumeSnapshotCRD].informer = volumeSnapshotInformer
 				controller.dynamicInformerMap[volumeSnapshotClassCRD].stopCh = stopCh
@@ -1235,8 +1244,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
-				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshot(vmSnapshot)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1299,8 +1308,8 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
-				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(createVolumeSnapshotClasses()[0])
+				addVirtualMachineSnapshot(vmSnapshot)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1357,8 +1366,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
-				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshot(vmSnapshot)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1409,8 +1418,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
-				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshot(vmSnapshot)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1462,8 +1471,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
-				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshot(vmSnapshot)
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
@@ -1840,8 +1849,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 				Expect(*snapshotCreates).To(Equal(0))
@@ -1874,9 +1883,9 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1911,8 +1920,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClasses[0].Name, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 				addVolumeSnapshotClass(volumeSnapshotClasses...)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1949,8 +1958,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClassName2, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 				addVolumeSnapshotClass(volumeSnapshotClasses...)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -1965,7 +1974,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
 				vmSource.Add(vm)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot.Status.Indications = append(vmSnapshot.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
@@ -1989,6 +1997,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -2004,7 +2013,6 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vm := createLockedVM()
 				vmSource.Add(vm)
@@ -2035,6 +2043,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf("%s", errorMessage)).Times(1)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
@@ -2145,7 +2154,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent.UID = contentUID
 				vm := createLockedVM()
 				vmSource.Add(vm)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmi := createVMI(vm)
 				agentCondition := v1.VirtualMachineInstanceCondition{
@@ -2177,6 +2185,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -2191,7 +2200,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent.UID = contentUID
 				vm := createLockedVM()
 				vmSource.Add(vm)
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmi := createVMI(vm)
 				agentCondition := v1.VirtualMachineInstanceCondition{
@@ -2228,6 +2236,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
 				Expect(*updateStatusCalls).To(Equal(1))
@@ -2558,7 +2567,6 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 
 				// Don't add any volume snapshots to simulate deletion
@@ -2566,6 +2574,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, vmSnapshotContent)
 
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*updateStatusCalls).To(Equal(0))
 			})
@@ -2596,14 +2605,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				for i := range volumeSnapshots {
 					volumeSnapshots[i].Status.ReadyToUse = &r
 					volumeSnapshots[i].Status.CreationTime = ct
-					volumeSnapshotSource.Add(&volumeSnapshots[i])
 					vss := snapshotv1.VolumeSnapshotStatus{
 						VolumeSnapshotName: volumeSnapshots[i].Name,
 					}
 					vmSnapshotContent.Status.VolumeSnapshotStatus = append(vmSnapshotContent.Status.VolumeSnapshotStatus, vss)
 				}
-
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot.Status.Indications = append(vmSnapshot.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
@@ -2630,6 +2636,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					addVolumeSnapshot(&volumeSnapshots[i])
+				}
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			},
@@ -2655,11 +2665,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.DeletionTimestamp = timeFunc()
 				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{SnapshotMode: mode}
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Times(0)
 				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, vmSnapshotContent)
 				addVirtualMachineSnapshot(vmSnapshot)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*patchCalls).To(Equal(0))
 			},
@@ -2689,8 +2699,6 @@ var _ = Describe("Snapshot controlleer", func() {
 					ReadyToUse: pointer.P(false),
 				}
 
-				vmSnapshotContentSource.Add(vmSnapshotContent)
-
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
@@ -2698,6 +2706,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(unfreezeError).Times(1)
 				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*patchCalls).To(Equal(1))
 			},
@@ -2722,7 +2731,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					SnapshotMode: pointer.P(snapshotv1.SnapshotModeExternal),
 				}
-				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmi := createVMI(vm)
 				vmi.UID = "vmi-uid"
@@ -2751,6 +2759,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					Times(1)
 				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, vmSnapshotContent)
 				addVirtualMachineSnapshot(vmSnapshot)
+				addVirtualMachineSnapshotContent(vmSnapshotContent)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*patchCalls).To(Equal(0))
 			},
@@ -2913,11 +2922,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassSource.Add(createStorageClass())
 				vmSource.Add(vm)
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
-				for i := range volumeSnapshotClasses {
-					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				}
-				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
-				syncCaches(stop)
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
 
 				updateCalled := false
 				vmInterface.EXPECT().
@@ -3116,13 +3121,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassSource.Add(createStorageClass())
 				storageClassSource.Add(localStorageClass)
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
-				for i := range volumeSnapshotClasses {
-					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				}
-
 				vmSource.Add(vm)
-				syncCaches(stop)
-				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
 
 				updateCalled := false
 				vmInterface.EXPECT().
@@ -3229,9 +3229,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(updateCalled).To(BeTrue())
 
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
-				for i := range volumeSnapshotClasses {
-					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				}
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
 				updateCalled = false
 				vmInterface.EXPECT().
 					UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
@@ -3292,11 +3290,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClassSource.Add(createStorageClass())
 				vmSource.Add(vm)
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
-				for i := range volumeSnapshotClasses {
-					volumeSnapshotClassSource.Add(&volumeSnapshotClasses[i])
-				}
-				mockVMQueue.Add(fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
-				syncCaches(stop)
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
 
 				updateCalled := false
 				vmInterface.EXPECT().
