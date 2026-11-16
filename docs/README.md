@@ -41,6 +41,12 @@ lifecycle of the qemu process within the *virt-launcher* pod.
 This component directly manages the lifecycle of the qemu process within
 the VMI's pod and receives lifecycle commands from virt-handler.
 
+### Performance and scalability
+
+See the [performance and scalability benchmarks](perf-scale-benchmarks.md) for
+VM and VMI startup times, component resource usage, and API request counts,
+including the test methodology and guidance on interpreting the results.
+
 ### Scripts
 
  * `kubevirtci/cluster-up/kubectl.sh`: This is a wrapper around Kubernetes' kubectl command so
