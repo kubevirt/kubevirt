@@ -35,27 +35,6 @@ import (
 // TODO: remove all the convert functions once we switch using the types of libvirtxml.
 // See: https://github.com/kubevirt/kubevirt/issues/10844
 
-func ConvertKubeVirtCPUTopologyToDomainCPUTopology(cpuTopology *api.CPUTopology) *libvirtxml.DomainCPUTopology {
-	if cpuTopology == nil {
-		return nil
-	}
-	return &libvirtxml.DomainCPUTopology{
-		Sockets: int(cpuTopology.Sockets),
-		Cores:   int(cpuTopology.Cores),
-		Threads: int(cpuTopology.Threads),
-	}
-}
-
-func ConvertKubeVirtVCPUToDomainVCPU(vcpu *api.VCPU) *libvirtxml.DomainVCPU {
-	if vcpu == nil {
-		return nil
-	}
-	return &libvirtxml.DomainVCPU{
-		Placement: vcpu.Placement,
-		Value:     uint(vcpu.CPUs),
-	}
-}
-
 func ConvertKubeVirtCPUTuneVCPUPinToDomainCPUTuneVCPUPin(vcpupin []api.CPUTuneVCPUPin) []libvirtxml.DomainCPUTuneVCPUPin {
 	res := []libvirtxml.DomainCPUTuneVCPUPin{}
 	for _, v := range vcpupin {
