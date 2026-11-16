@@ -326,10 +326,10 @@ var _ = Describe("MemoryDump", func() {
 				Message:   message,
 			})
 
-			start := time.Now()
-			_, err := memorydump.WaitForMemoryDumpComplete(kubecli.MockKubevirtClientInstance, metav1.NamespaceDefault, vmName, 10*time.Millisecond, time.Minute)
+			virtClient.ClearActions()
+			_, err := memorydump.WaitForMemoryDumpComplete(kubecli.MockKubevirtClientInstance, metav1.NamespaceDefault, vmName, time.Millisecond, time.Second)
 			Expect(err).To(MatchError("memory dump failed: " + message))
-			Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+			Expect(kvtesting.FilterActions(&virtClient.Fake, "get", "virtualmachines")).To(HaveLen(1))
 		})
 	})
 
