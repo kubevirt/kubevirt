@@ -128,6 +128,10 @@ func (s *VMTemplateSource) ManifestData() (key string, data []byte, extra map[st
 	return vmTemplateManifest, tplBytes, nil, nil
 }
 
+func (s *VMTemplateSource) SupportsOCI() bool {
+	return true
+}
+
 func (ctrl *VMExportController) handleVMTemplate(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj

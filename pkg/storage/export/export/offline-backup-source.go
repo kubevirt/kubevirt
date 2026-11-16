@@ -103,6 +103,14 @@ func (s *OfflineVMBackupSource) UpdateStatus(*exportv1.VirtualMachineExport, *co
 	return requeue, nil
 }
 
+func (s *OfflineVMBackupSource) ManifestData() (key string, data []byte, extra map[string]string, err error) {
+	return "", nil, nil, nil
+}
+
+func (s *OfflineVMBackupSource) SupportsOCI() bool {
+	return false
+}
+
 func (s *OfflineVMBackupSource) targetDir() string {
 	backupTime := s.vmBackup.CreationTimestamp.UTC().Format(backupTimeFormat)
 	return fmt.Sprintf("%s/%s/%s-%s", offlineTargetMountPath, s.vmName, s.vmBackup.Name, backupTime)

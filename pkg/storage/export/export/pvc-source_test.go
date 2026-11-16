@@ -418,4 +418,18 @@ var _ = Describe("PVC source", func() {
 		Entry("PVC claim lost", k8sv1.ClaimLost, k8sv1.ConditionFalse, unknownReason, ""),
 		Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason, ""),
 	)
+
+	It("Should not return manifest data for a PVC source", func() {
+		source := NewPVCSource(&sourceVolumes{})
+
+		key, data, extra, err := source.ManifestData()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(key).To(BeEmpty())
+		Expect(data).To(BeNil())
+		Expect(extra).To(BeNil())
+	})
+
+	It("Should not support OCI export", func() {
+		Expect(NewPVCSource(&sourceVolumes{}).SupportsOCI()).To(BeFalse())
+	})
 })

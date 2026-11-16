@@ -194,6 +194,8 @@ type exportSource interface {
 	ConfigurePod(pod *corev1.Pod)
 	ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string)
 	UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error)
+	ManifestData() (key string, data []byte, extra map[string]string, err error)
+	SupportsOCI() bool
 }
 
 type manifestRenderer interface {
@@ -584,7 +586,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if sourceVolumes == nil {
 			return 0, fmt.Errorf("unexpected nil sourceVolumes")
 		}
-		return ctrl.handleSource(vmExport, NewVMSnapshotSource(sourceVolumes, ctrl.getVmNameFromVmSnapshot(vmExport)))
+		vmName := ctrl.getVmNameFromVmSnapshot(vmExport)
+		return ctrl.handleSource(vmExport, NewVMSnapshotSource(sourceVolumes, vmName, func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error) {
+			return ctrl.getVMManifestInputs(vmExport.Namespace, vmName)
+		}))
 	}
 	if ctrl.isSourceVM(&vmExport.Spec) {
 		sourceVolumes, err := ctrl.getPVCFromSourceVM(vmExport)
@@ -594,7 +599,9 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 		if sourceVolumes == nil {
 			return 0, fmt.Errorf("unexpected nil sourceVolumes")
 		}
-		return ctrl.handleSource(vmExport, NewVMSource(sourceVolumes))
+		return ctrl.handleSource(vmExport, NewVMSource(sourceVolumes, func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error) {
+			return ctrl.getVMManifestInputs(vmExport.Namespace, vmExport.Spec.Source.Name)
+		}))
 	}
 	if ctrl.isSourceVMTemplate(&vmExport.Spec) {
 		tpl, sourceVolumes, err := ctrl.getPVCFromSourceVMTemplate(vmExport)
@@ -1125,67 +1132,24 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 
 	source.ConfigurePod(podManifest)
 
-	if ctrl.clusterConfig.OCIExportEnabled() && ctrl.supportsOCI(&vmExport.Spec) {
+	if ctrl.clusterConfig.OCIExportEnabled() && source.SupportsOCI() {
 		podManifest.Spec.Containers[0].Env = append(podManifest.Spec.Containers[0].Env, corev1.EnvVar{
 			Name:  "EXPORT_OCI_URI",
 			Value: ociPath,
 		})
 	}
 
-	if err := ctrl.configureSourceManifest(vmExport, podManifest, service, source); err != nil {
+	key, data, extra, err := source.ManifestData()
+	if err != nil {
 		return nil, err
+	}
+	if key != "" {
+		if err := ctrl.reconcileManifestAndAddToPod(vmExport, key, data, podManifest, service, extra); err != nil {
+			return nil, err
+		}
 	}
 
 	return podManifest, nil
-}
-
-// TODO: replace this with a source.ManifestData != nil check once ManifestData was added to exportSource interface
-func (ctrl *VMExportController) supportsOCI(source *exportv1.VirtualMachineExportSpec) bool {
-	return ctrl.isSourceVM(source) || ctrl.isSourceVMSnapshot(source) || ctrl.isSourceVMTemplate(source)
-}
-
-// TODO: add ManifestData to exportSource interface, refactor other sources, and remove this helper again.
-func (ctrl *VMExportController) configureSourceManifest(vmExport *exportv1.VirtualMachineExport, podManifest *corev1.Pod, service *corev1.Service, source exportSource) error {
-	var (
-		key   string
-		data  []byte
-		extra map[string]string
-	)
-
-	switch {
-	case ctrl.isSourceVMTemplate(&vmExport.Spec):
-		tplSource, ok := source.(*VMTemplateSource)
-		if !ok {
-			return fmt.Errorf("expected source to be of type VMTemplateSource")
-		}
-		var err error
-		key, data, extra, err = tplSource.ManifestData()
-		if err != nil {
-			return err
-		}
-	default:
-		vm, err := ctrl.getVmFromExport(vmExport)
-		if err != nil {
-			return err
-		}
-		if vm != nil {
-			key = vmManifest
-			data, err = ctrl.generateVMDefinitionFromVm(vm)
-			if err != nil {
-				return err
-			}
-			extra, err = ctrl.extraVMData(vm)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if key != "" {
-		return ctrl.reconcileManifestAndAddToPod(vmExport, key, data, podManifest, service, extra)
-	}
-
-	return nil
 }
 
 func (ctrl *VMExportController) reconcileManifestAndAddToPod(vmExport *exportv1.VirtualMachineExport, manifestKey string, manifestBytes []byte, podManifest *corev1.Pod, service *corev1.Service, extraData map[string]string) error {
@@ -1286,24 +1250,6 @@ func (ctrl *VMExportController) createManifestConfigMap(vmExport *exportv1.Virtu
 	}, nil
 }
 
-func (ctrl *VMExportController) extraVMData(vm *virtv1.VirtualMachine) (map[string]string, error) {
-	datavolumes, err := ctrl.generateDataVolumesFromVm(vm)
-	if err != nil {
-		return nil, err
-	}
-	extra := make(map[string]string)
-	for _, datavolume := range datavolumes {
-		if datavolume != nil {
-			dvBytes, err := json.Marshal(datavolume)
-			if err != nil {
-				return nil, err
-			}
-			extra[fmt.Sprintf("dv-%s", datavolume.Name)] = string(dvBytes)
-		}
-	}
-	return extra, nil
-}
-
 func (ctrl *VMExportController) createExportCaConfigMap(ca, vmExportName string) *corev1.ConfigMap {
 	data := make(map[string]string)
 	data["ca.pem"] = ca
@@ -1318,26 +1264,6 @@ func (ctrl *VMExportController) createExportCaConfigMap(ca, vmExportName string)
 
 func (ctrl *VMExportController) getVmManifestConfigMapName(vmExport *exportv1.VirtualMachineExport) string {
 	return fmt.Sprintf("exporter-vm-manifest-%s", vmExport.Name)
-}
-
-func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachineExport) (*virtv1.VirtualMachine, error) {
-	vmName := ""
-	if ctrl.isSourceVMSnapshot(&vmExport.Spec) {
-		vmName = ctrl.getVmNameFromVmSnapshot(vmExport)
-	} else if ctrl.isSourceVM(&vmExport.Spec) {
-		vmName = vmExport.Spec.Source.Name
-	}
-	if vmName == "" {
-		return nil, nil
-	}
-	vm, exists, err := ctrl.getVm(vmExport.Namespace, vmName)
-	if err != nil {
-		return nil, err
-	}
-	if exists {
-		return ctrl.instancetypeHandler.Expand(vm)
-	}
-	return nil, nil
 }
 
 func (ctrl *VMExportController) isKubevirtContentType(pvc *corev1.PersistentVolumeClaim) bool {
@@ -1423,7 +1349,7 @@ func (ctrl *VMExportController) updateCommonVMExportStatusFields(vmExport, vmExp
 		}
 	}
 
-	if ctrl.clusterConfig.OCIExportEnabled() && ctrl.supportsOCI(&vmExport.Spec) {
+	if ctrl.clusterConfig.OCIExportEnabled() && source.SupportsOCI() {
 		ociStatus := corev1.ConditionFalse
 		ociReason := ociDigestsPendingReason
 		if exporterPod != nil && optutil.PodIsReady(exporterPod) {
@@ -1590,7 +1516,29 @@ func (ctrl *VMExportController) pvcConditionFromPVC(pvcs []*corev1.PersistentVol
 	return cond
 }
 
-func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+func (ctrl *VMExportController) getVMManifestInputs(namespace, vmName string) (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error) {
+	if vmName == "" {
+		return nil, nil, nil
+	}
+	vm, exists, err := ctrl.getVm(namespace, vmName)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !exists {
+		return nil, nil, nil
+	}
+	expandedVm, err := ctrl.instancetypeHandler.Expand(vm)
+	if err != nil {
+		return nil, nil, err
+	}
+	dvs, err := ctrl.generateDataVolumesFromVm(expandedVm)
+	if err != nil {
+		return nil, nil, err
+	}
+	return expandedVm, dvs, nil
+}
+
+func updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
@@ -1605,13 +1553,13 @@ func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.Vi
 			volumeName = volume.PersistentVolumeClaim.ClaimName
 		}
 		if volumeName != "" {
-			vm.Spec.DataVolumeTemplates = ctrl.replaceUrlDVTemplate(volumeName, vm.Spec.DataVolumeTemplates)
+			vm.Spec.DataVolumeTemplates = replaceUrlDVTemplate(volumeName, vm.Spec.DataVolumeTemplates)
 		}
 	}
 	return vm, nil
 }
 
-func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
+func replaceUrlDVTemplate(volumeName string, templates []virtv1.DataVolumeTemplateSpec) []virtv1.DataVolumeTemplateSpec {
 	res := make([]virtv1.DataVolumeTemplateSpec, 0)
 	for _, template := range templates {
 		if template.ObjectMeta.Name == volumeName {
@@ -1629,33 +1577,6 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, template
 		}
 	}
 	return res
-}
-
-func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMachine) ([]byte, error) {
-	expandedVm, err := ctrl.instancetypeHandler.Expand(vm)
-	if err != nil {
-		return nil, err
-	}
-	// Clear status
-	expandedVm.Status = virtv1.VirtualMachineStatus{}
-	expandedVm.ManagedFields = nil
-	cleanedObjectMeta := metav1.ObjectMeta{}
-	cleanedObjectMeta.Name = expandedVm.ObjectMeta.Name
-	cleanedObjectMeta.Namespace = expandedVm.ObjectMeta.Namespace
-	cleanedObjectMeta.Labels = expandedVm.ObjectMeta.Labels
-	cleanedObjectMeta.Annotations = expandedVm.Annotations
-	expandedVm.ObjectMeta = cleanedObjectMeta
-
-	// Update dvTemplates if exists
-	expandedVm, err = ctrl.updateHttpSourceDataVolumeTemplate(expandedVm)
-	if err != nil {
-		return nil, err
-	}
-	vmBytes, err := json.Marshal(expandedVm)
-	if err != nil {
-		return nil, err
-	}
-	return vmBytes, nil
 }
 
 func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {

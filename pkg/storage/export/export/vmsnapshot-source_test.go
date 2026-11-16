@@ -744,4 +744,30 @@ var _ = Describe("VMSnapshot source", func() {
 		Expect(retry).To(BeEquivalentTo(0))
 	})
 
+	It("Should return manifest data for a VMSnapshot source", func() {
+		controller.VMInformer.GetStore().Add(&virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{Name: testVmName, Namespace: testNamespace},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+					Spec: virtv1.VirtualMachineInstanceSpec{Volumes: []virtv1.Volume{}},
+				},
+			},
+		})
+
+		testVMExport := createSnapshotVMExport()
+		source := NewVMSnapshotSource(&sourceVolumes{}, testVmName, func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error) {
+			return controller.getVMManifestInputs(testVMExport.Namespace, testVmName)
+		})
+
+		key, data, extra, err := source.ManifestData()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(key).To(Equal(vmManifest))
+		Expect(data).ToNot(BeEmpty())
+		Expect(extra).To(BeEmpty())
+	})
+
+	It("Should support OCI export", func() {
+		Expect(NewVMSnapshotSource(&sourceVolumes{}, "test-vm", nil).SupportsOCI()).To(BeTrue())
+	})
+
 })
