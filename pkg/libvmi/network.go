@@ -108,6 +108,13 @@ func WithPorts(ports ...kvirtv1.Port) InterfaceOption {
 	}
 }
 
+// WithPortRanges sets the port ranges.
+func WithPortRanges(portRanges ...kvirtv1.PortRange) InterfaceOption {
+	return func(iface *kvirtv1.Interface) {
+		iface.PortRanges = portRanges
+	}
+}
+
 // WithACPIIndex sets the ACPI index.
 func WithACPIIndex(acpiIdx int) InterfaceOption {
 	return func(iface *kvirtv1.Interface) {
