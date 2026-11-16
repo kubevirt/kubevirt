@@ -45,7 +45,7 @@ func (p processStub) Pid() int           { return p.pid }
 func (p processStub) PPid() int          { return p.ppid }
 func (p processStub) Executable() string { return p.binary }
 
-var _ = Describe("AdjustResources", func() {
+var _ = Describe("MSHV AdjustResources", func() {
 	var (
 		ctrl                  *gomock.Controller
 		mockIsolationDetector *isolation.MockPodIsolationDetector
