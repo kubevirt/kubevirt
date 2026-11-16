@@ -470,8 +470,14 @@ var _ = Describe("Annotations Generator", func() {
 
 			multusNetworkStatusWithPrimaryAndTwoSecondaryNets = `[` +
 				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
-				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","dns":{}}` +
+				`{"name":"some-net","interface":"podb1f51a511f1","mac":"8a:37:d9:e7:0f:18","dns":{}},` +
 				`{"name":"other-net","interface":"pod16477688c0e","mac":"25:bb:e2:a3:e8:4d","dns":{}}` +
+				`]`
+
+			multusOrdinalNetworkStatusWithPrimaryAndTwoSecondaryNets = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"some-net","interface":"net1","mac":"8a:37:d9:e7:0f:18","dns":{}},` +
+				`{"name":"other-net","interface":"net2","mac":"25:bb:e2:a3:e8:4d","dns":{}}` +
 				`]`
 		)
 
@@ -636,6 +642,158 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(multusNetworksAnnotationWithTwoNets))
 		})
 
+		It("Should replace a stale NAD when another interface is hot plugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(network2Name, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, "updated-net")),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: `[` +
+					`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
+					`{"name":"external-net","namespace":"default"}` +
+					`]`,
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"name":"external-net","namespace":"default"},
+				{"name":"updated-net","namespace":"default","interface":"podb1f51a511f1"},
+				{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}
+			]`))
+		})
+
+		It("Should preserve external fields when a secondary interface is hot plugged", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(network2Name, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: `[` +
+					`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1","foo":"bar","cni-args":{"deviceID":"0000:01:00.0"}}` +
+					`]`,
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"cni-args":{"deviceID":"0000:01:00.0"},"foo":"bar","interface":"podb1f51a511f1","name":"some-net","namespace":"default"},
+				{"interface":"pod16477688c0e","name":"other-net","namespace":"default"}
+			]`))
+		})
+
+		DescribeTable("Should update a network binding plugin element when another interface is hot plugged",
+			func(currentNADName, registeredNADName, expectedNADName string) {
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name,
+						libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}),
+					)),
+					libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				)
+
+				podAnnotations := map[string]string{
+					networkv1.NetworkAttachmentAnnot: `[` +
+						`{"name":"` + currentNADName + `","namespace":"default","cni-args":{"logicNetworkName":"default","deviceID":"0000:01:00.0"}}` +
+						`]`,
+					networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+				}
+
+				generator := annotations.NewGenerator(stubClusterConfig{
+					registeredPlugins: map[string]v1.InterfaceBindingPlugin{
+						"test-binding": {NetworkAttachmentDefinition: registeredNADName},
+					},
+				})
+				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+					{"cni-args":{"deviceID":"0000:01:00.0","logicNetworkName":"default"},"name":"` + expectedNADName + `","namespace":"default"},
+					{"interface":"podb1f51a511f1","name":"some-net","namespace":"default"}
+				]`))
+			},
+			Entry("and preserve its external cni-args",
+				"test-binding-net", "test-binding-net", "test-binding-net",
+			),
+			Entry("and replace its re-pointed NAD",
+				"old-binding-net", "new-binding-net", "new-binding-net",
+			),
+		)
+
+		It("Should preserve external cni-args on multiple network binding plugins using the same NAD", func() {
+			const (
+				bindingNetwork1Name = "binding-net1"
+				bindingNetwork2Name = "binding-net2"
+			)
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.NewInterface(bindingNetwork1Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}))),
+				libvmi.WithInterface(libvmi.NewInterface(bindingNetwork2Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}))),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(&v1.Network{Name: bindingNetwork1Name}),
+				libvmi.WithNetwork(&v1.Network{Name: bindingNetwork2Name}),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: bindingNetwork1Name}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: bindingNetwork2Name}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: `[` +
+					`{"name":"test-binding-net","namespace":"default","cni-args":{"logicNetworkName":"binding-net1","deviceID":"0000:01:00.0"}},` +
+					`{"name":"test-binding-net","namespace":"default","cni-args":{"logicNetworkName":"binding-net2"}}` +
+					`]`,
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{
+				registeredPlugins: map[string]v1.InterfaceBindingPlugin{
+					"test-binding": {NetworkAttachmentDefinition: "test-binding-net"},
+				},
+			})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"cni-args":{"deviceID":"0000:01:00.0","logicNetworkName":"binding-net1"},"name":"test-binding-net","namespace":"default"},
+				{"cni-args":{"logicNetworkName":"binding-net2"},"name":"test-binding-net","namespace":"default"},
+				{"interface":"podb1f51a511f1","name":"some-net","namespace":"default"}
+			]`))
+		})
+
 		It("Should not generate network attachment annotation when an SR-IOV iface is hot plugged", func() {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -658,7 +816,98 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
 		})
 
-		It("Should generate network attachment annotation when a secondary interface is hot unplugged", func() {
+		DescribeTable("Should generate network attachment annotation when a secondary interface is hot unplugged",
+			func(currentMultusAnnotation, expectedMultusAnnotation string) {
+				ifaceWithStateAbsent := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())
+				ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithInterface(ifaceWithStateAbsent),
+					libvmi.WithInterface(libvmi.NewInterface(network2Name, libvmi.WithBridgeBinding())),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+					libvmistatus.WithStatus(
+						libvmistatus.New(
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+								Name:       network1Name,
+								InfoSource: vmispec.InfoSourceMultusStatus,
+							}),
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+								Name:       network2Name,
+								InfoSource: vmispec.InfoSourceMultusStatus,
+							}),
+						),
+					),
+				)
+
+				podAnnotations := map[string]string{
+					networkv1.NetworkAttachmentAnnot: currentMultusAnnotation,
+					networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndTwoSecondaryNets,
+				}
+
+				generator := annotations.NewGenerator(stubClusterConfig{})
+				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusAnnotation))
+			},
+			Entry("without external fields",
+				multusNetworksAnnotationWithTwoNets,
+				`[{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}]`,
+			),
+			Entry("and preserve external fields",
+				`[`+
+					`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},`+
+					`{"name":"other-net","namespace":"default","interface":"pod16477688c0e","foo":"bar","cni-args":{"deviceID":"0000:01:00.0"}}`+
+					`]`,
+				`[
+					{"cni-args":{"deviceID":"0000:01:00.0"},"foo":"bar","interface":"pod16477688c0e","name":"other-net","namespace":"default"}
+				]`,
+			),
+		)
+
+		It("Should remove the absent interface element when using the ordinal naming scheme", func() {
+			ifaceWithStateAbsent := libvmi.NewInterface(network2Name, libvmi.WithBridgeBinding())
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
+				libvmi.WithInterface(ifaceWithStateAbsent),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network2Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotationWithTwoNets,
+				networkv1.NetworkStatusAnnot:     multusOrdinalNetworkStatusWithPrimaryAndTwoSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"name":"some-net","namespace":"default","interface":"net1"}
+			]`))
+		})
+
+		It("Should remove a secondary interface when its networkName changed in the same edit", func() {
 			ifaceWithStateAbsent := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())
 			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
 			vmi := libvmi.New(
@@ -667,7 +916,7 @@ var _ = Describe("Annotations Generator", func() {
 				libvmi.WithInterface(ifaceWithStateAbsent),
 				libvmi.WithInterface(libvmi.NewInterface(network2Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, "updated-net")),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network2Name, networkAttachmentDefinitionName2)),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
@@ -692,8 +941,92 @@ var _ = Describe("Annotations Generator", func() {
 			generator := annotations.NewGenerator(stubClusterConfig{})
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
-			const expectedMultusNetAttach = `[{"name":"other-net","namespace":"default","interface":"pod16477688c0e"}]`
-			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetAttach))
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"interface":"pod16477688c0e","name":"other-net","namespace":"default"}
+			]`))
+		})
+
+		DescribeTable("Should hot unplug one of multiple network binding plugins using the same NAD",
+			func(currentNADName, registeredNADName, expectedNADName string) {
+				const (
+					bindingNetwork1Name = "binding-net1"
+					bindingNetwork2Name = "binding-net2"
+				)
+
+				ifaceWithStateAbsent := libvmi.NewInterface(bindingNetwork2Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}))
+				ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
+				vmi := libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithInterface(libvmi.NewInterface(bindingNetwork1Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}))),
+					libvmi.WithInterface(ifaceWithStateAbsent),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(&v1.Network{Name: bindingNetwork1Name}),
+					libvmi.WithNetwork(&v1.Network{Name: bindingNetwork2Name}),
+					libvmistatus.WithStatus(
+						libvmistatus.New(
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: bindingNetwork1Name}),
+							libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: bindingNetwork2Name}),
+						),
+					),
+				)
+
+				podAnnotations := map[string]string{
+					networkv1.NetworkAttachmentAnnot: `[` +
+						`{"name":"` + currentNADName + `","namespace":"default","cni-args":{"logicNetworkName":"binding-net1","deviceID":"0000:01:00.0"}},` +
+						`{"name":"` + currentNADName + `","namespace":"default","cni-args":{"logicNetworkName":"binding-net2"}}` +
+						`]`,
+					networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+				}
+
+				generator := annotations.NewGenerator(stubClusterConfig{
+					registeredPlugins: map[string]v1.InterfaceBindingPlugin{
+						"test-binding": {NetworkAttachmentDefinition: registeredNADName},
+					},
+				})
+				annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+				Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+					{"cni-args":{"deviceID":"0000:01:00.0","logicNetworkName":"binding-net1"},"name":"` + expectedNADName + `","namespace":"default"}
+				]`))
+			},
+			Entry("and preserve external cni-args on the remaining element",
+				"test-binding-net", "test-binding-net", "test-binding-net",
+			),
+			Entry("and remove the absent element when its NAD has been re-pointed",
+				"old-binding-net", "new-binding-net", "new-binding-net",
+			),
+		)
+
+		It("Should remove a binding plugin interface when its plugin is no longer registered", func() {
+			ifaceWithStateAbsent := libvmi.NewInterface("binding-net1", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "test-binding"}))
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(&v1.Network{Name: "binding-net1"}),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "binding-net1"}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: `[` +
+					`{"name":"old-binding-net","namespace":"default","cni-args":{"logicNetworkName":"binding-net1","deviceID":"0000:01:00.0"}}` +
+					`]`,
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
 		})
 
 		It("Should remove the Multus network attachment annotation when the last secondary interface is hot unplugged", func() {
@@ -725,6 +1058,42 @@ var _ = Describe("Annotations Generator", func() {
 			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
 
 			Expect(annotations).To(HaveKeyWithValue(networkv1.NetworkAttachmentAnnot, ""))
+		})
+
+		It("Should preserve external-only elements when the last KubeVirt-owned secondary interface is hot unplugged", func() {
+			ifaceWithStateAbsent := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())
+			ifaceWithStateAbsent.State = v1.InterfaceStateAbsent
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(ifaceWithStateAbsent),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			podAnnotations := map[string]string{
+				networkv1.NetworkAttachmentAnnot: `[` +
+					`{"name":"some-net","namespace":"default","interface":"podb1f51a511f1"},` +
+					`{"name":"external-net","namespace":"default"}` +
+					`]`,
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNets,
+			}
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			annotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(annotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(`[
+				{"name":"external-net","namespace":"default"}
+			]`))
 		})
 	})
 })

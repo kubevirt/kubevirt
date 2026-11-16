@@ -36,6 +36,10 @@ const (
 	// to a network other than Multus's `clusterNetwork` field under /etc/cni/net.d
 	// The value of this annotation should be a NetworkAttachmentDefinition's name
 	DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
+
+	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
+	// The binding plugin CNI should read this arg and realize which logical network it should modify.
+	cniArgNetworkName = "logicNetworkName"
 )
 
 func GenerateCNIAnnotation(
@@ -69,6 +73,15 @@ func GenerateCNIAnnotationFromNameScheme(
 		}
 
 		if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
+			if iface.State == v1.InterfaceStateAbsent {
+				// An absent binding-plugin interface only needs a removal
+				// pattern, identified by its logical network name: the plugin
+				// need not be registered, and the NAD - possibly re-pointed
+				// since the interface was created - is not part of the
+				// pattern's identity.
+				networkSelectionElements = append(networkSelectionElements, newAbsentBindingPluginAnnotationData(network.Name))
+				continue
+			}
 			bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
 				registeredBindingPlugins,
 				iface.Binding.Name,
@@ -132,10 +145,6 @@ func newBindingPluginAnnotationData(
 	}
 	nadNamespacedName := NetAttachDefNamespacedName(namespace, plugin.NetworkAttachmentDefinition)
 
-	// cniArgNetworkName is the CNI arg name for the VM spec network logical name.
-	// The binding plugin CNI should read this arg and realize which logical network it should modify.
-	const cniArgNetworkName = "logicNetworkName"
-
 	return &networkv1.NetworkSelectionElement{
 		Namespace: nadNamespacedName.Namespace,
 		Name:      nadNamespacedName.Name,
@@ -143,4 +152,18 @@ func newBindingPluginAnnotationData(
 			cniArgNetworkName: networkName,
 		},
 	}, nil
+}
+
+// newAbsentBindingPluginAnnotationData creates the removal pattern for an
+// absent binding-plugin interface. The pattern is identified by the logical
+// network name alone, so it matches the live element even when the binding
+// plugin is no longer registered or its NAD has been re-pointed; the name
+// field is required by the annotation format but is not part of the identity.
+func newAbsentBindingPluginAnnotationData(networkName string) networkv1.NetworkSelectionElement {
+	return networkv1.NetworkSelectionElement{
+		Name: networkName,
+		CNIArgs: &map[string]any{
+			cniArgNetworkName: networkName,
+		},
+	}
 }
