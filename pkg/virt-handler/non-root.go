@@ -33,10 +33,7 @@ import (
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/storage/diskimg"
-	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -74,51 +71,8 @@ func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation
 	return nil
 }
 
-func changeOwnership(path *safepath.Path) error {
-	err := diskutils.DefaultOwnershipManager.SetFileOwnership(path)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func changeOwnershipOfDiskImages(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	for i := range vmi.Spec.Volumes {
-		if hostDisk := vmi.Spec.Volumes[i].HostDisk; hostDisk != nil {
-			volumeName := vmi.Spec.Volumes[i].Name
-			if err := changeOwnershipOfDiskImage(res, hostdisk.GetMountedHostDiskDir(volumeName), hostdisk.GetMountedHostDiskPath(volumeName, hostDisk.Path)); err != nil {
-				return fmt.Errorf("failed to change ownership of disk image of volume %s: %w", volumeName, err)
-			}
-		}
-	}
-	for volumeName := range diskimg.ImageBackedPVCs(vmi) {
-		if err := changeOwnershipOfDiskImage(res, volumepath.FilesystemDir(volumeName), volumepath.Filesystem(volumeName)); err != nil {
-			return fmt.Errorf("failed to change ownership of disk image of volume %s: %w", volumeName, err)
-		}
-	}
-	return nil
-}
-
-func changeOwnershipOfDiskImage(res isolation.IsolationResult, diskDir, diskPath string) error {
-	target := diskPath
-	if _, err := os.Stat(diskPath); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to recognize if disk image exists: %v", err)
-		}
-		target = diskDir
-	}
-	path, err := isolation.SafeJoin(res, target)
-	if err != nil {
-		return err
-	}
-	return changeOwnership(path)
-}
-
 func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
-		return err
-	}
-	return changeOwnershipOfDiskImages(vmi, res)
+	return changeOwnershipOfBlockDevices(vmi, res)
 }
 
 func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
