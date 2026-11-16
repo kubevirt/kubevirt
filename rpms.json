@@ -2895,19 +2895,17 @@
 			]
 		},
 		{
-			"name": "glibc-langpack-gd-0__2.34-290.el9.x86_64",
-			"integrity": "sha256-ctjUdBM53KaR/dhZMxpDU6MaQgti/3zuLhzEGQwJjJc=",
+			"name": "glibc-langpack-gv-0__2.34-290.el9.s390x",
+			"integrity": "sha256-vi4p7TohN3/g+rQTM4Ik0oGhokoaudULJWg8dGGoiwo=",
 			"urls": [
-				"http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-gd-2.34-290.el9.x86_64.rpm",
-				"https://storage.googleapis.com/builddeps/72d8d4741339dca691fdd859331a4353a31a420b62ff7cee2e1cc4190c098c97"
+				"http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-gv-2.34-290.el9.s390x.rpm"
 			]
 		},
 		{
-			"name": "glibc-langpack-ka-0__2.34-290.el9.s390x",
-			"integrity": "sha256-UOzOl+CK7Z+l53+6pQ6ntRoUwtke0pGVSb2TkYmHTPM=",
+			"name": "glibc-langpack-ka-0__2.34-290.el9.x86_64",
+			"integrity": "sha256-atVKH1RFmLG20FDdl18Jtr6RhdfjM5csJnsbEkowLCA=",
 			"urls": [
-				"http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-ka-2.34-290.el9.s390x.rpm",
-				"https://storage.googleapis.com/builddeps/50ecce97e08aed9fa5e77fbaa50ea7b51a14c2d91ed2919549bd939189874cf3"
+				"http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-ka-2.34-290.el9.x86_64.rpm"
 			]
 		},
 		{
