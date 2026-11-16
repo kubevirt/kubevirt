@@ -132,6 +132,10 @@ func ConvReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 
 // base64.StdEncoding.EncodeToString
 func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec string) (cli.VirDomain, error) {
+	// V(4) is intentional. This is a debug dump of the full domain XML, and
+	// SetDomainSpecStr can run more than once per boot. The shorter per-sync
+	// lines are V(3). virt-launcher defaults to -v=2, so neither is logged
+	// unless verbosity is raised.
 	log.Log.Object(vmi).V(4).Infof("Domain XML generated. Base64 dump %s", base64.StdEncoding.EncodeToString([]byte(wantedSpec)))
 	dom, err := virConn.DomainDefineXML(wantedSpec)
 	if err != nil {

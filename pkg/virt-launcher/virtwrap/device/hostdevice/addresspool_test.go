@@ -97,10 +97,15 @@ var _ = Describe("Address Pool", func() {
 				withEnvironmentContext(env, func() {
 					hostdevice.NewAddressPool(poolPrefix, []string{resource0})
 				})
+				spec := CurrentSpecReport().LeafNodeText
 				if expectWarning {
-					Expect(logs.String()).To(ContainSubstring("not set for resource " + resource0))
+					Expect(logs.String()).To(ContainSubstring("not set for resource "+resource0),
+						"%s: expected a warning that the resource variable is not set, because no sibling prefix advertises %s",
+						spec, resource0)
 				} else {
-					Expect(logs.String()).ToNot(ContainSubstring("not set for resource"))
+					Expect(logs.String()).ToNot(ContainSubstring("not set for resource"),
+						"%s: expected no missing-resource warning, because a sibling prefix already advertises %s",
+						spec, resource0)
 				}
 			},
 			Entry("PCI pool, resource advertised as MDEV",
