@@ -22,7 +22,8 @@ EOF
     function collect_results() {
         cd ${KUBEVIRT_DIR}
         mkdir -p ${ARTIFACTS}/junit/
-        bazel run --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} //tools/junit-merger:junit-merger -- -o ${ARTIFACTS}/junit/junit.unittests.xml $(find bazel-testlogs/ -name 'test.xml' -printf "%p ")
+        # Go transitions can put test reports outside the bazel-testlogs configuration.
+        bazel run --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} //tools/junit-merger:junit-merger -- -o ${ARTIFACTS}/junit/junit.unittests.xml $(find bazel-out/ -name 'test.xml' -printf "%p ")
 
         for f in $(find bazel-out/ -name 'test.log'); do
             dir=${ARTIFACTS}/testlogs/$(dirname $f)
