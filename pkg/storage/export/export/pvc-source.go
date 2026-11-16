@@ -72,7 +72,7 @@ func (s *PVCSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExpor
 
 func (s *PVCSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
 	var requeue time.Duration
-	if !s.IsSourceAvailable() && s.HasContent() {
+	if blocked := s.sourceVolumes.Blocked(); blocked != nil && blocked.requeue {
 		log.Log.V(4).Infof("Source is not available %s, requeuing", s.SourceCondition().Message)
 		requeue = requeueTime
 	}
@@ -117,9 +117,6 @@ func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.Persiste
 func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (*sourceVolumes, error) {
 	sourceVolumes := &sourceVolumes{
 		volumes:         []sourceVolume{ctrl.newSourceVolume(pvc, "")},
-		inUse:           false,
-		isPopulated:     false,
-		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
 		sourceCondition: exportv1.Condition{},
 	}
 
@@ -127,21 +124,18 @@ func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualM
 	if err != nil {
 		return nil, err
 	}
-	sourceVolumes.isPopulated = isPopulated
-
 	if isPopulated {
 		inUse, err := ctrl.isPVCInUse(vmExport, pvc)
 		if err != nil {
 			return nil, err
 		}
-		sourceVolumes.inUse = inUse
 		if inUse {
-			sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, inUseReason,
-				fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", pvc.Namespace, pvc.Name))
+			sourceVolumes.blocked = &blocker{reason: inUseReason,
+				message: fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", pvc.Namespace, pvc.Name), requeue: true}
 		}
 	} else {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, pvcPendingReason,
-			fmt.Sprintf("PersistentVolumeClaim %s/%s is not populated", pvc.Namespace, pvc.Name))
+		sourceVolumes.blocked = &blocker{reason: pvcPendingReason,
+			message: fmt.Sprintf("PersistentVolumeClaim %s/%s is not populated", pvc.Namespace, pvc.Name), requeue: true}
 	}
 
 	sourceVolumes.sourceCondition = ctrl.pvcConditionFromPVC([]*corev1.PersistentVolumeClaim{pvc})
@@ -157,9 +151,7 @@ func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMa
 	if !pvcExists {
 		return &sourceVolumes{
 			volumes:         nil,
-			inUse:           false,
-			isPopulated:     false,
-			readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+			blocked:         &blocker{reason: initializingReason},
 			sourceCondition: newPvcCondition(corev1.ConditionFalse, pvcNotFoundReason, fmt.Sprintf("PersistentVolumeClaim %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)),
 		}, nil
 	}

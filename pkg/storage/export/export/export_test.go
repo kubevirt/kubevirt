@@ -1053,8 +1053,7 @@ var _ = Describe("Export controller", func() {
 		populateInitialVMExportStatus(testVMExport)
 
 		sv := &sourceVolumes{
-			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
-			isPopulated: true,
+			volumes: []sourceVolume{controller.newSourceVolume(testPVC, "")},
 		}
 		source := createSource(sv)
 		err := controller.handleVMExportToken(testVMExport, source)
@@ -1398,8 +1397,7 @@ var _ = Describe("Export controller", func() {
 		}
 		populateInitialVMExportStatus(testVMExport)
 		sv := &sourceVolumes{
-			volumes:     []sourceVolume{controller.newSourceVolume(testPVC, "")},
-			isPopulated: true,
+			volumes: []sourceVolume{controller.newSourceVolume(testPVC, "")},
 		}
 		snapSource := NewVMSnapshotSource(sv, "test-vm-name")
 		err := controller.handleVMExportToken(testVMExport, snapSource)
@@ -1474,10 +1472,7 @@ var _ = Describe("Export controller", func() {
 	})
 
 	DescribeTable("sourceVolumes should report PVCs referenced by more than one volume", func(pvcNames []string, expectedDuplicates []string) {
-		sv := &sourceVolumes{
-			isPopulated:    true,
-			readyCondition: newReadyCondition(k8sv1.ConditionTrue, podReadyReason, ""),
-		}
+		sv := &sourceVolumes{}
 		for _, name := range pvcNames {
 			sv.volumes = append(sv.volumes, sourceVolume{
 				pvc: &k8sv1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: name}},
@@ -1490,7 +1485,8 @@ var _ = Describe("Export controller", func() {
 		condition := sv.ReadyCondition()
 		Expect(condition.Type).To(Equal(exportv1.ConditionReady))
 		if len(expectedDuplicates) == 0 {
-			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(initializingReason))
 			Expect(condition.Reason).ToNot(Equal(duplicatePVCReason))
 			return
 		}
@@ -1667,8 +1663,7 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(controller.PVCInformer.GetStore().Add(pvc)).To(Succeed())
 		sv := &sourceVolumes{
-			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
-			isPopulated: true,
+			volumes: []sourceVolume{controller.newSourceVolume(pvc, "")},
 		}
 		pvcSource := NewPVCSource(sv)
 		populateInitialVMExportStatus(testVMExport)
@@ -1693,8 +1688,8 @@ var _ = Describe("Export controller", func() {
 		})
 		populateInitialVMExportStatus(testVMExport)
 		sv := &sourceVolumes{
-			volumes:     nil,
-			isPopulated: false,
+			volumes: nil,
+			blocked: &blocker{reason: initializingReason},
 		}
 		pvcSource := NewPVCSource(sv)
 		err := controller.handleVMExportToken(testVMExport, pvcSource)
@@ -1726,8 +1721,7 @@ var _ = Describe("Export controller", func() {
 			return true, secret, nil
 		})
 		sv := &sourceVolumes{
-			volumes:     []sourceVolume{controller.newSourceVolume(pvc, "")},
-			isPopulated: true,
+			volumes: []sourceVolume{controller.newSourceVolume(pvc, "")},
 		}
 		pvcSource := NewPVCSource(sv)
 		err := controller.handleVMExportToken(testVMExport, pvcSource)
