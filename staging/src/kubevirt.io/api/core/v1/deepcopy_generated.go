@@ -1707,6 +1707,11 @@ func (in *ExperimentalMigrationOptions) DeepCopyInto(out *ExperimentalMigrationO
 		*out = new(MigrationCompression)
 		**out = **in
 	}
+	if in.ConvergenceTimeoutSec != nil {
+		in, out := &in.ConvergenceTimeoutSec, &out.ConvergenceTimeoutSec
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 

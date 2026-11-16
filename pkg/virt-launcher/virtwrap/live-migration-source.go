@@ -100,9 +100,9 @@ type migrationMonitor struct {
 
 	// deadline in seconds for initial copy (CompletionTimeoutPerGiB * migration data size)
 	initialCopyTimeoutSec int64
-	// converge-phase budget; set at latch to max(0, initialCopyTimeoutSec-initialCopyDoneSec)
+	// converge-phase budget; set at latch from ConvergenceTimeoutSec or remaining initial-copy budget
 	convergenceTimeoutSec int64
-	// elapsed seconds when convergence started; 0 until then
+	// elapsed seconds when MemIteration first became > 1; 0 until then
 	initialCopyDoneSec int64
 	// deadline in seconds for switchover to post-copy or stop-and-copy; updated on latch to initialCopyDoneSec+convergenceTimeoutSec
 	switchOverDeadline int64
@@ -609,9 +609,13 @@ func (m *migrationMonitor) acceptableCompletionTime() int64 {
 	return m.initialCopyDoneSec + m.convergenceTimeoutSec
 }
 
-// convergePhaseTimeoutSec returns the converge-phase budget at latch time:
-// the remainder of the initial-copy CompletionTimeoutPerGiB budget.
+// convergePhaseTimeoutSec returns the converge-phase budget at latch time.
+// A configured ConvergenceTimeoutSec is used as a fixed budget; otherwise the
+// remainder of the initial-copy CompletionTimeoutPerGiB budget is kept (legacy).
 func (m *migrationMonitor) convergePhaseTimeoutSec() int64 {
+	if m.options != nil && m.options.ConvergenceTimeoutSec != nil {
+		return *m.options.ConvergenceTimeoutSec
+	}
 	remaining := m.initialCopyTimeoutSec - m.initialCopyDoneSec
 	if remaining < 0 {
 		return 0

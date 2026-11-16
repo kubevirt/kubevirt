@@ -5272,6 +5272,15 @@ var CRDsValidation map[string]string = map[string]string{
               - none
               - zstd
               type: string
+            convergenceTimeoutSec:
+              description: |-
+                ConvergenceTimeoutSec is the maximum number of seconds allowed for the
+                converge phase after the initial bulk copy.
+                When unset, the converge phase uses whatever remains of the
+                CompletionTimeoutPerGiB budget (legacy end-to-end behavior).
+              format: int64
+              minimum: 0
+              type: integer
             downtimeTuning:
               description: |-
                 DowntimeTuning configures iteration-aware downtime ramping for live
@@ -17546,6 +17555,15 @@ var CRDsValidation map[string]string = map[string]string{
                       - none
                       - zstd
                       type: string
+                    convergenceTimeoutSec:
+                      description: |-
+                        ConvergenceTimeoutSec is the maximum number of seconds allowed for the
+                        converge phase after the initial bulk copy.
+                        When unset, the converge phase uses whatever remains of the
+                        CompletionTimeoutPerGiB budget (legacy end-to-end behavior).
+                      format: int64
+                      minimum: 0
+                      type: integer
                     downtimeTuning:
                       description: |-
                         DowntimeTuning configures iteration-aware downtime ramping for live
@@ -18425,6 +18443,15 @@ var CRDsValidation map[string]string = map[string]string{
                       - none
                       - zstd
                       type: string
+                    convergenceTimeoutSec:
+                      description: |-
+                        ConvergenceTimeoutSec is the maximum number of seconds allowed for the
+                        converge phase after the initial bulk copy.
+                        When unset, the converge phase uses whatever remains of the
+                        CompletionTimeoutPerGiB budget (legacy end-to-end behavior).
+                      format: int64
+                      minimum: 0
+                      type: integer
                     downtimeTuning:
                       description: |-
                         DowntimeTuning configures iteration-aware downtime ramping for live

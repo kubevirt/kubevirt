@@ -846,10 +846,11 @@ var _ = Describe("Live migration source", func() {
 				Expect(monitor.stallDetector.initialMaxDowntimeSet).To(BeTrue())
 			})
 
-			It("should latch converge budget from remaining CompletionTimeoutPerGiB", func() {
+			It("should latch converge budget from remaining CompletionTimeoutPerGiB when ConvergenceTimeoutSec is unset", func() {
 				monitor.stallDetector.initialMaxDowntimeSet = true
 				monitor.start = time.Now().UTC().UnixNano() - 40*int64(time.Second)
 				monitor.initialCopyTimeoutSec = 100
+				monitor.options.ConvergenceTimeoutSec = nil
 
 				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 
@@ -864,6 +865,27 @@ var _ = Describe("Live migration source", func() {
 				Expect(monitor.initialCopyDoneSec).To(BeNumerically(">", 0))
 				Expect(monitor.convergenceTimeoutSec).To(Equal(monitor.initialCopyTimeoutSec - monitor.initialCopyDoneSec))
 				Expect(monitor.acceptableCompletionTime()).To(Equal(monitor.initialCopyTimeoutSec))
+			})
+
+			It("should latch fixed ConvergenceTimeoutSec when set", func() {
+				monitor.stallDetector.initialMaxDowntimeSet = true
+				monitor.start = time.Now().UTC().UnixNano() - 40*int64(time.Second)
+				monitor.initialCopyTimeoutSec = 100
+				monitor.options.ConvergenceTimeoutSec = pointer.P(int64(15))
+
+				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+				stats := &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemainingSet: true,
+					DataRemaining:    1000,
+					MemIterationSet:  true,
+					MemIteration:     2,
+				}
+				monitor.processInflightMigration(mockDomain, stats, false, monitor.logger)
+				Expect(monitor.initialCopyDoneSec).To(BeNumerically(">", 0))
+				Expect(monitor.convergenceTimeoutSec).To(Equal(int64(15)))
+				Expect(monitor.acceptableCompletionTime()).To(Equal(monitor.initialCopyDoneSec + 15))
 			})
 
 			It("should invoke stall detection and trigger convergence action when stats indicate a stall at an iteration boundary", func() {
