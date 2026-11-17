@@ -52,19 +52,28 @@ import (
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("with a host-model cpu", decorators.WgS390x, func() {
-		It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
+		DescribeTable("should migrate only to nodes supporting right cpu model", func(requireCPUFeature bool) {
 			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
 			if err != nil {
 				Skip(err.Error()) //nolint:forbidigo
 			}
 
-			By("Creating a VMI with default CPU mode to land in source node")
-			vmi := libvmifact.NewGuestless(
+			vmiOptions := []libvmi.Option{
 				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithCPUModel(v1.CPUModeHostModel),
-			)
+			}
+			if requireCPUFeature {
+				// A CPU feature with policy "require" adds a cpu-feature node selector to the launcher pod at start,
+				// which must not be taken for the node selectors of a previous migration.
+				sourceNodeFeatures := getNodeHostRequiredFeatures(sourceNode)
+				Expect(sourceNodeFeatures).ToNot(BeEmpty())
+				vmiOptions = append(vmiOptions, libvmi.WithCPUFeature(sourceNodeFeatures[0], "require"))
+			}
+
+			By("Creating a VMI with default CPU mode to land in source node")
+			vmi := libvmifact.NewGuestless(vmiOptions...)
 			By("Making sure the vmi start running on the source node and will be able to run only in source/target nodes")
 			nodeAffinityRule, err := libmigration.CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode, targetNode)
 			Expect(err).ToNot(HaveOccurred())
@@ -101,7 +110,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isModelSupportedOnNode(newNode, hostModel)).To(BeTrue(), "original host model should be supported on new node")
 			expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
-		})
+		},
+			Entry("[test_id:6981]without a required CPU feature", false),
+			Entry("with a required CPU feature", true),
+		)
 
 		Context("Should trigger event if vmi with host-model start on source node with uniq host-model", Serial, func() {
 			const fakeHostModelLabel = v1.HostModelCPULabel + "fake-model"
