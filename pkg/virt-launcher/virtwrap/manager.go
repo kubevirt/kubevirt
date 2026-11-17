@@ -1951,13 +1951,6 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("marshalling detached disk failed")
 			return err
 		}
-		// Unlink the CBT overlay before detaching so a failed delete is retried
-		// on the next sync. QEMU keeps the overlay open until the disk is gone,
-		// and nothing on the removal path depends on reopening it by path.
-		if err := storage.DeleteQCOW2Overlay(detachDisk); err != nil {
-			logger.Reason(err).Error("deleting CBT overlay")
-			return err
-		}
 		err = dom.DetachDeviceFlags(string(detachBytes), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")

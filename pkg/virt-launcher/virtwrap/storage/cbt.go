@@ -137,21 +137,6 @@ func createQCOW2Overlay(overlayPath, imagePath string) error {
 	return nil
 }
 
-func DeleteQCOW2Overlay(disk api.Disk) error {
-	if !DiskHasDataStore(&disk) || disk.Source.File == "" {
-		return nil
-	}
-	target := disk.Source.File
-	if err := os.Remove(target); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("failed to delete QCOW2 overlay %s: %w", target, err)
-	}
-	log.Log.Infof("QCOW2 overlay %s deleted", target)
-	return nil
-}
-
 // CleanupChangedBlockTrackingOverlays removes all QCOW2 overlays under the CBT
 // directory when CBT is not active on the VMI. Used after CBT disable when the
 // backend PVC is retained (e.g. TPM/EFI). Disabled is the common case and may
