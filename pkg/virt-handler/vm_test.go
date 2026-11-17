@@ -1726,6 +1726,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi := clientgoapi.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Running
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "test"})
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
 					Name:   "test",
 					Target: "sda",
@@ -1750,6 +1751,32 @@ var _ = Describe("VirtualMachineInstance", func() {
 				testutils.ExpectEvent(recorder, VolumeReadyReason)
 				Expect(hasHotplug).To(BeTrue())
 			})
+
+			DescribeTable("should report an unplugged volume the domain still has attached", func(inSpec bool, expectedReason string) {
+				vmi := clientgoapi.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Running
+				if inSpec {
+					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "test"})
+				}
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:          "test",
+					Phase:         v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{},
+				})
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, api.Disk{
+					Alias:  api.NewUserDefinedAlias("test"),
+					Target: api.DiskTarget{Device: "sda"},
+					Source: api.DiskSource{File: "test"},
+				})
+
+				controller.updateVolumeStatusesFromDomain(vmi, domain)
+				Expect(vmi.Status.VolumeStatus).To(ConsistOf(HaveField("Reason", expectedReason)))
+			},
+				Entry("as pending detach once removed from the spec", false, VolumeDetachPendingReason),
+				Entry("as ready while still in the spec", true, VolumeReadyReason),
+			)
 
 			DescribeTable("should generate a mount event, when able to move to mount", func(currentPhase v1.VolumePhase) {
 				vmi := clientgoapi.NewMinimalVMI("testvmi")
