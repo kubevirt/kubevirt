@@ -371,6 +371,12 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 		}
 	}
 
+	domainEventRebootCallback := func(c *libvirt.Connect, d *libvirt.Domain) {
+		log.Log.Infof("Domain Reboot event received")
+		// A rebooted guest has no frozen filesystems.
+		metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -395,6 +401,11 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 	err = domainConn.DomainEventJobCompletedRegister(domainEventJobCompletedCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event job completed callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventRebootRegister(domainEventRebootCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register reboot event callback with libvirt")
 		return err
 	}
 

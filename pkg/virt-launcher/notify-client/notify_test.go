@@ -155,6 +155,7 @@ var _ = Describe("Notify", func() {
 				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
 				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
 				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).Return(nil)
 				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
 
 				vmi := api2.NewMinimalVMI("test-vmi")
@@ -355,6 +356,34 @@ var _ = Describe("Notify", func() {
 				newDomain, _ := event.Object.(*api.Domain)
 				Expect(newDomain.Status.FSFreezeStatus.Status).To(Equal(api.FSThawed))
 			})
+
+		It("should update Guest FSFreeze status as thawed when the domain reboots", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			mockConn := testing.NewLibvirt(ctrl)
+
+			var rebootCallback libvirt.DomainEventGenericCallback
+			mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
+			mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any()).Return(nil)
+			mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
+			mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
+			mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
+			mockConn.ConnectionEXPECT().DomainEventRebootRegister(gomock.Any()).DoAndReturn(
+				func(callback libvirt.DomainEventGenericCallback) error {
+					rebootCallback = callback
+					return nil
+				})
+			mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
+
+			cache := metadataCache()
+			cache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSFrozen})
+			Expect(registerLibvirtCallbacks(make(chan libvirtEvent, 1), cache, "test", mockConn.VirtConnection)).To(Succeed())
+
+			Expect(rebootCallback).ToNot(BeNil())
+			rebootCallback(nil, nil)
+
+			fsFreeze, _ := cache.FSFreezeStatus.Load()
+			Expect(fsFreeze.Status).To(Equal(api.FSThawed))
+		})
 
 		It("should consolidate I/O error status and Agent updates into a single watch event", func() {
 			faultDisk := []libvirt.DomainDiskError{
