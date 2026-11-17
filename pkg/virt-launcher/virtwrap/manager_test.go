@@ -3888,6 +3888,74 @@ var _ = Describe("Manager helper functions", func() {
 
 	})
 
+	Context("online expansion must not shrink", func() {
+		It("should not shrink disk when getUsableDiskSize fluctuates between calls", func() {
+			// if possibleGuestSize is computed twice (once in
+			// shouldExpandOnline, once for BlockResize), a statfs change
+			// between calls can make the second value smaller than the
+			// current capacity, issuing a shrink instead of an expand.
+
+			overhead := v1.Percent("0.055")
+			diskCapacity := int64(1099511627776) // 1 TiB
+
+			disk := api.Disk{
+				Source: api.DiskSource{
+					File: "/some/fluctuating/path/disk.img",
+				},
+				Alias:              api.NewUserDefinedAlias("rootdisk"),
+				ExpandDisksEnabled: true,
+				FilesystemOverhead: &overhead,
+				Capacity:           &diskCapacity,
+			}
+
+			// Current guest-visible size reported by GetBlockInfo (950,895 MiB).
+			currentCapacity := uint64(950895) * 1048576
+
+			callCount := 0
+			// High value produces possibleGuestSize 950,896 MiB (above
+			// capacity); low value produces 950,894 MiB (below).
+			highUsable := int64(1055119000000)
+			lowUsable := int64(1055117000000)
+
+			DeferCleanup(func(orig func(string) (int64, error)) { getUsableDiskSize = orig }, getUsableDiskSize)
+			getUsableDiskSize = func(_ string) (int64, error) {
+				callCount++
+				if callCount%2 == 1 {
+					return highUsable, nil
+				}
+				return lowUsable, nil
+			}
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockDom := cli.NewMockVirDomain(ctrl)
+
+			mockDom.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).
+				AnyTimes().
+				Return(&libvirt.DomainBlockInfo{Capacity: currentCapacity}, nil)
+
+			var resizedTo uint64
+			mockDom.EXPECT().BlockResize(
+				disk.Source.File,
+				gomock.Any(),
+				libvirt.DOMAIN_BLOCK_RESIZE_BYTES,
+			).Do(func(_ string, size uint64, _ libvirt.DomainBlockResizeFlags) {
+				resizedTo = size
+			}).Return(nil)
+
+			domain := &api.Domain{}
+			domain.Spec.Devices.Disks = []api.Disk{disk}
+
+			vmi := newVMI("testnamespace", "testvmi")
+
+			manager := &LibvirtDomainManager{}
+			err := manager.syncDisks(domain, &domain.Spec, mockDom, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(resizedTo).To(BeNumerically(">=", currentCapacity),
+				"BlockResize must never receive a size below the current capacity")
+		})
+	})
+
 	Context("configureLocalDiskToMigrate", func() {
 		const (
 			testvol = "test"
