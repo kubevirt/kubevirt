@@ -68,6 +68,8 @@ type SocketDevicePlugin struct {
 	p             PermissionManager
 	healthChecks  bool
 	hostRootMount string
+	// healthy is the last health reported to ListAndWatch; only the health check goroutine touches it.
+	healthy bool
 }
 
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -185,6 +187,8 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		executor:     executor,
 		p:            p,
 		healthChecks: true,
+		// Must match the initial Healthy state of devs, or the first unhealthy report is deduplicated away.
+		healthy: true,
 	}
 
 	for i := 0; i < maxDevices; i++ {
@@ -250,10 +254,12 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 	return &response, nil
 }
 
+// sendHealthUpdate reports a health change to ListAndWatch; unchanged health is not resent, as every send blocks the draining of the fsnotify queue.
 func (dpi *SocketDevicePlugin) sendHealthUpdate(healthy bool) {
-	if !dpi.healthChecks {
+	if !dpi.healthChecks || healthy == dpi.healthy {
 		return
 	}
+	dpi.healthy = healthy
 	if healthy {
 		dpi.health <- deviceHealth{Health: pluginapi.Healthy}
 	} else {
