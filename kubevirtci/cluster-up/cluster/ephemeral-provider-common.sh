@@ -206,10 +206,6 @@ function _add_common_params() {
         params=" --enable-fips $params"
     fi
 
-    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ] || [ "$KUBEVIRT_WITH_MULTUS" == "true" ]; then
-        params=" --deploy-multus $params"
-    fi
-
     if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
         params=" --enable-cnao $params"
     fi
