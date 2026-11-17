@@ -278,7 +278,10 @@ func (p *cpuPool) fitUnbound(requested int) (threads []uint32, remainingCores in
 			}
 		}
 	}
-	return threads, int(float64(remainingThreads)+0.5) / p.threadsPerCore
+	// Any leftover threads mean at least one core could not be completed, so
+	// round up: a partial core still counts as one unplaced core. Truncating
+	// here would report 0 and let FitCores return an incomplete pinning.
+	return threads, (remainingThreads + p.threadsPerCore - 1) / p.threadsPerCore
 }
 
 func (p *cpuPool) fitThread() (thread *uint32) {
