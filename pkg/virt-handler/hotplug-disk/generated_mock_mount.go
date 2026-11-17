@@ -14,6 +14,7 @@ import (
 
 	gomock "go.uber.org/mock/gomock"
 	types "k8s.io/apimachinery/pkg/types"
+	sets "k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 
 	cgroup "kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -87,17 +88,17 @@ func (mr *MockVolumeMounterMockRecorder) MountFromPod(vmi, sourceUID, cgroupMana
 }
 
 // Unmount mocks base method.
-func (m *MockVolumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+func (m *MockVolumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, attachedVolumes sets.Set[string]) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unmount", vmi, cgroupManager)
+	ret := m.ctrl.Call(m, "Unmount", vmi, cgroupManager, attachedVolumes)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Unmount indicates an expected call of Unmount.
-func (mr *MockVolumeMounterMockRecorder) Unmount(vmi, cgroupManager any) *gomock.Call {
+func (mr *MockVolumeMounterMockRecorder) Unmount(vmi, cgroupManager, attachedVolumes any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unmount", reflect.TypeOf((*MockVolumeMounter)(nil).Unmount), vmi, cgroupManager)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unmount", reflect.TypeOf((*MockVolumeMounter)(nil).Unmount), vmi, cgroupManager, attachedVolumes)
 }
 
 // UnmountAll mocks base method.

@@ -550,6 +550,19 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
+func domainDiskVolumes(domain *api.Domain) sets.Set[string] {
+	volumes := sets.New[string]()
+	if domain == nil {
+		return volumes
+	}
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.Alias != nil {
+			volumes.Insert(disk.Alias.GetName())
+		}
+	}
+	return volumes
+}
+
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	// The return value is only used by unit tests
 	hasHotplug := false
@@ -1958,7 +1971,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	if vmi.IsRunning() {
 		// Umount any disks no longer mounted
-		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager, domainDiskVolumes(domain)); err != nil {
 			return err
 		}
 	}
