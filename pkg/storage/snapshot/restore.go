@@ -966,6 +966,9 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 
 					dv := snapshotVM.Spec.DataVolumeTemplates[templateIndex].DeepCopy()
 					dv.Name = *vr.DataVolumeName
+					// The VolumeSnapshot already holds this disk. Keep the restored
+					// template from depending on the CDI DataSource the VM was created from.
+					useRestoreSnapshotAsDataVolumeSource(dv, vr, t.vmRestore.Namespace)
 					newTemplates[templateIndex] = *dv
 
 					nv.DataVolume.Name = *vr.DataVolumeName
@@ -1032,6 +1035,23 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 
 	return newVM, nil
+}
+
+// useRestoreSnapshotAsDataVolumeSource points a restored DataVolume template at the
+// VolumeSnapshot that already contains the disk. The CDI DataSource named by sourceRef
+// is the image the VM was originally created from, and it does not have to exist at restore time.
+func useRestoreSnapshotAsDataVolumeSource(dvt *kubevirtv1.DataVolumeTemplateSpec, volumeRestore snapshotv1.VolumeRestore, namespace string) {
+	if dvt.Spec.SourceRef == nil || dvt.Spec.SourceRef.Kind != cdiv1.DataVolumeDataSource || volumeRestore.VolumeSnapshotName == "" {
+		return
+	}
+
+	dvt.Spec.SourceRef = nil
+	dvt.Spec.Source = &cdiv1.DataVolumeSource{
+		Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+			Name:      volumeRestore.VolumeSnapshotName,
+			Namespace: namespace,
+		},
+	}
 }
 
 // restoreVirtualMachineState points virtualMachineState.source at the PVC the restore just created.
