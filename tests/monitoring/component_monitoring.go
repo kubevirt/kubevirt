@@ -140,15 +140,14 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.downAlert)
 		})
 
-		// NoReadyVirtOperator no longer fires when all pods are absent (false-positive fix).
-		// When the operator is scaled to 0, the app-level ready_status metric becomes stale,
-		// so the NoReady expression returns empty. The VirtOperatorDown alert covers this scenario.
-		It("NoReadyVirtOperator should not fire when operator is scaled to zero", func() {
+		// An operator scaled to zero reports a ready count of 0 and NoReady
+		// fires, see the "Scaled to 0" case in hack/prom-rule-ci/prom-rules-tests.yaml.
+		It("NoReadyVirtOperator should be triggered when operator is scaled to zero", func() {
 			By("Waiting for the operator ready metric to be zero")
 			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_ready:sum", 0)
 
-			By("Verifying the NoReady alert does NOT fire (absent metrics)")
-			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.noReadyAlert)
+			By("Verifying the alert exists")
+			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
 		})
 
 		It("VirtControllerDown should be triggered when virt-controller is down", func() {
