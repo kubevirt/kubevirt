@@ -166,6 +166,16 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				store:        reconciler.stores.ConfigMapCache,
 				expectations: reconciler.expectations.ConfigMap,
 			},
+			"daemonsets": {
+				object:       &appsv1.DaemonSet{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.DaemonSetCache,
+				expectations: reconciler.expectations.DaemonSet,
+			},
+			"deployments": {
+				object:       &appsv1.Deployment{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.DeploymentCache,
+				expectations: reconciler.expectations.Deployment,
+			},
 			"services": {
 				object:       &corev1.Service{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.ServiceCache,
@@ -282,6 +292,8 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 	},
 		Entry("secrets", "secrets"),
 		Entry("configmaps", "configmaps"),
+		Entry("daemonsets", "daemonsets"),
+		Entry("deployments", "deployments"),
 		Entry("services", "services"),
 		Entry("serviceaccounts", "serviceaccounts"),
 	)
@@ -306,6 +318,8 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			HaveField("Resource.Resource", resourceName),
 		)))
 	},
+		Entry("daemonsets", "daemonsets"),
+		Entry("deployments", "deployments"),
 		Entry("services", "services"),
 		Entry("serviceaccounts", "serviceaccounts"),
 	)
