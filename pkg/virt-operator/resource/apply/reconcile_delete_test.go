@@ -156,10 +156,25 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		namespacedMetadata := *clusterMetadata.DeepCopy()
 		namespacedMetadata.Namespace = Namespace
 		resources = map[string]cleanupResource{
+			"secrets": {
+				object:       &corev1.Secret{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.SecretCache,
+				expectations: reconciler.expectations.Secrets,
+			},
 			"configmaps": {
 				object:       &corev1.ConfigMap{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.ConfigMapCache,
 				expectations: reconciler.expectations.ConfigMap,
+			},
+			"services": {
+				object:       &corev1.Service{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.ServiceCache,
+				expectations: reconciler.expectations.Service,
+			},
+			"serviceaccounts": {
+				object:       &corev1.ServiceAccount{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.ServiceAccountCache,
+				expectations: reconciler.expectations.ServiceAccount,
 			},
 		}
 		scheme := runtime.NewScheme()
@@ -265,7 +280,34 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			Expect(resource.expectations.SatisfiedExpectations(reconciler.kvKey)).To(BeTrue())
 		})
 	},
+		Entry("secrets", "secrets"),
 		Entry("configmaps", "configmaps"),
+		Entry("services", "services"),
+		Entry("serviceaccounts", "serviceaccounts"),
+	)
+
+	DescribeTable("matches namespaced resources by both name and namespace", func(resourceName string) {
+		virtClient.EXPECT().ExtensionsClient().Return(extClient)
+		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes())
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences())
+
+		resource := resources[resourceName]
+		reconciler.targetStrategy = loadTargetStrategy(resource.object, getConfig(Registry, Version), reconciler.stores)
+		metadata, err := meta.Accessor(resource.object)
+		Expect(err).NotTo(HaveOccurred())
+		metadata.SetNamespace("previous-installation")
+		Expect(resource.store.Add(resource.object)).To(Succeed())
+
+		Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+		Expect(deletions).To(ConsistOf(And(
+			HaveField("Name", metadata.GetName()),
+			HaveField("Namespace", "previous-installation"),
+			HaveField("Resource.Resource", resourceName),
+		)))
+	},
+		Entry("services", "services"),
+		Entry("serviceaccounts", "serviceaccounts"),
 	)
 
 })
