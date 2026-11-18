@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/util/workqueue"
+	testingclock "k8s.io/utils/clock/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -97,6 +98,16 @@ func (q *MockWorkQueue[T]) Wait() {
 
 func NewMockWorkQueue[T comparable](queue workqueue.TypedRateLimitingInterface[T]) *MockWorkQueue[T] {
 	return &MockWorkQueue[T]{queue, nil, 0, 0, sync.Mutex{}}
+}
+
+func NewFrozenClockRateLimitingQueue(name string) workqueue.TypedRateLimitingInterface[string] {
+	return workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{
+			Name:  name,
+			Clock: testingclock.NewFakeClock(time.Now()),
+		},
+	)
 }
 
 func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framework.FakeControllerSource) {

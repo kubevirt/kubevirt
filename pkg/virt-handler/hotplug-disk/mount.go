@@ -36,7 +36,7 @@ import (
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -45,6 +45,7 @@ import (
 
 	devices "github.com/opencontainers/cgroups/devices/config"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -193,10 +194,10 @@ func (r *vmiMountTargetRecord) appendPath(path string) bool {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(mountStateDir string, kubeletPodsDir string, host string) VolumeMounter {
+func NewVolumeMounter(checkpointManager checkpoint.CheckpointManager, kubeletPodsDir string, host string) VolumeMounter {
 	return &volumeMounter{
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
-		checkpointManager:  checkpoint.NewSimpleCheckpointManager(mountStateDir),
+		checkpointManager:  checkpointManager,
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,
@@ -347,9 +348,22 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		return err
 	}
 
+	specVolumes := sets.New[string]()
+	for i := range vmi.Spec.Volumes {
+		specVolumes.Insert(vmi.Spec.Volumes[i].Name)
+	}
+	for i := range vmi.Spec.UtilityVolumes {
+		specVolumes.Insert(vmi.Spec.UtilityVolumes[i].Name)
+	}
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
+			continue
+		}
+
+		if !specVolumes.Has(volumeStatus.Name) {
+			log.Log.Object(vmi).V(3).Infof("Skipping mount for volume %s: no longer in VMI spec", volumeStatus.Name)
 			continue
 		}
 

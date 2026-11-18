@@ -16,10 +16,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: alpine
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -48,10 +49,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: centos.stream10
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -81,10 +83,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: centos.stream10.desktop
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
@@ -117,10 +120,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: centos.stream9
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -150,10 +154,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: centos.stream9.desktop
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
@@ -186,10 +191,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: centos.stream9.dpdk
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   cpu:
     preferredCPUTopology: spread
@@ -225,10 +231,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 256Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: cirros
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -257,10 +264,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: debian
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -295,10 +303,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: fedora
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -337,10 +346,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: fedora.arm64
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -374,16 +384,56 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: fedora.s390x
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
     preferredInterfaceModel: virtio
     preferredRng: {}
   preferredArchitecture: s390x
+  requirements:
+    architecture: s390x
+    cpu:
+      guest: 1
+    memory:
+      guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-fedora
+    openshift.io/display-name: Fedora (IBM Secure Execution)
+    openshift.io/documentation-url: |
+      "https://github.com/kubevirt/common-instancetypes"
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: |
+      "https://github.com/kubevirt/common-instancetypes/issues"
+    tags: hidden,kubevirt,fedora
+  labels:
+    instancetype.kubevirt.io/arch: s390x
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
+    instancetype.kubevirt.io/required-cpu: "1"
+    instancetype.kubevirt.io/required-memory: 2Gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
+  name: fedora.s390x.secex
+spec:
+  annotations:
+    kubevirt.io/mergeable-memory: "false"
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  preferredArchitecture: s390x
+  preferredLaunchSecurity: {}
   requirements:
     architecture: s390x
     cpu:
@@ -406,7 +456,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: legacy
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: legacy
 spec:
   annotations:
@@ -430,10 +480,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: linux
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -455,10 +506,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: linux.efi
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -483,10 +535,11 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: linux.virtiotransitional
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -511,10 +564,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: opensuse.leap
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -543,10 +597,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: opensuse.tumbleweed
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -575,10 +630,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: oraclelinux
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -613,10 +669,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.10
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -656,10 +713,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.10.arm64
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -694,10 +752,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.10.s390x
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -705,6 +764,46 @@ spec:
     preferredInterfaceModel: virtio
     preferredRng: {}
   preferredArchitecture: s390x
+  requirements:
+    architecture: s390x
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 10 (IBM Secure Execution)
+    openshift.io/documentation-url: |
+      "https://github.com/kubevirt/common-instancetypes"
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: |
+      "https://github.com/kubevirt/common-instancetypes/issues"
+    tags: hidden,kubevirt,linux,rhel
+  labels:
+    instancetype.kubevirt.io/arch: s390x
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
+    instancetype.kubevirt.io/required-cpu: "1"
+    instancetype.kubevirt.io/required-memory: 1.5Gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
+  name: rhel.10.s390x.secex
+spec:
+  annotations:
+    kubevirt.io/mergeable-memory: "false"
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  preferredArchitecture: s390x
+  preferredLaunchSecurity: {}
   requirements:
     architecture: s390x
     cpu:
@@ -729,10 +828,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.7
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -761,10 +861,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.7.desktop
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
@@ -796,10 +897,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.8
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -828,10 +930,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.8.desktop
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
@@ -863,10 +966,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.8.dpdk
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   cpu:
     preferredCPUTopology: spread
@@ -904,10 +1008,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -947,10 +1052,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9.arm64
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -985,10 +1091,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9.desktop
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredAutoattachInputDevice: true
@@ -1031,10 +1138,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "8"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9.dpdk
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   cpu:
     preferredCPUTopology: spread
@@ -1080,10 +1188,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "4"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9.realtime
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   cpu:
     preferredCPUTopology: spread
@@ -1131,10 +1240,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 1.5Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: rhel.9.s390x
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -1142,6 +1252,46 @@ spec:
     preferredInterfaceModel: virtio
     preferredRng: {}
   preferredArchitecture: s390x
+  requirements:
+    architecture: s390x
+    cpu:
+      guest: 1
+    memory:
+      guest: 1.5Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-rhel
+    openshift.io/display-name: Red Hat Enterprise Linux 9 (IBM Secure Execution)
+    openshift.io/documentation-url: |
+      "https://github.com/kubevirt/common-instancetypes"
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: |
+      "https://github.com/kubevirt/common-instancetypes/issues"
+    tags: hidden,kubevirt,linux,rhel
+  labels:
+    instancetype.kubevirt.io/arch: s390x
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/preferred-architecture: s390x
+    instancetype.kubevirt.io/required-architecture: s390x
+    instancetype.kubevirt.io/required-cpu: "1"
+    instancetype.kubevirt.io/required-memory: 1.5Gi
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
+  name: rhel.9.s390x.secex
+spec:
+  annotations:
+    kubevirt.io/mergeable-memory: "false"
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredDiskDedicatedIoThread: true
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  preferredArchitecture: s390x
+  preferredLaunchSecurity: {}
   requirements:
     architecture: s390x
     cpu:
@@ -1166,10 +1316,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: sles
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -1198,10 +1349,11 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: ubuntu
 spec:
   annotations:
+    kubevirt.io/mergeable-memory: "false"
     vm.kubevirt.io/os: linux
   devices:
     preferredDiskBus: virtio
@@ -1230,7 +1382,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.10
 spec:
   annotations:
@@ -1247,11 +1399,12 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: sockets
+    preferredCPUTopology: cores
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1298,7 +1451,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.10.virtio
 spec:
   annotations:
@@ -1315,13 +1468,14 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: sockets
+    preferredCPUTopology: cores
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -1369,7 +1523,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.11
 spec:
   annotations:
@@ -1386,11 +1540,12 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: sockets
+    preferredCPUTopology: cores
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
   features:
@@ -1440,7 +1595,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "2"
     instancetype.kubevirt.io/required-memory: 4Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.11.virtio
 spec:
   annotations:
@@ -1457,13 +1612,14 @@ spec:
       rtc:
         tickPolicy: catchup
   cpu:
-    preferredCPUTopology: sockets
+    preferredCPUTopology: cores
   devices:
     preferredAutoattachInputDevice: true
     preferredDiskBus: virtio
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
     preferredVideoType: virtio
@@ -1514,7 +1670,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k12
 spec:
   annotations:
@@ -1536,6 +1692,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1578,7 +1735,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k12.virtio
 spec:
   annotations:
@@ -1602,6 +1759,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -1645,7 +1803,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k16
 spec:
   annotations:
@@ -1667,6 +1825,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1713,7 +1872,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k16.virtio
 spec:
   annotations:
@@ -1737,6 +1896,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -1784,7 +1944,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k19
 spec:
   annotations:
@@ -1806,6 +1966,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -1852,7 +2013,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k19.virtio
 spec:
   annotations:
@@ -1876,6 +2037,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -1923,7 +2085,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k22
 spec:
   annotations:
@@ -1945,6 +2107,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
   features:
@@ -1994,7 +2157,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k22.virtio
 spec:
   annotations:
@@ -2018,6 +2181,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
     preferredVideoType: virtio
@@ -2068,7 +2232,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k25
 spec:
   annotations:
@@ -2090,6 +2254,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
   features:
@@ -2139,7 +2304,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k25.virtio
 spec:
   annotations:
@@ -2163,6 +2328,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredTPM:
       persistent: true
     preferredVideoType: virtio
@@ -2213,7 +2379,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 256Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k3
 spec:
   annotations:
@@ -2236,6 +2402,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: rtl8139
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2278,7 +2445,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k8
 spec:
   annotations:
@@ -2300,6 +2467,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2342,7 +2510,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 512Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.2k8.virtio
 spec:
   annotations:
@@ -2366,6 +2534,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -2409,7 +2578,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.7
 spec:
   annotations:
@@ -2431,6 +2600,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}
@@ -2473,7 +2643,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 2Gi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.7.virtio
 spec:
   annotations:
@@ -2497,6 +2667,7 @@ spec:
     preferredInputBus: virtio
     preferredInputType: tablet
     preferredInterfaceModel: virtio
+    preferredPanicDeviceModel: hyperv
     preferredVideoType: virtio
   features:
     preferredAcpi: {}
@@ -2540,7 +2711,7 @@ metadata:
     instancetype.kubevirt.io/required-cpu: "1"
     instancetype.kubevirt.io/required-memory: 128Mi
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.7.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.8.0
   name: windows.xp
 spec:
   annotations:
@@ -2563,6 +2734,7 @@ spec:
     preferredAutoattachInputDevice: true
     preferredDiskBus: sata
     preferredInterfaceModel: e1000e
+    preferredPanicDeviceModel: hyperv
   features:
     preferredAcpi: {}
     preferredApic: {}

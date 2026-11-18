@@ -14,14 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2022 Red Hat, Inc.
-#
-#
+# Copyright The KubeVirt Authors.
 
 CENTOS_VERSION=${PROVISION_CENTOS_VERSION:-9}
 
 (
     curl --no-progress-meter -L https://cloud.centos.org/centos/${CENTOS_VERSION}-stream/x86_64/images/ |
-        grep -oE "a href=\"(CentOS-Stream-Vagrant-${CENTOS_VERSION}-[^\"]+)\"" |
+        grep -oE "a href=\"(CentOS-Stream-GenericCloud-${CENTOS_VERSION}-[^\"]+)\"" |
         grep -oE '[0-9]{8}\.[0-9]+' | sort -rV | uniq | head -1
 ) >./cluster-provision/centos${CENTOS_VERSION}/version

@@ -129,7 +129,7 @@ if [[ -n "$TAR_PATH" ]]; then
     tar xf "$TAR_PATH" -C "$OCI_DIR"
 else
     echo "Pulling from registry..."
-    skopeo copy "docker://$REGISTRY_REF" "oci:$OCI_DIR"
+    skopeo copy --multi-arch=all "docker://$REGISTRY_REF" "oci:$OCI_DIR"
 fi
 
 if [[ ! -f "$OCI_DIR/oci-layout" || ! -f "$OCI_DIR/index.json" ]]; then
@@ -139,7 +139,14 @@ fi
 
 blob() { echo "$OCI_DIR/blobs/${1/://}"; }
 
-MANIFEST_BLOB=$(blob "$(jq -r '.manifests[0].digest' "$OCI_DIR/index.json")")
+# Resolve nested indexes
+INDEX_BLOB="$OCI_DIR/index.json"
+while :; do
+    DESC=$(jq -c '.manifests[0]' "$INDEX_BLOB")
+    MANIFEST_BLOB=$(blob "$(jq -r '.digest' <<<"$DESC")")
+    [[ "$(jq -r '.mediaType' <<<"$DESC")" == "application/vnd.oci.image.index.v1+json" ]] || break
+    INDEX_BLOB="$MANIFEST_BLOB"
+done
 
 ARTIFACT_TYPE=$(jq -r '.artifactType // empty' "$MANIFEST_BLOB")
 CONFIG_MEDIA_TYPE=$(jq -r '.config.mediaType // empty' "$MANIFEST_BLOB")
@@ -201,7 +208,7 @@ while IFS= read -r layer; do
     echo "Decompressing disk '$DISK_NAME'..."
     zstd -d "$LAYER_BLOB" -o "$RAW_FILE" --no-progress
 
-    PVC_NAME="${DISK_NAME}-${RESOURCE_NAME}"
+    PVC_NAME="${RESOURCE_NAME}-${DISK_NAME}"
     PVC_MAP["$DISK_NAME"]="$PVC_NAME"
 
     UPLOAD_ARGS=(
@@ -237,17 +244,28 @@ fi
 idx=0
 for DISK_NAME in "${!PVC_MAP[@]}"; do
     PVC_NAME="${PVC_MAP[$DISK_NAME]}"
-    jq_rewrite+=" | (${VOLUMES_PATH} |
-        select(.persistentVolumeClaim.claimName != null) |
-        select((.persistentVolumeClaim.claimName | gsub(\"\\\\.\"; \"-\")) == \$d${idx}) |
-        .persistentVolumeClaim.claimName) = \$p${idx}"
-    if [[ "$IS_TEMPLATE" == true ]]; then
-        jq_rewrite+=" | (${DVTS_PATH} |
-            select(.spec.source.pvc.name != null) |
-            select((.spec.source.pvc.name | gsub(\"\\\\.\"; \"-\")) == \$d${idx}) |
-            .spec.source.pvc.name) = \$p${idx}"
-    fi
     jq_args+=(--arg "d${idx}" "$DISK_NAME" --arg "p${idx}" "$PVC_NAME")
+
+    # A DataVolumeTemplate is exported as its clone source, rewrite that
+    # instead of the volume referencing the DataVolumeTemplate.
+    DVT_NAME=""
+    if [[ "$IS_TEMPLATE" == true ]]; then
+        DVT_NAME=$(jq -r --arg d "$DISK_NAME" \
+            "(${VOLUMES_PATH} | select(.name == \$d) |
+                .dataVolume.name // .persistentVolumeClaim.claimName) as \$n |
+            ${DVTS_PATH} | select(.metadata.name == \$n) | .metadata.name" "$CONFIG_BLOB")
+    fi
+    if [[ -n "$DVT_NAME" ]]; then
+        jq_rewrite+=" | (${DVTS_PATH} |
+            select(.metadata.name == \$t${idx}) |
+            .spec.source.pvc.name) = \$p${idx}"
+        jq_args+=(--arg "t${idx}" "$DVT_NAME")
+    else
+        jq_rewrite+=" | (${VOLUMES_PATH} |
+            select(.name == \$d${idx}) |
+            select(.persistentVolumeClaim != null) |
+            .persistentVolumeClaim.claimName) = \$p${idx}"
+    fi
     idx=$((idx + 1))
 done
 

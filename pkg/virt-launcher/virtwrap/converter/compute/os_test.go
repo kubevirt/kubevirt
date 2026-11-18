@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -37,7 +36,6 @@ import (
 )
 
 var _ = Describe("OS Domain Configurator", func() {
-
 	const (
 		smbiosEnabled    = true
 		useSerialEnabled = true
@@ -80,7 +78,7 @@ var _ = Describe("OS Domain Configurator", func() {
 			libvmi.New(withStartStrategy(v1.StartStrategyPaused)),
 			&api.BootMenu{
 				Enable:  "yes",
-				Timeout: pointer.P(uint(10000)),
+				Timeout: new(uint(10000)),
 			},
 		),
 	)
@@ -169,7 +167,7 @@ var _ = Describe("OS Domain Configurator", func() {
 		)
 
 		It("should use firmware auto-selection when enabled", func() {
-			vmi := libvmi.New(withEFIBootloader(true))
+			vmi := libvmi.New(withEFIBootloader(true), libvmi.WithArchitecture("amd64"))
 			var domain api.Domain
 			autoSelectConfig := &compute.EFIConfiguration{
 				SecureLoader:              true,
@@ -214,6 +212,28 @@ var _ = Describe("OS Domain Configurator", func() {
 			Expect(domain.Spec.OS.BootLoader).To(BeNil())
 			Expect(domain.Spec.OS.NVRam).To(BeNil())
 		})
+
+		DescribeTable("should select the NVRAM path based on the declarative virtualMachineState API",
+			func(option libvmi.Option, expectedNVRam func(*v1.VirtualMachineInstance) string) {
+				vmi := libvmi.New(withEFIBootloader(true), libvmi.WithArchitecture("amd64"), option)
+				var domain api.Domain
+				autoSelectConfig := &compute.EFIConfiguration{
+					SecureLoader:              true,
+					UsesFirmwareAutoSelection: true,
+				}
+
+				Expect(compute.NewOSDomainConfigurator(!smbiosEnabled, autoSelectConfig).Configure(vmi, &domain)).To(Succeed())
+
+				Expect(domain.Spec.OS.NVRam).ToNot(BeNil())
+				Expect(domain.Spec.OS.NVRam.NVRam).To(Equal(expectedNVRam(vmi)))
+			},
+			Entry("declarative VMState uses the canonical EFI vars path", withVMState(), func(*v1.VirtualMachineInstance) string {
+				return util.VMStateCanonicalEFIVarsPath()
+			}),
+			Entry("implicit VMState uses the per-VM NVRAM path", func(*v1.VirtualMachineInstance) {}, func(vmi *v1.VirtualMachineInstance) string {
+				return filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd")
+			}),
+		)
 	})
 
 	Context("ACPI configuration", func() {
@@ -256,13 +276,13 @@ var _ = Describe("OS Domain Configurator", func() {
 		},
 			Entry("when ACPI volume is not found",
 				libvmi.New(withACPISlic("missing-volume")),
-				"Firmware's volume for slic was not found"),
+				"firmware's volume for slic was not found"),
 			Entry("when ACPI is set but no tables are specified",
 				libvmi.New(withEmptyACPI()),
-				"No ACPI tables were set. Expecting at least one."),
+				"no ACPI tables were set, expecting at least one"),
 			Entry("when ACPI volume is not a secret",
 				libvmi.New(withACPISlic("config-volume"), withConfigMapVolume("config-volume")),
-				"Firmware's volume type is unsupported for slic"),
+				"firmware's volume type is unsupported for slic"),
 		)
 	})
 })
@@ -281,16 +301,20 @@ func withStartStrategy(strategy v1.StartStrategy) libvmi.Option {
 	}
 }
 
+func ensureBootloader(vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.Firmware == nil {
+		vmi.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+	if vmi.Spec.Domain.Firmware.Bootloader == nil {
+		vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+	}
+}
+
 func withBIOSUseSerial(useSerial bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS = &v1.BIOS{
-			UseSerial: pointer.P(useSerial),
+			UseSerial: new(useSerial),
 		}
 	}
 }
@@ -308,15 +332,16 @@ func withKernelArgs(args string) libvmi.Option {
 
 func withEFIBootloader(secureBoot bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		if vmi.Spec.Domain.Firmware == nil {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{}
-		}
-		if vmi.Spec.Domain.Firmware.Bootloader == nil {
-			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
-		}
+		ensureBootloader(vmi)
 		vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{
-			SecureBoot: pointer.P(secureBoot),
+			SecureBoot: new(secureBoot),
 		}
+	}
+}
+
+func withVMState() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.VirtualMachineState = &v1.VirtualMachineStateSpec{Source: &v1.VirtualMachineStateSource{Name: "vmstate-pvc"}}
 	}
 }
 

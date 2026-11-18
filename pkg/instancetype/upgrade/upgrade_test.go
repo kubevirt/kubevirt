@@ -266,6 +266,50 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		),
 	)
 
+	DescribeTable("should leave latest ControllerRevisions unchanged", func(commonVersion string) {
+		var labels map[string]string
+		if commonVersion != "" {
+			labels = map[string]string{
+				instancetypeapi.ControllerRevisionObjectCommonInstancetypesVersionLabel: commonVersion,
+			}
+		}
+
+		instancetypeCR := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   vm.Spec.Instancetype.Name,
+				Labels: labels,
+			},
+		})
+		preferenceCR := createControllerRevisionFromObject(&instancetypev1beta1.VirtualMachineClusterPreference{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   vm.Spec.Preference.Name,
+				Labels: labels,
+			},
+		})
+		Expect(upgrade.IsObjectLatestVersion(instancetypeCR)).To(BeTrue())
+		Expect(upgrade.IsObjectLatestVersion(preferenceCR)).To(BeTrue())
+		Expect(controllerrevisionInformerStore.Add(instancetypeCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Add(preferenceCR)).To(Succeed())
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{Name: instancetypeCR.Name},
+		}
+		vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{Name: preferenceCR.Name},
+		}
+		originalVM := vm.DeepCopy()
+
+		Expect(sanityUpgrade(vm)).To(Succeed())
+		Expect(vm).To(Equal(originalVM))
+		Expect(fakeVMClient.Actions()).To(BeEmpty())
+
+		createdRevisions, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(createdRevisions.Items).To(BeEmpty())
+	},
+		Entry("with the common-instancetypes version label", "v1.7.0"),
+		Entry("without the common-instancetypes version label", ""),
+	)
+
 	DescribeTable("should not upgrade ControllerRevisions containing", func(
 		createInstancetypeCR func() *appsv1.ControllerRevision,
 		createPreferenceCR func() *appsv1.ControllerRevision,

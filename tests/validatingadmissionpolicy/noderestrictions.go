@@ -170,11 +170,9 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		}
 	})
 
-	Context("patching another node", func() {
+	Context("patching another node", decorators.RequiresTwoSchedulableNodes, func() {
 		BeforeEach(func() {
 			nodesList := libnode.GetAllSchedulableNodes(virtClient)
-			Expect(nodesList.Items).ToNot(BeEmpty())
-			Expect(len(nodesList.Items)).To(BeNumerically(">", 1))
 			for _, node := range nodesList.Items {
 				if nodeName != node.Name {
 					anotherNode = node.Name

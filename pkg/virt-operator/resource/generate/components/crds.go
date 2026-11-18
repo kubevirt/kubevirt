@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	backupv1alpha1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1beta1 "kubevirt.io/api/backup/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
@@ -70,10 +71,35 @@ var (
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
-	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
-	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
+	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1beta1.SchemeGroupVersion.Group
+	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1beta1.SchemeGroupVersion.Group
 	PLUGIN                           = "plugins." + plugin.GroupName
 )
+
+// NewInstallStrategyCRDs generates the CRDs installed by virt-operator.
+// The KubeVirt CRD is installed separately and is not included here.
+func NewInstallStrategyCRDs() ([]*extv1.CustomResourceDefinition, error) {
+	generators := []func() (*extv1.CustomResourceDefinition, error){
+		NewVirtualMachineInstanceCrd, NewPresetCrd, NewReplicaSetCrd,
+		NewVirtualMachineCrd, NewVirtualMachineInstanceMigrationCrd,
+		NewVirtualMachineSnapshotCrd, NewVirtualMachineSnapshotContentCrd,
+		NewVirtualMachineRestoreCrd, NewVirtualMachineInstancetypeCrd,
+		NewVirtualMachineClusterInstancetypeCrd, NewVirtualMachinePoolCrd,
+		NewMigrationPolicyCrd, NewVirtualMachinePreferenceCrd,
+		NewVirtualMachineClusterPreferenceCrd, NewVirtualMachineExportCrd,
+		NewVirtualMachineCloneCrd, NewVirtualMachineBackupCrd,
+		NewVirtualMachineBackupTrackerCrd, NewPluginCrd,
+	}
+	crds := make([]*extv1.CustomResourceDefinition, 0, len(generators))
+	for _, generate := range generators {
+		crd, err := generate()
+		if err != nil {
+			return nil, err
+		}
+		crds = append(crds, crd)
+	}
+	return crds, nil
+}
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
 	for _, field := range fields {
@@ -676,10 +702,18 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEBACKUP
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: backupv1alpha1.SchemeGroupVersion.Group,
+		Group: backupv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    backupv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{
@@ -704,8 +738,8 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
 		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
-		{Name: "Type", Type: "string", JSONPath: ".status.type"},
 		{Name: "CheckpointName", Type: "string", JSONPath: ".status.checkpointName"},
+		{Name: "StartTime", Type: "date", JSONPath: ".status.startTimestamp"},
 	})
 	if err != nil {
 		return nil, err
@@ -722,10 +756,18 @@ func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error
 
 	crd.ObjectMeta.Name = VIRTUALMACHINEBACKUPTRACKER
 	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: backupv1alpha1.SchemeGroupVersion.Group,
+		Group: backupv1beta1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
 				Name:    backupv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    backupv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 				Subresources: &extv1.CustomResourceSubresources{

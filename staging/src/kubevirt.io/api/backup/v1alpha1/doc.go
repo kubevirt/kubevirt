@@ -20,5 +20,6 @@
 // +k8s:deepcopy-gen=package
 // +groupName=backup.kubevirt.io
 // +k8s:openapi-gen=true
+// +k8s:openapi-model-package=io.kubevirt.api.backup.v1alpha1
 
 package v1alpha1

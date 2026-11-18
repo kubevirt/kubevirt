@@ -163,33 +163,6 @@ func skipInput(scanner *bufio.Scanner) bool {
 	return scanner.Scan()
 }
 
-// NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
-// It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
-// The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
-func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
-	virtClient := kubevirt.Client()
-	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	esc := UTFPosEscape
-	b := []expect.Batcher{
-		// SeaBIOS can use escape (\u001b) combinations for letter placement on screen
-		// The regex below looks for the string "iPXE" and can detect it
-		// even when these escape sequences are present
-		&expect.BExp{R: "i(PXE|" + esc + "P" + esc + "X" + esc + "E)"},
-	}
-	const expectBatchTimeout = 30 * time.Second
-	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
-	}
-
-	return err
-}
-
 // NewExpecter will connect to an already logged in VMI console and return the generated expecter it will wait `timeout` for the connection.
 func NewExpecter(
 	virtCli kubecli.KubevirtClient,

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+GOIMPORTS_SHORT_PATH=@@GOIMPORTS_SHORT_PATH@@
+GO_SHORT_PATH=@@GO_SHORT_PATH@@
+ARGS=@@ARGS@@
+PREFIX_DIR_PATH=@@PREFIX_DIR_PATH@@
+PREFIX_BASE_NAME=@@PREFIX_BASE_NAME@@
+
+GO_BIN_DIR=$(dirname "$(realpath "${GO_SHORT_PATH}")")
+goimports_bin=$(realpath "$GOIMPORTS_SHORT_PATH")
+
+GOPATH="$(mktemp -d)"
+GOCACHE="$(mktemp -d)"
+trap 'rm -rf "${GOPATH}" "${GOCACHE}"' EXIT
+
+mkdir -p "${GOPATH}/src/${PREFIX_DIR_PATH}"
+ln -snf "${BUILD_WORKSPACE_DIRECTORY}" "${GOPATH}/src/${PREFIX_DIR_PATH}/${PREFIX_BASE_NAME}"
+
+CURDIR="${GOPATH}/src/${PREFIX_DIR_PATH}/${PREFIX_BASE_NAME}"
+cd "${CURDIR}"
+find . -type f -name '*.go' -not -path './bazel-*' @@EXCLUDE_PATHS@@ @@EXCLUDE_FILES@@ -print0 | \
+    xargs -0 -r /usr/bin/env -i GOPATH="${GOPATH}" GOCACHE="${GOCACHE}" PATH="${GO_BIN_DIR}:${PATH}" PWD="${CURDIR}" "${goimports_bin}" "${ARGS[@]}" "$@"

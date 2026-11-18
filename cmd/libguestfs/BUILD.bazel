@@ -1,4 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -51,28 +52,58 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-oci_image(
+layer_from_tar(
+    name = "version-layer",
+    src = ":version",
+)
+
+layer_from_tar(
+    name = "entrypoint-layer",
+    src = ":entrypoint",
+)
+
+layer_from_tar(
+    name = "appliance-layer-x86_64",
+    src = ":appliance_layer_x86_64",
+)
+
+layer_from_tar(
+    name = "appliance-layer-s390x",
+    src = ":appliance_layer_s390x",
+)
+
+layer_from_tar(
+    name = "libguestfs-tools-rpm-layer-x86_64",
+    src = "//rpm:libguestfs-tools_x86_64",
+)
+
+layer_from_tar(
+    name = "libguestfs-tools-rpm-layer-s390x",
+    src = "//rpm:libguestfs-tools_s390x",
+)
+
+image_manifest(
     name = "version-container",
     base = "//:passwd-image",
-    tars = [
-        ":version",
+    layers = [
+        ":version-layer",
     ],
 )
 
-oci_image(
+image_manifest(
     name = "libguestfs-tools-image",
     base = ":version-container",
     entrypoint = ["/entrypoint.sh"],
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            ":appliance_layer_s390x",
-            "//rpm:libguestfs-tools_s390x",
-            ":entrypoint",
+            ":appliance-layer-s390x",
+            ":libguestfs-tools-rpm-layer-s390x",
+            ":entrypoint-layer",
         ],
         "//conditions:default": [
-            ":appliance_layer_x86_64",
-            "//rpm:libguestfs-tools_x86_64",
-            ":entrypoint",
+            ":appliance-layer-x86_64",
+            ":libguestfs-tools-rpm-layer-x86_64",
+            ":entrypoint-layer",
         ],
     }),
     visibility = ["//visibility:public"],

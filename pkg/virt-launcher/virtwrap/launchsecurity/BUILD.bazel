@@ -14,7 +14,6 @@ go_test(
         "launchsecurity_suite_test.go",
         "sev_test.go",
     ],
-    data = glob(["testdata/**"]),
     race = "on",
     deps = [
         ":go_default_library",

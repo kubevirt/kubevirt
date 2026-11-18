@@ -49,11 +49,11 @@ type VMsMutator struct {
 	virtClient          kubecli.KubevirtClient
 }
 
-func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) *VMsMutator {
+func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) *VMsMutator {
 	return &VMsMutator{
 		ClusterConfig:       clusterConfig,
-		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli),
-		virtClient:          virtCli,
+		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtClient),
+		virtClient:          virtClient,
 	}
 }
 
@@ -83,12 +83,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return response
 	}
 
-	// Only assign a new-style firmware UUID when the VM is created.
-	// On update, the mutator does not modify the UUID field to avoid
-	// race conditions with the VM controller.
-	if ar.Request.Operation == admissionv1.Create {
-		setFirmwareDefaultsIfEmpty(vm)
-	}
+	setFirmwareDefaultsIfEmpty(vm)
 
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")

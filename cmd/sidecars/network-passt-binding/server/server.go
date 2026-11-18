@@ -66,7 +66,8 @@ func (s InfoServer) Info(_ context.Context, _ *hooksInfo.InfoParams) (*hooksInfo
 }
 
 type V1alpha3Server struct {
-	Done chan struct{}
+	Done              chan struct{}
+	BindingPluginName string
 }
 
 func (s V1alpha3Server) OnDefineDomain(
@@ -95,6 +96,7 @@ func (s V1alpha3Server) OnDefineDomain(
 		vmi.Spec.Domain.Devices.Interfaces,
 		vmi.Spec.Networks,
 		vmi.Status.Interfaces,
+		s.BindingPluginName,
 		opts,
 	)
 	if err != nil {

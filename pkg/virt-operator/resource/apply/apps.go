@@ -3,7 +3,6 @@ package apply
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
@@ -19,6 +18,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -50,6 +50,53 @@ const (
 	failed     canaryUpgradeStatus = "failed"
 )
 
+// injectDeploymentPlacement applies node placement once during reconciliation.
+// Synchronization controllers use SynchronizationPlacement when set; otherwise
+// they fall back to Infra, or the default control-plane placement when both are
+// unset. Export-proxy uses Workloads when set, otherwise Infra node
+// selectors/tolerations, always with AnyNode so HPA scale-out can schedule on
+// worker nodes (it no longer gets the default control-plane preference).
+// Placement is not applied at generation time so Infra node selectors cannot
+// stack on top of generated control-plane affinity.
+func injectDeploymentPlacement(kv *v1.KubeVirt, deployment *appsv1.Deployment) {
+	componentConfig := kv.Spec.Infra
+	nodePlacementOption := placement.RequireControlPlanePreferNonWorker
+	switch deployment.Name {
+	case components.VirtExportProxyName:
+		componentConfig = kv.Spec.Workloads
+		if componentConfig == nil {
+			componentConfig = kv.Spec.Infra
+		}
+		nodePlacementOption = placement.AnyNode
+	case components.VirtSynchronizationControllerName:
+		if kv.Spec.SynchronizationPlacement != nil {
+			componentConfig = kv.Spec.SynchronizationPlacement
+			nodePlacementOption = placement.AnyNode
+		}
+	}
+	placement.InjectPlacementMetadata(componentConfig, &deployment.Spec.Template.Spec, nodePlacementOption)
+}
+
+// applyExportProxyReplicaPolicy sets Spec.Replicas before syncDeployment.
+// Single-node clusters force one replica; otherwise the cached count is kept so HPA can scale.
+func (r *Reconciler) applyExportProxyReplicaPolicy(deployment *appsv1.Deployment, desiredReplicas int32) {
+	if replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtExportProxyName) {
+		return
+	}
+	if desiredReplicas == 1 {
+		deployment.Spec.Replicas = pointer.P(desiredReplicas)
+		return
+	}
+	obj, exists, _ := r.stores.DeploymentCache.Get(deployment)
+	if !exists {
+		return
+	}
+	cached := obj.(*appsv1.Deployment)
+	if cached.Spec.Replicas != nil {
+		deployment.Spec.Replicas = pointer.P(*cached.Spec.Replicas)
+	}
+}
+
 func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.Deployment, error) {
 	kv := r.kv
 
@@ -60,13 +107,14 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Infra, &deployment.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
+	injectDeploymentPlacement(kv, deployment)
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
 		if (deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas) &&
 			deployment.Name != components.VirtTemplateApiserverDeploymentName &&
-			deployment.Name != components.VirtTemplateControllerDeploymentName {
+			deployment.Name != components.VirtTemplateControllerDeploymentName &&
+			deployment.Name != components.VirtExportProxyName {
 			deployment.Spec.Replicas = &replicas
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
@@ -219,13 +267,6 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, objectChanged bool) (bool, error, canaryUpgradeStatus) {
 	var updatedAndReadyPods int32
 
-	if hasTLS(cachedDaemonSet) && !hasTLS(newDS) {
-		insertTLS(newDS)
-	}
-	if !hasCertificateSecret(&cachedDaemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName) &&
-		hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
-		unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
-	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
@@ -271,31 +312,10 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 		log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
 		return false, nil, waiting
 	case updatedAndReadyPods > 0 && updatedAndReadyPods == desiredReadyPods:
-		var err error
-		if supportsTLS(cachedDaemonSet) {
-			if !hasTLS(cachedDaemonSet) {
-				insertTLS(newDS)
-				newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-				if err != nil {
-					return false, err, failed
-				}
-				SetGeneration(&r.kv.Status.Generations, newDS)
-				return false, nil, waiting
-			}
-			if hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
-				unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
-				newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
-				if err != nil {
-					return false, err, failed
-				}
-				SetGeneration(&r.kv.Status.Generations, newDS)
-				return false, nil, waiting
-			}
-		}
 		// rollout has completed and all virt-handlers are ready revert
 		// maxUnavailable to default value
 		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+		newDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 		if err != nil {
 			return false, err, failed
 		}
@@ -307,54 +327,6 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 		log.Errorf("%s", err)
 		return false, err, failed
 	}
-}
-
-func supportsTLS(daemonSet *appsv1.DaemonSet) bool {
-	if daemonSet.Labels == nil {
-		return false
-	}
-	value, ok := daemonSet.Labels[components.SupportsMigrationCNsValidation]
-	return ok && value == "true"
-}
-
-func insertTLS(daemonSet *appsv1.DaemonSet) {
-	daemonSet.Spec.Template.Spec.Containers[0].Args = append(daemonSet.Spec.Template.Spec.Containers[0].Args, "--migration-cn-types", "migration")
-}
-
-func hasTLS(daemonSet *appsv1.DaemonSet) bool {
-	container := &daemonSet.Spec.Template.Spec.Containers[0]
-	for _, arg := range container.Args {
-		if strings.Contains(arg, "migration-cn-types") {
-			return true
-		}
-	}
-	return false
-}
-
-func hasCertificateSecret(spec *corev1.PodSpec, secretName string) bool {
-	for _, volume := range spec.Volumes {
-		if volume.Name == secretName {
-			return true
-		}
-	}
-	return false
-}
-
-func unattachCertificateSecret(spec *corev1.PodSpec, secretName string) {
-	newVolumes := []corev1.Volume{}
-	for _, volume := range spec.Volumes {
-		if volume.Name != secretName {
-			newVolumes = append(newVolumes, volume)
-		}
-	}
-	spec.Volumes = newVolumes
-	newVolumeMounts := []corev1.VolumeMount{}
-	for _, volumeMount := range spec.Containers[0].VolumeMounts {
-		if volumeMount.Name != secretName {
-			newVolumeMounts = append(newVolumeMounts, volumeMount)
-		}
-	}
-	spec.Containers[0].VolumeMounts = newVolumeMounts
 }
 
 func getMaxUnavailable(daemonSet *appsv1.DaemonSet) int {
@@ -390,10 +362,6 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	if !exists {
 		r.expectations.DaemonSet.RaiseExpectations(r.kvKey, 1, 0)
-		if supportsTLS(daemonSet) && !hasTLS(daemonSet) {
-			insertTLS(daemonSet)
-			unattachCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
-		}
 
 		origDaemonSet := daemonSet
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
@@ -450,13 +418,26 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	return r.syncPodDisruptionBudget(deployment.Namespace, components.NewPodDisruptionBudgetForDeployment(deployment))
+}
+
+func (r *Reconciler) syncExportProxyPodDisruptionBudget(deployment *appsv1.Deployment, desiredReplicas int32) error {
+	pdb := components.NewExportProxyPodDisruptionBudget(deployment)
+	// Single-replica clusters do not need disruption protection; HPA-managed clusters use a fixed minAvailable.
+	if desiredReplicas <= 1 {
+		minAvailable := intstr.FromInt(0)
+		pdb.Spec.MinAvailable = &minAvailable
+	}
+	return r.syncPodDisruptionBudget(deployment.Namespace, pdb)
+}
+
+func (r *Reconciler) syncPodDisruptionBudget(namespace string, podDisruptionBudget *policyv1.PodDisruptionBudget) error {
 	kv := r.kv
-	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
@@ -513,6 +494,31 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	SetGeneration(&kv.Status.Generations, podDisruptionBudget)
 	log.Log.V(2).Infof("poddisruptionbudget %v patched", podDisruptionBudget.GetName())
 
+	return nil
+}
+
+func (r *Reconciler) deletePodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
+	podDisruptionBudget := components.NewPodDisruptionBudgetForDeployment(deployment)
+	obj, exists, err := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
+	if err != nil {
+		return err
+	}
+
+	if !exists || obj.(*policyv1.PodDisruptionBudget).DeletionTimestamp != nil {
+		return nil
+	}
+
+	key, err := controller.KeyFunc(podDisruptionBudget)
+	if err != nil {
+		return err
+	}
+	r.expectations.PodDisruptionBudget.AddExpectedDeletion(r.kvKey, key)
+	if err := r.k8sClient.PolicyV1().PodDisruptionBudgets(podDisruptionBudget.Namespace).Delete(context.Background(), podDisruptionBudget.Name, metav1.DeleteOptions{}); err != nil {
+		r.expectations.PodDisruptionBudget.DeletionObserved(r.kvKey, key)
+		return err
+	}
+
+	log.Log.V(2).Infof("poddisruptionbudget %v deleted", podDisruptionBudget.Name)
 	return nil
 }
 

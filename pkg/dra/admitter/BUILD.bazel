@@ -6,8 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/dra/admitter",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/dra:go_default_library",
         "//pkg/network/vmispec:go_default_library",
-        "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/validation:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -23,9 +23,10 @@ go_test(
         "admitter_suite_test.go",
         "dra_admitter_test.go",
     ],
-    embed = [":go_default_library"],
     race = "on",
     deps = [
+        ":go_default_library",
+        "//pkg/dra:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

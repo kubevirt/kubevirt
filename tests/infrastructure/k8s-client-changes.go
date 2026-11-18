@@ -106,8 +106,7 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 	It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
 		By("first getting the basetime for a replicaset")
 		targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
-		vmi := libvmi.New(
-			libvmi.WithMemoryRequest("1Mi"),
+		vmi := libvmifact.NewGuestless(
 			libvmi.WithNodeSelectorFor(targetNode.Name),
 		)
 

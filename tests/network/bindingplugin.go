@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -36,7 +37,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -75,7 +75,11 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			const (
 				macAddress = "02:00:00:00:00:02"
 			)
-			passtIface := libvmi.InterfaceWithMac(libvmi.InterfaceWithPasstBindingPlugin(), macAddress)
+			passtIface := libvmi.NewInterface(
+				v1.DefaultPodNetwork().Name,
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: "passt"}),
+				libvmi.WithMac(macAddress),
+			)
 			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -124,23 +128,19 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		It("can run a virtual machine with one macvtap interface", func() {
 			var vmi *v1.VirtualMachineInstance
-			var chosenMAC string
-
-			chosenMACHW, err := libnet.GenerateRandomMac()
-			Expect(err).ToNot(HaveOccurred())
-			chosenMAC = chosenMACHW.String()
+			chosenMAC := libnet.GenerateRandomMac().String()
 
 			ifaceName := "macvtapIface"
-			macvtapIface := libvmi.InterfaceWithBindingPlugin(
-				ifaceName, v1.PluginBinding{Name: macvtapBindingName},
-			)
 			vmi = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(
-					libvmi.InterfaceWithMac(macvtapIface, chosenMAC)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					ifaceName,
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: macvtapBindingName}),
+					libvmi.WithMac(chosenMAC),
+				)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
 			namespace := testsuite.GetTestNamespace(nil)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
 				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
@@ -170,8 +170,9 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 		It("can run a virtual machine with one primary managed-tap interface", func() {
 			var vmi *v1.VirtualMachineInstance
 
-			primaryIface := libvmi.InterfaceWithBindingPlugin(
-				networkName, v1.PluginBinding{Name: bindingName},
+			primaryIface := libvmi.NewInterface(
+				networkName,
+				libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}),
 			)
 			vmi = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(primaryIface),
@@ -194,10 +195,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				serverIPAddr   = "10.1.1.102"
 				serverCIDR     = serverIPAddr + "/24"
 				clientCIDR     = "10.1.1.101/24"
+				serverLabel    = "managed-tap-server"
 			)
-			nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
-			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-			nodeName := nodeList.Items[0].Name
 
 			const linuxBridgeNADName = "bridge0"
 			namespace := testsuite.GetTestNamespace(nil)
@@ -212,9 +211,6 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
 			Expect(err).ToNot(HaveOccurred())
 
-			primaryIface := libvmi.InterfaceWithBindingPlugin(
-				"mynet1", v1.PluginBinding{Name: bindingName},
-			)
 			primaryNetwork := v1.Network{
 				Name: "mynet1",
 				NetworkSource: v1.NetworkSource{
@@ -225,14 +221,29 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				},
 			}
 			serverVMI := libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceWithMac(primaryIface, "de:ad:00:00:be:af")),
+				libvmi.WithInterface(libvmi.NewInterface(
+					"mynet1",
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}),
+					libvmi.WithMac("de:ad:00:00:be:af"),
+				)),
 				libvmi.WithNetwork(&primaryNetwork),
-				libvmi.WithNodeAffinityFor(nodeName),
+				libvmi.WithLabel(serverLabel, ""),
 			)
 			clientVMI := libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceWithMac(primaryIface, "de:ad:00:00:be:aa")),
+				libvmi.WithInterface(libvmi.NewInterface(
+					"mynet1",
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}),
+					libvmi.WithMac("de:ad:00:00:be:aa"),
+				)),
 				libvmi.WithNetwork(&primaryNetwork),
-				libvmi.WithNodeAffinityFor(nodeName),
+				libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{Key: serverLabel, Operator: metav1.LabelSelectorOpExists},
+						},
+					},
+					TopologyKey: k8sv1.LabelHostname,
+				}),
 			)
 
 			ns := testsuite.GetTestNamespace(nil)

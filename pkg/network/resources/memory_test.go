@@ -44,9 +44,9 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 
 	DescribeTable("Memory overhead should be zero",
 		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) {
-			memoryCalculator := resources.MemoryCalculator{}
+			memoryCalculator := resources.NewMemoryCalculator(&stubBindingsProvider{bindings: registeredPlugins})
 
-			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
+			actualResult := memoryCalculator.Calculate(vmi)
 			Expect(actualResult.Value()).To(BeZero())
 		},
 		Entry("when the VMI does not have NICs and there aren't any registered plugins", libvmi.New(), nil),
@@ -92,9 +92,9 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 
 	DescribeTable("It should calculate memory overhead",
 		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin, expectedValue resource.Quantity) {
-			memoryCalculator := resources.MemoryCalculator{}
+			memoryCalculator := resources.NewMemoryCalculator(&stubBindingsProvider{bindings: registeredPlugins})
 
-			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
+			actualResult := memoryCalculator.Calculate(vmi)
 			Expect(actualResult.Value()).To(Equal(expectedValue.Value()))
 		},
 		Entry("when there is a single interface using a binding plugin",
@@ -201,7 +201,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		),
 		Entry("when vmi has passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithInterface(libvmi.NewInterface("", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 			map[string]v1.InterfaceBindingPlugin{},
@@ -209,7 +209,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		),
 		Entry("when vmi has passt binding and a binding plugin",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithInterface(libvmi.NewInterface("", libvmi.WithPasstBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
 				libvmi.WithNetwork(&v1.Network{Name: iface1name}),
@@ -230,4 +230,12 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 
 func newPlugin(computeResourceOverhead *v1.ResourceRequirementsWithoutClaims) v1.InterfaceBindingPlugin {
 	return v1.InterfaceBindingPlugin{ComputeResourceOverhead: computeResourceOverhead}
+}
+
+type stubBindingsProvider struct {
+	bindings map[string]v1.InterfaceBindingPlugin
+}
+
+func (s *stubBindingsProvider) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
+	return s.bindings
 }

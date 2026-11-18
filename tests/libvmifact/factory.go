@@ -149,6 +149,7 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 		libvmi.WithCPUCount(cpuCount, cpuCount, cpuCount),
 		libvmi.WithMemoryRequest("2048Mi"),
 		libvmi.WithEphemeralPersistentVolumeClaim(windowsDiskName, WindowsPVCName),
+		libvmi.WithPanicDevice(kvirtv1.Hyperv),
 	}
 
 	windowsOpts = append(windowsOpts, opts...)
@@ -180,5 +181,11 @@ func NewWindows(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
 func WithDummyCloudForFastBoot() libvmici.NoCloudOption {
 	return func(source *kvirtv1.CloudInitNoCloudSource) {
 		source.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte("#!/bin/bash\necho 'hello'\n"))
+	}
+}
+
+func WithDummyConfigDriveCloudForFastBoot() libvmici.ConfigDriveOption {
+	return func(source *kvirtv1.CloudInitConfigDriveSource) {
+		source.UserData = "#!/bin/bash\necho 'hello'\n"
 	}
 }

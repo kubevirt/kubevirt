@@ -22,13 +22,13 @@ package virtexportserver
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
-	goflag "flag"
 	"fmt"
 	"io"
+	"iter"
 	golog "log"
 	"net"
 	"net/http"
@@ -37,16 +37,10 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	gzip "github.com/klauspost/pgzip"
 	flag "github.com/spf13/pflag"
-	"golang.org/x/net/http2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,9 +51,7 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
-
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -82,8 +74,10 @@ const (
 	external = "/external"
 	internal = "/internal"
 
+	backupSourceUnavailable = "Backup NBD server is not serving"
+
 	defaultMapPageSize = 512
-	tunnelIdleTimeout  = 60 * time.Second
+	nbdServingTimeout  = 10 * time.Second
 )
 
 var (
@@ -100,16 +94,26 @@ type ExportServerConfig struct {
 
 	ListenAddr string
 
-	CertFile, KeyFile string
-	BackupCACert      []byte
-	TLSMinVersion     uint16
-	TLSCipherSuites   []uint16
+	CertFile, KeyFile   string
+	BackupCACert        []byte
+	TLSMinVersion       uint16
+	TLSCipherSuites     []uint16
+	TLSCurvePreferences []tls.CurveID
 
 	TokenFile string
 
-	BackupUID        string
-	BackupType       string
+	NBDSocket        string
 	BackupCheckpoint string
+
+	OfflineBackup         bool
+	BackupStatePath       string
+	SocketDir             string
+	BackupBaseCheckpoint  string
+	BackupMode            string
+	BackupTargetDir       string
+	BackupName            string
+	BackupTracked         bool
+	BackupKeepCheckpoints []string
 
 	Paths *export.ServerPaths
 
@@ -121,6 +125,7 @@ type ExportServerConfig struct {
 	VmHandler          func([]export.VolumeInfo, func() (string, error), func() (*corev1.ConfigMap, error)) http.Handler
 	TokenSecretHandler func(TokenGetterFunc) http.Handler
 	OCIHandler         func(*oci.Builder) http.Handler
+	CommandRunner      commandRunner
 
 	PermissionChecker func(string) bool
 
@@ -133,13 +138,24 @@ type execReader struct {
 	stderr io.ReadCloser
 }
 
+type readinessGate func() (string, bool)
+
+// nbdSource is the part of the NBD client the backup endpoints use.
+type nbdSource interface {
+	Serving(timeout time.Duration) error
+	Map(ctx context.Context, exportName, bitmapName string, offset, length uint64) iter.Seq2[nbdclient.Extent, error]
+	Read(ctx context.Context, exportName string, offset, length uint64, w io.Writer) error
+}
+
 type exportServer struct {
 	ExportServerConfig
-	handler http.Handler
+	handler        http.Handler
+	readinessGates []readinessGate
 
-	nbdClient  nbdv1.NBDClient
-	nbdMu      sync.RWMutex
+	nbdSource  nbdSource
 	ociBuilder *oci.Builder
+
+	offline *offlineDataPlane
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -171,7 +187,7 @@ func (s *exportServer) initHandler() {
 	}
 	for _, bi := range s.Paths.Backups {
 		log.Log.Infof("Handling backup path %s (Map) and %s (Data)\n", bi.MapURI, bi.DataURI)
-		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi.Path)))
+		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi)))
 		mux.Handle(bi.DataURI, tokenChecker(s.TokenGetter, s.backupDataHandler(bi.Path)))
 	}
 	if s.Paths.VMURI != "" {
@@ -184,9 +200,22 @@ func (s *exportServer) initHandler() {
 	}
 	if s.ociBuilder != nil && s.Paths.OCIURI != "" {
 		mux.Handle(s.Paths.OCIURI, tokenChecker(s.TokenGetter, s.OCIHandler(s.ociBuilder)))
+		s.readinessGates = append(s.readinessGates, func() (string, bool) {
+			if !s.ociBuilder.Ready() {
+				return "OCI digest computation in progress", false
+			}
+			return "", true
+		})
+	}
+	if len(s.Paths.Backups) > 0 {
+		s.readinessGates = append(s.readinessGates, func() (string, bool) {
+			if err := s.nbdSource.Serving(nbdServingTimeout); err != nil {
+				return fmt.Sprintf("Backup NBD server not serving: %v", err), false
+			}
+			return "", true
+		})
 	}
 
-	// Readiness probe
 	mux.HandleFunc(export.ReadinessPath, s.readyHandler)
 
 	s.handler = mux
@@ -233,9 +262,19 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 	return result
 }
 
-func (s *exportServer) Run() {
-	s.initHandler()
+const offlineTerminationLogPath = "/dev/termination-log"
 
+func (s *exportServer) handleOfflineError(err error) {
+	// Surface the reason in the pod's termination message so the controller reports a real cause
+	// instead of a bare panic stack.
+	log.Log.Reason(err).Error("offline backup failed")
+	if werr := os.WriteFile(offlineTerminationLogPath, []byte(err.Error()), 0o644); werr != nil {
+		log.Log.Reason(werr).Warning("failed to write termination log")
+	}
+	os.Exit(1)
+}
+
+func (s *exportServer) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 	if !s.Deadline.IsZero() {
 		log.Log.Infof("Deadline set to %s", s.Deadline)
@@ -243,14 +282,23 @@ func (s *exportServer) Run() {
 	}
 	defer cancel()
 
-	srv := s.buildServer(ctx)
+	if s.OfflineBackup {
+		if s.isOfflinePush() {
+			if err := s.runOfflinePush(ctx); err != nil {
+				s.handleOfflineError(err)
+			}
+			log.Log.Info("Offline push backup completed")
+			return
+		}
+		if err := s.startOfflineDataPlane(ctx); err != nil {
+			s.handleOfflineError(err)
+		}
+		defer s.offline.stop()
+	}
 
-	h2Server := &http2.Server{
-		IdleTimeout: tunnelIdleTimeout,
-	}
-	if err := http2.ConfigureServer(srv, h2Server); err != nil {
-		panic(err)
-	}
+	s.initHandler()
+
+	srv := s.buildServer(ctx)
 
 	ch := make(chan error)
 
@@ -278,32 +326,15 @@ func (s *exportServer) Run() {
 
 func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 	tlsConfig := &tls.Config{
-		MinVersion:   s.TLSMinVersion,
-		CipherSuites: s.TLSCipherSuites,
-		NextProtos:   []string{"h2", "http/1.1"},
-	}
-
-	rootHandler := s.handler
-	if s.BackupUID != "" {
-		clientCAPool := x509.NewCertPool()
-		if ok := clientCAPool.AppendCertsFromPEM(s.BackupCACert); !ok {
-			panic("failed to parse Backup CA")
-		}
-		tlsConfig.ClientCAs = clientCAPool
-		tlsConfig.ClientAuth = tls.VerifyClientCertIfGiven
-
-		rootHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodConnect {
-				s.handleTunnel(w, r)
-				return
-			}
-			s.handler.ServeHTTP(w, r)
-		})
+		MinVersion:       s.TLSMinVersion,
+		CipherSuites:     s.TLSCipherSuites,
+		CurvePreferences: s.TLSCurvePreferences,
+		NextProtos:       []string{"h2", "http/1.1"},
 	}
 
 	return &http.Server{
 		Addr:      s.ListenAddr,
-		Handler:   rootHandler,
+		Handler:   s.handler,
 		TLSConfig: tlsConfig,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
@@ -312,12 +343,16 @@ func (s *exportServer) buildServer(ctx context.Context) *http.Server {
 }
 
 func (s *exportServer) AddFlags() {
-	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(log.VerbosityFlag())
 }
 
 func NewExportServer(config ExportServerConfig) (service.Service, error) {
 	es := &exportServer{
 		ExportServerConfig: config,
+	}
+
+	if es.NBDSocket != "" {
+		es.nbdSource = nbdclient.NewNBDClient(es.NBDSocket)
 	}
 
 	if es.ArchiveHandler == nil {
@@ -342,6 +377,10 @@ func NewExportServer(config ExportServerConfig) (service.Service, error) {
 
 	if es.TokenSecretHandler == nil {
 		es.TokenSecretHandler = secretHandler
+	}
+
+	if es.CommandRunner == nil {
+		es.CommandRunner = runCommand
 	}
 
 	if es.TokenGetter == nil {
@@ -576,7 +615,7 @@ func tokenChecker(tokenGetter TokenGetterFunc, nextHandler http.Handler) http.Ha
 			return
 		}
 		for _, tok := range []string{getTokenQueryParam(r), getTokenHeader(r)} {
-			if tok == token {
+			if subtle.ConstantTimeCompare([]byte(tok), []byte(token)) == 1 {
 				nextHandler.ServeHTTP(w, r)
 				return
 			}
@@ -685,6 +724,34 @@ func gzipHandler(filePath string) http.Handler {
 	})
 }
 
+// exportSourceURL builds an in-cluster HTTPS URL for a volume. path.Join is
+// required (not filepath.Join) so host:port plus an absolute /volumes/... URI
+// stays a valid URL.
+func exportSourceURL(host, uri string) string {
+	return "https://" + path.Join(host, uri)
+}
+
+// exportedVolume returns the exported volume of a claim the VM references. The
+// claim is not the exported one for VMSnapshot sources, which export restored
+// claims, so the volume is found by the name of the VM volume referencing it.
+func exportedVolume(vm *virtv1.VirtualMachine, vi []export.VolumeInfo, claimName string) *export.VolumeInfo {
+	if vm.Spec.Template == nil {
+		return nil
+	}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if (volume.DataVolume == nil || volume.DataVolume.Name != claimName) &&
+			(volume.PersistentVolumeClaim == nil || volume.PersistentVolumeClaim.ClaimName != claimName) {
+			continue
+		}
+		for i := range vi {
+			if vi[i].VolumeName == volume.Name {
+				return &vi[i]
+			}
+		}
+	}
+	return nil
+}
+
 func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCmFunc func() (*corev1.ConfigMap, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
@@ -704,7 +771,7 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			return
 		}
 		headerSecretName := getSecretTokenName(exportName)
-		path, err := getBasePath()
+		basePath, err := getBasePath()
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				log.Log.Reason(err).Info("path not found")
@@ -736,8 +803,14 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
 			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
 		}
-		for i, dvTemplate := range expandedVm.Spec.DataVolumeTemplates {
-			dvTemplate.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, vi[i].RawGzURI))
+		for i := range expandedVm.Spec.DataVolumeTemplates {
+			dvTemplate := &expandedVm.Spec.DataVolumeTemplates[i]
+			// Only templates of an exported volume were rewritten to an HTTP source.
+			volume := exportedVolume(expandedVm, vi, dvTemplate.Name)
+			if volume == nil {
+				continue
+			}
+			dvTemplate.Spec.Source.HTTP.URL = exportSourceURL(basePath, volume.RawGzURI)
 			dvTemplate.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dvTemplate.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
 		}
@@ -753,10 +826,8 @@ func vmHandler(vi []export.VolumeInfo, getBasePath func() (string, error), getCm
 				Kind:       "DataVolume",
 				APIVersion: "cdi.kubevirt.io/v1beta1",
 			}
-			for _, info := range vi {
-				if strings.Contains(info.RawGzURI, dv.Name) {
-					dv.Spec.Source.HTTP.URL = fmt.Sprintf("https://%s", filepath.Join(path, info.RawGzURI))
-				}
+			if volume := exportedVolume(expandedVm, vi, dv.Name); volume != nil {
+				dv.Spec.Source.HTTP.URL = exportSourceURL(basePath, volume.RawGzURI)
 			}
 			dv.Spec.Source.HTTP.CertConfigMap = certCm.Name
 			dv.Spec.Source.HTTP.SecretExtraHeaders = []string{headerSecretName}
@@ -915,139 +986,20 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 }
 
 func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
-	if s.ociBuilder != nil && !s.ociBuilder.Ready() {
-		http.Error(w, "OCI digest computation in progress", http.StatusServiceUnavailable)
-		return
+	for _, gate := range s.readinessGates {
+		if reason, ready := gate(); !ready {
+			http.Error(w, reason, http.StatusServiceUnavailable)
+			return
+		}
 	}
 	io.WriteString(w, "OK")
 }
 
-func (s *exportServer) handleTunnel(w http.ResponseWriter, r *http.Request) {
-	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
-		log.Log.Error("tunnel rejected: no client certificate presented")
-		http.Error(w, "mTLS required", http.StatusUnauthorized)
-		return
-	}
-
-	expectedCN := fmt.Sprintf("kubevirt.io:system:client:%s", s.BackupUID)
-	clientCN := r.TLS.PeerCertificates[0].Subject.CommonName
-	if clientCN != expectedCN {
-		log.Log.Errorf("identity mismatch, cert: %s, expected: %s", clientCN, expectedCN)
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-
-	s.nbdMu.Lock()
-	if s.nbdClient != nil {
-		s.nbdMu.Unlock()
-		_ = r.Body.Close()
-		log.Log.Warning("rejecting tunnel: active session already exists")
-		http.Error(w, "Conflict", http.StatusConflict)
-		return
-	}
-
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-	conn := newH2ServerConn(r.Body, w, cancel)
-
-	var dialOnce sync.Once
-	clientConn, err := grpc.NewClient(
-		"passthrough:///backup",
-		grpc.WithContextDialer(func(_ context.Context, _ string) (net.Conn, error) {
-			var c net.Conn
-			dialOnce.Do(func() { c = conn })
-			if c != nil {
-				return c, nil
-			}
-			return nil, fmt.Errorf("tunnel connection is single-use; reconnect not supported")
-		}),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                10 * time.Second,
-			Timeout:             5 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
-	if err != nil {
-		s.nbdMu.Unlock()
-		log.Log.Reason(err).Error("failed to initialize gRPC client for tunnel")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.(http.Flusher).Flush()
-
-	s.nbdClient = nbdv1.NewNBDClient(clientConn)
-	s.nbdMu.Unlock()
-
-	log.Log.Infof("Exclusive backup tunnel established for %s", s.BackupUID)
-
-	<-ctx.Done()
-
-	s.nbdMu.Lock()
-	clientConn.Close()
-	s.nbdClient = nil
-	s.nbdMu.Unlock()
-	log.Log.Info("Backup tunnel disconnected, listener reset")
-}
-
-type h2ServerConn struct {
-	r      io.ReadCloser
-	w      http.ResponseWriter
-	cancel context.CancelFunc
-	once   sync.Once
-}
-
-func newH2ServerConn(r io.ReadCloser, w http.ResponseWriter, cancel context.CancelFunc) *h2ServerConn {
-	return &h2ServerConn{r: r, w: w, cancel: cancel}
-}
-
-func (c *h2ServerConn) Read(b []byte) (int, error) { return c.r.Read(b) }
-
-func (c *h2ServerConn) Write(b []byte) (int, error) {
-	n, err := c.w.Write(b)
-	if f, ok := c.w.(http.Flusher); ok {
-		f.Flush()
-	}
-	return n, err
-}
-
-func (c *h2ServerConn) Close() error {
-	c.once.Do(c.cancel)
-	return c.r.Close()
-}
-
-func (c *h2ServerConn) LocalAddr() net.Addr                { return h2DummyAddr }
-func (c *h2ServerConn) RemoteAddr() net.Addr               { return h2DummyAddr }
-func (c *h2ServerConn) SetDeadline(_ time.Time) error      { return nil }
-func (c *h2ServerConn) SetReadDeadline(_ time.Time) error  { return nil }
-func (c *h2ServerConn) SetWriteDeadline(_ time.Time) error { return nil }
-
-type ExportMapExtent struct {
-	Offset      uint64 `json:"offset"`
-	Length      uint64 `json:"length"`
-	Type        uint64 `json:"type"`
-	Description string `json:"description"`
-}
-
-type ExportMapResponse struct {
-	Extents    []ExportMapExtent `json:"extents"`
-	NextOffset *uint64           `json:"next_offset"`
-}
-
-func (s *exportServer) backupMapHandler(exportName string) http.Handler {
+func (s *exportServer) backupMapHandler(backup export.BackupInfo) http.Handler {
+	exportName := backup.Path
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		s.nbdMu.RLock()
-		client := s.nbdClient
-		s.nbdMu.RUnlock()
-		if client == nil {
-			http.Error(w, "Backup source (virt-launcher) not connected via tunnel", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -1081,28 +1033,18 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 			pageSize = p
 		}
 
-		var bitmapName string
-		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
-			bitmapName = s.BackupCheckpoint
-		}
+		bitmapName := s.backupBitmapName(backup)
 
 		streamCtx, streamCancel := context.WithCancel(req.Context())
 		defer streamCancel()
 
-		stream, err := client.Map(streamCtx, &nbdv1.MapRequest{
-			ExportName: exportName,
-			BitmapName: bitmapName,
-			Offset:     offset,
-			Length:     length,
-		})
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to call map for export: %s", exportName)
-			log.Log.Reason(err).Error(errMsg)
-			http.Error(w, errMsg, http.StatusInternalServerError)
+		extents, nextOffsetPtr, err := collectMapPage(
+			s.nbdSource.Map(streamCtx, exportName, bitmapName, offset, length), pageSize)
+		if errors.Is(err, nbdclient.ErrNotServing) {
+			log.Log.Reason(err).Error(backupSourceUnavailable)
+			http.Error(w, backupSourceUnavailable, http.StatusServiceUnavailable)
 			return
 		}
-
-		extents, nextOffsetPtr, err := collectMapPage(stream, pageSize)
 		if err != nil {
 			errMsg := fmt.Sprintf("Failed to collect map extents for export: %s", exportName)
 			log.Log.Reason(err).Error(errMsg)
@@ -1110,7 +1052,7 @@ func (s *exportServer) backupMapHandler(exportName string) http.Handler {
 			return
 		}
 
-		page := ExportMapResponse{
+		page := export.ExportMapResponse{
 			Extents:    extents,
 			NextOffset: nextOffsetPtr,
 		}
@@ -1126,15 +1068,6 @@ func (s *exportServer) backupDataHandler(exportName string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
-		s.nbdMu.RLock()
-		client := s.nbdClient
-		s.nbdMu.RUnlock()
-
-		if client == nil {
-			http.Error(w, "Backup source not connected", http.StatusServiceUnavailable)
 			return
 		}
 
@@ -1159,57 +1092,50 @@ func (s *exportServer) backupDataHandler(exportName string) http.Handler {
 			length = l
 		}
 
-		stream, err := client.Read(req.Context(), &nbdv1.ReadRequest{
-			ExportName: exportName,
-			Offset:     offset,
-			Length:     length,
-		})
-		if err != nil {
-			http.Error(w, fmt.Sprintf("Failed to call read for export: %s", exportName), http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/octet-stream")
+		err := s.nbdSource.Read(req.Context(), exportName, offset, length, flushWriter{w})
+		if errors.Is(err, nbdclient.ErrNotServing) {
+			log.Log.Reason(err).Error(backupSourceUnavailable)
+			http.Error(w, backupSourceUnavailable, http.StatusServiceUnavailable)
 			return
 		}
-
-		w.Header().Set("Content-Type", "application/octet-stream")
-		for {
-			chunk, err := stream.Recv()
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if err != nil {
-				log.Log.Reason(err).Error("Tunnel stream interrupted")
-				panic(http.ErrAbortHandler)
-			}
-			if _, err := w.Write(chunk.Data); err != nil {
-				log.Log.Reason(err).Error("HTTP client disconnected during stream")
-				return
-			}
-			if f, ok := w.(http.Flusher); ok {
-				f.Flush()
-			}
+		if err != nil {
+			log.Log.Reason(err).Errorf("Failed to read export %s", exportName)
+			panic(http.ErrAbortHandler)
 		}
 	})
 }
 
-func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]ExportMapExtent, *uint64, error) {
-	var extents []ExportMapExtent
-	for {
-		msg, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			return extents, nil, nil
-		}
+func collectMapPage(extents iter.Seq2[nbdclient.Extent, error], pageSize int) ([]export.ExportMapExtent, *uint64, error) {
+	var page []export.ExportMapExtent
+	for extent, err := range extents {
 		if err != nil {
 			return nil, nil, err
 		}
-		for _, e := range msg.Extents {
-			if len(extents) >= pageSize {
-				return extents, &e.Offset, nil
-			}
-			extents = append(extents, ExportMapExtent{
-				Offset:      e.Offset,
-				Length:      e.Length,
-				Type:        e.Flags,
-				Description: e.Description,
-			})
+		if len(page) >= pageSize {
+			return page, &extent.Offset, nil
 		}
+		page = append(page, export.ExportMapExtent{
+			Offset:      extent.Offset,
+			Length:      extent.Length,
+			Type:        extent.Flags,
+			Description: extent.Description,
+		})
 	}
+
+	return page, nil, nil
+}
+
+// flushWriter pushes each read chunk to the client instead of letting it sit
+// in the response buffer.
+type flushWriter struct {
+	w http.ResponseWriter
+}
+
+func (f flushWriter) Write(p []byte) (int, error) {
+	n, err := f.w.Write(p)
+	if flusher, ok := f.w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return n, err
 }

@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -375,9 +376,7 @@ func (n *NodeLabeller) getNode() (*v1.Node, error) {
 
 // addNodeLabels adds labels to node.
 func (n *NodeLabeller) addLabellerLabels(node *v1.Node, labels map[string]string) {
-	for key, value := range labels {
-		node.Labels[key] = value
-	}
+	maps.Copy(node.Labels, labels)
 }
 
 // removeLabellerLabels removes labels from node
@@ -417,7 +416,7 @@ func isNodeLabellerLabel(label string) bool {
 
 func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) {
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
-	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
+	n.recorder.Event(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
 }
 
 func (n *NodeLabeller) hasTSCCounter() bool {

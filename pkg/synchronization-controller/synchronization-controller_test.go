@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,19 @@ import (
 	syncv1 "kubevirt.io/kubevirt/pkg/synchronizer-com/synchronization/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
+
+// stubMigrationTunnelServer is a minimal Synchronize_MigrationTunnelServer for
+// unit tests that only need Recv() to return a fixed OPEN frame.
+type stubMigrationTunnelServer struct {
+	grpc.ServerStream
+	openFrame *syncv1.MigrationFrame
+}
+
+func (s *stubMigrationTunnelServer) Send(*syncv1.MigrationFrame) error { return nil }
+
+func (s *stubMigrationTunnelServer) Recv() (*syncv1.MigrationFrame, error) {
+	return s.openFrame, nil
+}
 
 const (
 	testMigrationID         = "testMigrationID"
@@ -94,7 +108,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstanceMigration(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetNamespace)).AnyTimes()
 		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
-		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		tmpDir, err := os.MkdirTemp("", "synchronizationcontrollertest")
 		Expect(err).ToNot(HaveOccurred())
 		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
@@ -108,7 +122,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			},
 		}
 
-		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9185, "")
+		controller, err = NewSynchronizationController(virtClient, vmiInformer, migrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9185, "127.0.0.1", nil)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)
 		controller.queue = mockQueue
@@ -126,9 +140,9 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 	Context("getLocalSynchronizationAddress", func() {
 		DescribeTable("should produce an address parseable by net.SplitHostPort", func(ip string, port int, expectedHost, expectedPort string) {
-			ctrl := &SynchronizationController{ip: ip, bindPort: port}
+			controller = &SynchronizationController{ip: ip, bindPort: port}
 
-			addr, err := ctrl.getLocalSynchronizationAddress()
+			addr, err := controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
 
 			host, p, err := net.SplitHostPort(addr)
@@ -137,10 +151,130 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(p).To(Equal(expectedPort))
 		},
 			Entry("IPv4 address", "10.0.0.1", 9185, "10.0.0.1", "9185"),
+
 			Entry("IPv6 address", "fd02:0:0:1::cb", 9185, "fd02:0:0:1::cb", "9185"),
 			Entry("IPv6 loopback", "::1", 9185, "::1", "9185"),
 			Entry("IPv6 full address", "2001:db8::1", 4321, "2001:db8::1", "4321"),
 		)
+
+		It("should prefer KubeVirt CR synchronizationAddresses when proxy is enabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("sync.example.com:443"))
+		})
+
+		It("should fall through to cross-cluster IP when proxy is enabled but CR has no addresses", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status:     virtv1.KubeVirtStatus{},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  true,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
+
+		It("should ignore KubeVirt CR synchronizationAddresses when proxy is disabled", func() {
+			kvStore := cache.NewStore(cache.MetaNamespaceKeyFunc)
+			Expect(kvStore.Add(&virtv1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+				Status: virtv1.KubeVirtStatus{
+					SynchronizationAddresses: []string{"sync.example.com:443"},
+				},
+			})).To(Succeed())
+			tm := NewMigrationTunnelManager(nil, nil)
+			tm.Initialize("10.0.0.2", "10.0.0.3")
+			controller = &SynchronizationController{
+				kubeVirtStore: kvStore,
+				proxyEnabled:  false,
+				tunnelManager: tm,
+				ip:            "10.0.0.1",
+				bindPort:      9185,
+			}
+
+			addr, err := controller.getLocalSynchronizationAddress()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal("10.0.0.3:9185"))
+		})
+	})
+
+	Context("migration proxy initialization", func() {
+		It("should leave the tunnel uninitialized when Proxy is disabled", func() {
+			// Uses the suite BeforeEach controller, created with a nil ProxyInitConfig.
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
+
+		It("should reject MigrationTunnel when the tunnel manager is nil (Direct mode)", func() {
+			// Suite BeforeEach builds the controller with a nil ProxyInitConfig, so
+			// tunnelManager stays nil. An inbound MigrationTunnel RPC must fail fast.
+			Expect(controller.tunnelManager).To(BeNil())
+
+			stream := &stubMigrationTunnelServer{
+				openFrame: &syncv1.MigrationFrame{
+					MigrationId: testMigrationID,
+					ChannelId:   1,
+					FrameType:   syncv1.FrameType_FRAME_TYPE_OPEN,
+				},
+			}
+			err := controller.MigrationTunnel(stream)
+			Expect(err).To(MatchError(ContainSubstring("tunnel manager not initialized")))
+		})
+
+		It("should initialize the tunnel on the pod IP when Proxy is enabled without required NADs", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{Enabled: true})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.IsTunnelInitialized()).To(BeTrue())
+			Expect(controller.tunnelManager.MigrationIP()).To(Equal("127.0.0.1"))
+			Expect(controller.tunnelManager.CrossClusterIP()).To(Equal("127.0.0.1"))
+			Expect(controller.bindAddress).To(Equal("127.0.0.1"))
+		})
+
+		It("should fail to create the controller when a required cross-cluster interface is missing", func() {
+			controller = &SynchronizationController{
+				tunnelManager: NewMigrationTunnelManager(nil, nil),
+				bindPort:      9185,
+				ip:            "127.0.0.1",
+			}
+			err := controller.initMigrationProxy("127.0.0.1", "0.0.0.0", 9185, &ProxyInitConfig{
+				Enabled:                      true,
+				RequireCrossClusterInterface: true,
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("peer sync address"))
+			Expect(controller.IsTunnelInitialized()).To(BeFalse())
+		})
 	})
 
 	Context("grpc SyncSourceMigrationStatus", func() {
@@ -796,18 +930,24 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Context("handleSourceState", func() {
 			It("should not do anything if source doesn't have source migration", func() {
 				// no source migration
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				err := controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				sourceVMI.Status.MigrationState = nil
-				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should not do anything if source sync addres is not set", func() {
+			It("should set source SyncAddress and return when there is no outbound connection", func() {
 				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{}
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Update(context.TODO(), sourceVMI, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(sourceVMI.Namespace).Get(context.TODO(), sourceVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigrationState.SourceState.SyncAddress).ToNot(BeNil())
+				Expect(*updatedVMI.Status.MigrationState.SourceState.SyncAddress).To(Equal(localTCPConn.Addr().String()))
 			})
 
 			It("should error and fail to update target VMI if target VMI doesn't exist", func() {
@@ -825,7 +965,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(targetVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleSourceState(sourceVMI, sourceMigration)
+				err = controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(sourceUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -843,7 +983,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: targetTestMigrationUID,
 					},
 				}
-				err := controller.handleSourceState(sourceVMI, sourceMigration)
+				err := controller.handleSourceState(context.TODO(), sourceVMI, sourceMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			})
@@ -852,18 +992,26 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Context("handleTargetState", func() {
 			It("should not do anything if target doesn't have target migration", func() {
 				// no source migration
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				err := controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				// no migration at all
 				targetVMI.Status.MigrationState = nil
-				err = controller.handleTargetState(targetVMI, targetMigration)
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should not do anything if target sync addres is not set", func() {
+			It("should set target sync address if not set", func() {
 				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{}
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				// Update the VMI in fake client to match what's in the informer
+				_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(targetVMI.Namespace).Update(context.TODO(), targetVMI, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
+				Expect(err).ToNot(HaveOccurred())
+				// Verify that the target sync address was set
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(targetVMI.Namespace).Get(context.TODO(), targetVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVMI.Status.MigrationState.TargetState.SyncAddress).ToNot(BeNil())
+				Expect(*updatedVMI.Status.MigrationState.TargetState.SyncAddress).To(Equal(localTCPConn.Addr().String()))
 			})
 
 			It("should error and fail to update target VMI if source VMI doesn't exist", func() {
@@ -881,7 +1029,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 				}
 				err = controller.vmiInformer.GetStore().Delete(sourceVMI)
 				Expect(err).ToNot(HaveOccurred())
-				err = controller.handleTargetState(targetVMI, targetMigration)
+				err = controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf(targetUnableToLocateVMIMigrationIDErrorMsg, testMigrationID)))
 			})
@@ -899,9 +1047,102 @@ var _ = Describe("VMI status synchronization controller", func() {
 						MigrationUID: sourceTestMigrationUID,
 					},
 				}
-				err := controller.handleTargetState(targetVMI, targetMigration)
+				err := controller.handleTargetState(context.TODO(), targetVMI, targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				verifySource(controller, sourceVMI, localTCPConn.Addr().String())
+			})
+		})
+
+		Context("decentralized migration abort cleanup", func() {
+			setupConnectedAbortMigration := func() {
+				sourceVMI.Status.MigrationState.MigrationUID = sourceTestMigrationUID
+				sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: sourceTestMigrationUID,
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+					},
+				}
+				sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: targetTestMigrationUID,
+						SyncAddress:  pointer.P(localTCPConn.Addr().String()),
+					},
+				}
+				targetVMI.Status.MigrationState.MigrationUID = targetTestMigrationUID
+				targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: targetTestMigrationUID,
+					},
+				}
+				targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						SyncAddress: pointer.P(localTCPConn.Addr().String()),
+					},
+				}
+				err = controller.vmiInformer.GetStore().Update(sourceVMI)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = controller.vmiInformer.GetStore().Update(targetVMI)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = controller.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			setSourceAbortCompleted := func() {
+				endTimestamp := metav1.Now()
+				sourceVMI.Status.MigrationState.AbortRequested = true
+				sourceVMI.Status.MigrationState.EndTimestamp = &endTimestamp
+				sourceVMI.Status.MigrationState.Failed = true
+				sourceVMI.Status.MigrationState.Completed = true
+				sourceVMI.Status.MigrationState.AbortStatus = virtv1.MigrationAbortSucceeded
+				sourceVMI.Status.MigrationState.FailureReason = "Live migration has been aborted"
+				err = controller.vmiInformer.GetStore().Update(sourceVMI)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			verifyTargetAbortCompletion := func() {
+				updatedTargetVMI, err := controller.client.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedTargetVMI.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+				Expect(updatedTargetVMI.Status.MigrationState.Failed).To(BeTrue())
+				Expect(updatedTargetVMI.Status.MigrationState.Completed).To(BeTrue())
+				Expect(updatedTargetVMI.Status.MigrationState.AbortStatus).To(Equal(virtv1.MigrationAbortSucceeded))
+				Expect(updatedTargetVMI.Status.MigrationState.FailureReason).To(Equal("Live migration has been aborted"))
+			}
+
+			It("should push abort completion to target when source migration object is gone", func() {
+				setupConnectedAbortMigration()
+				setSourceAbortCompleted()
+
+				By("removing the source migration object as happens after target-initiated cancel")
+				err = migrationInformer.GetStore().Delete(sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+
+				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
+				Expect(err).ToNot(HaveOccurred())
+				err = controller.execute(context.Background(), sourceKey)
+				Expect(err).ToNot(HaveOccurred())
+
+				verifyTargetAbortCompletion()
+			})
+
+			It("should sync source abort state before canceling target migration on source migration deletion", func() {
+				setupConnectedAbortMigration()
+				setSourceAbortCompleted()
+
+				sourceMigration.DeletionTimestamp = pointer.P(metav1.Now())
+				err = migrationInformer.GetStore().Update(sourceMigration)
+				Expect(err).ToNot(HaveOccurred())
+
+				sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
+				Expect(err).ToNot(HaveOccurred())
+				err = controller.execute(context.Background(), sourceKey)
+				Expect(err).ToNot(HaveOccurred())
+
+				verifyTargetAbortCompletion()
 			})
 		})
 
@@ -937,11 +1178,11 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(targetKey)
+			err = controller.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			verifyTarget(controller, targetVMI, localTCPConn.Addr().String())
 			verifySource(controller, sourceVMI, localTCPConn.Addr().String())
@@ -960,8 +1201,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 		)
 
 		BeforeEach(func() {
-			remoteMigrationInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
-			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, tlsConfig, tlsConfig, "0.0.0.0", 9186, "")
+			remoteMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstanceMigration{}, kvcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
+			remoteController, err = NewSynchronizationController(virtClient, vmiInformer, remoteMigrationInformer, nil, tlsConfig, tlsConfig, nil, nil, "0.0.0.0", 9186, "127.0.0.1", nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			remoteTCPConn, err := remoteController.createTcpListener()
@@ -1052,13 +1293,13 @@ var _ = Describe("VMI status synchronization controller", func() {
 			By("calling execute on the source")
 			sourceKey, err := kvcontroller.KeyFunc(sourceVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
 			targetKey, err := kvcontroller.KeyFunc(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1080,7 +1321,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			remoteController.vmiInformer.GetStore().Update(updatedTargetVMI)
 
 			By("calling execute on the source")
-			err = controller.execute(sourceKey)
+			err = controller.execute(context.Background(), sourceKey)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("verifying the result")
@@ -1104,7 +1345,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("calling execute on the target")
-			err = remoteController.execute(targetKey)
+			err = remoteController.execute(context.Background(), targetKey)
 			Expect(err).ToNot(HaveOccurred())
 			updatedSourceVMI, err := controller.client.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1279,13 +1520,283 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.Message).To(Equal("migration canceled"))
 		})
+
+		It("should not orphan-sync when source abort has not completed yet", func() {
+			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   sourceTestMigrationUID,
+				AbortRequested: true,
+				SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: sourceTestMigrationUID,
+					},
+				},
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: targetTestMigrationUID,
+					},
+				},
+			}
+			Expect(needsOrphanSourceAbortSync(sourceVMI)).To(BeFalse())
+		})
+
+		It("should request source cancel when target migration is deleted", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+
+			targetKey, err := kvcontroller.KeyFunc(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			err = remoteController.execute(context.Background(), targetKey)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("needsOrphanSourceAbortSync", func() {
+		It("should return true for completed decentralized source abort without migration object", func() {
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						MigrationUID:   sourceTestMigrationUID,
+						AbortRequested: true,
+						EndTimestamp:   &endTimestamp,
+						SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: sourceTestMigrationUID,
+							},
+						},
+						TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: targetTestMigrationUID,
+							},
+						},
+					},
+				},
+			}
+			Expect(needsOrphanSourceAbortSync(vmi)).To(BeTrue())
+		})
+
+		It("should return false when abort is still in progress", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						MigrationUID:   sourceTestMigrationUID,
+						AbortRequested: true,
+						SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: sourceTestMigrationUID,
+							},
+						},
+						TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: targetTestMigrationUID,
+							},
+						},
+					},
+				},
+			}
+			Expect(needsOrphanSourceAbortSync(vmi)).To(BeFalse())
+		})
+
+		It("should return false for target-side VMIs", func() {
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+						MigrationUID:   targetTestMigrationUID,
+						AbortRequested: true,
+						EndTimestamp:   &endTimestamp,
+						SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: sourceTestMigrationUID,
+							},
+						},
+						TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+							VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+								MigrationUID: targetTestMigrationUID,
+							},
+						},
+					},
+				},
+			}
+			Expect(needsOrphanSourceAbortSync(vmi)).To(BeFalse())
+		})
+	})
+
+	Context("resolveSourceOutboundMigrationID", func() {
+		It("should fall back to target migration UID when source migration object is gone", func() {
+			targetMigration := createTargetMigration(testMigrationID, "test-vmi", targetNamespace)
+			err := migrationInformer.GetStore().Add(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+
+			migrationState := &virtv1.VirtualMachineInstanceMigrationState{
+				SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: sourceTestMigrationUID,
+					},
+				},
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						MigrationUID: targetTestMigrationUID,
+					},
+				},
+			}
+
+			migrationID, err := controller.resolveSourceOutboundMigrationID(migrationState)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationID).To(Equal(testMigrationID))
+		})
+	})
+
+	Context("copyLegacySourceFields", func() {
+		It("should copy abort completion fields when abort was requested", func() {
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				AbortRequested: true,
+				EndTimestamp:   &endTimestamp,
+				Failed:         true,
+				Completed:      true,
+				AbortStatus:    virtv1.MigrationAbortSucceeded,
+				FailureReason:  "Live migration has been aborted",
+				SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node03",
+						Pod:  "source-pod",
+					},
+				},
+			}
+
+			copyLegacySourceFields(vmi, remoteState)
+
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(&endTimestamp))
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.AbortStatus).To(Equal(virtv1.MigrationAbortSucceeded))
+			Expect(vmi.Status.MigrationState.FailureReason).To(Equal("Live migration has been aborted"))
+			Expect(vmi.Status.MigrationState.SourceNode).To(Equal("node03"))
+			Expect(vmi.Status.MigrationState.SourcePod).To(Equal("source-pod"))
+		})
+
+		It("should not copy failed/completed abort fields without EndTimestamp", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				AbortRequested: true,
+				Failed:         true,
+				Completed:      true,
+				AbortStatus:    virtv1.MigrationAbortSucceeded,
+				SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node03",
+					},
+				},
+			}
+
+			copyLegacySourceFields(vmi, remoteState)
+
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(BeNil())
+			Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+			Expect(vmi.Status.MigrationState.Completed).To(BeFalse())
+			Expect(vmi.Status.MigrationState.AbortStatus).To(BeEmpty())
+		})
+	})
+
+	Context("copyLegacyTargetFields", func() {
+		It("should set Completed when EndTimestamp is synced without Completed", func() {
+			// Target ackMigrationCompletion sets EndTimestamp before finalizeMigration
+			// sets Completed. Syncing that partial state must not strand the source.
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				EndTimestamp: &endTimestamp,
+				Completed:    false,
+				Failed:       false,
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node02",
+						Pod:  "target-pod",
+					},
+					DomainDetected: true,
+				},
+			}
+
+			copyLegacyTargetFields(vmi, remoteState, false)
+
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(&endTimestamp))
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+			Expect(vmi.Status.MigrationState.TargetNode).To(Equal("node02"))
+			Expect(vmi.Status.MigrationState.TargetPod).To(Equal("target-pod"))
+		})
+
+		It("should preserve Failed and set Completed when EndTimestamp is present on a failed migration", func() {
+			endTimestamp := metav1.Now()
+			vmi := &virtv1.VirtualMachineInstance{
+				Status: virtv1.VirtualMachineInstanceStatus{
+					MigrationState: &virtv1.VirtualMachineInstanceMigrationState{},
+				},
+			}
+			remoteState := &virtv1.VirtualMachineInstanceMigrationState{
+				EndTimestamp: &endTimestamp,
+				Completed:    false,
+				Failed:       true,
+				TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+					VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+						Node: "node02",
+					},
+				},
+			}
+
+			copyLegacyTargetFields(vmi, remoteState, false)
+
+			Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+			Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+		})
 	})
 
 	It("should return nil, nil if invalid resource type passed into index function", func() {
-		res, err := indexByMigrationUID("invalid")
-		Expect(res).To(BeNil())
-		Expect(err).ToNot(HaveOccurred())
-		res, err = indexByActiveVmiName("invalid")
+		res, err := indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexBySourceMigrationID("invalid")

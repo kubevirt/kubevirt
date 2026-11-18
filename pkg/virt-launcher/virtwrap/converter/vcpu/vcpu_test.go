@@ -72,7 +72,7 @@ var _ = Describe("VCPU pinning", func() {
 	)
 
 	It("should depend on the host topology reporting order for stable results with random shuffled cpusets", func() {
-		for x := 0; x < 10; x++ {
+		for range 10 {
 			pool := NewRelaxedCPUPool(
 				&api.CPUTopology{Sockets: 1, Cores: 12, Threads: 1},
 				hostTopology(
@@ -179,6 +179,49 @@ var _ = Describe("VCPU pinning", func() {
 	)
 
 	Describe("AdjustDomainForTopologyAndCPUSet", func() {
+		It("should pin IOThreads with dedicatedIOThread and dedicatedCPU but without isolateEmulatorThread", func() {
+			vmi := &corev1.VirtualMachineInstance{
+				Spec: corev1.VirtualMachineInstanceSpec{
+					Domain: corev1.DomainSpec{
+						CPU: &corev1.CPU{
+							Cores:                 1,
+							Sockets:               8,
+							Threads:               1,
+							DedicatedCPUPlacement: true,
+						},
+						Devices: corev1.Devices{
+							Disks: []corev1.Disk{{
+								Name:              "rootdisk",
+								DedicatedIOThread: new(true),
+								DiskDevice: corev1.DiskDevice{
+									Disk: &corev1.DiskTarget{Bus: corev1.DiskBusVirtio},
+								},
+							}},
+						},
+					},
+				},
+			}
+			domain := &api.Domain{
+				Spec: api.DomainSpec{
+					CPU: api.CPU{
+						Topology: &api.CPUTopology{
+							Sockets: 8,
+							Cores:   1,
+							Threads: 1,
+						},
+					},
+					IOThreads: &api.IOThreads{IOThreads: 1},
+				},
+			}
+			cpuset := []int{0, 1, 2, 3, 4, 5, 6, 7}
+			topology := hostTopology(1, 1, 0, 1, 2, 3, 4, 5, 6, 7)
+
+			err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuset)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domain.Spec.CPUTune).ToNot(BeNil())
+			Expect(domain.Spec.CPUTune.IOThreadPin).To(HaveLen(1))
+			Expect(domain.Spec.CPUTune.EmulatorPin).To(BeNil())
+		})
 		It("should succeed without modifying topology when VCPU metadata is absent", func() {
 			domain := &api.Domain{
 				Spec: api.DomainSpec{
@@ -235,7 +278,7 @@ func hostTopology(cellCount int, threadsPerCore int, threads ...uint32) *v1.Topo
 		NumaCells: []*v1.Cell{},
 	}
 
-	for i := 0; i < cellCount; i++ {
+	for i := range cellCount {
 		topology.NumaCells = append(topology.NumaCells, &v1.Cell{Id: uint32(i)})
 	}
 
@@ -244,7 +287,7 @@ func hostTopology(cellCount int, threadsPerCore int, threads ...uint32) *v1.Topo
 	threadsPerCell = threadsPerCell - threadsPerCell%threadsPerCore
 	assigned := 0
 	for i := 0; i < len(threads); i += threadsPerCore {
-		for col := 0; col < threadsPerCore; col++ {
+		for col := range threadsPerCore {
 			topology.NumaCells[cellCounter].Cpus = append(topology.NumaCells[cellCounter].Cpus, &v1.CPU{
 				Id:       threads[i+col],
 				Siblings: threads[i : i+threadsPerCore],
@@ -389,7 +432,7 @@ func generateNegativeCPUPinningTests(testArgs ...*testArgs) {
 		})
 	}
 }
-func funcName(f interface{}) string {
+func funcName(f any) string {
 	arr := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
 	return arr[len(arr)-1]
 }

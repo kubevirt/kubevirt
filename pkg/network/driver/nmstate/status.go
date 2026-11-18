@@ -23,8 +23,6 @@ import (
 	"net"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	vishnetlink "github.com/vishvananda/netlink"
 )
 
@@ -62,10 +60,10 @@ func (n NMState) readInterfaces(links []vishnetlink.Link) ([]Interface, error) {
 			MacAddress: link.Attrs().HardwareAddr.String(),
 			MTU:        link.Attrs().MTU,
 			IPv4: IP{
-				Enabled: pointer.P(false),
+				Enabled: new(false),
 			},
 			IPv6: IP{
-				Enabled: pointer.P(false),
+				Enabled: new(false),
 			},
 		}
 		if index := link.Attrs().MasterIndex; index > 0 {
@@ -81,7 +79,7 @@ func (n NMState) readInterfaces(links []vishnetlink.Link) ([]Interface, error) {
 			return nil, err
 		}
 		if len(addresses) > 0 {
-			iface.IPv4.Enabled = pointer.P(true)
+			iface.IPv4.Enabled = new(true)
 			iface.IPv4.Address = addresses
 		}
 
@@ -90,7 +88,7 @@ func (n NMState) readInterfaces(links []vishnetlink.Link) ([]Interface, error) {
 			return nil, err
 		}
 		if len(addresses) > 0 {
-			iface.IPv6.Enabled = pointer.P(true)
+			iface.IPv6.Enabled = new(true)
 			iface.IPv6.Address = addresses
 		}
 

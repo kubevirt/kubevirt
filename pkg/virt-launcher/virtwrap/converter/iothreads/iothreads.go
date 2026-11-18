@@ -29,6 +29,16 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 )
 
+const AutoThreadPoolMax = 8
+
+// AutoPoolSize caps the auto thread pool size by the number of vCPUs and the AutoThreadPoolMax.
+func AutoPoolSize(autoThreads int, vcpus uint) int {
+	if vcpus == 0 {
+		vcpus = 1
+	}
+	return min(autoThreads, int(vcpus), AutoThreadPoolMax)
+}
+
 func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
@@ -45,6 +55,7 @@ func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
 		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		vmi.Spec.Domain.IOThreads != nil &&
 		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
 		return int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount), 0
 	}
@@ -60,15 +71,13 @@ func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 	threadPoolLimit := getThreadPoolLimit(vmi)
 
 	if (autoThreads + dedicatedThreads) > threadPoolLimit {
-		autoThreads = threadPoolLimit - dedicatedThreads
-		// We need at least one shared thread
-		if autoThreads < 1 {
-			autoThreads = 1
-		}
+		autoThreads = max(
+			// We need at least one shared thread
+			threadPoolLimit-dedicatedThreads, 1)
 	}
 
 	ioThreadCount = autoThreads + dedicatedThreads
-	return
+	return ioThreadCount, autoThreads
 }
 
 func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
@@ -83,6 +92,7 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 			return 1
 		}
+		const ioThreadsPerCPU = 2
 		numCPUs := 1
 		// Requested CPU's is guaranteed to be no greater than the limit
 		if req, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
@@ -90,18 +100,15 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 		} else if lim, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
 			numCPUs = int(lim.Value())
 		}
-		return numCPUs * 2
+		return numCPUs * ioThreadsPerCPU
 	default:
 		return 0
 	}
 }
 
-func BuildSupplementalPoolIOThreads(vmi *v1.VirtualMachineInstance) *api.DiskIOThreads {
-	if vmi.Spec.Domain.IOThreadsPolicy == nil || *vmi.Spec.Domain.IOThreadsPolicy != v1.IOThreadsPolicySupplementalPool {
-		return nil
-	}
+func BuildIOThreadPool(threadPoolSize int) *api.DiskIOThreads {
 	iothreads := &api.DiskIOThreads{}
-	for id := 1; id <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); id++ {
+	for id := 1; id <= threadPoolSize; id++ {
 		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
 	}
 	return iothreads

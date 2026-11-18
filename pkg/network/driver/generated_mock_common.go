@@ -14,9 +14,6 @@ import (
 
 	netlink "github.com/vishvananda/netlink"
 	gomock "go.uber.org/mock/gomock"
-	v1 "kubevirt.io/api/core/v1"
-
-	cache "kubevirt.io/kubevirt/pkg/network/cache"
 )
 
 // MockNetworkHandler is a mock of NetworkHandler interface.
@@ -41,6 +38,21 @@ func NewMockNetworkHandler(ctrl *gomock.Controller) *MockNetworkHandler {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockNetworkHandler) EXPECT() *MockNetworkHandlerMockRecorder {
 	return m.recorder
+}
+
+// AddrList mocks base method.
+func (m *MockNetworkHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddrList", link, family)
+	ret0, _ := ret[0].([]netlink.Addr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddrList indicates an expected call of AddrList.
+func (mr *MockNetworkHandlerMockRecorder) AddrList(link, family any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddrList", reflect.TypeOf((*MockNetworkHandler)(nil).AddrList), link, family)
 }
 
 // HasIPv4GlobalUnicastAddress mocks base method.
@@ -86,18 +98,4 @@ func (m *MockNetworkHandler) LinkByName(name string) (netlink.Link, error) {
 func (mr *MockNetworkHandlerMockRecorder) LinkByName(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkByName", reflect.TypeOf((*MockNetworkHandler)(nil).LinkByName), name)
-}
-
-// StartDHCP mocks base method.
-func (m *MockNetworkHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartDHCP", nic, bridgeInterfaceName, dhcpOptions)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StartDHCP indicates an expected call of StartDHCP.
-func (mr *MockNetworkHandlerMockRecorder) StartDHCP(nic, bridgeInterfaceName, dhcpOptions any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartDHCP", reflect.TypeOf((*MockNetworkHandler)(nil).StartDHCP), nic, bridgeInterfaceName, dhcpOptions)
 }

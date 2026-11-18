@@ -142,12 +142,12 @@ func validateDRAClaimAndRequestNames(field *k8sfield.Path, idx int, claimName, r
 
 func validateDRANetworkInterfaceBinding(field *k8sfield.Path, interfaces []v1.Interface, networkName string) []metav1.StatusCause {
 	iface := vmispec.LookupInterfaceByName(interfaces, networkName)
-	if iface == nil || iface.SRIOV != nil || iface.Binding != nil {
+	if iface == nil || iface.Binding != nil {
 		return nil
 	}
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("DRA network %q requires an SR-IOV or binding plugin interface", networkName),
+		Message: fmt.Sprintf("DRA network %q requires a binding plugin interface", networkName),
 		Field:   field.Child("domain", "devices", "interfaces").String(),
 	}}
 }

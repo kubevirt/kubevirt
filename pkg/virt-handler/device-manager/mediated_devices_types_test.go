@@ -39,6 +39,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+// mdevOwnershipLabel marks the specs covering which mdevs virt-handler is
+// allowed to destroy. Run them on their own with:
+//
+//	go test -count=1 -v ./pkg/virt-handler/device-manager/ \
+//	    -ginkgo.label-filter=mdev-ownership -ginkgo.fail-on-empty
+const mdevOwnershipLabel = "mdev-ownership"
+
 var _ = Describe("Mediated Devices Types configuration", func() {
 
 	type mdevTypesDetails struct {
@@ -153,8 +160,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 
 		oldHandler := handler
 		handler = mockMDEV
+		origStateFile := managedMdevTypesStateFile
+		managedMdevTypesStateFile = filepath.Join(GinkgoT().TempDir(), "managed-mdev-types")
 		DeferCleanup(func() {
 			handler = oldHandler
+			managedMdevTypesStateFile = origStateFile
 		})
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
@@ -479,5 +489,93 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Entry("configure mdev types that match a node selector", matchSingleNodeLabel, false),
 			Entry("configure a merged list of mdev types when multiple selectors match node", mergeAllTypesMatchedByNodeLabels, false),
 		)
+
+		createPreexistingMdev := func(mdevType, typeName, parentID string) {
+			typeDir := filepath.Join(fakeMdevBasePath, parentID, "mdev_supported_types", mdevType)
+			Expect(os.MkdirAll(typeDir, 0700)).To(Succeed())
+			if typeName != "" {
+				Expect(os.WriteFile(filepath.Join(typeDir, "name"), []byte(typeName+"\n"), 0600)).To(Succeed())
+			}
+			mdevUUID := string(uuid.NewUUID())
+			mdevUUIDDirPath := filepath.Join(fakeMdevDevicesPath, mdevUUID)
+			Expect(os.MkdirAll(mdevUUIDDirPath, 0700)).To(Succeed())
+			Expect(os.Symlink(typeDir, filepath.Join(mdevUUIDDirPath, "mdev_type"))).To(Succeed())
+		}
+
+		It("should not remove mdevs created by an external provider", Label(mdevOwnershipLabel), func() {
+			noExternallyConfiguredMdevs := make(map[string]struct{})
+			createTempMDEVSysfsStructure(map[string][]string{
+				"0000:65:00.0": {"nvidia-223"},
+			})
+			createPreexistingMdev("vfio_ap-passthrough", "VFIO AP Passthrough Device", "matrix")
+
+			mdevManager := NewMDEVTypesManager()
+			_, err := mdevManager.updateMDEVTypesConfiguration([]string{}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("vfio_ap-passthrough")).To(Equal(1))
+
+			By("configuring an unrelated KubeVirt-managed type")
+			_, err = mdevManager.updateMDEVTypesConfiguration([]string{"nvidia-223"}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("vfio_ap-passthrough")).To(Equal(1))
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+
+			By("clearing KubeVirt-managed types")
+			_, err = mdevManager.updateMDEVTypesConfiguration([]string{}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeZero())
+			Expect(countCreatedMdevs("vfio_ap-passthrough")).To(Equal(1))
+		})
+
+		It("should not remove previously existing mdevs of a type kubevirt has never configured", Label(mdevOwnershipLabel), func() {
+			noExternallyConfiguredMdevs := make(map[string]struct{})
+			createTempMDEVSysfsStructure(map[string][]string{
+				"0000:65:00.0": {"nvidia-222", "nvidia-223"},
+			})
+			createPreexistingMdev("nvidia-222", "GRID T4-1B", "0000:66:00.0")
+
+			mdevManager := NewMDEVTypesManager()
+			_, err := mdevManager.updateMDEVTypesConfiguration([]string{"nvidia-223"}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-222")).To(Equal(1))
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+		})
+
+		It("should still remove previously managed types after a manager restart", Label(mdevOwnershipLabel), func() {
+			noExternallyConfiguredMdevs := make(map[string]struct{})
+			createTempMDEVSysfsStructure(map[string][]string{
+				"0000:65:00.0": {"nvidia-223"},
+			})
+			createPreexistingMdev("vfio_ap-passthrough", "VFIO AP Passthrough Device", "matrix")
+
+			mdevManager := NewMDEVTypesManager()
+			_, err := mdevManager.updateMDEVTypesConfiguration([]string{"nvidia-223"}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+
+			By("simulating a virt-handler restart")
+			restartedManager := NewMDEVTypesManager()
+			_, err = restartedManager.updateMDEVTypesConfiguration([]string{}, noExternallyConfiguredMdevs)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeZero())
+			Expect(countCreatedMdevs("vfio_ap-passthrough")).To(Equal(1))
+		})
+
+		It("should not remove previously managed types listed as externally provided", Label(mdevOwnershipLabel), func() {
+			createTempMDEVSysfsStructure(map[string][]string{
+				"0000:65:00.0": {"nvidia-223"},
+			})
+			mdevManager := NewMDEVTypesManager()
+			_, err := mdevManager.updateMDEVTypesConfiguration([]string{"nvidia-223"}, map[string]struct{}{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+
+			externallyProvided := map[string]struct{}{
+				"GRID_T4-2B": {},
+			}
+			_, err = mdevManager.updateMDEVTypesConfiguration([]string{}, externallyProvided)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(countCreatedMdevs("nvidia-223")).To(BeNumerically(">", 0))
+		})
 	})
 })

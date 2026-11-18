@@ -24,8 +24,14 @@ import (
 	"path/filepath"
 )
 
+const FilesystemImageName = "disk.img"
+
+func FilesystemDir(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName)
+}
+
 func Filesystem(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
+	return filepath.Join(FilesystemDir(volumeName), FilesystemImageName)
 }
 
 func HotplugFilesystem(volumeName string) string {

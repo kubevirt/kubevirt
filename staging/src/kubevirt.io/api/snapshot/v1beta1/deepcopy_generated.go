@@ -475,6 +475,11 @@ func (in *VirtualMachineSnapshotContentStatus) DeepCopyInto(out *VirtualMachineS
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.SnapshotMode != nil {
+		in, out := &in.SnapshotMode, &out.SnapshotMode
+		*out = new(SnapshotMode)
+		**out = **in
+	}
 	return
 }
 
@@ -534,6 +539,16 @@ func (in *VirtualMachineSnapshotSpec) DeepCopyInto(out *VirtualMachineSnapshotSp
 		in, out := &in.FailureDeadline, &out.FailureDeadline
 		*out = new(v1.Duration)
 		**out = **in
+	}
+	if in.SnapshotMode != nil {
+		in, out := &in.SnapshotMode, &out.SnapshotMode
+		*out = new(SnapshotMode)
+		**out = **in
+	}
+	if in.OverlayScratchSize != nil {
+		in, out := &in.OverlayScratchSize, &out.OverlayScratchSize
+		x := (*in).DeepCopy()
+		*out = &x
 	}
 	return
 }

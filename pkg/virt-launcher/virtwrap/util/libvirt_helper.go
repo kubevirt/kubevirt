@@ -22,6 +22,7 @@ import (
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -153,6 +154,12 @@ func ApplySidecarHooks(vmi *v1.VirtualMachineInstance, wantedSpec *api.DomainSpe
 	}
 	domainSpecObj.DeepCopyInto(wantedSpec)
 
+	// Go's encoding/xml cannot unmarshal namespace-prefixed struct tags
+	// (e.g. xml:"qemu:commandline"), so QEMUCmd is silently lost during
+	// the round-trip above. Re-extract it from the hook-returned XML
+	// using namespace-aware token parsing.
+	translate.TransferQEMUCommandline(domainSpec, wantedSpec)
+
 	return domainSpec, nil
 }
 
@@ -163,13 +170,17 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 	}
 
 	if pluginList := plugins.GetPlugins(); len(pluginList) > 0 {
-		updatedSpec, xmlStr, err := plugins.ApplyDomainHooks(pluginList, vmi, wantedSpec,
+		updatedSpec, xmlStr, err := plugins.ApplyGuestDefinitionHooks(pluginList, vmi, wantedSpec,
 			pluginv1alpha1.InvocationContextBoot)
 		if err != nil {
 			return nil, err
 		}
-		updatedSpec.DeepCopyInto(wantedSpec)
-		domainSpec = xmlStr
+		// An empty xmlStr means no guest definition hooks ran (e.g. all plugins only
+		// declared NodeHooks); keep the XML produced by the legacy sidecar hooks above.
+		if xmlStr != "" {
+			updatedSpec.DeepCopyInto(wantedSpec)
+			domainSpec = xmlStr
+		}
 	}
 
 	return SetDomainSpecStr(virConn, vmi, domainSpec)

@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -152,7 +153,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 			Eventually(func() (bool, error) {
 				vmi, err := virtClient.VirtualMachineInstance(vmis[i].Namespace).Get(context.Background(), vmis[i].Name, metav1.GetOptions{})
 				return vmi.Status.MigrationState != nil && vmi.Status.MigrationState.StartTimestamp != nil && vmi.Status.MigrationState.EndTimestamp != nil, err
-			}, libmigration.MigrationWaitTime, 1*time.Second).Should(BeTrue(), fmt.Sprintf("vmi %s should be migrated", vmis[i].Name))
+			}, flags.MigrationTimeout(), 1*time.Second).Should(BeTrue(), fmt.Sprintf("vmi %s should be migrated", vmis[i].Name))
 
 			vmi, err := virtClient.VirtualMachineInstance(vmis[i].Namespace).Get(context.Background(), vmis[i].Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())

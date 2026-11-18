@@ -17,13 +17,16 @@ environment.
   resources to prepare them to be used inside a pod / VMI. Executed in root
   network namespace context. Uses netlink and other commands to configure and
   move SR-IOV VF / PF resources into pod namespaces.
+* [Network Resources Injector](https://github.com/k8snetworkplumbingwg/network-resources-injector)
+  is a Kubernetes mutating admission webhook. Before the `virt-launcher` pod is admitted, it inspects the
+  `k8s.v1.cni.cncf.io/resourceName` annotations on the `NetworkAttachmentDefinition` objects the pod references,
+  then patches the pod `requests` and `limits` to assist the scheduler in placing the pod on a node
+  with the requested device resources.
 * [Multus]( https://github.com/k8snetworkplumbingwg/multus-cni) is a meta-plugin. It will call
   the SR-IOV CNI plugin when VMI is attached to an SR-IOV interface. It is
   configured through `NetworkAttachmentDefinition` CRD objects. For SR-IOV, the
   object annotations should refer to the resource name configured inside the device
-  plugin `config.json` configuration file. This reference is used by KubeVirt
-  to automatically fill in `requests` and `limits` sections of `virt-launcher`
-  pods. (The same mechanism is used by other plugins, for example, `bridge`.)
+  plugin `config.json` configuration file.
   If used alone, SR-IOV CNI plugin would need the PCI address of the device we
   want to use inside the pod (and then, inside the VM). By using it in
   combination with the device plugin and Multus, thanks to the `k8s.v1.cni.cncf.io/resourceName`
@@ -37,10 +40,15 @@ environment.
   host.
 * KubeVirt, based on values of environment variables set by SR-IOV device
   plugin, configures libvirt domain for SR-IOV attached VMIs to use the right
-  PCI IDs. Also, fills in `requests` and `limits` sections of `virt-launcher`
-  pod spec as per attached NetworkAttachmentDefinition CRD.
+  PCI IDs.
 
 # Configuration
+
+This section first explains how to configure SR-IOV-capable hardware on a
+host. Later in this document, the recommended practical workflow for
+development and CI uses the emulated `igb` [1] SR-IOV setup.
+
+[1] https://www.qemu.org/docs/master/system/devices/igb.html
 
 > NOTE: steps to configure SR-IOV on a host are only applicable if you don't
 > use the SR-IOV Network Operator to deploy SR-IOV components. The operator
@@ -54,19 +62,9 @@ environment.
 > Just remember to set `SriovNetworkNodePolicy` to use `deviceType: vfio-pci`
 > when configuring the operator.
 >
-> For local development purposes, one should be able to (re)use the same
-> [kind](https://kind.sigs.k8s.io/) based provider that the official upstream
-> SR-IOV CI relies on:
->
-> ``` 
-> $ export KUBEVIRT_PROVIDER=kind-sriov
->
-> $ make cluster-up
-> ```
->
-> Assuming you run these commands on an SR-IOV-enabled host, they should bring
-> up a dockerized cluster with all SR-IOV components and resources set up and
-> ready to use.
+> For local development and CI, KubeVirt can exercise the SR-IOV flow in
+> emulated mode with an emulated `igb` NIC.
+> `igb` NIC allows to test SR-IOV networking without requiring physical hardware.
 >
 > If you know what you are doing and still would like to follow the manual
 > configuration path, keep reading.
@@ -125,26 +123,20 @@ you may need to configure the host as follows:
 $ echo "options vfio_iommu_type1 allow_unsafe_interrupts=1" > /etc/modprobe.d/iommu_unsafe_interrupts.conf
 ```
 
-Now you are ready to set up your cluster.
-
 # Set up a Kubernetes cluster
 
-You can use your preferred mechanism to deploy your Kubernetes cluster as long
-as you deploy on bare metal. Note that using virtualized environment is
-problematic with SR-IOV because to use SR-IOV PFs in such environment, one
-would first need to pass through PF devices from hypervisor level into the
-virtual machines.
+The recommended approach for development and CI is to use the emulated `igb`
+SR-IOV setup used by automation. It runs the SR-IOV suite in emulated mode,
+which is useful when no SR-IOV-capable NIC is available on the host.
 
-The recommended approach for development is to use the `kind-sriov` provider,
-which sets up a Kind-based cluster with all SR-IOV components pre-configured:
-
-``` 
-$ export KUBEVIRT_PROVIDER=kind-sriov
-$ make cluster-up
 ```
+export KUBEVIRT_PROVIDER=k8s-1.36
+export KUBEVIRT_NUM_NODES=3
+export KUBEVIRT_WITH_SRIOV=true
+export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
 
-See `kubevirtci/cluster-up/cluster/kind-sriov/README.md` for more details,
-including multi-cluster and custom-image configurations.
+make cluster-up
+```
 
 Once the cluster is deployed, we can move to SR-IOV specific components.
 
@@ -153,12 +145,13 @@ Once the cluster is deployed, we can move to SR-IOV specific components.
 > NOTE: manual deployment of SR-IOV components is not recommended. Please
 > consider using the
 > [SR-IOV Network Operator](https://github.com/k8snetworkplumbingwg/sriov-network-operator)
-> instead. The `kind-sriov` provider handles this automatically for development
-> clusters.
+> instead. The emulated `igb` SR-IOV setup used by automation handles this
+> automatically for development and CI environments.
 
 The following components must be deployed to support SR-IOV:
 
 * [Multus](https://github.com/k8snetworkplumbingwg/multus-cni)
+* [Network Resources Injector](https://github.com/k8snetworkplumbingwg/network-resources-injector)
 * [SR-IOV device plugin](https://github.com/k8snetworkplumbingwg/sriov-network-device-plugin)
 * [SR-IOV CNI plugin](https://github.com/k8snetworkplumbingwg/sriov-cni)
 
@@ -173,6 +166,14 @@ This particular step is not specific to SR-IOV.
 
 ``` 
 make cluster-sync
+```
+
+# Run the tests (`igb` mode)
+
+```
+export KUBEVIRT_FUNC_TEST_SUITE_ARGS="-emulated-sriov=true"
+export FUNC_TEST_ARGS='--label-filter=SRIOV'
+make functest
 ```
 
 # Usage

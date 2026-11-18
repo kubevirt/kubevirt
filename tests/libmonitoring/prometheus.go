@@ -37,13 +37,17 @@ import (
 )
 
 const (
-	statusSuccess                   = "success"
-	defaultGomegaOffset             = 2
-	readBufferSize                  = 1024
-	defaultAlertTimeout             = 120 * time.Second
-	defaultAlertWaitTimeout         = 5 * time.Minute
-	defaultMetricsPort              = 8443
-	prometheusPortForwardTargetPort = 9090
+	statusSuccess                     = "success"
+	defaultGomegaOffset               = 2
+	readBufferSize                    = 1024
+	defaultAlertTimeout               = 120 * time.Second
+	defaultAlertWaitTimeout           = 5 * time.Minute
+	defaultMetricsPort                = 8443
+	prometheusPortForwardTargetPort   = 9090
+	prometheusPortForwardTimeout      = 90 * time.Second
+	prometheusPortForwardReadyTimeout = 30 * time.Second
+	prometheusRequestTimeout          = 30 * time.Second
+	prometheusHTTPTimeout             = 10 * time.Second
 )
 
 var (
@@ -126,6 +130,45 @@ func WaitForMetricValueWithLabelsToBe(
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically(comparator, expectedValue))
 }
 
+func WaitForHistogramBucketValueToBe(
+	client kubecli.KubevirtClient,
+	metric string,
+	bucket float64,
+	offset int,
+	comparator string,
+	expectedValue float64,
+) {
+	EventuallyWithOffset(offset, func() float64 {
+		i, err := GetHistogramBucketValue(client, metric, bucket)
+		if err != nil {
+			return -1
+		}
+		return i
+	}, 3*time.Minute, 1*time.Second).Should(
+		BeNumerically(comparator, expectedValue),
+		"Histogram %s has no bucket with upper bound %v holding a value %s %f",
+		metric, bucket, comparator, expectedValue,
+	)
+}
+
+func GetHistogramBucketValue(cli kubecli.KubevirtClient, query string, bucket float64) (float64, error) {
+	result, err := fetchMetric(cli, query)
+	if err != nil {
+		return -1, err
+	}
+
+	for i := range result.Data.Result {
+		upperBound, parseErr := strconv.ParseFloat(result.Data.Result[i].Metric["le"], 64)
+		if parseErr != nil || upperBound != bucket {
+			continue
+		}
+
+		return parseMetricValue(result.Data.Result[i].Value[1])
+	}
+
+	return -1, fmt.Errorf("bucket with upper bound %v not populated yet", bucket)
+}
+
 func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
@@ -133,15 +176,16 @@ func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels m
 	}
 
 	returnObj := findMetricWithLabels(result, labels)
-	var output string
-
 	if returnObj == nil {
 		return -1, fmt.Errorf("metric value not populated yet")
 	}
 
-	if s, ok := returnObj.(string); ok {
-		output = s
-	} else {
+	return parseMetricValue(returnObj)
+}
+
+func parseMetricValue(value interface{}) (float64, error) {
+	output, ok := value.(string)
+	if !ok {
 		return -1, fmt.Errorf("metric value is not string")
 	}
 
@@ -221,7 +265,9 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 	var result []byte
 	if checks.IsOpenShift() {
 		promURL := getPrometheusURLForOpenShift()
-		result = doHTTPRequest(promURL, endpoint, token)
+		var err error
+		result, err = doHTTPRequest(promURL, endpoint, token)
+		Expect(err).ShouldNot(HaveOccurred())
 	} else {
 		Eventually(func() error {
 			_, cmd, cmdErr := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
@@ -237,12 +283,16 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 				return startErr
 			}
 			defer func() { _ = KillPortForwardCommand(cmd) }()
-			sourcePort := WaitForPortForwardCmd(stdout)
+			sourcePort, waitErr := WaitForPortForwardCmd(stdout)
+			if waitErr != nil {
+				return waitErr
+			}
 
 			promURL := fmt.Sprintf("http://localhost:%d", sourcePort)
-			result = doHTTPRequest(promURL, endpoint, token)
-			return nil
-		}, 10*time.Second, time.Second).ShouldNot(HaveOccurred())
+			var err error
+			result, err = doHTTPRequest(promURL, endpoint, token)
+			return err
+		}, prometheusPortForwardTimeout, time.Second).ShouldNot(HaveOccurred())
 	}
 	return result
 }
@@ -260,38 +310,59 @@ func getPrometheusURLForOpenShift() string {
 	return fmt.Sprintf("https://%s", route.Spec.Host)
 }
 
-func doHTTPRequest(promURL, endpoint, token string) []byte {
-	var result []byte
+func doHTTPRequest(promURL, endpoint, token string) ([]byte, error) {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-			ForceAttemptHTTP2: true,
+			DisableKeepAlives: true,
+			// Do NOT set ForceAttemptHTTP2. kubectl port-forward speaks
+			// plain HTTP/1.1; forcing HTTP/2 without h2c causes
+			// "malformed HTTP status code" errors on the response.
 		},
 	}
-	Eventually(func() error {
+
+	var lastErr error
+	deadline := time.Now().Add(prometheusRequestTimeout)
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), prometheusHTTPTimeout)
+
 		req, err := http.NewRequestWithContext(
-			context.Background(),
+			ctx,
 			"GET",
-			fmt.Sprintf("%s/api/v1/%s", promURL, endpoint),
+			fmt.Sprintf("%s/api/v1/%s", promURL, strings.TrimLeft(endpoint, "/")),
 			http.NoBody,
 		)
 		if err != nil {
-			return err
+			cancel()
+			return nil, fmt.Errorf("creating request: %w", err)
 		}
 		req.Header.Add("Authorization", "Bearer "+token)
+
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			cancel()
+			lastErr = err
+			time.Sleep(time.Second)
+			continue
 		}
-		defer resp.Body.Close()
-		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-		}
-		result, err = io.ReadAll(resp.Body)
-		return err
-	}, 10*time.Second, 1*time.Second).Should(Not(HaveOccurred()))
 
-	return result
+		result, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		cancel()
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+			time.Sleep(time.Second)
+			continue
+		}
+		if readErr != nil {
+			lastErr = readErr
+			time.Sleep(time.Second)
+			continue
+		}
+		return result, nil
+	}
+	return nil, fmt.Errorf("timed out after %s: %w", prometheusRequestTimeout, lastErr)
 }
 
 func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) string {
@@ -338,18 +409,30 @@ func getMonitoringNs() string {
 // WaitForPortForwardCmd reads kubectl's stdout until it sees the "Forwarding from"
 // readiness line, then returns the OS-assigned local port number.
 // kubectl prints "Forwarding from 127.0.0.1:<localPort> -> <targetPort>" once the tunnel is ready.
-func WaitForPortForwardCmd(stdout io.ReadCloser) int {
-	var m []string
-	Eventually(func() []string {
-		tmp := make([]byte, readBufferSize)
-		_, err := stdout.Read(tmp)
-		Expect(err).NotTo(HaveOccurred())
-		m = portForwardRe.FindStringSubmatch(string(tmp))
-		return m
-	}, 30*time.Second, 1*time.Second).ShouldNot(BeEmpty())
-	port, err := strconv.Atoi(m[1])
-	Expect(err).NotTo(HaveOccurred())
-	return port
+// Returns an error instead of failing the test so callers can retry with a fresh
+// port-forward.
+func WaitForPortForwardCmd(stdout io.ReadCloser) (int, error) {
+	deadline := time.Now().Add(prometheusPortForwardReadyTimeout)
+	buf := make([]byte, 0, readBufferSize)
+	tmp := make([]byte, readBufferSize)
+	for time.Now().Before(deadline) {
+		n, err := stdout.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			if m := portForwardRe.FindStringSubmatch(string(buf)); len(m) > 1 {
+				port, convErr := strconv.Atoi(m[1])
+				if convErr != nil {
+					return 0, fmt.Errorf("parsing port-forward port: %w", convErr)
+				}
+				return port, nil
+			}
+		}
+		if err != nil {
+			return 0, fmt.Errorf("reading port-forward stdout: %w", err)
+		}
+		time.Sleep(time.Second)
+	}
+	return 0, fmt.Errorf("timed out waiting for port-forward readiness")
 }
 
 func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
@@ -464,12 +547,12 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 }
 
 // Works whenever pod has curl
-func GetKubevirtVMMetrics(pod *k8sv1.Pod) string {
+func GetKubevirtVMMetrics(pod *k8sv1.Pod) (string, error) {
 	return GetKubevirtVMMetricsByIP(pod, "localhost")
 }
 
 // Deprecated: Use GetKubevirtVMMetrics or grab metrics indirectly through prometheus
-func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) string {
+func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) (string, error) {
 	metricsURL := PrepareMetricsURL(ip, defaultMetricsPort)
 	stdout, stderr, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
@@ -480,8 +563,11 @@ func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) string {
 			"-k",
 			metricsURL,
 		})
-	Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", stdout, stderr)
-	return stdout
+	if err != nil {
+		return stdout, fmt.Errorf("failed to scrape %s from pod %s/%s: %w, out: %s stderr: %s",
+			metricsURL, pod.Namespace, pod.Name, err, stdout, stderr)
+	}
+	return stdout, nil
 }
 
 func PrepareMetricsURL(ip string, port int) string {

@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["manager.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/internal/testing/addr",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/internal/testing/addr",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg:__subpackages__"],
+    deps = ["//vendor/sigs.k8s.io/controller-runtime/pkg/internal/flock:go_default_library"],
+)

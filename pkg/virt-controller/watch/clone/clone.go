@@ -35,7 +35,6 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
 )
@@ -173,7 +172,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.IsBackendStorageNeeded(sourceVM) {
+		if backendstorage.HasLegacyBackendStorage(sourceVM) {
 			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
 		}
 		cloneInfo.sourceVm = sourceVM
@@ -319,7 +318,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.SnapshotInProgress) {
 		if snapshotName := syncInfo.snapshotName; snapshotName != "" {
-			vmClone.Status.SnapshotName = pointer.P(snapshotName)
+			vmClone.Status.SnapshotName = new(snapshotName)
 		}
 
 		if syncInfo.snapshotReady {
@@ -328,7 +327,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.RestoreInProgress) {
 		if restoreName := syncInfo.restoreName; restoreName != "" {
-			vmClone.Status.RestoreName = pointer.P(restoreName)
+			vmClone.Status.RestoreName = new(restoreName)
 		}
 
 		if syncInfo.restoreReady {
@@ -337,7 +336,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 	}
 	if isInPhase(vmClone, clone.CreatingTargetVM) {
 		if targetVMName := syncInfo.targetVMName; targetVMName != "" {
-			vmClone.Status.TargetName = pointer.P(targetVMName)
+			vmClone.Status.TargetName = new(targetVMName)
 		}
 
 		if syncInfo.targetVMCreated {
@@ -489,7 +488,7 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 		return nil
 	}
 
-	if backendstorage.IsBackendStorageNeeded(vm) {
+	if backendstorage.HasLegacyBackendStorage(vm) {
 		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 
@@ -663,7 +662,7 @@ func (ctrl *VMCloneController) cleanupRestore(vmClone *clone.VirtualMachineClone
 }
 
 func (ctrl *VMCloneController) logAndRecord(vmClone *clone.VirtualMachineClone, event Event, msg string) {
-	ctrl.recorder.Eventf(vmClone, corev1.EventTypeNormal, string(event), msg)
+	ctrl.recorder.Event(vmClone, corev1.EventTypeNormal, string(event), msg)
 	log.Log.Object(vmClone).Infof("%s", msg)
 }
 
@@ -675,7 +674,7 @@ func (ctrl *VMCloneController) getTargetType(vmClone *clone.VirtualMachineClone)
 	}
 }
 
-func (ctrl *VMCloneController) getSource(vmClone *clone.VirtualMachineClone, name, namespace, sourceKind string, store cache.Store) (interface{}, error) {
+func (ctrl *VMCloneController) getSource(vmClone *clone.VirtualMachineClone, name, namespace, sourceKind string, store cache.Store) (any, error) {
 	key := getKey(name, namespace)
 	obj, exists, err := store.GetByKey(key)
 	if err != nil {

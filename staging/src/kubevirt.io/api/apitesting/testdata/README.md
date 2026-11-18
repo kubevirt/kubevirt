@@ -2,7 +2,7 @@
 
 This directory tree contains serialized API objects in json and yaml formats.
 
-This creates JSON and YAML files for three APIs exposed by kubevirt in group-version "kubevirt.io/v1", versioned by the release. The main branch is will be stored in `HEAD` directory, previous versions are in `release-0.yy` release directory. While more APIs can be added in the future, the current list includes:
+This creates JSON and YAML files for three APIs exposed by kubevirt in group-version "kubevirt.io/v1", versioned by the release. The main branch is will be stored in `HEAD` directory, the previous version is in a `release-X.Y` release directory. Only one release snapshot is kept at a time: bumping to a new release drops the older one. While more APIs can be added in the future, the current list includes:
   ```
     VirtualMachineInstance
     VirtualMachine
@@ -13,18 +13,27 @@ This creates JSON and YAML files for three APIs exposed by kubevirt in group-ver
 
 ### Populating data for each release
 
-When KubeVirt cuts a new release of the project, the current version files will be copied to the release version
-
-For example, to capture compatibility data for `v1.2.0`:
+When KubeVirt cuts a new release of the project, the `HEAD` files of that release branch are snapshotted into a `release-X.Y` directory. This is automated by the `bump-apitesting` make target:
 
 ```sh
-export VERSION=release-1.2
-git checkout ${VERSION}
-cp -fr staging/src/kubevirt.io/api/apitesting/testdata/{HEAD,${VERSION}}
-git checkout -b add-${VERSION}-api-testdata master
-git add .
-git commit -m "Add ${VERSION} API testdata"
+VERSION=release-1.9 make bump-apitesting
 ```
+
+`VERSION` is the destination directory name. It must look like `release-X.Y`, because the compatibility runner only discovers fixtures matching `testdata/release-*`.
+
+By default the fixtures are taken from the branch of the same name. Set `SOURCE_REF` to decouple the source from the destination, which is the recommended form: pointing at a release tag pins the snapshot to an immutable commit, whereas a branch keeps moving.
+
+```sh
+VERSION=release-1.9 SOURCE_REF=v1.9.1 make bump-apitesting
+```
+
+The target runs [hack/bump-apitesting.sh](../../../../../../hack/bump-apitesting.sh), which:
+
+1. Extracts `testdata/HEAD/` from `${SOURCE_REF}` via `git archive` into a temporary directory.
+2. Removes any existing `release-*` directory, so only the newest snapshot is kept.
+3. Moves the snapshot to `testdata/${VERSION}/` and stages it, leaving the commit to you.
+
+`SOURCE_REF` must exist locally; the script bails out with a fetch hint if it does not, since the name of the remote holding the release branches differs per contributor. The script also refuses to run if `testdata/${VERSION}/` already exists — remove it first to regenerate a snapshot.
 
 ### Current version
 
@@ -49,19 +58,19 @@ Adding new fields or deprecating new fields or API types *is* expected to modify
 UPDATE_COMPATIBILITY_FIXTURE_DATA=true go test kubevirt.io/api/apitesting -run //HEAD
 ```
 
-### Previous versions
+### Previous version
 
-The vX.Y.0 subdirectories contain serialized API objects from previous releases:
+The `release-X.Y` subdirectory contains serialized API objects from the most recent release:
 
 ```
 release-X.Y
   <group>.<version>.<kind>.[json|yaml]
 ```
 
-To run serialization tests for a previous version, like `v1.1.0`:
+To run serialization tests for that version, like `release-1.9`:
 
 ```sh
-go test kubevirt.io/api/apitesting -run //release-1.1
+go test kubevirt.io/api/apitesting -run //release-1.9
 ```
 
 To run serialization tests for a particular group/version/kind, like `apps/v1` `Deployment`:
@@ -131,6 +140,27 @@ Here is the basic list of what is not allowed when modifying the API and are cov
 4. Renaming the fields.
 5. Changing field behaviour(e.g., converting a required field to optional or vice versa)
 
+### Updating fixtures
+
+The previous-version test flow is: **decode** historical JSON/YAML with current types → **encode** again → compare bytes.
+
+`UPDATE_COMPATIBILITY_FIXTURE_DATA=true` only helps when that flow completes. It rewrites:
+
+| Failure mode | Meaning | What to update |
+|---|---|---|
+| HEAD json/yaml differs | Filled object serialization changed | Regenerate `HEAD/` fixtures |
+| Previous version: **json/yaml differs** after round-trip | Decode OK; encode output changed (e.g. new optional/zero-value field) | Create/update `.after_roundtrip` only — **do not** rewrite release source fixtures |
+
+Do **not** rewrite `release-*` source fixtures for those cases. Historical samples stay frozen; `.after_roundtrip` records the expected encode output under current types.
+
+### When manual intervention is required
+
+`UPDATE_COMPATIBILITY_FIXTURE_DATA=true` does **nothing** useful if decode fails, because fixture updates run only after a successful decode+encode.
+
+1. **Decode fails** because a field type changed and historical values are no longer valid for the new type. `.after_roundtrip` cannot help. Prefer reverting or avoiding the type change; for intentional alpha breaks, adapting `release-*` **source** fixtures is exceptional and must be called out in the PR.
+2. **The API change itself is not allowed** (removed/renamed fields, new required fields, behavior flips). Do not paper over those by editing fixtures — fix the API.
+3. **Reviewer sign-off** — always review auto-updated diffs; the env var only rewrites bytes, it does not decide whether the API change is acceptable.
+
 ## REVIEWERS GUIDE
 
 With any change in go structs of the APIs, the corresponding JSON and YAML files will be updated.
@@ -185,7 +215,6 @@ This file contains the expected data after the round-tripping process, accountin
 These after_roundtrip files can be generated by running the failing tests with the environment variable UPDATE_COMPATIBILITY_FIXTURE_DATA=true. This updates the compatibility fixture data to reflect the current expected output.
 
 Using this API reviewers can say if changes in current version will break older clients upon upgrade.
-
 
 ### Open Issues
 

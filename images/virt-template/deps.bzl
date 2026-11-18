@@ -1,51 +1,65 @@
 """Dependencies for virt-template images."""
 
-load("@rules_oci//oci:pull.bzl", "oci_pull")
+load("@rules_img//img:pull.bzl", "pull")
 
 # Image digests for virt-template-apiserver
-VIRT_TEMPLATE_APISERVER_DIGEST_AMD64 = "sha256:104545cf22d9d6ea0d675b650742f07fbffad18bdae5454e8ad79c93e0fa3eeb"
-VIRT_TEMPLATE_APISERVER_DIGEST_ARM64 = "sha256:04b06a30b7c03994ec5c2dcd3effbefffde9f2818483dc9273035faec21e4336"
-VIRT_TEMPLATE_APISERVER_DIGEST_S390X = "sha256:db633d78bf352b3109888c1d194507c2cc8940ae911fe550ee3390e4f311163a"
+VIRT_TEMPLATE_APISERVER_DIGEST_AMD64 = "sha256:c98bf1c7561392c0d8de49ceb73bf14a8024f70b5c5e37db9b7b199852198502"
+VIRT_TEMPLATE_APISERVER_DIGEST_ARM64 = "sha256:a3445b50d961eb29cc9f371de1715d62ab75f84f5979970ddf995465b62ce402"
+VIRT_TEMPLATE_APISERVER_DIGEST_S390X = "sha256:78e2eb9d64063824ebd1992217bc8d653a2fce21b9238e82b81843a99ccee66c"
 
 # Image digests for virt-template-controller
-VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64 = "sha256:1d7a44eeb45987852f796d1f4ac6a3ab9bed7ee9bfa553bb093e3b114dc72c9c"
-VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64 = "sha256:c29b7231aee92c56ebaea55ca6472c41857757258d0c18037be54dd216226601"
-VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X = "sha256:007ee285eb7a789043babf323458395402dfc70c7e0b4ca3a76c2be3e42b1e2a"
+VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64 = "sha256:d9ada5c6565b7f804c9785c53b364f902aef5dba73ca0535f1c04548afaa3333"
+VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64 = "sha256:c0c28e3f44aaa5fb43f14880714bb90e999e2f274c22e4a17482f823d5cff92d"
+VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X = "sha256:86616e87f1ef496c5227f95d8644fefd4b29f4cc85d56b1b92294e7bf87c560d"
 
 def virt_template_images():
     """Pull virt-template images for all architectures."""
-    oci_pull(
+    pull(
         name = "virt_template_apiserver",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_AMD64,
-        image = "quay.io/kubevirt/virt-template-apiserver",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-apiserver",
     )
 
-    oci_pull(
+    pull(
         name = "virt_template_apiserver_aarch64",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_ARM64,
-        image = "quay.io/kubevirt/virt-template-apiserver",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-apiserver",
     )
 
-    oci_pull(
+    pull(
         name = "virt_template_apiserver_s390x",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_S390X,
-        image = "quay.io/kubevirt/virt-template-apiserver",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-apiserver",
     )
 
-    oci_pull(
+    pull(
         name = "virt_template_controller",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64,
-        image = "quay.io/kubevirt/virt-template-controller",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-controller",
     )
 
-    oci_pull(
+    pull(
         name = "virt_template_controller_aarch64",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64,
-        image = "quay.io/kubevirt/virt-template-controller",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-controller",
     )
 
-    oci_pull(
+    pull(
         name = "virt_template_controller_s390x",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X,
-        image = "quay.io/kubevirt/virt-template-controller",
+        registry = "quay.io",
+        repository = "kubevirt/virt-template-controller",
     )
+
+def _virt_template_ext_impl(ctx):
+    virt_template_images()
+    return ctx.extension_metadata(reproducible = True)
+
+virt_template_ext = module_extension(
+    implementation = _virt_template_ext_impl,
+)

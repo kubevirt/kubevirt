@@ -25,23 +25,20 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
-const (
-	defaultIOThread = uint(1)
-)
-
 type ControllersDomainConfigurator struct {
 	isUSBNeeded               bool
 	scsiModel                 string
-	autoThreads               uint
-	controllerDriver          *api.ControllerDriver
+	totalThreads              uint
+	useLaunchSecuritySEV      bool
+	useLaunchSecurityPV       bool
 	supportPCIHole64Disabling bool
 	virtioSerialModel         string
+	scsiMultiIOThreadEnabled  bool
 }
 
 type controllersOption func(*ControllersDomainConfigurator)
@@ -59,17 +56,28 @@ func NewControllersDomainConfigurator(options ...controllersOption) ControllersD
 func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
 
+	var controllerDriver *api.ControllerDriver
+	if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
+
 	if requiresSCSIController(vmi) {
-		scsiControllerDriver := assignSCSIControllerIOThread(vmi, uint(c.autoThreads), c.controllerDriver.DeepCopy())
+		scsiControllerDriver := c.configureSCSIControllerDriver(vmi, c.totalThreads, controllerDriver.DeepCopy())
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
 	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIControllerWithHole64Disabled())
+		domain.Spec.SysInfo = append(domain.Spec.SysInfo, newSeaBIOSFWCfgWithPCI64Disabled())
 	}
 
 	if requiresVirtioSerialController(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioSerialModel, c.controllerDriver))
+		domain.Spec.Devices.Controllers = append(
+			domain.Spec.Devices.Controllers,
+			newVirtioSerialController(c.virtioSerialModel, controllerDriver),
+		)
 	}
 
 	return nil
@@ -87,15 +95,27 @@ func ControllersWithSCSIModel(scsiModel string) controllersOption {
 	}
 }
 
-func ControllersWithSCSIIOThreads(autoThreads uint) controllersOption {
+func ControllersWithSCSIIOThreads(totalThreads uint) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
-		c.autoThreads = autoThreads
+		c.totalThreads = totalThreads
 	}
 }
 
-func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) controllersOption {
+func ControllerWithSCSIMultiIOThreadEnabled(enabled bool) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
-		c.controllerDriver = controllerDriver
+		c.scsiMultiIOThreadEnabled = enabled
+	}
+}
+
+func ControllersWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.useLaunchSecuritySEV = useLaunchSecuritySEV
+	}
+}
+
+func ControllersWithUseLaunchSecurityPV(useLaunchSecurityPV bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.useLaunchSecurityPV = useLaunchSecurityPV
 	}
 }
 
@@ -142,6 +162,15 @@ func newPCIControllerWithHole64Disabled() api.Controller {
 		PCIHole64: &api.PCIHole64{
 			Value: 0,
 			Unit:  "KiB",
+		},
+	}
+}
+
+func newSeaBIOSFWCfgWithPCI64Disabled() api.SysInfo {
+	return api.SysInfo{
+		Type: "fwcfg",
+		Entries: []api.Entry{
+			{Name: "opt/org.seabios/pci64", Value: "no"},
 		},
 	}
 }
@@ -193,40 +222,61 @@ func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 	return ""
 }
 
-func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
-	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
-		return getBusFromDisk(disk) == v1.DiskBusSCSI && iothreads.HasDedicatedIOThread(disk)
-	})
+// configure dedicated thread(s) to scsi controller if vmi set ioThreadsPolicy and contains a scsi disk
+func (c ControllersDomainConfigurator) shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.IOThreadsPolicy == nil {
+		return false
+	}
+
+	// if feature gate is enabled, allocate thread pool to the controller even if VMI contains no scsi disks
+	// this is to enable the multi iothread performance gain for scsi disks that may be hotplugged after initialization
+	if c.scsiMultiIOThreadEnabled {
+		return true
+	} else {
+		return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
+			return getBusFromDisk(disk) == v1.DiskBusSCSI
+		})
+	}
 }
 
-func assignSCSIControllerIOThread(vmi *v1.VirtualMachineInstance, autoThreads uint, scsiControllerDriver *api.ControllerDriver) *api.ControllerDriver {
-	if autoThreads == 0 || !shouldConfigSCSIThread(vmi) {
+func (c ControllersDomainConfigurator) configureSCSIControllerDriver(
+	vmi *v1.VirtualMachineInstance,
+	totalThreads uint,
+	scsiControllerDriver *api.ControllerDriver,
+) *api.ControllerDriver {
+	configureIOThreads := totalThreads != 0 && c.shouldConfigSCSIThread(vmi)
+	multiQueueDisabled := vmi.Spec.Domain.Devices.BlockMultiQueue != nil && !*vmi.Spec.Domain.Devices.BlockMultiQueue
+	if !configureIOThreads && !multiQueueDisabled {
 		return scsiControllerDriver
 	}
 
+	numQueues := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+	if numQueues == 0 {
+		numQueues = 1
+	}
+	if multiQueueDisabled {
+		numQueues = 1
+	}
 	if scsiControllerDriver == nil {
 		scsiControllerDriver = &api.ControllerDriver{}
 	}
+	// virtio-scsi queues belong to the controller, not each SCSI disk.
+	scsiControllerDriver.Queues = new(numQueues)
 
-	vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
-	if vcpus == 0 {
-		vcpus = 1
+	if !configureIOThreads {
+		return scsiControllerDriver
 	}
 
-	scsiControllerDriver.IOThread = computeScsiControllerThread(autoThreads, vmi.Spec.Domain.Devices.Disks)
-	scsiControllerDriver.Queues = pointer.P(vcpus)
+	// we don't want to allocate more threads than the controller needs
+	// totalThreads should never exceed the number of created virtqueues.
+	totalThreads = min(totalThreads, numQueues)
 
+	// if we just have single thread, we don't need to populate thread list
+	if totalThreads == 1 {
+		scsiControllerDriver.IOThread = new(totalThreads)
+		return scsiControllerDriver
+	}
+
+	scsiControllerDriver.IOThreads = iothreads.BuildIOThreadPool(int(totalThreads))
 	return scsiControllerDriver
-}
-
-func computeScsiControllerThread(autoThreads uint, disks []v1.Disk) *uint {
-	currentAutoThread := defaultIOThread
-
-	for _, disk := range disks {
-		if getBusFromDisk(disk) == v1.DiskBusVirtio && !iothreads.HasDedicatedIOThread(disk) {
-			currentAutoThread = (currentAutoThread % autoThreads) + 1
-		}
-	}
-
-	return &currentAutoThread
 }

@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -96,7 +97,7 @@ var _ = Describe(SIG("VMI Memory Overhead Reporting", decorators.RequiresTwoSche
 		By("Triggering a live migration")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)
 		if migrationShouldFail {
-			migrationUID := libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+			migrationUID := libmigration.RunMigrationAndExpectFailure(migration, flags.MigrationTimeout())
 			vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 
 			By("Verifying memory overhead did not change after failed migration")

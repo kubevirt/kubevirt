@@ -41,7 +41,6 @@ type ConverterContext struct {
 	Architecture                    arch.Converter
 	AllowEmulation                  bool
 	HypervisorDeviceAvailable       bool
-	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
 	IsBlockDV                       map[string]bool
@@ -56,7 +55,6 @@ type ConverterContext struct {
 	GPUHostDevices                  []api.HostDevice
 	EFIConfiguration                *EFIConfiguration
 	MemBalloonStatsPeriod           uint
-	UseVirtioTransitional           bool
 	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
@@ -75,4 +73,6 @@ type ConverterContext struct {
 	AllowCrossArchEmulation         bool
 	HostArchitecture                string
 	VSOCKProcPath                   string
+	SCSIMultiIOThreadEnabled        bool
+	MultiIOThreadAutoPolicyEnabled  bool
 }

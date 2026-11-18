@@ -20,18 +20,11 @@
 package storage
 
 import (
-	"sync"
-
-	"google.golang.org/grpc"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
-
-// RegisterNBDFunc registers an NBD server implementation on a gRPC server
-// for a given socket path. It is injected to avoid a compile-time dependency
-// on the libnbd C library.
-type RegisterNBDFunc func(srv *grpc.Server, socketPath string)
 
 const (
 	FailedDomainMemoryDump   = "Domain memory dump failed"
@@ -43,19 +36,19 @@ type StorageManager struct {
 	metadataCache            *metadata.Cache
 	memoryDumpInProgress     chan struct{}
 	cancelSafetyUnfreezeChan chan struct{}
-	registerNBD              RegisterNBDFunc
 
-	activeBackupTunnel *backupTunnelManager
-	backupTunnelMu     sync.Mutex
+	overlayUsage         func(overlayDir string) (int64, error)
+	overlayUsageInterval time.Duration
 }
 
-func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache, registerNBD RegisterNBDFunc) *StorageManager {
+func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache) *StorageManager {
 	return &StorageManager{
 		virConn:                  connection,
 		metadataCache:            metadataCache,
 		memoryDumpInProgress:     make(chan struct{}, MaxConcurrentMemoryDumps),
 		cancelSafetyUnfreezeChan: make(chan struct{}),
-		registerNBD:              registerNBD,
+		overlayUsage:             overlayUsedPercent,
+		overlayUsageInterval:     overlayUsagePollInterval,
 	}
 }
 

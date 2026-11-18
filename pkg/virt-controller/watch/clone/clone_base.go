@@ -91,7 +91,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err := vmCloneInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMClone,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMClone(newObj) },
+			UpdateFunc: func(oldObj, newObj any) { ctrl.handleVMClone(newObj) },
 			DeleteFunc: ctrl.handleVMClone,
 		},
 	)
@@ -103,7 +103,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err = snapshotInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleSnapshot,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleSnapshot(newObj) },
+			UpdateFunc: func(oldObj, newObj any) { ctrl.handleSnapshot(newObj) },
 			DeleteFunc: ctrl.handleSnapshot,
 		},
 	)
@@ -115,7 +115,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err = restoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleRestore,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleRestore(newObj) },
+			UpdateFunc: func(oldObj, newObj any) { ctrl.handleRestore(newObj) },
 			DeleteFunc: ctrl.handleRestore,
 		},
 	)
@@ -127,7 +127,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err = pvcInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handlePVC,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handlePVC(newObj) },
+			UpdateFunc: func(oldObj, newObj any) { ctrl.handlePVC(newObj) },
 			DeleteFunc: ctrl.handlePVC,
 		},
 	)
@@ -139,7 +139,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleAddedSourceVM,
-			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleUpdateSourceVM(oldObj, newObj) },
+			UpdateFunc: func(oldObj, newObj any) { ctrl.handleUpdateSourceVM(oldObj, newObj) },
 			DeleteFunc: ctrl.handleDeletedTargetVM,
 		},
 	)
@@ -150,7 +150,7 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 	return &ctrl, nil
 }
 
-func (ctrl *VMCloneController) handleVMClone(obj interface{}) {
+func (ctrl *VMCloneController) handleVMClone(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
@@ -171,7 +171,7 @@ func (ctrl *VMCloneController) handleVMClone(obj interface{}) {
 	ctrl.vmCloneQueue.Add(objName)
 }
 
-func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
+func (ctrl *VMCloneController) handleSnapshot(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
@@ -209,7 +209,7 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleRestore(obj interface{}) {
+func (ctrl *VMCloneController) handleRestore(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
@@ -241,7 +241,7 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handlePVC(obj interface{}) {
+func (ctrl *VMCloneController) handlePVC(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
 	}
@@ -278,7 +278,7 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleAddedSourceVM(obj interface{}) {
+func (ctrl *VMCloneController) handleAddedSourceVM(obj any) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 	if !ok {
 		log.Log.Reason(fmt.Errorf("unexpected obj %#v", obj)).Error("Failed to process notification")
@@ -300,7 +300,7 @@ func (ctrl *VMCloneController) handleAddedSourceVM(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleUpdateSourceVM(oldObj, newObj interface{}) {
+func (ctrl *VMCloneController) handleUpdateSourceVM(oldObj, newObj any) {
 	oldVM, ok := oldObj.(*virtv1.VirtualMachine)
 	if !ok {
 		log.Log.Reason(fmt.Errorf("unexpected old obj %#v", oldObj)).Error("Failed to process notification")
@@ -334,7 +334,7 @@ func (ctrl *VMCloneController) handleUpdateSourceVM(oldObj, newObj interface{}) 
 	}
 }
 
-func (ctrl *VMCloneController) handleDeletedTargetVM(obj interface{}) {
+func (ctrl *VMCloneController) handleDeletedTargetVM(obj any) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -381,7 +381,7 @@ func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) erro
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
-	for i := 0; i < threadiness; i++ {
+	for range threadiness {
 		go wait.Until(ctrl.runWorker, time.Second, stopCh)
 	}
 

@@ -24,9 +24,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -84,13 +86,44 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			}
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, spec.MaxDowntimeMs) &&
-			!admitter.clusterConfig.MigrationStallDetectionEnabled() {
+			!admitter.clusterConfig.MigrationStallDetectionEnabled() &&
+			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s feature gate", featuregate.MigrationStallDetection),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
 				Field:   sourceField.Child("maxDowntimeMs").String(),
 			})
 		}
+	}
+
+	if spec.ExperimentalMigrationOptions != nil && spec.ExperimentalMigrationOptions.DowntimeTuning != nil {
+		var oldDowntimeTuning any
+		if ar.Request.OldObject.Raw != nil {
+			oldPolicy := &migrationsv1.MigrationPolicy{}
+			if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPolicy); err == nil {
+				if oldPolicy.Spec.ExperimentalMigrationOptions != nil {
+					oldDowntimeTuning = oldPolicy.Spec.ExperimentalMigrationOptions.DowntimeTuning
+				}
+			}
+		}
+		if !equality.Semantic.DeepEqual(oldDowntimeTuning, spec.ExperimentalMigrationOptions.DowntimeTuning) &&
+			!admitter.clusterConfig.MigrationDowntimeTuningEnabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("experimental.downtimeTuning cannot be modified without enabling the %s feature gate", featuregate.MigrationDowntimeTuning),
+				Field:   sourceField.Child("experimental", "downtimeTuning").String(),
+			})
+		}
+	}
+
+	if spec.ExperimentalMigrationOptions != nil &&
+		spec.ExperimentalMigrationOptions.StallDetector != nil &&
+		spec.ExperimentalMigrationOptions.DowntimeTuning != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "experimental.stallDetector and experimental.downtimeTuning are mutually exclusive; the stall detection path manages its own downtime schedule",
+			Field:   sourceField.Child("experimental").String(),
+		})
 	}
 
 	if spec.ExperimentalMigrationOptions != nil && spec.ExperimentalMigrationOptions.StallDetector != nil {
@@ -166,12 +199,12 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 	return &reviewResponse
 }
 
-func validateStallDetectorFactor(field *k8sfield.Path, value *string, min, max float64, exclusiveMin bool) []metav1.StatusCause {
+func validateStallDetectorFactor(field *k8sfield.Path, value *resource.Quantity, min, max float64, exclusiveMin bool) []metav1.StatusCause {
 	if value == nil {
 		return nil
 	}
 
-	factor, err := virtconfig.ParseFactor(*value, virtconfig.StallDetectorFactorPrecision)
+	factor, err := parseScalarFloatFromQuantity(value, virtconfig.StallDetectorFactorPrecision)
 	if err != nil {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -181,10 +214,10 @@ func validateStallDetectorFactor(field *k8sfield.Path, value *string, min, max f
 	}
 
 	if exclusiveMin {
-		if factor <= 0 {
+		if factor <= min {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "must be greater than 0",
+				Message: fmt.Sprintf("must be greater than %g", min),
 				Field:   field.String(),
 			}}
 		}
@@ -204,5 +237,33 @@ func validateStallDetectorFactor(field *k8sfield.Path, value *string, min, max f
 		}}
 	}
 
+	return nil
+}
+
+func parseScalarFloatFromQuantity(q *resource.Quantity, precision int) (float64, error) {
+	if q == nil {
+		return 0, fmt.Errorf("invalid scalar: nil")
+	}
+	if q.Sign() < 0 {
+		return 0, fmt.Errorf("invalid scalar %q: must not be negative", q.String())
+	}
+	value := q.AsApproximateFloat64()
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, fmt.Errorf("invalid scalar %q", q.String())
+	}
+	if err := validateScalarFloatPrecision(value, precision); err != nil {
+		return 0, fmt.Errorf("invalid scalar %q: %w", q.String(), err)
+	}
+	return value, nil
+}
+
+func validateScalarFloatPrecision(value float64, precision int) error {
+	rounded, err := strconv.ParseFloat(strconv.FormatFloat(value, 'f', precision, 64), 64)
+	if err != nil {
+		return fmt.Errorf("must have at most %d decimal places", precision)
+	}
+	if math.Abs(value-rounded) > 1e-9 {
+		return fmt.Errorf("must have at most %d decimal places", precision)
+	}
 	return nil
 }

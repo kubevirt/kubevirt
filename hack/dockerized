@@ -12,8 +12,8 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2606231619-4fe2cd536f"
-kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
+kubevirt_builder_version="2610291047-177548615f"
+kubevirt_cs10_builder_version="2610291053-177548615f"
 
 # CentOS Stream 9 builder images (default)
 default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
@@ -59,6 +59,8 @@ if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_builder_image}" ] && [ -n "${BUIL
 fi
 
 SYNC_OUT=${SYNC_OUT:-true}
+DOCKERIZED_RSYNC_CONNECT_TIMEOUT=${DOCKERIZED_RSYNC_CONNECT_TIMEOUT:-15}
+DOCKERIZED_RSYNC_IO_TIMEOUT=${DOCKERIZED_RSYNC_IO_TIMEOUT:-60}
 
 BUILDER=${job_prefix}
 
@@ -66,7 +68,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL} --env KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} --env GOMAXPROCS=${GOMAXPROCS}"
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL} --env KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} --env GOMAXPROCS=${GOMAXPROCS} --env GO_TEST_CACHE_BUCKET=${GO_TEST_CACHE_BUCKET:-}"
 
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
@@ -121,7 +123,7 @@ printf "\n"
 rsynch_fail_count=0
 
 _rsync() {
-    rsync -al "$@"
+    rsync -al --no-owner --no-group --contimeout="${DOCKERIZED_RSYNC_CONNECT_TIMEOUT}" --timeout="${DOCKERIZED_RSYNC_IO_TIMEOUT}" "$@"
 }
 
 # Copy kubevirt into the persistent container volume
@@ -168,6 +170,17 @@ if [ -n "$ARTIFACTS" ]; then
         echo "ARTIFACTS directory is specified, but it is not an absolute directory"
         exit 1
     fi
+fi
+
+# mount bazel cache GCS credentials if available
+if [ -n "${BAZEL_CACHE_GOOGLE_CREDENTIALS-}" ] && [ -f "${BAZEL_CACHE_GOOGLE_CREDENTIALS}" ]; then
+    volumes="$volumes -v ${BAZEL_CACHE_GOOGLE_CREDENTIALS}:${BAZEL_CACHE_GOOGLE_CREDENTIALS}:ro${selinux_bind_options}"
+fi
+
+# mount GCS credentials for Go test cache if available
+if [ -n "${GOOGLE_APPLICATION_CREDENTIALS-}" ] && [ -f "${GOOGLE_APPLICATION_CREDENTIALS}" ]; then
+    volumes="$volumes -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro${selinux_bind_options}"
+    CONTAINER_ENV="${CONTAINER_ENV} --env GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS}"
 fi
 
 # Ensure that a bazel server which is running is the correct one

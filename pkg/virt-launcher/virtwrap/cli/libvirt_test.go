@@ -20,10 +20,14 @@
 package cli
 
 import (
+	"fmt"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"libvirt.org/go/libvirt"
 )
 
 var _ = Describe("Libvirt Suite", func() {
@@ -31,6 +35,66 @@ var _ = Describe("Libvirt Suite", func() {
 		It("should time out while waiting for libvirt", func() {
 			_, err := NewConnectionWithTimeout("http://", "", "", 1*time.Microsecond, 100*time.Millisecond, 500*time.Millisecond)
 			Expect(err).To(MatchError("cannot connect to libvirt daemon: context deadline exceeded"))
+		})
+	})
+
+	Context("Upon registering event callbacks", func() {
+		const registrations = 50
+
+		var conn *LibvirtConnection
+
+		noopCallback := func(_ *libvirt.Connect, _ *libvirt.Domain) {}
+
+		BeforeEach(func() {
+			conn = &LibvirtConnection{
+				alive:         true,
+				reconnectLock: &sync.Mutex{},
+			}
+		})
+
+		It("should store the callback before registering it and hold the reconnect lock for both", func() {
+			registerErr := fmt.Errorf("register failed")
+			register := func(_ libvirt.DomainEventGenericCallback) (int, error) {
+				Expect(conn.reconnectLock.TryLock()).To(BeFalse())
+				Expect(conn.domainRebootEventCallbacks).To(HaveLen(1))
+				return 0, registerErr
+			}
+
+			Expect(registerEventCallback(conn, &conn.domainRebootEventCallbacks, noopCallback, register)).To(MatchError(registerErr))
+			Expect(conn.domainRebootEventCallbacks).To(HaveLen(1))
+		})
+
+		It("should not race with callback replay", func() {
+			register := func(_ libvirt.DomainEventGenericCallback) (int, error) {
+				return 0, nil
+			}
+
+			var wg sync.WaitGroup
+			wg.Add(1)
+			// Mimic the replay loop of reconnectIfNecessaryLocked.
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				for range registrations {
+					conn.reconnectLock.Lock()
+					for _, callback := range conn.domainRebootEventCallbacks {
+						Expect(callback).ToNot(BeNil())
+					}
+					conn.reconnectLock.Unlock()
+				}
+			}()
+
+			for range registrations {
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Expect(registerEventCallback(conn, &conn.domainRebootEventCallbacks, noopCallback, register)).To(Succeed())
+				}()
+			}
+			wg.Wait()
+
+			Expect(conn.domainRebootEventCallbacks).To(HaveLen(registrations))
 		})
 	})
 })

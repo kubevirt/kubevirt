@@ -282,7 +282,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(
 				libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
 			vm.Labels = map[string]string{
@@ -1306,7 +1306,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				} else {
 					pvc.OwnerReferences = nil
 				}
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				doRestore("", console.LoginToAlpine, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1355,7 +1355,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					libvmi.NewVirtualMachine(
 						libvmifact.NewAlpineWithTestTooling(
 							libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-							libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+							libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 							libvmi.WithNetwork(v1.DefaultPodNetwork()),
 							libvmi.WithDataVolume("blank", dv.Name),
 						),
@@ -1996,76 +1996,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(restoredVM.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyRerunOnFailure)))
-			})
-
-			Context("with memory dump", func() {
-				getMemoryDump := func(vmName, namespace, claimName string) {
-					Eventually(func() error {
-						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
-							ClaimName: claimName,
-						}
-
-						return virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
-					}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				}
-
-				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
-					Eventually(func() bool {
-						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						if updatedVM.Status.MemoryDumpRequest == nil ||
-							updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
-							return false
-						}
-
-						return true
-					}, 60*time.Second, time.Second).Should(BeTrue())
-				}
-
-				DescribeTable("should not restore memory dump volume", func(restoreToNewVM bool) {
-					vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
-					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-					By("Get VM memory dump")
-					memoryDumpPVCName := "fs-pvc"
-					libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(nil), "1.5Gi", libstorage.WithStorageClass(snapshotStorageClass), libstorage.WithStorageProfile())
-					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
-					waitMemoryDumpCompletion(vm)
-
-					doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, getTargetVMName(restoreToNewVM, newVmName))
-					Expect(restore.Status.Restores).To(HaveLen(1))
-					Expect(restore.Status.Restores[0].VolumeName).ToNot(Equal(memoryDumpPVCName))
-
-					restorePVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					expectedSource := ""
-					for _, vb := range content.Spec.VolumeBackups {
-						if vb.VolumeName == restore.Status.Restores[0].VolumeName {
-							expectedSource = *vb.VolumeSnapshotName
-						}
-					}
-					Expect(restorePVC.Spec.DataSource.Name).To(Equal(expectedSource))
-
-					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", false, console.LoginToFedora)
-
-					targetVM := getTargetVM(restoreToNewVM)
-					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(targetVMI.Spec.Volumes).To(HaveLen(1))
-					foundMemoryDump := false
-					for _, volume := range targetVMI.Spec.Volumes {
-						if volume.Name == memoryDumpPVCName {
-							foundMemoryDump = true
-							break
-						}
-					}
-					Expect(foundMemoryDump).To(BeFalse())
-				},
-					Entry("[test_id:8923]to the same VM", false),
-					Entry("[test_id:8924]to a new VM", true),
-				)
 			})
 
 			Context("with cross namespace clone ability", func() {

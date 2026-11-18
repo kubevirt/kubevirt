@@ -185,7 +185,7 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 
 // GetStructureFromXMLFile load data from xml file and unmarshals them into given structure
 // Given structure has to be pointer
-func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{}) error {
+func (n *NodeLabeller) getStructureFromXMLFile(path string, structure any) error {
 	rawFile, err := os.ReadFile(path)
 	if err != nil {
 		return err

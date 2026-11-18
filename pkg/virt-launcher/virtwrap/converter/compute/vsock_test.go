@@ -117,6 +117,6 @@ var _ = Describe("VSOCK Domain Configurator", func() {
 
 func createFakeVsockModeFile(tmpDir, vsockMode string) {
 	vsockPath := filepath.Join(tmpDir, "sys", "net", "vsock")
-	Expect(os.MkdirAll(vsockPath, 0755)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte(vsockMode+"\n"), 0600)).To(Succeed())
+	Expect(os.MkdirAll(vsockPath, 0o755)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(vsockPath, "ns_mode"), []byte(vsockMode+"\n"), 0o600)).To(Succeed())
 }

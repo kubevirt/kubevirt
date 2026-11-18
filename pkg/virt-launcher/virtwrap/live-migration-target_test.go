@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/log"
 	"libvirt.org/go/libvirt"
@@ -36,6 +37,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
+
+var _ = Describe("Migration target guest definition hooks", func() {
+	It("does not self-copy the domain spec when no guest definition hook is selected", func() {
+		domainSpec := &api.DomainSpec{
+			Type:          "kvm",
+			Name:          "test-vm",
+			CurrentMemory: &api.Memory{Value: 512, Unit: "MiB"},
+		}
+		originalSpec := domainSpec.DeepCopy()
+
+		err := applyGuestDefinitionHooksToDomainSpec(
+			[]pluginv1alpha1.Plugin{{}},
+			api2.NewMinimalVMI("fake-vmi"),
+			domainSpec,
+			pluginv1alpha1.InvocationContextMigrationTarget,
+		)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainSpec).To(Equal(originalSpec))
+	})
+})
 
 var _ = Describe("client", func() {
 	var shareDir string

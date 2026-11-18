@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -68,25 +69,25 @@ var _ = Describe("VM Network Controller", func() {
 		Entry(
 			"the VM & VMI have identical interfaces",
 			libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
 			)),
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
 			),
 		),
 		Entry("there is an interface status that does not match a spec interface",
 			libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)),
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmistatus.WithStatus(libvmistatus.New(
 					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "DEFAULT"}),
@@ -109,12 +110,12 @@ var _ = Describe("VM Network Controller", func() {
 			})
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		vm = plugNetworkInterface(vm, libvmi.InterfaceDeviceWithBridgeBinding("foonet"))
+		vm = plugNetworkInterface(vm, libvmi.NewInterface("foonet", libvmi.WithBridgeBinding()))
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -131,7 +132,7 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
@@ -157,8 +158,8 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
 	},
-		Entry("when the plugged interface uses bridge binding", libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
-		Entry("when the plugged interface uses SR-IOV binding", libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetName1)),
+		Entry("when the plugged interface uses bridge binding", libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
+		Entry("when the plugged interface uses SR-IOV binding", libvmi.NewInterface(secondaryNetName1, libvmi.WithSRIOVBinding())),
 		Entry("when the plugged interface has link state down", v1.Interface{
 			Name: secondaryNetName1,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -179,7 +180,7 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -221,11 +222,11 @@ var _ = Describe("VM Network Controller", func() {
 
 		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
-		secondaryIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
+		secondaryIface := libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())
 		secondaryIface.State = currentIfaceState
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithInterface(secondaryIface),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
@@ -279,7 +280,7 @@ var _ = Describe("VM Network Controller", func() {
 		vmi := libvmi.New()
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		plugNetworkInterface(vm, libvmi.InterfaceWithBindingPlugin(secondaryNetName1, v1.PluginBinding{Name: "someplugin"}))
+		plugNetworkInterface(vm, libvmi.NewInterface(secondaryNetName1, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "someplugin"})))
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -304,10 +305,10 @@ var _ = Describe("VM Network Controller", func() {
 	It("sync succeeds to clear hotunplug interfaces from running VM", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
-		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
+		unpluggedIface := libvmi.NewInterface("foonet", libvmi.WithBridgeBinding())
 		unpluggedIface.State = v1.InterfaceStateAbsent
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(unpluggedIface),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
@@ -340,10 +341,10 @@ var _ = Describe("VM Network Controller", func() {
 	It("sync succeeds to clear hotunplug interfaces from stopped VM", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
-		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
+		unpluggedIface := libvmi.NewInterface("foonet", libvmi.WithBridgeBinding())
 		unpluggedIface.State = v1.InterfaceStateAbsent
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(unpluggedIface),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
@@ -363,9 +364,9 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("foonet")),
+			libvmi.WithInterface(libvmi.NewInterface("foonet", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
 		)
 		// Make sure the interfaces are visible on the status as well (otherwise hotunplug is not triggered)
@@ -507,9 +508,9 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("foonet")),
+			libvmi.WithInterface(libvmi.NewInterface("foonet", libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
 			libvmistatus.WithStatus(
 				libvmistatus.New(
@@ -564,11 +565,11 @@ var _ = Describe("VM Network Controller", func() {
 
 		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
-		ifaceToDetach := libvmi.InterfaceDeviceWithBridgeBinding(netToDetachName)
+		ifaceToDetach := libvmi.NewInterface(netToDetachName, libvmi.WithBridgeBinding())
 		netToDetach := libvmi.MultusNetwork(netToDetachName, netToDetachNADName)
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
 			libvmi.WithInterface(ifaceToDetach),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(netToDetach),
@@ -593,7 +594,7 @@ var _ = Describe("VM Network Controller", func() {
 		// Mark the secondary interface for hotunplug
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces[1].State = v1.InterfaceStateAbsent
 
-		vm = plugNetworkInterface(vm, libvmi.InterfaceDeviceWithBridgeBinding(netToAttachName))
+		vm = plugNetworkInterface(vm, libvmi.NewInterface(netToAttachName, libvmi.WithBridgeBinding()))
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -624,8 +625,8 @@ var _ = Describe("VM Network Controller", func() {
 		c := controllers.NewVMController(clientset)
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(netToDetachName)),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(netToDetachName, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(netToDetachName, netToDetachNADName)),
 			libvmistatus.WithStatus(
@@ -665,16 +666,25 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(originalVMI.Spec.Domain.Devices.Interfaces))
 	})
 
-	It("sync handles NAD reference updates by copying NAD reference to VMI", func() {
+	DescribeTable("sync handles NAD reference updates", func(migratableStatus k8sv1.ConditionStatus, expectedNADName string) {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: migratableStatus,
+					}),
+				),
+			),
 		)
+
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -691,8 +701,11 @@ var _ = Describe("VM Network Controller", func() {
 			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(updatedVMI.Spec.Networks[1].Multus.NetworkName).To(Equal(updatedNADName1))
-	})
+		Expect(updatedVMI.Spec.Networks[1].Multus.NetworkName).To(Equal(expectedNADName))
+	},
+		Entry("by copying NAD reference to VMI for migratable VM", k8sv1.ConditionTrue, updatedNADName1),
+		Entry("by not copying NAD reference to VMI for non-migratable VM", k8sv1.ConditionFalse, nadName),
+	)
 
 	It("sync handles multiple NAD reference updates", func() {
 		clientset := fake.NewSimpleClientset()
@@ -700,15 +713,24 @@ var _ = Describe("VM Network Controller", func() {
 
 		By("Creating a new VM)")
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName2)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName3)),
+			libvmi.WithInterface(libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName2, libvmi.WithBridgeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetName3, libvmi.WithBridgeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, nadName)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName2, nadName2)),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName3, nadName3)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+						Type:   v1.VirtualMachineInstanceIsMigratable,
+						Status: k8sv1.ConditionTrue,
+					}),
+				),
+			),
 		)
+
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -722,10 +744,10 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		expectedIfaces := []v1.Interface{
-			libvmi.InterfaceDeviceWithMasqueradeBinding(),
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1),
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName2),
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName3),
+			libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding()),
+			libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()),
+			libvmi.NewInterface(secondaryNetName2, libvmi.WithBridgeBinding()),
+			libvmi.NewInterface(secondaryNetName3, libvmi.WithBridgeBinding()),
 		}
 		expectedNets := []v1.Network{
 			*v1.DefaultPodNetwork(),
@@ -749,7 +771,7 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(clientset)
 
-		expectedIfaces := []v1.Interface{libvmi.InterfaceDeviceWithMasqueradeBinding()}
+		expectedIfaces := []v1.Interface{libvmi.NewInterface(defaultNetName, libvmi.WithMasqueradeBinding())}
 		expectedNets := []v1.Network{*v1.DefaultPodNetwork()}
 
 		vmi := libvmi.New(

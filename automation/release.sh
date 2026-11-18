@@ -41,6 +41,7 @@ function build_release_artifacts() {
     make manifests
     make olm-verify
     make prom-rules-verify
+    make feature-gate-report FEATURE_GATE_REPORT_ARGS="--output-format=json --output-file=_out/manifests/release/feature-gates.json"
 
     BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
@@ -67,6 +68,7 @@ function update_github_release() {
         _out/manifests/release/kubevirt-network-policies.yaml \
         _out/manifests/release/olm/kubevirt-operatorsource.yaml \
         "_out/manifests/release/olm/bundle/kubevirtoperator.$DOCKER_TAG.clusterserviceversion.yaml" \
+        _out/manifests/release/feature-gates.json \
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
         _out/manifests/testing/* \
@@ -75,8 +77,8 @@ function update_github_release() {
 
 function upload_testing_manifests() {
     # replaces periodic-kubevirt-update-release-x.y-testing-manifests periodics
-    gsutil -m rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG" || true
-    gsutil cp -r "_out/manifests/testing" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG/manifests/"
+    gcloud storage rm -r "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG" || true
+    gcloud storage cp -r "_out/manifests/testing" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/$DOCKER_TAG/manifests/"
 }
 
 function generate_stable_version_file() {
@@ -89,8 +91,8 @@ function generate_stable_version_file() {
         head -1
     ) > _out/stable.txt
     # this place is deprecated. Combining "devel" and stable is not optimal
-    gsutil cp "_out/stable.txt" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/"
-    gsutil cp "_out/stable.txt" "gs://kubevirt-prow/release/kubevirt/kubevirt/"
+    gcloud storage cp "_out/stable.txt" "gs://kubevirt-prow/devel/release/kubevirt/kubevirt/"
+    gcloud storage cp "_out/stable.txt" "gs://kubevirt-prow/release/kubevirt/kubevirt/"
 }
 
 function main() {

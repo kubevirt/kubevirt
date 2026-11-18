@@ -31,13 +31,13 @@ import (
 
 type Spec struct {
 	Interfaces []Interface `json:"interfaces,omitempty"`
-	LinuxStack LinuxStack  `json:"linux-stack,omitempty"`
+	LinuxStack LinuxStack  `json:"linux-stack"`
 }
 
 type Status struct {
 	Interfaces []Interface `json:"interfaces"`
 	Routes     Routes      `json:"routes"`
-	LinuxStack LinuxStack  `json:"linux-stack,omitempty"`
+	LinuxStack LinuxStack  `json:"linux-stack"`
 }
 
 type Interface struct {
@@ -52,10 +52,10 @@ type Interface struct {
 
 	Tap *TapDevice `json:"tap,omitempty"`
 
-	IPv4 IP `json:"IPv4,omitempty"`
-	IPv6 IP `json:"IPv6,omitempty"`
+	IPv4 IP `json:"IPv4"`
+	IPv6 IP `json:"IPv6"`
 
-	LinuxStack LinuxIfaceStack `json:"linux-stack,omitempty"`
+	LinuxStack LinuxIfaceStack `json:"linux-stack"`
 
 	Metadata *IfaceMetadata
 }
@@ -93,8 +93,8 @@ type LinuxIfaceStack struct {
 }
 
 type LinuxStack struct {
-	IPv4 LinuxStackIP4 `json:"ipv4,omitempty"`
-	IPv6 LinuxStackIP6 `json:"ipv6,omitempty"`
+	IPv4 LinuxStackIP4 `json:"ipv4"`
+	IPv6 LinuxStackIP6 `json:"ipv6"`
 }
 
 type LinuxStackIP4 struct {

@@ -37,6 +37,13 @@ const (
 	cloudInitPathWithSrc = "/var/run/libvirt/cloud-init-dir/source-ns/vmi-test/noCloud.iso"
 	cloudInitPathWithDst = "/var/run/libvirt/cloud-init-dir/target-ns/vmi-test/noCloud.iso"
 	pvcDiskPath          = "/var/run/kubevirt-private/vmi-disks/pvc/disk.img"
+
+	decentralizedSourceNamespace = "default"
+	decentralizedTargetNamespace = "test-target"
+	decentralizedSourceVMIName   = "test-source-vm"
+	decentralizedTargetVMIName   = "test-target-vm"
+	decentralizedCloudInitSrc    = "/var/run/kubevirt-ephemeral-disks/cloud-init-data/default/test-source-vm/noCloud.iso"
+	decentralizedCloudInitDst    = "/var/run/kubevirt-ephemeral-disks/cloud-init-data/test-target/test-target-vm/noCloud.iso"
 )
 
 var _ = Describe("DiskSourcePathHook", func() {
@@ -126,6 +133,37 @@ var _ = Describe("DiskSourcePathHook", func() {
 
 		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
 		Expect(domain.Devices.Disks[0].Source.DataStore.Source.File.File).To(Equal(cloudInitPathWithDst))
+	})
+
+	It("should replace namespace and VMI name in decentralized migration paths", func() {
+		sourceNs := decentralizedSourceNamespace
+		targetNs := decentralizedTargetNamespace
+		sourceName := decentralizedSourceVMIName
+		targetName := decentralizedTargetVMIName
+		vmi = libvmi.New(
+			libvmi.WithNamespace(decentralizedTargetNamespace),
+			libvmi.WithName(decentralizedTargetVMIName),
+			libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							DomainNamespace: &sourceNs,
+							DomainName:      &sourceName,
+						},
+					},
+					TargetState: &v1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+							DomainNamespace: &targetNs,
+							DomainName:      &targetName,
+						},
+					},
+				}),
+			)),
+		)
+		domain := domainWithCloudInitDisk(decentralizedCloudInitSrc)
+
+		Expect(disk.DiskSourcePathHook(nil, vmi, domain)).To(Succeed())
+		Expect(domain.Devices.Disks[0].Source.File.File).To(Equal(decentralizedCloudInitDst))
 	})
 
 	It("should return nil when domain has no devices", func() {

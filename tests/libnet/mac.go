@@ -20,8 +20,8 @@
 package libnet
 
 import (
-	cryptorand "crypto/rand"
 	"fmt"
+	"math/rand/v2"
 	"net"
 
 	expect "github.com/google/goexpect"
@@ -31,15 +31,13 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-func GenerateRandomMac() (net.HardwareAddr, error) {
-	prefix := net.HardwareAddr{0x02, 0x00, 0x00} // local unicast prefix
-	const macByteSize = 3
-	suffix := make(net.HardwareAddr, macByteSize)
-	_, err := cryptorand.Read(suffix)
-	if err != nil {
-		return nil, err
-	}
-	return append(prefix, suffix...), nil
+func GenerateRandomMac() net.HardwareAddr {
+	// A test MAC needs no cryptographic randomness; math/rand avoids wasting entropy.
+	suffix := rand.Uint32() //nolint:gosec
+	// 0x02 marks the address as locally administered unicast. The byte conversions
+	// intentionally truncate suffix to its low bytes (gosec G115 does not apply), and
+	// the 8/16 shifts select those bytes (not mnd magic numbers).
+	return net.HardwareAddr{0x02, 0x00, 0x00, byte(suffix), byte(suffix >> 8), byte(suffix >> 16)} //nolint:gosec,mnd
 }
 
 func CheckMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) error {

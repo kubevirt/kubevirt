@@ -1,4 +1,4 @@
-// Copyright 2020 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -30,7 +30,7 @@ import (
 
 var (
 	nodePattern      = "devices/system/node/node[0-9]*"
-	nodeNumberRegexp = regexp.MustCompile(`.*devices/system/node/node([0-9]*)`)
+	nodeNumberRegexp = regexp.MustCompile(`.*devices/system/node/node(\d*)`)
 )
 
 type VMStat struct {
@@ -86,6 +86,9 @@ type VMStat struct {
 	NrKernelMiscReclaimable    uint64
 	NrFollPinAcquired          uint64
 	NrFollPinReleased          uint64
+	CompactStall               uint64
+	CompactFail                uint64
+	CompactSuccess             uint64
 }
 
 func (fs FS) VMStatNUMA() (map[int]VMStat, error) {
@@ -242,6 +245,12 @@ func parseVMStatNUMA(r []byte) (VMStat, error) {
 			vmStat.NrFollPinAcquired = fv
 		case "nr_foll_pin_released":
 			vmStat.NrFollPinReleased = fv
+		case "compact_stall":
+			vmStat.CompactStall = fv
+		case "compact_fail":
+			vmStat.CompactFail = fv
+		case "compact_success":
+			vmStat.CompactSuccess = fv
 		}
 
 	}

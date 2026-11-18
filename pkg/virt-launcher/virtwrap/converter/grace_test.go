@@ -214,25 +214,25 @@ var _ = Describe("Grace conversion preflight", func() {
 		c := newGraceContext()
 		c.IOMMUFDEnabled = false
 
-		err := validateGraceIOVirtualizationConversion(newGraceVMI(), c)
+		err := ValidateGraceIOVirtualizationConversion(newGraceVMI(), c)
 
 		Expect(err).To(MatchError(ContainSubstring("requires an IOMMUFD file descriptor")))
 	})
 
-	It("rejects disabling the 64-bit PCI hole before domain mutation", func() {
+	It("rejects disabling the 64-bit PCI hole", func() {
 		vmi := newGraceVMI()
 		vmi.Annotations[v1.DisablePCIHole64] = "true"
 
-		err := validateGraceIOVirtualizationConversion(vmi, newGraceContext())
+		err := ValidateGraceIOVirtualizationConversion(vmi, newGraceContext())
 
 		Expect(err).To(MatchError(ContainSubstring("requires the 64-bit PCI hole")))
 	})
 
-	It("rejects root-complex placement before domain mutation", func() {
+	It("rejects root-complex placement", func() {
 		vmi := newGraceVMI()
 		vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] = "true"
 
-		err := validateGraceIOVirtualizationConversion(vmi, newGraceContext())
+		err := ValidateGraceIOVirtualizationConversion(vmi, newGraceContext())
 
 		Expect(err).To(MatchError(ContainSubstring("root-complex placement")))
 	})
@@ -281,6 +281,22 @@ var _ = Describe("Grace domain conversion", func() {
 		Expect(domainSpec.CPU.NUMA.Cells[1].Distances).ToNot(BeNil())
 		Expect(findGraceSibling(domainSpec.CPU.NUMA.Cells[0].Distances.Siblings, "1").Value).To(Equal(uint64(80)))
 		Expect(findGraceSibling(domainSpec.CPU.NUMA.Cells[1].Distances.Siblings, "0").Value).To(Equal(uint64(80)))
+	})
+
+	It("adds default SMMUv3 address capabilities", func() {
+		fakeRuntime.addGraceGPU("0000:81:00.0", 0, 16*1024*1024*1024)
+		fakeRuntime.giNodes = uint32Range(2, 9)
+		fakeRuntime.addDistances(append([]uint32{0}, fakeRuntime.giNodes...))
+		domainSpec := newGraceConversionDomain(
+			newGraceTestHostDevice("gpu-gpu0", api.HostDevicePCI, "0x0000", "0x81", "0x00", "0x0"),
+		)
+
+		err := configureGraceIOVirtualization(domainSpec, []string{"gpu-gpu0"}, true)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domainSpec.Devices.IOMMU).To(HaveLen(1))
+		Expect(domainSpec.Devices.IOMMU[0].Driver.SSIDSize).To(Equal("20"))
+		Expect(domainSpec.Devices.IOMMU[0].Driver.OAS).To(Equal("48"))
 	})
 
 	It("creates an explicit PCIe root controller before placing Grace PCI devices", func() {

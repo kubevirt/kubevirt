@@ -57,7 +57,19 @@ import (
 
 const (
 	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v "
+
+	metricsScrapeTimeout  = 30 * time.Second
+	metricsScrapeInterval = 2 * time.Second
 )
+
+func scrapeVMMetrics(pod *k8sv1.Pod) string {
+	var metricsPayload string
+	Eventually(func() (err error) {
+		metricsPayload, err = libmonitoring.GetKubevirtVMMetrics(pod)
+		return err
+	}, metricsScrapeTimeout, metricsScrapeInterval).Should(Succeed(), "should scrape the metrics endpoint")
+	return metricsPayload
+}
 
 var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", decorators.SigMonitoring, decorators.WgS390x, func() { //nolint:lll
 	var virtClient kubecli.KubevirtClient
@@ -139,7 +151,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		vmi := libvmifact.NewAlpine(options...)
 
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
 		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")
@@ -260,15 +272,16 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 	It("[test_id:4141]should include the metrics for a running VM", func() {
 		By("Scraping the Prometheus endpoint")
-		Eventually(func() string {
-			out := libmonitoring.GetKubevirtVMMetrics(pod)
+		Eventually(func(g Gomega) string {
+			out, err := libmonitoring.GetKubevirtVMMetrics(pod)
+			g.Expect(err).ToNot(HaveOccurred())
 			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
 			return strings.Join(lines, "\n")
 		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 	})
 
 	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		metricsPayload := scrapeVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_node_deprecated_machine_types")
@@ -285,57 +298,57 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	DescribeTable("should include the storage metrics for a running VM", func(metricName, operator string) {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-
 		By("Checking the collected metrics")
 		for _, vmi := range preparedVMIs {
 			for _, vol := range vmi.Spec.Volumes {
-				fetcher := metricsutil.NewMetricsFetcher("")
-				fetcher.AddNameFilter(metricName)
-				fetcher.AddLabelFilter("name", vmi.Name, "drive", vol.Name)
+				Eventually(func(g Gomega) {
+					metricsPayload, err := libmonitoring.GetKubevirtVMMetrics(pod)
+					g.Expect(err).ToNot(HaveOccurred(), "should scrape the metrics endpoint")
 
-				metrics, err := fetcher.LoadMetrics(metricsPayload)
-				Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+					fetcher := metricsutil.NewMetricsFetcher("")
+					fetcher.AddNameFilter(metricName)
+					fetcher.AddLabelFilter("name", vmi.Name, "drive", vol.Name)
 
-				results := metrics[metricName]
-				Expect(results).ToNot(BeEmpty(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
+					metrics, err := fetcher.LoadMetrics(metricsPayload)
+					g.Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
 
-				GinkgoLogr.Info("Metric value", "value", results[0].Value)
-				Expect(results[0].Value).To(BeNumerically(operator, 0.0))
+					results := metrics[metricName]
+					g.Expect(results).ToNot(BeEmpty(), "Expected to find metric for VMI %s and disk %s", vmi.Name, vol.Name)
+
+					GinkgoLogr.Info("Metric value", "value", results[0].Value)
+					g.Expect(results[0].Value).To(BeNumerically(operator, 0.0))
+				}, 15*time.Second, 2*time.Second).Should(Succeed())
 			}
 		}
 	},
-		Entry("[test_id:4142] storage flush requests metric",
-			"kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:4142] time spent on cache flushing metric",
-			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage flush requests metric", "kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric", "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
 		Entry("[test_id:4142] I/O read operations metric", "kubevirt_vmi_storage_iops_read_total", ">="),
 		Entry("[test_id:4142] I/O write operations metric", "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:4142] storage read operation time metric",
-			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage read traffic in bytes metric",
-			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:4142] storage write operation time metric",
-			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage write traffic in bytes metric",
-			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric", "kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric", "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric", "kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric", "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 	)
 
 	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		Eventually(func(g Gomega) {
+			metricsPayload, err := libmonitoring.GetKubevirtVMMetrics(pod)
+			g.Expect(err).ToNot(HaveOccurred(), "should scrape the metrics endpoint")
 
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter(metricSubstring)
+			fetcher := metricsutil.NewMetricsFetcher("")
+			fetcher.AddNameFilter(metricSubstring)
 
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
-		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected for %s", metricSubstring)
+			metrics, err := fetcher.LoadMetrics(metricsPayload)
+			g.Expect(err).ToNot(HaveOccurred(), "should load metrics without error")
+			g.Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected for %s", metricSubstring)
 
-		for _, results := range metrics {
-			for _, result := range results {
-				Expect(result.Value).To(BeNumerically(operator, float64(0.0)))
+			for _, results := range metrics {
+				for _, result := range results {
+					g.Expect(result.Value).To(BeNumerically(operator, float64(0.0)))
+				}
 			}
-		}
+		}, 15*time.Second, 2*time.Second).Should(Succeed())
 	},
 		Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
 		Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
@@ -345,7 +358,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	)
 
 	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		metricsPayload := scrapeVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_vcpu_seconds_total")
@@ -371,7 +384,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
 	It("[test_id:4555]should include swap metrics", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		metricsPayload := scrapeVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_memory_swap_")

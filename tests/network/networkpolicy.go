@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"time"
 
@@ -24,10 +25,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	libvmi "kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -276,9 +279,19 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 	})
 }))
 
+func filterOutLinkLocalAddresses(ips []string) []string {
+	return slices.DeleteFunc(slices.Clone(ips), func(ip string) bool {
+		addr := net.ParseIP(ip)
+		return addr != nil && addr.IsLinkLocalUnicast()
+	})
+}
+
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ipAddressesToPing := filterOutLinkLocalAddresses(toVmi.Status.Interfaces[0].IPs)
+	Expect(ipAddressesToPing).NotTo(BeEmpty(), "no IPs left to ping after filtering link-local addresses")
+
 	ConsistentlyWithOffset(1, func() error {
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err := libnet.PingFromVMConsole(fromVmi, toIp); err != nil {
 				return err
 			}
@@ -288,9 +301,12 @@ func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 }
 
 func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
+	ipAddressesToPing := filterOutLinkLocalAddresses(toVmi.Status.Interfaces[0].IPs)
+	Expect(ipAddressesToPing).NotTo(BeEmpty(), "no IPs left to ping after filtering link-local addresses")
+
 	EventuallyWithOffset(1, func() error {
 		var err error
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
@@ -300,7 +316,7 @@ func assertPingFail(fromVmi, toVmi *v1.VirtualMachineInstance) {
 
 	ConsistentlyWithOffset(1, func() error {
 		var err error
-		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+		for _, toIp := range ipAddressesToPing {
 			if err = libnet.PingFromVMConsole(fromVmi, toIp); err == nil {
 				return nil
 			}
@@ -394,11 +410,14 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	clientVMI := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithCloudInitNoCloud(
 			libvmifact.WithDummyCloudForFastBoot(),
+			libvmici.WithNoCloudNetworkData(networkData),
 		),
-		libnet.WithMasqueradeNetworking(),
+		libvmi.WithInterface(libnet.ConformancePodNetworkInterface()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
@@ -410,22 +429,17 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 }
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
+	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithCloudInitNoCloud(
 			libvmifact.WithDummyCloudForFastBoot(),
+			libvmici.WithNoCloudNetworkData(networkData),
 		),
-		libnet.WithMasqueradeNetworking(
-			v1.Port{
-				Name:     "http80",
-				Port:     80,
-				Protocol: "TCP",
-			},
-			v1.Port{
-				Name:     "http81",
-				Port:     81,
-				Protocol: "TCP",
-			},
-		),
+		libvmi.WithInterface(libnet.ConformancePodNetworkInterface(
+			v1.Port{Name: "http80", Port: 80, Protocol: "TCP"},
+			v1.Port{Name: "http81", Port: 81, Protocol: "TCP"},
+		)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	serverVMI.Labels = serverVMILabels
 	serverVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), serverVMI, metav1.CreateOptions{})

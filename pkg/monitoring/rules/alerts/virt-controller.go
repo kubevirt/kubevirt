@@ -30,13 +30,11 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowReadyVirtControllersCount",
-			Expr: intstr.FromString(
-				"cluster:kubevirt_virt_controller_ready:sum < cluster:kubevirt_virt_controller_pods_running:count " +
-					"and cluster:kubevirt_virt_controller_ready:sum > 0",
-			),
-			For: ptr.To(promv1.Duration("10m")),
+			Expr:  intstr.FromString(lowReadyAlertExpr(namespace, "controller")),
+			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Some virt controllers are running but not ready.",
+				summaryAnnotationKey:     "Some virt controllers are running but not ready.",
+				descriptionAnnotationKey: "virt-controller pod {{ $labels.pod }} has been running but not ready for more than 10 minutes.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -45,7 +43,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtController",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_ready:sum == 0"),
+			Expr:  intstr.FromString(noReadyAlertExpr("controller")),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-controller was detected for the last 10 min.",
@@ -56,11 +54,24 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 			},
 		},
 		{
-			Alert: "VirtControllerDown",
-			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_pods_running:count == 0"),
+			Alert: "NoLeadingVirtController",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_leading:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "No running virt-controller was detected for the last 10 min.",
+				summaryAnnotationKey: "No leading virt-controller was detected for the last 10 min.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
+		{
+			Alert: "VirtControllerDown",
+			Expr:  intstr.FromString(componentDownExpr(namespace, "controller")),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey:     "No healthy virt-controller was detected for the last 10 min.",
+				descriptionAnnotationKey: componentDownDescription("virt-controller", ""),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -70,16 +81,33 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtControllersCount",
 			Expr: intstr.FromString(fmt.Sprintf(
-				"cluster:kubevirt_virt_controller_up:sum / on() kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
+				"cluster:kubevirt_virt_controller_pods_running:count / on() "+
+					"kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
 				namespace,
 			)),
 			For: ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are ready.",
+				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are running.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
 				operatorHealthImpactLabelKey: "warning",
+			},
+		},
+		{
+			// Cluster-wide count of failed virt-launcher pods, not a
+			// per-namespace alert. Do not sum by namespace: that would
+			// split the 200-pod threshold across VM namespaces. The
+			// install namespace is applied as a static label in Register().
+			Alert: "VirtLauncherPodsStuckFailed",
+			Expr:  intstr.FromString("sum(kube_pod_status_phase{phase='Failed', pod=~'virt-launcher-.*'}) >= 200"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
 			},
 		},
 		{

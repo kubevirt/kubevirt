@@ -163,14 +163,14 @@ var _ = Describe(SIG("Subdomain", func() {
 
 func fedoraMasqueradeVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(append([]libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	}, opts...)...)
 }
 
 func fedoraBridgeBindingVMI(opts ...libvmi.Option) *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(append([]libvmi.Option{
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	}, opts...)...)
 }

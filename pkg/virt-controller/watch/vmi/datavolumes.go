@@ -35,7 +35,7 @@ import (
 )
 
 // addDataVolume handles the addition of a DataVolume, enqueuing affected VMIs.
-func (c *Controller) addDataVolume(obj interface{}) {
+func (c *Controller) addDataVolume(obj any) {
 	dataVolume := obj.(*cdiv1.DataVolume)
 	if dataVolume.DeletionTimestamp != nil {
 		c.deleteDataVolume(dataVolume)
@@ -52,7 +52,7 @@ func (c *Controller) addDataVolume(obj interface{}) {
 }
 
 // updateDataVolume handles updates to a DataVolume, enqueuing affected VMIs.
-func (c *Controller) updateDataVolume(old, cur interface{}) {
+func (c *Controller) updateDataVolume(old, cur any) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
 	oldDataVolume := old.(*cdiv1.DataVolume)
 	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
@@ -85,7 +85,7 @@ func (c *Controller) updateDataVolume(old, cur interface{}) {
 }
 
 // deleteDataVolume handles the deletion of a DataVolume, enqueuing affected VMIs.
-func (c *Controller) deleteDataVolume(obj interface{}) {
+func (c *Controller) deleteDataVolume(obj any) {
 	dataVolume, ok := obj.(*cdiv1.DataVolume)
 	// When a delete is dropped, the relist will notice a dataVolume in the store not
 	// in the list, leading to the insertion of a tombstone object which contains

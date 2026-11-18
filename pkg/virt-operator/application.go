@@ -243,6 +243,7 @@ func Execute() {
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
 		PodDisruptionBudget:      app.informerFactory.OperatorPodDisruptionBudget(),
+		HorizontalPodAutoscaler:  app.informerFactory.OperatorHorizontalPodAutoscaler(),
 		Namespace:                app.informerFactory.Namespace(),
 		Secrets:                  app.informerFactory.Secrets(),
 		ConfigMap:                app.informerFactory.OperatorConfigMap(),
@@ -259,12 +260,16 @@ func Execute() {
 		log.Log.Info("we are on openshift")
 		app.informers.SCC = app.informerFactory.OperatorSCC()
 		app.informers.Route = app.informerFactory.OperatorRoute()
+		app.informers.SynchronizationRoute = app.informerFactory.SynchronizationRoute()
 		app.config.IsOnOpenshift = true
 	} else {
 		log.Log.Info("we are on kubernetes")
 		app.informers.SCC = app.informerFactory.DummyOperatorSCC()
 		app.informers.Route = app.informerFactory.DummyOperatorRoute()
+		app.informers.SynchronizationRoute = app.informerFactory.DummySynchronizationRoute()
 	}
+	app.informers.SynchronizationService = app.informerFactory.SynchronizationService()
+	app.informers.SynchronizationIngress = app.informerFactory.SynchronizationIngress()
 
 	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.virtClient)
 	if err != nil {

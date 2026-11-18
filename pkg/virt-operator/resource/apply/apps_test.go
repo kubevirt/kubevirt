@@ -215,6 +215,103 @@ var _ = Describe("Apply Apps", func() {
 		})
 	})
 
+	Context("on calling deletePodDisruptionBudgetForDeployment", func() {
+		var deployment *appsv1.Deployment
+		var virtClient *kubecli.MockKubevirtClient
+		var kv *v1.KubeVirt
+		var expectations *util.Expectations
+		var stores util.Stores
+		var mockPodDisruptionBudgetCacheStore *MockStore
+		var k8sClient *fake.Clientset
+		var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
+		var deleted bool
+		var shouldDeleteFail bool
+		var ctrl *gomock.Controller
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
+
+			deleted = false
+			shouldDeleteFail = false
+
+			k8sClient = fake.NewSimpleClientset()
+			k8sClient.Fake.PrependReactor("delete", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				_, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+				if shouldDeleteFail {
+					return true, nil, fmt.Errorf("Delete failed!")
+				}
+				deleted = true
+				return true, nil, nil
+			})
+
+			stores = util.Stores{}
+			mockPodDisruptionBudgetCacheStore = &MockStore{}
+			stores.PodDisruptionBudgetCache = mockPodDisruptionBudgetCacheStore
+
+			expectations = &util.Expectations{}
+			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
+
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			kv = &v1.KubeVirt{}
+
+			virtSyncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			deployment = components.NewSynchronizationControllerDeployment(virtSyncConfig, "", "", "")
+			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
+		})
+
+		It("should delete an existing PDB", func() {
+			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(Succeed())
+			Expect(deleted).To(BeTrue())
+		})
+
+		It("should no-op when the PDB is already absent", func() {
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(Succeed())
+			Expect(deleted).To(BeFalse())
+		})
+
+		It("should return delete error", func() {
+			shouldDeleteFail = true
+			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
+			r := &Reconciler{
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				kvKey:        Namespace + "/" + "test-kv",
+				expectations: expectations,
+				stores:       stores,
+			}
+
+			Expect(r.deletePodDisruptionBudgetForDeployment(deployment)).To(HaveOccurred())
+			Expect(deleted).To(BeFalse())
+		})
+	})
+
 	Describe("on updating/creating virt-handler", func() {
 		var daemonSet *appsv1.DaemonSet
 		var err error
@@ -463,10 +560,6 @@ var _ = Describe("Apply Apps", func() {
 				currentDs := daemonSet.DeepCopy()
 				addCustomTargetDeployment(kv, currentDs)
 				currentDs.Status = daemonSet.Status
-				currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
-					"--migration-cn-types",
-				)
-				unattachCertificateSecret(&currentDs.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 
 				mockDSCacheStore.get = daemonSet
 				SetGeneration(&kv.Status.Generations, currentDs)
@@ -729,10 +822,6 @@ var _ = Describe("Apply Apps", func() {
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
-						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
-							"--migration-cn-types",
-						)
-						unattachCertificateSecret(&currentDs.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
@@ -743,57 +832,6 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
 					successful, true, false, true, false,
-				),
-
-				Entry("should unattach secret before complete rollout",
-					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromInt(1)
-						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
-							MaxUnavailable: &maxUnavailable,
-						}
-						newDs := daemonSet.DeepCopy()
-						addCustomTargetDeployment(kv, newDs)
-						addCustomTargetDeployment(kv, currentDs)
-						markHandlerReady(daemonSet)
-
-						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
-							"--migration-cn-types",
-						)
-						return currentDs, newDs
-					},
-					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
-						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
-						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
-						Expect(rollingUpdate).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
-						hasCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
-					},
-					waiting, false, false, true, false,
-				),
-				Entry("should switch to tls rollout",
-					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromInt(1)
-						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
-							MaxUnavailable: &maxUnavailable,
-						}
-						newDs := daemonSet.DeepCopy()
-						addCustomTargetDeployment(kv, newDs)
-						addCustomTargetDeployment(kv, currentDs)
-						markHandlerReady(daemonSet)
-						currentDs.Status = daemonSet.Status
-
-						return currentDs, newDs
-					},
-					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
-						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
-						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
-						Expect(rollingUpdate).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
-						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
-						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
-					},
-					waiting, false, false, true, false,
 				),
 			)
 		})
@@ -1377,6 +1415,128 @@ var _ = Describe("Apply Apps", func() {
 			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
 
+		Context("virt-exportproxy replica management", func() {
+			var reconciler *Reconciler
+			var exportProxyDeployment *appsv1.Deployment
+
+			BeforeEach(func() {
+				virtControllerConfig := &util.KubeVirtDeploymentConfig{
+					Registry:        Registry,
+					KubeVirtVersion: Version,
+					Namespace:       Namespace,
+				}
+				exportProxyDeployment = components.NewExportProxyDeployment(virtControllerConfig, "", "", "")
+
+				reconciler = &Reconciler{
+					virtClient: virtClient,
+					k8sClient:  k8sClient,
+					kv:         kv,
+					expectations: &util.Expectations{
+						Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+					},
+					stores: stores,
+				}
+			})
+
+			DescribeTable("should set replica count to 1 when virt-api would run a single replica",
+				func(schedulableNodes, unschedulableNodes int) {
+					createFakeNodes(k8sClient, schedulableNodes, unschedulableNodes)
+					reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+					desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+					Expect(err).ToNot(HaveOccurred())
+					deployment := exportProxyDeployment.DeepCopy()
+					reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+					updatedDeployment, err := reconciler.syncDeployment(deployment)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(*updatedDeployment.Spec.Replicas).To(Equal(int32(1)))
+				},
+				Entry("single-node cluster", 1, 0),
+				Entry("single schedulable worker node", 1, 4),
+			)
+
+			It("should preserve existing replica count on sync", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				scaledReplicas := int32(5)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &scaledReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation - 1,
+				}}
+
+				desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+				Expect(err).ToNot(HaveOccurred())
+				deployment := exportProxyDeployment.DeepCopy()
+				reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+				updatedDeployment, err := reconciler.syncDeployment(deployment)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(scaledReplicas))
+			})
+
+			It("should not apply infra replicas override", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				infraReplicas := uint8(7)
+				kv.Spec.Infra = &v1.ComponentConfig{Replicas: &infraReplicas}
+
+				clusterReplicas := int32(3)
+				cachedExportProxy := exportProxyDeployment.DeepCopy()
+				cachedExportProxy.Spec.Replicas = &clusterReplicas
+				cachedExportProxy.Generation = 2
+				_, err := k8sClient.AppsV1().Deployments(Namespace).Create(context.TODO(), cachedExportProxy, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: cachedExportProxy}}
+				kv.Status.Generations = []v1.GenerationStatus{{
+					Group:          "apps",
+					Resource:       "deployments",
+					Namespace:      exportProxyDeployment.Namespace,
+					Name:           exportProxyDeployment.Name,
+					LastGeneration: cachedExportProxy.Generation,
+				}}
+
+				desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+				Expect(err).ToNot(HaveOccurred())
+				deployment := exportProxyDeployment.DeepCopy()
+				reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+				updatedDeployment, err := reconciler.syncDeployment(deployment)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(*updatedDeployment.Spec.Replicas).To(Equal(clusterReplicas))
+			})
+
+			It("should not require control-plane node affinity", func() {
+				createFakeNodes(k8sClient, 2, 0)
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+				desiredReplicas, err := getDesiredApiReplicas(k8sClient)
+				Expect(err).ToNot(HaveOccurred())
+				deployment := exportProxyDeployment.DeepCopy()
+				reconciler.applyExportProxyReplicaPolicy(deployment, desiredReplicas)
+
+				updatedDeployment, err := reconciler.syncDeployment(deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				affinity := updatedDeployment.Spec.Template.Spec.Affinity
+				Expect(affinity).NotTo(BeNil())
+				Expect(affinity.NodeAffinity).To(BeNil())
+				Expect(affinity.PodAntiAffinity).NotTo(BeNil())
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+				Expect(affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution[0].PodAffinityTerm.LabelSelector.MatchExpressions[0].Values).
+					To(ConsistOf(components.VirtExportProxyName))
+			})
+		})
+
 		Context("virt-template TLS injection", func() {
 			const (
 				tlsCipherSuitesArg = "--tls-cipher-suites"
@@ -1470,6 +1630,90 @@ var _ = Describe("Apply Apps", func() {
 				Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
 				Expect(args).NotTo(ContainElement(tlsMinVersionArg))
 			})
+		})
+
+		It("should use SynchronizationPlacement without infra control-plane affinity", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			// Generation must not bake in control-plane placement.
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+
+			kv.Spec.SynchronizationPlacement = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"node-role.kubernetes.io/worker": "",
+					},
+				},
+			}
+			kv.Spec.Infra = nil
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(HaveKey("node-role.kubernetes.io/worker"))
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			for _, tol := range syncDeployment.Spec.Template.Spec.Tolerations {
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/master"))
+			}
+		})
+
+		It("should use Infra placement without default control-plane affinity when SynchronizationPlacement is unset", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			// Generation must not bake in control-plane placement; otherwise Infra
+			// worker selectors would stack on required control-plane affinity.
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			kv.Spec.SynchronizationPlacement = nil
+			kv.Spec.Infra = &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"node-role.kubernetes.io/worker": "",
+					},
+				},
+			}
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.NodeSelector).To(HaveKey("node-role.kubernetes.io/worker"))
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+			for _, tol := range syncDeployment.Spec.Template.Spec.Tolerations {
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/control-plane"))
+				Expect(tol.Key).NotTo(Equal("node-role.kubernetes.io/master"))
+			}
+		})
+
+		It("should apply default control-plane placement when SynchronizationPlacement and Infra are unset", func() {
+			syncConfig := &util.KubeVirtDeploymentConfig{
+				Registry:        Registry,
+				KubeVirtVersion: Version,
+				Namespace:       Namespace,
+			}
+			syncDeployment := components.NewSynchronizationControllerDeployment(syncConfig, "", "", "")
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(BeNil())
+
+			kv.Spec.SynchronizationPlacement = nil
+			kv.Spec.Infra = nil
+
+			injectDeploymentPlacement(kv, syncDeployment)
+			Expect(syncDeployment.Spec.Template.Spec.Affinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity).ToNot(BeNil())
+			Expect(syncDeployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution).ToNot(BeNil())
 		})
 	})
 })

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/go-kit/log"
 	. "github.com/onsi/ginkgo/v2"
@@ -67,6 +68,7 @@ const (
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:01.1/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.942000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:01.3/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.944000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:02.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.948000Z"}
+{"component":"test","level":"info","msg":"2018-10-04 09:error:33.948+0000: 43: error : virPCIDeviceConfigOpen:312 : Failed to open config space file '/sys/bus/pci/devices/0000:00:02.0/config': Read-only file system","subcomponent":"libvirt","timestamp":"<generated>"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:03.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:04.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
 {"component":"test","level":"error","msg":"Failed to open config space file '/sys/bus/pci/devices/0000:00:05.0/config': Read-only file system","pos":"virPCIDeviceConfigOpen:312","subcomponent":"libvirt","thread":"43","timestamp":"2018-10-04T09:20:33.950000Z"}
@@ -155,7 +157,6 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
@@ -165,11 +166,18 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
 
+		Expect(loggedLines).To(HaveLen(len(expectedLines)))
+		for i, expected := range expectedLines {
+			if expected["timestamp"] == "<generated>" {
+				_, err := time.Parse(time.RFC3339Nano, loggedLines[i]["timestamp"])
+				Expect(err).ToNot(HaveOccurred())
+				loggedLines[i]["timestamp"] = "<generated>"
+			}
+		}
 		Expect(loggedLines).To(Equal(expectedLines))
 	})
 
@@ -221,7 +229,6 @@ var _ = Describe("LibvirtHelper", func() {
 		domain := &api.Domain{}
 		c := &convertertypes.ConverterContext{
 			Architecture:     arch.NewConverter(runtime.GOARCH),
-			VirtualMachine:   vmi,
 			AllowEmulation:   true,
 			SMBios:           &cmdv1.SMBios{},
 			HotplugVolumes:   make(map[string]v1.VolumeStatus),
@@ -273,7 +280,152 @@ var _ = Describe("LibvirtHelper", func() {
 		Expect(err).NotTo(HaveOccurred())
 		dom.Free()
 
+		// XMLName is applied during unmarshal but not in original domain
+		for i := range wantedSpec.Devices.Disks {
+			wantedSpec.Devices.Disks[i].XMLName.Local = ""
+		}
+
 		Expect(wantedSpec.Devices.Disks).To(Equal(mutatedSpec.Devices.Disks))
+	})
+
+	Context("QEMUCmd preservation across sidecar hooks", func() {
+		var (
+			vmi             *v1.VirtualMachineInstance
+			ctrl            *gomock.Controller
+			mockHookManager *hooks.MockManager
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			vmi = api2.NewMinimalVMIWithNS("test-namespace", "test-vmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			mockHookManager = hooks.NewMockManager(ctrl)
+			getHookManager = func() hooks.Manager {
+				return mockHookManager
+			}
+		})
+
+		AfterEach(func() {
+			getHookManager = hooks.GetManager
+		})
+
+		marshalSpec := func(spec *api.DomainSpec, _ *v1.VirtualMachineInstance) (string, error) {
+			xmlBytes, err := xml.MarshalIndent(spec, "", "\t")
+			if err != nil {
+				return "", err
+			}
+			return string(xmlBytes), nil
+		}
+
+		It("should preserve QEMUCmd args and envs across the round-trip", func() {
+			wantedSpec := &api.DomainSpec{
+				Type:  "kvm",
+				XmlNS: "http://libvirt.org/schemas/domain/qemu/1.0",
+				Name:  "test-vm",
+				QEMUCmd: &api.Commandline{
+					QEMUArg: []api.Arg{
+						{Value: "-fw_cfg"},
+						{Value: "name=opt/com.coreos/config,file=/var/run/test/data.ign"},
+					},
+					QEMUEnv: []api.Env{
+						{Name: "QEMU_AUDIO_DRV", Value: "none"},
+					},
+				},
+			}
+
+			mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).DoAndReturn(marshalSpec)
+
+			_, err := ApplySidecarHooks(vmi, wantedSpec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(wantedSpec.QEMUCmd).NotTo(BeNil())
+			Expect(wantedSpec.QEMUCmd.QEMUArg).To(HaveLen(2))
+			Expect(wantedSpec.QEMUCmd.QEMUArg[0].Value).To(Equal("-fw_cfg"))
+			Expect(wantedSpec.QEMUCmd.QEMUArg[1].Value).To(
+				Equal("name=opt/com.coreos/config,file=/var/run/test/data.ign"))
+			Expect(wantedSpec.QEMUCmd.QEMUEnv).To(HaveLen(1))
+			Expect(wantedSpec.QEMUCmd.QEMUEnv[0].Name).To(Equal("QEMU_AUDIO_DRV"))
+			Expect(wantedSpec.QEMUCmd.QEMUEnv[0].Value).To(Equal("none"))
+		})
+
+		It("should not introduce QEMUCmd when the spec has none", func() {
+			wantedSpec := &api.DomainSpec{
+				Type: "kvm",
+				Name: "test-vm",
+			}
+
+			mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).DoAndReturn(marshalSpec)
+
+			_, err := ApplySidecarHooks(vmi, wantedSpec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(wantedSpec.QEMUCmd).To(BeNil())
+		})
+
+		It("should capture hook-added QEMUCmd args", func() {
+			wantedSpec := &api.DomainSpec{
+				Type:  "kvm",
+				XmlNS: "http://libvirt.org/schemas/domain/qemu/1.0",
+				Name:  "test-vm",
+				QEMUCmd: &api.Commandline{
+					QEMUArg: []api.Arg{
+						{Value: "-fw_cfg"},
+						{Value: "name=opt/com.coreos/config,file=/var/run/test/data.ign"},
+					},
+				},
+			}
+
+			mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).DoAndReturn(
+				func(spec *api.DomainSpec, _ *v1.VirtualMachineInstance) (string, error) {
+					modified := spec.DeepCopy()
+					modified.QEMUCmd.QEMUArg = append(modified.QEMUCmd.QEMUArg,
+						api.Arg{Value: "-device"},
+						api.Arg{Value: "virtio-rng"},
+					)
+					xmlBytes, err := xml.MarshalIndent(modified, "", "\t")
+					if err != nil {
+						return "", err
+					}
+					return string(xmlBytes), nil
+				},
+			)
+
+			_, err := ApplySidecarHooks(vmi, wantedSpec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(wantedSpec.QEMUCmd).NotTo(BeNil())
+			Expect(wantedSpec.QEMUCmd.QEMUArg).To(HaveLen(4))
+			Expect(wantedSpec.QEMUCmd.QEMUArg[2].Value).To(Equal("-device"))
+			Expect(wantedSpec.QEMUCmd.QEMUArg[3].Value).To(Equal("virtio-rng"))
+		})
+
+		It("should not restore QEMUCmd when the hook removed it", func() {
+			wantedSpec := &api.DomainSpec{
+				Type:  "kvm",
+				XmlNS: "http://libvirt.org/schemas/domain/qemu/1.0",
+				Name:  "test-vm",
+				QEMUCmd: &api.Commandline{
+					QEMUArg: []api.Arg{
+						{Value: "-fw_cfg"},
+						{Value: "name=opt/com.coreos/config,file=/var/run/test/data.ign"},
+					},
+				},
+			}
+
+			mockHookManager.EXPECT().OnDefineDomain(wantedSpec, vmi).DoAndReturn(
+				func(spec *api.DomainSpec, _ *v1.VirtualMachineInstance) (string, error) {
+					stripped := spec.DeepCopy()
+					stripped.QEMUCmd = nil
+					stripped.XmlNS = ""
+					xmlBytes, err := xml.MarshalIndent(stripped, "", "\t")
+					if err != nil {
+						return "", err
+					}
+					return string(xmlBytes), nil
+				},
+			)
+
+			_, err := ApplySidecarHooks(vmi, wantedSpec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(wantedSpec.QEMUCmd).To(BeNil())
+		})
 	})
 
 	Context("getLibvirtLogFilters()", func() {

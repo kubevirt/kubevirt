@@ -36,8 +36,8 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 )
 
 func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*k8sv1.PersistentVolumeClaim, *errors.StatusError) {
-	pvc, err := app.virtCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	pvc, err := app.k8sClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, errors.NewNotFound(v1.Resource("persistentvolumeclaim"), name)
@@ -59,7 +59,7 @@ func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace 
 }
 
 func (app *SubresourceAPIApp) fetchCDIConfig() (*cdiv1.CDIConfig, *errors.StatusError) {
-	cdiConfig, err := app.virtCli.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
+	cdiConfig, err := app.virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), storagetypes.ConfigName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -85,7 +85,7 @@ func (app *SubresourceAPIApp) validateMemoryDumpClaim(vmi *v1.VirtualMachineInst
 	pvcSize := pvc.Spec.Resources.Requests.Storage()
 	scaledPvcSize := resource.NewScaledQuantity(pvcSize.ScaledValue(resource.Kilo), resource.Kilo)
 
-	expectedMemoryDumpSize := kutil.CalcExpectedMemoryDumpSize(vmi)
+	expectedMemoryDumpSize := memorydump.CalcExpectedSize(vmi)
 	cdiConfig, err := app.fetchCDIConfig()
 	if err != nil {
 		return err
@@ -154,7 +154,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -170,8 +170,8 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
-	if !app.clusterConfig.DeclarativeHotplugVolumesEnabled() && !app.clusterConfig.HotplugVolumesEnabled() {
-		writeError(errors.NewBadRequest(hotplugVolumeNotEnabledError), response)
+	if !app.clusterConfig.UtilityVolumesEnabled() {
+		writeError(errors.NewBadRequest("UtilityVolumes feature gate is not enabled"), response)
 		return
 	}
 

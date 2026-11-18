@@ -1,0 +1,615 @@
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"errors"
+	"fmt"
+	"io"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+
+	v1 "kubevirt.io/api/core/v1"
+	exportv1 "kubevirt.io/api/export/v1"
+
+	"kubevirt.io/kubevirt/pkg/certificates/triple"
+	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/exportproxy/admission"
+	exportproxymetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-exportproxy"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/testutils"
+)
+
+const (
+	testExportService = "virt-export"
+	testNamespace     = "default"
+	testBackendHost   = testExportService + "." + testNamespace + ".svc"
+)
+
+type mockClientCAManager struct {
+	pool *x509.CertPool
+	err  error
+}
+
+func (m *mockClientCAManager) GetCurrent() (*x509.CertPool, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.pool, nil
+}
+
+func (m *mockClientCAManager) GetCurrentRaw() ([]byte, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func newTestExportProxyApp(caManager *mockClientCAManager) *exportProxyApp {
+	return &exportProxyApp{
+		caManager: caManager,
+	}
+}
+
+func newExportBackendCertChain(ca *triple.KeyPair, svcName, namespace string) (*x509.Certificate, *x509.Certificate) {
+	intermediateKey, err := certutil.NewECDSAPrivateKey()
+	Expect(err).NotTo(HaveOccurred())
+	now := time.Now()
+	intermediateTemplate := x509.Certificate{
+		SerialNumber:          big.NewInt(now.UnixNano()),
+		Subject:               pkix.Name{CommonName: fmt.Sprintf("intermediate@%d", now.Unix())},
+		NotBefore:             now.UTC(),
+		NotAfter:              now.Add(time.Hour).UTC(),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	intermediateDER, err := x509.CreateCertificate(rand.Reader, &intermediateTemplate, ca.Cert, intermediateKey.Public(), ca.Key)
+	Expect(err).NotTo(HaveOccurred())
+	intermediateCert, err := x509.ParseCertificate(intermediateDER)
+	Expect(err).NotTo(HaveOccurred())
+
+	namespacedName := fmt.Sprintf("%s.%s", svcName, namespace)
+	leafKey, err := certutil.NewECDSAPrivateKey()
+	Expect(err).NotTo(HaveOccurred())
+	leafConfig := certutil.Config{
+		CommonName: "export-server",
+		AltNames: certutil.AltNames{
+			DNSNames: []string{
+				svcName,
+				namespacedName,
+				fmt.Sprintf("%s.svc", namespacedName),
+			},
+		},
+		Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	leafCert, err := certutil.NewSignedCert(leafConfig, leafKey, intermediateCert, intermediateKey, time.Hour)
+	Expect(err).NotTo(HaveOccurred())
+	return leafCert, intermediateCert
+}
+
+func newExportBackendCertPair(ca *triple.KeyPair, svcName, namespace string) *triple.KeyPair {
+	serverKP, err := triple.NewServerKeyPair(ca, "export-server", svcName, namespace, "cluster.local", nil, nil, time.Hour)
+	Expect(err).NotTo(HaveOccurred())
+	return serverKP
+}
+
+func certPoolFromCA(ca *triple.KeyPair) *x509.CertPool {
+	pool := x509.NewCertPool()
+	pool.AddCert(ca.Cert)
+	return pool
+}
+
+func connectionState(serverName string, certs ...*x509.Certificate) tls.ConnectionState {
+	return tls.ConnectionState{
+		ServerName:       serverName,
+		PeerCertificates: certs,
+	}
+}
+
+var _ = Describe("verifyBackendConnection", func() {
+	It("returns an error when no peer certificate is presented", func() {
+		app := newTestExportProxyApp(&mockClientCAManager{pool: x509.NewCertPool()})
+
+		err := app.verifyBackendConnection(tls.ConnectionState{})
+
+		Expect(err).To(MatchError("backend presented no certificate"))
+	})
+
+	It("propagates errors from caManager.GetCurrent", func() {
+		caErr := errors.New("ca unavailable")
+		app := newTestExportProxyApp(&mockClientCAManager{err: caErr})
+
+		err := app.verifyBackendConnection(connectionState(testBackendHost, &x509.Certificate{}))
+
+		Expect(err).To(MatchError(caErr))
+	})
+
+	DescribeTable("should", func(
+		setup func() (*exportProxyApp, tls.ConnectionState),
+		expectErr bool,
+		errMatcher types.GomegaMatcher,
+	) {
+		app, cs := setup()
+		err := app.verifyBackendConnection(cs)
+		if expectErr {
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(errMatcher)
+			return
+		}
+		Expect(err).NotTo(HaveOccurred())
+	},
+		Entry("reject a certificate that does not chain to the export CA",
+			func() (*exportProxyApp, tls.ConnectionState) {
+				trustedCA, err := triple.NewCA("trusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				untrustedCA, err := triple.NewCA("untrusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				serverKP := newExportBackendCertPair(untrustedCA, testExportService, testNamespace)
+				app := newTestExportProxyApp(&mockClientCAManager{pool: certPoolFromCA(trustedCA)})
+				return app, connectionState(testBackendHost, serverKP.Cert)
+			},
+			true,
+			MatchError(ContainSubstring("could not verify backend certificate")),
+		),
+		Entry("reject verification when ServerName is empty",
+			func() (*exportProxyApp, tls.ConnectionState) {
+				ca, err := triple.NewCA("trusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				serverKP := newExportBackendCertPair(ca, testExportService, testNamespace)
+				app := newTestExportProxyApp(&mockClientCAManager{pool: certPoolFromCA(ca)})
+				return app, connectionState("", serverKP.Cert)
+			},
+			true,
+			MatchError("backend TLS ServerName is required"),
+		),
+		Entry("reject a valid chain when the hostname does not match",
+			func() (*exportProxyApp, tls.ConnectionState) {
+				ca, err := triple.NewCA("trusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				serverKP := newExportBackendCertPair(ca, testExportService, testNamespace)
+				app := newTestExportProxyApp(&mockClientCAManager{pool: certPoolFromCA(ca)})
+				return app, connectionState("other."+testNamespace+".svc", serverKP.Cert)
+			},
+			true,
+			MatchError(ContainSubstring("could not verify backend certificate")),
+		),
+		Entry("accept a valid certificate chain and hostname",
+			func() (*exportProxyApp, tls.ConnectionState) {
+				ca, err := triple.NewCA("trusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				serverKP := newExportBackendCertPair(ca, testExportService, testNamespace)
+				app := newTestExportProxyApp(&mockClientCAManager{pool: certPoolFromCA(ca)})
+				return app, connectionState(testBackendHost, serverKP.Cert)
+			},
+			false,
+			nil,
+		),
+		Entry("accept a valid certificate chain with an intermediate",
+			func() (*exportProxyApp, tls.ConnectionState) {
+				ca, err := triple.NewCA("trusted", time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				leafCert, intermediateCert := newExportBackendCertChain(ca, testExportService, testNamespace)
+				app := newTestExportProxyApp(&mockClientCAManager{pool: certPoolFromCA(ca)})
+				return app, connectionState(testBackendHost, leafCert, intermediateCert)
+			},
+			false,
+			nil,
+		),
+	)
+})
+
+func tlsCertificateFromKeyPair(kp *triple.KeyPair) tls.Certificate {
+	return tls.Certificate{
+		Certificate: [][]byte{kp.Cert.Raw},
+		PrivateKey:  kp.Key,
+		Leaf:        kp.Cert,
+	}
+}
+
+func newLocalBackendKeyPair(ca *triple.KeyPair) *triple.KeyPair {
+	serverKP, err := triple.NewServerKeyPair(
+		ca,
+		"export-server",
+		testExportService,
+		testNamespace,
+		"cluster.local",
+		[]string{"127.0.0.1"},
+		[]string{"localhost"},
+		time.Hour,
+	)
+	Expect(err).NotTo(HaveOccurred())
+	return serverKP
+}
+
+func startTLSBackend(serverCert tls.Certificate, minVersion uint16) (addr string) {
+	ln, err := tls.Listen("tcp4", "127.0.0.1:0", &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   minVersion,
+		MaxVersion:   minVersion,
+	})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() {
+		_ = ln.Close()
+	})
+
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				_, _ = io.Copy(io.Discard, c)
+			}(conn)
+		}
+	}()
+
+	// Dial via localhost so TLS ServerName/SNI is a hostname (IPs are stripped from SNI).
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	Expect(err).NotTo(HaveOccurred())
+	return net.JoinHostPort("localhost", port)
+}
+
+func newDialTestApp(caManager *mockClientCAManager, kv *v1.KubeVirt) *exportProxyApp {
+	if kv == nil {
+		kv = &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+		}
+	}
+	_, _, store := testutils.NewFakeClusterConfigUsingKV(kv)
+	return &exportProxyApp{
+		caManager:     caManager,
+		kubeVirtStore: store,
+	}
+}
+
+var _ = Describe("dialBackendTLS", func() {
+	It("establishes a TLS connection to a trusted backend", func() {
+		ca, err := triple.NewCA("trusted", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		serverKP := newLocalBackendKeyPair(ca)
+		addr := startTLSBackend(tlsCertificateFromKeyPair(serverKP), tls.VersionTLS12)
+
+		app := newDialTestApp(&mockClientCAManager{pool: certPoolFromCA(ca)}, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		DeferCleanup(cancel)
+
+		conn, err := app.dialBackendTLS(ctx, "tcp4", addr)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			_ = conn.Close()
+		})
+
+		tlsConn, ok := conn.(*tls.Conn)
+		Expect(ok).To(BeTrue())
+		Expect(tlsConn.ConnectionState().HandshakeComplete).To(BeTrue())
+		Expect(tlsConn.ConnectionState().PeerCertificates).NotTo(BeEmpty())
+	})
+
+	It("fails when the backend certificate is not trusted", func() {
+		trustedCA, err := triple.NewCA("trusted", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		untrustedCA, err := triple.NewCA("untrusted", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		serverKP := newLocalBackendKeyPair(untrustedCA)
+		addr := startTLSBackend(tlsCertificateFromKeyPair(serverKP), tls.VersionTLS12)
+
+		app := newDialTestApp(&mockClientCAManager{pool: certPoolFromCA(trustedCA)}, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		DeferCleanup(cancel)
+
+		conn, err := app.dialBackendTLS(ctx, "tcp4", addr)
+		Expect(err).To(HaveOccurred())
+		Expect(conn).To(BeNil())
+	})
+
+	It("fails when the dial cannot connect", func() {
+		app := newDialTestApp(&mockClientCAManager{pool: x509.NewCertPool()}, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		DeferCleanup(cancel)
+
+		conn, err := app.dialBackendTLS(ctx, "tcp4", "127.0.0.1:1")
+		Expect(err).To(HaveOccurred())
+		Expect(conn).To(BeNil())
+	})
+
+	It("applies MinTLSVersion from the KubeVirt store", func() {
+		ca, err := triple.NewCA("trusted", time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		serverKP := newLocalBackendKeyPair(ca)
+		// Backend only speaks TLS 1.2.
+		addr := startTLSBackend(tlsCertificateFromKeyPair(serverKP), tls.VersionTLS12)
+
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					TLSConfiguration: &v1.TLSConfiguration{
+						MinTLSVersion: v1.VersionTLS13,
+					},
+				},
+			},
+		}
+		app := newDialTestApp(&mockClientCAManager{pool: certPoolFromCA(ca)}, kv)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		DeferCleanup(cancel)
+
+		conn, err := app.dialBackendTLS(ctx, "tcp4", addr)
+		Expect(err).To(HaveOccurred())
+		Expect(conn).To(BeNil())
+	})
+})
+
+type captureTransport struct {
+	lastReq    *http.Request
+	statusCode int
+	body       string
+	roundTrips atomic.Int64
+}
+
+func (t *captureTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t.lastReq = req
+	t.roundTrips.Add(1)
+	status := t.statusCode
+	if status == 0 {
+		status = http.StatusOK
+	}
+	body := t.body
+	if body == "" && status == http.StatusOK {
+		body = "ok"
+	}
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+// blockingBodyTransport returns immediately with a body that blocks on Read
+// until release is closed, so tests can observe the active-transfer gauge.
+type blockingBodyTransport struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (t *blockingBodyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	close(t.started)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       &blockingReadCloser{release: t.release},
+		Header:     make(http.Header),
+		Request:    req,
+	}, nil
+}
+
+type blockingReadCloser struct {
+	release chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingReadCloser) Read(p []byte) (int, error) {
+	<-b.release
+	return 0, io.EOF
+}
+
+func (b *blockingReadCloser) Close() error {
+	b.once.Do(func() {
+		select {
+		case <-b.release:
+		default:
+			close(b.release)
+		}
+	})
+	return nil
+}
+
+func newReadyExport(namespace, name, serviceName string) *exportv1.VirtualMachineExport {
+	return &exportv1.VirtualMachineExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Status: &exportv1.VirtualMachineExportStatus{
+			Phase:       exportv1.Ready,
+			ServiceName: serviceName,
+		},
+	}
+}
+
+func newExportService(namespace, name, clusterIP string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: clusterIP,
+		},
+	}
+}
+
+var _ = BeforeSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+	Expect(exportproxymetrics.SetupMetrics()).To(Succeed())
+})
+
+var _ = AfterSuite(func() {
+	Expect(operatormetrics.CleanRegistry()).To(Succeed())
+})
+
+var _ = Describe("proxyHandler", func() {
+	var (
+		kvStore cache.Store
+		app     *exportProxyApp
+		capture *captureTransport
+	)
+
+	BeforeEach(func() {
+		exportproxymetrics.ResetTransferMetricsForTest()
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+		}
+		_, _, kvStore = testutils.NewFakeClusterConfigUsingKV(kv)
+		capture = &captureTransport{}
+		app = &exportProxyApp{
+			kubeVirtStore: kvStore,
+			exportStore:   cache.NewStore(cache.MetaNamespaceKeyFunc),
+			serviceStore:  cache.NewStore(cache.MetaNamespaceKeyFunc),
+		}
+		app.initReverseProxy()
+		app.reverseProxy.Transport = capture
+	})
+
+	exportProxyRequest := func() *http.Request {
+		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/my-export/volumes/disk.img", nil)
+		req.Host = "virt-exportproxy.kubevirt.svc:443"
+		req.RemoteAddr = "192.0.2.10:12345"
+		return req
+	}
+
+	addReadyExportAndService := func(clusterIP string) {
+		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+		Expect(app.serviceStore.Add(newExportService(testNamespace, testExportService, clusterIP))).To(Succeed())
+	}
+
+	It("rewrites headless export Services to the container port", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(capture.lastReq.URL.Scheme).To(Equal("https"))
+		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportServerPort)))
+		Expect(capture.lastReq.URL.Path).To(Equal("/volumes/disk.img"))
+		Expect(capture.lastReq.Host).To(Equal(""))
+	})
+
+	It("rewrites ClusterIP export Services to the historical Service port", func() {
+		addReadyExportAndService("10.96.0.10")
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(capture.lastReq.URL.Host).To(Equal(fmt.Sprintf("%s:%d", testBackendHost, storagetypes.ExportClusterIPServicePort)))
+	})
+
+	It("returns 503 when the export Service is not in the cache", func() {
+		Expect(app.exportStore.Add(newReadyExport(testNamespace, "my-export", testExportService))).To(Succeed())
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(capture.lastReq).To(BeNil())
+	})
+
+	It("returns 404 when the export does not exist", func() {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/api/export.kubevirt.io/v1/namespaces/default/virtualmachineexports/missing/volumes/disk.img", nil)
+		app.proxyHandler(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusNotFound))
+		Expect(capture.lastReq).To(BeNil())
+	})
+
+	It("returns 503 when the export is not Ready", func() {
+		export := newReadyExport(testNamespace, "my-export", testExportService)
+		export.Status.Phase = exportv1.Pending
+		Expect(app.exportStore.Add(export)).To(Succeed())
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		Expect(capture.lastReq).To(BeNil())
+	})
+
+	DescribeTable("does not count unauthenticated backend responses toward active transfers",
+		func(statusCode int) {
+			addReadyExportAndService(corev1.ClusterIPNone)
+			capture.statusCode = statusCode
+
+			rec := httptest.NewRecorder()
+			app.proxyHandler(rec, exportProxyRequest())
+
+			Expect(rec.Code).To(Equal(statusCode))
+			Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(0)))
+			Expect(capture.roundTrips.Load()).To(Equal(int64(1)))
+		},
+		Entry("401 Unauthorized", http.StatusUnauthorized),
+		Entry("403 Forbidden", http.StatusForbidden),
+	)
+
+	It("counts successful transfers until the response body is closed", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+		blocker := &blockingBodyTransport{
+			started: make(chan struct{}),
+			release: make(chan struct{}),
+		}
+		app.reverseProxy.Transport = blocker
+
+		done := make(chan struct{})
+		go func() {
+			defer GinkgoRecover()
+			defer close(done)
+			rec := httptest.NewRecorder()
+			app.proxyHandler(rec, exportProxyRequest())
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		}()
+
+		Eventually(blocker.started).Should(BeClosed())
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(1)))
+
+		close(blocker.release)
+		Eventually(done).Should(BeClosed())
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(0)))
+	})
+
+	It("returns 429 when soft admission is at capacity without contacting the backend", func() {
+		addReadyExportAndService(corev1.ClusterIPNone)
+		exportproxymetrics.SetActiveTransferCountForTest(admission.SoftTransferLimit)
+
+		rec := httptest.NewRecorder()
+		app.proxyHandler(rec, exportProxyRequest())
+
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests))
+		Expect(rec.Header().Get("Retry-After")).To(Equal("1"))
+		Expect(rec.Header().Get("Connection")).To(Equal("close"))
+		Expect(capture.roundTrips.Load()).To(Equal(int64(0)))
+		Expect(exportproxymetrics.ActiveTransferCount()).To(Equal(int64(admission.SoftTransferLimit)))
+	})
+})

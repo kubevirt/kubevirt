@@ -156,7 +156,7 @@ var (
 		},
 		[]string{
 			// Basic info
-			"name", "namespace",
+			"name", "namespace", "uid",
 
 			// VM annotations
 			"os", "workload", "flavor",
@@ -169,6 +169,9 @@ var (
 
 			// Status
 			"status", "status_group",
+
+			// Related VM name (same as name; present for joins)
+			"vm",
 		},
 	)
 
@@ -250,10 +253,11 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: vmInfo,
 			Labels: []string{
-				vm.Name, vm.Namespace,
+				vm.Name, vm.Namespace, string(vm.UID),
 				os, workload, flavor, machineType,
 				instanceType, preference,
 				strings.ToLower(string(vm.Status.PrintableStatus)), getVMStatusGroup(vm.Status.PrintableStatus),
+				vm.Name,
 			},
 			Value: 1.0,
 		})

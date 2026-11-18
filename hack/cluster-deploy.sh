@@ -57,7 +57,25 @@ function _ensure_cdi_deployment() {
 function configure_prometheus() {
     if [[ $KUBEVIRT_DEPLOY_PROMETHEUS == "true" ]] && _kubectl get crd prometheuses.monitoring.coreos.com; then
         _kubectl patch prometheus k8s -n monitoring --type=json -p '[{"op": "replace", "path": "/spec/ruleSelector", "value":{}}, {"op": "replace", "path": "/spec/ruleNamespaceSelector", "value":{"matchLabels": {"kubevirt.io": ""}}}]'
+        _kubectl patch deployment kube-state-metrics -n monitoring --type=json -p '[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--metric-labels-allowlist=pods=[*],nodes=[*],namespaces=[*],persistentvolumes=[*],persistentvolumeclaims=[*],poddisruptionbudgets=[*]"}]'
+        _kubectl rollout status deployment kube-state-metrics -n monitoring --timeout=5m
     fi
+}
+
+function _deploy_dra_network_test_driver() {
+
+    _kubectl apply -f - <<EOF
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubevirt-test-dra
+  labels:
+    pod-security.kubernetes.io/enforce: "privileged"
+EOF
+
+    _kubectl apply -f "${KUBEVIRT_DIR}"/cmd/test-helpers/dra-network-test-driver/manifests -n kubevirt-test-dra
+    _kubectl rollout status daemonset dra-network-test-driver -n kubevirt-test-dra --timeout=5m
 }
 
 trap dump_kubevirt EXIT
@@ -75,8 +93,8 @@ metadata:
     pod-security.kubernetes.io/enforce: "privileged"
 EOF
 
-if [[ "$KUBEVIRT_PROVIDER" =~ kind.* || "$KUBEVIRT_PROVIDER" = "external" ]]; then
-    # Don't install CDI and loopback devices it's crashing with dind because loopback devices are shared with the host
+if [[ "$KUBEVIRT_PROVIDER" =~ ^(kind.*|external|minikube)$ ]]; then
+    # Don't install CDI: kind shares loopback devices with the host (kind/external), and minikube has no CDI deployment
     export KUBEVIRT_DEPLOY_CDI=false
 fi
 
@@ -93,7 +111,7 @@ if [ "${KUBEVIRT_DEPLOY_NP}" == "true" ]; then
 fi
 
 # Deploy kubevirt operator
-_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
+_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml --server-side
 
 # Ensure the KubeVirt CRD is created
 count=0
@@ -131,5 +149,9 @@ until _kubectl wait -n ${namespace} kv kubevirt --for condition=Available --time
 done
 
 configure_prometheus
+
+if [ "${KUBEVIRT_DEPLOY_NET_DRA_DRIVER}" == "true" ]; then
+    _deploy_dra_network_test_driver
+fi
 
 echo "Done $0"

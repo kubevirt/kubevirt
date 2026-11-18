@@ -74,28 +74,18 @@ var _ = Describe("CEL Evaluator", func() {
 		}
 	})
 
-	DescribeTable("condition evaluation", func(expr string, expected bool, errSubstring string) {
-		result, err := evaluator.EvaluateCondition(expr, vmi, domain)
-		if errSubstring != "" {
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring(errSubstring))
-			return
-		}
-		Expect(err).NotTo(HaveOccurred())
-		Expect(result).To(Equal(expected))
-	},
-		Entry("label match returns true", `vmi.Labels["app"] == "test"`, true, ""),
-		Entry("label mismatch returns false", `vmi.Labels["app"] == "other"`, false, ""),
-		Entry("namespace check", `vmi.Namespace == "default"`, true, ""),
-		Entry("domain field check", `domainSpec.Type == "kvm"`, true, ""),
-		Entry("has() on present field", `has(domainSpec.Memory)`, true, ""),
-		Entry("has() on absent field", `has(domainSpec.CPU)`, false, ""),
-		Entry("contains() on string field", `domainSpec.Name.contains("test")`, true, ""),
-		Entry("invalid CEL syntax", `invalid @@@ syntax`, false, "compiling expression"),
-		Entry("non-bool result", `vmi.Name`, false, "condition must return bool"),
-	)
-
 	Context("mutation evaluation", func() {
+		It("should use has() to inspect optional domain fields", func() {
+			expr := `Domain{
+				Title: has(domainSpec.Memory) ? "memory-present" : "memory-absent",
+				Description: has(domainSpec.CPU) ? "cpu-present" : "cpu-absent"
+			}`
+			result, err := evaluator.EvaluateMutation(expr, vmi, domain)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result.Title).To(Equal("memory-present"))
+			Expect(result.Description).To(Equal("cpu-absent"))
+		})
+
 		It("should set a simple string field", func() {
 			result, err := evaluator.EvaluateMutation(`Domain{Title: "modified"}`, vmi, domain)
 			Expect(err).NotTo(HaveOccurred())
@@ -142,6 +132,24 @@ var _ = Describe("CEL Evaluator", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("mutation must return a Domain object"))
 		})
+
+		It("should be able to use lists extension to create new domain elements", func() {
+			domain.IOThreads = uint(4)
+
+			// expression should create new DomainIOThreadIDs and populate elements for each IOThread
+			expr := `Domain{IOThreadIDs: DomainIOThreadIDs{IOThreads: .lists.range(int(domainSpec.IOThreads))
+				.map(i, DomainIOThread{ID: uint(i+1), PoolMin: uint(1), PoolMax: uint(1)})}}`
+
+			result, err := evaluator.EvaluateMutation(expr, vmi, domain)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.IOThreadIDs).NotTo(BeNil())
+			Expect(result.IOThreadIDs.IOThreads).NotTo(BeEmpty())
+			Expect(result.IOThreadIDs.IOThreads).To(HaveLen(int(domain.IOThreads)))
+			for _, t := range result.IOThreadIDs.IOThreads {
+				Expect(int(*t.PoolMax)).To(Equal(1))
+				Expect(int(*t.PoolMin)).To(Equal(1))
+			}
+		})
 	})
 
 	Context("deep merge", func() {
@@ -185,20 +193,6 @@ var _ = Describe("CEL Evaluator", func() {
 			Expect(string(xmlBytes)).To(ContainSubstring("merged"))
 		})
 	})
-
-	DescribeTable("compile-only condition validation", func(expr string, errSubstring string) {
-		err := evaluator.CompileCondition(expr)
-		if errSubstring == "" {
-			Expect(err).NotTo(HaveOccurred())
-			return
-		}
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring(errSubstring))
-	},
-		Entry("valid condition", `vmi.Name == "test"`, ""),
-		Entry("invalid CEL syntax", `@@@ invalid`, "compiling expression"),
-		Entry("non-bool return type", `vmi.Name`, "condition must return bool"),
-	)
 
 	DescribeTable("compile-only mutation validation", func(expr string, errSubstring string) {
 		err := evaluator.CompileMutation(expr)

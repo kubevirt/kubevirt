@@ -113,6 +113,28 @@ var _ = Describe("cgroup manager", func() {
 		v2DirPath = ""
 	})
 
+	It("should contain the expected set of default device rules", func() {
+		defaultRules := GenerateDefaultDeviceRules()
+
+		permissions := getDevicePermissionsFromCgroups()
+
+		expectedRules := []*devices.Rule{
+			{Type: devices.CharDevice, Major: 5, Minor: 2, Permissions: permissions, Allow: true},    // /dev/ptmx
+			{Type: devices.CharDevice, Major: 1, Minor: 3, Permissions: permissions, Allow: true},    // /dev/null
+			{Type: devices.CharDevice, Major: 10, Minor: 200, Permissions: permissions, Allow: true}, // /dev/net/tun
+			{Type: devices.CharDevice, Major: 10, Minor: 238, Permissions: permissions, Allow: true}, // /dev/vhost-net
+			{Type: devices.CharDevice, Major: 1, Minor: 9, Permissions: permissions, Allow: true},    // /dev/urandom
+		}
+		// PTY slaves: major 136-151, minor wildcard
+		for i := range int64(16) {
+			expectedRules = append(expectedRules,
+				&devices.Rule{Type: devices.CharDevice, Major: 136 + i, Minor: -1, Permissions: permissions, Allow: true},
+			)
+		}
+
+		Expect(defaultRules).To(ConsistOf(expectedRules))
+	})
+
 	DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
 		manager, err := newMockManager(version)
 		Expect(err).ShouldNot(HaveOccurred())
@@ -516,27 +538,6 @@ var _ = Describe("generateDeviceRulesForVMI", func() {
 		Expect(rules).To(HaveLen(4))
 	})
 
-	It("should create a rule for urandom when RNG is enabled", func() {
-		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
-			if relPath == "/dev/urandom" {
-				return charDeviceInfo(1, 9), nil
-			}
-			return nil, os.ErrNotExist
-		}
-		readDeviceDir = noDirs
-
-		vmi := &v1.VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-
-		rules, err := generateDeviceRulesForVMI(vmi, nil, "", "kvm", true)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(rules).To(ConsistOf(
-			PointTo(MatchFields(IgnoreExtras, Fields{
-				"Type": Equal(devices.CharDevice), "Major": Equal(int64(1)), "Minor": Equal(int64(9)),
-			})),
-		))
-	})
-
 	It("should create a rule for vhost-vsock when AutoattachVSOCK is enabled", func() {
 		statDevice = func(_ *safepath.Path, relPath string) (os.FileInfo, error) {
 			if relPath == "/dev/vhost-vsock" {
@@ -615,7 +616,7 @@ func (f *fakeFileInfo) Size() int64        { return 0 }
 func (f *fakeFileInfo) Mode() os.FileMode  { return f.mode }
 func (f *fakeFileInfo) ModTime() time.Time { return time.Time{} }
 func (f *fakeFileInfo) IsDir() bool        { return f.mode.IsDir() }
-func (f *fakeFileInfo) Sys() interface{}   { return &syscall.Stat_t{Rdev: f.rdev} }
+func (f *fakeFileInfo) Sys() any           { return &syscall.Stat_t{Rdev: f.rdev} }
 
 type fakeDirEntry struct {
 	name  string

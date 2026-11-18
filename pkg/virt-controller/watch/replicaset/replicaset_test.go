@@ -68,10 +68,8 @@ var _ = Describe("Replicaset", func() {
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
-			controller, _ = NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-			// Wrap our workqueue to have a way to detect when we are done processing updates
-			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-			controller.Queue = mockQueue
+			mockQueue = testutils.NewMockWorkQueue(testutils.NewFrozenClockRateLimitingQueue("virt-controller-replicaset"))
+			controller, _ = NewController(mockQueue, vmiInformer, rsInformer, recorder, virtClient, uint(10))
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()

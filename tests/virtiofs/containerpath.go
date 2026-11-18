@@ -156,9 +156,51 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 				&expect.BExp{R: testContent},
 			}, 200)).To(Succeed())
 		})
+
+		It("Should expose multiple ContainerPath volumes independently in one VMI", func() {
+			const (
+				tokenFilesystemName = "projected-token-fs"
+				tokenPath           = "/var/run/secrets/kubernetes.io/serviceaccount"
+			)
+			virtClient := kubevirt.Client()
+
+			By("Creating a VMI with injected emptyDir and projected token ContainerPath volumes")
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithFilesystemContainerPath(containerPathFilesystemName, injectedVolumePath),
+				libvmi.WithFilesystemContainerPath(tokenFilesystemName, tokenPath),
+			)
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa-enabler",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "default"},
+				},
+			})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying both ContainerPath virtiofs containers exist")
+			vmiPod := waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
+			_ = waitForVirtiofsContainerInPod(vmi, tokenFilesystemName)
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running},
+				libwait.WithWarningsIgnoreList([]string{"failed calling webhook"}))
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Writing distinct data into the injected volume")
+			_, err = exec.ExecuteCommandOnPod(vmiPod, "compute",
+				[]string{"sh", "-c", fmt.Sprintf("echo '%s' > %s/%s", testContent, injectedVolumePath, testFileName)})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Mounting both filesystems and verifying their contents stay separate")
+			Expect(console.RunCommand(vmi, fmt.Sprintf(
+				"mkdir -p /mnt/injected /mnt/token && mount -t virtiofs %s /mnt/injected && mount -t virtiofs %s /mnt/token",
+				containerPathFilesystemName, tokenFilesystemName), 30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(vmi, fmt.Sprintf(
+				"test \"$(cat /mnt/injected/%s)\" = '%s' && test -s /mnt/token/token && test ! -e /mnt/injected/token && test ! -e /mnt/token/%s",
+				testFileName, testContent, testFileName), 30*time.Second)).To(Succeed())
+		})
 	})
 
-	Context("With webhook-injected ConfigMap volume and migration", func() {
+	Context("With webhook-injected ConfigMap volume", func() {
 		const (
 			webhookName                 = "test-pod-mutator-cm"
 			webhookPort                 = 8443
@@ -209,6 +251,42 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			if !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
+		})
+
+		It("Should observe updates to an injected ConfigMap through an existing ContainerPath mount", func() {
+			const updatedValue = "Updated projected credential"
+			virtClient := kubevirt.Client()
+
+			By("Creating a VMI exposing the webhook-injected ConfigMap")
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithFilesystemContainerPath(containerPathFilesystemName, injectedVolumePath),
+			)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			_ = waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running},
+				libwait.WithWarningsIgnoreList([]string{"failed calling webhook"}))
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Mounting the filesystem and verifying the original projected data")
+			Expect(console.RunCommand(vmi, fmt.Sprintf("mount -t virtiofs %s /mnt", containerPathFilesystemName),
+				30*time.Second)).To(Succeed())
+			Expect(console.RunCommand(vmi, fmt.Sprintf("test \"$(cat /mnt/%s)\" = '%s'", testDataKey, testDataValue),
+				30*time.Second)).To(Succeed())
+
+			By("Updating the ConfigMap so Kubernetes replaces the projected files atomically")
+			configMap, err := virtClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.Background(), configMapName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			configMap.Data[testDataKey] = updatedValue
+			_, err = virtClient.CoreV1().ConfigMaps(vmi.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the guest sees the new data without remounting or restarting")
+			// Allow for kubelet's projection refresh and virtiofs cache invalidation.
+			Eventually(func() error {
+				return console.RunCommand(vmi, fmt.Sprintf("test \"$(cat /mnt/%s)\" = '%s'", testDataKey, updatedValue),
+					10*time.Second)
+			}, 3*time.Minute, 5*time.Second).Should(Succeed())
 		})
 
 		It("Should preserve ConfigMap data accessible via ContainerPath after migration", decorators.RequiresTwoSchedulableNodes, func() {

@@ -1,4 +1,4 @@
-// Copyright 2021 The Prometheus Authors
+// Copyright The Prometheus Authors
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -33,6 +33,7 @@ type NVMeDevice struct {
 	Model            string // /sys/class/nvme/<Name>/model
 	State            string // /sys/class/nvme/<Name>/state
 	FirmwareRevision string // /sys/class/nvme/<Name>/firmware_rev
+	ControllerID     string // /sys/class/nvme/<Name>/cntlid
 }
 
 // NVMeClass is a collection of every NVMe device in /sys/class/nvme.
@@ -67,7 +68,7 @@ func (fs FS) parseNVMeDevice(name string) (*NVMeDevice, error) {
 	path := fs.sys.Path(nvmeClassPath, name)
 	device := NVMeDevice{Name: name}
 
-	for _, f := range [...]string{"firmware_rev", "model", "serial", "state"} {
+	for _, f := range [...]string{"firmware_rev", "model", "serial", "state", "cntlid"} {
 		name := filepath.Join(path, f)
 		value, err := util.SysReadFile(name)
 		if err != nil {
@@ -83,6 +84,8 @@ func (fs FS) parseNVMeDevice(name string) (*NVMeDevice, error) {
 			device.Serial = value
 		case "state":
 			device.State = value
+		case "cntlid":
+			device.ControllerID = value
 		}
 	}
 

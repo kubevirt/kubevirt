@@ -19,49 +19,11 @@
 package cpudedicated
 
 import (
-	"encoding/json"
-
 	"libvirt.org/go/libvirtxml"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 )
-
-func GenerateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
-	var targetTopology cmdv1.Topology
-	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
-	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
-	if err != nil {
-		return nil, err
-	}
-
-	domain := api.NewMinimalDomain(vmi.Name)
-	domain.Spec = *domSpec
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	// update cpu count to maximum hot plugable CPUs
-	vmiCPU := vmi.Spec.Domain.CPU
-	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
-		cpuTopology.Sockets = vmiCPU.MaxSockets
-		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
-	}
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet)
-	if err != nil {
-		return nil, err
-	}
-
-	return domain, err
-}
 
 func ConvertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
 	if domcfg.CPU == nil {

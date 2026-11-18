@@ -91,8 +91,12 @@ function _add_common_params() {
 
     params=" --dns-port $KUBEVIRT_DNS_HOST_PORT $params"
 
-    if [ "$KUBEVIRT_SECONDARY_NIC_BRIDGES" == "true" ]; then
-        params=" --enable-secondary-nic-bridges $params"
+    if [ -n "$KUBEVIRT_SECONDARY_IFACES_TO_BRIDGE" ]; then
+        params=" --secondary-ifaces-to-bridge $KUBEVIRT_SECONDARY_IFACES_TO_BRIDGE $params"
+    fi
+
+    if [ -n "$KUBEVIRT_SECONDARY_IFACES_TO_IP" ]; then
+        params=" --secondary-ifaces-to-ip $KUBEVIRT_SECONDARY_IFACES_TO_IP $params"
     fi
 
     if [[ $TARGET =~ windows_sysprep.* ]] && [ -n "$WINDOWS_SYSPREP_NFS_DIR" ]; then
@@ -202,10 +206,6 @@ function _add_common_params() {
         params=" --enable-fips $params"
     fi
 
-    if [ "$KUBEVIRT_WITH_MULTUS_V3" == "true" ] || [ "$KUBEVIRT_WITH_MULTUS" == "true" ]; then
-        params=" --deploy-multus $params"
-    fi
-
     if [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
         params=" --enable-cnao $params"
     fi
@@ -268,6 +268,14 @@ function _add_common_params() {
 
     if [ "$KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR" == "true" ]; then
         params=" --deploy-network-resources-injector $params"
+    fi
+
+    if [ -n "$KUBEVIRT_TOPOLOGY_MANAGER_POLICY" ]; then
+        params=" --topology-manager-policy=$KUBEVIRT_TOPOLOGY_MANAGER_POLICY $params"
+    fi
+
+    if [ -n "$KUBEVIRT_RESERVED_SYSTEM_CPUS" ]; then
+        params=" --reserved-system-cpus=$KUBEVIRT_RESERVED_SYSTEM_CPUS $params"
     fi
 
     echo $params

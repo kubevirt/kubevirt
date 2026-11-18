@@ -24,7 +24,6 @@ IMAGE="ghcr.io/k8snetworkplumbingwg/network-resources-injector"
 
 MANIFEST_DIRS=(
     "./cluster-provision/gocli/opts/network_resources_injector/manifests"
-    "./cluster-up/cluster/kind-sriov/sriov-components/manifests/network_resources_injector"
 )
 
 function usage() {

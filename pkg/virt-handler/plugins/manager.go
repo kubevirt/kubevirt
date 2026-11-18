@@ -20,6 +20,7 @@
 package plugins
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"sort"
@@ -62,8 +63,9 @@ func NewNodeHookManager(pluginStore cache.Store, clusterConfig *virtconfig.Clust
 }
 
 type matchedHook struct {
-	pluginName string
-	nodeHook   pluginv1alpha1.NodeHook
+	pluginName      string
+	nodeHook        pluginv1alpha1.NodeHook
+	failureStrategy pluginv1alpha1.FailureStrategy
 }
 
 func (m *nodeHookManager) CallNodeHooks(hookPoint pluginv1alpha1.NodeHookPoint, vmi *virtv1.VirtualMachineInstance, nodeName string) error {
@@ -84,6 +86,17 @@ func (m *nodeHookManager) CallNodeHooks(hookPoint pluginv1alpha1.NodeHookPoint, 
 			continue
 		}
 
+		if plugin.Spec.Condition != "" {
+			match, err := m.celEvaluator.EvaluateCondition(plugin.Spec.Condition, map[string]any{"vmi": vmi})
+			if err != nil {
+				return fmt.Errorf("CEL evaluation failed for plugin %s condition: %w", plugin.Name, err)
+			}
+			if !match {
+				log.Log.Object(vmi).V(3).Infof("Plugin %s condition not met, skipping all node hooks", plugin.Name)
+				continue
+			}
+		}
+
 		for _, nh := range plugin.Spec.NodeHooks {
 			if !slices.Contains(nh.PermittedHooks, hookPoint) {
 				log.Log.Object(vmi).V(4).Infof("Hook point %s not permitted for plugin %s, skipping", hookPoint, plugin.Name)
@@ -100,8 +113,9 @@ func (m *nodeHookManager) CallNodeHooks(hookPoint pluginv1alpha1.NodeHookPoint, 
 			}
 
 			matches = append(matches, matchedHook{
-				pluginName: plugin.Name,
-				nodeHook:   nh,
+				pluginName:      plugin.Name,
+				nodeHook:        nh,
+				failureStrategy: cmp.Or(nh.FailureStrategy, plugin.Spec.FailureStrategy, pluginv1alpha1.FailureStrategyFail),
 			})
 		}
 	}
@@ -117,7 +131,7 @@ func (m *nodeHookManager) CallNodeHooks(hookPoint pluginv1alpha1.NodeHookPoint, 
 		}
 
 		if err := executeHook(match.nodeHook.Socket, string(hookPoint), vmi, match.pluginName, nodeName, timeout); err != nil {
-			switch match.nodeHook.FailureStrategy {
+			switch match.failureStrategy {
 			case pluginv1alpha1.FailureStrategyIgnore:
 				log.Log.Object(vmi).Warningf("Node hook %s from plugin %s failed (ignored): %v", hookPoint, match.pluginName, err)
 				continue

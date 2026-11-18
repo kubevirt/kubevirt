@@ -52,6 +52,9 @@ func execute() error {
 	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
 		args = append(args, "--container-tag", value)
 	}
+	if value, exists := os.LookupEnv("PRIMARY_NETWORK_BINDING_PLUGIN"); exists {
+		args = append(args, "--primary-network-binding-plugin", value)
+	}
 
 	args = append(args, "--config", "/conformance-config.json")
 

@@ -49,6 +49,7 @@ func (g Generator) ManagedAnnotationKeys() []string {
 		velero.PreBackupHookTimeoutAnnotation,
 		velero.PostBackupHookContainerAnnotation,
 		velero.PostBackupHookCommandAnnotation,
+		velero.PostBackupHookTimeoutAnnotation,
 	}
 }
 
@@ -79,6 +80,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 			vmi.Name,
 			vmi.Namespace,
 		)
+		annotations[velero.PostBackupHookTimeoutAnnotation] = "60s"
 	}
 
 	return annotations, nil

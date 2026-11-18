@@ -8,6 +8,7 @@ go_library(
         "register.go",
         "types.go",
         "types_swagger_generated.go",
+        "zz_generated.model_name.go",
     ],
     importpath = "kubevirt.io/api/backup/v1alpha1",
     visibility = ["//visibility:public"],
@@ -17,6 +18,5 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )

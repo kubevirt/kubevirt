@@ -1,0 +1,906 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
+package compute
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	k8sv1 "k8s.io/api/core/v1"
+	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	draVfioClaimTemplateName = "vfio-gpu-claim-template"
+	draVfioRequestName       = "vfio-gpu"
+	draVfioResourceClaimName = "vfio-gpu-claim"
+	timeout                  = 5 * time.Minute
+	pollingInterval          = 5 * time.Second
+	cpuDRAGuestCores         = 2
+	cpuDRAIOThreadCount      = 2
+)
+
+var _ = Describe("[sig-compute]DRA", Serial, decorators.SigCompute, decorators.DRAGPU, func() {
+	const (
+		draVfioMatchAttributeRequestCount = 2
+		draVfioVMICount                   = 4
+	)
+
+	It("should create four VMIs backed by the ResourceClaimTemplate", func() {
+		By("creating the shared ResourceClaimTemplate")
+		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(), vfioGPUResourceClaimTemplate(), metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating four VMIs backed by the ResourceClaimTemplate")
+		vmiNames := make([]string, 0, draVfioVMICount)
+		for range draVfioVMICount {
+			createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmifact.NewAlpine(
+					libvmi.WithMemoryRequest("32Mi"),
+					WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+					WithVfioGPUDevice(),
+				),
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vmiNames = append(vmiNames, createdVMI.Name)
+		}
+
+		By("Waiting for all ResourceClaims to be created")
+		waitForResourceClaimsToBeCreated(draVfioVMICount)
+
+		By("Fetch all the ResourceClaims and check that they are all bound")
+		waitForBoundResourceClaimsForVMIs(draVfioVMICount, vmiNames...)
+
+		By("Waiting for all VMIs to reach Running")
+		waitForVMIsToBeRunning(vmiNames...)
+	})
+
+	It("should create four VMIs and pre-created ResourceClaims individually", func() {
+		By("creating four ResourceClaims and VMIs")
+		vmiNames := make([]string, 0, draVfioVMICount)
+		for range draVfioVMICount {
+			createdClaim, err := kubevirt.Client().ResourceV1().ResourceClaims(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), vfioGPUResourceClaim(), metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(),
+				libvmifact.NewAlpine(
+					libvmi.WithMemoryRequest("32Mi"),
+					WithVfioGPUResourceClaim(createdClaim.Name),
+					WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+				),
+				metav1.CreateOptions{},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			vmiNames = append(vmiNames, createdVMI.Name)
+		}
+
+		By("Fetch all the ResourceClaims and check that they are all bound")
+		waitForBoundResourceClaimsForVMIs(draVfioVMICount, vmiNames...)
+
+		By("Waiting for all VMIs to reach Running")
+		waitForVMIsToBeRunning(vmiNames...)
+	})
+
+	It("should allocate a vfio-gpu device matching the vendorID", func() {
+		By("creating the ResourceClaimTemplate with a strict CEL based selector")
+		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			vfioGPUResourceClaimTemplate(
+				WithVfioGPUSelectors(vfioGPUVendorIDSelector("e1a5")),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating the VMI")
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUDevice(),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+		By("Waiting for the ResourceClaim to be created")
+		waitForResourceClaimsToBeCreated(1)
+
+		By("Fetch the ResourceClaim and check that it is bound")
+		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
+
+		By("Waiting for the VMI to reach Running")
+		waitForVMIToBeRunning(createdVMI)
+	})
+
+	It("should create a VMI with a pre-created ResourceClaim and allocate a vfio-gpu device matching the vendorID", func() {
+		By("creating the ResourceClaim")
+		createdClaim, err := kubevirt.Client().ResourceV1().ResourceClaims(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(), vfioGPUResourceClaim(), metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating the VMI")
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaim(createdClaim.Name),
+				WithVfioGPUDevice(WithVfioGPUClaimRequest(createdClaim.Name, draVfioRequestName)),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Fetch the ResourceClaim and check that it is bound")
+		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
+
+		By("Waiting for the VMI to reach Running")
+		waitForVMIToBeRunning(createdVMI)
+	})
+
+	It("should allocate a vfio-gpu device matching the standardized pciBusId attribute", func() {
+		By("creating the ResourceClaimTemplate with a CEL based selector")
+		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			vfioGPUResourceClaimTemplate(
+				WithVfioGPUSelectors(vfioGPUPCIBusIDSelector("faca:00:05.0")),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating the VMI")
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUDevice(),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the ResourceClaim to be created")
+		waitForResourceClaimsToBeCreated(1)
+
+		By("Fetch the ResourceClaim and check that it is bound")
+		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
+
+		By("Waiting for the VMI to reach Running")
+		waitForVMIToBeRunning(createdVMI)
+	})
+
+	// TODO: Add a test that is matching two devices from different drivers. However it requires a fake network device driver. Until then, this test simulates the match attribute scenario by matching two devices with the same vendorID.
+	It("should allocate vfio-gpu devices sharing vendorID via matchAttribute", func() {
+		By("creating the ResourceClaimTemplate with matchAttribute on vendorID across two requests")
+		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			vfioGPUResourceClaimTemplate(
+				WithVfioGPUMultipleRequests(draVfioMatchAttributeRequestCount),
+				WithVfioGPURequestMatchAttribute(
+					"vfio-gpu.example.com/vendorID",
+					vfioGPUIndexedRequestName(0),
+					vfioGPUIndexedRequestName(1),
+				),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating the VMI with two GPUs backed by the matched requests")
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUMultipleGPUs(draVfioMatchAttributeRequestCount),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the ResourceClaim to be created")
+		waitForResourceClaimsToBeCreated(1)
+
+		By("Fetch the ResourceClaim and check that two devices were allocated")
+		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
+		expectAllocatedDeviceCountForVMI(createdVMI.Name, draVfioMatchAttributeRequestCount)
+
+		By("Waiting for the VMI to reach Running")
+		waitForVMIToBeRunning(createdVMI)
+	})
+
+	It("should allocate three vfio-gpu devices via separate requests and reach Running", func() {
+		const multiDeviceRequestCount = 3
+		const draVfioMultiDevicePCIOffset = 3
+		By("creating the ResourceClaimTemplate with multiple device requests")
+		_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			vfioGPUResourceClaimTemplate(
+				WithVfioGPUMultipleRequestsFromIndex(multiDeviceRequestCount, draVfioMultiDevicePCIOffset),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("creating the VMI with multiple device requests")
+		createdVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+			context.Background(),
+			libvmifact.NewAlpine(
+				libvmi.WithMemoryRequest("32Mi"),
+				WithVfioGPUResourceClaimTemplate(draVfioClaimTemplateName),
+				WithVfioGPUMultipleGPUs(multiDeviceRequestCount),
+				libvmi.WithMemoryRequest("128Mi"),
+			),
+			metav1.CreateOptions{},
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the ResourceClaim to be created")
+		waitForResourceClaimsToBeCreated(1)
+
+		By("Fetch the ResourceClaim and check that three devices were allocated")
+		waitForBoundResourceClaimsForVMIs(1, createdVMI.Name)
+		expectAllocatedDeviceCountForVMI(createdVMI.Name, multiDeviceRequestCount)
+
+		By("Waiting for the VMI to reach Running")
+		waitForVMIToBeRunning(createdVMI)
+	})
+})
+
+var _ = Describe("[sig-compute]CPU DRA", Serial, decorators.SigCompute, decorators.DRACPU, func() {
+	Context("with the CPUsWithDRA feature gate enabled", func() {
+		DescribeTable("should size the VMI's CPU claim to every host CPU the VM needs",
+			func(ctx SpecContext, expectedHostCPUs int64, opts ...libvmi.Option) {
+				vmi := createCPUDRAVMI(ctx, opts...)
+
+				// Creating the VMI schedules its launcher pod, which allocates the CPUclaim.
+				// These entries only inspect the claim, so give the CPUs back once that check is done.
+				DeferCleanup(deleteVMIAndWait, vmi)
+
+				Expect(cpuClaimHostCPUs(waitForAllocatedCPUResourceClaim(ctx, vmi))).To(Equal(expectedHostCPUs))
+			},
+			Entry("for guest vCPUs alone", int64(4),
+				libvmi.WithCPUCount(cpuDRAGuestCores, 2, 1)),
+			Entry("for an isolated emulator thread", int64(cpuDRAGuestCores+1),
+				libvmi.WithCPUCount(cpuDRAGuestCores, 1, 1),
+				libvmi.WithIsolateEmulatorThread()),
+			Entry("for an isolated emulator thread completed to even parity", int64(cpuDRAGuestCores+2),
+				libvmi.WithCPUCount(cpuDRAGuestCores, 1, 1),
+				libvmi.WithIsolateEmulatorThread(),
+				libvmi.WithAnnotation(v1.EmulatorThreadCompleteToEvenParity, "")),
+			Entry("for supplementalPool IO threads", int64(cpuDRAGuestCores+cpuDRAIOThreadCount),
+				libvmi.WithCPUCount(cpuDRAGuestCores, 1, 1),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithIOThreads(v1.DiskIOThreads{
+					SupplementalPoolThreadCount: pointer.P(uint32(cpuDRAIOThreadCount)),
+				})),
+		)
+
+		It("should create a successful VMI with a CPU claim generated by the DRA driver", func(ctx SpecContext) {
+			vmi := createCPUDRAVMI(ctx, libvmi.WithCPUCount(2, 1, 1))
+
+			By("waiting for the VMI to reach Running")
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			pod := waitForVirtLauncherPod(ctx, vmi)
+
+			By("checking the launcher pod takes the VMI's CPUs from DRA")
+			Expect(pod.Spec.ResourceClaims).To(ContainElement(SatisfyAll(
+				HaveField("Name", dra.CPUClaimRefName),
+				HaveField("ResourceClaimName", HaveValue(Equal(dra.CPUResourceClaimName(vmi.Name)))),
+			)))
+			computeContainer := libpod.LookupComputeContainer(pod)
+			Expect(computeContainer).ToNot(BeNil())
+			Expect(computeContainer.Resources.Claims).To(ContainElement(HaveField("Name", dra.CPUClaimRefName)))
+
+			By("checking the pod was not pinned to a kubelet CPU manager node")
+			Expect(pod.Spec.NodeSelector).ToNot(HaveKey(v1.CPUManager))
+
+			By("checking the CPU claim is allocated and reserved for the launcher pod")
+			claim := waitForAllocatedCPUResourceClaim(ctx, vmi)
+			Expect(claim.Status.ReservedFor).To(ContainElement(SatisfyAll(
+				HaveField("Resource", "pods"),
+				HaveField("Name", pod.Name),
+			)))
+
+			By("checking the compute container is confined to the CPUs the claim requested")
+			hostCPUs := cpuClaimHostCPUs(claim)
+			Expect(computeContainer.Resources.Requests.Cpu().Value()).To(Equal(hostCPUs))
+			Expect(computeContainer.Resources.Limits.Cpu().Value()).To(Equal(hostCPUs))
+
+			By("checking the cpuset the launcher pod was pinned to is the same as the claim's")
+			cpuSet := launcherCPUSet(pod)
+			Expect(cpuSet).To(HaveLen(int(hostCPUs)))
+
+			By("checking every vCPU is pinned to a CPU inside that cpuset")
+			vcpuPinnings := domainVCPUPinnings(vmi)
+			Expect(vcpuPinnings).To(HaveLen(cpuDRAGuestCores))
+			for vcpu, hostCPU := range vcpuPinnings {
+				Expect(cpuSet).To(ContainElement(hostCPU),
+					"vCPU %d is pinned to host CPU %d, outside the driver's cpuset %v", vcpu, hostCPU, cpuSet)
+			}
+
+			By("should garbage collect the CPU claim once the VMI is gone")
+			deleteVMIAndWait(ctx, vmi)
+			Eventually(ctx, func() bool {
+				_, err := kubevirt.Client().ResourceV1().ResourceClaims(vmi.Namespace).Get(
+					ctx, dra.CPUResourceClaimName(vmi.Name), metav1.GetOptions{},
+				)
+				return errors.IsNotFound(err)
+			}, timeout, pollingInterval).Should(BeTrue(),
+				"the VMI's ownerReference should take the CPU claim with it")
+		})
+
+		It("should give a restarted VM a fresh CPU claim", func(ctx SpecContext) {
+			vm := libvmops.StartVirtualMachine(createCPUDRAVM(ctx, libvmi.WithCPUCount(cpuDRAGuestCores, 1, 1)))
+			originalClaimUID := waitForAllocatedCPUResourceClaim(ctx, vmiOf(ctx, vm)).UID
+
+			vmi := vmiOf(ctx, vm)
+			By("waiting for the VMI to reach Running")
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+			pod := waitForVirtLauncherPod(ctx, vmi)
+			Expect(pod.Spec.ResourceClaims).To(ContainElement(SatisfyAll(
+				HaveField("Name", dra.CPUClaimRefName),
+				HaveField("ResourceClaimName", HaveValue(Equal(dra.CPUResourceClaimName(vmi.Name)))),
+			)))
+
+			By("restarting the VM")
+			vm = libvmops.StartVirtualMachine(libvmops.StopVirtualMachine(vm))
+			restartedVMI := vmiOf(ctx, vm)
+
+			By("checking the new VMI owns a new claim under the same name")
+			Eventually(ctx, func(g Gomega) types.UID {
+				claim, err := kubevirt.Client().ResourceV1().ResourceClaims(restartedVMI.Namespace).Get(
+					ctx, dra.CPUResourceClaimName(restartedVMI.Name), metav1.GetOptions{},
+				)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(metav1.GetControllerOf(claim)).To(HaveField("UID", restartedVMI.UID))
+				return claim.UID
+			}, timeout, pollingInterval).ShouldNot(Equal(originalClaimUID),
+				"the restarted VM should not inherit the stopped VM's claim")
+		})
+
+		It("should refuse to live migrate a VMI whose CPUs come from DRA", func(ctx SpecContext) {
+			vmi := createCPUDRAVMI(ctx, libvmi.WithCPUCount(2, 1, 1), libnet.WithMasqueradeNetworking())
+
+			By("waiting for the VMI to reach Running")
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("checking the VMI reports itself as not live migratable")
+			Eventually(ctx, matcher.ThisVMI(vmi), timeout, pollingInterval).Should(
+				matcher.HaveConditionFalseWithReason(
+					v1.VirtualMachineInstanceIsMigratable,
+					v1.VirtualMachineInstanceReasonCPUDRANotMigratable,
+				),
+			)
+
+			By("checking a migration attempt is rejected instead of hanging")
+			_, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).Create(
+				ctx, libmigration.New(vmi.Name, vmi.Namespace), metav1.CreateOptions{},
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring(v1.VirtualMachineInstanceReasonCPUDRANotMigratable))
+
+			By("checking the VM kept running on its source node")
+			Expect(matcher.ThisVMI(vmi)()).To(matcher.BeRunning())
+		})
+	})
+
+	Context("with the CPUsWithDRA feature gate disabled", func() {
+		BeforeEach(func() {
+			kvconfig.DisableFeatureGate(featuregate.CPUsWithDRAGate)
+			DeferCleanup(kvconfig.EnableFeatureGate, featuregate.CPUsWithDRAGate)
+		})
+
+		It("should keep pinning dedicated CPUs through kubelet's CPU manager", func(ctx SpecContext) {
+			vmi := createCPUDRAVMI(ctx, libvmi.WithCPUCount(2, 1, 1))
+			pod := waitForVirtLauncherPod(ctx, vmi)
+
+			By("checking the pod is still scheduled onto a CPU manager node with integral CPUs")
+			Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.CPUManager, "true"))
+			computeContainer := libpod.LookupComputeContainer(pod)
+			Expect(computeContainer).ToNot(BeNil())
+			cpuRequest, found := computeContainer.Resources.Requests[k8sv1.ResourceCPU]
+			Expect(found).To(BeTrue(), "dedicated CPUs should still be requested from kubelet")
+			Expect(cpuRequest.Value()).To(Equal(int64(2)))
+
+			By("checking no CPU claim was generated")
+			Expect(pod.Spec.ResourceClaims).ToNot(ContainElement(HaveField("Name", dra.CPUClaimRefName)))
+			_, err := kubevirt.Client().ResourceV1().ResourceClaims(vmi.Namespace).Get(
+				ctx, dra.CPUResourceClaimName(vmi.Name), metav1.GetOptions{},
+			)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.IsNotFound(err)).To(BeTrue())
+		})
+	})
+})
+
+func createVFIOGPUResourceClaimTemplate(opts ...vfioGPUResourceClaimTemplateOption) {
+	resourceClaimTemplate := vfioGPUResourceClaimTemplate(opts...)
+	_, err := kubevirt.Client().ResourceV1().ResourceClaimTemplates(testsuite.GetTestNamespace(nil)).Create(
+		context.Background(), resourceClaimTemplate, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+type vfioGPUResourceClaimTemplateOption func(*resourcev1.ResourceClaimTemplate)
+
+func vfioGPUResourceClaimTemplate(opts ...vfioGPUResourceClaimTemplateOption) *resourcev1.ResourceClaimTemplate {
+	rct := resourceClaimTemplate(draVfioClaimTemplateName, vfioGPUDeviceRequest(draVfioRequestName))
+	for _, opt := range opts {
+		opt(rct)
+	}
+	return rct
+}
+
+func WithVfioGPUSelectors(expressions ...string) vfioGPUResourceClaimTemplateOption {
+	return func(rct *resourcev1.ResourceClaimTemplate) {
+		selectors := make([]resourcev1.DeviceSelector, len(expressions))
+		for i, expression := range expressions {
+			selectors[i] = resourcev1.DeviceSelector{
+				CEL: &resourcev1.CELDeviceSelector{Expression: expression},
+			}
+		}
+		rct.Spec.Spec.Devices.Requests[0].Exactly.Selectors = selectors
+	}
+}
+
+func vfioGPUDeviceRequest(name string) resourcev1.DeviceRequest {
+	return vfioGPUDeviceRequestWithSelector(name, `device.attributes["resource.kubernetes.io"].pcieRoot == "pcifaca:00"`)
+}
+
+func vfioGPUDeviceRequestWithSelector(name, celExpression string) resourcev1.DeviceRequest {
+	return exactDeviceRequest(name, "vfio-gpu.example.com", celExpression)
+}
+
+func vfioGPUIndexedPCIBusID(index int) string {
+	return fmt.Sprintf("faca:00:%02x.0", index)
+}
+
+func vfioGPUPCIBusIDSelector(pciBusID string) string {
+	return fmt.Sprintf(`device.attributes["resource.kubernetes.io"].pciBusID == %q`, pciBusID)
+}
+
+func vfioGPUVendorIDSelector(vendorID string) string {
+	return fmt.Sprintf(`device.attributes["vfio-gpu.example.com"].vendorID == %q`, vendorID)
+}
+
+func WithVfioGPURequestMatchAttribute(attribute string, requestNames ...string) vfioGPUResourceClaimTemplateOption {
+	return func(rct *resourcev1.ResourceClaimTemplate) {
+		fqName := resourcev1.FullyQualifiedName(attribute)
+		constraint := resourcev1.DeviceConstraint{
+			MatchAttribute: &fqName,
+		}
+		if len(requestNames) > 0 {
+			constraint.Requests = requestNames
+		}
+		rct.Spec.Spec.Devices.Constraints = append(
+			rct.Spec.Spec.Devices.Constraints,
+			constraint,
+		)
+	}
+}
+
+func WithVfioGPUMultipleRequests(count int) vfioGPUResourceClaimTemplateOption {
+	return WithVfioGPUMultipleRequestsFromIndex(count, 0)
+}
+
+func WithVfioGPUMultipleRequestsFromIndex(count, pciOffset int) vfioGPUResourceClaimTemplateOption {
+	return func(rct *resourcev1.ResourceClaimTemplate) {
+		requests := make([]resourcev1.DeviceRequest, count)
+		for i := range count {
+			requests[i] = vfioGPUDeviceRequestWithSelector(
+				vfioGPUIndexedRequestName(i),
+				vfioGPUPCIBusIDSelector(vfioGPUIndexedPCIBusID(pciOffset+i)),
+			)
+		}
+		rct.Spec.Spec.Devices.Requests = requests
+	}
+}
+
+func vfioGPUIndexedRequestName(index int) string {
+	return fmt.Sprintf("%s-%d", draVfioRequestName, index)
+}
+
+func vfioGPUIndexedName(index int) string {
+	return fmt.Sprintf("gpu%d", index)
+}
+
+func WithVfioGPUResourceClaimTemplate(templateName string) libvmi.Option {
+	return libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
+		Name:                      draVfioResourceClaimName,
+		ResourceClaimTemplateName: &templateName,
+	})
+}
+
+func WithVfioGPUResourceClaim(claimName string) libvmi.Option {
+	return libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
+		Name:              claimName,
+		ResourceClaimName: &claimName,
+	})
+}
+
+func WithVfioGPUDevice(opts ...vfioGPUOption) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		libvmi.WithGPU(vfioGPU(opts...))(vmi)
+	}
+}
+
+func WithVfioGPUMultipleGPUs(count int) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		for i := range count {
+			libvmi.WithGPU(vfioGPU(
+				WithVfioGPUName(vfioGPUIndexedName(i)),
+				WithVfioGPUClaimRequest(draVfioResourceClaimName, vfioGPUIndexedRequestName(i)),
+			))(vmi)
+		}
+	}
+}
+
+type vfioGPUOption func(*v1.GPU)
+
+func vfioGPU(opts ...vfioGPUOption) v1.GPU {
+	gpu := v1.GPU{
+		Name: "gpu0",
+		ClaimRequest: &v1.ClaimRequest{
+			ClaimName:   draVfioResourceClaimName,
+			RequestName: draVfioRequestName,
+		},
+	}
+	for _, opt := range opts {
+		opt(&gpu)
+	}
+	return gpu
+}
+
+func WithVfioGPUName(name string) vfioGPUOption {
+	return func(gpu *v1.GPU) {
+		gpu.Name = name
+	}
+}
+
+func WithVfioGPUClaimRequest(claimName, requestName string) vfioGPUOption {
+	return func(gpu *v1.GPU) {
+		gpu.ClaimRequest = &v1.ClaimRequest{
+			ClaimName:   claimName,
+			RequestName: requestName,
+		}
+	}
+}
+
+func exactDeviceRequest(name, deviceClassName, celExpression string) resourcev1.DeviceRequest {
+	return resourcev1.DeviceRequest{
+		Name: name,
+		Exactly: &resourcev1.ExactDeviceRequest{
+			DeviceClassName: deviceClassName,
+			Selectors: []resourcev1.DeviceSelector{{
+				CEL: &resourcev1.CELDeviceSelector{Expression: celExpression},
+			}},
+		},
+	}
+}
+
+func resourceClaimTemplate(name string, requests ...resourcev1.DeviceRequest) *resourcev1.ResourceClaimTemplate {
+	return &resourcev1.ResourceClaimTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testsuite.GetTestNamespace(nil),
+		},
+		Spec: resourcev1.ResourceClaimTemplateSpec{
+			Spec: resourcev1.ResourceClaimSpec{
+				Devices: resourcev1.DeviceClaim{
+					Requests: requests,
+				},
+			},
+		},
+	}
+}
+
+func waitForVMIToBeRunning(vmi *v1.VirtualMachineInstance) {
+	Eventually(matcher.ThisVMI(vmi), timeout, pollingInterval).Should(matcher.BeRunning())
+}
+
+func waitForVMIsToBeRunning(vmiNames ...string) {
+	Eventually(func(g Gomega) {
+		for _, vmiName := range vmiNames {
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmiName, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vmi).To(matcher.BeRunning(), "VMI %s", vmiName)
+		}
+	}, timeout, pollingInterval).Should(Succeed())
+}
+
+func virtLauncherPodNamePrefixForVMI(vmiName string) string {
+	const libvmiRandNamePrefix = "testvmi-"
+	const libvmiRandNameRandomLen = 5
+	if strings.HasPrefix(vmiName, libvmiRandNamePrefix) &&
+		len(vmiName) >= len(libvmiRandNamePrefix)+libvmiRandNameRandomLen+1 {
+		uniqueName := vmiName[:len(libvmiRandNamePrefix)+libvmiRandNameRandomLen+1]
+		return fmt.Sprintf("virt-launcher-%s", uniqueName)
+	}
+	return fmt.Sprintf("virt-launcher-%s-", vmiName)
+}
+
+func resourceClaimBelongsToVMI(claim resourcev1.ResourceClaim, vmiName string) bool {
+	podPrefix := virtLauncherPodNamePrefixForVMI(vmiName)
+	for _, reservedFor := range claim.Status.ReservedFor {
+		if reservedFor.Resource == "pods" && strings.HasPrefix(reservedFor.Name, podPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
+func listResourceClaimsForVMIs(vmiNames ...string) ([]resourcev1.ResourceClaim, error) {
+	resourceClaimList, err := kubevirt.Client().ResourceV1().ResourceClaims(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var claims []resourcev1.ResourceClaim
+	for _, resourceClaim := range resourceClaimList.Items {
+		for _, vmiName := range vmiNames {
+			if resourceClaimBelongsToVMI(resourceClaim, vmiName) {
+				claims = append(claims, resourceClaim)
+				break
+			}
+		}
+	}
+	return claims, nil
+}
+
+func expectAllocatedDeviceCountForVMI(vmiName string, expectedDeviceCount int) {
+	claims, err := listResourceClaimsForVMIs(vmiName)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(claims).To(HaveLen(1))
+	Expect(claims[0].Status.Allocation).NotTo(BeNil())
+	Expect(claims[0].Status.Allocation.Devices.Results).To(HaveLen(expectedDeviceCount))
+	Expect(claims[0].Status.ReservedFor).NotTo(BeEmpty())
+	Expect(resourceClaimBelongsToVMI(claims[0], vmiName)).To(BeTrue())
+}
+
+func waitForBoundResourceClaimsForVMIs(expectedCount int, vmiNames ...string) {
+	Eventually(func(g Gomega) {
+		claims, err := listResourceClaimsForVMIs(vmiNames...)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(claims).To(HaveLen(expectedCount))
+		for _, resourceClaim := range claims {
+			var matchedVMIName string
+			for _, vmiName := range vmiNames {
+				if resourceClaimBelongsToVMI(resourceClaim, vmiName) {
+					matchedVMIName = vmiName
+					break
+				}
+			}
+			g.Expect(matchedVMIName).NotTo(BeEmpty(), "claim %s should belong to one of the VMIs", resourceClaim.Name)
+
+			g.Expect(resourceClaim.Status).NotTo(BeNil())
+			g.Expect(resourceClaim.Status.Allocation).NotTo(BeNil())
+			g.Expect(resourceClaim.Status.ReservedFor).NotTo(BeEmpty())
+			g.Expect(resourceClaim.Status.ReservedFor[0].Resource).To(Equal("pods"))
+			g.Expect(resourceClaim.Status.ReservedFor[0].Name).To(HavePrefix(virtLauncherPodNamePrefixForVMI(matchedVMIName)))
+		}
+	}, timeout, pollingInterval).Should(Succeed())
+}
+
+func vfioGPUResourceClaim() *resourcev1.ResourceClaim {
+	return &resourcev1.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "dra-vfio-claim-",
+			Namespace:    testsuite.GetTestNamespace(nil),
+		},
+		Spec: resourcev1.ResourceClaimSpec{
+			Devices: resourcev1.DeviceClaim{
+				Requests: []resourcev1.DeviceRequest{vfioGPUDeviceRequest(draVfioRequestName)},
+			},
+		},
+	}
+}
+
+func waitForResourceClaimsToBeCreated(count int) {
+	Eventually(func(g Gomega) {
+		claims, err := kubevirt.Client().ResourceV1().ResourceClaims(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(claims.Items).To(HaveLen(count))
+	}, timeout, pollingInterval).Should(Succeed())
+}
+
+func createCPUDRAVMI(ctx context.Context, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+		ctx, libvmifact.NewAlpine(cpuDRAVMIOptions(opts...)...), metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	return vmi
+}
+
+func waitForVirtLauncherPod(ctx context.Context, vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	var pod *k8sv1.Pod
+	Eventually(ctx, func() error {
+		var err error
+		pod, err = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+		return err
+	}, timeout, pollingInterval).Should(Succeed())
+	return pod
+}
+
+func waitForAllocatedCPUResourceClaim(ctx context.Context, vmi *v1.VirtualMachineInstance) *resourcev1.ResourceClaim {
+	var claim *resourcev1.ResourceClaim
+	EventuallyWithOffset(1, ctx, func(g Gomega) {
+		var err error
+		claim, err = kubevirt.Client().ResourceV1().ResourceClaims(vmi.Namespace).Get(
+			ctx, dra.CPUResourceClaimName(vmi.Name), metav1.GetOptions{},
+		)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(claim.Status.Allocation).ToNot(BeNil())
+		g.Expect(claim.Status.ReservedFor).ToNot(BeEmpty())
+	}, timeout, pollingInterval).Should(Succeed())
+	return claim
+}
+
+// cpuClaimHostCPUs returns the number of host CPUs the claim asks the driver for, asserting along
+// the way that the claim is shaped the way the dra.cpu DeviceClass expects.
+func cpuClaimHostCPUs(claim *resourcev1.ResourceClaim) int64 {
+	ExpectWithOffset(1, claim.Spec.Devices.Requests).To(HaveLen(1))
+	request := claim.Spec.Devices.Requests[0]
+	ExpectWithOffset(1, request.Name).To(Equal(dra.CPURequestName))
+	ExpectWithOffset(1, request.Exactly).ToNot(BeNil())
+	ExpectWithOffset(1, request.Exactly.DeviceClassName).To(Equal(dra.CPUDeviceClassName))
+	ExpectWithOffset(1, request.Exactly.Capacity).ToNot(BeNil())
+
+	quantity, found := request.Exactly.Capacity.Requests[dra.CPUCapacityAttribute]
+	ExpectWithOffset(1, found).To(BeTrue(), "claim should request %s capacity", dra.CPUCapacityAttribute)
+	return quantity.Value()
+}
+
+func vmiOf(ctx context.Context, vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(
+		ctx, vm.Name, metav1.GetOptions{},
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return vmi
+}
+
+func cpuDRAVMIOptions(opts ...libvmi.Option) []libvmi.Option {
+	return append([]libvmi.Option{
+		libvmi.WithMemoryRequest("128Mi"),
+		libvmi.WithDedicatedCPUPlacement(),
+	}, opts...)
+}
+
+func createCPUDRAVM(ctx context.Context, opts ...libvmi.Option) *v1.VirtualMachine {
+	vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(cpuDRAVMIOptions(opts...)...))
+	createdVM, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+		ctx, vm, metav1.CreateOptions{},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	return createdVM
+}
+
+func deleteVMIAndWait(ctx context.Context, vmi *v1.VirtualMachineInstance) {
+	err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(
+		ctx, vmi.Name, metav1.DeleteOptions{},
+	)
+	if errors.IsNotFound(err) {
+		return
+	}
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, timeout)).To(Succeed())
+}
+
+func launcherCPUSet(pod *k8sv1.Pod) []int {
+	const (
+		cgroupV2CPUSetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
+		cgroupV1CPUSetPath = "/sys/fs/cgroup/cpuset/cpuset.cpus"
+	)
+
+	output, err := exec.ExecuteCommandOnPod(pod, "compute", []string{"cat", cgroupV2CPUSetPath})
+	if err != nil {
+		output, err = exec.ExecuteCommandOnPod(pod, "compute", []string{"cat", cgroupV1CPUSetPath})
+	}
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	cpuSet, err := parseCPUSet(output)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return cpuSet
+}
+
+// domainVCPUPinnings returns the host CPU each guest vCPU is pinned to, indexed by vCPU.
+func domainVCPUPinnings(vmi *v1.VirtualMachineInstance) []int {
+	domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, domainSpec.CPUTune).ToNot(BeNil(), "a dedicated CPU VM should have a cputune section")
+
+	pinnings := make([]int, len(domainSpec.CPUTune.VCPUPin))
+	for _, vcpuPin := range domainSpec.CPUTune.VCPUPin {
+		hostCPUs, err := parseCPUSet(vcpuPin.CPUSet)
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, hostCPUs).To(HaveLen(1), "vCPU %d should be pinned to a single host CPU", vcpuPin.VCPU)
+		ExpectWithOffset(1, int(vcpuPin.VCPU)).To(BeNumerically("<", len(pinnings)))
+		pinnings[vcpuPin.VCPU] = hostCPUs[0]
+	}
+	return pinnings
+}
+
+// parseCPUSet expands the Linux cpuset notation used by both cgroups and libvirt, e.g. "0-3,7".
+func parseCPUSet(cpuSet string) ([]int, error) {
+	var cpus []int
+
+	for _, entry := range strings.Split(strings.TrimSpace(cpuSet), ",") {
+		if entry == "" {
+			continue
+		}
+
+		lower, upper, isRange := strings.Cut(entry, "-")
+		first, err := strconv.Atoi(strings.TrimSpace(lower))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse cpuset %q: %v", cpuSet, err)
+		}
+		last := first
+		if isRange {
+			if last, err = strconv.Atoi(strings.TrimSpace(upper)); err != nil {
+				return nil, fmt.Errorf("failed to parse cpuset %q: %v", cpuSet, err)
+			}
+		}
+
+		for cpu := first; cpu <= last; cpu++ {
+			cpus = append(cpus, cpu)
+		}
+	}
+
+	return cpus, nil
+}

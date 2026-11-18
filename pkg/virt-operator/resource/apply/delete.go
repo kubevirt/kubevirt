@@ -29,6 +29,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -130,6 +131,26 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
 					log.Log.Errorf(deleteFailedFmt, ds.Name, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf(castFailedFmt, obj)
+			return nil
+		}
+	}
+
+	// delete horizontalpodautoscalers
+	objects = stores.HorizontalPodAutoscalerCache.List()
+	for _, obj := range objects {
+		if hpa, ok := obj.(*autoscalingv2.HorizontalPodAutoscaler); ok && hpa.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(hpa); err == nil {
+				hpaClient := k8sClient.AutoscalingV2().HorizontalPodAutoscalers(hpa.Namespace)
+				expectations.HorizontalPodAutoscaler.AddExpectedDeletion(kvkey, key)
+				err = hpaClient.Delete(context.Background(), hpa.Name, metav1.DeleteOptions{})
+				if err != nil {
+					expectations.HorizontalPodAutoscaler.DeletionObserved(kvkey, key)
+					log.Log.Errorf(deleteFailedFmt, hpa.Name, err)
 					return err
 				}
 			}

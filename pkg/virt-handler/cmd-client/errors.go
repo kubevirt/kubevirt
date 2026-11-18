@@ -47,10 +47,16 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 		return err
 	} else if IsUnimplemented(err) {
 		return err
-	} else if err != nil {
-		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
-		return fmt.Errorf("%s", msg)
-	} else if response != nil && !response.Success {
+	}
+
+	st, _ := status.FromError(err)
+	if st.Code() != codes.OK {
+		return fmt.Errorf("command %s failed with %s: %w", cmdName, st.Code(), err)
+	}
+
+	// Fallback for old servers that embed errors in Response instead of using gRPC status codes
+	// This check can be removed once all servers are migrated
+	if response != nil && !response.Success && response.Message != "" {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
 	return nil

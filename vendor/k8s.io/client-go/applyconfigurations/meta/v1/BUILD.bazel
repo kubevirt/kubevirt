@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "condition.go",
         "deleteoptions.go",
+        "groupresource.go",
         "labelselector.go",
         "labelselectorrequirement.go",
         "managedfieldsentry.go",

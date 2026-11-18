@@ -87,10 +87,16 @@ goveralls:
 coverage-report:
 	hack/dockerized "CI=${CI} WHAT=${WHAT} ./hack/bazel-coverage-report.sh"
 
-go-test: go-build
-	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
+go-test:
+	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "./hack/go-test-cache.sh restore; export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
+
+go-test-cache-save:
+	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT} && ./hack/go-test-cache.sh save"
 
 test: bazel-test
+
+test-integration:
+	hack/dockerized "go test -race ./tests/integration/... -count=1 -v"
 
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
@@ -101,7 +107,7 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+dump:
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
@@ -111,7 +117,7 @@ functest-image-push: functest-image-build
 	hack/func-tests-image.sh push
 
 conformance:
-	hack/dockerized "export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} RUN_ON_ARM64_INFRA=${RUN_ON_ARM64_INFRA} SKIP_BLOCK_STORAGE_TESTS=${SKIP_BLOCK_STORAGE_TESTS} SKIP_SNAPSHOT_STORAGE_TESTS=${SKIP_SNAPSHOT_STORAGE_TESTS} KUBEVIRT_E2E_FOCUS=${KUBEVIRT_E2E_FOCUS} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} && hack/conformance.sh"
+	hack/dockerized "export KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PRIMARY_NETWORK_BINDING_PLUGIN=${PRIMARY_NETWORK_BINDING_PLUGIN} SKIP_OUTSIDE_CONN_TESTS=${SKIP_OUTSIDE_CONN_TESTS} RUN_ON_ARM64_INFRA=${RUN_ON_ARM64_INFRA} SKIP_BLOCK_STORAGE_TESTS=${SKIP_BLOCK_STORAGE_TESTS} SKIP_SNAPSHOT_STORAGE_TESTS=${SKIP_SNAPSHOT_STORAGE_TESTS} KUBEVIRT_E2E_FOCUS=${KUBEVIRT_E2E_FOCUS} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} && hack/conformance.sh"
 
 perftest: build-functests
 	hack/perftests.sh
@@ -153,7 +159,6 @@ rpm-deps-cs10:
 rpm-deps-all:
 	$(MAKE) rpm-deps-cs9
 	$(MAKE) rpm-deps-cs10
-	hack/rpm-deps-aliases.sh
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
@@ -222,6 +227,9 @@ olm-push:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} \
 	    QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} PACKAGE_NAME=${PACKAGE_NAME} ./hack/olm.sh push"
 
+bump-apitesting:
+	./hack/bump-apitesting.sh
+
 bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
@@ -239,6 +247,7 @@ lint:
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
 	hack/dockerized "hack/license-header-check.sh"
+	hack/dockerized "hack/go-fix.sh --diff"
 
 lint-metrics:
 	hack/dockerized "./hack/prom-metric-linter/metrics_collector.sh > metrics.json"
@@ -248,12 +257,15 @@ lint-metrics:
 gofumpt:
 	./hack/dockerized "hack/gofumpt.sh"
 
+gofix:
+	./hack/dockerized "hack/go-fix.sh"
+
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
 
 feature-gate-report:
 	hack/dockerized "bazel build //tools/feature-gate-report && \
-		./bazel-bin/tools/feature-gate-report/feature-gate-report_/feature-gate-report"
+		./bazel-bin/tools/feature-gate-report/feature-gate-report_/feature-gate-report $(FEATURE_GATE_REPORT_ARGS)"
 
 vmlog-checker:
 	@echo "Building vmlog-checker..."
@@ -261,11 +273,15 @@ vmlog-checker:
 	@echo "Built successfully: tools/vmlog-checker/vmlog-checker"
 	@echo "Usage: ./tools/vmlog-checker/vmlog-checker --log <file> [options]"
 
+rpm-mirror-checker:
+	hack/dockerized "go run ./hack/rpm-mirror-checker/rpm-mirror-checker.go"
+
 .PHONY: \
 	build-verify \
 	conformance \
 	go-build \
 	go-test \
+	go-test-cache-save \
 	go-all \
 	bazel-generate \
 	bazel-build \
@@ -302,6 +318,9 @@ vmlog-checker:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	bump-apitesting \
 	feature-gate-report \
 	vmlog-checker \
+	test-integration \
+	rpm-mirror-checker \
 	$(NULL)

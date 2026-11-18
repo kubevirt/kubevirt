@@ -6,6 +6,7 @@ go_library(
         "doc.go",
         "fake_devicetaintrule.go",
         "fake_resource_client.go",
+        "fake_resourcepoolstatusrequest.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/kubernetes/typed/resource/v1alpha3/fake",
     importpath = "k8s.io/client-go/kubernetes/typed/resource/v1alpha3/fake",

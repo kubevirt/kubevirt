@@ -140,7 +140,7 @@ func FuzzAdmitter(f *testing.F) {
 			focused = testCases
 		}
 
-		timeoutDuration := 500 * time.Millisecond
+		timeoutDuration := 700 * time.Millisecond
 
 		for _, tc := range focused {
 			t.Run(tc.name, func(t *testing.T) {

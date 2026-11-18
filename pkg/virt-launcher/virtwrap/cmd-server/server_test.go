@@ -21,6 +21,7 @@ package cmdserver
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -37,9 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/record"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -50,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
@@ -79,7 +82,10 @@ var _ = Describe("Virt remote commands", func() {
 
 		allowEmulation = true
 		options = NewServerOptions(allowEmulation)
-		RunServer(socketPath, domainManager, stop, options)
+		_, err := grpcserver.RunServer(stop, socketPath,
+			RegisterCmdServer(NewLauncher(domainManager, options)),
+		)
+		Expect(err).ToNot(HaveOccurred())
 		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -93,6 +99,24 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("server", func() {
+		It("retains the source plugin snapshot from sync when migration is requested", func() {
+			previous := plugins.GetPlugins()
+			DeferCleanup(plugins.SetPlugins, previous)
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			pluginList := []pluginv1alpha1.Plugin{{ObjectMeta: metav1.ObjectMeta{Name: "migration-plugin"}}}
+			data, err := json.Marshal(pluginList)
+			Expect(err).NotTo(HaveOccurred())
+			syncOptions := &cmdv1.VirtualMachineOptions{PluginsJson: data}
+			domain := api.NewMinimalDomain("testvmi")
+			domainManager.EXPECT().SyncVMI(vmi, allowEmulation, syncOptions).Return(&domain.Spec, nil)
+			Expect(client.SyncVirtualMachine(vmi, syncOptions)).To(Succeed())
+			domainManager.EXPECT().MigrateVMI(vmi, gomock.Any()).DoAndReturn(func(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error {
+				Expect(plugins.GetPlugins()).To(Equal(pluginList))
+				return nil
+			})
+			Expect(client.MigrateVirtualMachine(vmi, &cmdclient.MigrationOptions{})).To(Succeed())
+		})
+
 		It("should start a vmi", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domain := api.NewMinimalDomain("testvmi")
@@ -349,71 +373,6 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
-		Context("RedefineCheckpoint", func() {
-			var vmi *v1.VirtualMachineInstance
-			var checkpoint *backupv1.BackupCheckpoint
-
-			BeforeEach(func() {
-				vmi = v1.NewVMIReferenceFromName("testvmi")
-				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
-					State: v1.ChangedBlockTrackingEnabled,
-				}
-				creationTime := metav1.Unix(1234567890, 0)
-				checkpoint = &backupv1.BackupCheckpoint{
-					Name:         "checkpoint-1",
-					CreationTime: &creationTime,
-					Volumes: []backupv1.BackupVolumeInfo{
-						{VolumeName: "disk1", DiskTarget: "vda"},
-						{VolumeName: "disk2", DiskTarget: "vdb"},
-					},
-				}
-			})
-
-			It("should redefine checkpoint successfully", func() {
-				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(vmiArg *v1.VirtualMachineInstance, cpArg *backupv1.BackupCheckpoint) (bool, error) {
-						Expect(vmiArg.Name).To(Equal("testvmi"))
-						Expect(cpArg.Name).To(Equal("checkpoint-1"))
-						Expect(cpArg.Volumes).To(HaveLen(2))
-						Expect(cpArg.Volumes[0].VolumeName).To(Equal("disk1"))
-						Expect(cpArg.Volumes[0].DiskTarget).To(Equal("vda"))
-						Expect(cpArg.CreationTime.Unix()).To(Equal(int64(1234567890)))
-						return false, nil
-					})
-
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(checkpointInvalid).To(BeFalse())
-			})
-
-			It("should return error when redefinition fails", func() {
-				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(false, errors.New("redefinition failed"))
-
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("redefinition failed"))
-				Expect(checkpointInvalid).To(BeFalse())
-			})
-
-			It("should return checkpointInvalid=true when checkpoint is corrupt", func() {
-				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(true, errors.New("bitmap invalid"))
-
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("bitmap invalid"))
-				Expect(checkpointInvalid).To(BeTrue())
-			})
-
-			It("should fail when CBT is not enabled", func() {
-				vmi.Status.ChangedBlockTracking = nil
-
-				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not enabled"))
-				Expect(checkpointInvalid).To(BeFalse())
-			})
-		})
-
 		Context("exec & guestPing", func() {
 			var (
 				testDomainName           = "test"
@@ -552,7 +511,7 @@ var _ = Describe("Virt remote commands", func() {
 						return err == nil
 					}).WithTimeout(5 * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
 
-					notifier = notifyclient.NewNotifier(notifyShareDir)
+					notifier = notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(notifyShareDir))
 
 					vmi = libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace(k8sv1.NamespaceDefault))
 					vmi.UID = types.UID("1234")
@@ -603,7 +562,7 @@ var _ = Describe("Virt remote commands", func() {
 
 	Describe("ServerOptions", func() {
 		It("should set notifier and vmi name/namespace/uid", func() {
-			notifier := notifyclient.NewNotifier("")
+			notifier := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(""))
 			vmi := v1.NewVMIReferenceFromNameWithNS("testns", "testvmi")
 			vmi.UID = types.UID("test-uid-1234")
 			options := NewServerOptions(true).WithNotifier(notifier).WithVMI(vmi)

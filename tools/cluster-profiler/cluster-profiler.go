@@ -85,6 +85,10 @@ func writeResultsToDisk(dir string, results *v1.ClusterProfilerResults) error {
 	return nil
 }
 
+func shouldContinueDumpPagination(requestContinue, resultContinue string) bool {
+	return resultContinue != "" && resultContinue != requestContinue
+}
+
 func main() {
 	var (
 		cmd           string
@@ -104,8 +108,9 @@ func main() {
 	flag.StringVar(&continueToken, "continue", "", "Token to be used to continue fetching profiles")
 	flag.BoolVar(&reuseOutputDir, "reuse-output-dir", false, "Use output-dir even if exists and is not empty")
 
-	// NOTE: To profile specific kubevirt component (for example virt-api) use `kubevirt.io=virt-operator` label selector.
-	flag.StringVar(&labelSelector, "l", "", "Label selector for limiting pods to fetch the profiler results from. Works only with 'dump' command. kubectl LIST label selector format expected")
+	// Optional -l narrows control-plane pods on dump; virt-api applies the default when empty.
+	// Selectors outside the control plane intersect to nothing (empty dump, not an API error).
+	flag.StringVar(&labelSelector, "l", "", "Label selector to narrow dump results within KubeVirt control-plane pods. Only used with --cmd dump. Empty leaves the default to virt-api. kubectl list label syntax.")
 
 	flag.Parse()
 
@@ -179,17 +184,15 @@ func fetchAndSaveClusterProfilerResults(c kubecli.KubevirtClient, pageSize int, 
 			break
 		}
 
-		if len(result.ComponentResults) == 0 {
-			break
+		if len(result.ComponentResults) > 0 {
+			err = writeResultsToDisk(outputDir, result)
+			if err != nil {
+				break
+			}
+			counter += len(result.ComponentResults)
 		}
 
-		err = writeResultsToDisk(outputDir, result)
-		if err != nil {
-			break
-		}
-
-		counter += len(result.ComponentResults)
-		if result.Continue == "" {
+		if !shouldContinueDumpPagination(req.Continue, result.Continue) {
 			break
 		}
 

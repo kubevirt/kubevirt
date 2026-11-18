@@ -32,6 +32,7 @@ import (
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -74,6 +76,8 @@ type KubeVirtController struct {
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
 	hasSynced            func() bool
+
+	exportProxyHPAMetricsProfileCache *apply.ExportProxyHPAMetricsProfileCache
 }
 
 func NewKubeVirtController(
@@ -108,6 +112,7 @@ func NewKubeVirtController(
 		InstallStrategyJobCache:               informers.InstallStrategyJob.GetStore(),
 		InfrastructurePodCache:                informers.InfrastructurePod.GetStore(),
 		PodDisruptionBudgetCache:              informers.PodDisruptionBudget.GetStore(),
+		HorizontalPodAutoscalerCache:          informers.HorizontalPodAutoscaler.GetStore(),
 		NamespaceCache:                        informers.Namespace.GetStore(),
 		SecretCache:                           informers.Secrets.GetStore(),
 		ConfigMapCache:                        informers.ConfigMap.GetStore(),
@@ -119,6 +124,9 @@ func NewKubeVirtController(
 		PrometheusRuleCache:                   informers.PrometheusRule.GetStore(),
 		ValidatingAdmissionPolicyCache:        informers.ValidatingAdmissionPolicy.GetStore(),
 		ValidatingAdmissionPolicyBindingCache: informers.ValidatingAdmissionPolicyBinding.GetStore(),
+		SynchronizationServiceCache:           informers.SynchronizationService.GetStore(),
+		SynchronizationIngressCache:           informers.SynchronizationIngress.GetStore(),
+		SynchronizationRouteCache:             informers.SynchronizationRoute.GetStore(),
 	}
 
 	c := KubeVirtController{
@@ -150,6 +158,7 @@ func NewKubeVirtController(
 			InstallStrategyConfigMap:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("InstallStrategyConfigMap")),
 			InstallStrategyJob:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 			PodDisruptionBudget:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets")),
+			HorizontalPodAutoscaler:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("HorizontalPodAutoscalers")),
 			ServiceMonitor:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceMonitor")),
 			PrometheusRule:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
 			Secrets:                          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secret")),
@@ -162,6 +171,7 @@ func NewKubeVirtController(
 		delayedQueueAdder: func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
+		exportProxyHPAMetricsProfileCache: apply.NewExportProxyHPAMetricsProfileCache(),
 	}
 	c.hasSynced = func() bool {
 		return informers.KubeVirt.HasSynced() &&
@@ -175,12 +185,14 @@ func NewKubeVirtController(
 			informers.Deployment.HasSynced() &&
 			informers.DaemonSet.HasSynced() &&
 			informers.ValidationWebhook.HasSynced() &&
+			informers.MutatingWebhook.HasSynced() &&
 			informers.SCC.HasSynced() &&
 			informers.Route.HasSynced() &&
 			informers.InstallStrategyConfigMap.HasSynced() &&
 			informers.InstallStrategyJob.HasSynced() &&
 			informers.InfrastructurePod.HasSynced() &&
 			informers.PodDisruptionBudget.HasSynced() &&
+			informers.HorizontalPodAutoscaler.HasSynced() &&
 			informers.ServiceMonitor.HasSynced() &&
 			informers.Namespace.HasSynced() &&
 			informers.PrometheusRule.HasSynced() &&
@@ -421,6 +433,51 @@ func NewKubeVirtController(
 		return nil, err
 	}
 
+	_, err = informers.SynchronizationService.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = informers.SynchronizationIngress.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = informers.SynchronizationRoute.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, nil)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, nil)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, nil)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	_, err = informers.InstallStrategyConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyConfigMap)
@@ -475,6 +532,21 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.PodDisruptionBudget)
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = informers.HorizontalPodAutoscaler.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.HorizontalPodAutoscaler)
 		},
 	})
 	if err != nil {
@@ -600,15 +672,32 @@ func NewKubeVirtController(
 	if err != nil {
 		return nil, err
 	}
-	_, err = informers.Leases.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+	_, err = informers.Leases.AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: func(obj interface{}) bool {
+			o, validationErr := validateDeleteObject(obj)
+			if validationErr != nil {
+				log.Log.Reason(validationErr).Error("Failed to process lease notification")
+				return false
+			}
+			return o.GetName() == components.VirtSynchronizationControllerName
 		},
-		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ServiceAccount)
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ServiceAccount)
+		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				c.genericAddHandler(obj, nil)
+			},
+			DeleteFunc: func(obj interface{}) {
+				c.genericDeleteHandler(obj, nil)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				oldLease := oldObj.(*coordinationv1.Lease)
+				newLease := newObj.(*coordinationv1.Lease)
+				// Only leader changes affect the synchronization address. Ignore lease renewals.
+				if equality.Semantic.DeepEqual(oldLease.Spec.HolderIdentity, newLease.Spec.HolderIdentity) &&
+					equality.Semantic.DeepEqual(oldLease.DeletionTimestamp, newLease.DeletionTimestamp) {
+					return
+				}
+				c.genericUpdateHandler(oldObj, newObj, nil)
+			},
 		},
 	})
 	if err != nil {
@@ -1086,7 +1175,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder, c.exportProxyHPAMetricsProfileCache)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)

@@ -26,12 +26,16 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
 const (
@@ -51,11 +55,16 @@ const (
 	pciBaseAddressMemoryType64   = uint64(0x00000004)
 	pciBaseAddressMemoryPrefetch = uint64(0x00000008)
 
-	graceDefaultIOMMUAccel   = "on"
-	graceDefaultIOMMUATS     = "on"
-	graceDefaultIOMMURIL     = "off"
-	graceSMMUv3IOMMUModel    = "smmuv3"
-	graceHostDeviceIOMMUFDOn = "yes"
+	graceDefaultIOMMUAccel = "on"
+	graceDefaultIOMMUATS   = "on"
+	graceDefaultIOMMURIL   = "off"
+	// Current Grace Blackwell and Vera Rubin systems support SSIDSize=20 and
+	// OAS=48. Keep these defaults explicit until host SMMU capability probing is
+	// available, then cap them to the host-supported values.
+	graceDefaultIOMMUSSIDSize = "20"
+	graceDefaultIOMMUOAS      = "48"
+	graceSMMUv3IOMMUModel     = "smmuv3"
+	graceHostDeviceIOMMUFDOn  = "yes"
 )
 
 type verifiedGraceHostDevice struct {
@@ -104,6 +113,40 @@ var graceRuntimeInfo graceRuntimeInfoProvider = sysfsGraceRuntimeInfoProvider{
 	pciDevicesPath: sysfsPCIDevicesPath,
 	nodePath:       sysfsNodePath,
 	iommuClassPath: sysfsIOMMUClassPath,
+}
+
+func graceIOVirtualizationRequested(c *convertertypes.ConverterContext) bool {
+	return c != nil && len(c.GraceHostDeviceAliases) > 0
+}
+
+// ValidateGraceIOVirtualizationConversion verifies that a completed converter
+// context can support Grace IO virtualization.
+func ValidateGraceIOVirtualizationConversion(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) error {
+	if !graceIOVirtualizationRequested(c) {
+		return nil
+	}
+	if !c.GraceIOVirtualizationEnabled {
+		return fmt.Errorf("GraceIOVirtualization conversion requested without the GraceIOVirtualization feature gate")
+	}
+	if !c.PCINUMAAwareTopologyEnabled {
+		return fmt.Errorf("GraceIOVirtualization requires PCINUMAAwareTopology for PCI placement")
+	}
+	if !c.IOMMUFDEnabled {
+		return fmt.Errorf("GraceIOVirtualization requires an IOMMUFD file descriptor in virt-launcher")
+	}
+	if vmi.Spec.Domain.CPU == nil || !vmi.IsCPUDedicated() {
+		return fmt.Errorf("GraceIOVirtualization requires dedicated CPU placement")
+	}
+	if !c.Architecture.SupportPCIePlacement() {
+		return fmt.Errorf("GraceIOVirtualization requires PCIe placement support on architecture %s", c.Architecture.GetArchitecture())
+	}
+	if vmi.Annotations[v1.DisablePCIHole64] == "true" {
+		return fmt.Errorf("GraceIOVirtualization requires the 64-bit PCI hole")
+	}
+	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		return fmt.Errorf("GraceIOVirtualization cannot be combined with PCI root-complex placement")
+	}
+	return nil
 }
 
 func configureGraceIOVirtualization(domainSpec *api.DomainSpec, expectedAliases []string, iommufdAvailable bool) error {
@@ -357,7 +400,7 @@ func graceHostGINodesByDevice(verifiedDevices []verifiedGraceHostDevice) (map[st
 		}
 
 		anyCorrelated = true
-		sort.Slice(hostGINodes, func(i, j int) bool { return hostGINodes[i] < hostGINodes[j] })
+		slices.Sort(hostGINodes)
 		if len(hostGINodes) != graceGINodesPerGPU {
 			return nil, true, fmt.Errorf("GraceIOVirtualization requires exactly %d host Generic Initiator NUMA nodes for hostdev %q at %s, found %d", graceGINodesPerGPU, verifiedDevice.Alias, verifiedDevice.SourceAddress, len(hostGINodes))
 		}
@@ -578,7 +621,7 @@ func appendGraceGINUMACells(domainSpec *api.DomainSpec, guestGINodes []uint32) {
 
 func allocateGuestGINodes(start uint32, count int) []uint32 {
 	nodes := make([]uint32, 0, count)
-	for index := 0; index < count; index++ {
+	for index := range count {
 		nodes = append(nodes, start+uint32(index))
 	}
 	return nodes
@@ -647,6 +690,12 @@ func (capabilities gracePCICapabilities) withDefaults() gracePCICapabilities {
 	}
 	if capabilities.RIL == "" {
 		capabilities.RIL = graceDefaultIOMMURIL
+	}
+	if capabilities.SSIDSize == "" {
+		capabilities.SSIDSize = graceDefaultIOMMUSSIDSize
+	}
+	if capabilities.OAS == "" {
+		capabilities.OAS = graceDefaultIOMMUOAS
 	}
 	return capabilities
 }
@@ -738,9 +787,12 @@ func (p sysfsGraceRuntimeInfoProvider) PCIHole64SizeBytes(bdf string) (uint64, e
 }
 
 func (p sysfsGraceRuntimeInfoProvider) PCICapabilities(_ string) (gracePCICapabilities, error) {
-	// TODO: Populate SSIDSize, OAS, and related SMMUv3 fields from PCI
-	// extended config space or IOMMUFD hardware info. Use Grace defaults until
-	// capability probing is wired into this focused Grace conversion path.
+	// Grace Blackwell and Vera Rubin systems require explicit SMMUv3 address
+	// capabilities, and the current platform values are SSIDSize=20 and OAS=48.
+	// Longer term, these must be capped by the host SMMU capabilities rather
+	// than hardcoded. OAS is visible in the arm-smmu-v3 probe log, while SSIDSize
+	// requires decoding the SMMU ID registers. Use the known Grace defaults until
+	// the kernel exposes these capabilities through a consumable interface.
 	return gracePCICapabilities{}.withDefaults(), nil
 }
 
@@ -801,7 +853,7 @@ func (p sysfsGraceRuntimeInfoProvider) memorylessNoCPUNodes() ([]uint32, error) 
 			giNodes = append(giNodes, node)
 		}
 	}
-	sort.Slice(giNodes, func(i, j int) bool { return giNodes[i] < giNodes[j] })
+	slices.Sort(giNodes)
 	return giNodes, nil
 }
 
@@ -923,7 +975,7 @@ func parseHostNUMANodeSet(nodeSet string) ([]uint32, error) {
 		}
 		result = append(result, uint32(node))
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	slices.Sort(result)
 	return result, nil
 }
 
@@ -933,7 +985,7 @@ func (p sysfsGraceRuntimeInfoProvider) isMemorylessNoCPUNode(node uint32) (bool,
 		return false, err
 	}
 	memoryless := false
-	for _, line := range strings.Split(meminfo, "\n") {
+	for line := range strings.SplitSeq(meminfo, "\n") {
 		if !strings.Contains(line, "MemTotal:") {
 			continue
 		}

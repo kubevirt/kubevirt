@@ -42,7 +42,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]IBM Secure Execution",
-	decorators.SecureExecution, decorators.SigCompute, decorators.RequiresS390X, Serial, func() {
+	decorators.SecureExecution, decorators.SigCompute, decorators.WgS390x, decorators.RequiresS390X, Serial, func() {
 		Context("Node Labels", func() {
 			It("Should have nodes with Secure Execution Label", func() {
 				virtclient := kubevirt.Client()

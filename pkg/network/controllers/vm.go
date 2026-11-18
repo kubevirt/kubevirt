@@ -120,7 +120,9 @@ func syncVMIInterfaces(
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	vmiCopy.Spec.Networks = syncNetworks(vm.Spec.Template.Spec.Networks, vmiCopy.Spec.Networks)
+	if vmi.IsMigratable() {
+		vmiCopy.Spec.Networks = syncNetworks(vm.Spec.Template.Spec.Networks, vmiCopy.Spec.Networks)
+	}
 
 	return vmiCopy
 }

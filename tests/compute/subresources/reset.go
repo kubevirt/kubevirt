@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -41,7 +42,7 @@ var _ = Describe(compute.SIG("Reset subresource", decorators.WgS390x, func() {
 
 	Describe("Reset a VirtualMachineInstance", func() {
 		It("should succeed", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), libvmops.StartupTimeoutSecondsXHuge)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), flags.StartupTimeoutSecondsXHuge())
 			oldUID := vmi.UID
 
 			By("Checking that the VirtualMachineInstance console has expected output")

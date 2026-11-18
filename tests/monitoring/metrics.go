@@ -90,6 +90,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_data_bytes_total":                            true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
+			"kubevirt_vmi_migration_last_downtime_duration_seconds":              true,
 
 			// This metric is using a dedicated collector and is being tested separately
 			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
@@ -108,6 +109,14 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 			// needs GPU - tested in MediatedDevices
 			"kubevirt_vmi_gpu_info": true,
+
+			// sync-controller migration proxy metrics — only registered when
+			// CrossClusterMigrationProxy + Proxy datapath is active
+			"kubevirt_decentralized_migration_proxy_active_connections":          true,
+			"kubevirt_decentralized_migration_proxy_bytes_transferred_total":     true,
+			"kubevirt_decentralized_migration_proxy_errors_total":                true,
+			"kubevirt_decentralized_migration_proxy_migration_bytes":             true,
+			"kubevirt_decentralized_migration_proxy_throughput_bytes_per_second": true,
 		}
 
 		BeforeAll(func() {
@@ -120,13 +129,19 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err := libmonitoring.RegisterAllMetrics()
 			Expect(err).ToNot(HaveOccurred(), "Failed to register all metrics")
 
-			for _, metric := range operatormetrics.ListMetrics() {
-				if excludedMetrics[metric.GetOpts().Name] {
-					continue
-				}
+			// Allow collectors and Prometheus to catch up, checking a fresh snapshot on each attempt.
+			Eventually(func(g Gomega) {
+				currentMetrics := fetchPrometheusKubevirtMetrics(virtClient)
 
-				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
-			}
+				for _, metric := range operatormetrics.ListMetrics() {
+					if excludedMetrics[metric.GetOpts().Name] {
+						continue
+					}
+
+					g.Expect(currentMetrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)),
+						"Missing metric: %s", metric.GetOpts().Name)
+				}
+			}, 3*time.Minute, 10*time.Second).Should(Succeed())
 		})
 
 		It("should contain VNIC metrics", func() {
@@ -310,6 +325,7 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	labels := map[string]string{
 		"namespace": vm.Namespace,
 		"name":      vm.Name,
+		"vm":        vm.Name,
 	}
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 

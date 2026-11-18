@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -76,7 +75,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		BeforeAll(func() {
 			sharedVMI = libvmops.RunVMIAndExpectLaunch(
-				libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge,
+				libvmifact.NewGuestless(), flags.StartupTimeoutSecondsHuge(),
 			)
 		})
 
@@ -92,11 +91,26 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
 			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
-				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
-
-				GinkgoLogr.Info("Checking bucket", "labels", labels)
-				libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
+				GinkgoLogr.Info("Checking bucket", "le", bucket)
+				libmonitoring.WaitForHistogramBucketValueToBe(
+					virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", bucket, 0, ">=", 0,
+				)
 			}
+		})
+
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds buckets correctly configured", func() {
+			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
+				GinkgoLogr.Info("Checking bucket", "le", bucket)
+				libmonitoring.WaitForHistogramBucketValueToBe(
+					virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket", bucket, 0, ">=", 0,
+				)
+			}
+		})
+
+		It("should have kubevirt_vmi_phase_transition_time_from_creation_seconds_sum populated", func() {
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_phase_transition_time_from_creation_seconds_sum", nil, 0, ">", 0,
+			)
 		})
 
 		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
@@ -262,6 +276,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 				"guest_os_machine":        agentVMI.Status.Machine.Type,
 				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
+				"has_panic_device":        "true",
 			}
 
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
@@ -368,9 +383,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ""},
+				&expect.BSnd{S: "command -v stress-ng\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: stressCmd},
 				&expect.BExp{R: ""},
-			}, stressTestTimeout)).To(Succeed(), "should run a stress test")
+			}, stressTestTimeout)).To(Succeed(), "should run stress test, stress-ng is only available on Fedora images")
 
 			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
 			const consistencyTimeout = 30 * time.Second
@@ -424,7 +443,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("Should correctly update metrics on successful VMIM", func() {
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Migrating VMIs")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -441,6 +460,15 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			}
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
+			By("Verifying the migration downtime metric is populated")
+			downtimeLabels := map[string]string{
+				"name":      vmi.Name,
+				"namespace": vmi.Namespace,
+				"node":      vmi.Status.NodeName,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_last_downtime_duration_seconds", downtimeLabels, 1, ">=", 0,
+			)
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
 				context.Background(), vmi.Name, metav1.DeleteOptions{},
@@ -451,16 +479,41 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 			)).To(Succeed())
 		})
 
+		It("should have kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum populated after migration", func() {
+			By("Creating VMI")
+			vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+
+			By("Migrating VMI")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying the migration phase transition time from creation sum metric is populated")
+			labels := map[string]string{"phase": "Succeeded"}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmi_migration_phase_transition_time_from_creation_seconds_sum", labels, 0, ">", 0,
+			)
+
+			By("Delete VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const migrationVMIDisappearTimeout = 240 * time.Second
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
+				vmi, migrationVMIDisappearTimeout,
+			)).To(Succeed())
+		})
+
 		It("Should correctly update metrics on failing VMIM", func() {
 			const migrationPollInterval = 5 * time.Second
 
 			By("Creating VMIs")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()), //nolint:staticcheck
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 			labels := map[string]string{
 				"vmi":       vmi.Name,
 				"namespace": vmi.Namespace,
@@ -513,7 +566,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("delete virt-handler daemonset")
 			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(
@@ -538,7 +591,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 
 			By("Starting a VMI and waiting for it to be running")
 			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Waiting for LauncherContainerImageVersion to be populated")
 			Eventually(func(g Gomega) {
@@ -619,7 +672,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func
 	})
 
 	Context("VM guest panic metrics", decorators.RequiresAMD64, func() {
-		It("should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", func() {
+		It("[QUARANTINE] should increment kubevirt_vmi_guest_os_panic_total when a guest OS panics", decorators.Quarantine, func() {
 			virtClient := kubevirt.Client()
 
 			By("creating a Fedora VMI with ISA panic device")
@@ -665,7 +718,8 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
 	)
 	vmi := libvmops.RunVMIAndExpectLaunch(
-		libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge,
+		libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithPanicDevice(v1.Isa)),
+		flags.StartupTimeoutSecondsXLarge(),
 	)
 
 	var err error

@@ -3,9 +3,11 @@ FROM quay.io/centos/centos:stream9
 ARG ARCH
 ARG SONOBUOY_ARCH
 ARG BAZEL_ARCH
+ARG ENVTEST_K8S_VERSION=1.37.0
+ARG SETUP_ENVTEST_VERSION=v0.24.1
 
-ENV BAZEL_VERSION=6.5.0
-ENV GIMME_GO_VERSION=1.26.4
+ENV BAZEL_VERSION=9.3.1
+ENV GIMME_GO_VERSION=1.26.10
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v2.12.2
@@ -16,7 +18,7 @@ ENV KUBEVIRT_CREATE_BAZELRCS=false
 RUN dnf install -y dnf-plugins-core && \
     dnf config-manager --enable crb && \
     dnf install -y --setopt=install_weak_deps=False \
-        java-11-openjdk-devel \
+        java-21-openjdk-devel \
         libvirt-devel \
         cpio \
         patch \
@@ -61,7 +63,7 @@ ADD https://storage.googleapis.com/builddeps/swagger2markup-cli-1.3.3.jar /opt/s
 # https://github.com/bazelbuild/bazel/issues/11554
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
-ENV JAVA_HOME=/usr/lib/jvm/java-11
+ENV JAVA_HOME=/usr/lib/jvm/java-21
 
 # reference to master is for an external repo and can't yet be changed
 RUN mkdir -p /gimme && curl -sL \
@@ -113,6 +115,15 @@ RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     go install -v mvdan.cc/gofumpt@v0.8.0 && \
     curl -sSfL https://golangci-lint.run/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
+
+ENV KUBEBUILDER_ASSETS=/usr/local/kubebuilder/bin
+
+RUN set -x && \
+    source /etc/profile.d/gimme.sh && \
+    go install sigs.k8s.io/controller-runtime/tools/setup-envtest@${SETUP_ENVTEST_VERSION} && \
+    ENVTEST_ASSETS=$(setup-envtest use ${ENVTEST_K8S_VERSION} --bin-dir /usr/local/kubebuilder -p path) && \
+    ln -sfn "${ENVTEST_ASSETS}" "${KUBEBUILDER_ASSETS}" && \
+    go clean -cache -modcache
 
 RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 

@@ -6,8 +6,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -34,6 +32,7 @@ type ContainerSpecRenderer struct {
 	readinessProbe    *k8sv1.Probe
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
+	command           []string
 	args              []string
 	extraEnvVars      []k8sv1.EnvVar
 }
@@ -52,13 +51,13 @@ func NewContainerSpecRenderer(containerName string, launcherImg string, imgPullP
 	return computeContainerSpec
 }
 
-func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
+func (csr *ContainerSpecRenderer) Render() k8sv1.Container {
 	return k8sv1.Container{
 		Name:                     csr.name,
 		Image:                    csr.launcherImg,
 		ImagePullPolicy:          csr.imgPullPolicy,
 		SecurityContext:          securityContext(csr.userID, csr.capabilities),
-		Command:                  cmd,
+		Command:                  csr.command,
 		VolumeDevices:            csr.volumeDevices,
 		VolumeMounts:             csr.volumeMounts,
 		Resources:                csr.resources,
@@ -158,6 +157,12 @@ func WithPorts(vmi *v1.VirtualMachineInstance) Option {
 	}
 }
 
+func WithCommand(command []string) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.command = command
+	}
+}
+
 func WithArgs(args []string) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.args = args
@@ -214,7 +219,7 @@ func securityContext(userId int64, requiredCapabilities *k8sv1.Capabilities) *k8
 
 	if isNonRoot {
 		context.RunAsGroup = &userId
-		context.AllowPrivilegeEscalation = pointer.P(false)
+		context.AllowPrivilegeEscalation = new(false)
 	}
 
 	return context

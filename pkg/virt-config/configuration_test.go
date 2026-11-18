@@ -17,6 +17,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -47,6 +48,21 @@ var _ = Describe("test configuration", func() {
 	},
 		Entry("is true, AllowEmulation should return true", true, true),
 		Entry("is false, AllowEmulation should return false", false, false),
+	)
+
+	DescribeTable("when OfflineIncrementalBackup feature gate", func(gates, disabledGates []string, result bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates:         gates,
+				DisabledFeatureGates: disabledGates,
+			},
+		})
+		Expect(clusterConfig.OfflineIncrementalBackupEnabled()).To(Equal(result))
+	},
+		Entry("is disabled without any gate", nil, nil, false),
+		Entry("is disabled without the IncrementalBackup dependency", []string{"OfflineIncrementalBackup"}, []string{"IncrementalBackup"}, false),
+		Entry("is disabled with only IncrementalBackup", []string{"IncrementalBackup"}, nil, false),
+		Entry("is enabled with both gates", []string{"IncrementalBackup", "OfflineIncrementalBackup"}, nil, true),
 	)
 
 	trueValue := true
@@ -742,6 +758,21 @@ var _ = Describe("test configuration", func() {
 		Entry("is enabled it should result in cluster profiler being enabled", &v1.DeveloperConfiguration{ClusterProfiler: true}, true),
 	)
 
+	DescribeTable("when the CPUsWithDRA feature gate", func(devConfig *v1.DeveloperConfiguration, isEnabled bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: devConfig,
+		})
+
+		Expect(clusterConfig.CPUsWithDRAGateEnabled()).To(Equal(isEnabled))
+	},
+		Entry("is unset it should result in CPU DRA being disabled",
+			&v1.DeveloperConfiguration{}, false),
+		Entry("is set it should result in CPU DRA being enabled",
+			&v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.CPUsWithDRAGate},
+			}, true),
+	)
+
 	DescribeTable("when PersistentReservation config", func(config *v1.KubeVirtConfiguration, isEnabled bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(config)
 
@@ -1060,18 +1091,23 @@ var _ = Describe("test configuration", func() {
 		)
 	})
 
-	DescribeTable("ParseFactor", func(value string, precision int, expected float64, expectError bool) {
-		result, err := virtconfig.ParseFactor(value, precision)
-		if expectError {
-			Expect(err).To(HaveOccurred())
-			return
+	DescribeTable("GetEmulationPolicy should return correct policy", func(configPolicy, vmiPolicy v1.EmulationPolicy, expected v1.EmulationPolicy) {
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+		if configPolicy != "" {
+			config.GetConfig().EmulationPolicy = &configPolicy
 		}
-		Expect(err).NotTo(HaveOccurred())
+
+		vmi := libvmi.New()
+		if vmiPolicy != "" {
+			vmi.Spec.EmulationPolicy = &vmiPolicy
+		}
+
+		result := config.GetEmulationPolicy(vmi)
 		Expect(result).To(Equal(expected))
 	},
-		Entry("accepts integer factor", "2", 3, 2.0, false),
-		Entry("accepts decimal within precision", "1.5", 1, 1.5, false),
-		Entry("rejects too many decimal places", "1.55", 1, 0.0, true),
-		Entry("accepts exponential notation when value fits precision", "1.5e1", 0, 15.0, false),
+		Entry("nil", nil, nil, v1.EmulationPolicyNone),
+		Entry("global", v1.EmulationPolicySoftware, nil, v1.EmulationPolicySoftware),
+		Entry("vmi", nil, v1.EmulationPolicySoftware, v1.EmulationPolicySoftware),
+		Entry("both", v1.EmulationPolicySoftware, v1.EmulationPolicyNone, v1.EmulationPolicyNone),
 	)
 })

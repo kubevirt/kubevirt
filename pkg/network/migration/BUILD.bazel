@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["evaluator.go"],
+    srcs = [
+        "evaluator.go",
+        "migratable.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/network/migration",
     visibility = ["//visibility:public"],
     deps = [
@@ -18,6 +21,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "evaluator_test.go",
+        "migratable_test.go",
         "migration_suite_test.go",
     ],
     race = "on",

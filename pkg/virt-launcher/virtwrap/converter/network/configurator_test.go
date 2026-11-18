@@ -26,7 +26,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 )
@@ -70,7 +69,7 @@ var _ = Describe("Network Domain Configurator", func() {
 		Entry(
 			"when only an SR-IOV interface is specified",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(network1Name)),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithSRIOVBinding())),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
 			),
 			nil,
@@ -78,7 +77,9 @@ var _ = Describe("Network Domain Configurator", func() {
 		Entry(
 			"when an interface using a non-tap binding plugin is specified",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithInterface(
+					libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithBindingPlugin(v1.PluginBinding{Name: "passt"})),
+				),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 			nil,
@@ -121,14 +122,14 @@ var _ = Describe("Network Domain Configurator", func() {
 		Entry(
 			"when a primary interface is specified",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		),
 		Entry(
 			"when a secondary interface using bridge binding is specified",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+				libvmi.WithInterface(libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
 			),
 		),
@@ -136,9 +137,9 @@ var _ = Describe("Network Domain Configurator", func() {
 			"when an interface using a tap based binding plugin is specified",
 			libvmi.New(
 				libvmi.WithInterface(
-					libvmi.InterfaceWithBindingPlugin(
+					libvmi.NewInterface(
 						network1Name,
-						v1.PluginBinding{Name: tapBasedBindingPluginName},
+						libvmi.WithBindingPlugin(v1.PluginBinding{Name: tapBasedBindingPluginName}),
 					),
 				),
 				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
@@ -148,8 +149,7 @@ var _ = Describe("Network Domain Configurator", func() {
 
 	DescribeTable("should configure link state",
 		func(linkState v1.InterfaceState, expectedInterface api.Interface) {
-			ifaceWithLinkState := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
-			ifaceWithLinkState.State = linkState
+			ifaceWithLinkState := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding(), libvmi.WithState(linkState))
 
 			vmi := libvmi.New(
 				libvmi.WithInterface(ifaceWithLinkState),
@@ -183,8 +183,7 @@ var _ = Describe("Network Domain Configurator", func() {
 	)
 
 	DescribeTable("multi-queue", func(model string, expectedInterface api.Interface) {
-		ifaceWithModel := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
-		ifaceWithModel.Model = model
+		ifaceWithModel := libvmi.NewInterface(network1Name, libvmi.WithBridgeBinding(), libvmi.WithModel(model))
 
 		vmi := libvmi.New(
 			libvmi.WithCPUCount(cores, threads, sockets),
@@ -258,7 +257,7 @@ func withTypeEthernet() option {
 
 func withVHostDriver(queues uint) option {
 	return func(iface *api.Interface) {
-		iface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: pointer.P(queues)}
+		iface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: new(queues)}
 	}
 }
 

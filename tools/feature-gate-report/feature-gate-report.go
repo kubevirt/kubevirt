@@ -21,7 +21,9 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"sort"
 
@@ -33,7 +35,7 @@ type featureGateEntry struct {
 	State string `json:"state"`
 }
 
-func main() {
+func collectEntries() []featureGateEntry {
 	gates := featuregate.GetRegisteredFeatureGates()
 
 	var entries []featureGateEntry
@@ -54,10 +56,63 @@ func main() {
 		return entries[i].Name < entries[j].Name
 	})
 
+	return entries
+}
+
+func renderJSON(w io.Writer, entries []featureGateEntry) error {
 	data, err := json.MarshalIndent(entries, "", "  ")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		return fmt.Errorf("marshaling JSON: %w", err)
+	}
+	if _, err = fmt.Fprintln(w, string(data)); err != nil {
+		return fmt.Errorf("writing output: %w", err)
+	}
+	return nil
+}
+
+func renderMarkdown(w io.Writer, entries []featureGateEntry) {
+	fmt.Fprintln(w, "# Feature Gate Report")
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "| Feature Gate | State |")
+	fmt.Fprintln(w, "|---|---|")
+	for _, e := range entries {
+		fmt.Fprintf(w, "| %s | %s |\n", e.Name, e.State)
+	}
+}
+
+func main() {
+	outputFormat := flag.String("output-format", "json", "Output format: json or md")
+	outputFile := flag.String("output-file", "", "Output file path (default: stdout)")
+	flag.Parse()
+
+	entries := collectEntries()
+
+	w := io.Writer(os.Stdout)
+	if *outputFile != "" {
+		f, err := os.Create(*outputFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := f.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error closing file: %v\n", err)
+				os.Exit(1)
+			}
+		}()
+		w = f
+	}
+
+	switch *outputFormat {
+	case "json":
+		if err := renderJSON(w, entries); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+	case "md":
+		renderMarkdown(w, entries)
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unknown output format %q (supported: json, md)\n", *outputFormat)
 		os.Exit(1)
 	}
-	fmt.Println(string(data))
 }

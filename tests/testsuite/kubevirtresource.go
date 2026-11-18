@@ -37,7 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -46,12 +46,14 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
 
 var (
 	KubeVirtDefaultConfig v1.KubeVirtConfiguration
 	originalKV            *v1.KubeVirt
+	appliedE2EConfig      bool
 )
 
 func AdjustKubeVirtResource() {
@@ -65,6 +67,8 @@ func AdjustKubeVirtResource() {
 	if !flags.ApplyDefaulte2eConfiguration {
 		return
 	}
+
+	appliedE2EConfig = true
 
 	// Rotate very often during the tests to ensure that things are working
 	kv.Spec.CertificateRotationStrategy = v1.KubeVirtCertificateRotateStrategy{SelfSigned: &v1.KubeVirtSelfSignConfiguration{
@@ -100,27 +104,31 @@ func AdjustKubeVirtResource() {
 			},
 		},
 	}
-	// Disable CPUManager Featuregate for s390x as it is not supported.
-	if translateBuildArch() != "s390x" {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			featuregate.CPUManager,
-		)
-	}
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+	arch := libnode.GetArch()
+	unsupportedGates := unsupportedFeatureGatesForArch(arch)
+
+	for _, gate := range []string{
+		featuregate.CPUManager,
 		featuregate.IgnitionGate,
 		featuregate.SidecarGate,
-		featuregate.IncrementalBackupGate,
+		featuregate.ExternalVMSnapshotGate,
+		featuregate.OfflineIncrementalBackupGate,
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.ObjectGraph,
+		featuregate.DeclarativeVMState,
 		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.DecentralizedLiveMigration,
 		featuregate.UtilityVolumesGate,
 		featuregate.RebootPolicy,
-		featuregate.ContainerPathVolumesGate,
-	)
+	} {
+		if !unsupportedGates[gate] {
+			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
+				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, gate)
+		}
+	}
 
 	// ImageVolume is enabled by default for k8s 1.35+ (image volume feature gate in kubelet).
 	// Disable it on older clusters to avoid CI failures.
@@ -152,27 +160,60 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(featuregate.CPUManager) {
-		// CPUManager is typically not enabled in the control-plane node(s)
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
-		Expect(err).NotTo(HaveOccurred())
-		// This case could happen in the case of single node clusters (like OpenShift SNO)
-		if len(nodes.Items) == 0 {
-			log.Log.Info("No non-control-plane nodes found. This shouldn't happen unless this is a single-node cluster. Falling back to listing nodes labeled as `worker`.")
-			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "node-role.kubernetes.io/worker"})
-			Expect(err).NotTo(HaveOccurred())
-		}
-		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
-	}
 }
 
-func waitForSchedulableNodesWithCPUManager(n int) {
+func workerNodes(virtClient kubecli.KubevirtClient) []string {
+	// Fall back to all nodes for single-node clusters (SNO / kubevirtci / kubeadm).
+	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "!node-role.kubernetes.io/control-plane",
+	})
+	Expect(err).ToNot(HaveOccurred())
+	if len(nodes.Items) == 0 {
+		nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+	Expect(nodes.Items).ToNot(BeEmpty(), "expected at least one worker node")
+
+	names := make([]string, len(nodes.Items))
+	for i := range nodes.Items {
+		names[i] = nodes.Items[i].Name
+	}
+	return names
+}
+
+func WaitForWorkerNodesSchedulable() {
 	virtClient := kubevirt.Client()
-	Eventually(func() bool {
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true," + v1.CPUManager + "=true"})
-		Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
-		return len(nodes.Items) == n
-	}, 360, 1*time.Second).Should(BeTrue())
+	workerNames := workerNodes(virtClient)
+
+	// Baseline at wait start (after EnsureKubevirtReady). A later heartbeat means
+	// schedulable + cpumanager were rewritten under suite config (same patch).
+	var heartbeatTimestamps map[string]string
+	if appliedE2EConfig {
+		heartbeatTimestamps = make(map[string]string, len(workerNames))
+		for _, name := range workerNames {
+			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			heartbeatTimestamps[name] = node.Annotations[v1.VirtHandlerHeartbeat]
+		}
+	}
+
+	Eventually(func(g Gomega) {
+		for _, name := range workerNames {
+			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(node.Labels[v1.NodeSchedulable]).To(Equal("true"),
+				"node %s is not kubevirt.io/schedulable=true", name)
+			if !appliedE2EConfig {
+				continue
+			}
+			heartbeat := node.Annotations[v1.VirtHandlerHeartbeat]
+			g.Expect(heartbeat).ToNot(BeEmpty(),
+				"node %s is missing kubevirt.io/heartbeat", name)
+			g.Expect(heartbeat).ToNot(Equal(heartbeatTimestamps[name]),
+				"node %s has not heartbeated since suite config was applied", name)
+		}
+	}, 360*time.Second, time.Second).Should(Succeed(),
+		"timed out waiting for worker nodes to become schedulable")
 }
 
 func RestoreKubeVirtResource() {
@@ -215,25 +256,19 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	return kv
 }
 
-/*
-translateBuildArch translates the build_arch to arch
-
-	case1:
-	  build_arch is crossbuild-s390x, which will be translated to s390x arch
-	case2:
-	  build_arch is s390x, which will be translated to s390x arch
-*/
-func translateBuildArch() string {
-	buildArch := os.Getenv("BUILD_ARCH")
-
-	if buildArch == "" {
-		return ""
+// unsupportedFeatureGatesForArch returns the set of feature gates that must not
+// be enabled on the given architecture because the underlying hardware or
+// platform capability does not exist (e.g. AMD SEV on s390x).
+func unsupportedFeatureGatesForArch(arch string) map[string]bool {
+	switch arch {
+	case "s390x":
+		return map[string]bool{
+			featuregate.CPUManager:            true,
+			featuregate.WorkloadEncryptionSEV: true,
+		}
+	default:
+		return nil
 	}
-	archElements := strings.Split(buildArch, "-")
-	if len(archElements) == 2 {
-		return archElements[1]
-	}
-	return archElements[0]
 }
 
 func parseVerbosityEnv() (*v1.LogVerbosity, error) {

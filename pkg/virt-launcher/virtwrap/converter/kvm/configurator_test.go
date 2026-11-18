@@ -53,7 +53,6 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
 			Expect(domain).To(Equal(api.Domain{}))
-
 		})
 
 		It("Should not modify domain type even when emulation is allowed", func() {
@@ -112,7 +111,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 			)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("CrossArchitectureVirtualization"))
+			Expect(err.Error()).To(ContainSubstring("emulationPolicy=Software"))
 		})
 
 		It("Should succeed for cross-arch even when useEmulation is disabled", func() {

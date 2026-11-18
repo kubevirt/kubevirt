@@ -46,6 +46,10 @@ if [[ ! -z "$KUBEVIRT_PROVIDER" ]]; then
     sonobuoy_args+=" --plugin-env kubevirt-conformance.KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER}"
 fi
 
+if [[ ! -z "$PRIMARY_NETWORK_BINDING_PLUGIN" ]]; then
+    sonobuoy_args+=" --plugin-env kubevirt-conformance.PRIMARY_NETWORK_BINDING_PLUGIN=${PRIMARY_NETWORK_BINDING_PLUGIN}"
+fi
+
 echo 'Executing conformance tests and wait for them to finish'
 echo "Using $sonobuoy_args as arguments to sonobuoy"
 sonobuoy run ${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_LABEL="${label_filter}"

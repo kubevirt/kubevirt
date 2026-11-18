@@ -11,12 +11,12 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins/cel",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/plugins/cel:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/github.com/google/cel-go/cel:go_default_library",
         "//vendor/github.com/google/cel-go/common/types:go_default_library",
         "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
         "//vendor/github.com/google/cel-go/common/types/traits:go_default_library",
-        "//vendor/github.com/google/cel-go/ext:go_default_library",
         "//vendor/libvirt.org/go/libvirtxml:go_default_library",
     ],
 )

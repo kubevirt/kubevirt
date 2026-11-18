@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -44,7 +45,6 @@ import (
 
 var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
-	const minNodesWithVirtHandler = 2
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -53,12 +53,9 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 
 	It("Should disallow to modify VMs on different node", func() {
 		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		if len(nodes) < minNodesWithVirtHandler {
-			Fail("Requires multiple nodes with virt-handler running")
-		}
 
 		vmi := libvmifact.NewGuestless()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 		node := vmi.Status.NodeName
 
@@ -98,7 +95,7 @@ var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulable
 			g.Expect(err).ToNot(HaveOccurred())
 
 			vmiScoped.Labels["allowed.io"] = "value"
-			_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{})
+			_, err = handlerClient.VirtualMachineInstance(vmi.Namespace).Update(context.TODO(), vmiScoped, metav1.UpdateOptions{}) //nolint:forbidigo
 			return err
 		}, 10*time.Second, time.Second).Should(MatchError(
 			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),

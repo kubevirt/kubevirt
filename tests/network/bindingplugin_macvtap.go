@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -70,12 +69,8 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 	var serverMAC, clientMAC string
 	BeforeEach(func() {
-		mac, err := libnet.GenerateRandomMac()
-		serverMAC = mac.String()
-		Expect(err).NotTo(HaveOccurred())
-		mac, err = libnet.GenerateRandomMac()
-		Expect(err).NotTo(HaveOccurred())
-		clientMAC = mac.String()
+		serverMAC = libnet.GenerateRandomMac().String()
+		clientMAC = libnet.GenerateRandomMac().String()
 	})
 
 	It("two VMs with macvtap interface should be able to communicate over macvtap network", func() {
@@ -84,18 +79,26 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 			serverIPAddr   = "192.0.2.102"
 			serverCIDR     = serverIPAddr + "/24"
 			clientCIDR     = "192.0.2.101/24"
+			serverLabel    = "macvtap-server"
 		)
-		nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
-		Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
-		nodeName := nodeList.Items[0].Name
 
-		opts := []libvmi.Option{
-			libvmi.WithInterface(libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName)),
+		commonOpts := []libvmi.Option{
+			libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(macvtapNetworkName, v1.PluginBinding{Name: "macvtap"})),
 			libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
-			libvmi.WithNodeAffinityFor(nodeName),
 		}
-		serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
-		clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+		serverVMI := libvmifact.NewAlpineWithTestTooling(append(commonOpts,
+			libvmi.WithLabel(serverLabel, ""),
+		)...)
+		clientVMI := libvmifact.NewAlpineWithTestTooling(append(commonOpts,
+			libvmi.WithRequiredPodAffinity(k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{Key: serverLabel, Operator: metav1.LabelSelectorOpExists},
+					},
+				},
+				TopologyKey: k8sv1.LabelHostname,
+			}),
+		)...)
 
 		var err error
 		ns := testsuite.GetTestNamespace(nil)
@@ -118,8 +121,11 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 		BeforeEach(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(libvmi.InterfaceWithMac(
-					libvmi.InterfaceWithMacvtapBindingPlugin("test"), clientMAC)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					"test",
+					libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+					libvmi.WithMac(clientMAC),
+				)),
 				libvmi.WithNetwork(libvmi.MultusNetwork("test", macvtapNetworkName)),
 			)
 			var err error
@@ -148,9 +154,13 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 
 			BeforeEach(func() {
 				serverVMI = libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithInterface(libvmi.InterfaceWithMac(
-						libvmi.InterfaceWithMacvtapBindingPlugin(macvtapNetworkName), serverMAC)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface(
+						macvtapNetworkName,
+						libvmi.WithBindingPlugin(v1.PluginBinding{Name: "macvtap"}),
+						libvmi.WithMac(serverMAC),
+					)),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 				)

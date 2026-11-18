@@ -63,6 +63,17 @@ func newServiceMonitorRole(namespace string) *rbacv1.Role {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"discovery.k8s.io",
+				},
+				Resources: []string{
+					"endpointslices",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }

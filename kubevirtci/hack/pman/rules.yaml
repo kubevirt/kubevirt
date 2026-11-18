@@ -7,6 +7,7 @@ all:
   - cluster-provision
   - cluster-up
   - cluster-up/cluster
+  - cluster-up/cluster/vgpu-mdev/*
   - cluster-up/hack
   - hack
   - publish.sh
@@ -20,6 +21,8 @@ none:
   - OWNERS
   - OWNERS_ALIASES
   - .gitignore
+  - .coderabbit.yaml
+  - .golangci.yaml
 regex:
   - cluster-provision/k8s/[0-9].[0-9][0-9]*
   - cluster-up/cluster/k8s-[0-9].[0-9][0-9]*
@@ -27,6 +30,10 @@ specific:
   - pattern: cluster-up/cluster/vfio-gpu/*
     targets:
       - "1.36"
+  - pattern: cluster-up/cluster/dra-cpu/*
+    targets:
+      - "1.36"
+      - "1.37"
 regex_none:
   - cluster-up/cluster/kind*
   - cluster-up/cluster/minikube*

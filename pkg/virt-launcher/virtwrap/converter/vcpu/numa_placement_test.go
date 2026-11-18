@@ -128,6 +128,84 @@ var _ = Describe("NumaPlacement", func() {
 			Expect(givenSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
 		})
 
+		It("should pass through NUMA distances with three nodes", func() {
+			var err error
+			givenSpec.Memory, err = QuantityToByte(resource.MustParse("66Mi"))
+			Expect(err).ToNot(HaveOccurred())
+			givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
+				VCPU: 4, CPUSet: "40",
+			})
+			givenTopology.NumaCells = append(givenTopology.NumaCells, &cmdv1.Cell{
+				Id: 5,
+				Cpus: []*cmdv1.CPU{
+					{Id: 40},
+				},
+			})
+
+			givenTopology.NumaCells[0].Distances = []*cmdv1.Sibling{
+				{Id: 0, Value: 10},
+				{Id: 4, Value: 20},
+				{Id: 5, Value: 30},
+			}
+			givenTopology.NumaCells[1].Distances = []*cmdv1.Sibling{
+				{Id: 0, Value: 20},
+				{Id: 4, Value: 10},
+				{Id: 5, Value: 20},
+			}
+			givenTopology.NumaCells[2].Distances = []*cmdv1.Sibling{
+				{Id: 0, Value: 30},
+				{Id: 4, Value: 20},
+				{Id: 5, Value: 10},
+			}
+
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+
+			Expect(givenSpec.CPU.NUMA.Cells[0].Distances).To(Equal(&api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+				{ID: "0", Value: 10},
+				{ID: "1", Value: 20},
+				{ID: "2", Value: 30},
+			}}))
+			Expect(givenSpec.CPU.NUMA.Cells[1].Distances).To(Equal(&api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+				{ID: "0", Value: 20},
+				{ID: "1", Value: 10},
+				{ID: "2", Value: 20},
+			}}))
+			Expect(givenSpec.CPU.NUMA.Cells[2].Distances).To(Equal(&api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+				{ID: "0", Value: 30},
+				{ID: "1", Value: 20},
+				{ID: "2", Value: 10},
+			}}))
+		})
+
+		It("should filter out non-mapped host NUMA distances", func() {
+			givenTopology.NumaCells[0].Distances = []*cmdv1.Sibling{
+				{Id: 0, Value: 10},
+				{Id: 2, Value: 15},
+				{Id: 4, Value: 20},
+			}
+			givenTopology.NumaCells[1].Distances = []*cmdv1.Sibling{
+				{Id: 0, Value: 20},
+				{Id: 2, Value: 15},
+				{Id: 4, Value: 10},
+			}
+
+			expectedSpec.CPU.NUMA.Cells = []api.NUMACell{
+				{ID: "0", CPUs: "0,1", Memory: &MiBInBytes_32, Unit: "b",
+					Distances: &api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+						{ID: "0", Value: 10},
+						{ID: "1", Value: 20},
+					}}},
+				{ID: "1", CPUs: "3", Memory: &MiBInBytes_32, Unit: "b",
+					Distances: &api.NUMACellDistances{Siblings: []api.NUMACellSibling{
+						{ID: "0", Value: 20},
+						{ID: "1", Value: 10},
+					}}},
+			}
+
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+			Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
+		})
+
 		It("should detect if not enough memory is requested", func() {
 			var err error
 			memory := resource.MustParse("2Mi")

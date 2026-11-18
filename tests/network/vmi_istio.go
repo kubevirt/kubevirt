@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnamespace"
@@ -204,7 +205,8 @@ var istioTests = func(vmType VmType) {
 
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				)
 
 				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI, metav1.CreateOptions{})
@@ -333,14 +335,15 @@ var istioTests = func(vmType VmType) {
 
 				serverVMI = libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
+					libvmi.WithInterface(libvmi.NewInterface(
+						v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithLabel("version", "v1"),
 					libvmi.WithLabel(vmiAppSelectorKey, vmiServerAppSelectorValue),
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					libvmi.WithNamespace(namespace),
 				)
 				By("Starting VirtualMachineInstance")
-				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, libvmops.StartupTimeoutSecondsHuge)
+				serverVMI = libvmops.RunVMIAndExpectLaunch(serverVMI, flags.StartupTimeoutSecondsHuge())
 
 				serverVMIService := netservice.BuildSpec("vmi-server", vmiServerTestPort, vmiServerTestPort, vmiAppSelectorKey, vmiServerAppSelectorValue)
 				_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), serverVMIService, metav1.CreateOptions{})
@@ -472,7 +475,11 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 	networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithInterface(libvmi.NewInterface(
+			v1.DefaultPodNetwork().Name,
+			libvmi.WithMasqueradeBinding(),
+			libvmi.WithPorts(ports...),
+		)),
 		libvmi.WithLabel(vmiAppSelectorKey, vmiAppSelectorValue),
 		libvmi.WithAnnotation(istio.InjectSidecarAnnotation, "true"),
 		libvmi.WithCloudInitNoCloud(
@@ -484,8 +491,8 @@ func createMasqueradeVm(ports []v1.Port) *v1.VirtualMachineInstance {
 }
 
 func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
-	passtIface := libvmi.InterfaceDeviceWithPasstBinding(v1.DefaultPodNetwork().Name)
-	passtIface.Ports = ports
+	passtIface := libvmi.NewInterface(
+		v1.DefaultPodNetwork().Name, libvmi.WithPasstBinding(), libvmi.WithPorts(ports...))
 	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(passtIface),
@@ -498,14 +505,14 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 
 func generateStrictPeerAuthentication() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", securityIstioIO, istioApiVersion),
 			"kind":       "PeerAuthentication",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "strict-pa",
 			},
-			"spec": map[string]interface{}{
-				"mtls": map[string]interface{}{
+			"spec": map[string]any{
+				"mtls": map[string]any{
 					"mode": "STRICT",
 				},
 			},
@@ -515,14 +522,14 @@ func generateStrictPeerAuthentication() *unstructured.Unstructured {
 
 func generateRegistryOnlySidecar() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "Sidecar",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "registry-only-sidecar",
 			},
-			"spec": map[string]interface{}{
-				"outboundTrafficPolicy": map[string]interface{}{
+			"spec": map[string]any{
+				"outboundTrafficPolicy": map[string]any{
 					"mode": "REGISTRY_ONLY",
 				},
 			},
@@ -532,32 +539,32 @@ func generateRegistryOnlySidecar() *unstructured.Unstructured {
 
 func generateVirtualService() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "VirtualService",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "vmi-server-vs",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"gateways": []string{
 					vmiServerGateway,
 				},
 				"hosts": []string{
 					fmt.Sprintf("%s.example.com", vmiServerHostName),
 				},
-				"http": []interface{}{
-					map[string]interface{}{
-						"match": []map[string]interface{}{
+				"http": []any{
+					map[string]any{
+						"match": []map[string]any{
 							{
-								"uri": map[string]interface{}{
+								"uri": map[string]any{
 									"prefix": "/",
 								},
 							},
 						},
-						"route": []map[string]interface{}{
+						"route": []map[string]any{
 							{
-								"destination": map[string]interface{}{
-									"port": map[string]interface{}{
+								"destination": map[string]any{
+									"port": map[string]any{
 										"number": vmiServerTestPort,
 									},
 									"host":   vmiServerHostName,
@@ -574,18 +581,18 @@ func generateVirtualService() *unstructured.Unstructured {
 
 func generateDestinationRule() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "DestinationRule",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": "vmi-server-dr",
 			},
-			"spec": map[string]interface{}{
+			"spec": map[string]any{
 				"host": vmiServerHostName,
-				"subsets": []map[string]interface{}{
+				"subsets": []map[string]any{
 					{
 						"name": "v1",
-						"labels": map[string]interface{}{
+						"labels": map[string]any{
 							"version": "v1",
 						},
 					},
@@ -597,19 +604,19 @@ func generateDestinationRule() *unstructured.Unstructured {
 
 func generateGateway() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
+		Object: map[string]any{
 			"apiVersion": fmt.Sprintf("%s/%s", networkingIstioIO, istioApiVersion),
 			"kind":       "Gateway",
-			"metadata": map[string]interface{}{
+			"metadata": map[string]any{
 				"name": vmiServerGateway,
 			},
-			"spec": map[string]interface{}{
-				"selector": map[string]interface{}{
+			"spec": map[string]any{
+				"selector": map[string]any{
 					"istio": "ingressgateway",
 				},
-				"servers": []map[string]interface{}{
+				"servers": []map[string]any{
 					{
-						"port": map[string]interface{}{
+						"port": map[string]any{
 							"number":   80,
 							"name":     "http",
 							"protocol": "HTTP",

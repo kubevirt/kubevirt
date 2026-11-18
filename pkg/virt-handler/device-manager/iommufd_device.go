@@ -101,7 +101,7 @@ func NewIOMMUFDDevicePlugin(maxDevices int) *IOMMUFDDevicePlugin {
 		lock:         &sync.Mutex{},
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     iommufdDeviceName + strconv.Itoa(i),
 			Health: pluginapi.Healthy,

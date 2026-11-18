@@ -303,10 +303,10 @@ var _ = Describe("Preference.Devices", func() {
 				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
 				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
 			),
-			Entry("not apply when panic devices is not provided in the VMI spec",
+			Entry("create a panic device when none are provided in the VMI spec",
 				pointer.P(virtv1.Hyperv),
 				[]virtv1.PanicDevice{},
-				[]virtv1.PanicDevice{},
+				[]virtv1.PanicDevice{{Model: pointer.P(virtv1.Hyperv)}},
 			),
 			Entry("only apply when  panic device model is nil for a panic device provided in the VMI spec",
 				pointer.P(virtv1.Isa),
@@ -355,6 +355,22 @@ var _ = Describe("Preference.Devices", func() {
 			),
 		)
 	})
+
+	DescribeTable("PreferredBlockMultiQueue should", func(preferenceValue, vmiValue, expected *bool) {
+		preferenceSpec.Devices.PreferredBlockMultiQueue = preferenceValue
+		vmi.Spec.Domain.Devices.BlockMultiQueue = vmiValue
+
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(expected))
+	},
+		Entry("apply true when VMI value is nil", new(true), nil, new(true)),
+		Entry("apply false when VMI value is nil", new(false), nil, new(false)),
+		Entry("leave unset when both values are nil", nil, nil, nil),
+		Entry("preserve true without a preference", nil, new(true), new(true)),
+		Entry("preserve false without a preference", nil, new(false), new(false)),
+		Entry("preserve explicit false over preference true", new(true), new(false), new(false)),
+		Entry("preserve explicit true over preference false", new(false), new(true), new(true)),
+	)
 
 	DescribeTable("PreferredAutoAttach should", func(preferenceValue, vmiValue *bool, match types.GomegaMatcher) {
 		type autoAttachField struct {

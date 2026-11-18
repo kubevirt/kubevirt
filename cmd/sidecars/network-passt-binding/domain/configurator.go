@@ -47,8 +47,6 @@ type PasstNetworkConfigurator struct {
 }
 
 const (
-	// PasstPluginName passt binding plugin name should be registered to Kubevirt through Kubevirt CR
-	PasstPluginName = "passt"
 	//nolint:gosec
 	// PasstLogFilePath passt log file path Kubevirt consume and record
 	PasstLogFilePath = "/var/run/kubevirt/passt.log"
@@ -58,6 +56,7 @@ func NewPasstNetworkConfigurator(
 	ifaces []vmschema.Interface,
 	networks []vmschema.Network,
 	ifaceStatuses []vmschema.VirtualMachineInstanceNetworkInterface,
+	bindingPluginName string,
 	opts NetworkConfiguratorOptions,
 ) (*PasstNetworkConfigurator, error) {
 	network := vmispec.LookupPodNetwork(networks)
@@ -68,7 +67,7 @@ func NewPasstNetworkConfigurator(
 	if iface == nil {
 		return nil, fmt.Errorf("no interface found")
 	}
-	if iface.Binding == nil || iface.Binding != nil && iface.Binding.Name != PasstPluginName {
+	if iface.Binding == nil || iface.Binding.Name != bindingPluginName {
 		return nil, fmt.Errorf("interface %q is not set with Passt network binding plugin", network.Name)
 	}
 

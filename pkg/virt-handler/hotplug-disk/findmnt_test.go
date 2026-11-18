@@ -33,14 +33,14 @@ const (
 var _ = Describe("findmnt", func() {
 	callFindMntByVolume := func() ([]FindmntInfo, error) {
 		findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
-			return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", "/test/path")), nil
+			return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", "/test/path"), nil
 		}
 		return LookupFindmntInfoByVolume("test", 1234)
 	}
 
 	callFindMntByDevice := func() ([]FindmntInfo, error) {
 		findMntByDevice = func(volumeName string) ([]byte, error) {
-			return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", "/test/path")), nil
+			return fmt.Appendf(nil, findmntByVolumeRes, "testvolume", "/test/path"), nil
 		}
 		return LookupFindmntInfoByDevice("test")
 	}

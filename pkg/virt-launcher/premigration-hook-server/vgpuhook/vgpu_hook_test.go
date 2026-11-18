@@ -77,7 +77,7 @@ var _ = Describe("Premigration Hook Server", func() {
 				},
 			}
 
-			Expect(VGPULiveMigration(c, vmi, &domain)).NotTo(HaveOccurred(), "failed to modify domain")
+			Expect(MDevVGPULiveMigration(c, vmi, &domain)).NotTo(HaveOccurred(), "failed to modify domain")
 
 			expectedDomain := libvirtxml.Domain{
 				Type: "kvm",
@@ -145,7 +145,7 @@ var _ = Describe("Premigration Hook Server", func() {
 				},
 			}
 
-			Expect(VGPULiveMigration(c, vmi, &domain)).To(MatchError("the migrating vmi should only have one vGPU"))
+			Expect(MDevVGPULiveMigration(c, vmi, &domain)).To(MatchError("the migrating vmi should only have one vGPU"))
 		})
 
 		It("should fail if GPU is not an mdev vGPU", func() {
@@ -186,7 +186,7 @@ var _ = Describe("Premigration Hook Server", func() {
 				},
 			}
 
-			Expect(VGPULiveMigration(c, vmi, &domain)).To(MatchError("unsupporting gpu type for migration: " + api.AddressPCI))
+			Expect(MDevVGPULiveMigration(c, vmi, &domain)).To(MatchError("unsupporting gpu type for migration: " + api.AddressPCI))
 		})
 	})
 })

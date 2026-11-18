@@ -1,0 +1,16 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - forbidigo
+  settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: \.QemuMonitorCommand(WithFiles)?$
+          msg: >-
+            libvirt taints the domain on every QEMU monitor command, read-only queries included, until the QEMU process stops. Use the libvirt API instead.
+  exclusions:
+    generated: lax
+    paths:
+      - (^|/)vendor/

@@ -39,8 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -297,14 +295,14 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			ifacesSpec, err = n.masqueradeBindingSpec(podIfaceName, ifIndex, podIfaceStatusByName)
 
 			if nmstate.AnyInterface(ifacesSpec, hasIP4GlobalUnicast) {
-				spec.LinuxStack.IPv4.Forwarding = pointer.P(true)
+				spec.LinuxStack.IPv4.Forwarding = new(true)
 			}
 			if nmstate.AnyInterface(ifacesSpec, hasIP6GlobalUnicast) {
-				spec.LinuxStack.IPv6.Forwarding = pointer.P(true)
+				spec.LinuxStack.IPv6.Forwarding = new(true)
 			}
 		case iface.PasstBinding != nil:
 			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
-			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
+			spec.LinuxStack.IPv4.UnprivilegedPortStart = new(0)
 
 		case iface.SRIOV != nil:
 		case iface.Binding != nil:
@@ -354,7 +352,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 
 	if hasIPGlobalUnicast(podStatusIface.IPv4) {
 		bridgeIface.IPv4 = nmstate.IP{
-			Enabled: pointer.P(true),
+			Enabled: new(true),
 			Address: []nmstate.IPAddress{
 				{
 					IP:        bridgeFakeIPBase + strconv.Itoa(vmiIfaceIndex),
@@ -370,9 +368,9 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		State:       nmstate.IfaceStateUp,
 		CopyMacFrom: bridgeIface.Name,
 		Controller:  bridgeIface.Name,
-		IPv4:        nmstate.IP{Enabled: pointer.P(false)},
-		IPv6:        nmstate.IP{Enabled: pointer.P(false)},
-		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+		IPv4:        nmstate.IP{Enabled: new(false)},
+		IPv6:        nmstate.IP{Enabled: new(false)},
+		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -424,30 +422,30 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 		State:      nmstate.IfaceStateUp,
 		MacAddress: link.StaticMasqueradeBridgeMAC,
 		MTU:        podIface.MTU,
-		IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-		IPv6:       nmstate.IP{Enabled: pointer.P(false)},
+		IPv4:       nmstate.IP{Enabled: new(false)},
+		IPv6:       nmstate.IP{Enabled: new(false)},
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetwork.Name},
 	}
 
 	if hasIPGlobalUnicast(podIface.IPv4) {
-		ip4GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMNetworkCIDR, api.DefaultVMCIDR)
+		ip4GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMNetworkCIDR, link.DefaultVMCIDR)
 		if err != nil {
 			return nil, err
 		}
 		bridgeIface.IPv4 = nmstate.IP{
-			Enabled: pointer.P(true),
+			Enabled: new(true),
 			Address: []nmstate.IPAddress{ip4GatewayAddress},
 		}
-		bridgeIface.LinuxStack.IP4RouteLocalNet = pointer.P(true)
+		bridgeIface.LinuxStack.IP4RouteLocalNet = new(true)
 	}
 
 	if hasIPGlobalUnicast(podIface.IPv6) {
-		ip6GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMIPv6NetworkCIDR, api.DefaultVMIpv6CIDR)
+		ip6GatewayAddress, err := gatewayIP(vmiNetwork.Pod.VMIPv6NetworkCIDR, link.DefaultVMIpv6CIDR)
 		if err != nil {
 			return nil, err
 		}
 		bridgeIface.IPv6 = nmstate.IP{
-			Enabled: pointer.P(true),
+			Enabled: new(true),
 			Address: []nmstate.IPAddress{ip6GatewayAddress},
 		}
 	}
@@ -493,9 +491,9 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		State:       nmstate.IfaceStateUp,
 		CopyMacFrom: bridgeIface.Name,
 		Controller:  bridgeIface.Name,
-		IPv4:        nmstate.IP{Enabled: pointer.P(false)},
-		IPv6:        nmstate.IP{Enabled: pointer.P(false)},
-		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+		IPv4:        nmstate.IP{Enabled: new(false)},
+		IPv6:        nmstate.IP{Enabled: new(false)},
+		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: new(false)},
 		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 

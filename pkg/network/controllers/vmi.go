@@ -33,49 +33,42 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+type clusterConfigProvider interface {
+	NetworkDevicesWithDRAGateEnabled() bool
+}
+
+type VMIStatusUpdater struct {
+	clusterConfigProvider clusterConfigProvider
+}
+
+func NewVMIStatusUpdater(clusterConfigProvider clusterConfigProvider) VMIStatusUpdater {
+	return VMIStatusUpdater{clusterConfigProvider: clusterConfigProvider}
+}
+
+func (v VMIStatusUpdater) Update(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 
 	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
 
-	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
+	networkDRAEnabled := v.clusterConfigProvider.NetworkDevicesWithDRAGateEnabled()
+	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses, networkDRAEnabled)
 	if err != nil {
 		return err
 	}
 
 	interfaceStatuses = append(interfaceStatuses, secondaryIfaceStatuses...)
 
-	// Keep statuses for spec interfaces that are not managed by the virt-controller updater,
-	// such as DRA resource-claim networks.
-	interfaceStatuses = append(interfaceStatuses,
-		filterDRAIfaceStatuses(vmi.Status.Interfaces, vmi.Spec.Networks)...,
-	)
+	// Preserve DRA resource-claim interface statuses regardless of the gate;
+	// the pod-status info source is only added while the gate is enabled.
+	interfaceStatuses = append(interfaceStatuses, calculateDRAIfaceStatuses(vmi, pod, networkDRAEnabled)...)
 
 	// Preserve interfaces discovered by the virt-handler which are not specified in the VMI.Spec.
 	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
 
 	vmi.Status.Interfaces = interfaceStatuses
 	return nil
-}
-
-func filterDRAIfaceStatuses(
-	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
-	networks []v1.Network,
-) []v1.VirtualMachineInstanceNetworkInterface {
-	var preservedIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
-
-	networksByName := vmispec.IndexNetworkSpecByName(networks)
-	for _, ifaceStatus := range ifaceStatuses {
-		if !vmispec.IsDRANetwork(networksByName[ifaceStatus.Name]) {
-			continue
-		}
-
-		preservedIfaceStatuses = append(preservedIfaceStatuses, ifaceStatus)
-	}
-
-	return preservedIfaceStatuses
 }
 
 func calculatePrimaryIfaceStatus(
@@ -107,6 +100,7 @@ func calculatePrimaryIfaceStatus(
 func calculateSecondaryIfaceStatuses(
 	vmi *v1.VirtualMachineInstance,
 	networkStatuses []networkv1.NetworkStatus,
+	networkDRAEnabled bool,
 ) ([]v1.VirtualMachineInstanceNetworkInterface, error) {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
@@ -122,19 +116,32 @@ func calculateSecondaryIfaceStatuses(
 		_, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
+			infoSource := vmispec.InfoSourceMultusStatus
+			if networkDRAEnabled {
+				infoSource = vmispec.AddInfoSource(infoSource, vmispec.InfoSourcePodStatus)
+			}
 			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
 				Name:             network.Name,
-				InfoSource:       vmispec.InfoSourceMultusStatus,
+				InfoSource:       infoSource,
 				PodInterfaceName: podIfaceName,
 			})
 		case exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			if networkDRAEnabled {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			} else {
+				// Clean a pod-status left over from when the gate was enabled.
+				updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
+			// Remove pod-status unconditionally so it is cleaned even after the
+			// gate is disabled.
+			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		}
@@ -158,4 +165,57 @@ func filterUnspecifiedSpecIfaces(
 	}
 
 	return unspecifiedIfaceStatuses
+}
+
+// calculateDRAIfaceStatuses preserves existing DRA interface statuses and adds
+// the pod-status info source once the resource claim is present on the pod.
+//
+// Unlike the Multus path, pod-status is only added, never removed: DRA network
+// devices are not hot-pluggable, so a claim present on the pod stays for the
+// VMI's lifetime and there is no runtime transition that requires clearing it.
+func calculateDRAIfaceStatuses(
+	vmi *v1.VirtualMachineInstance,
+	pod *k8scorev1.Pod,
+	networkDRAEnabled bool,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	claimsOnPod := resourceClaimsOnPod(pod)
+	for _, network := range vmi.Spec.Networks {
+		if !vmispec.IsDRANetwork(network) {
+			continue
+		}
+
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
+		claimOnPod := networkDRAEnabled && claimsOnPod[network.ResourceClaim.ClaimName]
+
+		switch {
+		case ifaceStatus != nil:
+			updatedIfaceStatus := *ifaceStatus
+			if claimOnPod {
+				updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
+			}
+			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
+		case claimOnPod:
+			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:       network.Name,
+				InfoSource: vmispec.InfoSourcePodStatus,
+			})
+		}
+	}
+
+	return interfaceStatuses
+}
+
+// resourceClaimsOnPod returns the set of pod resource-claim names whose
+// ResourceClaim object has been generated for the pod. A nil ResourceClaimName
+// means no claim was created, so the entry is ignored.
+func resourceClaimsOnPod(pod *k8scorev1.Pod) map[string]bool {
+	claims := map[string]bool{}
+	for _, claimStatus := range pod.Status.ResourceClaimStatuses {
+		if claimStatus.ResourceClaimName != nil {
+			claims[claimStatus.Name] = true
+		}
+	}
+	return claims
 }

@@ -55,6 +55,7 @@ type Stores struct {
 	InstallStrategyJobCache               cache.Store
 	InfrastructurePodCache                cache.Store
 	PodDisruptionBudgetCache              cache.Store
+	HorizontalPodAutoscalerCache          cache.Store
 	ServiceMonitorCache                   cache.Store
 	NamespaceCache                        cache.Store
 	PrometheusRuleCache                   cache.Store
@@ -64,6 +65,9 @@ type Stores struct {
 	ValidatingAdmissionPolicyCache        cache.Store
 	ClusterInstancetype                   cache.Store
 	ClusterPreference                     cache.Store
+	SynchronizationServiceCache           cache.Store
+	SynchronizationIngressCache           cache.Store
+	SynchronizationRouteCache             cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -80,6 +84,7 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.MutatingWebhookCache) &&
 		IsStoreEmpty(s.APIServiceCache) &&
 		IsStoreEmpty(s.PodDisruptionBudgetCache) &&
+		IsStoreEmpty(s.HorizontalPodAutoscalerCache) &&
 		IsSCCStoreEmpty(s.SCCCache) &&
 		IsStoreEmpty(s.RouteCache) &&
 		IsStoreEmpty(s.ServiceMonitorCache) &&
@@ -91,6 +96,11 @@ func (s *Stores) AllEmpty() bool {
 
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
+	//
+	// Don't add SynchronizationServiceCache, SynchronizationIngressCache,
+	// or SynchronizationRouteCache to this list. These caches hold
+	// admin-managed resources (not operator-managed) that may legitimately
+	// be empty when no synchronization endpoint is configured.
 }
 
 func IsStoreEmpty(store cache.Store) bool {
@@ -132,6 +142,7 @@ type Expectations struct {
 	InstallStrategyConfigMap         *controller.UIDTrackingControllerExpectations
 	InstallStrategyJob               *controller.UIDTrackingControllerExpectations
 	PodDisruptionBudget              *controller.UIDTrackingControllerExpectations
+	HorizontalPodAutoscaler          *controller.UIDTrackingControllerExpectations
 	ServiceMonitor                   *controller.UIDTrackingControllerExpectations
 	PrometheusRule                   *controller.UIDTrackingControllerExpectations
 	Secrets                          *controller.UIDTrackingControllerExpectations
@@ -161,6 +172,7 @@ type Informers struct {
 	InstallStrategyJob               cache.SharedIndexInformer
 	InfrastructurePod                cache.SharedIndexInformer
 	PodDisruptionBudget              cache.SharedIndexInformer
+	HorizontalPodAutoscaler          cache.SharedIndexInformer
 	ServiceMonitor                   cache.SharedIndexInformer
 	Namespace                        cache.SharedIndexInformer
 	PrometheusRule                   cache.SharedIndexInformer
@@ -171,6 +183,9 @@ type Informers struct {
 	ClusterInstancetype              cache.SharedIndexInformer
 	ClusterPreference                cache.SharedIndexInformer
 	Leases                           cache.SharedIndexInformer
+	SynchronizationService           cache.SharedIndexInformer
+	SynchronizationIngress           cache.SharedIndexInformer
+	SynchronizationRoute             cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {
@@ -191,6 +206,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
 	e.InstallStrategyJob.DeleteExpectations(key)
 	e.PodDisruptionBudget.DeleteExpectations(key)
+	e.HorizontalPodAutoscaler.DeleteExpectations(key)
 	e.ServiceMonitor.DeleteExpectations(key)
 	e.PrometheusRule.DeleteExpectations(key)
 	e.Secrets.DeleteExpectations(key)
@@ -217,6 +233,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
 	e.PodDisruptionBudget.SetExpectations(key, 0, 0)
+	e.HorizontalPodAutoscaler.SetExpectations(key, 0, 0)
 	e.ServiceMonitor.SetExpectations(key, 0, 0)
 	e.PrometheusRule.SetExpectations(key, 0, 0)
 	e.Secrets.SetExpectations(key, 0, 0)
@@ -243,6 +260,7 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
 		e.InstallStrategyJob.SatisfiedExpectations(key) &&
 		e.PodDisruptionBudget.SatisfiedExpectations(key) &&
+		e.HorizontalPodAutoscaler.SatisfiedExpectations(key) &&
 		e.ServiceMonitor.SatisfiedExpectations(key) &&
 		e.PrometheusRule.SatisfiedExpectations(key) &&
 		e.Secrets.SatisfiedExpectations(key) &&

@@ -11,8 +11,10 @@ one. If a bug fix is applied to the XML modification logic, it will not take
 effect until the source pod is also updated, which may not happen until the
 second migration or restart.
 
-To address this, VEP-141 introduces **target-side pre-migration hooks**,
-built on top of [libvirt's QEMU hook mechanism](https://libvirt.org/hooks.html).
+VEP-141 introduced **target-side pre-migration hooks**, built on top of
+[libvirt's QEMU hook mechanism](https://libvirt.org/hooks.html). This
+mechanism is GA since v1.10 and is always enabled.
+
 Libvirt invokes the `/etc/libvirt/hooks/qemu` executable on the destination host
 with the `migrate` operation at the beginning of incoming migration, passing
 the domain XML via stdin and reading the modified XML from stdout. KubeVirt
@@ -57,10 +59,11 @@ Source virt-launcher                          Target virt-launcher
 Prepare domain XML ──── send XML ──────────────▶  │
                                             Receive XML
                                             Apply hooks:
-                                              1. disk source path
-                                              2. CPU
-                                              3. vGPU
-                                              4. network naming
+                                              1. CPU
+                                              2. disk (source paths, then
+                                                 CBT overlays)
+                                              3. network naming
+                                              4. vGPU
                                             Return modified XML
          ◀──────────── receive XML ────────────  │
 Continue migration

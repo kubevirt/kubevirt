@@ -21,8 +21,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	goflag "flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -43,14 +41,13 @@ import (
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/storage/nbdclient"
-	putil "kubevirt.io/kubevirt/pkg/util"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
+	hotplugdisk "kubevirt.io/kubevirt/pkg/storage/hotplug-disk"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -88,8 +85,12 @@ func markReady() {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) chan struct{} {
-	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	options *cmdserver.ServerOptions) <-chan struct{} {
+
+	done, err := grpcserver.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(
+			cmdserver.NewLauncher(domainManager, options),
+		))
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
@@ -124,7 +125,8 @@ func createLibvirtConnection(runWithNonRoot bool) virtcli.Connection {
 	libvirtUri := "qemu:///system"
 	user := ""
 	if runWithNonRoot {
-		user = putil.NonRootUserString
+		const nonRootUserString = "qemu"
+		user = nonRootUserString
 		libvirtUri = "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock"
 	}
 
@@ -358,11 +360,10 @@ func main() {
 	allowCrossArchEmulation := pflag.Bool("allow-cross-arch-emulation", false, "Allow cross-architecture software emulation via QEMU TCG")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
-	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
-	ifacesOrdinalNamingUpgradeEnabled := pflag.Bool("upgrade-ordinal-ifaces", false, "Enable upgrade of ordinal ifaces naming scheme")
 	vGPUDedicatedHookEnabled := pflag.Bool("vgpu-dedicated-hook", false, "Enable target mdev UUID mutation for vGPU live migration")
 	vmStatsCollectorEnabled := pflag.Bool("vm-stats-collector", false, "Enable additional guest agent polling workers for VMStats monitoring data collection")
 	firmwareAutoSelectionEnabled := pflag.Bool("firmware-auto-selection", false, "Use libvirt firmware auto-selection for EFI Secure Boot")
+	arm64SecureBootEnabled := pflag.Bool("arm64-secure-boot", false, "Enable ARM64 UEFI Secure Boot via firmware auto-selection and uefi-vars")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", virtconfig.DefaultARCHOVMFPath, "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -375,7 +376,7 @@ func main() {
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 	hypervisor := pflag.String("hypervisor", v1.KvmHypervisorName, "Hypervisor to be used by the VMI")
 
-	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	pflag.CommandLine.AddGoFlag(log.VerbosityFlag())
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
@@ -440,7 +441,7 @@ func main() {
 
 	var agentStore = agentpoller.NewAsyncAgentStore()
 
-	notifier := notifyclient.NewNotifier(*virtShareDir)
+	notifier := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(*virtShareDir))
 	defer notifier.Close()
 
 	metadataCache := metadata.NewCache()
@@ -449,31 +450,40 @@ func main() {
 
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
-		disk.DiskSourcePathHook,
-	}
-	if *ifacesOrdinalNamingUpgradeEnabled {
-		hookFuncs = append(hookFuncs, network.UpgradeOrdinalNamingScheme)
+		disk.Hook,
+		network.UpgradeOrdinalNamingScheme,
 	}
 	if *vGPUDedicatedHookEnabled {
-		hookFuncs = append(hookFuncs, vgpuhook.VGPULiveMigration)
+		hookFuncs = append(hookFuncs, vgpuhook.MDevVGPULiveMigration)
 	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
 		stopChan,
 		hookFuncs...,
 	)
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, *hypervisor, nbdclient.RegisterNBDServer, domainName, *vmStatsCollectorEnabled, *firmwareAutoSelectionEnabled, *allowCrossArchEmulation)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(
+		domainConn,
+		*virtShareDir,
+		*ephemeralDiskDir,
+		&agentStore,
+		*ovmfPath,
+		ephemeralDiskCreator,
+		metadataCache,
+		signalStopChan,
+		*diskMemoryLimitBytes,
+		util.GetPodCPUSet,
+		*imageVolumeEnabled,
+		preMigrationHookServer,
+		*hypervisor,
+		domainName,
+		*vmStatsCollectorEnabled,
+		*firmwareAutoSelectionEnabled,
+		*arm64SecureBootEnabled,
+		*allowCrossArchEmulation,
+		notifier)
 	if err != nil {
 		panic(err)
 	}
-	if *libvirtHooksServerAndClientEnabled {
-		// TODO: replaceQemuHookWithCustomClient This code should be removed once the LibvirtHooksServerAndClient feature is GA.
-		// Instead of overriding the script at runtime, we can include the custom binary in the launcher image at build time.
-		if err := replaceQemuHookWithCustomClient(); err != nil {
-			panic(err)
-		}
-	}
-
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
@@ -554,32 +564,4 @@ func main() {
 	<-preMigrationHookServer.Done()
 
 	log.Log.Info("Exiting...")
-}
-
-const (
-	// libvirtQemuHookPath is the path where libvirt expects the qemu hook script
-	libvirtQemuHookPath = "/etc/libvirt/hooks/qemu"
-	// libvirtHookClientPath is the Go binary that replaces the shell script
-	libvirtHookClientPath = "/usr/bin/libvirt-hook-client"
-)
-
-// replaceQemuHookWithCustomClient replaces the default qemu hook shell script
-// with the Go binary that can communicate with the pre-migration hook server.
-func replaceQemuHookWithCustomClient() error {
-	// Check if the Go binary exists
-	if _, err := os.Stat(libvirtHookClientPath); err != nil {
-		return fmt.Errorf("libvirt hook client binary not found at %s: %w", libvirtHookClientPath, err)
-	}
-
-	// Remove the existing hook script
-	if err := os.Remove(libvirtQemuHookPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to remove existing qemu hook: %w", err)
-	}
-
-	// Create a symlink from the qemu hook path to the Go binary
-	if err := os.Symlink(libvirtHookClientPath, libvirtQemuHookPath); err != nil {
-		return fmt.Errorf("failed to create symlink for qemu hook: %w", err)
-	}
-
-	return nil
 }

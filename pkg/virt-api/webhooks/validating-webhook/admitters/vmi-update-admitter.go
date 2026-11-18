@@ -26,6 +26,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -57,6 +58,10 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	newVMI, oldVMI, err := webhookutils.GetVMIFromAdmissionReview(ar)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if causes := validateContainerPathVolumesFeatureGate(k8sfield.NewPath("spec"), newVMI.Spec.Volumes, oldVMI.Spec.Volumes, admitter.clusterConfig); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
 	}
 
 	if admitter.clusterConfig.NodeRestrictionEnabled() && hasRequestOriginatedFromVirtHandler(ar.Request.UserInfo.Username, admitter.kubeVirtServiceAccounts) {
@@ -121,6 +126,9 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI); reviewResponse != nil {
 			return reviewResponse
 		}
+		if reviewResponse := storageadmitters.AdmitSnapshotOverlayAnnotationsUpdate(oldVMI, newVMI); reviewResponse != nil {
+			return reviewResponse
+		}
 	}
 
 	return &admissionv1.AdmissionResponse{
@@ -177,6 +185,10 @@ func admitHotplug(
 	}
 
 	if response := storageadmitters.AdmitUtilityVolumes(&newVMI.Spec, &oldVMI.Spec, oldVMI.Status.VolumeStatus, clusterConfig); response != nil {
+		return response
+	}
+
+	if response := storageadmitters.AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI); response != nil {
 		return response
 	}
 

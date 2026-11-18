@@ -34,9 +34,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/compute"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -48,11 +48,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("[test_id:4119]should migrate a running VM", func() {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-		Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
-
+	It("[test_id:4119]should migrate a running VM", decorators.RequiresTwoSchedulableNodes, func() {
 		By("Creating a VM with RunStrategyAlways")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -77,11 +73,7 @@ var _ = Describe(compute.SIG("Migrate subresource", func() {
 		}, 240*time.Second, 1*time.Second).Should(Succeed())
 	})
 
-	It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
-		nodes := libnode.GetAllSchedulableNodes(virtClient)
-		if len(nodes.Items) < 2 {
-			Fail("Migration tests require at least 2 nodes")
-		}
+	It("[test_id:7743]should not migrate a running vm if dry-run option is passed", decorators.RequiresTwoSchedulableNodes, func() {
 		By("Creating a VM with RunStrategyAlways")
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),

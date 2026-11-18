@@ -154,10 +154,11 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(10))
+				Expect(cr.Labels).To(HaveLen(12))
 
 				Expect(cr.GetLabelValue("name")).To(Equal(vms[i].ObjectMeta.Name))
 				Expect(cr.GetLabelValue("namespace")).To(Equal(vms[i].ObjectMeta.Namespace))
+				Expect(cr.GetLabelValue("vm")).To(Equal(vms[i].ObjectMeta.Name))
 
 				os, workload, flavor := getSystemInfoFromAnnotations(vms[i].Spec.Template.ObjectMeta.Annotations)
 				Expect(cr.GetLabelValue("os")).To(Equal(os))
@@ -169,6 +170,54 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr.GetLabelValue("status")).To(Equal("crashloopbackoff"))
 				Expect(cr.GetLabelValue("status_group")).To(Equal("error"))
 			}
+		})
+
+		It("should expose the VM Kubernetes uid", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "test-ns",
+					UID:       "aaaaaaaa-1111-2222-3333-444444444444",
+				},
+			}
+
+			crs := CollectVMsInfo([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(1))
+			uid, err := crs[0].GetLabelValue("uid")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uid).To(Equal(string(vm.UID)))
+			Expect(crs[0].GetLabelValue("vm")).To(Equal(vm.Name))
+		})
+
+		It("should use a different uid for a VM and its VMI", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "test-ns",
+					UID:       "vm-uid-1",
+				},
+			}
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "test-ns",
+					UID:       "vmi-uid-2",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{Phase: "Running"},
+			}
+
+			vmCrs := CollectVMsInfo([]*k6tv1.VirtualMachine{vm})
+			Expect(vmCrs).To(HaveLen(1))
+			vmUID, err := vmCrs[0].GetLabelValue("uid")
+			Expect(err).ToNot(HaveOccurred())
+			vmiCR := collectVMIInfo(vmi)
+			vmiUID, err := vmiCR.GetLabelValue("uid")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmUID).To(Equal("vm-uid-1"))
+			Expect(vmiUID).To(Equal("vmi-uid-2"))
+			Expect(vmUID).ToNot(Equal(vmiUID))
+			Expect(vmCrs[0].GetLabelValue("vm")).To(Equal(vm.Name))
+			Expect(vmiCR.ConstLabels).ToNot(HaveKey("vm"))
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeKind, instanceTypeName, expected string) {
@@ -191,7 +240,7 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(10))
+				Expect(cr.Labels).To(HaveLen(12))
 				Expect(cr.GetLabelValue("instance_type")).To(Equal(expected))
 			}
 		},
@@ -226,7 +275,7 @@ var _ = Describe("VM Stats Collector", func() {
 			for _, cr := range crs {
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(10))
+				Expect(cr.Labels).To(HaveLen(12))
 				Expect(cr.GetLabelValue("preference")).To(Equal(expected))
 			}
 		},

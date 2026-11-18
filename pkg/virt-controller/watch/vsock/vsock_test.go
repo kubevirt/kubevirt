@@ -13,7 +13,7 @@ import (
 )
 
 var _ = Describe("VSOCK", func() {
-	var m *cidsMap
+	var m *CIDsMap
 
 	newRandomVMIsWithORWithoutVSOCK := func(totalVMINum, vsockVMINum int) []*virtv1.VirtualMachineInstance {
 		var vmis []*virtv1.VirtualMachineInstance

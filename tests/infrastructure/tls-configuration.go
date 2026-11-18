@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -69,17 +70,52 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 			const kubevirtPodTLSPort = 8443
 			verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
 		})
+}))
 
-	It("should enforce TLS configuration on virt-template components", func() {
-		podsToTest := listPods(
-			"app.kubernetes.io/name=virt-template,control-plane=apiserver",
-			"app.kubernetes.io/name=virt-template,control-plane=controller-manager",
-		)
-
-		By("Verifying TLS connections to virt-template pods")
-		const virtTemplatePodTLSPort = 9443
-		verifyTLSEnforcement(podsToTest, virtTemplatePodTLSPort, cipher)
+var _ = Describe(SIGSerial("tls group preferences", func() {
+	BeforeEach(func() {
+		config.EnableFeatureGate(featuregate.TLSGroupPreferences)
+		DeferCleanup(config.DisableFeatureGate, featuregate.TLSGroupPreferences)
 	})
+
+	DescribeTable("should enforce configured TLS groups", decorators.WgS390x,
+		func(groups []string, verify func(pods []k8sv1.Pod, port int)) {
+			kvConfig := libkubevirt.GetCurrentKv(kubevirt.Client()).Spec.Configuration.DeepCopy()
+			kvConfig.TLSConfiguration = &v1.TLSConfiguration{
+				MinTLSVersion: v1.VersionTLS12,
+				Ciphers:       []string{"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"},
+				Groups:        groups,
+			}
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+			const kubevirtPodTLSPort = 8443
+			verify(podsToTest, kubevirtPodTLSPort)
+		},
+		Entry("configured group is negotiated when client offers a superset",
+			[]string{v1.TLSGroupSecp384r1},
+			func(pods []k8sv1.Pod, port int) {
+				verifyGroupPreferencesAnyOfWithClientCurves(pods, port,
+					[]tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}, []tls.CurveID{tls.CurveP384})
+			}),
+		Entry("only configured groups are used when client offers a superset",
+			[]string{v1.TLSGroupX25519, v1.TLSGroupSecp256r1},
+			func(pods []k8sv1.Pod, port int) {
+				verifyGroupPreferencesAnyOfWithClientCurves(pods, port,
+					[]tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384},
+					[]tls.CurveID{tls.X25519, tls.CurveP256})
+			}),
+		Entry("rejects client offering only a non-configured curve",
+			[]string{v1.TLSGroupSecp384r1},
+			func(pods []k8sv1.Pod, port int) {
+				verifyGroupPreferencesRejected(pods, port, []tls.CurveID{tls.CurveP256})
+			}),
+		Entry("preserves Go defaults when groups is empty",
+			[]string{},
+			func(pods []k8sv1.Pod, port int) {
+				verifyTLSConnectionSucceeds(pods, port)
+			}),
+	)
 }))
 
 func listPods(labelSelectors ...string) []k8sv1.Pod {
@@ -89,8 +125,11 @@ func listPods(labelSelectors ...string) []k8sv1.Pod {
 			LabelSelector: labelSelector,
 		})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(podList.Items).ToNot(BeEmpty())
-		pods = append(pods, podList.Items...)
+		for i := range podList.Items {
+			if podList.Items[i].DeletionTimestamp == nil && podList.Items[i].Status.Phase == k8sv1.PodRunning {
+				pods = append(pods, podList.Items[i])
+			}
+		}
 	}
 	return pods
 }
@@ -131,6 +170,82 @@ func verifyTLSEnforcement(pods []k8sv1.Pod, containerPort int, cipher *tls.Ciphe
 				// The error message changed with the golang 1.19 update
 				BeEquivalentTo("tls: no supported versions satisfy MinVersion and MaxVersion"),
 			))
+		}(&pods[i])
+	}
+}
+
+func verifyGroupPreferencesAnyOfWithClientCurves(pods []k8sv1.Pod, containerPort int, clientCurves, allowedCurves []tls.CurveID) {
+	GinkgoHelper()
+	for i := range pods {
+		func(pod *k8sv1.Pod) {
+			stopChan := make(chan struct{})
+			defer close(stopChan)
+			const expectTimeout = 10 * time.Second
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
+
+			tlsConfig := &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+				CurvePreferences:   clientCurves,
+			}
+			rawConn, err := (&tls.Dialer{Config: tlsConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
+			Expect(err).ToNot(HaveOccurred(), "Pod %s should accept TLS connection with configured groups", pod.Name)
+			Expect(rawConn).ToNot(BeNil())
+			conn, ok := rawConn.(*tls.Conn)
+			Expect(ok).To(BeTrue())
+
+			negotiatedCurve := conn.ConnectionState().CurveID
+			Expect(allowedCurves).To(ContainElement(negotiatedCurve),
+				"Pod %s negotiated curve %d, expected one of %v", pod.Name, negotiatedCurve, allowedCurves)
+
+			Expect(conn.Close()).To(Succeed())
+		}(&pods[i])
+	}
+}
+
+func verifyGroupPreferencesRejected(pods []k8sv1.Pod, containerPort int, clientCurves []tls.CurveID) {
+	GinkgoHelper()
+	for i := range pods {
+		func(pod *k8sv1.Pod) {
+			stopChan := make(chan struct{})
+			defer close(stopChan)
+			const expectTimeout = 10 * time.Second
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
+
+			tlsConfig := &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+				CurvePreferences:   clientCurves,
+			}
+			rawConn, err := (&tls.Dialer{Config: tlsConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
+			Expect(err).To(HaveOccurred(), "Pod %s should reject TLS connection when client offers only non-configured curves", pod.Name)
+			Expect(rawConn).To(BeNil())
+		}(&pods[i])
+	}
+}
+
+func verifyTLSConnectionSucceeds(pods []k8sv1.Pod, containerPort int) {
+	GinkgoHelper()
+	for i := range pods {
+		func(pod *k8sv1.Pod) {
+			stopChan := make(chan struct{})
+			defer close(stopChan)
+			const expectTimeout = 10 * time.Second
+			localPort, fwErr := libpod.ForwardPorts(pod, []string{fmt.Sprintf("0:%d", containerPort)}, stopChan, expectTimeout)
+			Expect(fwErr).ToNot(HaveOccurred())
+
+			tlsConfig := &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+			}
+			rawConn, err := (&tls.Dialer{Config: tlsConfig}).DialContext(context.Background(), "tcp", fmt.Sprintf("localhost:%d", localPort))
+			Expect(err).ToNot(HaveOccurred(), "Pod %s should accept TLS connection with default curves", pod.Name)
+			Expect(rawConn).ToNot(BeNil())
+			conn, ok := rawConn.(*tls.Conn)
+			Expect(ok).To(BeTrue())
+			Expect(conn.Close()).To(Succeed())
 		}(&pods[i])
 	}
 }

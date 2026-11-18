@@ -45,6 +45,12 @@ linters:
             Runtime skips silently suppress tests, making it easy to
             unknowingly stop running tests you care about.
             Labeling shifts the choice of what to run to the test executor.
+        - pattern: \.(Update|UpdateStatus)$
+          pkg: ^(kubevirt\.io/client-go/|k8s\.io/client-go/|github\.com/openshift/client-go/|sigs\.k8s\.io/controller-runtime/)
+          msg: >-
+            Use Patch/PatchStatus instead of Update/UpdateStatus.
+            Most often, tests do not really need to use Update (for an
+            atomic change) and Patch would be quicker and more precise.
     funlen:
       lines: 100
       statements: 50
@@ -91,6 +97,7 @@ linters:
         - ^ExpectWithOffset$
         - ^console\.ExpectBatch$
         - ^console\.RunCommand$
+        - ^libnet\.VerifyDynamicInterfaceChange$
     nolintlint:
       require-explanation: false # don't require an explanation for nolint directives
       require-specific: false # don't require nolint directives to be specific about which linter is being skipped
@@ -112,19 +119,30 @@ linters:
       - std-error-handling
     rules:
       - linters:
+          - forbidigo
+        path-except: 'tests/'
+        text: 'Use Patch/PatchStatus instead of Update/UpdateStatus'
+      - linters:
           - staticcheck
         text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      - linters:
+          - mnd
+        source: 'Log\.V\('
+      - linters:
+          - mnd
+        source: 'WithTimeout\('
+      - linters:
+          - mnd
+        source: 'WithPolling\('
     paths:
       - third_party$
       - builtin$
       - examples$
       - (^|/)vendor/
       - tests/network/bindingplugin_macvtap\.go$
-      - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
-      - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$
@@ -157,11 +175,9 @@ formatters:
       - examples$
       - (^|/)vendor/
       - tests/network/bindingplugin_macvtap\.go$
-      - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
       - tests/network/hotplug_bridge\.go$
-      - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
       - tests/network/port_forward\.go$

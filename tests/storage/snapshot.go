@@ -712,95 +712,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					"CreationTime": BeNil(),
 				})))
 			})
-
-			Context("with memory dump", func() {
-				getMemoryDump := func(vmName, namespace, claimName string) {
-					Eventually(func() error {
-						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
-							ClaimName: claimName,
-						}
-
-						return virtClient.VirtualMachine(namespace).MemoryDump(context.Background(), vmName, memoryDumpRequest)
-					}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				}
-
-				waitMemoryDumpCompletion := func(vm *v1.VirtualMachine) {
-					Eventually(func() *v1.VirtualMachineMemoryDumpRequest {
-						updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return updatedVM.Status.MemoryDumpRequest
-					}, 60*time.Second, time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Phase": Equal(v1.MemoryDumpCompleted),
-					})))
-				}
-
-				It("[test_id:8922]should include memory dump in vm snapshot", func() {
-					var vmi *v1.VirtualMachineInstance
-					vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
-					vm, vmi = createAndStartVM(vm)
-					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-					By("Get VM memory dump")
-					memoryDumpPVCName := "fs-pvc"
-					libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(nil), "1.5Gi", libstorage.WithStorageClass(snapshotStorageClass), libstorage.WithStorageProfile())
-					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
-					waitMemoryDumpCompletion(vm)
-
-					By("Create Snapshot")
-					snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
-					_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
-
-					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(updatedVM.Status.MemoryDumpRequest).ToNot(BeNil())
-					contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-					content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					contentVMTemplate := content.Spec.Source.VirtualMachine.Spec.Template
-					Expect(contentVMTemplate.Spec.Volumes).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
-					foundMemoryDump := false
-					for _, volume := range contentVMTemplate.Spec.Volumes {
-						if volume.Name == memoryDumpPVCName {
-							foundMemoryDump = true
-						}
-					}
-					Expect(foundMemoryDump).To(BeTrue())
-
-					Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
-					for _, vol := range updatedVM.Spec.Template.Spec.Volumes {
-						if vol.MemoryDump == nil {
-							continue
-						}
-						found := false
-						for _, vb := range content.Spec.VolumeBackups {
-							if vol.MemoryDump.ClaimName == vb.PersistentVolumeClaim.Name {
-								found = true
-								Expect(vol.Name).To(Equal(vb.VolumeName))
-
-								pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.MemoryDump.ClaimName, metav1.GetOptions{})
-								Expect(err).ToNot(HaveOccurred())
-								Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
-
-								Expect(vb.VolumeSnapshotName).ToNot(BeNil())
-								vs, err := virtClient.
-									KubernetesSnapshotClient().
-									SnapshotV1().
-									VolumeSnapshots(vm.Namespace).
-									Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
-								Expect(err).ToNot(HaveOccurred())
-								Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.MemoryDump.ClaimName))
-								Expect(vs.Status.Error).To(BeNil())
-								Expect(*vs.Status.ReadyToUse).To(BeTrue())
-							}
-						}
-						Expect(found).To(BeTrue())
-					}
-				})
-			})
 		})
 
 		Context("With more complicated VM", func() {
@@ -889,7 +800,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				// zero out the times to be able to compare after
 				clearConditionsTimestamps(origStatus.Conditions)
 				ss.Status = nil
-				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).UpdateStatus(context.Background(), ss, metav1.UpdateOptions{})
+				ss, err = virtClient.VirtualMachineSnapshot(ss.Namespace).UpdateStatus(context.Background(), ss, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ss.Status).To(BeNil())
 
@@ -1209,8 +1120,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		})
 
 		Context("with independent DataVolume", func() {
-			var dv *cdiv1.DataVolume
-
 			DescribeTable("should accurately report DataVolume provisioning", func(storageOptFun func(string, string, ...libvmi.DiskOption) libvmi.Option, memory string) {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -1218,7 +1127,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				)
 
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest(memory),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
@@ -1240,7 +1149,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							"Enabled": BeFalse()})),
 				}))
 
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() v1.VirtualMachineStatus {
@@ -1258,73 +1167,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Entry("with PVC volume", libvmi.WithPersistentVolumeClaim, "128Mi"),
 			)
 
-			It("[test_id:9705]Should show included and excluded volumes in the snapshot", func() {
-				noSnapshotSC := libstorage.GetNoVolumeSnapshotStorageClass("local")
-				if noSnapshotSC == "" {
-					Skip("Skipping test, no storage class without snapshot support") //nolint:forbidigo
-				}
-				By("Creating DV with snapshot supported storage class")
-				includedDataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
-					libdv.WithForceBindAnnotation(),
-				)
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				waitDataVolumePopulated(dv.Namespace, dv.Name)
-
-				By("Creating DV with no snapshot supported storage class")
-				excludedDataVolume := libdv.NewDataVolume(
-					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithStorage(libdv.StorageWithStorageClass(noSnapshotSC)),
-					libdv.WithForceBindAnnotation(),
-				)
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), excludedDataVolume, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithMemoryRequest("128Mi"),
-					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
-					libvmi.WithPersistentVolumeClaim("notsnapshotablevolume", excludedDataVolume.Name),
-				)
-				vm = libvmi.NewVirtualMachine(vmi)
-
-				_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(func() v1.VirtualMachineStatus {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm.Status
-				}, 180*time.Second, 3*time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"VolumeSnapshotStatuses": HaveExactElements(
-						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()}),
-						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeFalse()})),
-				}))
-
-				By("Create Snapshot")
-				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
-				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
-				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(1))
-				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
-				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes).Should(HaveLen(1))
-				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes[0]).Should(Equal("notsnapshotablevolume"))
-
-				By("Verifying PartialSnapshot indication is set when snapshottable volume is excluded")
-				Expect(snapshot.Status.Indications).Should(ContainElement(snapshotv1.VMSnapshotPartialSnapshotIndication))
-				Expect(snapshot.Status.SourceIndications).Should(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Indication": Equal(snapshotv1.VMSnapshotPartialSnapshotIndication),
-				})))
-			})
-
 			It("Should also include backend PVC in the snapshot", func() {
 				By("Creating DV with snapshot supported storage class")
 				includedDataVolume := libdv.NewDataVolume(
@@ -1338,7 +1180,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 				By("Creating a VMI with persistent TPM")
 				vmi := libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),

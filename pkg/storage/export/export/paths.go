@@ -31,6 +31,8 @@ import (
 // VolumeInfo contains paths for a volume
 type VolumeInfo struct {
 	Path       string
+	PVCName    string
+	VolumeName string
 	ArchiveURI string
 	DirURI     string
 	RawURI     string
@@ -39,9 +41,12 @@ type VolumeInfo struct {
 
 // BackupInfo contains paths for a backup volume
 type BackupInfo struct {
-	Path    string
-	DataURI string
-	MapURI  string
+	Path        string
+	DataURI     string
+	MapURI      string
+	Type        string
+	DiskPath    string
+	OverlayPath string
 }
 
 // ServerPaths contains static paths and per-volume paths
@@ -96,6 +101,7 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 		envPrefix := strings.TrimSuffix(k, "_EXPORT_PATH")
 		vi := VolumeInfo{
 			Path:       env[k],
+			VolumeName: env[envPrefix+"_EXPORT_VOLUME_NAME"],
 			ArchiveURI: env[envPrefix+"_EXPORT_ARCHIVE_URI"],
 			DirURI:     env[envPrefix+"_EXPORT_DIR_URI"],
 			RawURI:     env[envPrefix+"_EXPORT_RAW_URI"],
@@ -106,22 +112,49 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 	for _, k := range backupKeys {
 		envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
 		bi := BackupInfo{
-			Path:    env[k],
-			DataURI: env[envPrefix+"_DATA_URI"],
-			MapURI:  env[envPrefix+"_MAP_URI"],
+			Path:        env[k],
+			DataURI:     env[envPrefix+"_DATA_URI"],
+			MapURI:      env[envPrefix+"_MAP_URI"],
+			Type:        env[envPrefix+"_TYPE"],
+			DiskPath:    env[envPrefix+"_DISK_PATH"],
+			OverlayPath: env[envPrefix+"_OVERLAY_PATH"],
 		}
 		result.Backups = append(result.Backups, bi)
 	}
 	return result
 }
 
+// serverPathsForPod creates a ServerPaths object from the environment of an
+// exporter pod and resolves the PVC of every volume through the pod volume
+// mounted at its path.
+func serverPathsForPod(pod *corev1.Pod) *ServerPaths {
+	container := pod.Spec.Containers[0]
+	paths := CreateServerPaths(ContainerEnvToMap(container.Env))
+
+	claimByVolume := map[string]string{}
+	for _, v := range pod.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			claimByVolume[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+	claimByPath := map[string]string{}
+	for _, m := range container.VolumeMounts {
+		claimByPath[m.MountPath] = claimByVolume[m.Name]
+	}
+	for _, d := range container.VolumeDevices {
+		claimByPath[d.DevicePath] = claimByVolume[d.Name]
+	}
+	for i := range paths.Volumes {
+		paths.Volumes[i].PVCName = claimByPath[paths.Volumes[i].Path]
+	}
+	return paths
+}
+
 // GetVolumeInfo returns the VolumeInfo for a given PVC name
 func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
-	targetName := getExportPodVolumeNameFromStr(pvcName)
-	for _, v := range sp.Volumes {
-		_, n := filepath.Split(filepath.Clean(v.Path))
-		if n == targetName {
-			return &v
+	for i := range sp.Volumes {
+		if sp.Volumes[i].PVCName == pvcName {
+			return &sp.Volumes[i]
 		}
 	}
 	return nil

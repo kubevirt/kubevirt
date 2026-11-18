@@ -100,13 +100,13 @@ var _ = Describe("Memory dump Subresource api", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
-	disableDeclarativeHotplugFeatureGate := func() {
+	disableUtilityVolumesFeatureGate := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+						DisabledFeatureGates: []string{featuregate.UtilityVolumesGate},
 					},
 				},
 			},
@@ -152,7 +152,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
@@ -161,7 +160,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, kubeClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {
@@ -200,9 +199,9 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 	DescribeTable("With memory dump request", func(memDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int, enableGate bool, vmiRunning bool, pvc *k8sv1.PersistentVolumeClaim) {
 		if enableGate {
-			enableFeatureGate(featuregate.HotplugVolumesGate)
+			enableFeatureGate(featuregate.UtilityVolumesGate)
 		} else {
-			disableDeclarativeHotplugFeatureGate()
+			disableUtilityVolumesFeatureGate()
 		}
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 
@@ -269,7 +268,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 	)
 
 	DescribeTable("With memory dump request", func(memDumpReq, prevMemDumpReq *v1.VirtualMachineMemoryDumpRequest, statusCode int) {
-		enableFeatureGate(featuregate.HotplugVolumesGate)
+		enableFeatureGate(featuregate.UtilityVolumesGate)
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
 			libvmi.WithName(testVMIName),

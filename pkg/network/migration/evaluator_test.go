@@ -55,7 +55,7 @@ var _ = Describe("Evaluator", func() {
 		Entry("when status equals to spec",
 			libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
 				libvmistatus.WithStatus(
@@ -107,7 +107,7 @@ var _ = Describe("Evaluator", func() {
 		Entry("when a secondary iface using bridge binding is hotplugged",
 			libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
 				libvmistatus.WithStatus(
@@ -151,7 +151,7 @@ var _ = Describe("Evaluator", func() {
 	It("Should require an immediate migration when a secondary iface using SR-IOV binding is hotplugged", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetworkName)),
+			libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithSRIOVBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
 			libvmistatus.WithStatus(
@@ -174,7 +174,7 @@ var _ = Describe("Evaluator", func() {
 		DescribeTable("When migration is pending", func(stubNow time.Time, expectedResult k8scorev1.ConditionStatus) {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+				libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName, libvmi.WithBridgeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
 				libvmistatus.WithStatus(
@@ -234,7 +234,7 @@ var _ = Describe("Evaluator", func() {
 			Entry("no migration when NAD name in spec matches that in pod annotation",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
+					libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName1, libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName1, nadName1)),
 					libvmistatus.WithStatus(libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -253,7 +253,7 @@ var _ = Describe("Evaluator", func() {
 			Entry("immediate migration when NAD name in spec differs from that in pod annotation",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
+					libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName1, libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName1, nadName2)),
 					libvmistatus.WithStatus(libvmistatus.New(
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
@@ -273,8 +273,8 @@ var _ = Describe("Evaluator", func() {
 				"immediate migration when a VM has NADs in different namespaces and one is out of sync",
 				libvmi.New(
 					libvmi.WithNamespace(testNamespace),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName1)),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName2)),
+					libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName1, libvmi.WithBridgeBinding())),
+					libvmi.WithInterface(libvmi.NewInterface(secondaryNetworkName2, libvmi.WithBridgeBinding())),
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName1, testNamespace+"/"+nadName2)),
 					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName2, otherNamespace+"/"+nadName2)),
 					libvmistatus.WithStatus(libvmistatus.New(

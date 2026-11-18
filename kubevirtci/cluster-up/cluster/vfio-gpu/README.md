@@ -39,12 +39,20 @@ Worker node packages: `make`, `gcc`, and matching kernel headers for the
 running worker-node kernel. These must be present in the provider image; the
 VFIO setup validates them before building the fake modules.
 
+Memory requirements: Some fake VFIO tests require at least **8G (8192M)** of
+memory allocated to the node VM. The default `KUBEVIRT_MEMORY_SIZE` (`5120M`)
+is insufficient — `make cluster-up` will **fail** with a fatal error if
+`KUBEVIRT_MEMORY_SIZE` is below this threshold when `KUBEVIRT_USE_FAKE_VFIO=true`.
+`KUBEVIRT_MEMORY_SIZE` accepts a `m`/`M` (mebibytes) or `g`/`G` (gibibytes)
+suffix, e.g. `8192M` or `8G`; a value with no suffix is treated as mebibytes.
+
 ## Cluster setup
 
 
 ```bash
 export KUBEVIRT_PROVIDER=k8s-1.36
 export KUBEVIRT_USE_FAKE_VFIO=true
+export KUBEVIRT_MEMORY_SIZE=8192M
 export FAKE_PCI_DEVICES=8
 export FAKE_IOMMU=true
 
@@ -104,6 +112,7 @@ cluster unless a Kind provider explicitly calls it.
 | Variable | Default | Purpose |
 | -------- | ------- | ------- |
 | `KUBEVIRT_USE_FAKE_VFIO` | `false` | Enables fake VFIO setup during `make cluster-up` for supported `k8s-*` providers |
+| `KUBEVIRT_MEMORY_SIZE` | `5120M` | Memory allocated to provider node VMs. Accepts a `m`/`M` or `g`/`G` suffix (e.g. `8192M`, `8G`). Set to `>= 8192M` (`8G`) for fake VFIO |
 | `FAKE_PCI_DEVICES` | `8` | Number of synthetic PCI devices to create inside each worker node |
 | `FAKE_IOMMU` | `true` | Load the fake IOMMU companion so fake devices can bind to `vfio-pci` |
 | `DRA_DRIVER_PROFILE` | `vfio-gpu` | DRA example driver profile installed by Helm |

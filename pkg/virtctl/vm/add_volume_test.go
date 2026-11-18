@@ -32,6 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -122,7 +123,6 @@ var _ = Describe("Add volume command", func() {
 				case kvtesting.PutAction[*v1.AddVolumeOptions]:
 					volumeOptions := action.GetOptions()
 					Expect(volumeOptions).ToNot(BeNil())
-					Expect(volumeOptions.Name).To(Equal(volumeName))
 					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
 					for _, verifyFn := range verifyFns {
 						verifyFn(volumeOptions)
@@ -173,10 +173,13 @@ var _ = Describe("Add volume command", func() {
 				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
 				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
 				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
-				Entry("serial", "--serial=test", verifyDiskSerial("test")),
+				Entry("serial", "--serial=test", verifyDiskSerial("test"), verifyVolumeName(volumeName)),
+				Entry("disk-name", "--disk-name=test", verifyDiskSerial("test"), verifyVolumeName("test")),
+				Entry("disk-name and serial", "--disk-name=test --serial=1234", verifyDiskSerial("1234"), verifyVolumeName("test")),
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 
@@ -212,6 +215,40 @@ var _ = Describe("Add volume command", func() {
 				Expect(runCmd("--disk-type=lun --bus=virtio")).To(
 					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
 			})
+
+			DescribeTable("when volume name exceeds 63 chars", func(valid bool) {
+				longVolName := rand.String(64)
+				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&v1beta1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longVolName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				args := []string{"addvolume", vmiName, "--volume-name=" + longVolName}
+				if valid {
+					expectVMEndpointAddVolume(verifyDiskSerial("test"), verifyVolumeName("test"), verifyDVVolumeSource)
+					args = append(args, "--disk-name=test")
+					cmd := testing.NewRepeatableVirtctlCommand(args...)
+					Expect(cmd()).To(Succeed())
+				} else {
+					cmd := testing.NewRepeatableVirtctlCommand(args...)
+					Expect(cmd()).To(MatchError(ContainSubstring("Invalid volume")))
+				}
+
+			},
+				Entry("should succeed with valid --disk-name flag", true),
+				Entry("should fail without --disk-name flag", false),
+			)
+
+			It("should fail when --disk-name exceeds 63 chars", func() {
+				longDiskName := rand.String(64)
+				cmd := testing.NewRepeatableVirtctlCommand("addvolume", vmiName, "--volume-name="+volumeName, "--disk-name="+longDiskName)
+				Expect(cmd()).To(MatchError(ContainSubstring("Invalid disk")))
+			})
 		})
 
 		Context("with PVC", func() {
@@ -243,6 +280,7 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
 				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
+				Entry("cache directsync", "--cache=directsync", verifyDiskSerial(volumeName), verifyCache(v1.CacheDirectSync)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
 		})
@@ -278,6 +316,12 @@ func verifyDiskTypeLun(volumeOptions *v1.AddVolumeOptions) {
 func verifyDiskSerial(serial string) verifyFn {
 	return func(volumeOptions *v1.AddVolumeOptions) {
 		Expect(volumeOptions.Disk.Serial).To(Equal(serial))
+	}
+}
+
+func verifyVolumeName(name string) verifyFn {
+	return func(volumeOptions *v1.AddVolumeOptions) {
+		Expect(volumeOptions.Name).To(Equal(name))
 	}
 }
 

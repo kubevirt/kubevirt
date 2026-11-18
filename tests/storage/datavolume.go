@@ -122,7 +122,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 	}
 
 	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
-		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
+		DescribeTable("PVC expansion is detected by VM and can be fully used", decorators.Conformance, func(volumeMode k8sv1.PersistentVolumeMode) {
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
@@ -131,7 +131,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					Fail("Fail test when Block storage is not present")
 				}
 			} else {
-				sc, exists = libstorage.GetRWOFileSystemStorageClass()
+				sc, exists = libstorage.GetCSIStorageClass()
 				if !exists {
 					Fail("Fail test when Filesystem storage is not present")
 				}
@@ -206,8 +206,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		)
 
 		It("Check disk expansion accounts for actual usable size", func() {
-
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			sc, exists := libstorage.GetCSIStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
 			}
@@ -242,6 +241,8 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			_, err = fmt.Sscanf(fstatOutput, "%d %d", &freeBlocks, &ioBlockSize)
 			Expect(err).ToNot(HaveOccurred())
 			freeSize := freeBlocks * ioBlockSize
+			err = virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
@@ -390,7 +391,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				By("requiring a VM with 2 DataVolumes")
 				vmi := libvmi.New(
 					libvmi.WithMemoryRequest("128Mi"),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithDataVolume(dataVolume1.Name, dataVolume1.Name),
 					libvmi.WithDataVolume(dataVolume2.Name, dataVolume2.Name),
@@ -899,7 +900,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				// We check if the VM is successfully created
 				By("Creating VM")
 				Eventually(func() error {
-					_, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 					return err
 				}, 90*time.Second, 1*time.Second).Should(Succeed())
 
@@ -912,7 +913,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					events, err := virtClient.CoreV1().Events(vm.Namespace).List(context.Background(), metav1.ListOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					for _, e := range events.Items {
-						if e.Reason == "SourcePVCNotAvailabe" {
+						if e.Reason == "SourcePVCNotAvailabe" && e.InvolvedObject.UID == vm.UID {
 							return true
 						}
 					}

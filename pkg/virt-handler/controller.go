@@ -21,7 +21,6 @@ package virthandler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -34,22 +33,22 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
+	clientv1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/diskimg"
+	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
@@ -102,14 +101,13 @@ type netconf interface {
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
-	clientset                   kubecli.KubevirtClient
+	vmiClient                   clientv1.VirtualMachineInstancesGetter
 	queue                       workqueue.TypedRateLimitingInterface[string]
 	vmiStore                    cache.Store
 	domainStore                 cache.Store
 	clusterConfig               *virtconfig.ClusterConfig
 	podIsolationDetector        isolation.PodIsolationDetector
 	launcherClients             launcherclients.LauncherClientsManager
-	migrationProxy              migrationproxy.ProxyManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
 	recorder                    record.EventRecorder
@@ -124,14 +122,13 @@ func NewBaseController(
 	logger *log.FilteredLogger,
 	host string,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient,
+	vmiClient clientv1.VirtualMachineInstancesGetter,
 	queue workqueue.TypedRateLimitingInterface[string],
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	podIsolationDetector isolation.PodIsolationDetector,
 	launcherClients launcherclients.LauncherClientsManager,
-	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	hypervisorNodeInfo hypervisor.HypervisorNodeInformation,
@@ -143,14 +140,13 @@ func NewBaseController(
 		logger:                      logger,
 		host:                        host,
 		recorder:                    recorder,
-		clientset:                   clientset,
+		vmiClient:                   vmiClient,
 		queue:                       queue,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
 		podIsolationDetector:        podIsolationDetector,
 		launcherClients:             launcherClients,
-		migrationProxy:              migrationProxy,
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
 		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
@@ -277,16 +273,20 @@ func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Pa
 	return diskutils.DefaultOwnershipManager.SetFileOwnership(devicePath)
 }
 
-func (c *BaseController) configureHostDisks(
+func (c *BaseController) configureDiskImages(
 	vmi *v1.VirtualMachineInstance,
 	virtLauncherRootMount *safepath.Path,
 	recorder record.EventRecorder) error {
 	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
 	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
 
-	hostDiskCreator := hostdisk.NewHostDiskCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-	if err := hostDiskCreator.Create(vmi); err != nil {
-		return fmt.Errorf("preparing host-disks failed: %v", err)
+	pvcImages, err := diskimg.ImageBackedPVCImages(vmi)
+	if err != nil {
+		return err
+	}
+	creator := diskimg.NewCreator(recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+	if err := creator.Create(vmi, append(hostdisk.Images(vmi), pvcImages...)); err != nil {
+		return fmt.Errorf("preparing disk images failed: %w", err)
 	}
 	return nil
 }
@@ -333,13 +333,13 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 	}
 
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmitrait.IsAutoAttachVSOCK(vmi) {
 		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
 			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
 		}
 	}
 
-	if err := c.configureHostDisks(vmi, virtLauncherRootMount, recorder); err != nil {
+	if err := c.configureDiskImages(vmi, virtLauncherRootMount, recorder); err != nil {
 		return err
 	}
 
@@ -423,7 +423,7 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
 		return true, nil
 	} else if isUnresponsive {
-		return true, errors.New(fmt.Sprintf("Can not update a VirtualMachineInstance with unresponsive command server."))
+		return true, fmt.Errorf("Can not update a VirtualMachineInstance with unresponsive command server.")
 	}
 
 	return false, nil

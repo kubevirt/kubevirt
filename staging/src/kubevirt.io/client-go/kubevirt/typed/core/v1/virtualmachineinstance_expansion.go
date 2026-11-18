@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
@@ -45,11 +45,12 @@ type VirtualMachineInstanceExpansion interface {
 	Screenshot(ctx context.Context, name string, options *v1.ScreenshotOptions) ([]byte, error)
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	Backup(ctx context.Context, name string, backupOptions *backupv1.BackupOptions) error
-	RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error
 	Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error
 	Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error
 	Freeze(ctx context.Context, name string, unfreezeTimeout time.Duration) error
 	Unfreeze(ctx context.Context, name string) error
+	ExternalSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error
+	CommitSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error
 	Reset(ctx context.Context, name string) error
 	SoftReboot(ctx context.Context, name string) error
 	GuestOsInfo(ctx context.Context, name string) (v1.VirtualMachineInstanceGuestAgentInfo, error)
@@ -130,24 +131,6 @@ func (c *virtualMachineInstances) Backup(ctx context.Context, name string, backu
 		Error()
 }
 
-func (c *virtualMachineInstances) RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error {
-	log.Log.Infof("RedefineCheckpoint VMI %s with checkpoint %s", name, checkpoint.Name)
-	body, err := json.Marshal(checkpoint)
-	if err != nil {
-		return err
-	}
-
-	return c.GetClient().Put().
-		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
-		Namespace(c.GetNamespace()).
-		Resource("virtualmachineinstances").
-		Name(name).
-		SubResource("redefine-checkpoint").
-		Body(body).
-		Do(ctx).
-		Error()
-}
-
 func (c *virtualMachineInstances) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOptions) error {
 	body, err := json.Marshal(pauseOptions)
 	if err != nil {
@@ -214,6 +197,33 @@ func (c *virtualMachineInstances) Unfreeze(ctx context.Context, name string) err
 		Resource("virtualmachineinstances").
 		Name(name).
 		SubResource("unfreeze").
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachineInstances) ExternalSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	log.Log.Infof("ExternalSnapshot VMI %s", name)
+	return c.putSnapshotOverlayRequest(ctx, name, "externalsnapshot", overlayOptions)
+}
+
+func (c *virtualMachineInstances) CommitSnapshot(ctx context.Context, name string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	log.Log.Infof("CommitSnapshot VMI %s", name)
+	return c.putSnapshotOverlayRequest(ctx, name, "commitsnapshot", overlayOptions)
+}
+
+func (c *virtualMachineInstances) putSnapshotOverlayRequest(ctx context.Context, name, subresource string, overlayOptions *v1.SnapshotOverlayOptions) error {
+	body, err := json.Marshal(overlayOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource(subresource).
+		Body(body).
 		Do(ctx).
 		Error()
 }

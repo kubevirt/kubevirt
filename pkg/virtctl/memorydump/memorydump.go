@@ -35,8 +35,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
+	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
@@ -146,7 +146,7 @@ func calcMemoryDumpExpectedSize(vmName, namespace string, virtClient kubecli.Kub
 		return nil, err
 	}
 
-	return kutil.CalcExpectedMemoryDumpSize(vmi), nil
+	return memorydump.CalcExpectedSize(vmi), nil
 }
 
 func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *string, virtClient kubecli.KubevirtClient) (*resource.Quantity, error) {

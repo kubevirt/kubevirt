@@ -1488,8 +1488,8 @@ func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*vi
 				LastTransitionTime: metav1.Now(),
 				Status:             k8score.ConditionTrue,
 			})
-		c.recorder.Eventf(pool, k8score.EventTypeWarning, syncErr.Reason(), syncErr.Error())
-	} else if syncErr == nil && cm.HasCondition(pool, poolv1.VirtualMachinePoolReplicaFailure) {
+		c.recorder.Event(pool, k8score.EventTypeWarning, syncErr.Reason(), syncErr.Error())
+	} else if syncErr == nil {
 		cm.RemoveCondition(pool, poolv1.VirtualMachinePoolReplicaFailure)
 	}
 

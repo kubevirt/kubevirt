@@ -33,6 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -140,6 +141,41 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 
 		resp := vmirsAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
+	})
+
+	It("should reject a template with more than one unset-enabled ramFB display", func() {
+		template := newVirtualMachineBuilder().
+			WithDisk(v1.Disk{Name: "testdisk"}).
+			WithVolume(v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			}).
+			WithLabel("match", "me").
+			BuildTemplate()
+		template.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{Name: "gpu0", DeviceName: "vendor.com/gpu0", VirtualGPUOptions: &v1.VGPUOptions{Display: &v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}}},
+			{Name: "gpu1", DeviceName: "vendor.com/gpu1", VirtualGPUOptions: &v1.VGPUOptions{Display: &v1.VGPUDisplayOptions{Enabled: pointer.P(true), RamFB: &v1.FeatureState{}}}},
+		}
+		vmirs := &v1.VirtualMachineInstanceReplicaSet{
+			Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+				Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"match": "me"}},
+				Template: template,
+			},
+		}
+		vmirsBytes, _ := json.Marshal(&vmirs)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				Object:   runtime.RawExtension{Raw: vmirsBytes},
+			},
+		}
+
+		resp := vmirsAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(WithTransform(func(c metav1.StatusCause) string { return c.Field }, Equal("spec.template.spec.GPUs"))))
 	})
 })
 

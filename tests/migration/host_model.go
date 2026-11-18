@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -59,7 +60,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Creating a VMI with default CPU mode to land in source node")
 			vmi := libvmifact.NewGuestless(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				libvmi.WithCPUModel(v1.CPUModeHostModel),
@@ -72,7 +73,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(v1.CPUModeHostModel))
 
 			By("Fetching original host CPU model & supported CPU features")
@@ -120,7 +121,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Saving the original node's state")
 				node, err = kubevirt.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
@@ -184,7 +185,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi.Spec.Domain.CPU = &v1.CPU{Model: v1.CPUModeHostModel}
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				for index, node := range nodes {
 					patchedNode := libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, kubevirt.Client())
@@ -265,7 +266,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libnode.AddLabelToNode(targetNode.Name, fakeRequiredFeature, "true")
 
 			vmiToMigrate := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a VMI with default CPU mode to land in source node")
@@ -277,7 +278,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
+			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, flags.StartupTimeoutSecondsHuge())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
@@ -329,7 +330,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			targetNode = libnode.AddLabelToNode(targetNode.Name, fakeHostModel, "true")
 
 			vmiToMigrate := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Creating a VMI with default CPU mode to land in source node")
@@ -341,7 +342,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
+			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, flags.StartupTimeoutSecondsHuge())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 

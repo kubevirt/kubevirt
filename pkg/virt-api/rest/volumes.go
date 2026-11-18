@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
 const (
@@ -199,7 +200,7 @@ func (app *SubresourceAPIApp) vmVolumePatch(name, namespace string, volumeReques
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof("Patching VM: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -225,6 +226,12 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, fmt.Errorf(vmiNotRunning))
 	}
 
+	// Unplugging a disk that is on an overlay strands the overlay.
+	if storagetypes.HasSnapshotOverlayState(vmi) {
+		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name,
+			fmt.Errorf("VMI %s/%s has disks on snapshot overlays", vmi.Namespace, vmi.Name))
+	}
+
 	err := verifyVolumeOption(vmi.Spec.Volumes, volumeRequest)
 	if err != nil {
 		return errors.NewConflict(v1.Resource("virtualmachineinstance"), name, err)
@@ -237,7 +244,7 @@ func (app *SubresourceAPIApp) vmiVolumePatch(name, namespace string, volumeReque
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vmi).V(4).Infof("Patching VMI: %s", string(patchBytes))
-	if _, err := app.virtCli.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err := app.virtClient.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -267,7 +274,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 
 	dryRunOption := getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

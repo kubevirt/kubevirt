@@ -225,10 +225,17 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, func() {
 		})
 
 		DescribeTable("[test_id:11657]Should succeed", func(resource string, uploadDV bool) {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists {
+				Fail("Fail test when RWO filesystem storage class is not present")
+			}
+
 			By("Upload archive content")
 			err := runImageUploadCmd(
 				resource, targetName,
 				"--archive-path", archivePath,
+				"--storage-class", sc,
+				"--access-mode", "ReadWriteOnce",
 				"--force-bind",
 			)
 			Expect(err).ToNot(HaveOccurred())

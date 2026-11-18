@@ -32,7 +32,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -42,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -59,16 +59,6 @@ var _ = Describe(SIG("CPU", func() {
 	})
 
 	Context("[rfe_id:2065][crit:medium][vendor:cnv-qe@redhat.com][level:component]with 3 CPU cores", Serial, func() {
-		var availableNumberOfCPUs int
-
-		BeforeEach(func() {
-			availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
-
-			requiredNumberOfCpus := 3
-			Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
-				fmt.Sprintf("Test requires %d cpus, but only %d available!", requiredNumberOfCpus, availableNumberOfCPUs))
-		})
-
 		It("[test_id:1659]should report 3 cpu cores under guest OS", func() {
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithCPUCount(3, 0, 0),
@@ -96,7 +86,7 @@ var _ = Describe(SIG("CPU", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			computeContainer := libpod.LookupComputeContainer(readyPod)
-			Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
+			Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(396)))
 		})
 
 		It("[test_id:1660]should report 3 sockets under guest OS", func() {
@@ -426,12 +416,7 @@ var _ = Describe(SIG("CPU", func() {
 			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			patchData := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, autoCPULimitLabel))
-			_, err = virtClient.CoreV1().Namespaces().Patch(context.Background(), namespace.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(libnamespace.AddLabelToNamespace(virtClient, testsuite.GetTestNamespace(vmi), autoCPULimitLabel, "true")).To(Succeed())
 
 			By("Starting the VMI")
 			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)

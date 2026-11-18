@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
-
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -38,9 +38,10 @@ type variable struct {
 }
 
 type config struct {
-	variables   []variable
-	containers  []string
-	nativeTypes []reflect.Type
+	variables    []variable
+	containers   []string
+	nativeTypes  []reflect.Type
+	typeProvider func(types.Provider) types.Provider
 }
 
 type Option func(*config)
@@ -63,30 +64,51 @@ func WithNativeTypes(types ...reflect.Type) Option {
 	}
 }
 
+func WithCustomTypeProvider(wrap func(types.Provider) types.Provider) Option {
+	return func(c *config) {
+		c.typeProvider = wrap
+	}
+}
+
 type Evaluator struct {
 	env   *cel.Env
 	mu    sync.RWMutex
 	cache map[string]cel.Program
 }
 
-func NewEvaluator(opts ...Option) (*Evaluator, error) {
+var (
+	baseEnvOnce sync.Once
+	baseEnv     *cel.Env
+	baseEnvErr  error
+)
+
+func getBaseEnv() (*cel.Env, error) {
+	baseEnvOnce.Do(func() {
+		baseEnv, baseEnvErr = cel.NewEnv(
+			ext.Strings(),
+			ext.Math(),
+			ext.Lists(),
+			cel.CrossTypeNumericComparisons(true),
+			cel.EagerlyValidateDeclarations(true),
+		)
+	})
+	return baseEnv, baseEnvErr
+}
+
+func NewBaseEnv(opts ...Option) (*cel.Env, error) {
 	cfg := &config{}
 	for _, o := range opts {
 		o(cfg)
 	}
 
-	nativeTypes := []any{reflect.TypeFor[*v1.VirtualMachineInstance]()}
-	for _, t := range cfg.nativeTypes {
-		nativeTypes = append(nativeTypes, t)
+	base, err := getBaseEnv()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create base CEL environment: %w", err)
 	}
 
-	envOpts := []cel.EnvOption{
-		ext.NativeTypes(append(nativeTypes, ext.ParseStructTag("json"))...),
-		ext.Strings(),
-		ext.Math(),
-		ext.Lists(),
-		cel.Variable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
-		cel.CrossTypeNumericComparisons(true),
+	var envOpts []cel.EnvOption
+	for _, t := range cfg.nativeTypes {
+		envOpts = append(envOpts, ext.NativeTypes(t))
 	}
 
 	for _, container := range cfg.containers {
@@ -97,7 +119,27 @@ func NewEvaluator(opts ...Option) (*Evaluator, error) {
 		envOpts = append(envOpts, cel.Variable(v.name, v.typ))
 	}
 
-	env, err := cel.NewEnv(envOpts...)
+	env, err := base.Extend(envOpts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
+	}
+
+	if cfg.typeProvider != nil {
+		env, err = env.Extend(cel.CustomTypeProvider(cfg.typeProvider(env.CELTypeProvider())))
+		if err != nil {
+			return nil, fmt.Errorf("failed to extend CEL environment with custom type provider: %w", err)
+		}
+	}
+
+	return env, nil
+}
+
+func NewEvaluator(opts ...Option) (*Evaluator, error) {
+	envOpts := append([]Option{
+		WithNativeTypes(reflect.TypeOf(&v1.VirtualMachineInstance{})),
+		WithVariable("vmi", cel.ObjectType("v1.VirtualMachineInstance")),
+	}, opts...)
+	env, err := NewBaseEnv(envOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL environment: %w", err)
 	}
@@ -108,8 +150,25 @@ func NewEvaluator(opts ...Option) (*Evaluator, error) {
 	}, nil
 }
 
+var (
+	evaluatorOnce sync.Once
+	evaluator     *Evaluator
+	evaluatorErr  error
+)
+
+// GetEvaluator returns the process-wide VMI-condition evaluator, shared so that
+// compiled programs are reused across requests instead of being recompiled per
+// admission. Unlike the launcher-side evaluator, an error is returned rather
+// than panicked: a webhook must not crash the API server if construction fails.
+func GetEvaluator() (*Evaluator, error) {
+	evaluatorOnce.Do(func() {
+		evaluator, evaluatorErr = NewEvaluator()
+	})
+	return evaluator, evaluatorErr
+}
+
 func (e *Evaluator) CompileCondition(expr string) error {
-	_, err := e.compile(expr)
+	_, err := e.getOrCompile(expr)
 	return err
 }
 

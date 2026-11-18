@@ -110,6 +110,19 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 		},
 	}
 
+	productName, productVersion, productComponent := config.GetProductLabels()
+	job.Labels[v1.AppComponentLabel] = productComponent
+	job.Spec.Template.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+	job.Spec.Template.Labels[v1.AppComponentLabel] = productComponent
+	if productVersion != "" {
+		job.Labels[v1.AppVersionLabel] = productVersion
+		job.Spec.Template.Labels[v1.AppVersionLabel] = productVersion
+	}
+	if productName != "" {
+		job.Labels[v1.AppPartOfLabel] = productName
+		job.Spec.Template.Labels[v1.AppPartOfLabel] = productName
+	}
+
 	placement.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
 	env := job.Spec.Template.Spec.Containers[0].Env
 	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())

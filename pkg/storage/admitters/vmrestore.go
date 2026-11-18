@@ -37,24 +37,28 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type vmRestoreConfigChecker interface {
+	SnapshotEnabled() bool
+}
 
 // VMRestoreAdmitter validates VirtualMachineRestores
 type VMRestoreAdmitter struct {
-	Config            *virtconfig.ClusterConfig
-	Client            kubecli.KubevirtClient
-	VMRestoreInformer cache.SharedIndexInformer
+	config            vmRestoreConfigChecker
+	client            kubecli.KubevirtClient
+	vmRestoreInformer cache.SharedIndexInformer
 }
 
 // NewVMRestoreAdmitter creates a VMRestoreAdmitter
-func NewVMRestoreAdmitter(config *virtconfig.ClusterConfig, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
+func NewVMRestoreAdmitter(config vmRestoreConfigChecker, client kubecli.KubevirtClient, vmRestoreInformer cache.SharedIndexInformer) *VMRestoreAdmitter {
 	return &VMRestoreAdmitter{
-		Config:            config,
-		Client:            client,
-		VMRestoreInformer: vmRestoreInformer,
+		config:            config,
+		client:            client,
+		vmRestoreInformer: vmRestoreInformer,
 	}
 }
 
@@ -65,7 +69,7 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
+	if ar.Request.Operation == admissionv1.Create && !admitter.config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("Snapshot/Restore feature gate not enabled"))
 	}
 
@@ -134,7 +138,7 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 			}
 		}
 
-		objects, err := admitter.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
+		objects, err := admitter.vmRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -188,7 +192,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 
 	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
 
-	vmSnapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
+	vmSnapshot, err := admitter.client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
@@ -196,7 +200,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 		return nil, err
 	}
 
-	target, err := admitter.Client.VirtualMachine(namespace).Get(ctx, targetName, metav1.GetOptions{})
+	target, err := admitter.client.VirtualMachine(namespace).Get(ctx, targetName, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -208,7 +212,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
 		}
 
-		vmSnapshotContent, err := admitter.Client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
+		vmSnapshotContent, err := admitter.client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -218,7 +222,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 			return nil, fmt.Errorf("unexpected snapshot source")
 		}
 
-		if backendstorage.IsBackendStorageNeeded(snapshotVM) {
+		if backendstorage.HasLegacyBackendStorage(snapshotVM) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)",
@@ -231,36 +235,39 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 }
 
 func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
-	// Validate patches are either on labels/annotations or on elements under "/spec/" path only
-	for _, patch := range patches {
-		for _, patchKeyValue := range strings.Split(strings.Trim(patch, "{}"), ",") {
-			// For example, if the original patch is {"op": "replace", "path": "/metadata/name", "value": "someValue"}
-			// now we're iterating on [`"op": "replace"`, `"path": "/metadata/name"`, `"value": "someValue"`]
-			keyValSlice := strings.Split(patchKeyValue, ":")
-			if len(keyValSlice) != 2 {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf(`patch format is not valid - one ":" expected in a single key-value json patch: %s`, patchKeyValue),
-					Field:   field.String(),
-				})
-				continue
-			}
+	// Validate patches are either on labels/annotations or on elements under "/spec/" path only.
+	// Every entry is expected to be a single JSON patch operation, for example
+	// {"op": "replace", "path": "/metadata/name", "value": "someValue"}
+	for _, rawPatch := range patches {
+		var patchOp patch.PatchOperation
+		if err := json.Unmarshal([]byte(rawPatch), &patchOp); err != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("patch is not a valid JSON patch operation: %s", rawPatch),
+				Field:   field.String(),
+			})
+			continue
+		}
 
-			key := strings.TrimSpace(keyValSlice[0])
-			value := strings.TrimSpace(keyValSlice[1])
+		if patchOp.Path == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(`patch does not contain a "path": %s`, rawPatch),
+				Field:   field.String(),
+			})
+			continue
+		}
 
-			if key == `"path"` {
-				if strings.HasPrefix(value, `"/metadata/labels/`) || strings.HasPrefix(value, `"/metadata/annotations/`) {
-					continue
-				}
-				if !strings.HasPrefix(value, `"/spec/`) {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("patching is valid only for elements under /spec/ only: %s", patchKeyValue),
-						Field:   field.String(),
-					})
-				}
-			}
+		if strings.HasPrefix(patchOp.Path, "/metadata/labels/") || strings.HasPrefix(patchOp.Path, "/metadata/annotations/") {
+			continue
+		}
+
+		if !strings.HasPrefix(patchOp.Path, "/spec/") {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("patching is valid only for elements under /spec/ only: %s", rawPatch),
+				Field:   field.String(),
+			})
 		}
 	}
 

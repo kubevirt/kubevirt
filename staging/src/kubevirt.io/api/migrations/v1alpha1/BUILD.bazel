@@ -9,6 +9,7 @@ go_library(
         "types.go",
         "types_swagger_generated.go",
         "zz_generated.defaults.go",
+        "zz_generated.model_name.go",
     ],
     importpath = "kubevirt.io/api/migrations/v1alpha1",
     visibility = ["//visibility:public"],

@@ -21,6 +21,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"math/rand"
@@ -50,25 +51,54 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
+
+// clusterConfigProvider is the cluster configuration TemplateService
+// needs to render a virt-launcher Pod. Callers satisfy it implicitly.
+// Feature-gate checks go through IsFeatureGateEnabled so the interface
+// does not grow a method per gate. *virtconfig.ClusterConfig satisfies it.
+type clusterConfigProvider interface {
+	IsFeatureGateEnabled(gate string) bool
+	AllowEmulation() bool
+	GetOVMFPath(arch string) string
+	GetDiskVerification() *v1.DiskVerification
+	GetHypervisor() *v1.HypervisorConfiguration
+	GetVirtLauncherVerbosity() uint
+	GetSELinuxLauncherType() string
+	GetDefaultRuntimeClass() string
+	GetNodeSelectors() map[string]string
+	GetImagePullPolicy() k8sv1.PullPolicy
+	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	GetMemoryOvercommit() int
+	GetCPUAllocationRatio() int
+	GetClusterCPUArch() string
+	GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName k8sv1.ResourceName) *resource.Quantity
+	GetPermittedHostDevices() *v1.PermittedHostDevices
+	IsSerialConsoleLogDisabled() bool
+	GetConfig() *v1.KubeVirtConfiguration
+	GetEmulationPolicy(vmi *v1.VirtualMachineInstance) v1.EmulationPolicy
+}
+
+var _ clusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
 
 const (
 	containerDisks          = "container-disks"
@@ -111,7 +141,8 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-const ENV_VAR_POD_NAME = "POD_NAME"
+const envVarPodName = "POD_NAME"
+const envVarVirtiofsDebugLogs = "VIRTIOFSD_DEBUG_LOGS"
 
 const ephemeralStorageOverheadSize = "50M"
 
@@ -122,39 +153,33 @@ const (
 	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
-type netMemoryCalculator interface {
-	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
+type memoryOverheadCalculator interface {
+	Calculate(vmi *v1.VirtualMachineInstance) resource.Quantity
 }
 
 type annotationsGenerator interface {
 	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
 }
 
-type targetAnnotationsGenerator interface {
-	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
-}
-
 type TemplateService struct {
-	launcherImage              string
-	exporterImage              string
-	launcherQemuTimeout        int
-	virtShareDir               string
-	ephemeralDiskDir           string
-	containerDiskDir           string
-	hotplugDiskDir             string
-	imagePullSecret            string
-	persistentVolumeClaimStore cache.Store
-	virtClient                 kubecli.KubevirtClient
-	clusterConfig              *virtconfig.ClusterConfig
-	launcherSubGid             int64
-	resourceQuotaStore         cache.Store
-	namespaceStore             cache.Store
-
-	sidecarCreators               []SidecarCreatorFunc
-	netMemoryCalculator           netMemoryCalculator
-	annotationsGenerators         []annotationsGenerator
-	netTargetAnnotationsGenerator targetAnnotationsGenerator
-	launcherHypervisorResources   hypervisor.LauncherHypervisorResources
+	launcherImage               string
+	exporterImage               string
+	launcherQemuTimeout         int
+	virtShareDir                string
+	ephemeralDiskDir            string
+	containerDiskDir            string
+	hotplugDiskDir              string
+	imagePullSecret             string
+	persistentVolumeClaimStore  cache.Store
+	virtClient                  kubecli.KubevirtClient
+	clusterConfig               clusterConfigProvider
+	launcherSubGid              int64
+	resourceQuotaStore          cache.Store
+	namespaceStore              cache.Store
+	sidecarCreators             []SidecarCreatorFunc
+	memoryOverheadCalculators   []memoryOverheadCalculator
+	annotationsGenerators       []annotationsGenerator
+	launcherHypervisorResources hypervisor.LauncherHypervisorResources
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -308,6 +333,26 @@ func (t *TemplateService) GetLauncherImage() string {
 	return t.launcherImage
 }
 
+// ErrCPUsFromDRANotMigratable reports a VMI that cannot be live migrated because its CPUs come
+// from a DRA ResourceClaim. That claim belongs to the VMI, is allocated on the node its source pod
+// landed on, and the CPU DRA driver will not share it between pods, so no target pod can ever run
+// the VM.
+var ErrCPUsFromDRANotMigratable = errors.New("VMIs with DRA-provisioned CPUs cannot be live migrated")
+
+// launcherPodRole says what a launcher pod is being rendered for, which is what decides whether it
+// takes its CPUs from DRA.
+type launcherPodRole int
+
+const (
+	// launcherPodVM runs the VM.
+	launcherPodVM launcherPodRole = iota
+	// launcherPodTemporary stands in for the VM long enough to bind a WaitForFirstConsumer
+	// volume, and never starts it.
+	launcherPodTemporary
+	// launcherPodMigrationTarget receives a live migrating VM.
+	launcherPodMigrationTarget
+)
+
 func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeeded(vmi) {
@@ -317,12 +362,16 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true, memoryOverhead)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, launcherPodTemporary, memoryOverhead)
 }
 
 func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.ImageVolumeEnabled())
+	if drautil.PodCPUsFromDRA(sourcePod) {
+		return nil, ErrCPUsFromDRANotMigratable
+	}
+
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume))
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
@@ -334,19 +383,10 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, false, memoryOverhead)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, launcherPodMigrationTarget, memoryOverhead)
 	if err != nil {
 		return nil, err
-	}
-
-	if t.netTargetAnnotationsGenerator != nil {
-		netAnnotations, err := t.netTargetAnnotationsGenerator.GenerateFromSource(vmi, sourcePod)
-		if err != nil {
-			return nil, err
-		}
-
-		maps.Copy(targetPod.Annotations, netAnnotations)
 	}
 
 	return targetPod, err
@@ -361,8 +401,8 @@ func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false, memoryOverhead)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, launcherPodVM, memoryOverhead)
 }
 
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
@@ -382,7 +422,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 		nonRootUser := int64(util.NonRootUID)
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
-		psc.RunAsNonRoot = pointer.P(true)
+		psc.RunAsNonRoot = new(true)
 	} else {
 		rootUser := int64(util.RootUser)
 		psc.RunAsUser = &rootUser
@@ -392,10 +432,18 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	return psc
 }
 
-func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, tempPod bool, memoryOverhead resource.Quantity) (*k8sv1.Pod, error) {
+func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, role launcherPodRole, memoryOverhead resource.Quantity) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+
+	// The pod that runs the VM and the WaitForFirstConsumer temporary pod both reference the VMI's
+	// CPU ResourceClaim.
+	// migration target cannot share the claim with the source pod, so it keeps taking its CPUs
+	// from kubelet's CPU manager. Everything below reads this one value: kubelet rejects a
+	// container that claims a name pod.spec.resourceClaims does not declare, and a pod on the DRA
+	// path must not also be pinned to a cpumanager node.
+	cpusFromDRA := role != launcherPodMigrationTarget && drautil.CPUsFromDRA(vmi, t.clusterConfig.IsFeatureGateEnabled(featuregate.CPUsWithDRAGate))
 
 	var userId int64 = util.RootUser
 
@@ -413,7 +461,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodKillAfter := gracePeriodSeconds + gracePeriodPaddingSeconds
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
-	if util.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
+	if vmitrait.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret,
 		})
@@ -424,15 +472,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	var networkToResourceMap map[string]string
-	if !t.clusterConfig.ExternalNetResourceInjectionEnabled() {
-		var err error
-		networkToResourceMap, err = multus.NetworkToResource(t.virtClient, vmi)
-		if err != nil {
-			return nil, err
-		}
-	}
-	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap, memoryOverhead)
+	resourceRenderer, err := t.newResourceRenderer(vmi, memoryOverhead, cpusFromDRA)
 	if err != nil {
 		return nil, err
 	}
@@ -450,14 +490,15 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var command []string
-	if tempPod {
+	var args []string
+	if role == launcherPodTemporary {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
-		command = []string{"/bin/bash",
-			"-c",
-			"echo", "bound PVCs"}
+		command = []string{"/bin/bash"}
+		args = []string{"-c", "echo", "bound PVCs"}
 	} else {
-		command = []string{"/usr/bin/virt-launcher-monitor",
+		command = []string{"/usr/bin/virt-launcher-monitor"}
+		args = []string{
 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
 			"--name", domain,
 			"--uid", string(vmi.UID),
@@ -472,47 +513,44 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--hypervisor", t.clusterConfig.GetHypervisor().Name,
 		}
 		if nonRoot {
-			command = append(command, "--run-as-nonroot")
+			args = append(args, "--run-as-nonroot")
 		}
-		if t.clusterConfig.ImageVolumeEnabled() {
-			command = append(command, "--image-volume")
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
+			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() {
-			command = append(command, "--libvirt-hook-server-and-client")
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.MDevVGPULiveMigration) {
+			args = append(args, "--vgpu-dedicated-hook")
 		}
-		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
-			command = append(command, "--upgrade-ordinal-ifaces")
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VMStatsCollector) {
+			args = append(args, "--vm-stats-collector")
 		}
-		if t.clusterConfig.VGPULiveMigrationEnabled() {
-			command = append(command, "--vgpu-dedicated-hook")
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.FirmwareAutoSelection) {
+			args = append(args, "--firmware-auto-selection")
 		}
-		if t.clusterConfig.VMStatsCollectorEnabled() {
-			command = append(command, "--vm-stats-collector")
-		}
-		if t.clusterConfig.FirmwareAutoSelectionEnabled() {
-			command = append(command, "--firmware-auto-selection")
+		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ARM64SecureBoot) {
+			args = append(args, "--arm64-secure-boot")
 		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
-			command = append(command, "--libvirt-log-filters", customDebugFilters)
+			args = append(args, "--libvirt-log-filters", customDebugFilters)
 		}
 	}
 
 	if t.clusterConfig.AllowEmulation() {
-		command = append(command, "--allow-emulation")
+		args = append(args, "--allow-emulation")
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if t.useSoftwareEmulation(vmi) {
 		command = append(command, "--allow-cross-arch-emulation")
 	}
 
 	if checkForKeepLauncherAfterFailure(vmi) {
-		command = append(command, "--keep-after-failure")
+		args = append(args, "--keep-after-failure")
 	}
 
 	_, ok := vmi.Annotations[v1.FuncTestLauncherFailFastAnnotation]
 	if ok {
-		command = append(command, "--simulate-crash")
+		args = append(args, "--simulate-crash")
 	}
 
 	volumeRenderer, err := t.newVolumeRenderer(vmi, imageIDs, namespace, requestedHookSidecarList, backendStoragePVCName)
@@ -520,7 +558,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
+	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId, WithCommand(command), WithArgs(args)).Render()
 
 	virtLauncherLogVerbosity := t.clusterConfig.GetVirtLauncherVerbosity()
 
@@ -544,11 +582,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
 	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > util.EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: envVarVirtiofsDebugLogs, Value: "1"})
 	}
 
 	compute.Env = append(compute.Env, k8sv1.EnvVar{
-		Name: ENV_VAR_POD_NAME,
+		Name: envVarPodName,
 		ValueFrom: &k8sv1.EnvVarSource{
 			FieldRef: &k8sv1.ObjectFieldSelector{
 				FieldPath: "metadata.name",
@@ -559,7 +597,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
-	if !t.clusterConfig.ImageVolumeEnabled() {
+	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
 		containersDisks := containerdisk.GenerateContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
 		containers = append(containers, containersDisks...)
 
@@ -578,7 +616,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	var sidecarVolumes []k8sv1.Volume
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		sidecarContainer := newSidecarContainerRenderer(
-			sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render(requestedHookSidecar.Command)
+			sidecarContainerName(i), vmi, sidecarResources(vmi, t.clusterConfig), requestedHookSidecar, userId).Render()
 
 		if requestedHookSidecar.ConfigMap != nil {
 			cm, err := t.virtClient.CoreV1().ConfigMaps(vmi.Namespace).Get(context.TODO(), requestedHookSidecar.ConfigMap.Name, metav1.GetOptions{})
@@ -588,7 +626,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
 					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          pointer.P(int32(0755)),
+					DefaultMode:          new(int32(0755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -623,12 +661,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if err != nil {
 		return nil, err
 	}
-	if tempPod {
+	if role == launcherPodTemporary {
 		// mark pod as temp - only used for provisioning
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
-	if t.clusterConfig.VmiMemoryOverheadReportEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport) {
 		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
 	}
 
@@ -639,18 +677,21 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
 
-	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
-		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
-			"/usr/bin/container-disk",
-			"/init/usr/bin/container-disk",
-		}
+	cpBinaryOpts := []Option{
+		WithVolumeMounts(initContainerVolumeMount()),
+		WithResourceRequirements(initContainerResourceRequirementsForVMI(vmi, v1.ContainerDisk, t.clusterConfig)),
+		WithNoCapabilities(),
+		WithCommand([]string{"/usr/bin/cp"}),
+		WithArgs([]string{"--preserve=all", "/usr/bin/container-disk", "/init/usr/bin/container-disk"}),
+	}
+	if vmitrait.IsNonRoot(vmi) {
+		cpBinaryOpts = append(cpBinaryOpts, WithNonRoot(userId))
+	}
 
+	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && (HaveContainerDiskVolume(vmi.Spec.Volumes) || vmitrait.HasKernelBootContainerImage(vmi)) {
 		initContainers = append(
 			initContainers,
-			t.newInitContainerRenderer(vmi,
-				initContainerVolumeMount(),
-				initContainerResourceRequirementsForVMI(vmi, v1.ContainerDisk, t.clusterConfig),
-				userId).Render(initContainerCommand))
+			NewContainerSpecRenderer("container-disk-binary", t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpBinaryOpts...).Render())
 
 		// this causes containerDisks to be pre-pulled before virt-launcher starts.
 		initContainers = append(initContainers, containerdisk.GenerateInitContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)...)
@@ -659,7 +700,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	} else if t.clusterConfig.ImageVolumeEnabled() {
+	} else if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
+		shouldAddLauncherBinaryVolume(vmi, imageIDs) {
+		// Copy the container-disk binary to the shared EmptyDir.
+		// Uses a distinct name from "container-disk-binary" to avoid triggering the
+		// old bind-mount path detection in virt-handler.
+		initContainers = append(
+			initContainers,
+			NewContainerSpecRenderer("image-volume-binary", t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpBinaryOpts...).Render())
 		// TODO: Once the KEP https://github.com/kubernetes/enhancements/pull/5375 is fully implemented and stable
 		// in all Kubernetes versions supported by KubeVirt, this entire init containers logic should be removed,
 		// and the digest can be fetched directly from the Pod volume status.
@@ -681,7 +729,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 		// Generate init container for kernel boot if needed
 		kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
-		if util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
+		if vmitrait.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists {
 			kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
 			initContainer := containerdisk.CreateImageVolumeInitContainer(
 				vmi,
@@ -714,6 +762,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 
 	}
+
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
@@ -731,7 +780,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
 			InitContainers:                initContainers,
-			NodeSelector:                  t.newNodeSelectorRenderer(vmi).Render(),
+			NodeSelector:                  t.newNodeSelectorRenderer(vmi, cpusFromDRA).Render(),
 			Volumes:                       volumeRenderer.Volumes(),
 			ImagePullSecrets:              imagePullSecrets,
 			DNSConfig:                     vmi.Spec.DNSConfig,
@@ -741,11 +790,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
-			ResourceClaims:                drautil.ToPodResourceClaims(vmi.Spec.ResourceClaims),
+			ResourceClaims:                drautil.PodResourceClaimsForVMI(vmi, cpusFromDRA),
 		},
 	}
 
-	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
+	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.IsFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround))
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
 	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
@@ -766,7 +815,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		return nil, err
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() {
+	if t.allowCrossArchEmulation(vmi) {
 		setPreferredArchitectureAffinity(vmi.Spec.Architecture, &pod)
 		if vmi.Spec.Architecture != "" {
 			if pod.Spec.NodeSelector == nil {
@@ -796,12 +845,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	return &pod, nil
 }
 
-func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance, cpusFromDRA bool) *NodeSelectorRenderer {
 	var opts []NodeSelectorRendererOption
-	if vmi.IsCPUDedicated() {
+	if vmi.IsCPUDedicated() && !cpusFromDRA {
 		opts = append(opts, WithDedicatedCPU())
 	}
-	if t.clusterConfig.HypervStrictCheckEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.HypervStrictCheckGate) {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
 
@@ -855,7 +904,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTDXSelector())
 	}
 
-	if t.clusterConfig.CrossArchitectureVirtualizationEnabled() && vmi.Spec.Architecture != "" {
+	if t.allowCrossArchEmulation(vmi) && vmi.Spec.Architecture != "" {
 		opts = append(opts, WithoutNativeArchSelector())
 	}
 
@@ -875,14 +924,27 @@ func initContainerVolumeMount() k8sv1.VolumeMount {
 }
 
 func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineInstance, resources k8sv1.ResourceRequirements, requestedHookSidecar hooks.HookSidecar, userId int64) *ContainerSpecRenderer {
+	envVars := []k8sv1.EnvVar{
+		{
+			Name:  hooks.ContainerNameEnvVar,
+			Value: sidecarName,
+		},
+	}
+	if requestedHookSidecar.NetworkBindingPluginName != "" {
+		envVars = append(envVars, k8sv1.EnvVar{
+			Name:  hooks.NetworkBindingPluginNameEnvVar,
+			Value: requestedHookSidecar.NetworkBindingPluginName,
+		})
+	}
+
+	// resources already contains the CPU and memory spec of the sidecar container
+	// add the DRA ResourceClaims as well
+	resources.Claims = requestedHookSidecar.ResourceClaims
 	sidecarOpts := []Option{
+		WithCommand(requestedHookSidecar.Command),
 		WithResourceRequirements(resources),
 		WithArgs(requestedHookSidecar.Args),
-		WithExtraEnvVars([]k8sv1.EnvVar{
-			k8sv1.EnvVar{
-				Name:  hooks.ContainerNameEnvVar,
-				Value: sidecarName,
-			}}),
+		WithExtraEnvVars(envVars),
 	}
 
 	var mounts []k8sv1.VolumeMount
@@ -913,22 +975,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 		sidecarOpts...)
 }
 
-func (t *TemplateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineInstance, initContainerVolumeMount k8sv1.VolumeMount, initContainerResources k8sv1.ResourceRequirements, userId int64) *ContainerSpecRenderer {
-	const containerDisk = "container-disk-binary"
-	cpInitContainerOpts := []Option{
-		WithVolumeMounts(initContainerVolumeMount),
-		WithResourceRequirements(initContainerResources),
-		WithNoCapabilities(),
-	}
-
-	if vmitrait.IsNonRoot(vmiSpec) {
-		cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
-	}
-
-	return NewContainerSpecRenderer(containerDisk, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpInitContainerOpts...)
-}
-
-func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstance, volumeRenderer *VolumeRenderer, resources k8sv1.ResourceRequirements, userId int64) *ContainerSpecRenderer {
+func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstance, volumeRenderer *VolumeRenderer, resources k8sv1.ResourceRequirements, userId int64, extraOpts ...Option) *ContainerSpecRenderer {
 	computeContainerOpts := []Option{
 		WithVolumeDevices(volumeRenderer.VolumeDevices()...),
 		WithVolumeMounts(volumeRenderer.Mounts()...),
@@ -949,6 +996,8 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		computeContainerOpts = append(computeContainerOpts, WithLivelinessProbe(vmi))
 	}
 
+	computeContainerOpts = append(computeContainerOpts, extraOpts...)
+
 	const computeContainerName = "compute"
 	containerRenderer := NewContainerSpecRenderer(
 		computeContainerName, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), computeContainerOpts...)
@@ -956,7 +1005,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
-	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
+	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume)
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
@@ -969,7 +1018,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
 	}
-	if t.clusterConfig.PluginsEnabled() {
+	if t.clusterConfig.IsFeatureGateEnabled(featuregate.PluginsGate) {
 		volumeOpts = append(volumeOpts, withPluginSocketVolume())
 	}
 
@@ -990,14 +1039,12 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 		volumeOpts = append(volumeOpts, withNetworkDeviceInfoMapAnnotation())
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
+	if vmitrait.IsVMIVirtiofsEnabled(vmi) {
 		volumeOpts = append(volumeOpts, withVirioFS())
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
-		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
-		t.launcherImage,
 		imageIDs,
 		namespace,
 		t.ephemeralDiskDir,
@@ -1011,7 +1058,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	return volumeRenderer, nil
 }
 
-func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string, memoryOverhead resource.Quantity) (*ResourceRenderer, error) {
+func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity, cpusFromDRA bool) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
 	hypervisorResource := ConstructHypervisorResourceName(t.launcherHypervisorResources)
 	baseOptions := []ResourceRendererOption{
@@ -1023,7 +1070,7 @@ func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 		return nil, err
 	}
 
-	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap, memoryOverhead).Apply()...)
+	options := append(baseOptions, t.VMIResourcePredicates(vmi, memoryOverhead, cpusFromDRA).Apply()...)
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
@@ -1092,6 +1139,10 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Labels: map[string]string{
 				v1.AppLabel: hotplugDisk,
 			},
+			Annotations: map[string]string{
+				v1.OwnerVMINameAnnotation: vmi.Name,
+				v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+			},
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
@@ -1101,8 +1152,8 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
-						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: new(false),
+						RunAsNonRoot:             new(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1165,10 +1216,14 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		if claimName == "" {
 			continue
 		}
-		skipMount := false
-		if hotplugVolumeStatusMap[volume.Name] == v1.VolumeReady || hotplugVolumeStatusMap[volume.Name] == v1.HotplugVolumeMounted {
-			skipMount = true
-		}
+		// Skip container mounts for regular hotplug volumes already served by the old
+		// attachment pod (VolumeReady or HotplugVolumeMounted). Utility volumes always
+		// need a mount in the replacement pod so virt-handler can bind-mount when the
+		// volume set expands. Skipping during HotplugVolumeMounted avoids duplicate
+		// container mounts on overlapping attachment pods (same node as virt-launcher)
+		// while the disk is still attaching via the old pod.
+		phase := hotplugVolumeStatusMap[volume.Name]
+		skipMount := !types.IsUtilityVolume(vmi, volume.Name) && (phase == v1.VolumeReady || phase == v1.HotplugVolumeMounted)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volume.Name,
 			VolumeSource: k8sv1.VolumeSource{
@@ -1212,7 +1267,10 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
 
-	annotationsList := make(map[string]string)
+	annotationsList := map[string]string{
+		v1.OwnerVMINameAnnotation: vmi.Name,
+		v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
+	}
 	if tempPod {
 		// mark pod as temp - only used for provisioning
 		annotationsList[v1.EphemeralProvisioningObject] = "true"
@@ -1244,8 +1302,8 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
-						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: new(false),
+						RunAsNonRoot:             new(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1355,7 +1413,7 @@ func (t *TemplateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.P(false),
+						AllowPrivilegeEscalation: new(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 					Resources: vmExportContainerResourceRequirements(t.clusterConfig),
@@ -1367,10 +1425,8 @@ func (t *TemplateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
-	for _, oldsecret := range secrets {
-		if oldsecret == newsecret {
-			return secrets
-		}
+	if slices.Contains(secrets, newsecret) {
+		return secrets
 	}
 	return append(secrets, newsecret)
 }
@@ -1395,7 +1451,7 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
-	clusterConfig *virtconfig.ClusterConfig,
+	clusterConfig clusterConfigProvider,
 	launcherSubGid int64,
 	exporterImage string,
 	resourceQuotaStore cache.Store,
@@ -1535,9 +1591,6 @@ func (t *TemplateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	// Set this annotation now to indicate that the newly created virt-launchers will use
-	// unix sockets as a transport for migration
-	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
 
 	for _, generator := range t.annotationsGenerators {
@@ -1621,44 +1674,35 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 	return false
 }
 
-func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string, memoryOverhead resource.Quantity) VMIResourcePredicates {
+func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, memoryOverhead resource.Quantity, cpusFromDRA bool) VMIResourcePredicates {
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
-	additionalCPUs := uint32(0)
-	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
-		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
-		vmi.Spec.Domain.IOThreads != nil &&
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
-		additionalCPUs = *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount
-	}
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
 			// Run overcommit first to avoid overcommitting overhead memory
-			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi.Spec.Domain.Memory, t.clusterConfig.GetMemoryOvercommit())),
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
+			NewVMIResourceRule(emptyMemoryRequest, WithMemoryRequests(vmi, t.clusterConfig.GetMemoryOvercommit())),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
-			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
-				return len(networkToResourceMap) > 0
-			}, WithNetworkResources(networkToResourceMap)),
 			NewVMIResourceRule(isGPUVMIDevicePlugins, WithGPUsDevicePlugins(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.GPUsWithDRAGateEnabled() && isGPUVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate) && isGPUVMIDRA(vmi)
 			}, WithGPUsDRA(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(isHostDevVMIDevicePlugins, WithHostDevicesDevicePlugins(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate) && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.NetworkDevicesWithDRAGateEnabled() && vmispec.HasDRANetwork(vmi.Spec.Networks)
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate) && vmispec.HasDRANetwork(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
+			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool { return cpusFromDRA }, WithCPUsDRA()),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IOMMUFDEnabled()
+				return t.clusterConfig.IsFeatureGateEnabled(featuregate.IOMMUFDGate)
 			}, WithIOMMUFD()),
 		},
 	}
@@ -1666,7 +1710,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 
 // TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
 // and we are sure that all VMIs include the MemoryOverhead status field
-func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryCalculator netMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
+func CalculateMemoryOverhead(clusterConfig clusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {
@@ -1675,10 +1719,8 @@ func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryC
 
 	memoryOverhead := launcherHypervisorResources.GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 
-	if netMemoryCalculator != nil {
-		memoryOverhead.Add(
-			netMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
-		)
+	for _, calc := range calculators {
+		memoryOverhead.Add(calc.Calculate(vmi))
 	}
 
 	return memoryOverhead
@@ -1717,9 +1759,7 @@ func (p VMIResourcePredicates) Apply() []ResourceRendererOption {
 func podLabels(vmi *v1.VirtualMachineInstance, hostName string) map[string]string {
 	labels := map[string]string{}
 
-	for k, v := range vmi.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, vmi.Labels)
 	labels[v1.AppLabel] = "virt-launcher"
 	labels[v1.CreatedByLabel] = string(vmi.UID)
 	labels[v1.DeprecatedVirtualMachineNameLabel] = hostName
@@ -1738,9 +1778,9 @@ func readinessGates() []k8sv1.PodReadinessGate {
 	}
 }
 
-func WithNetMemoryCalculator(netMemoryCalculator netMemoryCalculator) templateServiceOption {
+func WithMemoryOverheadCalculators(calcs ...memoryOverheadCalculator) templateServiceOption {
 	return func(service *TemplateService) {
-		service.netMemoryCalculator = netMemoryCalculator
+		service.memoryOverheadCalculators = calcs
 	}
 }
 
@@ -1750,24 +1790,13 @@ func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServi
 	}
 }
 
-func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) templateServiceOption {
-	return func(service *TemplateService) {
-		service.netTargetAnnotationsGenerator = generator
-	}
-}
-
 func hasHugePages(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
 }
 
 // isGPUVMIDevicePlugins checks if a VMI has any GPUs configured for device plugins
 func isGPUVMIDevicePlugins(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if isGPUDevicePlugin(gpu) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.GPUs, isGPUDevicePlugin)
 }
 
 func isGPUDevicePlugin(gpu v1.GPU) bool {
@@ -1776,12 +1805,7 @@ func isGPUDevicePlugin(gpu v1.GPU) bool {
 
 // isGPUVMIDRA checks if a VMI has any GPUs configured for Dynamic Resource Allocation
 func isGPUVMIDRA(vmi *v1.VirtualMachineInstance) bool {
-	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
-		if drautil.IsGPUDRA(gpu) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.GPUs, drautil.IsGPUDRA)
 }
 
 // isHostDevVMIDevicePlugins checks if a VMI has any HostDevices configured for device plugins
@@ -1817,4 +1841,12 @@ func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
 func emptyMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
 	resources := &vmi.Spec.Domain.Resources
 	return resources.Requests.Memory().IsZero()
+}
+
+func (t *TemplateService) allowCrossArchEmulation(vmi *v1.VirtualMachineInstance) bool {
+	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) != v1.EmulationPolicyNone
+}
+
+func (t *TemplateService) useSoftwareEmulation(vmi *v1.VirtualMachineInstance) bool {
+	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) == v1.EmulationPolicySoftware
 }

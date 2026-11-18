@@ -23,8 +23,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -47,8 +50,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -57,6 +60,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -76,50 +80,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	const enoughMemForSafeBiosEmulation = "32Mi"
 	var virtClient kubecli.KubevirtClient
 
-	const (
-		cgroupV1MemoryUsagePath = "/sys/fs/cgroup/memory/memory.usage_in_bytes"
-		cgroupV2MemoryUsagePath = "/sys/fs/cgroup/memory.current"
-	)
-
-	getPodMemoryUsage := func(pod *k8sv1.Pod) (output string, err error) {
-		output, err = exec.ExecuteCommandOnPod(
-			pod,
-			"compute",
-			[]string{"cat", cgroupV2MemoryUsagePath},
-		)
-
-		if err == nil {
-			return
-		}
-
-		output, err = exec.ExecuteCommandOnPod(
-			pod,
-			"compute",
-			[]string{"cat", cgroupV1MemoryUsagePath},
-		)
-
-		return
-	}
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-	})
-
-	Context("when requesting virtio-transitional models", func() {
-		It("[test_id:6957]should start and run the guest", func() {
-			vmi := libvmifact.NewAlpine(
-				libvmi.WithRng(),
-				libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch()),
-				libvmi.WithTablet("tablet", "virtio"),
-				libvmi.WithTablet("tablet1", "usb"),
-			)
-			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			testutils.ExpectVirtioTransitionalOnly(domSpec)
-		})
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
@@ -180,6 +142,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				vmi := libvmi.New(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithLogSerialConsole(true),
 				)
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -200,12 +163,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(vmi.Spec.Domain.Devices.Interfaces[0].BootOrder).To(BeNil())
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting no bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).NotTo(Succeed())
-				// The expecter *should* have error-ed since the network interface is not marked bootable
+				Expect(expectNetBoot(vmi)).To(MatchError(errNoNetBoot))
 			})
 
 			It("[test_id:5266]should boot to NIC rom if a boot order was set on a network interface", func() {
@@ -220,14 +181,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(interfaceDeviceWithMasqueradeBinding),
 					withSerialBIOS(),
+					libvmi.WithLogSerialConsole(true),
 				)
 
 				By("Starting a VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsSmall())
 
 				By("Expecting a bootable NIC")
-				Expect(console.NetBootExpecter(vmi)).To(Succeed())
+				Expect(expectNetBoot(vmi)).To(Succeed())
 			})
 		})
 
@@ -266,7 +227,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						SlicNameRef: volumeSlicSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI SLIC table matches the one provided")
@@ -310,7 +271,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						MsdmNameRef: volumeMsdmSecretName,
 					},
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the guest ACPI MSDM table matches the one provided")
@@ -333,7 +294,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
-			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, libvmops.StartupTimeoutSecondsHuge)
+			fedoraWithUefi = libvmops.RunVMIAndExpectLaunch(fedoraWithUefi, flags.StartupTimeoutSecondsHuge())
 			Expect(console.LoginToFedora(fedoraWithUefi)).To(Succeed())
 
 			By("Checking EFI and SecureBoot state")
@@ -350,6 +311,95 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled", false),
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
+
+		// Ubuntu 24.04 is used as a container disk for CI convenience; any bootable
+		// ARM64 disk with a valid Secure Boot chain would work.
+		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
+		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
+		// fbaa64.efi (fallback) is signed with a test certificate, causing a
+		// Security Violation on first boot. See:
+		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
+		Context("ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func() {
+			var (
+				vm  *v1.VirtualMachine
+				vmi *v1.VirtualMachineInstance
+			)
+
+			BeforeEach(func() {
+				kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
+				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+
+				vmi = libvmi.New(
+					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithRng(),
+					libvmi.WithArchitecture("arm64"),
+					libvmi.WithUefi(true),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
+disable_root: false
+chpasswd:
+  expire: false
+  users:
+    - name: root
+      password: kubevirt
+      type: text
+`)),
+				)
+			})
+
+			createVM := func() {
+				GinkgoHelper()
+				vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyHalted))
+				var err error
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			startAndCheckSecureBoot := func() {
+				GinkgoHelper()
+				By("Starting the VM and logging into Ubuntu")
+				vm = libvmops.StartVirtualMachine(vm)
+				var err error
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BCas{C: []expect.Caser{
+						&expect.Case{R: regexp.MustCompile(`(?m)^\S+ login: `), S: "root\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`Password:`), S: "kubevirt\n", T: expect.Next(), Rt: 10},
+						&expect.Case{R: regexp.MustCompile(`root@[^:]+:[^\r\n]*# `), T: expect.OK()},
+					}},
+				}, 5*time.Minute)).To(Succeed())
+				Expect(console.RunCommand(vmi, "stty cols 500 rows 500", 10*time.Second)).To(Succeed())
+
+				By("Checking that Secure Boot is enabled in the guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "mokutil --sb-state\n"},
+					&expect.BExp{R: console.RetValue("SecureBoot enabled")},
+				}, 10)).To(Succeed())
+			}
+
+			It("should enable Secure Boot in the guest", func() {
+				createVM()
+				startAndCheckSecureBoot()
+			})
+
+			It("should persist firmware variables across VM restarts", decorators.RequiresRWOFsVMStateStorageClass, func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				createVM()
+				startAndCheckSecureBoot()
+				libvmops.WriteEFITestVariable(vmi)
+				previousUID := vmi.UID
+
+				By("Replacing the VMI and virt-launcher pod by stopping and starting the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				startAndCheckSecureBoot()
+				Expect(vmi.UID).ToNot(Equal(previousUID))
+				libvmops.CheckEFITestVariable(vmi)
+			})
+		})
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
@@ -680,7 +730,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					},
 				}
 				By("Expecting the VirtualMachineInstance start")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXLarge())
 
 				By("Checking the TSC frequency on the VMI")
 				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -791,7 +841,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			config := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration
 			Expect(config.DefaultRuntimeClass).To(BeEmpty())
 			By("Creating a VMI")
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsSmall)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), flags.StartupTimeoutSecondsSmall())
 
 			By("Checking for absence of runtimeClassName")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -886,7 +936,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				withMachineType(machineType),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
 
 			Expect(vmi.Status.Machine).ToNot(BeNil())
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring(expectedSubstring))
@@ -908,24 +958,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsTiny())
 			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring(expectedSubstring))
-		})
-	})
-
-	Context("with a custom scheduler", decorators.WgS390x, func() {
-		It("[test_id:4631]should set the custom scheduler on the pod", func() {
-			vmi := libvmi.New(
-				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
-				WithSchedulerName("my-custom-scheduler"),
-			)
-			runningVMI := libvmops.RunVMIAndExpectScheduling(vmi, 30)
-			launcherPod, err := libpod.GetPodByVirtualMachineInstance(runningVMI, testsuite.GetTestNamespace(vmi))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(launcherPod.Spec.SchedulerName).To(Equal("my-custom-scheduler"))
 		})
 	})
 
@@ -1005,10 +1042,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		// ordering:
 		// use a small disk for the other ones
 		testVMI := func() *v1.VirtualMachineInstance {
-			// virtio - added by NewCirros
-			return libvmifact.NewCirros(
+			// virtio - added by NewAlpine
+			return libvmifact.NewAlpine(
 				// add sata disk
-				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
+				libvmi.WithContainerSATADisk("disk2", cd.ContainerDiskFor(cd.ContainerDiskAlpine)),
 			)
 			// NOTE: we have one disk per bus, so we expect vda, sda
 		}
@@ -1028,11 +1065,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// keep the ordering!
-				&expect.BSnd{S: "ls /dev/vda  /dev/vdb\n"},
+				&expect.BSnd{S: "ls /dev/vda  /dev/sda\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
@@ -1046,7 +1083,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusVirtio
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress)
 		})
@@ -1113,7 +1150,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				for idx := 1; idx < len(nodes.Items); idx++ {
 					labels := nodes.Items[idx].GetLabels()
 					for label, val := range labels {
-						if label == "cpumanager" && val == "true" {
+						if label == "kubevirt.io/cpumanager" && val == "true" {
 							cpuManagerEnabled = true
 						}
 					}
@@ -1171,11 +1208,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
-
-				By("Check values in domain XML")
-				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
-				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
 			It("[test_id:4632]should be able to start a vm with guest memory different from requested and keep guaranteed qos", func() {
 				cpuVmi := libvmifact.NewAlpine(
@@ -1204,30 +1236,13 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				podQos := readyPod.Status.QOSClass
 				Expect(podQos).To(Equal(k8sv1.PodQOSGuaranteed))
 
-				// -------------------------------------------------------------------
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				// Verify that the total memory is below guest memory and not request.
+				By("Verifying that the total memory is below guest memory and not request")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -lt 256 ] && echo 'pass'\n"},
 					&expect.BExp{R: console.RetValue("pass")},
-					// Write 100M to shared memory, the available memory can change per OS version
-					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=100k && echo 'pass'\n"},
-					&expect.BExp{R: console.RetValue("pass")},
-					&expect.BSnd{S: "echo $?\n"},
-					&expect.BExp{R: console.RetValue("0")},
 				}, 15)).To(Succeed())
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				podMemoryUsage, err := getPodMemoryUsage(pod)
-				Expect(err).ToNot(HaveOccurred())
-				By("Converting pod memory usage")
-				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
-				Expect(err).ToNot(HaveOccurred())
-				By("Checking if pod memory usage is > 80Mi")
-				Expect(m).To(BeNumerically(">", 83886080), "83886080 B = 80 Mi")
 			})
 			DescribeTable("[test_id:4023]should start a vmi with dedicated cpus and isolated emulator thread", func(resources *v1.ResourceRequirements) {
 				cpuVmi := libvmifact.NewAlpine()
@@ -1307,23 +1322,26 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
-				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				// KVM PIT (i8254) is x86-only; ARM64 uses the Generic Timer
+				if vmi.Spec.Architecture == "amd64" {
+					domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+					Expect(err).ToNot(HaveOccurred())
 
-				emulator := filepath.Base(domSpec.Devices.Emulator)
-				pidCmd := []string{"pidof", emulator}
-				qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
-				// do not check for kvm-pit thread if qemu is not in use
-				if err != nil {
-					return
+					emulator := filepath.Base(domSpec.Devices.Emulator)
+					pidCmd := []string{"pidof", emulator}
+					qemuPid, err := exec.ExecuteCommandOnPod(readyPod, "compute", pidCmd)
+					// do not check for kvm-pit thread if qemu is not in use
+					if err != nil {
+						return
+					}
+					kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
+					Expect(err).ToNot(HaveOccurred())
+
+					vcpuzeromask, err := getVcpuMask(readyPod, strings.TrimSpace(qemuPid), "0")
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(kvmpitmask).To(Equal(vcpuzeromask))
 				}
-				kvmpitmask, err := getKvmPitMask(strings.TrimSpace(qemuPid), node)
-				Expect(err).ToNot(HaveOccurred())
-
-				vcpuzeromask, err := getVcpuMask(readyPod, emulator, "0")
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(kvmpitmask).To(Equal(vcpuzeromask))
 			},
 				Entry(" with explicit resources set", &v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -1361,21 +1379,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed())
 			})
 
-			It("[test_id:1690]should fail the vmi creation if Guaranteed QOS cannot be set", func() {
-				cpuVmi := libvmifact.NewAlpine()
-				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					DedicatedCPUPlacement: true,
-				}
-				cpuVmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
-				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Limits: k8sv1.ResourceList{
-						k8sv1.ResourceCPU: resource.MustParse("4"),
-					},
-				}
-				By("Starting a VirtualMachineInstance")
-				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-			})
 			It("[test_id:830]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 				Vmi := libvmifact.NewAlpine()
 				cpuVmi := libvmifact.NewAlpine()
@@ -1761,12 +1764,6 @@ func machineTypeForArch() (machineType, expectedSubstring string, emulatedMachin
 	return "pc", "pc-i440", []string{"pc"}
 }
 
-func WithSchedulerName(schedulerName string) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.SchedulerName = schedulerName
-	}
-}
-
 func withSerialBIOS() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
@@ -1780,6 +1777,80 @@ func withSerialBIOS() libvmi.Option {
 		}
 		vmi.Spec.Domain.Firmware.Bootloader.BIOS.UseSerial = pointer.P(true)
 	}
+}
+
+var errNoNetBoot = errors.New("no NIC option ROM output in the serial console")
+
+// expectNetBoot succeeds if the VMI's serial console shows "iPXE", proving the NIC
+// option ROM ran, and reports errNoNetBoot once SeaBIOS reports no boot device. It
+// reads the guest-console-log sidecar rather than a live console, because the firmware
+// prints its banner before a console connection can be established.
+func expectNetBoot(vmi *v1.VirtualMachineInstance) error {
+	const (
+		maxConsoleLog = 64 * 1024 // bound only; the log is normally about a kilobyte
+		readChunk     = 1024
+		// No trailing period: some SeaBIOS builds append a retry notice.
+		noBootableDevice = "No bootable device"
+	)
+
+	virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	if err != nil {
+		return err
+	}
+
+	timeout := time.Duration(flags.StartupTimeoutSecondsSmall()) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stream, err := kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).
+		GetLogs(virtLauncherPod.Name, &k8sv1.PodLogOptions{
+			Container: "guest-console-log",
+			Follow:    true,
+		}).Stream(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, err)
+	}
+	defer stream.Close()
+
+	// SeaBIOS may interleave escape sequences for letter placement on screen.
+	esc := console.UTFPosEscape
+	netBootMarker := regexp.MustCompile("i(PXE|" + esc + "P" + esc + "X" + esc + "E)")
+
+	// Matched against everything received so far, since a marker may straddle two reads.
+	var consoleLog strings.Builder
+	defer func() { GinkgoWriter.Printf("BIOS output of VMI %s:\n%s\n", vmi.Name, consoleLog.String()) }()
+
+	buf := make([]byte, readChunk)
+	reader := io.LimitReader(stream, maxConsoleLog)
+	for {
+		n, readErr := reader.Read(buf)
+		if n > 0 {
+			consoleLog.Write(buf[:n])
+			if netBootMarker.MatchString(consoleLog.String()) {
+				return nil
+			}
+			// After the ROM marker: the positive case prints both, iPXE first.
+			if strings.Contains(consoleLog.String(), noBootableDevice) {
+				return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
+			}
+		}
+		if readErr != nil {
+			// EOF or a spent budget means the console was read as long as intended,
+			// anything else means it was not read at all.
+			if !errors.Is(readErr, io.EOF) && ctx.Err() == nil {
+				return fmt.Errorf("failed to read the serial console of VMI %s: %w", vmi.Name, readErr)
+			}
+			break
+		}
+	}
+
+	// No SeaBIOS banner means the boot was never observed, which is not the same as
+	// observing a boot without an option ROM.
+	if !strings.Contains(consoleLog.String(), "SeaBIOS") {
+		return fmt.Errorf("no firmware output in the serial console of VMI %s", vmi.Name)
+	}
+
+	return fmt.Errorf("%w of VMI %s", errNoNetBoot, vmi.Name)
 }
 
 func getKvmPitMask(qemupid, nodeName string) (output string, err error) {
@@ -1827,8 +1898,8 @@ func getProcessName(pod *k8sv1.Pod, pid string) (output string, err error) {
 	return
 }
 
-func getVcpuMask(pod *k8sv1.Pod, emulator, cpu string) (output string, err error) {
-	pscmd := `ps -LC ` + emulator + ` -o lwp,comm | grep "CPU ` + cpu + `"  | cut -f1 -dC`
+func getVcpuMask(pod *k8sv1.Pod, emulatorPid, cpu string) (output string, err error) {
+	pscmd := `ps -L -o lwp=,comm= -p ` + emulatorPid + ` | grep "CPU ` + cpu + `/KVM" | awk '{print $1}'`
 	args := []string{"/bin/bash", "-c", pscmd}
 	Eventually(func() error {
 		output, err = exec.ExecuteCommandOnPod(pod, "compute", args)

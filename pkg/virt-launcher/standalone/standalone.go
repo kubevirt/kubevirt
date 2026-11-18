@@ -21,6 +21,8 @@ package standalone
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -38,8 +40,12 @@ func HandleStandaloneMode(domainManager virtwrap.DomainManager) {
 		if err := yaml.Unmarshal([]byte(vmiObjStr), &vmi); err != nil {
 			// Fallback to JSON if YAML fails
 			if jsonErr := json.Unmarshal([]byte(vmiObjStr), &vmi); jsonErr != nil {
-				log.Log.Reason(err).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
-				panic(err)
+				parseErr := errors.Join(
+					fmt.Errorf("YAML: %w", err),
+					fmt.Errorf("JSON: %w", jsonErr),
+				)
+				log.Log.Reason(parseErr).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
+				panic(parseErr)
 			}
 		}
 

@@ -8,6 +8,7 @@ go_library(
         "register.go",
         "types.go",
         "types_swagger_generated.go",
+        "zz_generated.model_name.go",
     ],
     importpath = "kubevirt.io/api/export/v1",
     visibility = ["//visibility:public"],

@@ -28,64 +28,112 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	api "kubevirt.io/api/instancetype"
+	"kubevirt.io/client-go/kubecli"
 )
 
 const (
 	unsupportedVolumeTypeFmt          = "unable to infer defaults from volume %s as type is not supported"
 	missingLabelFmt                   = "unable to find required %s label on the volume"
 	unsupportedDataVolumeSource       = "unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported"
-	missingDataVolumeSourcePVC        = "unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC"
 	unsupportedDataVolumeSourceRefFmt = "unable to infer defaults from DataVolumeSourceRef as Kind %s is not supported"
+	missingDataSourceSource           = "unable to infer defaults from DataSource that doesn't provide " +
+		"DataVolumeSourcePVC or DataVolumeSourceSnapshot"
 )
 
+type volumeHandler struct {
+	virtClient          kubecli.KubevirtClient
+	defaultNameLabel    string
+	defaultKindLabel    string
+	inferFromVolumeName func(*virtv1.VirtualMachine) string
+}
+
+func newInstancetypeVolumeHandler(virtClient kubecli.KubevirtClient) *volumeHandler {
+	return &volumeHandler{
+		virtClient:       virtClient,
+		defaultNameLabel: api.DefaultInstancetypeLabel,
+		defaultKindLabel: api.DefaultInstancetypeKindLabel,
+		inferFromVolumeName: func(vm *virtv1.VirtualMachine) string {
+			return vm.Spec.Instancetype.InferFromVolume
+		},
+	}
+}
+
+func newPreferenceVolumeHandler(virtClient kubecli.KubevirtClient) *volumeHandler {
+	return &volumeHandler{
+		virtClient:       virtClient,
+		defaultNameLabel: api.DefaultPreferenceLabel,
+		defaultKindLabel: api.DefaultPreferenceKindLabel,
+		inferFromVolumeName: func(vm *virtv1.VirtualMachine) string {
+			return vm.Spec.Preference.InferFromVolume
+		},
+	}
+}
+
 /*
-Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources and PVCs:
+Defaults will be inferred from the following combinations of DataVolumeSources, DataVolumeTemplates, DataSources, PVCs and VolumeSnapshots:
 
 Volume -> PersistentVolumeClaimVolumeSource -> PersistentVolumeClaim
 Volume -> DataVolumeSource -> DataVolume
 Volume -> DataVolumeSource -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceSnapshot -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeSourceRef -> DataSource -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourcePVC -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceSnapshot -> VolumeSnapshot
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource
 Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> PersistentVolumeClaim
+Volume -> DataVolumeSource -> DataVolumeTemplate -> DataVolumeSourceRef -> DataSource -> VolumeSnapshot
 */
-func (h *handler) fromVolumes(
-	vm *virtv1.VirtualMachine, inferFromVolumeName, defaultNameLabel, defaultKindLabel string,
+func (h *volumeHandler) fromVolumes(
+	vm *virtv1.VirtualMachine,
 ) (defaultName, defaultKind string, err error) {
+	inferFromVolumeName := h.inferFromVolumeName(vm)
 	for _, volume := range vm.Spec.Template.Spec.Volumes {
 		if volume.Name != inferFromVolumeName {
 			continue
 		}
 		if volume.PersistentVolumeClaim != nil {
-			return h.fromPVC(volume.PersistentVolumeClaim.ClaimName, vm.Namespace, defaultNameLabel, defaultKindLabel)
+			return h.fromPVC(volume.PersistentVolumeClaim.ClaimName, vm.Namespace)
 		}
 		if volume.DataVolume != nil {
-			return h.fromDataVolume(vm, volume.DataVolume.Name, defaultNameLabel, defaultKindLabel)
+			return h.fromDataVolume(vm, volume.DataVolume.Name)
 		}
 		return "", "", NewIgnoreableInferenceError(fmt.Errorf(unsupportedVolumeTypeFmt, inferFromVolumeName))
 	}
 	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
 }
 
-func fromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
-	defaultName, hasLabel := labels[defaultNameLabel]
+func (h *volumeHandler) fromLabels(labels map[string]string) (defaultName, defaultKind string, err error) {
+	defaultName, hasLabel := labels[h.defaultNameLabel]
 	if !hasLabel {
-		return "", "", NewIgnoreableInferenceError(fmt.Errorf(missingLabelFmt, defaultNameLabel))
+		return "", "", NewIgnoreableInferenceError(fmt.Errorf(missingLabelFmt, h.defaultNameLabel))
 	}
-	return defaultName, labels[defaultKindLabel], nil
+	return defaultName, labels[h.defaultKindLabel], nil
 }
 
-func (h *handler) fromPVC(pvcName, pvcNamespace, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
+func (h *volumeHandler) fromPVC(pvcName, pvcNamespace string) (defaultName, defaultKind string, err error) {
 	pvc, err := h.virtClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 	if err != nil {
 		return "", "", err
 	}
-	return fromLabels(pvc.Labels, defaultNameLabel, defaultKindLabel)
+	return h.fromLabels(pvc.Labels)
 }
 
-func (h *handler) fromDataVolume(
-	vm *virtv1.VirtualMachine, dvName, defaultNameLabel, defaultKindLabel string,
+func (h *volumeHandler) fromVolumeSnapshot(
+	snapshotName, snapshotNamespace string,
+) (defaultName, defaultKind string, err error) {
+	snapshot, err := h.virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(snapshotNamespace).Get(
+		context.Background(), snapshotName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", err
+	}
+	return h.fromLabels(snapshot.Labels)
+}
+
+func (h *volumeHandler) fromDataVolume(
+	vm *virtv1.VirtualMachine, dvName string,
 ) (defaultName, defaultKind string, err error) {
 	if len(vm.Spec.DataVolumeTemplates) > 0 {
 		for _, dvt := range vm.Spec.DataVolumeTemplates {
@@ -93,39 +141,45 @@ func (h *handler) fromDataVolume(
 				continue
 			}
 			dvtSpec := dvt.Spec
-			return h.fromDataVolumeSpec(&dvtSpec, defaultNameLabel, defaultKindLabel, vm.Namespace)
+			return h.fromDataVolumeSpec(&dvtSpec, vm.Namespace)
 		}
 	}
 	dv, err := h.virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 	if err != nil {
 		// Handle garbage collected DataVolumes by attempting to lookup the PVC using the name of the DataVolume in the VM namespace
 		if k8serrors.IsNotFound(err) {
-			return h.fromPVC(dvName, vm.Namespace, defaultNameLabel, defaultKindLabel)
+			return h.fromPVC(dvName, vm.Namespace)
 		}
 		return "", "", err
 	}
 	// Check the DataVolume for any labels before checking the underlying PVC
-	defaultName, defaultKind, err = fromLabels(dv.Labels, defaultNameLabel, defaultKindLabel)
+	defaultName, defaultKind, err = h.fromLabels(dv.Labels)
 	if err == nil {
 		return defaultName, defaultKind, nil
 	}
-	return h.fromDataVolumeSpec(&dv.Spec, defaultNameLabel, defaultKindLabel, vm.Namespace)
+	return h.fromDataVolumeSpec(&dv.Spec, vm.Namespace)
 }
 
-func (h *handler) fromDataVolumeSpec(
-	dataVolumeSpec *cdiv1beta1.DataVolumeSpec, defaultNameLabel, defaultKindLabel, vmNameSpace string,
+func (h *volumeHandler) fromDataVolumeSpec(
+	dataVolumeSpec *cdiv1beta1.DataVolumeSpec, vmNameSpace string,
 ) (defaultName, defaultKind string, err error) {
-	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil && dataVolumeSpec.Source.PVC != nil {
-		return h.fromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
+	if dataVolumeSpec != nil && dataVolumeSpec.Source != nil {
+		if dataVolumeSpec.Source.PVC != nil {
+			return h.fromPVC(dataVolumeSpec.Source.PVC.Name, dataVolumeSpec.Source.PVC.Namespace)
+		}
+		if dataVolumeSpec.Source.Snapshot != nil {
+			return h.fromVolumeSnapshot(
+				dataVolumeSpec.Source.Snapshot.Name, dataVolumeSpec.Source.Snapshot.Namespace)
+		}
 	}
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
-		return h.fromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
+		return h.fromDataVolumeSourceRef(dataVolumeSpec.SourceRef, vmNameSpace)
 	}
 	return "", "", NewIgnoreableInferenceError(errors.New(unsupportedDataVolumeSource))
 }
 
-func (h *handler) fromDataSource(
-	dataSourceName, dataSourceNamespace, defaultNameLabel, defaultKindLabel string,
+func (h *volumeHandler) fromDataSource(
+	dataSourceName, dataSourceNamespace string,
 ) (defaultName, defaultKind string, err error) {
 	ds, err := h.virtClient.CdiClient().CdiV1beta1().DataSources(dataSourceNamespace).Get(
 		context.Background(), dataSourceName, metav1.GetOptions{})
@@ -133,18 +187,21 @@ func (h *handler) fromDataSource(
 		return "", "", err
 	}
 	// Check the DataSource for any labels before checking the underlying PVC
-	defaultName, defaultKind, err = fromLabels(ds.Labels, defaultNameLabel, defaultKindLabel)
+	defaultName, defaultKind, err = h.fromLabels(ds.Labels)
 	if err == nil {
 		return defaultName, defaultKind, nil
 	}
 	if ds.Spec.Source.PVC != nil {
-		return h.fromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
+		return h.fromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace)
 	}
-	return "", "", NewIgnoreableInferenceError(errors.New(missingDataVolumeSourcePVC))
+	if ds.Spec.Source.Snapshot != nil {
+		return h.fromVolumeSnapshot(ds.Spec.Source.Snapshot.Name, ds.Spec.Source.Snapshot.Namespace)
+	}
+	return "", "", NewIgnoreableInferenceError(errors.New(missingDataSourceSource))
 }
 
-func (h *handler) fromDataVolumeSourceRef(
-	sourceRef *cdiv1beta1.DataVolumeSourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace string,
+func (h *volumeHandler) fromDataVolumeSourceRef(
+	sourceRef *cdiv1beta1.DataVolumeSourceRef, vmNameSpace string,
 ) (defaultName, defaultKind string, err error) {
 	if sourceRef.Kind == "DataSource" {
 		// The namespace can be left blank here with the assumption that the DataSource is in the same namespace as the VM
@@ -152,7 +209,7 @@ func (h *handler) fromDataVolumeSourceRef(
 		if sourceRef.Namespace != nil {
 			namespace = *sourceRef.Namespace
 		}
-		return h.fromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
+		return h.fromDataSource(sourceRef.Name, namespace)
 	}
 	return "", "", NewIgnoreableInferenceError(fmt.Errorf(unsupportedDataVolumeSourceRefFmt, sourceRef.Kind))
 }

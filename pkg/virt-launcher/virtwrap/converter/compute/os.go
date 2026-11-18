@@ -27,10 +27,11 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	containerdisk "kubevirt.io/kubevirt/pkg/storage/container-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 const (
@@ -58,7 +59,7 @@ func NewOSDomainConfigurator(isSMBiosNeeded bool, efiConfiguration *EFIConfigura
 }
 
 func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if err := o.convert_v1_Firmware_To_related_apis(vmi, domain); err != nil {
+	if err := o.convertFirmwareToRelatedAPIs(vmi, domain); err != nil {
 		return err
 	}
 
@@ -94,7 +95,7 @@ func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	}
 }
 
-func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (o OSDomainConfigurator) convertFirmwareToRelatedAPIs(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	firmware := vmi.Spec.Domain.Firmware
 	if firmware == nil {
 		return nil
@@ -121,15 +122,17 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 			},
 		}
 		domain.Spec.OS.BootLoader = nil
-		// ARM64 Secure Boot uses uefi-vars firmware descriptors ("device": "memory")
-		// which are incompatible with the pflash <nvram> element. Libvirt manages
-		// variable storage via <varstore> for these descriptors automatically.
-		// For x86_64 pflash firmware, we must keep the explicit <nvram> to preserve
-		// KubeVirt's NVRAM filename convention and prevent format mismatches.
-		if vmi.Spec.Architecture != "arm64" {
+		switch vmi.Spec.Architecture {
+		case "amd64":
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
-				NVRam:  filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+				NVRam:  nvramPath(vmi),
+			}
+		case "arm64":
+			// Use the existing EFI backend-storage mount instead of libvirt's
+			// default varstore directory so ARM64 firmware state persists.
+			domain.Spec.OS.VarStore = &api.VarStore{
+				Path: filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.json"),
 			}
 		}
 		return
@@ -149,9 +152,16 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.BootLoader.Type = "pflash"
 		domain.Spec.OS.NVRam = &api.NVRam{
 			Template: o.efiConfiguration.EFIVars,
-			NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			NVRam:    nvramPath(vmi),
 		}
 	}
+}
+
+func nvramPath(vmi *v1.VirtualMachineInstance) string {
+	if util.HasDeclarativeVMState(vmi) {
+		return util.VMStateCanonicalEFIVarsPath()
+	}
+	return filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd")
 }
 
 func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
@@ -167,7 +177,7 @@ func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
 }
 
 func configureKernelBoot(vmi *v1.VirtualMachineInstance, firmware *v1.Firmware, domain *api.Domain) {
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmitrait.HasKernelBootContainerImage(vmi) {
 		configureKernelBootContainer(vmi, firmware.KernelBoot, domain)
 	}
 
@@ -200,7 +210,7 @@ func configureACPI(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volum
 	}
 
 	if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
-		return fmt.Errorf("No ACPI tables were set. Expecting at least one.")
+		return fmt.Errorf("no ACPI tables were set, expecting at least one")
 	}
 
 	if domain.Spec.OS.ACPI == nil {
@@ -237,7 +247,7 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 
 		if volume.Secret == nil {
 			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", tableType)
+			return nil, fmt.Errorf("firmware's volume type is unsupported for %s", tableType)
 		}
 
 		// Return path to table's binary data
@@ -249,5 +259,5 @@ func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.AC
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", tableType)
+	return nil, fmt.Errorf("firmware's volume for %s was not found", tableType)
 }

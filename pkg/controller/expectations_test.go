@@ -27,6 +27,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -36,6 +39,44 @@ import (
 )
 
 const namespaceKubevirt = "kubevirt"
+
+var _ = DescribeTable("logs expectations safely during concurrent updates",
+	func(count int, expired, wantSatisfied bool) {
+		const (
+			key     = "test/controller"
+			updates = 1000
+		)
+		expectations := NewControllerExpectations()
+		expectations.SetExpectations(key, count, count)
+		exp, exists, err := expectations.GetExpectations(key)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		if expired {
+			exp.timestamp = time.Now().Add(-2 * ExpectationsTimeout)
+		}
+		start := make(chan struct{})
+		var workers sync.WaitGroup
+		workers.Go(func() {
+			<-start
+			for range updates {
+				exp.Add(1, 1)
+				exp.Add(-1, -1)
+			}
+		})
+		workers.Go(func() {
+			<-start
+			for range updates {
+				expectations.SatisfiedExpectations(key)
+			}
+		})
+		close(start)
+		workers.Wait()
+		Expect(expectations.SatisfiedExpectations(key)).To(Equal(wantSatisfied))
+	},
+	Entry("pending expectations", 1, false, false),
+	Entry("fulfilled expectations", 0, false, true),
+	Entry("expired expectations", 1, true, true),
+)
 
 // ValidSecurityContextWithContainerDefaults creates a valid security context provider based on
 // empty container defaults.  Used for testing.

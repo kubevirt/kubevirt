@@ -44,6 +44,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -78,9 +79,10 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		vmi = libvmifact.NewAlpine(libvmi.WithInterface(
-			libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		vmi = libvmifact.NewAlpine(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithTerminationGracePeriod(30),
 		)
 		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
@@ -186,7 +188,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with sidecar-shim", func() {
 			It("should receive Terminal signal on VMI deletion", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -212,7 +214,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 			DescribeTable("migrate VMI with sidecar", decorators.RequiresTwoSchedulableNodes, func(hookVersion string, sidecarShouldTerminate bool) {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
 				Expect(err).ToNot(HaveOccurred())
@@ -270,7 +272,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				} else {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
 				}
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
 				By("Logging in to the guest")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())

@@ -38,8 +38,10 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 )
 
@@ -67,10 +69,10 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 
 }
 
-func NewIterableCheckpointManager(base string) IterableCheckpointManager {
+func NewIterableCheckpointManager(base, tempPath string) IterableCheckpointManager {
 	return &iterableCheckpointManager{
 		base,
-		checkpoint.NewSimpleCheckpointManager(base),
+		checkpoint.NewSimpleCheckpointManager(base, tempPath),
 	}
 }
 
@@ -81,8 +83,6 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var GhostRecordGlobalStore GhostRecordStore
-
 type GhostRecordStore struct {
 	cache             map[string]ghostRecord
 	checkpointManager checkpoint.CheckpointManager
@@ -91,7 +91,7 @@ type GhostRecordStore struct {
 
 func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
 
-	GhostRecordGlobalStore = GhostRecordStore{
+	store := &GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
 		checkpointManager: iterableCPManager,
 	}
@@ -99,15 +99,15 @@ func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *Gh
 	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		if err := store.checkpointManager.Get(key, &ghostRecord); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		GhostRecordGlobalStore.cache[key] = ghostRecord
+		store.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return &GhostRecordGlobalStore
+	return store
 }
 
 func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
@@ -225,29 +225,99 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	return nil
 }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
+// domainListWatch wraps a cache.ListWatch to explicitly opt out of the
+// WatchList streaming-list semantics. The WatchListClient feature gate is
+// enabled by default since client-go 1.35, which makes the reflector try a
+// watch-list first and expect a "k8s.io/initial-events-end" bookmark. The
+// domain informer is a local, non-apiserver informer backed by the
+// virt-launcher notify server, which never emits that bookmark, so the
+// reflector would fall back and perform an extra list pass. Reporting
+// unsupported semantics keeps the reflector on the plain list-then-watch path.
+type domainListWatch struct {
+	*cache.ListWatch
+}
+
+func (domainListWatch) IsWatchListSemanticsUnSupported() bool { return true }
+
+func NewSharedInformer(virtShareDir string, watchdogTimeoutSeconds int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration, ghostRecordStore *GhostRecordStore) cache.SharedInformer {
 	consecutiveFails := new(int)
 	runServer := func(ctx context.Context, c chan watch.Event) error {
 		return notifyserver.RunServer(virtShareDir, ctx.Done(), c, recorder, vmiStore)
 	}
-	lw := &cache.ListWatch{
-		ListWithContextFunc: func(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
-			log.Log.V(3).Info("Synchronizing domains")
-			domains, err := listAllKnownDomains()
-			if err != nil {
-				return nil, err
-			}
-			list := api.DomainList{
-				Items: []api.Domain{},
-			}
-			for _, domain := range domains {
-				list.Items = append(list.Items, *domain)
-			}
-			return &list, nil
-		},
+	lw := domainListWatch{&cache.ListWatch{
+		ListWithContextFunc: ghostRecordStore.List,
 		WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-			return newDomainWatcher(ctx, runServer, watchdogTimeout, resyncPeriod, recorder, consecutiveFails), nil
+			return newDomainWatcher(ctx, runServer, watchdogTimeoutSeconds, resyncPeriod, recorder, consecutiveFails, ghostRecordStore), nil
 		},
-	}
+	}}
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
+}
+
+func (store *GhostRecordStore) List(_ context.Context, _ metav1.ListOptions) (runtime.Object, error) {
+	log.Log.V(3).Info("Synchronizing domains")
+	domains := store.listAllKnownDomains()
+	list := api.DomainList{
+		Items: []api.Domain{},
+	}
+	for _, domain := range domains {
+		list.Items = append(list.Items, *domain)
+	}
+	return &list, nil
+}
+
+func (store *GhostRecordStore) listAllKnownDomains() []*api.Domain {
+	var domains []*api.Domain
+
+	ghostRecords := store.list()
+	for _, record := range ghostRecords {
+		if domain := getDomainFromRecord(record); domain != nil {
+			domains = append(domains, domain)
+		}
+	}
+	return domains
+}
+
+func newDomainFromGhostRecord(record ghostRecord, status api.DomainStatus) *api.Domain {
+	domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
+	domain.ObjectMeta.UID = record.UID
+	domain.Spec.Metadata.KubeVirt.UID = record.UID
+	domain.Status = status
+
+	return domain
+}
+
+func getDomainFromRecord(record ghostRecord) *api.Domain {
+	socketFile := record.SocketFile
+
+	exists, err := diskutils.FileExists(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Error("failed access cmd client socket")
+		return nil
+	}
+
+	if !exists {
+		domain := newDomainFromGhostRecord(record, api.DomainStatus{})
+		now := metav1.Now()
+		domain.DeletionTimestamp = &now
+		log.Log.Object(domain).Warning("detected stale domain from ghost record")
+		return domain
+	}
+
+	log.Log.V(3).Infof("List domains from sock %s", socketFile)
+	client, err := cmdclient.NewClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to connect to cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	defer client.Close()
+
+	domain, exists, err := client.GetDomain()
+	if err != nil {
+		log.Log.Reason(err).Warningf("failed to list domains on cmd client socket %s, preserving domain with Unknown status", socketFile)
+		return newDomainFromGhostRecord(record, api.DomainStatus{Status: api.Unknown})
+	}
+	if !exists {
+		return nil
+	}
+	return domain
 }

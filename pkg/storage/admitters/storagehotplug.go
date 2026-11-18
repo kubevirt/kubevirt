@@ -29,6 +29,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -62,6 +63,36 @@ func AdmitHotplugStorage(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks 
 		return hotplugAr
 	}
 
+	return nil
+}
+
+// AdmitSnapshotOverlayStorageUpdate rejects disk and volume changes while snapshot overlays are prepared or active.
+func AdmitSnapshotOverlayStorageUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	if !storagetypes.HasSnapshotOverlayState(oldVMI) && !storagetypes.HasSnapshotOverlayState(newVMI) {
+		return nil
+	}
+	if equality.Semantic.DeepEqual(oldVMI.Spec.Volumes, newVMI.Spec.Volumes) &&
+		equality.Semantic.DeepEqual(oldVMI.Spec.Domain.Devices.Disks, newVMI.Spec.Domain.Devices.Disks) {
+		return nil
+	}
+	return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueNotSupported,
+		Message: "Cannot change disks or volumes while snapshot overlays are prepared or active",
+		Field:   "spec",
+	}})
+}
+
+// AdmitSnapshotOverlayAnnotationsUpdate rejects changes to the snapshot overlay annotations, which the commit and the recovery rely on.
+func AdmitSnapshotOverlayAnnotationsUpdate(oldVMI, newVMI *v1.VirtualMachineInstance) *admissionv1.AdmissionResponse {
+	for _, annotation := range []string{storagetypes.OverlaySnapshotReferenceAnnotation, storagetypes.PendingOverlayRecoveryAnnotation} {
+		if oldVMI.Annotations[annotation] != newVMI.Annotations[annotation] {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("modification of the %s annotation on a VMI object is prohibited", annotation),
+				Field:   "metadata.annotations",
+			}})
+		}
+	}
 	return nil
 }
 
@@ -104,6 +135,14 @@ func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s for [%s] requires virtio bus for IOThreads.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough && disk.Cache != v1.CacheWriteBack && disk.Cache != v1.CacheDirectSync {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] has invalid cache mode %q", messagePrefix, name, disk.Cache),
 			Field:   field,
 		}}
 	}

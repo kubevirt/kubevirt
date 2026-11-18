@@ -21,15 +21,14 @@ import (
 )
 
 const (
-	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
-	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
-	PrHelperName                   = "pr-helper"
-	prVolumeName                   = "pr-helper-socket-vol"
-	devDirVol                      = "dev-dir"
-	SidecarShimName                = "sidecar-shim"
-	etcMultipath                   = "etc-multipath"
-	SupportsMigrationCNsValidation = "kubevirt.io/supports-migration-cn-types"
+	VirtHandlerName = "virt-handler"
+	kubeletPodsPath = util.KubeletRoot + "/pods"
+	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
+	PrHelperName    = "pr-helper"
+	prVolumeName    = "pr-helper-socket-vol"
+	devDirVol       = "dev-dir"
+	SidecarShimName = "sidecar-shim"
+	etcMultipath    = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -70,12 +69,10 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
-	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
-	image := config.VirtHandlerImage
-	if image == "" {
-		image = fmt.Sprintf("%s/%s%s", config.GetImageRegistry(), imageName, AddVersionSeparatorPrefix(config.GetHandlerVersion()))
-	}
+	image := config.GetHandlerImage()
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
+	// lets virt-handler fingerprint its own node with VirtHandlerImageHashLabel
+	env = append(env, corev1.EnvVar{Name: operatorutil.VirtHandlerImageEnvName, Value: image})
 	podTemplateSpec := newPodTemplateSpec(deploymentName, productName, productVersion, productComponent, image, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, env)
 
 	launcherImage := config.VirtLauncherImage
@@ -106,8 +103,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			Namespace: config.GetNamespace(),
 			Name:      VirtHandlerName,
 			Labels: map[string]string{
-				virtv1.AppLabel:                VirtHandlerName,
-				SupportsMigrationCNsValidation: "true",
+				virtv1.AppLabel: VirtHandlerName,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{
@@ -147,8 +143,9 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 				"/bin/sh",
 				"-c",
 			},
-			Image: launcherImage,
-			Name:  "virt-launcher",
+			Image:           launcherImage,
+			ImagePullPolicy: config.GetImagePullPolicy(),
+			Name:            "virt-launcher",
 			Args: []string{
 				"node-labeller.sh",
 			},
@@ -188,9 +185,18 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		pod.Containers = append(pod.Containers, corev1.Container{
 			Name:            "virt-launcher-image-holder",
 			Image:           launcherImage,
-			ImagePullPolicy: corev1.PullIfNotPresent,
+			ImagePullPolicy: config.GetImagePullPolicy(),
 			Command:         []string{"/bin/sh", "-c"},
 			Args:            []string{"sleep infinity"},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: new(false),
+				ReadOnlyRootFilesystem:   new(true),
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{
+						"ALL",
+					},
+				},
+			},
 			Resources: corev1.ResourceRequirements{
 				Limits: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceCPU:    resource.MustParse("100m"),
@@ -227,6 +233,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		"8187",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--migration-cn-types",
+		"migration",
 		"-v",
 		config.GetVerbosity(),
 	}
@@ -307,7 +315,6 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
 	}
-	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachCertificateSecret(pod, VirtHandlerMigrationClientCertSecretName, "/etc/virt-handler/migrationservercertificates")
 	attachCertificateSecret(pod, VirtHandlerVsockClientCertSecretName, "/etc/virt-handler/vsockclientcertificates")

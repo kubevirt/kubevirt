@@ -128,6 +128,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	EnsureHypervisorPresent()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
+	WaitForWorkerNodesSchedulable()
 
 	return nil
 }

@@ -70,7 +70,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 
 		By("Creating a VM with RWO backend-storage")
 		vmi := libvmifact.NewFedora(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libvmi.WithTPM(true),
@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Stressing")
-		runStressTest(vmi, stressDefaultVMSize)
+		runStressTest(vmi)
 
 		By("Starting a slow migration")
 		migration := libmigration.New(vmi.Name, vmi.Namespace)

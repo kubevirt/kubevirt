@@ -18,6 +18,7 @@ package checkpoint
 
 import (
 	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +31,7 @@ type record struct {
 var _ = Describe("Simple checkpoint manager", func() {
 	It("should be able to check and retrieve", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -42,7 +43,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 
 	It("should override if checkpoint already exists", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -55,15 +56,27 @@ var _ = Describe("Simple checkpoint manager", func() {
 	})
 
 	It("should return ErrNotExist when asked for non-existing key", func() {
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		r := &record{}
 		Expect(cp.Get("win", r)).To(MatchError(os.ErrNotExist))
 	})
 
+	It("should return err when asked for key with empty record", func() {
+		dir := GinkgoT().TempDir()
+		f, err := os.Create(filepath.Join(dir, "key"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(f.Close()).ToNot(HaveOccurred())
+
+		cp := NewSimpleCheckpointManager(dir, GinkgoT().TempDir())
+
+		r := &record{}
+		Expect(cp.Get("key", r)).To(MatchError("unexpected end of JSON input"))
+	})
+
 	It("should remove key", func() {
 		r := &record{"Hi"}
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Store("win", r)).To(Succeed())
 
@@ -78,7 +91,7 @@ var _ = Describe("Simple checkpoint manager", func() {
 	})
 
 	It("remove non-existing key should return not found", func() {
-		cp := NewSimpleCheckpointManager(GinkgoT().TempDir())
+		cp := NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(cp.Delete("win")).To(MatchError(os.ErrNotExist))
 	})

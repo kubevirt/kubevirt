@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -39,7 +40,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("with headless", func() {
 
 			It("[test_id:709][posneg:positive]should connect to console", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(false)), libvmops.StartupTimeoutSecondsTiny)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(false)), flags.StartupTimeoutSecondsTiny())
 
 				By("checking that console works")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())

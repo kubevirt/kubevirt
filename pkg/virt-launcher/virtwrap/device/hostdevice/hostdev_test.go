@@ -116,6 +116,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 		const pciAddress1 = "0000:81:01.1"
@@ -124,6 +125,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName1),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress2},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
@@ -159,6 +161,7 @@ var _ = Describe("HostDevice", func() {
 			Alias:   newAlias(devName0),
 			Source:  api.HostDeviceSource{Address: &hostPCIAddress0},
 			Type:    api.HostDevicePCI,
+			Mode:    "subsystem",
 			Managed: "no",
 		}
 
@@ -203,7 +206,7 @@ var _ = Describe("HostDevice", func() {
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{basePCIDevice}))
 		})
 
-		It("sets display on when explicitly enabled, without ramfb", func() {
+		It("sets display on when explicitly enabled, with ramfb", func() {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
@@ -217,6 +220,7 @@ var _ = Describe("HostDevice", func() {
 			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 			expected := basePCIDevice
 			expected.Display = "on"
+			expected.RamFB = "on"
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
 		})
@@ -264,7 +268,7 @@ var _ = Describe("HostDevice", func() {
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
 		})
 
-		It("does not set ramfb when RamFB is present but Enabled is nil", func() {
+		It("does  set ramfb when RamFB is present but Enabled is nil", func() {
 			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
 				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0,
 					VirtualGPUOptions: &v1.VGPUOptions{
@@ -279,6 +283,7 @@ var _ = Describe("HostDevice", func() {
 			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 			expected := basePCIDevice
 			expected.Display = "on"
+			expected.RamFB = "on"
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expected}))
 		})

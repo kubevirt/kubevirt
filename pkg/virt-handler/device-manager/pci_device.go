@@ -42,7 +42,11 @@ import (
 const (
 	vfioDevicePath = "/dev/vfio/"
 	vfioMount      = "/dev/vfio/vfio"
-	pciBasePath    = "/sys/bus/pci/devices"
+)
+
+var (
+	pciBasePath     = "/sys/bus/pci/devices"
+	vfioDevicesRoot = "/dev/vfio/devices"
 )
 
 type PCIDevice struct {
@@ -61,6 +65,8 @@ type PCIDevicePlugin struct {
 func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
@@ -164,6 +170,7 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 			}
 			allocatedDevices = append(allocatedDevices, devPCIAddress)
 			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+			deviceSpecs = append(deviceSpecs, formatVFIOCdevDeviceSpecs(devPCIAddress)...)
 		}
 		containerResponse.Devices = deviceSpecs
 		envVar := make(map[string]string)

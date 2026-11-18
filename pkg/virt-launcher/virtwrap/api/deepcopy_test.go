@@ -58,6 +58,7 @@ var _ = ginkgo.Describe("Generated deepcopy functions", func() {
 			&OSType{},
 			&SMBios{},
 			&NVRam{},
+			&VarStore{},
 			&Boot{},
 			&BootMenu{},
 			&BIOS{},

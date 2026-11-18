@@ -73,6 +73,10 @@ const (
 	FailedBackendStorageProbeReason = "FailedBackendStorageProbe"
 	// BackendStorageNotReadyReason is added when the backend storage PVC is pending.
 	BackendStorageNotReadyReason = "BackendStorageNotReady"
+	// VirtualMachineStatePVCNotFoundReason is added when the virtualMachineState.source PVC is missing.
+	VirtualMachineStatePVCNotFoundReason = "VirtualMachineStatePVCNotFound"
+	// VirtualMachineStateInUseReason is added when the VirtualMachineState PVC is held by another VM.
+	VirtualMachineStateInUseReason = "VirtualMachineStateInUse"
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
@@ -110,6 +114,8 @@ const (
 	// ImagePullBackOffReason is set when an error has occurred while pulling an image for a containerDisk VM volume,
 	// and that kubelet is backing off before retrying.
 	ImagePullBackOffReason = "ImagePullBackOff"
+	// InvalidImageNameReason is set when a containerDisk image name is invalid.
+	InvalidImageNameReason = "InvalidImageName"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
@@ -594,4 +600,62 @@ func SyncPodAnnotations(clientset kubecli.KubevirtClient, pod *k8sv1.Pod, newAnn
 		return nil, err
 	}
 	return patchedPod, nil
+}
+
+func HasStartRequest(vm *v1.VirtualMachine) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == v1.StartRequest
+}
+
+func HasStopRequestForVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+	if len(vm.Status.StateChangeRequests) == 0 {
+		return false
+	}
+
+	stateChange := vm.Status.StateChangeRequests[0]
+	return stateChange.Action == v1.StopRequest &&
+		stateChange.UID != nil &&
+		*stateChange.UID == vmi.UID
+}
+
+func ShouldStartRerunOnFailure(vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) bool {
+	return HasStartRequest(vm) || vm.Status.RunStrategy != runStrategy
+}
+
+// IsSetToStart determines whether a VM is configured to be started (running).
+func IsSetToStart(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return false
+	}
+
+	switch runStrategy {
+	case v1.RunStrategyAlways:
+		return true
+	case v1.RunStrategyHalted:
+		return false
+	case v1.RunStrategyManual:
+		if vmi != nil {
+			return !HasStopRequestForVMI(vm, vmi)
+		}
+		return HasStartRequest(vm)
+	case v1.RunStrategyRerunOnFailure:
+		if vmi != nil {
+			return vmi.Status.Phase != v1.Succeeded
+		}
+		return ShouldStartRerunOnFailure(vm, runStrategy)
+	case v1.RunStrategyOnce:
+		if vmi == nil {
+			return true
+		}
+		return false
+	default:
+		// Shouldn't ever be here, but...
+		return false
+	}
 }

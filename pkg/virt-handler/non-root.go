@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -72,56 +71,8 @@ func changeOwnershipOfBlockDevices(vmi *v1.VirtualMachineInstance, res isolation
 	return nil
 }
 
-func changeOwnership(path *safepath.Path) error {
-	err := diskutils.DefaultOwnershipManager.SetFileOwnership(path)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// changeOwnershipOfHostDisks needs unmodified vmi (not passed to ReplacePVCByHostDisk function)
-func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	for i := range vmiWithAllPVCs.Spec.Volumes {
-		if volumeSource := &vmiWithAllPVCs.Spec.Volumes[i].VolumeSource; volumeSource.HostDisk != nil {
-			volumeName := vmiWithAllPVCs.Spec.Volumes[i].Name
-			diskPath := hostdisk.GetMountedHostDiskPath(volumeName, volumeSource.HostDisk.Path)
-
-			_, err := os.Stat(diskPath)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					diskDir := hostdisk.GetMountedHostDiskDir(volumeName)
-					path, err := isolation.SafeJoin(res, diskDir)
-					if err != nil {
-						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
-					}
-					if err := changeOwnership(path); err != nil {
-						return fmt.Errorf("Failed to change ownership of HostDisk dir %s, %s", volumeName, err)
-					}
-					continue
-				}
-				return fmt.Errorf("Failed to recognize if hostdisk contains image, %s", err)
-			}
-
-			path, err := isolation.SafeJoin(res, diskPath)
-			if err != nil {
-				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
-			}
-			err = changeOwnership(path)
-			if err != nil {
-				return fmt.Errorf("Failed to change ownership of HostDisk image: %s", err)
-			}
-
-		}
-	}
-	return nil
-}
-
 func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
-		return err
-	}
-	return changeOwnershipOfHostDisks(vmi, res)
+	return changeOwnershipOfBlockDevices(vmi, res)
 }
 
 func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
@@ -130,12 +81,14 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
+		return err
 	}
 	vfioPath, err := safepath.JoinNoFollow(vfioBasePath, "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
+		return err
 	}
 	err = safepath.ChmodAtNoFollow(vfioPath, 0666)
 	if err != nil {

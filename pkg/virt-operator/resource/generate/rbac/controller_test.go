@@ -29,6 +29,8 @@ import (
 
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -37,7 +39,7 @@ var _ = Describe("RBAC", func() {
 	const expectedNamespace = "default"
 
 	Context("GetAllController", func() {
-		forController := GetAllController(expectedNamespace, true)
+		forController := GetAllController(expectedNamespace)
 
 		DescribeTable("has finalizer rbac for installs with OwnerReferencesPermissionEnforcement", func(apiGroup, resource string) {
 			clusterRole := getObject(forController, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
@@ -59,25 +61,13 @@ var _ = Describe("RBAC", func() {
 			Entry("for vmis", "kubevirt.io", "virtualmachineinstances"),
 		)
 
-		It("should include NAD rules when includeNADRules is true", func() {
+		DescribeTable("has rbac to update", func(resource string) {
 			clusterRole := getObject(forController, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
-			Expect(clusterRole.Rules).To(
-				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"APIGroups": ContainElement("k8s.cni.cncf.io"),
-					"Resources": ContainElement("network-attachment-definitions"),
-				})),
-			)
-		})
-
-		It("should exclude NAD rules when includeNADRules is false", func() {
-			forControllerWithoutNAD := GetAllController(expectedNamespace, false)
-			clusterRole := getObject(forControllerWithoutNAD, reflect.TypeOf(&rbacv1.ClusterRole{}), components.ControllerServiceAccountName).(*rbacv1.ClusterRole)
-			Expect(clusterRole.Rules).ToNot(
-				ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"APIGroups": ContainElement("k8s.cni.cncf.io"),
-					"Resources": ContainElement("network-attachment-definitions"),
-				})),
-			)
-		})
+			Expect(clusterRole).ToNot(BeNil())
+			expectExactRuleExists(clusterRole.Rules, virtv1.SubresourceGroupName, resource, "update")
+		},
+			Entry("virtualmachineinstances/externalsnapshot", "virtualmachineinstances/externalsnapshot"),
+			Entry("virtualmachineinstances/commitsnapshot", "virtualmachineinstances/commitsnapshot"),
+		)
 	})
 })

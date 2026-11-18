@@ -11,7 +11,7 @@ import (
 	"golang.org/x/time/rate"
 
 	k8sv1 "k8s.io/api/core/v1"
-	policy "k8s.io/api/policy/v1beta1"
+	policy "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -611,7 +611,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				errChan <- err
 			}
 
-			err = c.clientset.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(),
+			err = c.clientset.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(),
 				&policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pod.Name,

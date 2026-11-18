@@ -342,3 +342,7 @@ In case you work on two or more branches, `make generate` for example might fail
 the reason is there is a Bazel server in the background, and when the base image changes,
 it should be auto restarted, the detection does not always work perfectly.
 To solve it, run `docker stop kubevirt-bazel-server`, which will stop the Bazel server.
+
+#### Git worktrees and build tooling
+
+Git worktrees can interfere with build tools like nogo, banncheck, and fuzz, because these tools may pick up source files from the worktree directory. If you have worktrees present (e.g. under `.claude/worktrees/`), they may cause unexpected failures in `make generate` and other build commands. Remove or move worktrees if you encounter unexplained build errors.

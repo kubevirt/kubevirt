@@ -16,7 +16,7 @@ limitations under the License.
 Copyright The KubeVirt Authors.
 */
 
-package admitter
+package admitter_test
 
 import (
 	"testing"

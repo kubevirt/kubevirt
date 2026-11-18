@@ -7,6 +7,7 @@ go_library(
         "doc.go",
         "generated_expansion.go",
         "resource_client.go",
+        "resourcepoolstatusrequest.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/kubernetes/typed/resource/v1alpha3",
     importpath = "k8s.io/client-go/kubernetes/typed/resource/v1alpha3",

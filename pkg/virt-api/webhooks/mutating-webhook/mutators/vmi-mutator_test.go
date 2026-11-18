@@ -602,6 +602,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("when isolateEmulatorThread is disabled on the VMI spec", featuregate.AlignCPUsGate, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false),
 	)
 
+	It("should not copy the EmulatorThreadCompleteToEvenParity annotation when no KubeVirt CR is available", func() {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			ObjectMeta: k8smetav1.ObjectMeta{
+				Annotations: map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""},
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.AlignCPUsGate},
+					},
+				},
+			},
+		})
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(kvStore.Replace(nil, "")).To(Succeed())
+		Expect(mutator.ClusterConfig.IsFeatureGateEnabled(featuregate.AlignCPUsGate)).To(BeTrue())
+		Expect(mutator.ClusterConfig.EmulatorThreadCompleteToEvenParity()).To(BeFalse())
+
+		vmi.Spec.Domain.CPU = &v1.CPU{IsolateEmulatorThread: true}
+
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).ToNot(HaveKey(v1.EmulatorThreadCompleteToEvenParity))
+	})
+
 	It("should copy the EmulatorThreadCompleteToEvenParity annotation to the VMI", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			ObjectMeta: k8smetav1.ObjectMeta{
@@ -990,6 +1014,33 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					LUN: &v1.LunTarget{},
 				},
 			}, "LUN", v1.DiskBusVirtio),
+	)
+
+	DescribeTable("should default LUN bus to SCSI when reservation is enabled", func(arch string) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "a",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testclaim",
+					},
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "a",
+			DiskDevice: v1.DiskDevice{
+				LUN: &v1.LunTarget{
+					Reservation: true,
+				},
+			},
+		})
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmitWithArch(arch)
+		Expect(vmiSpec.Domain.Devices.Disks[0].DiskDevice.LUN.Bus).To(Equal(v1.DiskBusSCSI))
+	},
+		Entry("on amd64", "amd64"),
+		Entry("on arm64", "arm64"),
+		Entry("on s390x", "s390x"),
 	)
 
 	var (

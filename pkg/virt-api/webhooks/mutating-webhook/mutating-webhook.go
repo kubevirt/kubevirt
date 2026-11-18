@@ -75,8 +75,8 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	}
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtCli))
+func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
+	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtClient))
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) {
@@ -91,6 +91,6 @@ func ServeClones(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, mutators.NewCloneCreateMutator())
 }
 
-func ServeVirtLauncherPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	serve(resp, req, mutators.NewVirtLauncherPodMutator(clusterConfig, virtCli))
+func ServeVirtLauncherPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
+	serve(resp, req, mutators.NewVirtLauncherPodMutator(clusterConfig, virtClient))
 }

@@ -49,18 +49,18 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/dra"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/vmisync"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/storage/virtiofs"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virtiofs"
+	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
 
 func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (common.SyncError, *k8sv1.Pod) {
@@ -168,6 +168,16 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
 			return common.NewSyncError(fmt.Errorf("failed create validation: %v", validateErr), "FailedCreateValidation"), pod
+		}
+
+		// The real pod and the WaitForFirstConsumer temporary pod both reference this claim. The
+		// temporary pod is deleted before the real pod is created. Migration targets are rendered
+		// on another path and cannot share the claim.
+		if dra.CPUsFromDRA(vmi, c.clusterConfig.CPUsWithDRAGateEnabled()) {
+			if err := dra.CreateCPUResourceClaim(context.Background(), vmi, c.clientset); err != nil {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating CPU ResourceClaim: %v", err)
+				return common.NewSyncError(fmt.Errorf("failed to create CPU ResourceClaim: %v", err), controller.FailedCreatePodReason), pod
+			}
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
@@ -407,12 +417,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// about the PVCs that the VMI is consuming. This prevents
 				// virt-handler from needing to make API calls to GET the pvc
 				// during reconcile
-				if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+				if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 					return err
 				}
 
 				// Network
-				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+				if err := c.netStatusUpdater.Update(vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -426,15 +436,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				vmiCopy.Status.NodeName = pod.Spec.NodeName
 
 				// Set the VMI migration transport now before the VMI can be migrated
-				// This status field is needed to support the migration of legacy virt-launchers
-				// to newer ones. In an absence of this field on the vmi, the target launcher
-				// will set up a TCP proxy, as expected by a legacy virt-launcher.
-				if shouldSetMigrationTransport(pod) {
-					vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
-				}
+				// The status field was needed to support multiple transports (legacy, unix)
+				// The field was read by (target) launcher in order to setup proxies
+				vmiCopy.Status.MigrationTransport = virtv1.MigrationTransportUnix
 
 				// Allocate the CID if VSOCK is enabled.
-				if util.IsAutoAttachVSOCK(vmiCopy) {
+				if vmitrait.IsAutoAttachVSOCK(vmiCopy) {
 					if err := c.cidsMap.Allocate(vmiCopy); err != nil {
 						return err
 					}
@@ -457,12 +464,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			}
 		}
 	case vmi.IsFinal():
-		allDeleted, err := c.allPodsDeleted(vmi)
+		podsOwnedByVMI, err := c.listPodsOwnedByVMI(vmi)
 		if err != nil {
 			return err
 		}
 
-		if allDeleted {
+		if len(podsOwnedByVMI) == 0 {
 			log.Log.V(3).Object(vmi).Infof("all pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.DeprecatedVirtualMachineInstanceFinalizer)
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
@@ -490,12 +497,12 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		// Storage
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 
 		// Network
-		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
+		if err := c.netStatusUpdater.Update(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
@@ -521,7 +528,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
 					vmiCopy.Status.MigrationState.Completed = true
-					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+					vmiCopy.Status.MigrationState.EndTimestamp = new(metav1.Now())
 				}
 				break
 			}
@@ -530,7 +537,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			break
 		}
 
-		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+		if err := c.updateVolumeStatus(vmiCopy, pod, dataVolumes); err != nil {
 			return err
 		}
 	case vmi.IsWaitingForSync():
@@ -615,7 +622,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 func (c *Controller) addTopologyHints(vmi *virtv1.VirtualMachineInstance, vmiCopy *virtv1.VirtualMachineInstance) error {
 	if vmi.Status.TopologyHints == nil {
 		if topologyHints, tscRequirement, err := c.topologyHinter.TopologyHintsForVMI(vmi); err != nil && tscRequirement == topology.RequiredForBoot {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedGatherhingClusterTopologyHints, err.Error())
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedGatherhingClusterTopologyHints, err.Error())
 			return common.NewSyncError(err, controller.FailedGatherhingClusterTopologyHints)
 		} else if topologyHints != nil {
 			vmiCopy.Status.TopologyHints = topologyHints
@@ -772,8 +779,8 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 			if pattern == "" {
 				continue
 			}
-			if strings.HasSuffix(pattern, "*") {
-				prefix := strings.TrimSuffix(pattern, "*")
+			if before, ok := strings.CutSuffix(pattern, "*"); ok {
+				prefix := before
 				// Reject bare "*" to prevent accidental sync-all. Only prefix wildcards like "vendor.io/*" are supported.
 				if prefix == "" {
 					continue
@@ -975,6 +982,14 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 	return nil
 }
 
+// isContainerImageErrorReason reports whether a container waiting reason indicates an image
+// reference or pull failure for a containerDisk volume.
+func isContainerImageErrorReason(reason string) bool {
+	return reason == controller.ErrImagePullReason ||
+		reason == controller.ImagePullBackOffReason ||
+		reason == controller.InvalidImageNameReason
+}
+
 // checkForContainerImageError checks if an error has occurred while handling the image of any of the pod's containers
 // (including init containers), and returns a syncErr with the details of the error, or nil otherwise.
 func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
@@ -984,7 +999,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 			continue
 		}
 		reason := containerStatus.State.Waiting.Reason
-		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
+		if isContainerImageErrorReason(reason) {
 			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}
@@ -992,13 +1007,13 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	pods, err := c.listPodsOwnedByVMI(vmi)
 	if err != nil {
 		return err
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !v1.IsControlledBy(pod, vmi) {
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) {
 			continue
 		}
 		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
@@ -1027,38 +1042,37 @@ func (c *Controller) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, erro
 	return pods, nil
 }
 
-func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+func (c *Controller) listPodsOwnedByVMI(vmi *virtv1.VirtualMachineInstance) ([]*k8sv1.Pod, error) {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		return nil, err
 	}
-	activePods := make(map[types.UID]string)
-	count := 0
+	var ownedPods []*k8sv1.Pod
 	for _, pod := range pods {
-		if !v1.IsControlledBy(pod, vmi) {
+		if v1.IsControlledBy(pod, vmi) {
+			ownedPods = append(ownedPods, pod)
+		}
+	}
+	return ownedPods, nil
+}
+
+func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	pods, err := c.listPodsOwnedByVMI(vmi)
+	if err != nil {
+		return nil, err
+	}
+	if len(pods) == 0 && vmi.Status.ActivePods == nil {
+		return vmi, nil
+	}
+	activePods := make(map[types.UID]string)
+	for _, pod := range pods {
+		if controller.PodIsDown(pod) {
 			continue
 		}
-		count++
 		activePods[pod.UID] = pod.Spec.NodeName
-	}
-	if count == 0 && vmi.Status.ActivePods == nil {
-		return vmi, nil
 	}
 	vmi.Status.ActivePods = activePods
 	return vmi, nil
-}
-
-func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
-	if err != nil {
-		return false, err
-	}
-	for _, pod := range pods {
-		if v1.IsControlledBy(pod, vmi) {
-			return false, nil
-		}
-	}
-	return true, nil
 }
 
 func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteOptions) error {
@@ -1084,11 +1098,6 @@ func (c *Controller) createPod(key, namespace string, pod *k8sv1.Pod) (*k8sv1.Po
 
 func isTempPod(pod *k8sv1.Pod) bool {
 	_, ok := pod.Annotations[virtv1.EphemeralProvisioningObject]
-	return ok
-}
-
-func shouldSetMigrationTransport(pod *k8sv1.Pod) bool {
-	_, ok := pod.Annotations[virtv1.MigrationTransportUnixAnnotation]
 	return ok
 }
 

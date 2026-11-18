@@ -55,6 +55,7 @@ go_library(
         "race0.go",
         "readdirent_getdents.go",
         "readdirent_getdirentries.go",
+        "readv_unix.go",
         "sockcmsg_dragonfly.go",
         "sockcmsg_linux.go",
         "sockcmsg_unix.go",

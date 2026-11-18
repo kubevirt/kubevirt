@@ -26,8 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -191,7 +189,7 @@ type HostDiskOption func(v *v1.Volume)
 
 func WithSharedHostDisk(shared bool) HostDiskOption {
 	return func(v *v1.Volume) {
-		v.HostDisk.Shared = pointer.P(shared)
+		v.HostDisk.Shared = new(shared)
 	}
 }
 
@@ -204,7 +202,7 @@ func WithIOThreadsPolicy(policy v1.IOThreadsPolicy) Option {
 
 func WithIOThreads(iothreads v1.DiskIOThreads) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.IOThreads = pointer.P(iothreads)
+		vmi.Spec.Domain.IOThreads = new(iothreads)
 	}
 }
 
@@ -284,7 +282,69 @@ func newDisk(name string, bus v1.DiskBus, opts ...DiskOption) v1.Disk {
 
 func WithDedicatedIOThreads(enabled bool) DiskOption {
 	return func(d *v1.Disk) {
-		d.DedicatedIOThread = pointer.P(enabled)
+		d.DedicatedIOThread = new(enabled)
+	}
+}
+
+func WithDiskBus(bus v1.DiskBus) DiskOption {
+	return func(d *v1.Disk) {
+		d.Disk.Bus = bus
+	}
+}
+
+func WithDiskIO(io v1.DriverIO) DiskOption {
+	return func(d *v1.Disk) {
+		d.IO = io
+	}
+}
+
+func WithDiskCustomBlockSize(logical, physical uint) DiskOption {
+	return func(d *v1.Disk) {
+		d.BlockSize = &v1.BlockSize{
+			Custom: &v1.CustomBlockSize{
+				Logical:            logical,
+				Physical:           physical,
+				DiscardGranularity: new(physical),
+			},
+		}
+	}
+}
+
+func WithDiskMatchVolumeBlockSize() DiskOption {
+	return func(d *v1.Disk) {
+		d.BlockSize = &v1.BlockSize{
+			MatchVolume: &v1.FeatureState{Enabled: new(true)},
+		}
+	}
+}
+
+func WithDiskShareable() DiskOption {
+	return func(d *v1.Disk) {
+		d.Shareable = new(true)
+	}
+}
+
+func WithDiskCache(cache v1.DriverCache) DiskOption {
+	return func(d *v1.Disk) {
+		d.Cache = cache
+	}
+}
+
+func WithDiskBootOrder(order uint) DiskOption {
+	return func(d *v1.Disk) {
+		d.BootOrder = &order
+	}
+}
+
+func WithDiskErrorPolicy(policy v1.DiskErrorPolicy) DiskOption {
+	return func(d *v1.Disk) {
+		d.ErrorPolicy = &policy
+	}
+}
+
+func WithBlockMultiQueue() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.BlockMultiQueue = new(true)
 	}
 }
 
@@ -428,6 +488,6 @@ func WithSupplementalPoolThreadCount(count uint32) Option {
 		if vmi.Spec.Domain.IOThreads == nil {
 			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{}
 		}
-		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount = pointer.P(count)
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount = new(count)
 	}
 }

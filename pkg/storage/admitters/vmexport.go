@@ -36,7 +36,6 @@ import (
 	templateapi "kubevirt.io/virt-template-api/core"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -47,15 +46,20 @@ const (
 	vmTemplateKind = "VirtualMachineTemplate"
 )
 
+type vmExportConfigChecker interface {
+	OCIExportEnabled() bool
+	VirtTemplateDeploymentEnabled() bool
+}
+
 // VMExportAdmitter validates VirtualMachineExports
 type VMExportAdmitter struct {
-	Config *virtconfig.ClusterConfig
+	config vmExportConfigChecker
 }
 
 // NewVMExportAdmitter creates a VMExportAdmitter
-func NewVMExportAdmitter(config *virtconfig.ClusterConfig) *VMExportAdmitter {
+func NewVMExportAdmitter(config vmExportConfigChecker) *VMExportAdmitter {
 	return &VMExportAdmitter{
-		Config: config,
+		config: config,
 	}
 }
 
@@ -93,7 +97,7 @@ func (admitter *VMExportAdmitter) Admit(_ context.Context, ar *admissionv1.Admis
 			causes = append(causes, admitter.validateVMBackupName(sourceField.Child("name"), vmExport.Spec.Source.Name)...)
 			causes = append(causes, admitter.validateVMBackupApiGroup(sourceField.Child("APIGroup"), vmExport.Spec.Source.APIGroup)...)
 		case vmTemplateKind:
-			if !admitter.Config.OCIExportEnabled() || !admitter.Config.VirtTemplateDeploymentEnabled() {
+			if !admitter.config.OCIExportEnabled() || !admitter.config.VirtTemplateDeploymentEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: "VirtualMachineTemplate source requires the OCIExport feature gate and virt-template deployment to be enabled",

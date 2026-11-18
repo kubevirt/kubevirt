@@ -63,7 +63,7 @@ var _ = Describe("USB Redirect Device Domain Configurator", func() {
 				},
 			}
 			// Populate expected redirect devices
-			for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
+			for i := range v1.UsbClientPassthroughMaxNumberOf {
 				path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmiUID, i)
 				expectedDomain.Spec.Devices.Redirs[i] = api.RedirectedDevice{
 					Type: "unix",

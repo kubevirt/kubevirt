@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
@@ -48,7 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
-	backupv1 "kubevirt.io/api/backup/v1alpha1"
+	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -65,7 +66,7 @@ import (
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/util"
+	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
@@ -106,12 +107,13 @@ type VirtApi interface {
 
 type virtAPIApp struct {
 	service.ServiceListen
-	SubresourcesOnly bool
-	virtCli          kubecli.KubevirtClient
-	aggregatorClient *aggregatorclient.Clientset
-	authorizor       rest.VirtApiAuthorizor
-	certsDirectory   string
-	clusterConfig    *virtconfig.ClusterConfig
+	SubresourcesOnly   bool
+	virtClient         kubecli.KubevirtClient
+	k8sClient          kubernetes.Interface
+	launcherPodIndexer cache.Indexer
+	aggregatorClient   *aggregatorclient.Clientset
+	authorizor         rest.VirtApiAuthorizor
+	clusterConfig      *virtconfig.ClusterConfig
 
 	namespace               string
 	host                    string
@@ -166,7 +168,11 @@ func (app *virtAPIApp) Execute() {
 		panic(err)
 	}
 	clientConfig.RateLimiter = app.reloadableRateLimiter
-	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	app.virtClient, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -180,10 +186,6 @@ func (app *virtAPIApp) Execute() {
 
 	app.authorizor = authorizor
 
-	app.certsDirectory, err = os.MkdirTemp("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
 		panic(err)
@@ -231,7 +233,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(definitions.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtClient, app.k8sClient, app.launcherPodIndexer, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -636,16 +638,29 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
-		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("redefine-checkpoint")).
-			To(subresourceApp.RedefineCheckpointVMIRequestHandler).
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("externalsnapshot")).
+			To(subresourceApp.ExternalSnapshotVMIRequestHandler).
 			Consumes(mime.MIME_ANY).
-			Reads(backupv1.BackupCheckpoint{}).
+			Reads(v1.SnapshotOverlayOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
-			Operation(version.Version+"RedefineCheckpoint").
-			Doc("Redefine a checkpoint for a VirtualMachineInstance.").
+			Operation(version.Version+"ExternalSnapshot").
+			Doc("Redirect the disks of a VirtualMachineInstance to copy-on-write overlays.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
-			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("commitsnapshot")).
+			To(subresourceApp.CommitSnapshotVMIRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.SnapshotOverlayOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"CommitSnapshot").
+			Doc("Commit the copy-on-write overlays of a VirtualMachineInstance back into their base images.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
@@ -686,7 +701,11 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
-						Name:       "virtualmachineinstances/redefine-checkpoint",
+						Name:       "virtualmachineinstances/externalsnapshot",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/commitsnapshot",
 						Namespaced: true,
 					},
 					{
@@ -931,7 +950,7 @@ func deserializeStrings(in string) ([]string, error) {
 }
 
 func (app *virtAPIApp) readRequestHeader() error {
-	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(context.Background(), util.ExtensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
+	authConfigMap, err := app.k8sClient.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(context.Background(), kvtls.ExtensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -939,7 +958,7 @@ func (app *virtAPIApp) readRequestHeader() error {
 	// The request-header CA is mandatory. It can be retrieved from the configmap as we do here, or it must be provided
 	// via flag on start of this apiserver. Since we don't do the latter, the former is mandatory for us
 	// see https://github.com/kubernetes-incubator/apiserver-builder-alpha/blob/master/docs/concepts/auth.md#requestheader-authentication
-	_, ok := authConfigMap.Data[util.RequestHeaderClientCAFileKey]
+	_, ok := authConfigMap.Data[kvtls.RequestHeaderClientCAFileKey]
 	if !ok {
 		return fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}
@@ -983,16 +1002,19 @@ func (app *virtAPIApp) prepareCertManager() {
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts,
-			func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
-				return netadmitter.Validate(field, vmiSpec, clusterCfg)
+			// SIG-Network
+			func(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+				return netadmitter.Validate(field, spec, config)
 			},
+			// SIG-Storage
+			storageadmitters.Validate,
 		)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtClient, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
@@ -1004,19 +1026,19 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli, app.kubeVirtServiceAccounts)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtClient, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
 	})
 	http.HandleFunc(components.VMSnapshotValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMSnapshots(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVMSnapshots(w, r, app.clusterConfig, app.virtClient)
 	})
 	http.HandleFunc(components.VMRestoreValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMRestores(w, r, app.clusterConfig, app.virtClient, informers)
 	})
 	http.HandleFunc(components.VMBackupValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMBackups(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMBackups(w, r, app.clusterConfig, app.virtClient, informers)
 	})
 	http.HandleFunc(components.VMBackupTrackerValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMBackupTrackers(w, r, app.clusterConfig)
@@ -1037,16 +1059,16 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVmClusterPreferences(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers, app.kubeVirtServiceAccounts)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtClient, informers, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.PodEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtClient, app.k8sClient)
 	})
 	http.HandleFunc(components.MigrationPolicyCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationPolicies(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.VMCloneCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeVirtualMachineClones(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(components.PluginValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePlugins(w, r, app.clusterConfig)
@@ -1056,7 +1078,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
+		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtClient)
 	})
 	http.HandleFunc(components.VMIMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r, app.clusterConfig, informers, app.kubeVirtServiceAccounts)
@@ -1068,7 +1090,7 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 		mutating_webhook.ServeClones(w, r)
 	})
 	http.HandleFunc(components.VirtLauncherPodMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVirtLauncherPods(w, r, app.clusterConfig, app.virtCli)
+		mutating_webhook.ServeVirtLauncherPods(w, r, app.clusterConfig, app.virtClient)
 	})
 }
 
@@ -1191,7 +1213,7 @@ func (app *virtAPIApp) Run() {
 	app.prepareCertManager()
 
 	// Run informers for webhooks usage
-	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.virtCli, app.aggregatorClient, app.namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtClient.RestClient(), app.virtClient, app.k8sClient, app.aggregatorClient, app.namespace)
 
 	kubeVirtInformer := kubeInformerFactory.KubeVirt()
 	// Wire up health check trigger
@@ -1207,6 +1229,8 @@ func (app *virtAPIApp) Run() {
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
 	vmBackupInformer := kubeInformerFactory.VirtualMachineBackup()
 	namespaceInformer := kubeInformerFactory.Namespace()
+	// The port-forward subresource resolves the virt-launcher pod IP from this informer.
+	app.launcherPodIndexer = kubeInformerFactory.KubeVirtPod().GetIndexer()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)

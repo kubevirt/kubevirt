@@ -81,8 +81,22 @@ func expectEvent(object k8sObject, eventType, reason string, matcher types.Gomeg
 			},
 		)
 		ExpectWithOffset(3, err).ToNot(HaveOccurred())
-		return events.Items
+		return filterEventsForObject(events.Items, object)
 	}, 30*time.Second).Should(matcher, fmt.Sprintf("Used fieldselector %s", fieldSelector))
+}
+
+func filterEventsForObject(events []k8sv1.Event, object k8sObject) []k8sv1.Event {
+	uid := string(object.GetUID())
+	if uid == "" {
+		return events
+	}
+	filtered := make([]k8sv1.Event, 0, len(events))
+	for _, event := range events {
+		if string(event.InvolvedObject.UID) == uid {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
 }
 
 // constructFieldSelectorAndNamespace does best effort to overcome https://github.com/kubernetes/client-go/issues/861

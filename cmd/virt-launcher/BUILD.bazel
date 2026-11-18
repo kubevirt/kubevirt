@@ -1,9 +1,9 @@
 load("@bazeldnf//bazeldnf:defs.bzl", "xattrs")
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:passwd.bzl", "group_entry", "group_file", "passwd_entry", "passwd_file")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
@@ -15,14 +15,13 @@ go_library(
         "//pkg/apimachinery/wait:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
-        "//pkg/container-disk:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
+        "//pkg/grpcserver:go_default_library",
         "//pkg/hooks:go_default_library",
-        "//pkg/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
-        "//pkg/storage/nbdclient:go_default_library",
-        "//pkg/util:go_default_library",
+        "//pkg/storage/container-disk:go_default_library",
+        "//pkg/storage/hotplug-disk:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",
@@ -156,16 +155,6 @@ pkg_tar(
     package_dir = "/etc",
 )
 
-pkg_tar(
-    name = "qemu-hook-tar",
-    srcs = [
-        ":qemu",
-    ],
-    mode = "0755",
-    owner = "107.107",
-    package_dir = "/etc/libvirt/hooks",
-)
-
 # Symlink /var/run -> ../run for compatibility with libvirt socket paths
 # In CentOS Stream 10+, libvirt creates sockets in /run/libvirt/ but
 # KubeVirt expects them at /var/run/libvirt/
@@ -180,14 +169,17 @@ pkg_tar(
     },
 )
 
-# Go binary for advanced qemu hook (used when LibvirtHooksServerAndClient is enabled)
-# This binary is placed in /usr/bin and replaces /etc/libvirt/hooks/qemu at runtime
 pkg_tar(
-    name = "libvirt-hook-client-tar",
+    name = "qemu-hook-tar",
     srcs = [
         "//cmd/virt-launcher/libvirt-hook-client",
     ],
-    package_dir = "/usr/bin",
+    mode = "0755",
+    owner = "107.107",
+    package_dir = "/etc/libvirt/hooks",
+    remap_paths = {
+        "/libvirt-hook-client": "/qemu",
+    },
 )
 
 # Workaround for https://github.com/moby/moby/issues/44106
@@ -208,55 +200,107 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+layer_from_tar(
+    name = "launcherbase-layer-x86_64",
+    src = "//rpm:launcherbase_x86_64",
+)
+
+layer_from_tar(
+    name = "launcherbase-layer-aarch64",
+    src = "//rpm:launcherbase_aarch64",
+)
+
+layer_from_tar(
+    name = "launcherbase-layer-s390x",
+    src = "//rpm:launcherbase_s390x",
+)
+
+layer_from_tar(
+    name = "get-version-layer",
+    src = ":get-version-tar",
+)
+
+layer_from_tar(
+    name = "libvirt-config-layer",
+    src = ":libvirt-config",
+)
+
+layer_from_tar(
+    name = "passwd-layer",
+    src = ":passwd-tar",
+)
+
+layer_from_tar(
+    name = "nsswitch-layer",
+    src = ":nsswitch-tar",
+)
+
+layer_from_tar(
+    name = "qemu-hook-layer",
+    src = ":qemu-hook-tar",
+)
+
+layer_from_tar(
+    name = "qemu-kvm-modules-dir-layer",
+    src = ":qemu-kvm-modules-dir-tar",
+)
+
+layer_from_tar(
+    name = "var-run-symlink-layer",
+    src = ":var-run-symlink-tar",
+)
+
+layer_from_tar(
+    name = "setcaps-layer",
+    src = ":setcaps",
+)
+
+image_manifest(
     name = "version-container",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:launcherbase_aarch64",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-hook-tar",
-            ":libvirt-hook-client-tar",
-            ":qemu-kvm-modules-dir-tar",
-            ":var-run-symlink-tar",
+            ":launcherbase-layer-aarch64",
+            ":get-version-layer",
+            ":libvirt-config-layer",
+            ":passwd-layer",
+            ":nsswitch-layer",
+            ":qemu-hook-layer",
+            ":qemu-kvm-modules-dir-layer",
+            ":var-run-symlink-layer",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:launcherbase_s390x",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-hook-tar",
-            ":libvirt-hook-client-tar",
-            ":qemu-kvm-modules-dir-tar",
-            ":var-run-symlink-tar",
+            ":launcherbase-layer-s390x",
+            ":get-version-layer",
+            ":libvirt-config-layer",
+            ":passwd-layer",
+            ":nsswitch-layer",
+            ":qemu-hook-layer",
+            ":qemu-kvm-modules-dir-layer",
+            ":var-run-symlink-layer",
         ],
         "//conditions:default": [
-            "//rpm:launcherbase_x86_64",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-hook-tar",
-            ":libvirt-hook-client-tar",
-            ":qemu-kvm-modules-dir-tar",
-            ":var-run-symlink-tar",
+            ":launcherbase-layer-x86_64",
+            ":get-version-layer",
+            ":libvirt-config-layer",
+            ":passwd-layer",
+            ":nsswitch-layer",
+            ":qemu-hook-layer",
+            ":qemu-kvm-modules-dir-layer",
+            ":var-run-symlink-layer",
         ],
     }),
 )
 
-oci_image(
+image_manifest(
     name = "virt-launcher-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-launcher"],
-    tars = [":setcaps"],
+    layers = [":setcaps-layer"],
     user = "107",
     visibility = ["//visibility:public"],
 )

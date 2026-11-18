@@ -29,8 +29,8 @@ import (
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
-// VGPULiveMigration mutates the mdev uuid for the target's domain XML in vGPU live migrations
-func VGPULiveMigration(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+// MDevVGPULiveMigration mutates the mdev uuid for the target's domain XML in vGPU live migrations
+func MDevVGPULiveMigration(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	gpuDevs := c.GPUHostDevices
 
 	// skip hook if no GPU is present

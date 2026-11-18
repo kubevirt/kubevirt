@@ -171,5 +171,5 @@ func ReadPanicInfoFromLog(logPath string) (*api.GuestPanicInfo, error) {
 		return info, nil
 	}
 
-	return &api.GuestPanicInfo{}, nil
+	return nil, nil
 }

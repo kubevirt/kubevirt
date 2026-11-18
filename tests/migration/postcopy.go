@@ -29,7 +29,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -42,10 +41,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -60,12 +61,22 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+const (
+	// Assuming ~500Mbps ≈ 17s/GiB one-way; 20s/GiB leaves margin for bulk copy to finish in pre-copy
+	// before completion timeout, while 1ms max downtime blocks convergence into switchover.
+	// Note: getVMIMigrationDataSize uses decimal GB (rounds 1Gi up to 2), so a 1Gi VMI times out at ~40s.
+	postCopyCompletionTimeoutPerGiB int64 = 20
+	// High enough that downtime tuning never ramps past InitialMs in these tests.
+	postCopyDowntimeTuneNeverIterate int64 = 1 << 30
+)
+
+var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresTwoSchedulableNodes, func() {
 	var (
-		virtClient      kubecli.KubevirtClient
-		err             error
-		migrationPolicy *migrationsv1.MigrationPolicy
-		defaultArch     string
+		virtClient                 kubecli.KubevirtClient
+		err                        error
+		migrationPolicy            *migrationsv1.MigrationPolicy
+		defaultArch                string
+		hadMigrationDowntimeTuning bool
 	)
 
 	BeforeEach(func() {
@@ -74,12 +85,31 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Allowing post-copy and limiting migration bandwidth")
+		hadMigrationDowntimeTuning = checks.HasFeature(featuregate.MigrationDowntimeTuning)
+		if !hadMigrationDowntimeTuning {
+			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+		}
+
+		By("Allowing post-copy with 1ms downtime to prevent precopy convergence")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 		migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
 		migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
-		migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(1))
-		migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
+		migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(postCopyCompletionTimeoutPerGiB)
+		migrationPolicy.Spec.MaxDowntimeMs = kvpointer.P(uint64(1))
+		migrationPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+			DowntimeTuning: &v1.DowntimeTuningOptions{
+				InitialMs:           kvpointer.P(int64(1)),
+				StartAfterIteration: kvpointer.P(postCopyDowntimeTuneNeverIterate),
+			},
+		}
+	})
+
+	AfterEach(func() {
+		if hadMigrationDowntimeTuning {
+			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+		} else {
+			kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+		}
 	})
 
 	Context("with datavolume", decorators.RequiresRWXFilesystemStorage, func() {
@@ -100,7 +130,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				),
 			)
 
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
+			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -117,12 +147,27 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 		}
 
+		// Post-copy via CR; DowntimeTuning still needs applyDowntimeTuningOnlyPolicy (not on MigrationConfiguration).
 		applyKubevirtCR := func() {
 			config := getCurrentKvConfig(virtClient)
 			config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
 			config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
-			config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
+			config.MigrationConfiguration.MaxDowntimeMs = migrationPolicy.Spec.MaxDowntimeMs
+			config.MigrationConfiguration.BandwidthPerMigration = nil
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		}
+
+		applyDowntimeTuningOnlyPolicy := func(vmi *v1.VirtualMachineInstance) *migrationsv1.MigrationPolicy {
+			policyName := fmt.Sprintf("testpolicy-downtime-%s", rand.String(5))
+			policy := kubecli.NewMinimalMigrationPolicy(policyName)
+			policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+				DowntimeTuning: &v1.DowntimeTuningOptions{
+					InitialMs:           kvpointer.P(int64(1)),
+					StartAfterIteration: kvpointer.P(postCopyDowntimeTuneNeverIterate),
+				},
+			}
+			AlignPolicyAndVmi(vmi, policy)
+			return CreateMigrationPolicy(virtClient, policy)
 		}
 
 		type applySettingsType string
@@ -133,17 +178,17 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 
 		DescribeTable("[test_id:4747] using", func(settingsType applySettingsType) {
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi.Namespace = testsuite.NamespacePrivileged
 
 			switch settingsType {
 			case applyWithMigrationPolicy:
 				applyMigrationPolicy(vmi)
 			case applyWithKubevirtCR:
 				applyKubevirtCR()
+				Expect(applyDowntimeTuningOnlyPolicy(vmi).Spec.AllowPostCopy).To(BeNil(), "downtime-only policy must not set post-copy")
 			}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -151,7 +196,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			// Need to wait for cloud init to finish and start the agent inside the vmi.
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-			runStressTest(vmi, "350M")
+			runStressTest(vmi)
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")
@@ -163,7 +208,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 		},
 			Entry("a migration policy", applyWithMigrationPolicy),
-			Entry("the Kubevirt CR", Serial, applyWithKubevirtCR),
+			Entry("the Kubevirt CR (plus a minimal downtime-tuning 1ms policy)", Serial, applyWithKubevirtCR),
 		)
 
 		Context("with a guest-agent-ping liveness probe", func() {
@@ -178,7 +223,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithRng(),
-					libvmi.WithNamespace(testsuite.NamespacePrivileged),
 					libvmi.WithGuestAgentPingLivenessProbe(120, 5, 2),
 				)
 
@@ -187,7 +231,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
 
 				By("Waiting for the guest agent to connect")
 				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -196,7 +240,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Running a stress test to dirty pages and trigger post-copy")
-				runStressTest(vmi, "350M")
+				runStressTest(vmi)
 
 				By("Starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -257,15 +301,14 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 					libvmi.WithRng(),
 					libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				)
-				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
 
+				By("applying post-copy settings (1ms downtime prevents precopy convergence)")
+				applyKubevirtCR()
+				downtimePolicy := applyDowntimeTuningOnlyPolicy(vmi)
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-
-				By("updating the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation")
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(5))
-				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
-				applyKubevirtCR()
 
 				By("Waiting for the VirtualMachine to be ready")
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
@@ -273,7 +316,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, "1G")
+				runStressTest(vmi)
 
 				By("Starting the Migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -291,10 +334,12 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				By("Removing virt-handler killer pod")
 				removeVirtHandlerKillerPod()
 
-				By("updating the migration policy to default values")
+				By("updating the migration configuration to default values")
 				migrationPolicy.Spec.CompletionTimeoutPerGiB = nil
-				migrationPolicy.Spec.BandwidthPerMigration = nil
+				migrationPolicy.Spec.MaxDowntimeMs = nil
+				migrationPolicy.Spec.ExperimentalMigrationOptions = nil
 				applyKubevirtCR()
+				Expect(virtClient.MigrationPolicy().Delete(context.Background(), downtimePolicy.Name, metav1.DeleteOptions{})).To(Succeed())
 
 				By("Ensuring the virtual machine is restarted")
 				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
@@ -316,7 +361,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
             mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
         `, secretDiskSerial)
 	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithPersistentVolumeClaim("disk0", pvName),
 		libvmi.WithMemoryRequest(memoryRequestSize),
@@ -328,11 +373,6 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 	mode := v1.MigrationPreCopy
 	if migrationPolicy != nil && migrationPolicy.Spec.AllowPostCopy != nil && *migrationPolicy.Spec.AllowPostCopy {
 		mode = v1.MigrationPostCopy
-	}
-
-	// postcopy needs a privileged namespace
-	if mode == v1.MigrationPostCopy {
-		vmi.Namespace = testsuite.NamespacePrivileged
 	}
 
 	disks := vmi.Spec.Domain.Devices.Disks
@@ -352,7 +392,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")
-		runStressTest(vmi, stressLargeVMSize)
+		runStressTest(vmi)
 	}
 
 	// execute a migration, wait for finalized state

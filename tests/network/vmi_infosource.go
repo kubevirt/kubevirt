@@ -80,14 +80,23 @@ var _ = Describe(SIG("Infosource", func() {
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 			Expect(err).NotTo(HaveOccurred())
 
-			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
-			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
-			secondaryLinuxBridgeInterface2 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2.Name)
 			vmiSpec := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceWithMac(defaultBridgeInterface, primaryInterfaceMac)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					primaryNetwork,
+					libvmi.WithBridgeBinding(),
+					libvmi.WithMac(primaryInterfaceMac),
+				)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithInterface(libvmi.InterfaceWithMac(secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),
-				libvmi.WithInterface(libvmi.InterfaceWithMac(secondaryLinuxBridgeInterface2, secondaryInterface2Mac)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					secondaryNetwork1.Name,
+					libvmi.WithBridgeBinding(),
+					libvmi.WithMac(secondaryInterface1Mac),
+				)),
+				libvmi.WithInterface(libvmi.NewInterface(
+					secondaryNetwork2.Name,
+					libvmi.WithBridgeBinding(),
+					libvmi.WithMac(secondaryInterface2Mac),
+				)),
 				libvmi.WithNetwork(secondaryNetwork1),
 				libvmi.WithNetwork(secondaryNetwork2),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac))))
@@ -99,10 +108,10 @@ var _ = Describe(SIG("Infosource", func() {
 		})
 
 		It("should have the expected entries in vmi status", func() {
-			infoSourceDomainAndMultusStatus := netvmispec.NewInfoSource(
-				netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus)
-			infoSourceDomainAndGAAndMultusStatus := netvmispec.NewInfoSource(
-				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
+			infoSourceDomainAndMultusAndPodStatus := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
+			infoSourceAllSources := netvmispec.NewInfoSource(
+				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus, netvmispec.InfoSourcePodStatus)
 
 			const linkStateUp = "up"
 
@@ -116,7 +125,7 @@ var _ = Describe(SIG("Infosource", func() {
 					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource:       infoSourceDomainAndGAAndMultusStatus,
+					InfoSource:       infoSourceAllSources,
 					InterfaceName:    "eth1",
 					MAC:              secondaryInterface1Mac,
 					Name:             secondaryInterface1Name,
@@ -125,7 +134,7 @@ var _ = Describe(SIG("Infosource", func() {
 					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource:       infoSourceDomainAndMultusStatus,
+					InfoSource:       infoSourceDomainAndMultusAndPodStatus,
 					MAC:              secondaryInterface2Mac,
 					Name:             secondaryInterface2Name,
 					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface2Name),

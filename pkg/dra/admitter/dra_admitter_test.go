@@ -16,9 +16,11 @@ limitations under the License.
 Copyright The KubeVirt Authors.
 */
 
-package admitter
+package admitter_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -27,6 +29,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -190,6 +194,21 @@ var _ = Describe("DRA Admitter", func() {
 			Expect(causes).To(ContainElement(metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "spec.resourceClaims[0].name is a required field",
+				Field:   "spec.resourceClaims[0].name",
+			}))
+		})
+
+		It("should reject the reserved CPU claim reference name", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
+					resourceClaim(dra.CPUClaimRefName),
+				},
+			}
+
+			causes := validateCreationDRA(field, spec, checker)
+			Expect(causes).To(ContainElement(metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("spec.resourceClaims[0].name %q is reserved", dra.CPUClaimRefName),
 				Field:   "spec.resourceClaims[0].name",
 			}))
 		})
@@ -915,49 +934,8 @@ var _ = Describe("DRA Admitter", func() {
 			}}))
 		})
 	})
-
-	Context("Validator methods", func() {
-		It("ValidateCreation should delegate to validateCreationDRA", func() {
-			checker.gpuDRAEnabled = true
-			spec := &v1.VirtualMachineInstanceSpec{
-				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   claim1,
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			v := NewValidator(field, spec, checker)
-			causes := v.ValidateCreation()
-			Expect(causes).To(BeEmpty())
-		})
-
-		It("Validate should delegate to validateCreationDRA", func() {
-			checker.gpuDRAEnabled = false
-			spec := &v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						GPUs: []v1.GPU{{
-							Name: "gpu1",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   claim1,
-								RequestName: "req1",
-							},
-						}},
-					},
-				},
-			}
-			v := NewValidator(field, spec, checker)
-			causes := v.Validate()
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.gpus"))
-		})
-	})
 })
+
+func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, checker *fakeConfigChecker) []metav1.StatusCause {
+	return admitter.NewValidator(field, spec, checker).ValidateCreation()
+}

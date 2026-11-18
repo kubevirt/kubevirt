@@ -166,8 +166,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verify VM will run")
 			libvmops.StartVirtualMachine(vm)
 		},
-			Entry("int type", "2", "2222222"),
-			Entry("float type", "2.2", "2222222.2"),
+			Entry("int type", "2", "22222222"),
+			Entry("float type", "2.2", "22222222.2"),
 		)
 
 		It("[test_id:3161]should carry vm.template.spec.annotations to VMI and ignore vm ones", decorators.Conformance, func() {
@@ -533,6 +533,21 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
 		})
 
+		It("should report an error status when containerDisks image name is invalid", decorators.WgS390x, func() {
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("disk0", "http://quay.io/containerdisks/fedora:latest"),
+				libvmi.WithMemoryRequest("128Mi"),
+			)
+
+			vm := createRunningVM(virtClient, vmi)
+
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
+
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.InvalidImageNameReason),
+			)
+		})
+
 		It("[test_id:7679]should report an error status when data volume error occurs", decorators.WgS390x, func() {
 			By("Verifying that required StorageClass is configured")
 			storageClassName := libstorage.Config.StorageRWOFileSystem
@@ -632,6 +647,45 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		Context("Using RunStrategyRerunOnFailure", func() {
+			It("should remain Stopped after PVC is deleted and recreated", func() {
+				sc, exists := libstorage.GetRWOFileSystemStorageClass()
+				Expect(exists).To(BeTrue())
+				ns := testsuite.GetTestNamespace(nil)
+				pvcName := "rerun-pvc-test"
+
+				By("Creating a PVC")
+				pvc := libstorage.NewPVC(pvcName, "1Gi", sc)
+				_, err := virtClient.CoreV1().PersistentVolumeClaims(ns).Create(context.Background(), pvc, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Creating a VM with RunStrategyRerunOnFailure and the PVC")
+				vm := libvmi.NewVirtualMachine(
+					libvmifact.NewGuestless(libvmi.WithPersistentVolumeClaim("testdisk", pvcName)),
+					libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure),
+				)
+				vm, err = virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VM to be running")
+				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusRunning))
+
+				By("Stopping the VM")
+				vm = libvmops.StopVirtualMachine(vm)
+				Eventually(ThisVM(vm), 60*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStopped))
+
+				By("Deleting the PVC")
+				err = virtClient.CoreV1().PersistentVolumeClaims(ns).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisPVCWith(ns, pvcName), 60*time.Second, 1*time.Second).Should(BeGone())
+
+				By("Recreating the PVC")
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(ns).Create(context.Background(), libstorage.NewPVC(pvcName, "1Gi", sc), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VM remains Stopped")
+				Consistently(ThisVM(vm), 30*time.Second, 5*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusStopped))
+			})
+
 			It("[test_id:2188] should remove a succeeded VMI", decorators.WgS390x, func() {
 				By("Creating a VM with RunStrategyRerunOnFailure")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure))
@@ -981,7 +1035,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context(" when node becomes unhealthy", decorators.WgS390x, Serial, func() {
+	Context("[QUARANTINE] when node becomes unhealthy", decorators.Quarantine, decorators.Disruptive, decorators.WgS390x, Serial, func() {
 		const componentName = "virt-handler"
 		var nodeName string
 

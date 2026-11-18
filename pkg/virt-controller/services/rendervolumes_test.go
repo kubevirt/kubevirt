@@ -12,7 +12,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -27,13 +26,12 @@ var _ = Describe("Container spec renderer", func() {
 		namespace         = "ns1"
 		virtShareDir      = "dir1"
 		backendStoragePVC = "vm-state-pvc"
-		launcherImage     = "test/virt-launcher:latest"
 	)
 
 	Context("without any options", func() {
 		BeforeEach(func() {
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir)
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -63,7 +61,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{
 						Spec: k8sv1.PersistentVolumeClaimSpec{},
 					}, true, nil
@@ -71,7 +69,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -124,13 +122,13 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &hostDisk, true, nil
 				},
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -181,13 +179,13 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &cloudInitConfig, true, nil
 				},
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -256,13 +254,13 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			pvcStore := &cache.FakeCustomStore{
-				GetByKeyFunc: func(key string) (item interface{}, exists bool, err error) {
+				GetByKeyFunc: func(key string) (item any, exists bool, err error) {
 					return &k8sv1.PersistentVolumeClaim{}, true, nil
 				},
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -310,7 +308,7 @@ var _ = Describe("Container spec renderer", func() {
 			disk := v1.Disk{Name: downwardAPIVolumeName}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -342,21 +340,22 @@ var _ = Describe("Container spec renderer", func() {
 		})
 	})
 	Context("With CBT", func() {
-		It("should not mount the CBT subpath when ChangedBlockTracking is not set", func() {
+		It("should not mount the CBT subpath when backend storage is not needed", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedMount := k8sv1.VolumeMount{
 				Name:      "vm-state",
 				ReadOnly:  false,
 				MountPath: cbt.PathForCBT(vmi),
-				SubPath:   "cbt",
+				SubPath:   cbt.CBTDirName,
 			}
 
 			Expect(vsr.Mounts()).NotTo(ContainElement(expectedMount))
+			Expect(vsr.Mounts()).NotTo(ContainElement(HaveField("SubPath", cbt.BackupNBDSubPath)))
 		})
 
 		It("should mount the vm state volume and CBT subpath when ChangedBlockTracking is initializing in VMI status", func() {
@@ -367,7 +366,7 @@ var _ = Describe("Container spec renderer", func() {
 			)
 
 			var err error
-			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedVolume := k8sv1.Volume{
@@ -385,48 +384,38 @@ var _ = Describe("Container spec renderer", func() {
 				Name:      "vm-state",
 				ReadOnly:  false,
 				MountPath: cbt.PathForCBT(vmi),
-				SubPath:   "cbt",
+				SubPath:   cbt.CBTDirName,
 			}
 
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
-		})
-	})
 
-	Context("image pull policy propagation", func() {
-		DescribeTable("should set the image pull policy from the getter", func(pullPolicy k8sv1.PullPolicy) {
-			const imageVolumeFeatureGateEnabled = true
-			vmi := libvmi.New(
-				libvmi.WithContainerDisk("test-disk", "registry/image:tag"),
-			)
+			expectedNBDMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: cbt.PathForBackupNBD(vmi),
+				SubPath:   cbt.BackupNBDSubPath,
+			}
+
+			Expect(vsr.Mounts()).To(ContainElement(expectedNBDMount))
+		})
+
+		It("should mount the CBT subpath when backend storage is retained without CBT enabled", func() {
+			vmi := libvmi.New(libvmi.WithTPM(true))
 
 			var err error
-			vsr, err = NewVolumeRenderer(
-				stubImagePullPolicyGetter{imagePullPolicy: pullPolicy},
-				imageVolumeFeatureGateEnabled,
-				launcherImage,
-				make(map[string]string),
-				namespace,
-				ephemeralDisk,
-				containerDisk,
-				virtShareDir,
-				withImageVolumes(vmi),
-			)
+			vsr, err = NewVolumeRenderer(false, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(vsr.Volumes()).To(ContainElement(k8sv1.Volume{
-				Name: containerdisk.LauncherVolume,
-				VolumeSource: k8sv1.VolumeSource{
-					Image: &k8sv1.ImageVolumeSource{
-						Reference:  launcherImage,
-						PullPolicy: pullPolicy,
-					},
-				},
-			}))
-		},
-			Entry("PullAlways", k8sv1.PullAlways),
-			Entry("PullNever", k8sv1.PullNever),
-			Entry("PullIfNotPresent", k8sv1.PullIfNotPresent),
-		)
+			expectedMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: cbt.PathForCBT(vmi),
+				SubPath:   cbt.CBTDirName,
+			}
+
+			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
+			Expect(vsr.Mounts()).NotTo(ContainElement(HaveField("SubPath", cbt.BackupNBDSubPath)))
+		})
 	})
 })
 
@@ -472,12 +461,4 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
 		{Name: "libvirt-runtime", MountPath: "/var/run/libvirt"},
 		{Name: "sockets", MountPath: "dir1/sockets"},
 	}
-}
-
-type stubImagePullPolicyGetter struct {
-	imagePullPolicy k8sv1.PullPolicy
-}
-
-func (s stubImagePullPolicyGetter) GetImagePullPolicy() k8sv1.PullPolicy {
-	return s.imagePullPolicy
 }

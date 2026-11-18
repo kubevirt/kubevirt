@@ -1,4 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
+load("@rules_img//img:layer.bzl", "layer_from_tar")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -21,26 +22,51 @@ pkg_tar(
     package_dir = "/",
 )
 
-oci_image(
+layer_from_tar(
+    name = "multipath-layer",
+    src = ":multipath",
+)
+
+layer_from_tar(
+    name = "entrypoint-layer",
+    src = ":entrypoint",
+)
+
+layer_from_tar(
+    name = "get-version-layer",
+    src = ":get-version",
+)
+
+layer_from_tar(
+    name = "pr-helper-rpm-layer-x86_64",
+    src = "//rpm:pr-helper_x86_64",
+)
+
+layer_from_tar(
+    name = "pr-helper-rpm-layer-aarch64",
+    src = "//rpm:pr-helper_aarch64",
+)
+
+image_manifest(
     name = "version-container",
     base = "//:passwd-image",
-    tars = select({
+    layers = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":multipath",
-            ":entrypoint",
-            "//rpm:pr-helper_aarch64",
-            ":get-version",
+            ":multipath-layer",
+            ":entrypoint-layer",
+            ":pr-helper-rpm-layer-aarch64",
+            ":get-version-layer",
         ],
         "//conditions:default": [
-            ":multipath",
-            ":entrypoint",
-            "//rpm:pr-helper_x86_64",
-            ":get-version",
+            ":multipath-layer",
+            ":entrypoint-layer",
+            ":pr-helper-rpm-layer-x86_64",
+            ":get-version-layer",
         ],
     }),
 )
 
-oci_image(
+image_manifest(
     name = "pr-helper-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/qemu-pr-helper"],

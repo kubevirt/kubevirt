@@ -38,7 +38,6 @@ go_library(
         "rawconn_nommsg.go",
         "rawconn_nomsg.go",
         "socket.go",
-        "sys.go",
         "sys_bsd.go",
         "sys_const_unix.go",
         "sys_linux.go",

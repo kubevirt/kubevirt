@@ -138,7 +138,19 @@ func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	go c.GetConfig()
-	crd := obj.(*extv1.CustomResourceDefinition)
+	crd, ok := obj.(*extv1.CustomResourceDefinition)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Errorf("couldn't get object from tombstone %+v", obj)
+			return
+		}
+		crd, ok = tombstone.Obj.(*extv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.Errorf("tombstone contained object that is not a CRD %#v", obj)
+			return
+		}
+	}
 	if !isDataVolumeCrd(crd) && !isDataSourceCrd(crd) &&
 		!isServiceMonitor(crd) && !isPrometheusRules(crd) {
 		return
@@ -384,6 +396,15 @@ func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	}
 }
 
+func (c *ClusterConfig) EmulatorThreadCompleteToEvenParity() bool {
+	kv := c.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return false
+	}
+	_, exists := kv.Annotations[v1.EmulatorThreadCompleteToEvenParity]
+	return exists
+}
+
 func (c *ClusterConfig) HasDataSourceAPI() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -450,6 +471,18 @@ func (c *ClusterConfig) VirtTemplateDeploymentEnabled() bool {
 	}
 	vtd := c.GetConfig().VirtTemplateDeployment
 	return vtd == nil || vtd.Enabled == nil || *vtd.Enabled
+}
+
+func (c *ClusterConfig) MultiIOThreadAutoPolicyEnabled() bool {
+	if !c.SCSIMultiIOThreadEnabled() {
+		return false
+	}
+	autoPolicy := c.GetConfig().MultiIOThreadAutoPolicy
+
+	if autoPolicy == nil || autoPolicy.Enabled == nil {
+		return false
+	}
+	return *autoPolicy.Enabled
 }
 
 func parseNodeSelectors(str string) (map[string]string, error) {

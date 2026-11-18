@@ -38,7 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
@@ -57,7 +57,7 @@ var _ = Describe("Domain informer", func() {
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("Domain informer", func() {
 			err = ghostRecordStore.Add("test2-namespace", "test2", "somefile2", "1234-2")
 			Expect(err).ToNot(HaveOccurred())
 
-			ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
+			ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
 
 			record, exists := ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
@@ -113,9 +113,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists := ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeTrue())
+			Expect(filepath.Join(ghostCacheDir, "1234-1")).To(BeAnExistingFile())
 
 			err = ghostRecordStore.Delete("test1-namespace", "test1")
 			Expect(err).ToNot(HaveOccurred())
@@ -123,9 +121,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists = ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
-			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(exists).To(BeFalse())
+			Expect(filepath.Join(ghostCacheDir, "1234-1")).ToNot(BeAnExistingFile())
 
 		})
 
@@ -177,7 +173,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(os.MkdirAll(filepath.Dir(socketPath), 0755)).To(Succeed())
 			Expect(ghostRecordStore.Add(domainNamespace, domainName, socketPath, podUID)).To(Succeed())
 
-			informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
+			informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second, ghostRecordStore)
 			Expect(err).ToNot(HaveOccurred())
 
 			ctrl := gomock.NewController(GinkgoT())
@@ -227,8 +223,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			listResults, err := listAllKnownDomains()
-			Expect(err).ToNot(HaveOccurred())
+			listResults := ghostRecordStore.listAllKnownDomains()
 
 			Expect(listResults).To(HaveLen(1))
 		})
@@ -251,8 +246,7 @@ var _ = Describe("Domain informer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
-			listResults, err := listAllKnownDomains()
-			Expect(err).ToNot(HaveOccurred())
+			listResults := ghostRecordStore.listAllKnownDomains()
 
 			// includes both the domain with an active socket and the ghost record with deleted socket
 			Expect(listResults).To(HaveLen(2))
@@ -335,6 +329,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				ghostRecordStore,
 			)
 			defer d.Stop()
 
@@ -378,6 +373,7 @@ var _ = Describe("Domain informer", func() {
 				1*time.Hour,
 				nil,
 				new(int),
+				ghostRecordStore,
 			)
 			defer d.Stop()
 
@@ -422,7 +418,7 @@ var _ = Describe("Domain informer", func() {
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			client := notifyclient.NewNotifier(shareDir)
+			client := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(shareDir))
 
 			// verify add
 			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
@@ -462,7 +458,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 			}
 			lw := &cache.ListWatch{
 				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails), nil
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil), nil
 				},
 			}
 
@@ -494,7 +490,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 
 var _ = Describe("Iterable checkpoint manager", func() {
 	It("should list all keys", func() {
-		icp := NewIterableCheckpointManager(GinkgoT().TempDir())
+		icp := NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir())
 
 		Expect(icp.Store("one", "hi")).To(Succeed())
 		Expect(icp.Store("two", "hey")).To(Succeed())
@@ -504,12 +500,101 @@ var _ = Describe("Iterable checkpoint manager", func() {
 	})
 })
 
+var _ = Describe("List", func() {
+	var ghostCacheDir string
+	var ghostRecordStore *GhostRecordStore
+
+	BeforeEach(func() {
+		ghostCacheDir = GinkgoT().TempDir()
+		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir, GinkgoT().TempDir()))
+	})
+
+	It("should return domain with Unknown status when socket exists but connection fails", func() {
+		socketDir := GinkgoT().TempDir()
+		socketPath := filepath.Join(socketDir, "cmd.sock")
+
+		err := os.WriteFile(socketPath, []byte{}, 0600)
+		Expect(err).ToNot(HaveOccurred())
+
+		err = ghostRecordStore.Add("test-ns", "test-vmi", socketPath, "uid-1234")
+		Expect(err).ToNot(HaveOccurred())
+
+		list, err := ghostRecordStore.List(context.TODO(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		domains := list.(*api.DomainList).Items
+		Expect(domains).To(HaveLen(1))
+		Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
+		Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
+		Expect(domains[0].ObjectMeta.UID).To(BeEquivalentTo("uid-1234"))
+		Expect(domains[0].Status.Status).To(Equal(api.Unknown))
+		Expect(domains[0].ObjectMeta.DeletionTimestamp).To(BeNil())
+	})
+
+	It("should return domain with DeletionTimestamp when socket file does not exist", func() {
+		socketPath := "/nonexistent/path/cmd.sock"
+
+		err := ghostRecordStore.Add("test-ns", "test-vmi", socketPath, "uid-1234")
+		Expect(err).ToNot(HaveOccurred())
+
+		list, err := ghostRecordStore.List(context.TODO(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		domains := list.(*api.DomainList).Items
+		Expect(domains).To(HaveLen(1))
+		Expect(domains[0].ObjectMeta.Namespace).To(Equal("test-ns"))
+		Expect(domains[0].ObjectMeta.Name).To(Equal("test-vmi"))
+		Expect(domains[0].ObjectMeta.DeletionTimestamp).ToNot(BeNil())
+	})
+
+	// TODO add the reachable socket
+	It("should handle mix of reachable, unreachable, and missing sockets", func() {
+		socketDir := GinkgoT().TempDir()
+
+		unreachablePath := filepath.Join(socketDir, "unreachable.sock")
+		err := os.WriteFile(unreachablePath, []byte{}, 0600)
+		Expect(err).ToNot(HaveOccurred())
+		err = ghostRecordStore.Add("ns1", "unreachable-vmi", unreachablePath, "uid-1")
+		Expect(err).ToNot(HaveOccurred())
+
+		missingPath := filepath.Join(socketDir, "missing.sock")
+		err = ghostRecordStore.Add("ns2", "missing-vmi", missingPath, "uid-2")
+		Expect(err).ToNot(HaveOccurred())
+
+		list, err := ghostRecordStore.List(context.TODO(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		domains := list.(*api.DomainList).Items
+		Expect(domains).To(HaveLen(2))
+
+		var unknownDomain, deletedDomain *api.Domain
+		for _, d := range domains {
+			if d.Status.Status == api.Unknown {
+				unknownDomain = &d
+			}
+			if d.ObjectMeta.DeletionTimestamp != nil {
+				deletedDomain = &d
+			}
+		}
+
+		Expect(unknownDomain).ToNot(BeNil())
+		Expect(unknownDomain.ObjectMeta.Name).To(Equal("unreachable-vmi"))
+
+		Expect(deletedDomain).ToNot(BeNil())
+		Expect(deletedDomain.ObjectMeta.Name).To(Equal("missing-vmi"))
+	})
+
+	// TODO Test with fake server
+
+})
+
 func runCMDServer(wg *sync.WaitGroup, socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
 	options *cmdserver.ServerOptions) {
 	wg.Add(1)
-	done, _ := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+
+	done, err := grpcserver.RunServer(stopChan, socketPath,
+		cmdserver.RegisterCmdServer(cmdserver.NewLauncher(domainManager, options)),
+	)
+	Expect(err).To(Not(HaveOccurred()))
 	go func() {
 		<-done
 		wg.Done()
@@ -517,6 +602,5 @@ func runCMDServer(wg *sync.WaitGroup, socketPath string,
 }
 
 func runInformer(wg *sync.WaitGroup, stopChan chan struct{}, informer cache.SharedInformer) {
-	wg.Add(1)
-	go func() { informer.Run(stopChan); wg.Done() }()
+	wg.Go(func() { informer.Run(stopChan) })
 }

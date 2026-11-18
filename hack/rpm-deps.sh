@@ -17,26 +17,26 @@ CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
 # Version-specific package versions
 if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
-    # CS10: use unversioned packages (latest available)
-    LIBVIRT_VERSION=${LIBVIRT_VERSION:-}
-    QEMU_VERSION=${QEMU_VERSION:-}
-    SEABIOS_VERSION=${SEABIOS_VERSION:-}
-    EDK2_VERSION=${EDK2_VERSION:-}
-    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-}
-    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-}
-    PASST_VERSION=${PASST_VERSION:-}
-    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-}
-    SWTPM_VERSION=${SWTPM_VERSION:-}
-    LIBNBD_VERSION=${LIBNBD_VERSION:-}
+    # CS10 pinned versions
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:12.5.0-4.el10}
+    QEMU_VERSION=${QEMU_VERSION:-18:10.1.0-25.el10}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.17.0-1.el10}
+    EDK2_VERSION=${EDK2_VERSION:-0:20260221-6.el10}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.60.1-1.el10}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.56.0-1.el10}
+    PASST_VERSION=${PASST_VERSION:-0:0^20260728.gf8df3f1-1.el10}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.3-2.el10}
+    SWTPM_VERSION=${SWTPM_VERSION:-0:0.9.0-6.el10}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.25.7-1.el10}
 else
-    # CS9 defaults (current pinned versions)
-    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.10.0-12.el9}
-    QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-20.el9}
-    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
+    # CS9 pinned versions
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.10.0-19.el9}
+    QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-25.el9}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-6.el9}
     EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
     LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
     GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
-    PASST_VERSION=${PASST_VERSION:-0:0^20260611.ga9c61ff-1.el9}
+    PASST_VERSION=${PASST_VERSION:-0:0^20260728.gf8df3f1-1.el9}
     VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
     SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
     LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.20.3-4.el9}
@@ -100,6 +100,7 @@ testimage_main="
   tar
   targetcli
   util-linux
+  kmod
   which
 "
 # sevctl is x86_64-only in CS10, but available for all architectures in CS9
@@ -187,7 +188,6 @@ launcherbase_extra="
   tar
   virtiofsd-${VIRTIOFSD_VERSION}
   xorriso
-  libnbd-${LIBNBD_VERSION}
 "
 
 handlerbase_main="
@@ -226,6 +226,8 @@ libguestfstools_extra="
 
 exportserverbase_main="
   tar
+  libnbd-${LIBNBD_VERSION}
+  qemu-img-${QEMU_VERSION}
 "
 
 pr_helper="
@@ -247,6 +249,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name testimage_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -259,6 +262,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libvirt-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -271,6 +275,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libnbd-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -282,6 +287,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sandboxroot_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -293,6 +299,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name launcherbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -307,14 +314,14 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
 
     # bazeldnf resolves noarch RPMs (like edk2-aarch64) under the
     # architecture of the repo that provided them, so edk2-aarch64
-    # ends up with an .aarch64 suffix in WORKSPACE and only appears
+    # ends up with an .aarch64 suffix in rpms.json and only appears
     # in the aarch64 rpmtree. Inject it into the x86_64 launcher
     # target so the cross-arch EFI firmware is included.
     if [ "${KUBEVIRT_CROSS_ARCH_EMULATION}" ]; then
-        edk2_aarch64_entry=$(grep '@edk2-aarch64-.*\.aarch64//rpm' rpm/BUILD.bazel | head -1 | xargs)
+        edk2_aarch64_entry=$(grep "@kubevirt-rpms//edk2-aarch64-.*\.el${KUBEVIRT_CENTOS_STREAM_VERSION}\.aarch64" rpm/BUILD.bazel | head -1 | awk '{print $1}')
         if [ -n "${edk2_aarch64_entry}" ]; then
             sed -i "/name = \"launcherbase_x86_64${TARGET_SUFFIX}\"/,/\]/{
-                /@edk2-ovmf-.*x86_64/a\\        ${edk2_aarch64_entry}
+                /@kubevirt-rpms\/\/edk2-ovmf-.*x86_64/a\\        ${edk2_aarch64_entry}
             }" rpm/BUILD.bazel
         fi
     fi
@@ -323,6 +330,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name handlerbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -336,6 +344,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name passt_tree_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -343,7 +352,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         passt-${PASST_VERSION}
 
     bazel run \
+        --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libguestfs-tools_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -363,6 +374,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name exportserverbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -374,6 +386,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name pr-helper_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -385,6 +398,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sidecar-shim_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
@@ -396,7 +410,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+        //:bazeldnf -- prune \
+        --lockfile rpms.json
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler
@@ -419,6 +434,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name testimage_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -431,6 +447,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libvirt-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -443,6 +460,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libnbd-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -454,6 +472,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sandboxroot_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -465,6 +484,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -474,6 +494,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name launcherbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -490,6 +511,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         bazel run \
             --config=${ARCHITECTURE} \
             //:bazeldnf -- rpmtree \
+            --lockfile rpms.json --configname kubevirt-rpms \
             --public --nobest \
             --name launcherbase_crossarch_aarch64${TARGET_SUFFIX} \
             --basesystem ${BASESYSTEM} \
@@ -505,6 +527,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name handlerbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -518,6 +541,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name exportserverbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -529,6 +553,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name pr-helper_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -540,6 +565,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sidecar-shim_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
@@ -551,7 +577,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+        //:bazeldnf -- prune \
+        --lockfile rpms.json
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler
@@ -573,6 +600,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name testimage_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -585,6 +613,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libvirt-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -597,6 +626,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libnbd-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -608,6 +638,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sandboxroot_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -619,6 +650,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name launcherbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -634,6 +666,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -644,6 +677,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name handlerbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -657,6 +691,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name exportserverbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -666,7 +701,9 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $exportserverbase_main
 
     bazel run \
+        --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name libguestfs-tools_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -686,6 +723,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
+        --lockfile rpms.json --configname kubevirt-rpms \
         --public --nobest \
         --name sidecar-shim_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
@@ -697,7 +735,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     # remove all RPMs which are no longer referenced by a rpmtree
     bazel run \
         --config=${ARCHITECTURE} \
-        //:bazeldnf -- prune
+        //:bazeldnf -- prune \
+        --lockfile rpms.json
 
     # update tar2files targets which act as an adapter between rpms
     # and cc_library which we need for virt-launcher and virt-handler

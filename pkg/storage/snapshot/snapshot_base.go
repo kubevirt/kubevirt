@@ -27,6 +27,7 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -472,6 +473,7 @@ func (ctrl *VMSnapshotController) handleVM(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotQueue.Add(k)
+			ctrl.enqueueExternalContent(k)
 		}
 
 		key, err := controller.KeyFunc(vm)
@@ -498,8 +500,26 @@ func (ctrl *VMSnapshotController) handleVMI(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmSnapshotQueue.Add(k)
+			ctrl.enqueueExternalContent(k)
 		}
 	}
+}
+
+// the VMI is where the launcher reports the overlay transaction's progress
+func (ctrl *VMSnapshotController) enqueueExternalContent(vmSnapshotKey string) {
+	obj, exists, err := ctrl.VMSnapshotInformer.GetStore().GetByKey(vmSnapshotKey)
+	if err != nil || !exists {
+		return
+	}
+
+	vmSnapshot := obj.(*snapshotv1.VirtualMachineSnapshot)
+	if snapshotMode(vmSnapshot) != snapshotv1.SnapshotModeExternal {
+		return
+	}
+
+	k := cacheKeyFunc(vmSnapshot.Namespace, GetVMSnapshotContentName(vmSnapshot))
+	log.Log.V(5).Infof(enqueuedForSyncFmt, k)
+	ctrl.vmSnapshotContentQueue.Add(k)
 }
 
 func (ctrl *VMSnapshotController) handleVolumeSnapshotClass(obj interface{}) {
@@ -593,6 +613,19 @@ func (ctrl *VMSnapshotController) handlePVC(obj interface{}) {
 	}
 
 	if pvc, ok := obj.(*corev1.PersistentVolumeClaim); ok {
+		if owner := metav1.GetControllerOf(pvc); owner != nil && owner.Kind == "VirtualMachineSnapshotContent" {
+			contentKey := cacheKeyFunc(pvc.Namespace, owner.Name)
+			ctrl.vmSnapshotContentQueue.Add(contentKey)
+			obj, exists, err := ctrl.VMSnapshotContentInformer.GetStore().GetByKey(contentKey)
+			if err != nil {
+				utilruntime.HandleError(err)
+			} else if exists {
+				content := obj.(*snapshotv1.VirtualMachineSnapshotContent)
+				if content.UID == owner.UID && content.Spec.VirtualMachineSnapshotName != nil {
+					ctrl.vmSnapshotQueue.Add(cacheKeyFunc(content.Namespace, *content.Spec.VirtualMachineSnapshotName))
+				}
+			}
+		}
 		key, _ := cache.MetaNamespaceKeyFunc(pvc)
 		log.Log.V(3).Infof("Processing PVC %s", key)
 		keys, err := ctrl.VMInformer.GetIndexer().IndexKeys("pvc", key)

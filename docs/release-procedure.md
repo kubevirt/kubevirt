@@ -165,7 +165,15 @@ second using a 'sig/' label where applicable.
 In some cases, 'kubevirt-bot' applies one or more of these labels automatically,
 however they might need to be manually applied by either the author or a reviewer of the PR.
 
-Add a label by including the ```/kind``` and ```/sig``` commands in the ```release-note-labels``` part of the PR description template. For example: ```/kind enhancement /sig security /sig compute```
+Add a label by including the `/kind` and `/sig` commands, each on its own line, in the PR description or in a comment on the PR. For example:
+
+```
+/kind enhancement
+/sig security
+/sig compute
+```
+
+Alternatively, users with the proper permissions can apply the labels directly through the GitHub UI.
 
 If a PR matches more than one 'kind/' or 'sig/' label, add all that apply. The release note will be included in whichever takes the greater priority.
 

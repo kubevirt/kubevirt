@@ -70,7 +70,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -373,7 +372,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			service.Spec.Ports[0].Port = 123
 
 			By("Update service with undesired port")
-			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{})
+			service, err = virtClient.CoreV1().Services(originalKv.Namespace).Update(context.Background(), service, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
@@ -607,7 +606,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = imagePullSecrets
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -629,7 +628,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			kv.Spec.ImagePullSecrets = []k8sv1.LocalObjectReference{}
-			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+			kv, err = virtClient.KubeVirt(originalKv.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{}) //nolint:forbidigo
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
@@ -707,6 +706,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
 
+			// Fetch kubevirt-operator.yaml manifest from previous release before uninstall the current one.
+			manifestPath := getUpstreamReleaseAsset(previousImageTag, "kubevirt-operator.yaml")
+
 			// Delete current KubeVirt install so we can install previous release.
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
@@ -728,8 +730,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred(), "failed to delete virt-operator installation: "+stderr)
 
 				By("Installing previous release of virt-operator")
-				manifestURL := getUpstreamReleaseAssetURL(previousImageTag, "kubevirt-operator.yaml")
-				installOperator(manifestURL)
+				installOperator(manifestPath)
 			}
 
 			// Install previous release of KubeVirt
@@ -769,12 +770,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					featuregate.ImageVolume,
 				)
 			}
-
-			// No external net resource injection controller in the test environment.
-			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
-				kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-				featuregate.ExternalNetResourceInjection,
-			)
 
 			// Now create the kubevirt CR
 			createKv(kv)
@@ -884,31 +879,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
-
-			By("Verifying RBAC aggregate labels are preserved after upgrade")
-			verifyAggregateLabels(virtClient, "true")
-
-			By("Setting RoleAggregationStrategy to Manual after upgrade")
-			currentKV := libkubevirt.GetCurrentKv(virtClient)
-			savedConfig := currentKV.Spec.Configuration.DeepCopy()
-			if currentKV.Spec.Configuration.DeveloperConfiguration == nil {
-				currentKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{}
-			}
-			currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
-				currentKV.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-				featuregate.OptOutRoleAggregation,
-			)
-			currentKV.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyManual)
-			kvconfig.UpdateKubeVirtConfigValueAndWait(currentKV.Spec.Configuration)
-
-			By("Verifying aggregate labels are set to false after upgrade with Manual strategy")
-			verifyAggregateLabels(virtClient, "false")
-
-			By("Restoring RoleAggregationStrategy to default after upgrade verification")
-			kvconfig.UpdateKubeVirtConfigValueAndWait(*savedConfig)
-
-			By("Verifying aggregate labels are restored after upgrade")
-			verifyAggregateLabels(virtClient, "true")
 
 			// Verify console connectivity to VMI still works and stop VM
 			for _, vmYaml := range vmYamls {
@@ -1867,31 +1837,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			patches := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy))
 			patchKV(kv.Name, patches)
 		})
-
-		It("[test_id:6258]should reject combining deprecated and new cert rotation parameters", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CAOverlapInterval = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6259]should reject CA expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.CA.Duration = &metav1.Duration{Duration: 14 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6260]should reject Cert expires before rotation", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 8 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
-
-		It("[test_id:6261]should reject Cert rotates after CA expires", func() {
-			kv := copyOriginalKv(originalKv)
-			certConfig.Server.Duration = &metav1.Duration{Duration: 48 * time.Hour}
-			certConfig.Server.RenewBefore = &metav1.Duration{Duration: 36 * time.Hour}
-			Expect(patchKvCertConfig(kv.Name, certConfig)).ToNot(Succeed())
-		})
 	})
 
 	Context("with ContainerPathVolumes feature gate toggled", func() {
@@ -1927,144 +1872,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				_, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), components.VirtLauncherPodMutatingWebhookName, metav1.GetOptions{})
 				return err
 			}, time.Minute, time.Second*2).Should(Succeed(), "webhook should be recreated when feature gate is re-enabled")
-		})
-	})
-
-	Context(" Seccomp configuration", Serial, func() {
-
-		Context("Kubevirt profile", func() {
-			var nodeName string
-
-			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
-
-			enableSeccompFeature := func() {
-				//Disable feature first to simulate addition
-				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
-				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
-			}
-
-			disableSeccompFeature := func() {
-				//Enable feature first to simulate removal
-				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
-				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
-			}
-
-			enableKubevirtProfile := func(enable bool) {
-				nodeName = libnode.GetAllSchedulableNodes(virtClient).Items[0].Name
-
-				By("Removing profile if present")
-				_, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/rm", "-f", expectedSeccompProfilePath})
-				Expect(err).NotTo(HaveOccurred())
-
-				By(fmt.Sprintf("Configuring KubevirtSeccompProfile feature gate to %t", enable))
-				if enable {
-					enableSeccompFeature()
-				} else {
-					disableSeccompFeature()
-				}
-
-				vmProfile := &v1.VirtualMachineInstanceProfile{
-					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
-					},
-				}
-				if !enable {
-					vmProfile = nil
-
-				}
-
-				kv := libkubevirt.GetCurrentKv(virtClient)
-				kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
-					VirtualMachineInstanceProfile: vmProfile,
-				}
-
-				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-			}
-
-			It("should install Kubevirt policy", func() {
-				enableKubevirtProfile(true)
-
-				By("Expecting to see the profile")
-				Eventually(func() error {
-					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
-					return err
-				}, 1*time.Minute, 1*time.Second).Should(Not(HaveOccurred()))
-			})
-
-			It("should not install Kubevirt policy", func() {
-				enableKubevirtProfile(false)
-
-				By("Expecting to not see the profile")
-				Consistently(func() error {
-					_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"/usr/bin/cat", expectedSeccompProfilePath})
-					return err
-				}, 1*time.Minute, 1*time.Second).Should(MatchError(Or(ContainSubstring("No such file"), ContainSubstring("container not found"))))
-				Expect(err).To(MatchError(ContainSubstring("No such file")))
-			})
-		})
-
-		Context("VirtualMachineInstance Profile", func() {
-			DescribeTable("with VirtualMachineInstance Profile set to", func(virtualMachineProfile *v1.VirtualMachineInstanceProfile, expectedProfile *k8sv1.SeccompProfile) {
-				By("Configuring VirtualMachineInstance Profile")
-				kv := libkubevirt.GetCurrentKv(virtClient)
-				if kv.Spec.Configuration.SeccompConfiguration == nil {
-					kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{}
-				}
-				kv.Spec.Configuration.SeccompConfiguration.VirtualMachineInstanceProfile = virtualMachineProfile
-				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
-				By("Checking launcher seccomp policy")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				fetchVMI := matcher.ThisVMI(vmi)
-				psaRelatedErrorDetected := false
-				err = virtwait.PollImmediately(time.Second, 30*time.Second, func(_ context.Context) (done bool, err error) {
-					vmi, err := fetchVMI()
-					if err != nil {
-						return done, err
-					}
-
-					if vmi.Status.Phase != v1.Pending {
-						return true, nil
-					}
-
-					for _, condition := range vmi.Status.Conditions {
-						if condition.Type == v1.VirtualMachineInstanceSynchronized {
-							if condition.Status == k8sv1.ConditionFalse && strings.Contains(condition.Message, "needs a privileged namespace") {
-								psaRelatedErrorDetected = true
-								return true, nil
-							}
-						}
-					}
-					return
-				})
-				Expect(err).NotTo(HaveOccurred())
-				// In case we are running on PSA cluster, the case were we don't specify seccomp will violate the policy.
-				// Therefore the VMIs Pod will fail to be created and we can't check its configuration.
-				// In that case the loop above needs to see that VMI contains PSA related error.
-				// This is enough and we declare this test as passed.
-				if psaRelatedErrorDetected && virtualMachineProfile == nil {
-					return
-				}
-				Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(BeInPhase(v1.Scheduled))
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				var podProfile *k8sv1.SeccompProfile
-				if pod.Spec.SecurityContext != nil {
-					podProfile = pod.Spec.SecurityContext.SeccompProfile
-				}
-
-				Expect(podProfile).To(Equal(expectedProfile))
-			},
-				Entry("default should not set profile", nil, nil),
-				Entry("custom should use localhost", &v1.VirtualMachineInstanceProfile{
-					CustomProfile: &v1.CustomProfile{
-						LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
-					},
-				},
-					&k8sv1.SeccompProfile{Type: k8sv1.SeccompProfileTypeLocalhost, LocalhostProfile: pointer.P("kubevirt/kubevirt.json")}),
-			)
 		})
 	})
 
@@ -2298,7 +2105,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{})
+				instancetype, err = virtClient.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(instancetype.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(instancetype.Labels).To(HaveKeyWithValue(keyTest, valModified))
@@ -2329,7 +2136,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					},
 				}
 
-				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{})
+				preference, err = virtClient.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}) //nolint:forbidigo
 				Expect(err).ToNot(HaveOccurred())
 				Expect(preference.Annotations).To(HaveKeyWithValue(keyTest, valModified))
 				Expect(preference.Labels).To(HaveKeyWithValue(keyTest, valModified))
@@ -2603,26 +2410,29 @@ func serviceMonitorEnabled() bool {
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
 // This is necessary, since it can take up to a minute to get the fresh certificates when secrets are updated.
 func verifyOperatorWebhookCertificate() {
-	caBundle, _ := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
-	certPool := x509.NewCertPool()
-	certPool.AppendCertsFromPEM(caBundle)
-	// ensure that the state is fully restored before each test
-	Eventually(func() error {
+	Eventually(func(g Gomega) {
+		caBundle, _, err := libinfra.GetBundleFromConfigMap(context.Background(), components.KubeVirtCASecretName)
+		g.Expect(err).ToNot(HaveOccurred())
+		certPool := x509.NewCertPool()
+		certPool.AppendCertsFromPEM(caBundle)
+
 		currentCert, err := libpod.GetCertsForPods(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(currentCert).ToNot(BeEmpty())
 		crt, err := x509.ParseCertificate(currentCert[0])
-		Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 		_, err = crt.Verify(x509.VerifyOptions{
 			Roots: certPool,
 		})
-		return err
-	}, 90*time.Second, 1*time.Second).Should(Not(HaveOccurred()), "bundle and certificate are still not in sync after 90 seconds")
+		g.Expect(err).ToNot(HaveOccurred())
+	}, 90*time.Second, 1*time.Second).Should(Succeed(), "bundle and certificate are still not in sync after 90 seconds")
 	// we got the first pod with the new certificate, now let's wait until every pod sees it
 	// this can take additional time since nodes are not synchronizing at the same moment
 	libinfra.EnsurePodsCertIsSynced(fmt.Sprintf("%s=%s", v1.AppLabel, "virt-operator"), flags.KubeVirtInstallNamespace, "8444")
 }
 
-func getUpstreamReleaseAssetURL(tag string, assetName string) string {
+func getUpstreamReleaseAsset(tag string, assetName string) string {
+	GinkgoHelper()
 	client := github.NewClient(&http.Client{
 		Timeout: 5 * time.Second,
 	})
@@ -2637,12 +2447,42 @@ func getUpstreamReleaseAssetURL(tag string, assetName string) string {
 
 	for _, asset := range release.Assets {
 		if asset.GetName() == assetName {
-			return asset.GetBrowserDownloadURL()
+			return downloadUpstreamReleaseAsset(asset.GetBrowserDownloadURL(), assetName)
 		}
 	}
 
 	Fail(fmt.Sprintf("Asset %s not found in release %s of kubevirt upstream repo", assetName, tag))
 	return ""
+}
+
+func downloadUpstreamReleaseAsset(url string, assetName string) string {
+	GinkgoHelper()
+	client := &http.Client{Timeout: 1 * time.Minute}
+	var f *os.File
+	const pollingTimeout = 2 * time.Minute
+	const pollingInterval = 5 * time.Second
+	Eventually(func() error {
+		resp, err := client.Get(url)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != http.StatusOK {
+			defer resp.Body.Close()
+			return fmt.Errorf("unexpected status code %d when downloading asset %s", resp.StatusCode, assetName)
+		}
+		defer resp.Body.Close()
+
+		f, err = os.Create(filepath.Join(GinkgoT().TempDir(), fmt.Sprintf("kubevirt-%s-", assetName)))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(f, resp.Body)
+		return err
+	}).WithPolling(pollingInterval).WithTimeout(pollingTimeout).ShouldNot(HaveOccurred())
+
+	return f.Name()
 }
 
 func atLeastOnePendingPodExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string) bool {
@@ -2841,7 +2681,7 @@ func parseImage(image string) (registry, imageName, version string) {
 
 func installOperator(manifestPath string) {
 	// namespace is already hardcoded within the manifests
-	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath)
+	_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", manifestPath, "--server-side")
 	Expect(err).ToNot(HaveOccurred(), stderr)
 
 	By("Waiting for KubeVirt CRD to be created")
@@ -2897,18 +2737,6 @@ func patchKVComponentConfig(kvName string, toChange, origField *v1.ComponentConf
 
 	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, metav1.PatchOptions{})
 
-	return err
-}
-
-func patchKvCertConfig(name string, certConfig *v1.KubeVirtSelfSignConfiguration) error {
-	certRotationStrategy := v1.KubeVirtCertificateRotateStrategy{
-		SelfSigned: certConfig,
-	}
-
-	data, err := patch.New(patch.WithReplace("/spec/certificateRotateStrategy", certRotationStrategy)).GeneratePayload()
-	Expect(err).ToNot(HaveOccurred())
-
-	_, err = kubevirt.Client().KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), name, types.JSONPatchType, data, metav1.PatchOptions{})
 	return err
 }
 

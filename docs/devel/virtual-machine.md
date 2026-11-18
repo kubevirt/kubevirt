@@ -192,7 +192,7 @@ to the [VirtualMachineInstance] documentation.
 The VirtualMachine has to be in sync with its VirtualMachine. This means
 that the VirtualMachine controller has to observe both, the VirtualMachine
 and created VirtualMachine. When the [link](#ownerreference) is established the config changes
-are translated to the VirtualMachine, and coresponding status changes are
+are translated to the VirtualMachine, and corresponding status changes are
 translated back to VirtualMachine.
 
 TBD this needs to be more specific

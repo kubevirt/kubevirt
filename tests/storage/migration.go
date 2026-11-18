@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -61,7 +60,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -81,7 +79,6 @@ import (
 var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
-	getCSIStorageClass := libstorage.GetCSIStorageClass
 	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
 		dv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
@@ -116,25 +113,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
-		scName, exist := getCSIStorageClass()
-
-		if !exist {
-			Fail("Fail test when a CSI storage class is not present")
-		}
-
-		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+		scName, err := libstorage.CreateWFFCStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
-		wffcSc := sc.DeepCopy()
-		wffcSc.ObjectMeta = metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-wffc", scName),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		}
-		wffcSc.VolumeBindingMode = pointer.P(storagev1.VolumeBindingWaitForFirstConsumer)
-		sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		testSc = sc.Name
+		testSc = scName
 	})
 	AfterEach(func() {
 		virtClient.StorageV1().StorageClasses().Delete(context.Background(), testSc, metav1.DeleteOptions{})
@@ -176,7 +157,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
 			Expect(exist).To(BeTrue())
 			dv := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
 				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize(size),
 					libdv.StorageWithFilesystemVolumeMode(),
@@ -191,7 +172,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		createVMWithDV := func(dv *cdiv1.DataVolume, volName string) *virtv1.VirtualMachine {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv.Name),
@@ -302,7 +283,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				dv := createDV()
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
@@ -356,11 +337,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Waiting for notification about size change")
+				// fs overhead could get in the way, assert that the size is greater than 3Gi
+				sizeThreshold := resource.MustParse("3Gi")
 				Eventually(func() error {
 					err := console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
 						&expect.BExp{R: ""},
-						&expect.BSnd{S: "[ $(lsblk /dev/vda -o SIZE -n |sed -e \"s/ //g\") == \"4G\" ] && true\n"},
+						&expect.BSnd{S: fmt.Sprintf("[ $(lsblk /dev/vda -b -d -n -o SIZE) -gt %d ]; echo $?\n", sizeThreshold.Value())},
 						&expect.BExp{R: "0"},
 					}, 10)
 					return err
@@ -399,7 +382,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 		It("should continously report storage migration metrics", func() {
 			var pod *k8sv1.Pod
-			var metricsIPs []string
 			volName := "disk0"
 			sc, exist := libstorage.GetRWOFileSystemStorageClass()
 			Expect(exist).To(BeTrue())
@@ -414,7 +396,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Expect(err).ToNot(HaveOccurred())
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("256Mi"),
 				libvmi.WithDataVolume(volName, srcDV.Name),
@@ -439,17 +421,15 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 			Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
-			for _, ip := range pod.Status.PodIPs {
-				metricsIPs = append(metricsIPs, ip.IP)
-			}
 			By("Waiting until the Migration Completes")
 
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
 
 			threshold := resource.MustParse("500Mi")
-			Eventually(func() []string {
-				out := libmonitoring.GetKubevirtVMMetrics(pod)
+			Eventually(func(g Gomega) []string {
+				out, err := libmonitoring.GetKubevirtVMMetrics(pod)
+				g.Expect(err).ToNot(HaveOccurred(), "should scrape the metrics endpoint")
 				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
 			}, 4*time.Minute, 10*time.Second).Should(
 				WithTransform(func(lines []string) []float64 {
@@ -636,7 +616,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, srcPVC),
@@ -734,7 +714,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destDV := createBlankDV(virtClient, ns, size)
 			vmi := libvmi.New(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithDataVolume(volName, dv1.Name),
@@ -873,7 +853,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			createAndStartVM := func(dv *cdiv1.DataVolume) *virtv1.VirtualMachine {
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithDataVolume(volName, dv.Name),
@@ -991,7 +971,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			dv := createBlankDV(virtClient, ns, "1Gi")
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithNamespace(ns),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
@@ -1128,7 +1108,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				dv := createBlankDV(virtClient, ns, "2G")
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				)
 				vm := libvmi.NewVirtualMachine(vmi,
@@ -1181,7 +1161,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				)
 				vmi := libvmi.New(
 					libvmi.WithNamespace(ns),
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.NewInterface(virtv1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 					// CPU manager clashes with hotplugging close to boot time, overriding the allowed hotplug volume
 					// For testing purposes, we're okay with using guaranteed QoS, which ensures CPU set gets set on boot

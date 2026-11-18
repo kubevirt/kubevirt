@@ -28,9 +28,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	"k8s.io/apimachinery/pkg/api/equality"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
@@ -66,6 +69,7 @@ import (
 
 var afterSuiteReporters = []Reporter{}
 var k8sReporter *reporter.KubernetesReporter
+var etcdProfiler *reporter.EtcdProfiler
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
@@ -95,6 +99,14 @@ func TestTests(t *testing.T) {
 
 	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, alwaysCollect)
 	k8sReporter.Cleanup()
+
+	if profileEtcd, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_PROFILE_ETCD")); profileEtcd {
+		etcdArtifactsDir := filepath.Join(flags.ArtifactsDir, "etcd-profiler")
+		if suiteConfig.ParallelTotal > 1 {
+			etcdArtifactsDir = filepath.Join(etcdArtifactsDir, strconv.Itoa(GinkgoParallelProcess()))
+		}
+		etcdProfiler = reporter.NewEtcdProfiler(etcdArtifactsDir)
+	}
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
@@ -159,6 +171,12 @@ func getAlwaysCollectFromEnv() bool {
 	return alwaysCollect
 }
 
+var _ = ReportAfterSuite("Etcd storage profile", func(_ Report) {
+	if etcdProfiler != nil {
+		etcdProfiler.Finalize()
+	}
+})
+
 var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
 	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")
 	kvReport := reporter.NewKubernetesReporter(artifactPath, 1, false)
@@ -177,6 +195,12 @@ var _ = ReportBeforeSuite(func(report Report) {
 	k8sReporter.ConfigurePerSpecReporting(report)
 })
 
+var _ = BeforeEach(func() {
+	if etcdProfiler != nil {
+		etcdProfiler.RecordBeforeSpec()
+	}
+})
+
 // CRITICAL ORDER: These two JustAfterEach blocks must remain in this order!
 // 1. First JustAfterEach checks VM logs and may call ginkgo.Fail() to mark spec as failed.
 // 2. Second one collects logs based on failure status, hence it must run after the first block
@@ -192,6 +216,9 @@ var _ = JustAfterEach(func() {
 		return
 	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
+	if etcdProfiler != nil {
+		etcdProfiler.RecordSpec(CurrentSpecReport())
+	}
 })
 
 func testCleanup() {
@@ -199,7 +226,6 @@ func testCleanup() {
 	testsuite.CleanNamespaces()
 	libnode.CleanNodes()
 	resetToDefaultConfig()
-	testsuite.EnsureKubevirtReady()
 	GinkgoWriter.Println("Global test cleanup ended.")
 }
 
@@ -210,6 +236,10 @@ func resetToDefaultConfig() {
 	if !CurrentSpecReport().IsSerial {
 		// Tests which alter the global kubevirt config must be run serial, therefore, if we run in parallel
 		// we can just skip the restore step.
+		return
+	}
+	current := libkubevirt.GetCurrentKv(kubevirt.Client())
+	if equality.Semantic.DeepEqual(current.Spec.Configuration, testsuite.KubeVirtDefaultConfig) {
 		return
 	}
 	config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)

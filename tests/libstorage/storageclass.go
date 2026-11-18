@@ -21,6 +21,7 @@ package libstorage
 
 import (
 	"context"
+	"fmt"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
@@ -221,6 +222,35 @@ func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) 
 	return "", nil
 }
 
+func CreateWFFCStorageClass(client kubecli.KubevirtClient) (string, error) {
+	scName, exist := GetCSIStorageClass()
+	wffcName := fmt.Sprintf("%s-wffc", scName)
+
+	if !exist {
+		return "", fmt.Errorf("no CSI Storage Class exists")
+	}
+
+	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	// use the same storage provider, but change the binding mode to wffc
+	wffcSc := sc.DeepCopy()
+	wffcSc.ObjectMeta = metav1.ObjectMeta{
+		GenerateName: wffcName,
+		Labels: map[string]string{
+			kubevirtIoTest: wffcName,
+		},
+	}
+	wffcSc.VolumeBindingMode = &wffc
+	sc, err = client.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
+	if err != nil {
+		return "", err
+	}
+	return sc.Name, nil
+}
+
 func GetCSIStorageClass() (string, bool) {
 	storageClassCSI := Config.StorageClassCSI
 	return storageClassCSI, storageClassCSI != ""
@@ -284,40 +314,6 @@ func GetAvailableRWFileSystemStorageClass() (string, bool) {
 	}
 
 	return sc, foundSC
-}
-
-// GetNoVolumeSnapshotStorageClass goes over all the existing storage classes
-// and returns one which doesnt have volume snapshot ability
-// if the preference storage class exists and is without snapshot
-// ability it will be returned
-func GetNoVolumeSnapshotStorageClass(preference string) string {
-	virtClient := kubevirt.Client()
-	scs, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
-	vscs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
-	if errors.IsNotFound(err) {
-		return ""
-	}
-	Expect(err).ToNot(HaveOccurred())
-	vscsDrivers := make(map[string]bool)
-	for _, vsc := range vscs.Items {
-		vscsDrivers[vsc.Driver] = true
-	}
-
-	candidate := ""
-	for _, sc := range scs.Items {
-		if _, ok := vscsDrivers[sc.Provisioner]; !ok {
-			if sc.Name == preference {
-				return sc.Name
-			}
-			if candidate == "" {
-				candidate = sc.Name
-			}
-		}
-	}
-
-	return candidate
 }
 
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
