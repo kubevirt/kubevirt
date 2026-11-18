@@ -21,6 +21,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "amd64_test.go",
         "image_hash_test.go",
         "util_suite_test.go",
         "util_test.go",

@@ -74,7 +74,7 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		directKernelBoot := []libvmi.Option{
 			libvmi.WithKernelBoot("kernel-image", "/boot/vmlinuz", "/boot/initrd", "console=ttyS0"),
 		}
-		initrdOnlyKernelBoot := []libvmi.Option{libvmi.WithKernelBootContainer("kernel-image")}
+		initrdOnlyKernelBoot := []libvmi.Option{libvmi.WithKernelBoot("kernel-image", "", "/boot/initrd", "")}
 
 		It("should be enabled for SEV-SNP with a direct kernel boot", func() {
 			vmi := libvmi.New(append([]libvmi.Option{libvmi.WithSEV(false, true)}, directKernelBoot...)...)
@@ -131,16 +131,17 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		Entry("SEV, SNP and TDX", withSEVAndSNP(), withTDXType()),
 	)
 
-	// Fails if a type is added to v1.LaunchSecurity without a case in amd64LaunchSecurity
-	It("should handle every launchSecurity type defined in the API", func() {
-		launchSecurityType := reflect.TypeOf(v1.LaunchSecurity{})
+	// Fails if a new type is added to v1.LaunchSecurity without a case in
+	// amd64LaunchSecurity and coverage in util.UseLaunchSecurity.
+	It("should convert every launchSecurity type defined in the API", func() {
+		launchSecurityType := reflect.TypeFor[v1.LaunchSecurity]()
 
 		for i := range launchSecurityType.NumField() {
 			field := launchSecurityType.Field(i)
 
 			Expect(field.Type.Kind()).To(Equal(reflect.Pointer),
-				"v1.LaunchSecurity.%s must be a pointer type selector: setLaunchSecurityTypes "+
-					"counts non-nil pointer fields to detect conflicting types", field.Name)
+				"v1.LaunchSecurity.%s must be a pointer: amd64LaunchSecurity selects a "+
+					"type via nil checks", field.Name)
 
 			launchSecurity := &v1.LaunchSecurity{}
 			reflect.ValueOf(launchSecurity).Elem().Field(i).Set(reflect.New(field.Type.Elem()))

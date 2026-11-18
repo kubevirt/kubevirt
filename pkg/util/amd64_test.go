@@ -50,21 +50,22 @@ var _ = Describe("LaunchSecurityTypes", func() {
 			[]string{"SEV", "SNP", "TDX"}),
 	)
 
-	// A type missing from the list would silently stop being mutually exclusive
-	It("should report every type defined in the API", func() {
-		launchSecurityType := reflect.TypeOf(v1.LaunchSecurity{})
-
+	It("should report every launchSecurity type defined in the API", func() {
+		launchSecType := reflect.TypeFor[v1.LaunchSecurity]()
 		launchSec := &v1.LaunchSecurity{}
-		value := reflect.ValueOf(launchSec).Elem()
+		fields := reflect.ValueOf(launchSec).Elem()
+
 		var fieldNames []string
-		for i := range launchSecurityType.NumField() {
-			field := launchSecurityType.Field(i)
+
+		// Set every field in launchSec, so LaunchSecurityTypes has to report every type back.
+		for i := range launchSecType.NumField() {
+			field := launchSecType.Field(i)
 
 			Expect(field.Type.Kind()).To(Equal(reflect.Pointer),
 				"v1.LaunchSecurity.%s must be a pointer: LaunchSecurityTypes reports a "+
 					"type per non-nil field", field.Name)
 
-			value.Field(i).Set(reflect.New(field.Type.Elem()))
+			fields.Field(i).Set(reflect.New(field.Type.Elem()))
 			fieldNames = append(fieldNames, field.Name)
 		}
 
