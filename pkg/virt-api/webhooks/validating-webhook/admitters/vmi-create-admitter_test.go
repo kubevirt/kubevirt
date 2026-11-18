@@ -2018,24 +2018,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("threads must not be greater than 1 at fake.domain.cpu.threads (got 2) when fake.architecture is arm64"))
 		})
 
-		It("should reject specs with more than two threads", func() {
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
-			vmi.Spec.Domain.CPU.Cores = 4
-			vmi.Spec.Domain.CPU.Threads = 3
-			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("12"),
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(ContainElement(
-				metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "fake.domain.cpu.dedicatedCpuPlacement",
-					Message: "Not more than two threads must be provided at fake.domain.cpu.threads (got 3) when DedicatedCPUPlacement is true",
-				},
-			))
-		})
-
 		It("should reject specs without cpu reqirements", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))

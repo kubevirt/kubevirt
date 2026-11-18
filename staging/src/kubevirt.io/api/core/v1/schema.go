@@ -348,6 +348,7 @@ type ResourceRequirements struct {
 }
 
 // CPU allows specifying the CPU topology.
+// +kubebuilder:validation:XValidation:rule="!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement || !has(self.threads) || self.threads <= 2",message="Not more than two threads must be provided when DedicatedCPUPlacement is true"
 type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
