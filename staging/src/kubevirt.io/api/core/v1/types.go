@@ -1440,14 +1440,6 @@ const (
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
 	// VirtualMachinePodMemoryRequestsLabel indicates VMI pod Memory resource requests
 	VirtualMachinePodMemoryRequestsLabel string = "kubevirt.io/vmi-pod-memory-resource-requests"
-	// MemoryHotplugOverheadRatioLabel indicates the guest memory overhead ratio required
-	// to correctly compute the target pod memory requests when doing memory hotplug.
-	// The label is used to store this value when memory hotplug is requested as it may change
-	// between the creation of the target pod and when the evaluation of `MemoryHotplugReadyLabel`
-	// happens.
-	// TODO: Remove this label and related code once VmiMemoryOverheadReport feature gate is GA
-	// and we are sure that all VMIs include the MemoryOverhead status field
-	MemoryHotplugOverheadRatioLabel string = "kubevirt.io/memory-hotplug-overhead-ratio"
 
 	// AutoMemoryLimitsRatioLabel allows to use a custom ratio for auto memory limits calculation.
 	// Must be a float >= 1.

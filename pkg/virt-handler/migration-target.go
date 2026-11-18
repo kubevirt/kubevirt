@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -1160,7 +1159,6 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 
 	removeVMIMemoryChangeLabel := func() {
 		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
-		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
 	}
 	defer removeVMIMemoryChangeLabel()
 
@@ -1179,13 +1177,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
 		requiredMemory = *vmi.Status.MigrationState.TargetMemoryOverhead
 	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-		requiredMemory = hypervisor.NewLauncherHypervisorResources(c.clusterConfig.GetHypervisor().Name).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
-		for _, calc := range c.memoryOverheadCalculators {
-			requiredMemory.Add(calc.Calculate(vmi))
-		}
+		return fmt.Errorf("TargetMemoryOverhead not available in migration state")
 	}
 
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
