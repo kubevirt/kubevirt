@@ -166,6 +166,11 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				store:        reconciler.stores.MutatingWebhookCache,
 				expectations: reconciler.expectations.MutatingWebhook,
 			},
+			"apiservices": {
+				object:       &apiregv1.APIService{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.APIServiceCache,
+				expectations: reconciler.expectations.APIService,
+			},
 			"secrets": {
 				object:       &corev1.Secret{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.SecretCache,
@@ -185,6 +190,11 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				object:       &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: clusterMetadata},
 				store:        reconciler.stores.ValidatingAdmissionPolicyCache,
 				expectations: reconciler.expectations.ValidatingAdmissionPolicy,
+			},
+			"customresourcedefinitions": {
+				object:       &extv1.CustomResourceDefinition{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.OperatorCrdCache,
+				expectations: reconciler.expectations.OperatorCrd,
 			},
 			"daemonsets": {
 				object:       &appsv1.DaemonSet{ObjectMeta: namespacedMetadata},
@@ -332,10 +342,12 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 	},
 		Entry("validatingwebhookconfigurations", "validatingwebhookconfigurations"),
 		Entry("mutatingwebhookconfigurations", "mutatingwebhookconfigurations"),
+		Entry("apiservices", "apiservices"),
 		Entry("secrets", "secrets"),
 		Entry("configmaps", "configmaps"),
 		Entry("validatingadmissionpolicybindings", "validatingadmissionpolicybindings"),
 		Entry("validatingadmissionpolicies", "validatingadmissionpolicies"),
+		Entry("customresourcedefinitions", "customresourcedefinitions"),
 		Entry("daemonsets", "daemonsets"),
 		Entry("deployments", "deployments"),
 		Entry("services", "services"),
