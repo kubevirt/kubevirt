@@ -241,6 +241,16 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				store:        reconciler.stores.SCCCache,
 				expectations: reconciler.expectations.SCC,
 			},
+			"prometheusrules": {
+				object:       &promv1.PrometheusRule{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.PrometheusRuleCache,
+				expectations: reconciler.expectations.PrometheusRule,
+			},
+			"servicemonitors": {
+				object:       &promv1.ServiceMonitor{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.ServiceMonitorCache,
+				expectations: reconciler.expectations.ServiceMonitor,
+			},
 		}
 		scheme := runtime.NewScheme()
 		for _, addToScheme := range []func(*runtime.Scheme) error{
@@ -362,6 +372,8 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
 		Entry("securitycontextconstraints", "securitycontextconstraints"),
+		Entry("prometheusrules", "prometheusrules"),
+		Entry("servicemonitors", "servicemonitors"),
 	)
 
 	It("removes outdated webhooks before other resources with no grace period", func() {
@@ -425,6 +437,8 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("rolebindings", "rolebindings"),
 		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
+		Entry("prometheusrules", "prometheusrules"),
+		Entry("servicemonitors", "servicemonitors"),
 	)
 
 	DescribeTable("preserves resources excluded from cleanup", func(resourceName string, modify func(metav1.Object)) {
