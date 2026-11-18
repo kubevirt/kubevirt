@@ -236,6 +236,11 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				store:        reconciler.stores.ServiceAccountCache,
 				expectations: reconciler.expectations.ServiceAccount,
 			},
+			"securitycontextconstraints": {
+				object:       &secv1.SecurityContextConstraints{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.SCCCache,
+				expectations: reconciler.expectations.SCC,
+			},
 		}
 		scheme := runtime.NewScheme()
 		for _, addToScheme := range []func(*runtime.Scheme) error{
@@ -356,6 +361,7 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("rolebindings", "rolebindings"),
 		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
+		Entry("securitycontextconstraints", "securitycontextconstraints"),
 	)
 
 	It("removes outdated webhooks before other resources with no grace period", func() {
@@ -440,6 +446,12 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 	},
 		Entry("temporary validating webhooks", "validatingwebhookconfigurations", func(webhook metav1.Object) {
 			webhook.SetName("virt-operator-tmp-webhook-upgrade")
+		}),
+		Entry("unmanaged SCCs", "securitycontextconstraints", func(scc metav1.Object) {
+			scc.SetLabels(nil)
+		}),
+		Entry("SCCs managed by another operator", "securitycontextconstraints", func(scc metav1.Object) {
+			scc.SetLabels(map[string]string{v1.ManagedByLabel: "another-operator"})
 		}),
 	)
 
