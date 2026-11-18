@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			kernelBoot.Container.Image = ""
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with an image"))
+			Expect(err.Error()).To(ContainSubstring("kernel boot container must be defined with an image"))
 		})
 
 		It("[test_id:7751]VMI defined with image but without initrd & kernel paths", func() {
@@ -113,7 +113,7 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 			kernelBoot.Container.InitrdPath = ""
 			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("denied the request: spec.domain.firmware.kernelBoot.container must be defined with at least one of the following: kernelPath, initrdPath"))
+			Expect(err.Error()).To(ContainSubstring("kernel boot container must be defined with at least one of the following: kernelPath, initrdPath"))
 		})
 	})
 

@@ -38,7 +38,17 @@ import (
 // No kubevirt webhook runs in this environment, so a rejection here can only
 // come from the CRD-embedded CEL rule itself.
 var _ = Describe("Firmware CEL validation", Ordered, ContinueOnFailure, func() {
-	const bootloaderExclusivityMessage = "has both EFI and BIOS configured, but they are mutually exclusive"
+	const (
+		bootloaderExclusivityMessage    = "has both EFI and BIOS configured, but they are mutually exclusive"
+		kernelArgsWithoutKernelMessage  = "kernel arguments cannot be provided without an external kernel"
+		kernelBootContainerImageMessage = "kernel boot container must be defined with an image"
+		kernelBootContainerPathsMessage = "kernel boot container must be defined with at least one of the following: kernelPath, initrdPath"
+
+		kernelArgs  = "console=ttyS0"
+		kernelImage = "kernel-image"
+		kernelPath  = "/boot/vmlinuz"
+		initrdPath  = "/boot/initrd"
+	)
 
 	var (
 		f  *framework.Framework
@@ -64,12 +74,26 @@ var _ = Describe("Firmware CEL validation", Ordered, ContinueOnFailure, func() {
 		return &virtv1.Firmware{Bootloader: &virtv1.Bootloader{BIOS: bios, EFI: efi}}
 	}
 
+	// The container is only set when at least one of its fields is set.
+	newKernelBootFirmware := func(args, image, kernel, initrd string) *virtv1.Firmware {
+		kernelBoot := &virtv1.KernelBoot{KernelArgs: args}
+		if image != "" || kernel != "" || initrd != "" {
+			kernelBoot.Container = &virtv1.KernelBootContainer{Image: image, KernelPath: kernel, InitrdPath: initrd}
+		}
+		return &virtv1.Firmware{KernelBoot: kernelBoot}
+	}
+
 	DescribeTable("should accept a VMI", func(ctx SpecContext, firmware *virtv1.Firmware) {
 		_, err := f.VirtClient().VirtualMachineInstance(ns).Create(ctx, newVMIWithFirmware(firmware), metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 	},
 		Entry("with a BIOS bootloader only", newBootloaderFirmware(&virtv1.BIOS{}, nil)),
 		Entry("with an EFI bootloader only", newBootloaderFirmware(nil, &virtv1.EFI{})),
+		Entry("with an empty kernel boot", newKernelBootFirmware("", "", "", "")),
+		Entry("with kernel args and a kernel boot container with image, kernelPath and initrdPath",
+			newKernelBootFirmware(kernelArgs, kernelImage, kernelPath, initrdPath)),
+		Entry("with a kernel boot container with image and only kernelPath", newKernelBootFirmware("", kernelImage, kernelPath, "")),
+		Entry("with a kernel boot container with image and only initrdPath", newKernelBootFirmware("", kernelImage, "", initrdPath)),
 	)
 
 	DescribeTable("should reject a VMI", func(ctx SpecContext, firmware *virtv1.Firmware, expectedMessage string) {
@@ -77,6 +101,12 @@ var _ = Describe("Firmware CEL validation", Ordered, ContinueOnFailure, func() {
 		Expect(err).To(MatchError(ContainSubstring(expectedMessage)))
 	},
 		Entry("with both BIOS and EFI bootloaders", newBootloaderFirmware(&virtv1.BIOS{}, &virtv1.EFI{}), bootloaderExclusivityMessage),
+		Entry("with kernel args but without a kernel boot container",
+			newKernelBootFirmware(kernelArgs, "", "", ""), kernelArgsWithoutKernelMessage),
+		Entry("with a kernel boot container without an image",
+			newKernelBootFirmware("", "", kernelPath, initrdPath), kernelBootContainerImageMessage),
+		Entry("with a kernel boot container without kernelPath and initrdPath",
+			newKernelBootFirmware("", kernelImage, "", ""), kernelBootContainerPathsMessage),
 	)
 
 	DescribeTable("should reject a VirtualMachine template", func(ctx SpecContext, firmware *virtv1.Firmware, expectedMessage string) {
@@ -86,5 +116,7 @@ var _ = Describe("Firmware CEL validation", Ordered, ContinueOnFailure, func() {
 		Expect(err).To(MatchError(ContainSubstring(expectedMessage)))
 	},
 		Entry("with both BIOS and EFI bootloaders", newBootloaderFirmware(&virtv1.BIOS{}, &virtv1.EFI{}), bootloaderExclusivityMessage),
+		Entry("with a kernel boot container without an image",
+			newKernelBootFirmware("", "", kernelPath, initrdPath), kernelBootContainerImageMessage),
 	)
 })
