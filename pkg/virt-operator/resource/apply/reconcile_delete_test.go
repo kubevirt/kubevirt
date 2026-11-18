@@ -44,6 +44,7 @@ import (
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	virtfake "kubevirt.io/client-go/kubevirt/fake"
 	promfake "kubevirt.io/client-go/prometheusoperator/fake"
@@ -469,4 +470,118 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		}),
 	)
 
+	DescribeTableSubtree("cluster types", func(resourceName string, prototype runtime.Object) {
+		var clusterType runtime.Object
+		var metadata metav1.Object
+
+		BeforeEach(func() {
+			clusterType = prototype.DeepCopyObject()
+			var err error
+			metadata, err = meta.Accessor(clusterType)
+			Expect(err).NotTo(HaveOccurred())
+			metadata.SetName("obsolete-cluster-type")
+			reconciler.kv.Spec.ProductComponent = "custom-component"
+			metadata.SetLabels(map[string]string{
+				v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+				v1.AppComponentLabel: "custom-component",
+			})
+		})
+
+		It("deletes obsolete cluster types using the operator ownership selector", func() {
+			virtClient.EXPECT().ExtensionsClient().Return(extClient)
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
+
+			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+			Expect(deletions).To(ConsistOf(And(
+				HaveField("Name", metadata.GetName()),
+				HaveField("Namespace", BeEmpty()),
+				HaveField("Resource.Resource", resourceName),
+				HaveField("DeleteOptions", metav1.DeleteOptions{}),
+			)))
+			Expect(clusterTypeClient.Actions()).To(ContainElement(And(
+				HaveField("Verb", "list"),
+				HaveField("Resource.Resource", resourceName),
+				HaveField("ListRestrictions.Labels", WithTransform(func(selector interface{ String() string }) string {
+					return selector.String()
+				}, Equal("app.kubernetes.io/component=custom-component,app.kubernetes.io/managed-by=virt-operator"))),
+			)))
+		})
+
+		It("preserves cluster types in the target strategy", func() {
+			virtClient.EXPECT().ExtensionsClient().Return(extClient)
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
+			reconciler.targetStrategy = loadTargetStrategy(clusterType, getConfig(Registry, Version), reconciler.stores)
+
+			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+			Expect(deletions).To(BeEmpty())
+		})
+
+		It("does not delete cluster types already being deleted", func() {
+			virtClient.EXPECT().ExtensionsClient().Return(extClient)
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+			metadata.SetDeletionTimestamp(now())
+			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
+
+			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+			Expect(deletions).To(BeEmpty())
+		})
+
+		It("preserves cluster types owned by other installations or users", func() {
+			virtClient.EXPECT().ExtensionsClient().Return(extClient)
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+			metadata.SetLabels(map[string]string{v1.AppComponentLabel: "custom-component"})
+			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
+			anotherInstallation := clusterType.DeepCopyObject()
+			otherMetadata, err := meta.Accessor(anotherInstallation)
+			Expect(err).NotTo(HaveOccurred())
+			otherMetadata.SetName("another-installation")
+			otherMetadata.SetLabels(map[string]string{
+				v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
+				v1.AppComponentLabel: "another-component",
+			})
+			Expect(clusterTypeClient.Tracker().Add(anotherInstallation)).To(Succeed())
+
+			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+			Expect(deletions).To(BeEmpty())
+		})
+
+		It("returns cluster type deletion errors", func() {
+			virtClient.EXPECT().ExtensionsClient().Return(extClient)
+			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
+			deleteErr = errors.New("cluster type deletion failed")
+
+			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(MatchError(deleteErr))
+			Expect(deletions).To(HaveLen(1))
+		})
+	},
+		Entry("instancetypes", "virtualmachineclusterinstancetypes", &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			TypeMeta: metav1.TypeMeta{Kind: "VirtualMachineClusterInstancetype", APIVersion: instancetypev1beta1.SchemeGroupVersion.String()},
+		}),
+		Entry("preferences", "virtualmachineclusterpreferences", &instancetypev1beta1.VirtualMachineClusterPreference{
+			TypeMeta: metav1.TypeMeta{Kind: "VirtualMachineClusterPreference", APIVersion: instancetypev1beta1.SchemeGroupVersion.String()},
+		}),
+	)
 })
