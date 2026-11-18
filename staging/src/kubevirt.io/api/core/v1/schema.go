@@ -271,6 +271,7 @@ type Chassis struct {
 
 // Represents the firmware blob used to assist in the domain creation process.
 // Used for setting the QEMU BIOS file path for the libvirt domain.
+// +kubebuilder:validation:XValidation:rule="!(has(self.bios) && has(self.efi))",message="has both EFI and BIOS configured, but they are mutually exclusive"
 type Bootloader struct {
 	// If set (default), BIOS will be used.
 	// +optional
