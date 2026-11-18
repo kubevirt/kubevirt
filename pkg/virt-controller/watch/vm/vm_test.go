@@ -6578,6 +6578,46 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
 			})
 
+			It("should not appear when pinning CPU model that already matches the running VMI", func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				vm.Spec.Template.Spec.Domain.CPU.Model = ""
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				controller.vmiIndexer.Add(vmi)
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				vm.Spec.Template.Spec.Domain.CPU.Model = v1.CPUModeHostModel
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).NotTo(restartRequiredMatcher(k8sv1.ConditionTrue))
+			})
+
+			It("should appear when the cluster default CPU model differs from the running VMI", func() {
+				kv.Spec.Configuration.CPUModel = "Cascadelake-Server-v3"
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				vm.Spec.Template.Spec.Domain.CPU.Model = ""
+				vmi = SetupVMIFromVM(vm)
+				vmi.Spec.Domain.CPU.Model = v1.DefaultCPUModel
+				controller.vmiIndexer.Add(vmi)
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue), "restart required")
+			})
+
 			It("should appear when VM doesn't specify maxSockets and sockets go above cluster-wide maxSockets", func() {
 				var maxSockets uint32 = 8
 

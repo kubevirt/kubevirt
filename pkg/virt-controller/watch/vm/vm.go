@@ -3037,9 +3037,29 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
 
+	// Ignore CPU model pins that already match the running VMI.
+	if vmi != nil && vmi.Spec.Domain.CPU != nil &&
+		lastSeenVM.Spec.Template.Spec.Domain.CPU != nil && currentVM.Spec.Template.Spec.Domain.CPU != nil &&
+		currentVM.Spec.Template.Spec.Domain.CPU.Model == vmi.Spec.Domain.CPU.Model {
+		lastSeenVM.Spec.Template.Spec.Domain.CPU.Model = currentVM.Spec.Template.Spec.Domain.CPU.Model
+	}
+
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
+	}
+
+	// Empty VM model follows the cluster default.
+	if vmi != nil && vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" &&
+		(currentVM.Spec.Template.Spec.Domain.CPU == nil || currentVM.Spec.Template.Spec.Domain.CPU.Model == "") {
+		desired := c.clusterConfig.GetCPUModel()
+		if desired == "" {
+			desired = virtv1.DefaultCPUModel
+		}
+		if vmi.Spec.Domain.CPU.Model != desired {
+			setRestartRequired(vm, "the cluster default CPU model changed since this VirtualMachineInstance started")
+			return true
+		}
 	}
 
 	// If no restart is needed, remove any existing RestartRequired condition that is no longer valid.
