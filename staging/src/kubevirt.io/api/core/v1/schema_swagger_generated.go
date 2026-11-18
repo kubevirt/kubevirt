@@ -166,7 +166,7 @@ func (ResourceRequirements) SwaggerDoc() map[string]string {
 
 func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                      "CPU allows specifying the CPU topology.",
+		"":                      "CPU allows specifying the CPU topology.\n+kubebuilder:validation:XValidation:rule=\"!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement || !has(self.threads) || self.threads <= 2\",message=\"Not more than two threads must be provided when DedicatedCPUPlacement is true\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.maxSockets) || self.maxSockets == 0 || !has(self.sockets) || self.sockets <= self.maxSockets\",message=\"Number of sockets in CPU topology is greater than the maximum sockets allowed\"",
 		"cores":                 "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
 		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
 		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can\nbe hotplugged",
