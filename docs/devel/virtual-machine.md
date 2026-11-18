@@ -110,7 +110,7 @@ The 'application/yaml' can also be used.
 
 Now its time to discuss the content of the VirtualMachine object.
 The object is defined in the same way as any other Kubernetes object. You can
-use YAML or JSON format to specify the content. The example structure is bellow:
+use YAML or JSON format to specify the content. The example structure is below:
 
 ```yaml
 apiVersion: kubevirt.io/v1alpha2
@@ -286,7 +286,7 @@ The first implementation of the VirtualMachine kind has two parts:
 
 ### Custom resource definition
 
-The VirtualMachine custom resource is straightforward and is shown bellow:
+The VirtualMachine custom resource is straightforward and is shown below:
 
 ```yaml
 apiVersion: apiextensions.k8s.io/v1
