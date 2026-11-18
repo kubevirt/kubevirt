@@ -4023,33 +4023,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
-	Context("with CPU hotplug", func() {
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
-			vmi.Spec.Architecture = runtime.GOARCH
-		})
-
-		When("number of sockets higher than maxSockets", func() {
-			It("deny VMI creation", func() {
-				vmi.Spec.Domain.CPU = &v1.CPU{
-					MaxSockets: 8,
-					Sockets:    16,
-				}
-
-				ar, err := newAdmissionReviewForVMICreation(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu.sockets"))
-
-			})
-		})
-	})
-
 	Context("hyperV passthrough", func() {
 		var vmi *v1.VirtualMachineInstance
 

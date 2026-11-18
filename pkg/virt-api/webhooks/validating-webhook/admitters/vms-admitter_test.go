@@ -1512,6 +1512,36 @@ var _ = Describe("Validating VM Admitter", func() {
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 		})
+
+		It("should reject sockets greater than maxSockets derived from an instancetype", func() {
+			const clusterInstancetypeName = "clusterInstancetype"
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterInstancetypeName,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest:      uint32(4),
+						MaxSockets: pointer.P(uint32(2)),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithClusterInstancetype(clusterInstancetypeName),
+			)
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
+		})
 	})
 
 	Context("Live update", func() {
@@ -1533,34 +1563,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		AfterEach(func() {
 			disableFeatureGates()
 		})
-
-		DescribeTableSubtree("CPU on supported arch", func(arch string) {
-			const maximumSockets uint32 = 24
-
-			BeforeEach(func() {
-				vm.Spec.Template.Spec.Architecture = arch
-				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-					MaxSockets: maximumSockets,
-				}
-			})
-
-			It("should reject VM creation when number of sockets exceeds the maximum configured", func() {
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = maximumSockets + 1
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
-			})
-
-			When("Hot CPU change is in progress", func() {
-				BeforeEach(func() {
-					vm.Status.Ready = true
-				})
-			})
-		},
-			Entry("amd64", "amd64"),
-			Entry("s390x", "s390x"),
-		)
 
 		DescribeTableSubtree("Memory on supported arch", func(arch string) {
 			var maxGuest resource.Quantity
