@@ -66,7 +66,8 @@ type cleanupAPIServiceClient struct {
 }
 
 func (client *cleanupAPIServiceClient) Delete(_ context.Context, name string, options metav1.DeleteOptions) error {
-	_, err := client.Invokes(testing.NewRootDeleteActionWithOptions(apiregv1.SchemeGroupVersion.WithResource("apiservices"), name, options), nil)
+	action := testing.NewRootDeleteActionWithOptions(apiregv1.SchemeGroupVersion.WithResource("apiservices"), name, options)
+	_, err := client.Invokes(action, nil)
 	return err
 }
 
@@ -102,6 +103,9 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		}
 		clusterTypeClient.PrependReactor("delete", "*", recordDeletion)
 
+		newExpectations := func(name string) *controller.UIDTrackingControllerExpectations {
+			return controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName(name))
+		}
 		reconciler = &Reconciler{
 			kv:               &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: Namespace}},
 			kvKey:            Namespace + "/kubevirt",
@@ -132,28 +136,31 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				InstallStrategyConfigMapCache:         cache.NewStore(cache.MetaNamespaceKeyFunc),
 			},
 			expectations: &util.Expectations{
-				ValidationWebhook:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
-				MutatingWebhook:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
-				APIService:                       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("APIService")),
-				Secrets:                          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secrets")),
-				ConfigMap:                        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
-				ValidatingAdmissionPolicyBinding: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidatingAdmissionPolicyBinding")),
-				ValidatingAdmissionPolicy:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidatingAdmissionPolicy")),
-				OperatorCrd:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("OperatorCrd")),
-				DaemonSet:                        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
-				Deployment:                       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
-				Service:                          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
-				ClusterRoleBinding:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
-				ClusterRole:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
-				RoleBinding:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
-				Role:                             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
-				ServiceAccount:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
-				SCC:                              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("SCC")),
-				PrometheusRule:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PrometheusRule")),
-				ServiceMonitor:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceMonitor")),
+				ValidationWebhook:                newExpectations("ValidationWebhook"),
+				MutatingWebhook:                  newExpectations("MutatingWebhook"),
+				APIService:                       newExpectations("APIService"),
+				Secrets:                          newExpectations("Secrets"),
+				ConfigMap:                        newExpectations("ConfigMap"),
+				ValidatingAdmissionPolicyBinding: newExpectations("ValidatingAdmissionPolicyBinding"),
+				ValidatingAdmissionPolicy:        newExpectations("ValidatingAdmissionPolicy"),
+				OperatorCrd:                      newExpectations("OperatorCrd"),
+				DaemonSet:                        newExpectations("DaemonSet"),
+				Deployment:                       newExpectations("Deployment"),
+				Service:                          newExpectations("Service"),
+				ClusterRoleBinding:               newExpectations("ClusterRoleBinding"),
+				ClusterRole:                      newExpectations("ClusterRole"),
+				RoleBinding:                      newExpectations("RoleBinding"),
+				Role:                             newExpectations("Role"),
+				ServiceAccount:                   newExpectations("ServiceAccount"),
+				SCC:                              newExpectations("SCC"),
+				PrometheusRule:                   newExpectations("PrometheusRule"),
+				ServiceMonitor:                   newExpectations("ServiceMonitor"),
 			},
 		}
-		clusterMetadata := metav1.ObjectMeta{Name: "obsolete-resource", Labels: map[string]string{v1.ManagedByLabel: v1.ManagedByLabelOperatorValue}}
+		clusterMetadata := metav1.ObjectMeta{
+			Name:   "obsolete-resource",
+			Labels: map[string]string{v1.ManagedByLabel: v1.ManagedByLabelOperatorValue},
+		}
 		namespacedMetadata := *clusterMetadata.DeepCopy()
 		namespacedMetadata.Namespace = Namespace
 		resources = map[string]cleanupResource{
@@ -291,8 +298,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
 
@@ -313,8 +322,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			reconciler.targetStrategy = loadTargetStrategy(resource.object, getConfig(Registry, Version), reconciler.stores)
 
@@ -327,8 +338,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			metadata.SetDeletionTimestamp(now())
 
@@ -341,8 +354,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			deleteErr = errors.New("deletion failed")
 			resource.expectations.AddExpectedDeletion(reconciler.kvKey, "pending-resource")
@@ -381,8 +396,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		virtClient.EXPECT().ExtensionsClient().Return(extClient)
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 		for _, resourceName := range []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations", "configmaps"} {
 			resource := resources[resourceName]
@@ -415,8 +432,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 	DescribeTable("matches namespaced resources by both name and namespace", func(resourceName string) {
 		virtClient.EXPECT().ExtensionsClient().Return(extClient)
 		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes())
-		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences())
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes())
+		virtClient.EXPECT().VirtualMachineClusterPreference().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences())
 
 		resource := resources[resourceName]
 		reconciler.targetStrategy = loadTargetStrategy(resource.object, getConfig(Registry, Version), reconciler.stores)
@@ -446,8 +465,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		virtClient.EXPECT().ExtensionsClient().Return(extClient)
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().
+			Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 		resource := resources[resourceName]
 		metadata, err := meta.Accessor(resource.object)
@@ -491,8 +512,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
 
@@ -516,8 +539,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
 			reconciler.targetStrategy = loadTargetStrategy(clusterType, getConfig(Registry, Version), reconciler.stores)
@@ -530,8 +555,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			metadata.SetDeletionTimestamp(now())
 			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
@@ -544,8 +571,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			metadata.SetLabels(map[string]string{v1.AppComponentLabel: "custom-component"})
 			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
@@ -567,8 +596,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			virtClient.EXPECT().ExtensionsClient().Return(extClient)
 			virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 			virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterInstancetype().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			virtClient.EXPECT().VirtualMachineClusterPreference().
+				Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 			Expect(clusterTypeClient.Tracker().Add(clusterType)).To(Succeed())
 			deleteErr = errors.New("cluster type deletion failed")

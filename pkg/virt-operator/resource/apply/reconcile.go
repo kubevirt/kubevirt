@@ -37,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -706,558 +707,213 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 
 func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	gracePeriod := int64(0)
-	deleteOptions := metav1.DeleteOptions{
-		GracePeriodSeconds: &gracePeriod,
-	}
-
+	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 	client := r.virtClient.ExtensionsClient()
-	// -------- CLEAN UP OLD UNUSED OBJECTS --------
-	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 
-	// remove unused validating webhooks
-	objects := r.stores.ValidationWebhookCache.List()
-	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
-			found := false
-			if strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook") {
-				continue
-			}
-
-			for _, targetWebhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
-
-				if targetWebhook.Name == webhook.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(webhook); err == nil {
-					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ValidationWebhook.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
-						return err
-					}
-				}
-			}
+	// Outdated webhooks can block deletion of other resources, so remove them first.
+	cleanups := []func() error{
+		obsoleteObjectsCleanup(
+			r.stores.ValidationWebhookCache, r.targetStrategy.ValidatingWebhookConfigurations(), false,
+			func(webhook *admissionregistrationv1.ValidatingWebhookConfiguration) bool {
+				return strings.HasPrefix(webhook.Name, "virt-operator-tmp-webhook")
+			},
+			r.expectations.ValidationWebhook, r.kvKey, func(webhook *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				return r.k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+			},
+		),
+		obsoleteObjectsCleanup(r.stores.MutatingWebhookCache, r.targetStrategy.MutatingWebhookConfigurations(), false, nil,
+			r.expectations.MutatingWebhook, r.kvKey, func(webhook *admissionregistrationv1.MutatingWebhookConfiguration) error {
+				return r.k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.APIServiceCache, r.targetStrategy.APIServices(), false, nil,
+			r.expectations.APIService, r.kvKey, func(apiService *apiregv1.APIService) error {
+				return r.aggregatorclient.Delete(context.Background(), apiService.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.SecretCache, r.targetStrategy.CertificateSecrets(), false, nil,
+			r.expectations.Secrets, r.kvKey, func(secret *corev1.Secret) error {
+				return r.k8sClient.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ConfigMapCache, r.targetStrategy.ConfigMaps(), false, nil,
+			r.expectations.ConfigMap, r.kvKey, func(configMap *corev1.ConfigMap) error {
+				return r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(
+			r.stores.ValidatingAdmissionPolicyBindingCache, r.targetStrategy.ValidatingAdmissionPolicyBindings(), false, nil,
+			r.expectations.ValidatingAdmissionPolicyBinding, r.kvKey,
+			func(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) error {
+				return r.k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().
+					Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
+			},
+		),
+		obsoleteObjectsCleanup(
+			r.stores.ValidatingAdmissionPolicyCache, r.targetStrategy.ValidatingAdmissionPolicies(), false, nil,
+			r.expectations.ValidatingAdmissionPolicy, r.kvKey,
+			func(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) error {
+				return r.k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().
+					Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
+			},
+		),
+		obsoleteObjectsCleanup(r.stores.OperatorCrdCache, r.targetStrategy.CRDs(), false, nil,
+			r.expectations.OperatorCrd, r.kvKey, func(crd *extv1.CustomResourceDefinition) error {
+				return client.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.DaemonSetCache, r.targetStrategy.DaemonSets(), true, nil,
+			r.expectations.DaemonSet, r.kvKey, func(ds *appsv1.DaemonSet) error {
+				return r.k8sClient.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.DeploymentCache, r.targetStrategy.Deployments(), true, nil,
+			r.expectations.Deployment, r.kvKey, func(deployment *appsv1.Deployment) error {
+				return r.k8sClient.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ServiceCache, r.targetStrategy.Services(), true, nil,
+			r.expectations.Service, r.kvKey, func(svc *corev1.Service) error {
+				return r.k8sClient.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ClusterRoleBindingCache, r.targetStrategy.ClusterRoleBindings(), true, nil,
+			r.expectations.ClusterRoleBinding, r.kvKey, func(crb *rbacv1.ClusterRoleBinding) error {
+				return r.k8sClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ClusterRoleCache, r.targetStrategy.ClusterRoles(), true, nil,
+			r.expectations.ClusterRole, r.kvKey, func(cr *rbacv1.ClusterRole) error {
+				return r.k8sClient.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.RoleBindingCache, r.targetStrategy.RoleBindings(), true, nil,
+			r.expectations.RoleBinding, r.kvKey, func(rb *rbacv1.RoleBinding) error {
+				return r.k8sClient.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.RoleCache, r.targetStrategy.Roles(), true, nil,
+			r.expectations.Role, r.kvKey, func(role *rbacv1.Role) error {
+				return r.k8sClient.RbacV1().Roles(role.Namespace).Delete(context.Background(), role.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ServiceAccountCache, r.targetStrategy.ServiceAccounts(), true, nil,
+			r.expectations.ServiceAccount, r.kvKey, func(sa *corev1.ServiceAccount) error {
+				return r.k8sClient.CoreV1().ServiceAccounts(sa.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(
+			r.stores.SCCCache, r.targetStrategy.SCCs(), false, func(scc *secv1.SecurityContextConstraints) bool {
+				return !util.IsManagedByOperator(scc.GetLabels())
+			},
+			r.expectations.SCC, r.kvKey, func(scc *secv1.SecurityContextConstraints) error {
+				return r.virtClient.SecClient().SecurityContextConstraints().Delete(context.Background(), scc.Name, deleteOptions)
+			},
+		),
+		obsoleteObjectsCleanup(r.stores.PrometheusRuleCache, r.targetStrategy.PrometheusRules(), true, nil,
+			r.expectations.PrometheusRule, r.kvKey, func(cachePromRule *promv1.PrometheusRule) error {
+				return r.virtClient.PrometheusClient().
+					MonitoringV1().
+					PrometheusRules(cachePromRule.Namespace).
+					Delete(context.Background(), cachePromRule.Name, deleteOptions)
+			}),
+		obsoleteObjectsCleanup(r.stores.ServiceMonitorCache, r.targetStrategy.ServiceMonitors(), true, nil,
+			r.expectations.ServiceMonitor, r.kvKey, func(cacheServiceMonitor *promv1.ServiceMonitor) error {
+				return r.virtClient.PrometheusClient().
+					MonitoringV1().
+					ServiceMonitors(cacheServiceMonitor.Namespace).
+					Delete(context.Background(), cacheServiceMonitor.Name, deleteOptions)
+			}),
+		r.deleteObsoleteClusterTypes,
+	}
+	for _, cleanup := range cleanups {
+		if err := cleanup(); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	// remove unused mutating webhooks
-	objects = r.stores.MutatingWebhookCache.List()
-	for _, obj := range objects {
-		if webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration); ok && webhook.DeletionTimestamp == nil {
-			found := false
-			for _, targetWebhook := range r.targetStrategy.MutatingWebhookConfigurations() {
-				if targetWebhook.Name == webhook.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(webhook); err == nil {
-					r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
-					if err != nil {
-						r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused APIServices
-	objects = r.stores.APIServiceCache.List()
-	for _, obj := range objects {
-		if apiService, ok := obj.(*apiregv1.APIService); ok && apiService.DeletionTimestamp == nil {
-			found := false
-			for _, targetAPIService := range r.targetStrategy.APIServices() {
-				if targetAPIService.Name == apiService.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(apiService); err == nil {
-					r.expectations.APIService.AddExpectedDeletion(r.kvKey, key)
-					err := r.aggregatorclient.Delete(context.Background(), apiService.Name, deleteOptions)
-					if err != nil {
-						r.expectations.APIService.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete apiService %+v: %v", apiService, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused Secrets
-	objects = r.stores.SecretCache.List()
-	for _, obj := range objects {
-		if secret, ok := obj.(*corev1.Secret); ok && secret.DeletionTimestamp == nil {
-			found := false
-			for _, targetSecret := range r.targetStrategy.CertificateSecrets() {
-				if targetSecret.Name == secret.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(secret); err == nil {
-					r.expectations.Secrets.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
-					if err != nil {
-						r.expectations.Secrets.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete secret %+v: %v", secret, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused ConfigMaps
-	objects = r.stores.ConfigMapCache.List()
-	for _, obj := range objects {
-		if configMap, ok := obj.(*corev1.ConfigMap); ok && configMap.DeletionTimestamp == nil {
-			found := false
-			for _, targetConfigMap := range r.targetStrategy.ConfigMaps() {
-				if targetConfigMap.Name == configMap.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(configMap); err == nil {
-					r.expectations.ConfigMap.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ConfigMap.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused ValidatingAdmissionPolicyBinding
-	objects = r.stores.ValidatingAdmissionPolicyBindingCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicyBinding, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding); ok && validatingAdmissionPolicyBinding.DeletionTimestamp == nil {
-			found := false
-			for _, targetValidatingAdmissionPolicyBinding := range r.targetStrategy.ValidatingAdmissionPolicyBindings() {
-				if targetValidatingAdmissionPolicyBinding.Name == validatingAdmissionPolicyBinding.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(validatingAdmissionPolicyBinding); err == nil {
-					r.expectations.ValidatingAdmissionPolicyBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ValidatingAdmissionPolicyBinding.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused ValidatingAdmissionPolicy
-	objects = r.stores.ValidatingAdmissionPolicyCache.List()
-	for _, obj := range objects {
-		if validatingAdmissionPolicy, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy); ok && validatingAdmissionPolicy.DeletionTimestamp == nil {
-			found := false
-			for _, targetValidatingAdmissionPolicy := range r.targetStrategy.ValidatingAdmissionPolicies() {
-				if targetValidatingAdmissionPolicy.Name == validatingAdmissionPolicy.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(validatingAdmissionPolicy); err == nil {
-					r.expectations.ValidatingAdmissionPolicy.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ValidatingAdmissionPolicy.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused crds
-	objects = r.stores.OperatorCrdCache.List()
-	for _, obj := range objects {
-		if crd, ok := obj.(*extv1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
-			found := false
-			for _, targetCrd := range r.targetStrategy.CRDs() {
-				if targetCrd.Name == crd.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(crd); err == nil {
-					r.expectations.OperatorCrd.AddExpectedDeletion(r.kvKey, key)
-					err := client.ApiextensionsV1().CustomResourceDefinitions().Delete(context.Background(), crd.Name, deleteOptions)
-					if err != nil {
-						r.expectations.OperatorCrd.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused daemonsets
-	objects = r.stores.DaemonSetCache.List()
-	for _, obj := range objects {
-		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
-			found := false
-			for _, targetDs := range r.targetStrategy.DaemonSets() {
-				if targetDs.Name == ds.Name && targetDs.Namespace == ds.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(ds); err == nil {
-					r.expectations.DaemonSet.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
-					if err != nil {
-						r.expectations.DaemonSet.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete daemonset: %v", err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused deployments
-	objects = r.stores.DeploymentCache.List()
-	for _, obj := range objects {
-		if deployment, ok := obj.(*appsv1.Deployment); ok && deployment.DeletionTimestamp == nil {
-			found := false
-			for _, targetDeployment := range r.targetStrategy.Deployments() {
-				if targetDeployment.Name == deployment.Name && targetDeployment.Namespace == deployment.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(deployment); err == nil {
-					r.expectations.Deployment.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, deleteOptions)
-					if err != nil {
-						r.expectations.Deployment.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete deployment: %v", err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused services
-	objects = r.stores.ServiceCache.List()
-	for _, obj := range objects {
-		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
-			found := false
-			for _, targetSvc := range r.targetStrategy.Services() {
-				if targetSvc.Name == svc.Name && targetSvc.Namespace == svc.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(svc); err == nil {
-					r.expectations.Service.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
-					if err != nil {
-						r.expectations.Service.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused clusterrolebindings
-	objects = r.stores.ClusterRoleBindingCache.List()
-	for _, obj := range objects {
-		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
-			found := false
-			for _, targetCrb := range r.targetStrategy.ClusterRoleBindings() {
-				if targetCrb.Name == crb.Name && targetCrb.Namespace == crb.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(crb); err == nil {
-					r.expectations.ClusterRoleBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ClusterRoleBinding.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused clusterroles
-	objects = r.stores.ClusterRoleCache.List()
-	for _, obj := range objects {
-		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
-			found := false
-			for _, targetCr := range r.targetStrategy.ClusterRoles() {
-				if targetCr.Name == cr.Name && targetCr.Namespace == cr.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(cr); err == nil {
-					r.expectations.ClusterRole.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ClusterRole.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete cr %+v: %v", cr, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused rolebindings
-	objects = r.stores.RoleBindingCache.List()
-	for _, obj := range objects {
-		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
-			found := false
-			for _, targetRb := range r.targetStrategy.RoleBindings() {
-				if targetRb.Name == rb.Name && targetRb.Namespace == rb.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(rb); err == nil {
-					r.expectations.RoleBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
-					if err != nil {
-						r.expectations.RoleBinding.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused roles
-	objects = r.stores.RoleCache.List()
-	for _, obj := range objects {
-		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
-			found := false
-			for _, targetR := range r.targetStrategy.Roles() {
-				if targetR.Name == role.Name && targetR.Namespace == role.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(role); err == nil {
-					r.expectations.Role.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.RbacV1().Roles(role.Namespace).Delete(context.Background(), role.Name, deleteOptions)
-					if err != nil {
-						r.expectations.Role.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete role %+v: %v", role, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused serviceaccounts
-	objects = r.stores.ServiceAccountCache.List()
-	for _, obj := range objects {
-		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
-			found := false
-			for _, targetSa := range r.targetStrategy.ServiceAccounts() {
-				if targetSa.Name == sa.Name && targetSa.Namespace == sa.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(sa); err == nil {
-					r.expectations.ServiceAccount.AddExpectedDeletion(r.kvKey, key)
-					err := r.k8sClient.CoreV1().ServiceAccounts(sa.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ServiceAccount.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused sccs
-	objects = r.stores.SCCCache.List()
-	for _, obj := range objects {
-		if scc, ok := obj.(*secv1.SecurityContextConstraints); ok && scc.DeletionTimestamp == nil {
-
-			// informer watches all SCC objects, it cannot be changed because of kubevirt updates
-			if !util.IsManagedByOperator(scc.GetLabels()) {
-				continue
-			}
-
-			found := false
-			for _, targetScc := range r.targetStrategy.SCCs() {
-				if targetScc.Name == scc.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(scc); err == nil {
-					r.expectations.SCC.AddExpectedDeletion(r.kvKey, key)
-					err := r.virtClient.SecClient().SecurityContextConstraints().Delete(context.Background(), scc.Name, deleteOptions)
-					if err != nil {
-						r.expectations.SCC.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", scc, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused prometheus rules
-	objects = r.stores.PrometheusRuleCache.List()
-	for _, obj := range objects {
-		if cachePromRule, ok := obj.(*promv1.PrometheusRule); ok && cachePromRule.DeletionTimestamp == nil {
-			found := false
-			for _, targetPromRule := range r.targetStrategy.PrometheusRules() {
-				if targetPromRule.Name == cachePromRule.Name && targetPromRule.Namespace == cachePromRule.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(cachePromRule); err == nil {
-					r.expectations.PrometheusRule.AddExpectedDeletion(r.kvKey, key)
-					err := r.virtClient.PrometheusClient().
-						MonitoringV1().
-						PrometheusRules(cachePromRule.Namespace).
-						Delete(context.Background(), cachePromRule.Name, deleteOptions)
-					if err != nil {
-						r.expectations.PrometheusRule.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete prometheusrule %+v: %v", cachePromRule, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
-	// remove unused prometheus serviceMonitor obejcts
-	objects = r.stores.ServiceMonitorCache.List()
-	for _, obj := range objects {
-		if cacheServiceMonitor, ok := obj.(*promv1.ServiceMonitor); ok && cacheServiceMonitor.DeletionTimestamp == nil {
-			found := false
-			for _, targetServiceMonitor := range r.targetStrategy.ServiceMonitors() {
-				if targetServiceMonitor.Name == cacheServiceMonitor.Name && targetServiceMonitor.Namespace == cacheServiceMonitor.Namespace {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if key, err := controller.KeyFunc(cacheServiceMonitor); err == nil {
-					r.expectations.ServiceMonitor.AddExpectedDeletion(r.kvKey, key)
-					err := r.virtClient.PrometheusClient().
-						MonitoringV1().
-						ServiceMonitors(cacheServiceMonitor.Namespace).
-						Delete(context.Background(), cacheServiceMonitor.Name, deleteOptions)
-					if err != nil {
-						r.expectations.ServiceMonitor.DeletionObserved(r.kvKey, key)
-						log.Log.Errorf("Failed to delete prometheusServiceMonitor %+v: %v", cacheServiceMonitor, err)
-						return err
-					}
-				}
-			}
-		}
-	}
-
+func (r *Reconciler) deleteObsoleteClusterTypes() error {
 	managedByVirtOperatorLabelSet := labels.Set{
 		v1.AppComponentLabel: GetAppComponent(r.kv),
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
 	// remove unused instancetype objects
-	instancetypes, err := r.virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	instancetypes, err := r.virtClient.VirtualMachineClusterInstancetype().
+		List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
 	if err != nil {
 		log.Log.Errorf("Failed to get instancetypes: %v", err)
 	}
 	for _, instancetype := range instancetypes.Items {
-		if instancetype.DeletionTimestamp == nil {
-			found := false
-			for _, targetInstancetype := range r.targetStrategy.Instancetypes() {
-				if targetInstancetype.Name == instancetype.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if err := r.virtClient.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}); err != nil {
-					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
-					return err
-				}
-			}
+		if instancetype.DeletionTimestamp != nil || strategyContainsName(instancetype.Name, r.targetStrategy.Instancetypes()) {
+			continue
+		}
+		err = r.virtClient.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{})
+		if err != nil {
+			log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
+			return err
 		}
 	}
 
 	// remove unused preference objects
-	preferences, err := r.virtClient.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	preferences, err := r.virtClient.VirtualMachineClusterPreference().
+		List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
 	if err != nil {
 		log.Log.Errorf("Failed to get preferences: %v", err)
 	}
 	for _, preference := range preferences.Items {
-		if preference.DeletionTimestamp == nil {
-			found := false
-			for _, targetPreference := range r.targetStrategy.Preferences() {
-				if targetPreference.Name == preference.Name {
-					found = true
-					break
-				}
-			}
-			if !found {
-				if err := r.virtClient.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{}); err != nil {
-					log.Log.Errorf("Failed to delete preference %+v: %v", preference, err)
-					return err
-				}
-			}
+		if preference.DeletionTimestamp != nil || strategyContainsName(preference.Name, r.targetStrategy.Preferences()) {
+			continue
+		}
+		err = r.virtClient.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{})
+		if err != nil {
+			log.Log.Errorf("Failed to delete preference %+v: %v", preference, err)
+			return err
 		}
 	}
 
 	return nil
+}
+
+func strategyContainsName[T metav1.Object](name string, targets []T) bool {
+	for _, target := range targets {
+		if target.GetName() == name {
+			return true
+		}
+	}
+	return false
+}
+
+// obsoleteObjectsCleanup preserves the matching rules of each resource kind. Some
+// namespaced resources historically match by name alone; callers select whether
+// the namespace is part of the identity.
+func obsoleteObjectsCleanup[T metav1.Object](store cache.Store, targets []T, namespaced bool, skip func(T) bool,
+	expectations *controller.UIDTrackingControllerExpectations, kvKey string, deleteObject func(T) error,
+) func() error {
+	return func() error {
+		identity := func(obj T) string {
+			if namespaced {
+				return obj.GetNamespace() + "/" + obj.GetName()
+			}
+			return obj.GetName()
+		}
+		wanted := make(map[string]struct{}, len(targets))
+		for _, target := range targets {
+			wanted[identity(target)] = struct{}{}
+		}
+		for _, object := range store.List() {
+			obj, ok := object.(T)
+			if !ok || obj.GetDeletionTimestamp() != nil {
+				continue
+			}
+			if skip != nil && skip(obj) {
+				continue
+			}
+			if _, exists := wanted[identity(obj)]; exists {
+				continue
+			}
+			key, err := controller.KeyFunc(obj)
+			if err != nil {
+				continue
+			}
+			expectations.AddExpectedDeletion(kvKey, key)
+			if err := deleteObject(obj); err != nil {
+				expectations.DeletionObserved(kvKey, key)
+				log.Log.Errorf("Failed to delete %T %s: %v", obj, key, err)
+				return err
+			}
+		}
+		return nil
+	}
 }
 
 func (r *Reconciler) isFeatureGateEnabled(fg string) bool {
