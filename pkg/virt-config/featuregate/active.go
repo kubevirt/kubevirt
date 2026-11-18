@@ -326,6 +326,7 @@ const (
 
 	// Owner: sig-storage / @dsanatar
 	// Alpha: v1.10.0
+	// Beta: v1.11.0
 	//
 	// SCSIMultiIOThread enables iothread virtqueue mapping for virtio-scsi devices
 	// by leveraging IOThreadsPolicy to allocate thread pools to the SCSI Controller Driver.
@@ -401,7 +402,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SCSIMultiIOThread, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
