@@ -1544,20 +1544,6 @@ func validateDNSPolicy(dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav
 	return causes
 }
 
-func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	if bootloader != nil && bootloader.EFI != nil && bootloader.BIOS != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s has both EFI and BIOS configured, but they are mutually exclusive.", field.String()),
-			Field:   field.String(),
-		})
-	}
-
-	return causes
-}
-
 func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -1611,7 +1597,6 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 	var causes []metav1.StatusCause
 
 	if firmware != nil {
-		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
 		causes = append(causes, validateKernelBoot(field.Child("kernelBoot"), firmware.KernelBoot)...)
 	}
 

@@ -2873,25 +2873,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(ContainSubstring("SecureBoot is not supported on architecture riscv64"))
 		})
 
-		It("should not accept BIOS and EFI together", func() {
-			vmi.Spec.Subdomain = "testsubdomain"
-
-			vmi.Spec.Domain.Features = &v1.Features{
-				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
-				},
-			}
-			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				Bootloader: &v1.Bootloader{
-					EFI:  &v1.EFI{},
-					BIOS: &v1.BIOS{},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-		})
-
 	})
 
 	Context("with verification for Arm64", func() {
