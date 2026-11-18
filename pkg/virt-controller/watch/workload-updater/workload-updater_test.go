@@ -662,6 +662,34 @@ var _ = Describe("Workload Updater", func() {
 	})
 
 	Context("workload volumes update", func() {
+		It("should enqueue an in-flight volume migration when cancellation is first observed", func() {
+			Expect(controller.kubeVirtStore.Add(newKubeVirt(0))).To(Succeed())
+			queue := testutils.NewMockWorkQueue(controller.queue)
+			controller.queue = queue
+
+			vmi := newVirtualMachineInstance("testvm", true, expectedImage)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{StartTimestamp: pointer.P(metav1.Now())}
+			condition := v1.VirtualMachineInstanceCondition{Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}
+			manager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+			manager.UpdateCondition(vmi, &condition)
+			cancelled := vmi.DeepCopy()
+			condition.Status = k8sv1.ConditionFalse
+			condition.Reason = v1.VirtualMachineInstanceReasonVolumesChangeCancellation
+			manager.UpdateCondition(cancelled, &condition)
+
+			controller.updateVmi(vmi, vmi.DeepCopy())
+			Expect(queue.GetAddAfterEnqueueCount()).To(BeZero())
+			invalid := vmi.DeepCopy()
+			condition.Reason = "DestinationPVCNotFound"
+			manager.UpdateCondition(invalid, &condition)
+			controller.updateVmi(vmi, invalid)
+			Expect(queue.GetAddAfterEnqueueCount()).To(BeZero())
+			controller.updateVmi(vmi, cancelled)
+			Expect(queue.GetAddAfterEnqueueCount()).To(Equal(1))
+			controller.updateVmi(cancelled, cancelled.DeepCopy())
+			Expect(queue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
 		DescribeTable("should use correct label value for filtering", func(vmName, expectedLabelValue string) {
 			vmi := newVirtualMachineInstance(vmName, true, "madeup")
 			condition := v1.VirtualMachineInstanceCondition{
