@@ -181,6 +181,26 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				store:        reconciler.stores.ServiceCache,
 				expectations: reconciler.expectations.Service,
 			},
+			"clusterrolebindings": {
+				object:       &rbacv1.ClusterRoleBinding{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.ClusterRoleBindingCache,
+				expectations: reconciler.expectations.ClusterRoleBinding,
+			},
+			"clusterroles": {
+				object:       &rbacv1.ClusterRole{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.ClusterRoleCache,
+				expectations: reconciler.expectations.ClusterRole,
+			},
+			"rolebindings": {
+				object:       &rbacv1.RoleBinding{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.RoleBindingCache,
+				expectations: reconciler.expectations.RoleBinding,
+			},
+			"roles": {
+				object:       &rbacv1.Role{ObjectMeta: namespacedMetadata},
+				store:        reconciler.stores.RoleCache,
+				expectations: reconciler.expectations.Role,
+			},
 			"serviceaccounts": {
 				object:       &corev1.ServiceAccount{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.ServiceAccountCache,
@@ -295,6 +315,10 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("daemonsets", "daemonsets"),
 		Entry("deployments", "deployments"),
 		Entry("services", "services"),
+		Entry("clusterrolebindings", "clusterrolebindings"),
+		Entry("clusterroles", "clusterroles"),
+		Entry("rolebindings", "rolebindings"),
+		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
 	)
 
@@ -321,6 +345,8 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("daemonsets", "daemonsets"),
 		Entry("deployments", "deployments"),
 		Entry("services", "services"),
+		Entry("rolebindings", "rolebindings"),
+		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
 	)
 
