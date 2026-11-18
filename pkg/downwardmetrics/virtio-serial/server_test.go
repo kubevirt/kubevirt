@@ -52,13 +52,17 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			exited = make(chan struct{})
 		})
 
+		var servedFor time.Duration
+
 		It("should notify when connecting to the channel fails", func() {
 			// A regular file as the parent produces ENOTDIR without connection retries.
 			channelPath := filepath.Join(launcherSocketPath, "channel.sock")
-			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func() {
+			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func(d time.Duration) {
+				servedFor = d
 				close(exited)
 			})
 			Eventually(exited).Should(BeClosed())
+			Expect(servedFor).To(BeZero())
 		})
 
 		DescribeTable("should notify when a connected server exits", func(cancelServer bool) {
@@ -68,7 +72,8 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 			DeferCleanup(listener.Close)
 			Expect(listener.SetDeadline(time.Now().Add(5 * time.Second))).To(Succeed())
 
-			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func() {
+			RunDownwardMetricsVirtioServer(ctx, "node", channelPath, launcherSocketPath, func(d time.Duration) {
+				servedFor = d
 				close(exited)
 			})
 			conn, err := listener.Accept()
@@ -80,6 +85,7 @@ var _ = Describe("DownwardMetrics virtio-serial server", func() {
 				Expect(conn.Close()).To(Succeed())
 			}
 			Eventually(exited).Should(BeClosed())
+			Expect(servedFor).To(BeNumerically(">", 0))
 		},
 			Entry("after the peer closes the connection", false),
 			Entry("after cancellation", true),

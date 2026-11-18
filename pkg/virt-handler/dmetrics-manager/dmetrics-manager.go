@@ -23,8 +23,10 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/clock"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -33,13 +35,28 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
+const (
+	baseRetryDelay      = 5 * time.Second  // first retry delay
+	maxRetryDelay       = 5 * time.Minute  // backoff cap
+	maxRetryShift       = 6                // caps the exponent to avoid overflow
+	healthyRunThreshold = 30 * time.Second // serving time that resets the backoff
+)
+
 func NewDownwardMetricsManager(nodeName string) *DownwardMetricsManager {
 	return &DownwardMetricsManager{
 		done:       false,
 		nodeName:   nodeName,
 		stopServer: make(map[types.UID]context.CancelFunc),
 		runServer:  virtioserial.RunDownwardMetricsVirtioServer,
+		retry:      make(map[types.UID]*retryState),
+		clock:      clock.RealClock{},
 	}
+}
+
+// retryState is the restart backoff state for one VMI.
+type retryState struct {
+	failures  int       // failed restarts since the last healthy run
+	nextStart time.Time // earliest allowed restart
 }
 
 // DownwardMetricsManager controls the lifetime of the DownwardMetrics servers.
@@ -49,7 +66,9 @@ type DownwardMetricsManager struct {
 	done       bool
 	nodeName   string
 	stopServer map[types.UID]context.CancelFunc
-	runServer  func(context.Context, string, string, string, func())
+	runServer  func(context.Context, string, string, string, func(time.Duration))
+	retry      map[types.UID]*retryState
+	clock      clock.Clock
 }
 
 // Run blocks until stopCh is closed. When done, it stops all remaining
@@ -70,6 +89,7 @@ func (m *DownwardMetricsManager) stop() {
 		stopServerFn()
 		delete(m.stopServer, vmiUID)
 	}
+	m.retry = nil
 }
 
 // StopServer removes the VMI UID from the list of served VMs and stops its server.
@@ -87,23 +107,33 @@ func (m *DownwardMetricsManager) StopServer(vmi *v1.VirtualMachineInstance) {
 		cancelCtx()
 		delete(m.stopServer, vmi.UID)
 	}
+	delete(m.retry, vmi.UID)
 }
 
 // StartServer starts a server if requested by a running VMI and not already started.
 // It calls requestRetry after an unexpected server exit, outside the manager lock.
-func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid int, requestRetry func()) error {
+// Restarts honor a per-VMI backoff; an early sync reschedules the remaining delay.
+func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid int, requestRetry func(time.Duration)) error {
 	if !downwardmetrics.HasDevice(&vmi.Spec) || !vmi.IsRunning() {
 		return nil
 	}
 
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
 	if m.done {
 		return nil
 	}
 
 	if _, alreadyStarted := m.stopServer[vmi.UID]; alreadyStarted {
 		return nil
+	}
+
+	if state, ok := m.retry[vmi.UID]; ok {
+		if remaining := state.nextStart.Sub(m.clock.Now()); remaining > 0 {
+			requestRetry(remaining)
+			return nil
+		}
 	}
 
 	launcherSocketPath, err := cmdclient.FindSocket(vmi)
@@ -114,7 +144,7 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 	channelPath := downwardmetrics.ChannelSocketPathOnHost(pid)
 	ctx, cancelCtx := context.WithCancel(context.Background())
 
-	onExit := func() {
+	onExit := func(servedFor time.Duration) {
 		m.lock.Lock()
 		// A cancelled attempt must not remove a replacement's entry.
 		if m.done || ctx.Err() != nil {
@@ -123,12 +153,39 @@ func (m *DownwardMetricsManager) StartServer(vmi *v1.VirtualMachineInstance, pid
 		}
 		cancelCtx()
 		delete(m.stopServer, vmi.UID)
+		delay := m.nextRetryDelay(vmi.UID, servedFor)
 		m.lock.Unlock()
 
-		requestRetry()
+		requestRetry(delay)
 	}
 	m.runServer(ctx, m.nodeName, channelPath, launcherSocketPath, onExit)
 	m.stopServer[vmi.UID] = cancelCtx
 
 	return nil
+}
+
+// nextRetryDelay returns the next restart delay and updates the deadline. A run of at
+// least healthyRunThreshold resets the backoff; otherwise it grows. Callers hold m.lock.
+func (m *DownwardMetricsManager) nextRetryDelay(uid types.UID, servedFor time.Duration) time.Duration {
+	state, ok := m.retry[uid]
+	if !ok {
+		state = &retryState{}
+		m.retry[uid] = state
+	}
+
+	var delay time.Duration
+	if servedFor >= healthyRunThreshold {
+		state.failures = 0
+	} else {
+		shift := state.failures
+		if state.failures < maxRetryShift {
+			state.failures++
+		}
+		delay = baseRetryDelay << shift
+		if delay > maxRetryDelay {
+			delay = maxRetryDelay
+		}
+	}
+	state.nextStart = m.clock.Now().Add(delay)
+	return delay
 }

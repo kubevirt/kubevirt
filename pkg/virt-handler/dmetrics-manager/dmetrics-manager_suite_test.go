@@ -24,10 +24,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
+	clock "k8s.io/utils/clock/testing"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/testutils"
 
@@ -41,13 +43,20 @@ func TestDownwardMetricsManager(t *testing.T) {
 var _ = Describe("DownwardMetrics manager", func() {
 	type attempt struct {
 		ctx    context.Context
-		onExit func()
+		onExit func(time.Duration)
+	}
+	// step drives one exit in the backoff table: the serving time reported to
+	// onExit and the retry delay it should produce.
+	type step struct {
+		servedFor time.Duration
+		wantDelay time.Duration
 	}
 	var manager *DownwardMetricsManager
 	var vmi *v1.VirtualMachineInstance
 	var attempts []attempt
-	var retries chan struct{}
-	var requestRetry func()
+	var retries chan time.Duration
+	var requestRetry func(time.Duration)
+	var fakeClock *clock.FakeClock
 
 	BeforeEach(func() {
 		GinkgoT().Setenv("NODE_NAME", "node")
@@ -63,13 +72,15 @@ var _ = Describe("DownwardMetrics manager", func() {
 		vmi.Status.ActivePods = map[types.UID]string{"pod": "node"}
 
 		manager = NewDownwardMetricsManager("node")
+		fakeClock = clock.NewFakeClock(time.Now())
+		manager.clock = fakeClock
 		DeferCleanup(manager.stop)
 		attempts = nil
-		manager.runServer = func(ctx context.Context, _, _, _ string, onExit func()) {
+		manager.runServer = func(ctx context.Context, _, _, _ string, onExit func(time.Duration)) {
 			attempts = append(attempts, attempt{ctx: ctx, onExit: onExit})
 		}
-		retries = make(chan struct{}, 1)
-		requestRetry = func() { retries <- struct{}{} }
+		retries = make(chan time.Duration, 1)
+		requestRetry = func(d time.Duration) { retries <- d }
 	})
 
 	It("should release an exited server and allow the next sync to restart it", func() {
@@ -77,22 +88,23 @@ var _ = Describe("DownwardMetrics manager", func() {
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
 		Expect(attempts).To(HaveLen(1))
 
-		attempts[0].onExit()
+		attempts[0].onExit(0)
 		Expect(retries).To(Receive())
 		Expect(attempts[0].ctx.Err()).To(MatchError(context.Canceled))
 		Expect(manager.stopServer).To(BeEmpty())
 
+		fakeClock.Step(baseRetryDelay) // wait out the backoff
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
 		Expect(attempts).To(HaveLen(2))
 		Expect(attempts[1].ctx.Err()).NotTo(HaveOccurred())
 	})
 
 	It("should handle an exit before StartServer has registered the server", func() {
-		manager.runServer = func(_ context.Context, _, _, _ string, onExit func()) {
+		manager.runServer = func(_ context.Context, _, _, _ string, onExit func(time.Duration)) {
 			started := make(chan struct{})
 			go func() {
 				close(started)
-				onExit()
+				onExit(0)
 			}()
 			<-started
 		}
@@ -105,20 +117,20 @@ var _ = Describe("DownwardMetrics manager", func() {
 
 	It("should request retry after releasing the manager lock", func() {
 		lockWasFree := false
-		Expect(manager.StartServer(vmi, 1, func() {
+		Expect(manager.StartServer(vmi, 1, func(time.Duration) {
 			lockWasFree = manager.lock.TryLock()
 			if lockWasFree {
 				manager.lock.Unlock()
 			}
 		})).To(Succeed())
-		attempts[0].onExit()
+		attempts[0].onExit(0)
 		Expect(lockWasFree).To(BeTrue())
 	})
 
 	It("should stop using only the VMI identity without scheduling retry", func() {
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
 		manager.StopServer(v1.NewVMIReferenceWithUUID(vmi.Namespace, vmi.Name, vmi.UID))
-		attempts[0].onExit()
+		attempts[0].onExit(0)
 		Expect(attempts[0].ctx.Err()).To(MatchError(context.Canceled))
 		Expect(manager.stopServer).To(BeEmpty())
 		Expect(retries).NotTo(Receive())
@@ -129,7 +141,7 @@ var _ = Describe("DownwardMetrics manager", func() {
 		manager.StopServer(vmi)
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
 
-		attempts[0].onExit()
+		attempts[0].onExit(0)
 		Expect(retries).NotTo(Receive())
 		Expect(attempts[1].ctx.Err()).NotTo(HaveOccurred())
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
@@ -146,10 +158,57 @@ var _ = Describe("DownwardMetrics manager", func() {
 		manager.stop()
 		for _, server := range attempts {
 			Expect(server.ctx.Err()).To(MatchError(context.Canceled))
-			server.onExit()
+			server.onExit(0)
 		}
 		Expect(retries).NotTo(Receive())
 		Expect(manager.stopServer).To(BeEmpty())
+		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
+		Expect(attempts).To(HaveLen(2))
+	})
+
+	DescribeTable("should apply the restart backoff", func(steps []step) {
+		for _, s := range steps {
+			Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
+			attempts[len(attempts)-1].onExit(s.servedFor)
+			Expect(retries).To(Receive(Equal(s.wantDelay)))
+			fakeClock.Step(s.wantDelay) // wait out the backoff before the next start
+		}
+	},
+		Entry("grows exponentially and caps at maxRetryDelay", []step{
+			{0, baseRetryDelay},
+			{0, 2 * baseRetryDelay},
+			{0, 4 * baseRetryDelay},
+			{0, 8 * baseRetryDelay},
+			{0, 16 * baseRetryDelay},
+			{0, 32 * baseRetryDelay},
+			{0, maxRetryDelay},
+			{0, maxRetryDelay},
+		}),
+		Entry("a short-lived run does not reset the backoff", []step{
+			{0, baseRetryDelay},
+			{time.Second, 2 * baseRetryDelay},
+		}),
+		Entry("a sustained run resets the backoff", []step{
+			{0, baseRetryDelay},
+			{0, 2 * baseRetryDelay},
+			{healthyRunThreshold, 0},
+			{0, baseRetryDelay},
+		}),
+	)
+
+	It("should not let an early controller sync bypass the backoff", func() {
+		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
+		attempts[0].onExit(0)
+		Expect(retries).To(Receive(Equal(baseRetryDelay))) // nextStart = now + 5s
+
+		// An early sync before the deadline must not start; it reschedules the remainder.
+		fakeClock.Step(2 * time.Second)
+		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
+		Expect(attempts).To(HaveLen(1))
+		Expect(retries).To(Receive(Equal(baseRetryDelay - 2*time.Second)))
+
+		// Once the deadline passes a sync starts a fresh server.
+		fakeClock.Step(baseRetryDelay - 2*time.Second)
 		Expect(manager.StartServer(vmi, 1, requestRetry)).To(Succeed())
 		Expect(attempts).To(HaveLen(2))
 	})

@@ -1707,8 +1707,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(manager.requestRetry).NotTo(BeNil())
 				// Observe the initial status update before simulating a later server exit.
 				controller.vmiExpectations.SetExpectations(virtcontroller.VirtualMachineInstanceKey(vmi), 0, 0)
-				manager.requestRetry()
-				fakeClock.Step(downwardMetricsRetryDelay - time.Nanosecond)
+				retryDelay := 5 * time.Second
+				manager.requestRetry(retryDelay)
+				fakeClock.Step(retryDelay - time.Nanosecond)
 				Consistently(mockQueue.Len, 100*time.Millisecond).Should(BeZero())
 				fakeClock.Step(time.Nanosecond)
 				Eventually(mockQueue.Len).Should(Equal(1))
@@ -4326,12 +4327,12 @@ func newFakeManager() *fakeManager {
 }
 
 type fakeManager struct {
-	requestRetry func()
+	requestRetry func(time.Duration)
 	startCount   int
 }
 
 func (*fakeManager) Run(_ chan struct{}) {}
-func (m *fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int, requestRetry func()) error {
+func (m *fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int, requestRetry func(time.Duration)) error {
 	m.requestRetry = requestRetry
 	m.startCount++
 	return nil
