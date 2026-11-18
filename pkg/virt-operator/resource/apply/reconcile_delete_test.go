@@ -156,6 +156,16 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		namespacedMetadata := *clusterMetadata.DeepCopy()
 		namespacedMetadata.Namespace = Namespace
 		resources = map[string]cleanupResource{
+			"validatingwebhookconfigurations": {
+				object:       &admissionregistrationv1.ValidatingWebhookConfiguration{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.ValidationWebhookCache,
+				expectations: reconciler.expectations.ValidationWebhook,
+			},
+			"mutatingwebhookconfigurations": {
+				object:       &admissionregistrationv1.MutatingWebhookConfiguration{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.MutatingWebhookCache,
+				expectations: reconciler.expectations.MutatingWebhook,
+			},
 			"secrets": {
 				object:       &corev1.Secret{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.SecretCache,
@@ -165,6 +175,16 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 				object:       &corev1.ConfigMap{ObjectMeta: namespacedMetadata},
 				store:        reconciler.stores.ConfigMapCache,
 				expectations: reconciler.expectations.ConfigMap,
+			},
+			"validatingadmissionpolicybindings": {
+				object:       &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.ValidatingAdmissionPolicyBindingCache,
+				expectations: reconciler.expectations.ValidatingAdmissionPolicyBinding,
+			},
+			"validatingadmissionpolicies": {
+				object:       &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: clusterMetadata},
+				store:        reconciler.stores.ValidatingAdmissionPolicyCache,
+				expectations: reconciler.expectations.ValidatingAdmissionPolicy,
 			},
 			"daemonsets": {
 				object:       &appsv1.DaemonSet{ObjectMeta: namespacedMetadata},
@@ -310,8 +330,12 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 			Expect(resource.expectations.SatisfiedExpectations(reconciler.kvKey)).To(BeTrue())
 		})
 	},
+		Entry("validatingwebhookconfigurations", "validatingwebhookconfigurations"),
+		Entry("mutatingwebhookconfigurations", "mutatingwebhookconfigurations"),
 		Entry("secrets", "secrets"),
 		Entry("configmaps", "configmaps"),
+		Entry("validatingadmissionpolicybindings", "validatingadmissionpolicybindings"),
+		Entry("validatingadmissionpolicies", "validatingadmissionpolicies"),
 		Entry("daemonsets", "daemonsets"),
 		Entry("deployments", "deployments"),
 		Entry("services", "services"),
@@ -321,6 +345,41 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
 	)
+
+	It("removes outdated webhooks before other resources with no grace period", func() {
+		virtClient.EXPECT().ExtensionsClient().Return(extClient)
+		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+		for _, resourceName := range []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations", "configmaps"} {
+			resource := resources[resourceName]
+			Expect(resource.store.Add(resource.object)).To(Succeed())
+		}
+
+		Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+		Expect(deletions).To(HaveExactElements(
+			HaveField("Resource.Resource", "validatingwebhookconfigurations"),
+			HaveField("Resource.Resource", "mutatingwebhookconfigurations"),
+			HaveField("Resource.Resource", "configmaps"),
+		))
+		for _, deletion := range deletions {
+			Expect(deletion.GetDeleteOptions().GracePeriodSeconds).To(HaveValue(BeZero()))
+		}
+	})
+
+	It("stops cleanup when an outdated webhook cannot be removed", func() {
+		virtClient.EXPECT().ExtensionsClient().Return(extClient)
+		for _, resourceName := range []string{"validatingwebhookconfigurations", "mutatingwebhookconfigurations", "configmaps"} {
+			resource := resources[resourceName]
+			Expect(resource.store.Add(resource.object)).To(Succeed())
+		}
+		deleteErr = errors.New("webhook deletion failed")
+
+		Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(MatchError(deleteErr))
+		Expect(deletions).To(ConsistOf(HaveField("Resource.Resource", "validatingwebhookconfigurations")))
+	})
 
 	DescribeTable("matches namespaced resources by both name and namespace", func(resourceName string) {
 		virtClient.EXPECT().ExtensionsClient().Return(extClient)
@@ -348,6 +407,28 @@ var _ = Describe("deleteObjectsNotInInstallStrategy", func() {
 		Entry("rolebindings", "rolebindings"),
 		Entry("roles", "roles"),
 		Entry("serviceaccounts", "serviceaccounts"),
+	)
+
+	DescribeTable("preserves resources excluded from cleanup", func(resourceName string, modify func(metav1.Object)) {
+		virtClient.EXPECT().ExtensionsClient().Return(extClient)
+		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
+		virtClient.EXPECT().PrometheusClient().Return(promClient).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterTypeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+		resource := resources[resourceName]
+		metadata, err := meta.Accessor(resource.object)
+		Expect(err).NotTo(HaveOccurred())
+		modify(metadata)
+		Expect(resource.store.Add(resource.object)).To(Succeed())
+
+		Expect(reconciler.deleteObjectsNotInInstallStrategy()).To(Succeed())
+		Expect(deletions).To(BeEmpty())
+		Expect(resource.expectations.GetUIDs(reconciler.kvKey)).To(BeEmpty())
+	},
+		Entry("temporary validating webhooks", "validatingwebhookconfigurations", func(webhook metav1.Object) {
+			webhook.SetName("virt-operator-tmp-webhook-upgrade")
+		}),
 	)
 
 })
