@@ -8736,6 +8736,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: has both EFI and BIOS configured, but they are
+                              mutually exclusive
+                            rule: '!(has(self.bios) && has(self.efi))'
                         kernelBoot:
                           description: Settings to set the kernel for booting.
                           properties:
@@ -8747,6 +8751,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Image that contains initrd / kernel
                                     files.
                                   type: string
+                                  x-kubernetes-validations:
+                                  - message: kernel boot container must be defined
+                                      with an image
+                                    rule: size(self) != 0
                                 imagePullPolicy:
                                   description: |-
                                     Image pull policy.
@@ -8771,11 +8779,22 @@ var CRDsValidation map[string]string = map[string]string{
                               required:
                               - image
                               type: object
+                              x-kubernetes-validations:
+                              - message: 'kernel boot container must be defined with
+                                  at least one of the following: kernelPath, initrdPath'
+                                rule: (has(self.kernelPath) && size(self.kernelPath)
+                                  != 0) || (has(self.initrdPath) && size(self.initrdPath)
+                                  != 0)
                             kernelArgs:
                               description: Arguments to be passed to the kernel at
                                 boot time
                               type: string
                           type: object
+                          x-kubernetes-validations:
+                          - message: kernel arguments cannot be provided without an
+                              external kernel
+                            rule: has(self.container) || !has(self.kernelArgs) ||
+                              size(self.kernelArgs) == 0
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -15397,6 +15416,10 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: has both EFI and BIOS configured, but they are mutually
+                      exclusive
+                    rule: '!(has(self.bios) && has(self.efi))'
                 kernelBoot:
                   description: Settings to set the kernel for booting.
                   properties:
@@ -15407,6 +15430,10 @@ var CRDsValidation map[string]string = map[string]string{
                         image:
                           description: Image that contains initrd / kernel files.
                           type: string
+                          x-kubernetes-validations:
+                          - message: kernel boot container must be defined with an
+                              image
+                            rule: size(self) != 0
                         imagePullPolicy:
                           description: |-
                             Image pull policy.
@@ -15431,10 +15458,20 @@ var CRDsValidation map[string]string = map[string]string{
                       required:
                       - image
                       type: object
+                      x-kubernetes-validations:
+                      - message: 'kernel boot container must be defined with at least
+                          one of the following: kernelPath, initrdPath'
+                        rule: (has(self.kernelPath) && size(self.kernelPath) != 0)
+                          || (has(self.initrdPath) && size(self.initrdPath) != 0)
                     kernelArgs:
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                  x-kubernetes-validations:
+                  - message: kernel arguments cannot be provided without an external
+                      kernel
+                    rule: has(self.container) || !has(self.kernelArgs) || size(self.kernelArgs)
+                      == 0
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -20013,6 +20050,10 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: has both EFI and BIOS configured, but they are mutually
+                      exclusive
+                    rule: '!(has(self.bios) && has(self.efi))'
                 kernelBoot:
                   description: Settings to set the kernel for booting.
                   properties:
@@ -20023,6 +20064,10 @@ var CRDsValidation map[string]string = map[string]string{
                         image:
                           description: Image that contains initrd / kernel files.
                           type: string
+                          x-kubernetes-validations:
+                          - message: kernel boot container must be defined with an
+                              image
+                            rule: size(self) != 0
                         imagePullPolicy:
                           description: |-
                             Image pull policy.
@@ -20047,10 +20092,20 @@ var CRDsValidation map[string]string = map[string]string{
                       required:
                       - image
                       type: object
+                      x-kubernetes-validations:
+                      - message: 'kernel boot container must be defined with at least
+                          one of the following: kernelPath, initrdPath'
+                        rule: (has(self.kernelPath) && size(self.kernelPath) != 0)
+                          || (has(self.initrdPath) && size(self.initrdPath) != 0)
                     kernelArgs:
                       description: Arguments to be passed to the kernel at boot time
                       type: string
                   type: object
+                  x-kubernetes-validations:
+                  - message: kernel arguments cannot be provided without an external
+                      kernel
+                    rule: has(self.container) || !has(self.kernelArgs) || size(self.kernelArgs)
+                      == 0
                 serial:
                   description: The system-serial-number in SMBIOS
                   type: string
@@ -22621,6 +22676,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   type: boolean
                               type: object
                           type: object
+                          x-kubernetes-validations:
+                          - message: has both EFI and BIOS configured, but they are
+                              mutually exclusive
+                            rule: '!(has(self.bios) && has(self.efi))'
                         kernelBoot:
                           description: Settings to set the kernel for booting.
                           properties:
@@ -22632,6 +22691,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Image that contains initrd / kernel
                                     files.
                                   type: string
+                                  x-kubernetes-validations:
+                                  - message: kernel boot container must be defined
+                                      with an image
+                                    rule: size(self) != 0
                                 imagePullPolicy:
                                   description: |-
                                     Image pull policy.
@@ -22656,11 +22719,22 @@ var CRDsValidation map[string]string = map[string]string{
                               required:
                               - image
                               type: object
+                              x-kubernetes-validations:
+                              - message: 'kernel boot container must be defined with
+                                  at least one of the following: kernelPath, initrdPath'
+                                rule: (has(self.kernelPath) && size(self.kernelPath)
+                                  != 0) || (has(self.initrdPath) && size(self.initrdPath)
+                                  != 0)
                             kernelArgs:
                               description: Arguments to be passed to the kernel at
                                 boot time
                               type: string
                           type: object
+                          x-kubernetes-validations:
+                          - message: kernel arguments cannot be provided without an
+                              external kernel
+                            rule: has(self.container) || !has(self.kernelArgs) ||
+                              size(self.kernelArgs) == 0
                         serial:
                           description: The system-serial-number in SMBIOS
                           type: string
@@ -28076,6 +28150,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: boolean
                                       type: object
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: has both EFI and BIOS configured, but
+                                      they are mutually exclusive
+                                    rule: '!(has(self.bios) && has(self.efi))'
                                 kernelBoot:
                                   description: Settings to set the kernel for booting.
                                   properties:
@@ -28087,6 +28165,10 @@ var CRDsValidation map[string]string = map[string]string{
                                           description: Image that contains initrd
                                             / kernel files.
                                           type: string
+                                          x-kubernetes-validations:
+                                          - message: kernel boot container must be
+                                              defined with an image
+                                            rule: size(self) != 0
                                         imagePullPolicy:
                                           description: |-
                                             Image pull policy.
@@ -28112,11 +28194,23 @@ var CRDsValidation map[string]string = map[string]string{
                                       required:
                                       - image
                                       type: object
+                                      x-kubernetes-validations:
+                                      - message: 'kernel boot container must be defined
+                                          with at least one of the following: kernelPath,
+                                          initrdPath'
+                                        rule: (has(self.kernelPath) && size(self.kernelPath)
+                                          != 0) || (has(self.initrdPath) && size(self.initrdPath)
+                                          != 0)
                                     kernelArgs:
                                       description: Arguments to be passed to the kernel
                                         at boot time
                                       type: string
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: kernel arguments cannot be provided without
+                                      an external kernel
+                                    rule: has(self.container) || !has(self.kernelArgs)
+                                      || size(self.kernelArgs) == 0
                                 serial:
                                   description: The system-serial-number in SMBIOS
                                   type: string
@@ -34053,6 +34147,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: boolean
                                           type: object
                                       type: object
+                                      x-kubernetes-validations:
+                                      - message: has both EFI and BIOS configured,
+                                          but they are mutually exclusive
+                                        rule: '!(has(self.bios) && has(self.efi))'
                                     kernelBoot:
                                       description: Settings to set the kernel for
                                         booting.
@@ -34065,6 +34163,10 @@ var CRDsValidation map[string]string = map[string]string{
                                               description: Image that contains initrd
                                                 / kernel files.
                                               type: string
+                                              x-kubernetes-validations:
+                                              - message: kernel boot container must
+                                                  be defined with an image
+                                                rule: size(self) != 0
                                             imagePullPolicy:
                                               description: |-
                                                 Image pull policy.
@@ -34090,11 +34192,23 @@ var CRDsValidation map[string]string = map[string]string{
                                           required:
                                           - image
                                           type: object
+                                          x-kubernetes-validations:
+                                          - message: 'kernel boot container must be
+                                              defined with at least one of the following:
+                                              kernelPath, initrdPath'
+                                            rule: (has(self.kernelPath) && size(self.kernelPath)
+                                              != 0) || (has(self.initrdPath) && size(self.initrdPath)
+                                              != 0)
                                         kernelArgs:
                                           description: Arguments to be passed to the
                                             kernel at boot time
                                           type: string
                                       type: object
+                                      x-kubernetes-validations:
+                                      - message: kernel arguments cannot be provided
+                                          without an external kernel
+                                        rule: has(self.container) || !has(self.kernelArgs)
+                                          || size(self.kernelArgs) == 0
                                     serial:
                                       description: The system-serial-number in SMBIOS
                                       type: string

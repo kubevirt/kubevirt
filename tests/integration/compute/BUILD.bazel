@@ -4,6 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "compute_suite_test.go",
+        "firmware_validation_test.go",
         "vm_generation_test.go",
         "vm_lifecycle_test.go",
     ],
