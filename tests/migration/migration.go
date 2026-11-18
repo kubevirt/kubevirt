@@ -1810,13 +1810,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 			})
 		})
-		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, decorators.RequiresBlockStorage, func() {
 
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				sc, exists := libstorage.GetRWOBlockStorageClass()
-				if !exists {
-					Skip("Skip test when Block storage is not present") //nolint:forbidigo
-				}
+				Expect(exists).To(BeTrue(), "RWO block storage class is required for test_id:1862")
 
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteOnce, sc, libvmi.WithHostname(string(cd.ContainerDiskAlpine)))
