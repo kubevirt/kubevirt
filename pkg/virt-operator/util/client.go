@@ -104,6 +104,7 @@ func UpdateConditionsFailedError(kv *virtv1.KubeVirt, err error) {
 func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
 	removeCondition(kv, virtv1.KubeVirtConditionCreated)
 	removeCondition(kv, virtv1.KubeVirtConditionSynchronized)
+	removeCondition(kv, virtv1.KubeVirtConditionDeploymentsReady)
 	msg := fmt.Sprintf("Deletion was triggered")
 	updateCondition(kv, virtv1.KubeVirtConditionAvailable, k8sv1.ConditionFalse, ConditionReasonDeleting, msg)
 	updateCondition(kv, virtv1.KubeVirtConditionProgressing, k8sv1.ConditionFalse, ConditionReasonDeleting, msg)

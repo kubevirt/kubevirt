@@ -20,6 +20,7 @@
 package util
 
 import (
+	"sort"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -123,6 +124,47 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 		return false
 	}
 	return true
+}
+
+// UpdateConditionsDeploymentsReady reports complete rollout independently of
+// Available, which intentionally permits a deployment with a single ready pod.
+// A nil target list means the install strategy is not available yet.
+func UpdateConditionsDeploymentsReady(kv *v1.KubeVirt, deployments []*appsv1.Deployment, stores Stores) {
+	if len(deployments) == 0 {
+		updateCondition(kv, v1.KubeVirtConditionDeploymentsReady, k8sv1.ConditionFalse,
+			"InstallStrategyPending", "Waiting for the target deployment strategy.")
+		return
+	}
+	var pending []string
+	for _, target := range deployments {
+		obj, exists, err := stores.DeploymentCache.Get(target)
+		if err != nil || !exists || !deploymentRolloutComplete(kv, obj.(*appsv1.Deployment), stores) {
+			pending = append(pending, target.Namespace+"/"+target.Name)
+		}
+	}
+	if len(pending) > 0 {
+		sort.Strings(pending)
+		updateCondition(kv, v1.KubeVirtConditionDeploymentsReady, k8sv1.ConditionFalse,
+			"DeploymentsNotReady", "Waiting for deployments: "+strings.Join(pending, ", "))
+		return
+	}
+	updateCondition(kv, v1.KubeVirtConditionDeploymentsReady, k8sv1.ConditionTrue,
+		"AllDeploymentsReady", "All managed deployments have completed their rollout.")
+}
+
+func deploymentRolloutComplete(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
+	if deployment.DeletionTimestamp != nil || deployment.Status.ObservedGeneration < deployment.Generation {
+		return false
+	}
+	replicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		replicas = *deployment.Spec.Replicas
+	}
+	if deployment.Status.Replicas != replicas || deployment.Status.UpdatedReplicas != replicas ||
+		deployment.Status.ReadyReplicas != replicas || deployment.Status.AvailableReplicas != replicas {
+		return false
+	}
+	return replicas == 0 || DeploymentIsReady(kv, deployment, stores)
 }
 
 func DaemonSetIsUpToDate(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) bool {
