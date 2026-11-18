@@ -1921,6 +1921,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 				logger.Reason(err).Error("failed to reconcile CBT overlays")
 				return nil, err
 			}
+			if !cli.IsDown(domState) {
+				if err := l.storageManager.CleanupBackupCheckpoints(vmi, dom); err != nil {
+					logger.Reason(err).Warning("Failed to reclaim released backup checkpoint; will retry")
+				}
+			}
 		} else if err := storage.CleanupChangedBlockTrackingOverlays(vmi, liveSpec); err != nil {
 			logger.Reason(err).Error("failed to cleanup CBT overlays")
 			return nil, err
@@ -3465,6 +3470,10 @@ func calculateHotplugPortCountV2(vmi *v1.VirtualMachineInstance, domainSpec *api
 }
 
 func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	// This lock protects the checkpointCandidates map from concurrent access during the SyncVMI elaboration.
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	switch backupOptions.Cmd {
 	case backupv1.Start:
 		return l.storageManager.BackupVirtualMachine(vmi, backupOptions)
