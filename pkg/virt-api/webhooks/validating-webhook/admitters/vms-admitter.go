@@ -151,6 +151,12 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		// keep working even if the gate is disabled afterwards.
 		causes = filterOutDeclarativeVMStateGateCause(causes, k8sfield.NewPath("spec", "template", "spec"))
 	}
+
+	// CEL validation of the CPU type only sees the raw template, while
+	// instancetypes, preferences and defaulting can derive CPU values, so
+	// validate the expanded and defaulted spec here.
+	causes = append(causes, validateDerivedCPU(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec)...)
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -384,6 +390,25 @@ func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes 
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
 			Field:   field.Child("template", "spec", "domain", "cpu", "sockets").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateDerivedCPU(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU == nil {
+		return nil
+	}
+
+	if spec.Domain.CPU.DedicatedCPUPlacement && spec.Domain.CPU.Threads > 2 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Not more than two threads must be provided at %v (got %v) when DedicatedCPUPlacement is true",
+				field.Child("domain", "cpu", "threads").String(),
+				spec.Domain.CPU.Threads,
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
 		})
 	}
 
