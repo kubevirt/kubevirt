@@ -1957,7 +1957,6 @@
 			"name": "expat-0__2.5.0-4.el9.x86_64",
 			"integrity": "sha256-Ng7ZlOoq9bOn83aU398iSdl+Xl7CSSySI6Kuxy/49IA=",
 			"urls": [
-				"http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/expat-2.5.0-4.el9.x86_64.rpm",
 				"https://storage.googleapis.com/builddeps/360ed994ea2af5b3a7f37694dfdf2249d97e5e5ec2492c9223a2aec72ff8f480"
 			]
 		},
