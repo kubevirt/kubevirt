@@ -74,69 +74,40 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 }
 
 func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if vmi.Spec.Domain.Devices.Video != nil {
-		video := api.Video{
-			Model: api.VideoModel{
-				Type:  vmi.Spec.Domain.Devices.Video.Type,
-				VRam:  new(graphicsDeviceDefaultVRAM),
-				Heads: new(graphicsDeviceDefaultHeads),
-			},
-		}
-		domain.Spec.Devices.Video = []api.Video{video}
-		return
-	}
-
-	switch g.architecture {
-	case "amd64":
-		g.configureAMD64VideoDevice(vmi, domain)
-	case "arm64":
-		g.configureARM64VideoDevice(domain)
-	case "s390x":
-		g.configureS390XVideoDevice(domain)
-	}
-}
-
-func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
-		domain.Spec.Devices.Video = []api.Video{
-			{
-				Model: api.VideoModel{
-					Type:  "bochs",
-					Heads: new(graphicsDeviceDefaultHeads),
-				},
-			},
-		}
+	var model string
+	explicitVideo := vmi.Spec.Domain.Devices.Video != nil
+	if explicitVideo {
+		model = vmi.Spec.Domain.Devices.Video.Type
 	} else {
-		domain.Spec.Devices.Video = []api.Video{
-			{
-				Model: api.VideoModel{
-					Type:  "vga",
-					Heads: new(graphicsDeviceDefaultHeads),
-					VRam:  new(graphicsDeviceDefaultVRAM),
-				},
-			},
+		model = g.defaultVideoDeviceModel(vmi)
+		if model == "" {
+			return
 		}
 	}
-}
 
-func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain) {
-	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-	domain.Spec.Devices.Video = []api.Video{
-		{
-			Model: api.VideoModel{
-				Type:  v1.VirtIO,
-				Heads: new(graphicsDeviceDefaultHeads),
-			},
-		},
-	}
-}
-
-func (g GraphicsDomainConfigurator) configureS390XVideoDevice(domain *api.Domain) {
-	domain.Spec.Devices.Video = []api.Video{{
+	device := api.Video{
 		Model: api.VideoModel{
-			Type:  v1.VirtIO,
+			Type:  model,
 			Heads: new(graphicsDeviceDefaultHeads),
 		},
-	}}
+	}
+	if explicitVideo || model == "vga" {
+		device.Model.VRam = new(graphicsDeviceDefaultVRAM)
+	}
+	domain.Spec.Devices.Video = []api.Video{device}
+}
+
+func (g GraphicsDomainConfigurator) defaultVideoDeviceModel(vmi *v1.VirtualMachineInstance) string {
+	switch g.architecture {
+	case "amd64":
+		if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
+			return "bochs"
+		}
+		return "vga"
+	case "arm64", "s390x":
+		// ARM64's QEMU/KVM only supports virtio-gpu.
+		return v1.VirtIO
+	default:
+		return ""
+	}
 }
