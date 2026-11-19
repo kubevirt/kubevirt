@@ -84,6 +84,10 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig, isKubeVirtServiceAccount)
 
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
