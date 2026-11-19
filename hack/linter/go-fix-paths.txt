@@ -11,6 +11,7 @@ pkg/grpcserver
 pkg/handler-launcher-com/cmd
 pkg/handler-launcher-com/notify
 pkg/hooks
+pkg/hypervisor
 pkg/ignition
 pkg/instancetype/annotations
 pkg/instancetype/conflict

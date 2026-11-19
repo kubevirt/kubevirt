@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 )
 
-var _ = DescribeTable("Test NewLauncherHypervisorResources", func(hypervisorType string, expectedType interface{}) {
+var _ = DescribeTable("Test NewLauncherHypervisorResources", func(hypervisorType string, expectedType any) {
 	renderer := NewLauncherHypervisorResources(hypervisorType)
 	Expect(renderer).To(BeAssignableToTypeOf(expectedType))
 },
