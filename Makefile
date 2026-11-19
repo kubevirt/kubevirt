@@ -270,6 +270,9 @@ vmlog-checker:
 	@echo "Built successfully: tools/vmlog-checker/vmlog-checker"
 	@echo "Usage: ./tools/vmlog-checker/vmlog-checker --log <file> [options]"
 
+rpm-mirror-checker:
+	hack/dockerized "go run ./hack/rpm-mirror-checker/rpm-mirror-checker.go"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -315,4 +318,5 @@ vmlog-checker:
 	feature-gate-report \
 	vmlog-checker \
 	test-integration \
+	rpm-mirror-checker \
 	$(NULL)
