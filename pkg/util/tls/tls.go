@@ -470,9 +470,6 @@ func verifyPeerCert(rawCerts [][]byte, externallyManaged bool, certPool *x509.Ce
 		return fmt.Errorf("could not verify peer certificate: %v", err)
 	}
 
-	if externallyManaged {
-		return nil
-	}
 	for _, commonNameType := range commonNameTypes {
 		fullCommonName := fmt.Sprintf("kubevirt.io:system:%s:%s", commonName, commonNameType)
 		if c.Subject.CommonName == fullCommonName {
