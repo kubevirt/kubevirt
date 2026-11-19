@@ -1030,6 +1030,7 @@ spec:
           - virtualmachineinstances/console
           - virtualmachineinstances/vnc
           - virtualmachineinstances/vnc/screenshot
+          - virtualmachineinstances/screenshot
           - virtualmachineinstances/portforward
           - virtualmachineinstances/guestosinfo
           - virtualmachineinstances/filesystemlist
