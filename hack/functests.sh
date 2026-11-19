@@ -44,6 +44,11 @@ rm -rf $ARTIFACTS
 mkdir -p $ARTIFACTS
 
 function functest() {
+    # Cluster deployment disables CDI for these providers even when the job asks for it.
+    local require_cdi=${KUBEVIRT_DEPLOY_CDI:-false}
+    if [[ ${KUBEVIRT_PROVIDER} =~ ^(kind.*|external|minikube)$ ]]; then
+        require_cdi=false
+    fi
     KUBEVIRT_FUNC_TEST_SUITE_ARGS="--ginkgo.trace
 	    -apply-default-e2e-configuration \
 	    -conn-check-ipv4-address=${conn_check_ipv4_address} \
@@ -56,7 +61,7 @@ function functest() {
         KUBEVIRT_FUNC_TEST_SUITE_ARGS="-skip-dual-stack-test ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     fi
 
-    _out/tests/ginkgo -timeout=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT} -r "$@" _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} --testing-manifest-path=${TESTING_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -virtctl-path=${virtctl_path} -example-guest-agent-path=${example_guest_agent_path}
+    _out/tests/ginkgo -timeout=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT} -r "$@" _out/tests/tests.test -- -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -require-cdi=${require_cdi} -config=${kubevirt_test_config} --artifacts=${ARTIFACTS} --operator-manifest-path=${OPERATOR_MANIFEST_PATH} --testing-manifest-path=${TESTING_MANIFEST_PATH} ${KUBEVIRT_FUNC_TEST_SUITE_ARGS} -virtctl-path=${virtctl_path} -example-guest-agent-path=${example_guest_agent_path}
 }
 
 additional_test_args=()
