@@ -60,4 +60,26 @@ the VMI's pod and receives lifecycle commands from virt-handler.
  * `make cluster-sync`: After deploying a fresh environment, or after making
    changes to code in this tree, this command will sync the Pods and DaemonSets
    in the running KubeVirt environment with the state of this tree.
+ * `make cluster-resync`: Incrementally rebuild and sync base images.
+   It pushes when a built OCI digest differs from the registry, then rolls out
+   workloads whose pods do not match the registry digest.
+   ```bash
+   make cluster-resync images="virt-handler virt-controller"
+   make cluster-resync images="virt-handler" use_hints=false
+   ```
+
+   Known image hints are included by default. Set `use_hints=false` to use
+   exactly the requested images.
+
+   **Notes:** `virt-synchronization-controller` is pushed and digest-checked,
+   but rolled out only when `DecentralizedLiveMigration` is enabled.
+   `virt-exportserver` has no standing workload, so resync checks its registry
+   digest without rolling out a workload.
+
+   **Maintenance notes:** Template image tags follow `virt_template_version`;
+   update the operator's embedded template manifest when it changes. If a
+   feature gate changes lifecycle or is removed, update the matching workload
+   mapping in `hack/cluster_resync.py`.
+
+   Resync waits for KubeVirt readiness and verifies the deployed image digests.
  * `make cluster-down`: This will tear down a running KubeVirt environment.
