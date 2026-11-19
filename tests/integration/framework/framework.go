@@ -76,6 +76,15 @@ func WithKubeVirtConfig(config *v1.KubeVirtConfiguration) Option {
 	}
 }
 
+// WithCRDTransform modifies the CRDs before they are installed in the API server.
+func WithCRDTransform(transform func(*extv1.CustomResourceDefinition)) Option {
+	return func(f *Framework) {
+		for _, crd := range f.env.CRDs {
+			transform(crd)
+		}
+	}
+}
+
 type Framework struct {
 	env           *envtest.Environment
 	virtClient    kubecli.KubevirtClient
