@@ -1424,9 +1424,9 @@ chpasswd:
 			}
 
 			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
-				node = nodes.Items[1].Name
+				selectedNode, err := libnode.GetSchedulableNodeWithCPUManager(virtClient)
+				Expect(err).ToNot(HaveOccurred())
+				node = selectedNode.Name
 			})
 
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
