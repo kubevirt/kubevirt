@@ -726,16 +726,36 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				err = virtClient.VirtualMachinePreference(vm.Namespace).Delete(context.Background(), vm.Spec.Preference.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Creating a VirtualMachineRestore")
-				restore = createRestoreDef(vm.Name, snapshot.Name)
+				By("Restoring the snapshot into a new VM")
+				restoreVMName := vm.Name + "-restored"
+				restore = createRestoreDefWithMacAddressPatch(vm, restoreVMName, snapshot.Name)
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the restore completes")
-				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				restoreVM := expectNewVMCreation(restoreVMName)
+				defer deleteVM(restoreVM)
+				restore = waitRestoreComplete(restore, restoreVM.Name, &restoreVM.UID)
 
 				By("Asserting that the restored VM has instancetype and preference ControllerRevisions sourced from the snapshot")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+				snapshotInstancetypeRevisionName := content.Spec.Source.VirtualMachine.Spec.Instancetype.RevisionName
+				snapshotPreferenceRevisionName := content.Spec.Source.VirtualMachine.Spec.Preference.RevisionName
+				expectedInstancetypeRevisionName := strings.Replace(snapshotInstancetypeRevisionName, snapshot.Name, restoreVM.Name, 1)
+				expectedPreferenceRevisionName := strings.Replace(snapshotPreferenceRevisionName, snapshot.Name, restoreVM.Name, 1)
+				const controllerRevisionTimeout = 300 * time.Second
+				Eventually(matcher.ThisVM(restoreVM)).WithTimeout(controllerRevisionTimeout).WithPolling(time.Second).Should(And(
+					matcher.HaveControllerRevisionRefs(),
+					HaveField("Status.InstancetypeRef.ControllerRevisionRef.Name", Equal(expectedInstancetypeRevisionName)),
+					HaveField("Status.PreferenceRef.ControllerRevisionRef.Name", Equal(expectedPreferenceRevisionName)),
+				))
+
+				By("Checking that the restored ControllerRevisions contain the captured configuration")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(
+					snapshotInstancetypeRevisionName, expectedInstancetypeRevisionName, virtClient,
+				)).To(BeTrue())
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(
+					snapshotPreferenceRevisionName, expectedPreferenceRevisionName, virtClient,
+				)).To(BeTrue())
 			})
 		})
 	})

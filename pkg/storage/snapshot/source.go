@@ -368,7 +368,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	return snapshotCR.Name, nil
 }
 
-func instancetypeRevisionName(specRevisionName string, statusRef *kubevirtv1.InstancetypeStatusRef) string {
+func instancetypeOrPreferenceRevisionName(specRevisionName string, statusRef *kubevirtv1.InstancetypeStatusRef) string {
 	if specRevisionName != "" {
 		return specRevisionName
 	}
@@ -383,7 +383,8 @@ func instancetypeRevisionName(specRevisionName string, statusRef *kubevirtv1.Ins
 // for offline snapshots), so s.vm.Status.*Ref is consulted directly for the revision name fallback.
 func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1.VirtualMachine) error {
 	if vm.Spec.Instancetype != nil {
-		if revisionName := instancetypeRevisionName(vm.Spec.Instancetype.RevisionName, s.vm.Status.InstancetypeRef); revisionName != "" {
+		revisionName := instancetypeOrPreferenceRevisionName(vm.Spec.Instancetype.RevisionName, s.vm.Status.InstancetypeRef)
+		if revisionName != "" {
 			snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, revisionName)
 			if err != nil {
 				return err
@@ -393,7 +394,8 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1
 	}
 
 	if vm.Spec.Preference != nil {
-		if revisionName := instancetypeRevisionName(vm.Spec.Preference.RevisionName, s.vm.Status.PreferenceRef); revisionName != "" {
+		revisionName := instancetypeOrPreferenceRevisionName(vm.Spec.Preference.RevisionName, s.vm.Status.PreferenceRef)
+		if revisionName != "" {
 			snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, revisionName)
 			if err != nil {
 				return err

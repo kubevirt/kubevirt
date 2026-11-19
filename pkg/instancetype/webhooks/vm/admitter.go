@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 )
 
 type instancetypeFinder interface {
@@ -94,6 +95,10 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 
 	if instancetypeSpec == nil && preferenceSpec == nil {
 		return nil, nil, nil
+	}
+
+	if spreadConflict := validation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
+		return nil, nil, spreadConflict.StatusCauses()
 	}
 
 	conflicts := a.ApplyToVMI(
