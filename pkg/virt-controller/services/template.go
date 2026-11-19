@@ -362,7 +362,7 @@ func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	memoryOverhead := calculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, launcherPodTemporary, memoryOverhead)
 }
 
@@ -383,7 +383,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	memoryOverhead := calculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
 	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, launcherPodMigrationTarget, memoryOverhead)
 	if err != nil {
 		return nil, err
@@ -401,7 +401,7 @@ func (t *TemplateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
+	memoryOverhead := calculateMemoryOverhead(t.clusterConfig, vmi, t.launcherHypervisorResources, t.memoryOverheadCalculators...)
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, launcherPodVM, memoryOverhead)
 }
 
@@ -666,9 +666,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport) {
-		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
-	}
+	podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
 
 	var initContainers []k8sv1.Container
 
@@ -1708,9 +1706,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	}
 }
 
-// TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
-// and we are sure that all VMIs include the MemoryOverhead status field
-func CalculateMemoryOverhead(clusterConfig clusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
+func calculateMemoryOverhead(clusterConfig clusterConfigProvider, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources, calculators ...memoryOverheadCalculator) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {

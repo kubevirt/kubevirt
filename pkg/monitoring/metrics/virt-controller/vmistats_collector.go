@@ -34,10 +34,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
-	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 const (
@@ -137,7 +134,7 @@ var (
 	vmiLauncherMemoryOverhead = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_launcher_memory_overhead_bytes",
-			Help: "Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU).",
+			Help: "Virt-launcher memory overhead recorded on the VirtualMachineInstance status, in bytes. The value is 0 until that status field is set.",
 		},
 		[]string{"namespace", "name"},
 	)
@@ -175,21 +172,8 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 
 func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
 	var memoryOverheadValue int64
-	// Use the stored memory overhead from VMI status if available to ensure
-	// consistency with the actual pod configuration, especially after upgrades
-	// where the calculation logic might have changed
 	if vmi.Status.Memory != nil && vmi.Status.Memory.MemoryOverhead != nil {
 		memoryOverheadValue = vmi.Status.Memory.MemoryOverhead.Value()
-	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between
-		// different hypervisors
-		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
-		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig,
-			vmi, launcherHypervisorResources,
-			netresources.NewMemoryCalculator(clusterConfig))
-		memoryOverheadValue = memoryOverhead.Value()
 	}
 
 	return operatormetrics.CollectorResult{
