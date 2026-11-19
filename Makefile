@@ -246,6 +246,9 @@ gofumpt:
 update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
 
+rpm-mirror-checker:
+	hack/dockerized "go run ./hack/rpm-mirror-checker/rpm-mirror-checker.go"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -287,4 +290,5 @@ update-generated-api-testdata:
 	rpm-deps-cs9 \
 	rpm-deps-cs10 \
 	rpm-deps-all \
+	rpm-mirror-checker \
 	$(NULL)
