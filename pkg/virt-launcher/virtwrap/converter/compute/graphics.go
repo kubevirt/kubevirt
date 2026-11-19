@@ -33,16 +33,14 @@ const (
 )
 
 type GraphicsDomainConfigurator struct {
-	architecture         string
-	useBochsForEFIGuests bool
-	crossArchEmulation   bool
+	defaultVideoModel  string
+	crossArchEmulation bool
 }
 
-func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests, crossArchEmulation bool) GraphicsDomainConfigurator {
+func NewGraphicsDomainConfigurator(defaultVideoModel string, crossArchEmulation bool) GraphicsDomainConfigurator {
 	return GraphicsDomainConfigurator{
-		architecture:         architecture,
-		useBochsForEFIGuests: useBochsForEFIGuests,
-		crossArchEmulation:   crossArchEmulation,
+		defaultVideoModel:  defaultVideoModel,
+		crossArchEmulation: crossArchEmulation,
 	}
 }
 
@@ -74,15 +72,12 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 }
 
 func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	var model string
+	model := g.defaultVideoModel
 	explicitVideo := vmi.Spec.Domain.Devices.Video != nil
 	if explicitVideo {
 		model = vmi.Spec.Domain.Devices.Video.Type
-	} else {
-		model = g.defaultVideoDeviceModel(vmi)
-		if model == "" {
-			return
-		}
+	} else if model == "" {
+		return
 	}
 
 	device := api.Video{
@@ -95,19 +90,4 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 		device.Model.VRam = new(graphicsDeviceDefaultVRAM)
 	}
 	domain.Spec.Devices.Video = []api.Video{device}
-}
-
-func (g GraphicsDomainConfigurator) defaultVideoDeviceModel(vmi *v1.VirtualMachineInstance) string {
-	switch g.architecture {
-	case "amd64":
-		if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
-			return "bochs"
-		}
-		return "vga"
-	case "arm64", "s390x":
-		// ARM64's QEMU/KVM only supports virtio-gpu.
-		return v1.VirtIO
-	default:
-		return ""
-	}
 }
