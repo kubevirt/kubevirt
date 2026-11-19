@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 )
 
 const QEMUSeaBiosDebugPipe = compute.QEMUSeaBiosDebugPipe
@@ -150,6 +151,12 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 		return nil, err
 	}
 	domainSpecObj.DeepCopyInto(wantedSpec)
+
+	// Go's encoding/xml cannot unmarshal namespace-prefixed struct tags
+	// (e.g. xml:"qemu:commandline"), so QEMUCmd is silently lost during
+	// the round-trip above. Re-extract it from the hook-returned XML
+	// using namespace-aware token parsing.
+	libvirtxml.TransferQEMUCommandline(domainSpec, wantedSpec)
 
 	return SetDomainSpecStr(virConn, vmi, domainSpec)
 }
