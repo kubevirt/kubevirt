@@ -88,8 +88,8 @@ func ParseCPUMask(mask string) (*CPUMask, error) {
 	}
 	vcpus.Mask = make(map[string]MaskType)
 
-	masks := strings.Split(mask, ",")
-	for _, i := range masks {
+	masks := strings.SplitSeq(mask, ",")
+	for i := range masks {
 		m := strings.TrimSpace(i)
 		switch {
 		case cpuRangeRegex.MatchString(m):
