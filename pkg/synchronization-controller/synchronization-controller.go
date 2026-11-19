@@ -991,6 +991,12 @@ func (s *SynchronizationController) getOutboundTargetConnection(vmi *virtv1.Virt
 	if migrationState.SourceState == nil || migrationState.SourceState.SyncAddress == nil || *migrationState.SourceState.SyncAddress == "" {
 		return nil, nil
 	}
+	// A decentralized source can publish its state before the target state exists (an
+	// external source reports as soon as it connects), so both fields have to be
+	// checked instead of assuming they arrive together.
+	if migrationState.TargetState == nil || migrationState.TargetState.MigrationUID == "" {
+		return nil, nil
+	}
 	return s.getOutboundConnection(vmi, migrationState.TargetState.MigrationUID, *migrationState.SourceState.SyncAddress, s.syncReceivingConnectionMap)
 }
 
