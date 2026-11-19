@@ -823,11 +823,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 			})
 
-			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", func() {
+			It("[test_id:3239]should reject a migration of a vmi with a non-shared data volume", decorators.RequiresRWOFileSystemStorageClass, func() {
 				sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present") //nolint:forbidigo
-				}
+				Expect(foundSC).To(BeTrue(), "RWO filesystem storage class is required for test_id:3239")
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
