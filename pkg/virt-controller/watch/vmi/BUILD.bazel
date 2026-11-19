@@ -12,6 +12,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery:go_default_library",
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/dra:go_default_library",
@@ -59,6 +60,7 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/apimachinery:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/controller/testing:go_default_library",
         "//pkg/dra:go_default_library",

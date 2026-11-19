@@ -47,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/dra"
@@ -740,15 +741,8 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	}
 
 	syncMap := func(patterns []string, vmiMap, podNewMap, podOrigMap map[string]string, subPath string) {
-		changed := false
-
 		syncKey := func(key string) {
 			vmiVal, vmiExists := vmiMap[key]
-			podVal, podExists := podNewMap[key]
-			if vmiExists == podExists && vmiVal == podVal {
-				return
-			}
-			changed = true
 			if !vmiExists {
 				delete(podNewMap, key)
 				return
@@ -791,7 +785,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 			syncKey(pattern)
 		}
 
-		if !changed {
+		if maps.Equal(podOrigMap, podNewMap) {
 			return
 		}
 
@@ -816,6 +810,11 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
 	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
 	dynamicAnnotations = append(dynamicAnnotations, c.storageAnnotationsGenerator.ManagedAnnotationKeys()...)
+
+	// Backfill missing IDs before applying explicitly configured label sync rules.
+	if _, exists := newPodLabels[virtv1.VirtualMachineInstanceIDLabel]; !exists {
+		newPodLabels[virtv1.VirtualMachineInstanceIDLabel] = apimachinery.CalculateVirtualMachineInstanceID(vmi.Name)
+	}
 
 	syncMap(
 		dynamicLabels,
