@@ -11,6 +11,7 @@ go_library(
         "dra.go",
         "eviction.go",
         "framework.go",
+        "ghost_records.go",
         "guest_agent.go",
         "guest_agent_probe_pause.go",
         "pcihole64.go",
