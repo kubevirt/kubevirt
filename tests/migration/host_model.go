@@ -171,10 +171,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			BeforeEach(func() {
-				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client()).Items
-				if len(nodes) == 1 || len(nodes) > 10 {
-					Skip("This test can't run with single node and it's too slow to run with more than 10 nodes") //nolint:forbidigo
-				}
+				schedulableNodes := libnode.GetAllSchedulableNodes(kubevirt.Client()).Items
+				Expect(len(schedulableNodes)).To(BeNumerically(">=", 2), "this test requires at least 2 schedulable nodes")
+				nodes = schedulableNodes
 
 				By("Creating a VMI with default CPU mode")
 				vmi = libvmifact.NewGuestless(
