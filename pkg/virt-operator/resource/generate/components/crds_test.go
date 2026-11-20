@@ -370,7 +370,77 @@ var _ = Describe("CRDs", func() {
 			"VirtualMachine", "test-vm", "test-checkpoint", timestamp,
 		),
 	)
+
+	DescribeTable("CRD served only on deprecated versions should not be in the \"all\" category", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
+		crd, err := crdFunc()
+		Expect(err).ToNot(HaveOccurred())
+		if !servedOnlyOnDeprecatedVersions(crd) {
+			return
+		}
+		Expect(crd.Spec.Names.Categories).ToNot(ContainElement("all"),
+			"%s is served only on deprecated versions, so listing it under \"all\" makes every "+
+				"\"kubectl get all\" emit its deprecation warning", crd.ObjectMeta.Name)
+	},
+		crdEntries(),
+	)
 })
+
+type crdConstructor struct {
+	name string
+	fn   func() (*extv1.CustomResourceDefinition, error)
+}
+
+// allCrdConstructors returns every CRD virt-operator generates, for tests
+// asserting a property that should hold across all of them.
+func allCrdConstructors() []crdConstructor {
+	return []crdConstructor{
+		{"VirtualMachineInstance", NewVirtualMachineInstanceCrd},
+		{"VirtualMachine", NewVirtualMachineCrd},
+		{"VirtualMachineInstancePreset", NewPresetCrd},
+		{"VirtualMachineInstanceReplicaSet", NewReplicaSetCrd},
+		{"VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd},
+		{"KubeVirt", NewKubeVirtCrd},
+		{"VirtualMachinePool", NewVirtualMachinePoolCrd},
+		{"VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd},
+		{"VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd},
+		{"VirtualMachineRestore", NewVirtualMachineRestoreCrd},
+		{"VirtualMachineExport", NewVirtualMachineExportCrd},
+		{"VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd},
+		{"VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd},
+		{"VirtualMachinePreference", NewVirtualMachinePreferenceCrd},
+		{"VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd},
+		{"VirtualMachineClone", NewVirtualMachineCloneCrd},
+		{"MigrationPolicy", NewMigrationPolicyCrd},
+		{"VirtualMachineBackup", NewVirtualMachineBackupCrd},
+		{"VirtualMachineBackupTracker", NewVirtualMachineBackupTrackerCrd},
+		{"Plugin", NewPluginCrd},
+	}
+}
+
+func crdEntries() []TableEntry {
+	constructors := allCrdConstructors()
+	entries := make([]TableEntry, 0, len(constructors))
+	for _, c := range constructors {
+		entries = append(entries, Entry(fmt.Sprintf("for %s", c.name), c.fn))
+	}
+	return entries
+}
+
+// servedOnlyOnDeprecatedVersions reports whether every version the API server
+// still serves for this CRD is marked deprecated.
+func servedOnlyOnDeprecatedVersions(crd *extv1.CustomResourceDefinition) bool {
+	var served int
+	for _, version := range crd.Spec.Versions {
+		if !version.Served {
+			continue
+		}
+		if !version.Deprecated {
+			return false
+		}
+		served++
+	}
+	return served > 0
+}
 
 func createTime() metav1.Time {
 	p, err := time.Parse(time.RFC3339, timestamp)
