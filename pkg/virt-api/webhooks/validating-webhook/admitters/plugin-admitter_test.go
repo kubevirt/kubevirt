@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 )
 
 var _ = Describe("Validating Plugin Admitter", func() {
@@ -50,7 +50,7 @@ var _ = Describe("Validating Plugin Admitter", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.PluginsGate},
+						FeatureGates: []string{legacy.PluginsGate},
 					},
 				},
 			},
@@ -62,7 +62,7 @@ var _ = Describe("Validating Plugin Admitter", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.PluginsGate},
+						DisabledFeatureGates: []string{legacy.PluginsGate},
 					},
 				},
 			},

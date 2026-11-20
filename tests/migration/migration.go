@@ -29,6 +29,8 @@ import (
 	"sync"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -60,7 +62,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -1141,16 +1143,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var clusterIsRoot bool
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.HasFeature(legacy.Root)
 				if !clusterIsRoot {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				}
 			})
 			AfterEach(func() {
 				if !clusterIsRoot {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				} else {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				}
 			})
 
@@ -1168,7 +1170,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("0"))
 
-				kvconfig.DisableFeatureGate(featuregate.Root)
+				kvconfig.DisableFeatureGate(legacy.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -1225,16 +1227,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			size := "256Mi"
 
 			BeforeEach(func() {
-				clusterIsRoot = checks.HasFeature(featuregate.Root)
+				clusterIsRoot = checks.HasFeature(legacy.Root)
 				if clusterIsRoot {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				}
 			})
 			AfterEach(func() {
 				if clusterIsRoot {
-					kvconfig.EnableFeatureGate(featuregate.Root)
+					kvconfig.EnableFeatureGate(legacy.Root)
 				} else {
-					kvconfig.DisableFeatureGate(featuregate.Root)
+					kvconfig.DisableFeatureGate(legacy.Root)
 				}
 			})
 
@@ -1254,7 +1256,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Checking that the launcher is running as root")
 				Expect(getIdOfLauncher(vmi)).To(Equal("107"))
 
-				kvconfig.EnableFeatureGate(featuregate.Root)
+				kvconfig.EnableFeatureGate(legacy.Root)
 
 				By("Starting new migration and waiting for it to succeed")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -2151,10 +2153,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		Context("with downtime tuning", Serial, func() {
 			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+				kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 			})
 			AfterEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+				kvconfig.DisableFeatureGate(fgcompute.MigrationDowntimeTuning)
 			})
 
 			It("should migrate with downtime tuning and confirm via API and logs", func() {
@@ -2252,15 +2254,15 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
-				hadMigrationDowntimeTuning := checks.HasFeature(featuregate.MigrationDowntimeTuning)
+				hadMigrationDowntimeTuning := checks.HasFeature(fgcompute.MigrationDowntimeTuning)
 				if !hadMigrationDowntimeTuning {
-					kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+					kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 				}
 				DeferCleanup(func() {
 					if hadMigrationDowntimeTuning {
-						kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
+						kvconfig.EnableFeatureGate(fgcompute.MigrationDowntimeTuning)
 					} else {
-						kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
+						kvconfig.DisableFeatureGate(fgcompute.MigrationDowntimeTuning)
 					}
 				})
 

@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 var _ = Describe("Add/Remove Volume Subresource api", func() {
@@ -93,7 +93,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+						DisabledFeatureGates: []string{storage.DeclarativeHotplugVolumesGate},
 					},
 				},
 			},
@@ -171,7 +171,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
 
-				if featureGate == featuregate.HotplugVolumesGate {
+				if featureGate == storage.HotplugVolumesGate {
 					patchedVM := vm.DeepCopy()
 					patchedVM.Status.VolumeRequests = append(patchedVM.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{AddVolumeOptions: addOpts, RemoveVolumeOptions: removeOpts})
 
@@ -323,11 +323,11 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	}
 
 	Context("With DeclarativeHotplugVolumes feature gate", func() {
-		VolumeUpdateTests(featuregate.DeclarativeHotplugVolumesGate)
+		VolumeUpdateTests(storage.DeclarativeHotplugVolumesGate)
 	})
 
 	Context("With HotplugVolumes feature gate", func() {
-		VolumeUpdateTests(featuregate.HotplugVolumesGate)
+		VolumeUpdateTests(storage.HotplugVolumesGate)
 	})
 
 	DescribeTable("Should handle VMI with owner and", func(addOpts *v1.AddVolumeOptions, removeOpts *v1.RemoveVolumeOptions, code int, featuregates ...string) {
@@ -374,26 +374,26 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		}, nil, http.StatusBadRequest, storage.DeclarativeHotplugVolumesGate),
 		Entry("Accept Add with HotplugVolumes", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate),
+		}, nil, http.StatusAccepted, storage.HotplugVolumesGate),
 		Entry("Accept Add with both featuregates", &v1.AddVolumeOptions{
 			Name:         "vol1",
 			Disk:         &v1.Disk{},
 			VolumeSource: &v1.HotplugVolumeSource{},
-		}, nil, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
+		}, nil, http.StatusAccepted, storage.HotplugVolumesGate, storage.DeclarativeHotplugVolumesGate),
 		Entry("Reject Remove with DeclarativeHotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, http.StatusBadRequest, featuregate.DeclarativeHotplugVolumesGate),
+		}, http.StatusBadRequest, storage.DeclarativeHotplugVolumesGate),
 		Entry("Accept Remove with HotplugVolumes", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, http.StatusAccepted, featuregate.HotplugVolumesGate),
+		}, http.StatusAccepted, storage.HotplugVolumesGate),
 		Entry("Accept Remove with both featuregates", nil, &v1.RemoveVolumeOptions{
 			Name: "hotpluggedPVC",
-		}, http.StatusAccepted, featuregate.HotplugVolumesGate, featuregate.DeclarativeHotplugVolumesGate),
+		}, http.StatusAccepted, storage.HotplugVolumesGate, storage.DeclarativeHotplugVolumesGate),
 	)
 
 	DescribeTable("should block ephemeral disk changes while an external transaction is prepared", func(volumeRequest *v1.VirtualMachineVolumeRequest) {
@@ -412,7 +412,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	)
 	DescribeTable("should ignore an overlay annotation without controller-managed overlay state", func(externalEnabled bool) {
 		if externalEnabled {
-			enableFeatureGates(featuregate.ExternalVMSnapshotGate)
+			enableFeatureGates(storage.ExternalVMSnapshotGate)
 		}
 		vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithNamespace(metav1.NamespaceDefault), libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
 		vmi.Status.Phase = v1.Running

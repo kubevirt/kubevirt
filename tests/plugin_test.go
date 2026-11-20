@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmicloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -71,7 +71,7 @@ const (
 var _ = Describe("[sig-compute]Plugin launcher hooks", Serial, decorators.SigCompute, decorators.RequiresPlugins, func() {
 
 	BeforeEach(func() {
-		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
+		checks.FailTestIfNoFeatureGate(legacy.PluginsGate)
 	})
 
 	createPlugin := func(plugin *pluginv1alpha1.Plugin) {
@@ -644,7 +644,7 @@ var _ = Describe("[sig-compute]Plugin node hooks", Serial, decorators.SigCompute
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		checks.FailTestIfNoFeatureGate(featuregate.PluginsGate)
+		checks.FailTestIfNoFeatureGate(legacy.PluginsGate)
 	})
 
 	It("should execute PreVMStart node hook and create a marker file", func() {

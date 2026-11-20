@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -53,7 +55,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -3498,7 +3499,7 @@ var _ = Describe("VirtualMachine", func() {
 
 				if !enableFeatureGate {
 					kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-						DisabledFeatureGates: []string{featuregate.IncrementalBackupGate},
+						DisabledFeatureGates: []string{fgstorage.IncrementalBackupGate},
 					}
 				}
 

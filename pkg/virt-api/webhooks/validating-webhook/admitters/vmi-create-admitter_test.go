@@ -26,6 +26,11 @@ import (
 	"runtime"
 	"strings"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -86,7 +91,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{
 						FeatureGates:         make([]string, 0),
-						DisabledFeatureGates: []string{featuregate.DeclarativeHotplugVolumesGate},
+						DisabledFeatureGates: []string{fgstorage.DeclarativeHotplugVolumesGate},
 					},
 				},
 			},
@@ -114,9 +119,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	DescribeTable("ContainerPath feature gate on VMI creation", func(enabled, allowed bool) {
 		if enabled {
-			enableFeatureGates(featuregate.ContainerPathVolumesGate)
+			enableFeatureGates(fgstorage.ContainerPathVolumesGate)
 		} else {
-			withDisabledFeatureGates(featuregate.ContainerPathVolumesGate)
+			withDisabledFeatureGates(fgstorage.ContainerPathVolumesGate)
 		}
 		vmi := newBaseVmi()
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -185,7 +190,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("with the feature gate enabled", func() {
 			BeforeEach(func() {
-				enableFeatureGates(featuregate.DeclarativeVMState)
+				enableFeatureGates(fgstorage.DeclarativeVMState)
 			})
 
 			It("should reject when neither volumeClaimTemplate nor source is set", func() {
@@ -605,11 +610,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 			Entry("with ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
-				featuregate.IgnitionGate,
+				fglegacy.IgnitionGate,
 			),
 			Entry("with sidecar feature gate enabled",
 				map[string]string{hooks.HookSidecarListAnnotationName: "[{'image': 'fake-image'}]"},
-				featuregate.SidecarGate,
+				fglegacy.SidecarGate,
 			),
 		)
 	})
@@ -746,7 +751,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 			})
 
-			enableFeatureGates(featuregate.DeclarativeHotplugVolumesGate)
+			enableFeatureGates(fgstorage.DeclarativeHotplugVolumesGate)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
@@ -766,7 +771,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			disableDeclarativeHotplugFeatureGate()
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.DeclarativeHotplugVolumesGate)))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", fgstorage.DeclarativeHotplugVolumesGate)))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
 		It("should allow supported audio devices", func() {
@@ -1540,12 +1545,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		},
 			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
-			Entry("PVC should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("PVC should be accepted when feature gate is enabled", fgstorage.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
 			Entry("DV should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("DV should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("DV should be accepted when feature gate is enabled", fgstorage.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
 			Entry("configmap should be accepted when the feature gate is disabled", "", true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("PVC should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemPVC("sharedtestdisk")),
-			Entry("DV should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("PVC should be rejected when the deprecated feature gate is enabled", fgstorage.VirtIOFSGate, false, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("DV should be rejected when the deprecated feature gate is enabled", fgstorage.VirtIOFSGate, false, libvmi.WithFilesystemDV("sharedtestdisk")),
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {
@@ -1563,7 +1568,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA GPU", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.GPUsWithDRAGate)
+			enableFeatureGates(fgnetwork.NetworkDevicesWithDRAGate, fglegacy.GPUsWithDRAGate)
 			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
@@ -1599,7 +1604,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject duplicate claimName/requestName between DRA network and DRA HostDevice", func() {
-			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate, featuregate.HostDevicesGate, featuregate.HostDevicesWithDRAGate)
+			enableFeatureGates(fgnetwork.NetworkDevicesWithDRAGate, fglegacy.HostDevicesGate, fglegacy.HostDevicesWithDRAGate)
 			defer disableFeatureGates()
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Networks = []v1.Network{
@@ -1636,7 +1641,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fglegacy.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -1659,7 +1664,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should accept permitted host devices", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fglegacy.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				PciHostDevices: []v1.PciHostDevice{
 					{
@@ -1965,7 +1970,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject NUMA passthrough when CPUsWithDRA feature gate is enabled", func() {
-			enableFeatureGates(featuregate.CPUsWithDRAGate)
+			enableFeatureGates(fgcompute.CPUsWithDRAGate)
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "2Mi"}}
 			vmi.Spec.Domain.CPU.Cores = 4
 			vmi.Spec.Domain.CPU.NUMA = &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}}
@@ -2398,7 +2403,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single virtio serial", func() {
-			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(fglegacy.DownwardMetricsFeatureGate)
 			causes := validate()
 			Expect(causes).To(BeEmpty())
 		})
@@ -2420,7 +2425,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a single downwardmetrics volume", func() {
-			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(fglegacy.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testDownwardMetrics",
@@ -2447,7 +2452,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject downwardMetrics volumes if more than one exist", func() {
-			enableFeatureGates(featuregate.DownwardMetricsFeatureGate)
+			enableFeatureGates(fglegacy.DownwardMetricsFeatureGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes,
 				v1.Volume{
@@ -2485,7 +2490,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
-			enableFeatureGates(featuregate.HostDiskGate)
+			enableFeatureGates(fglegacy.HostDiskGate)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testHostDisk",
@@ -2805,36 +2810,36 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should accept ARM64 EFI with SecureBoot and without SMM when feature gate is enabled", func() {
-				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot, featuregate.FirmwareAutoSelection)
+				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.ARM64SecureBoot, fgcompute.FirmwareAutoSelection)
 
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
 			})
 
 			It("should reject ARM64 EFI with SecureBoot when ARM64SecureBoot feature gate is disabled", func() {
-				enableFeatureGates(featuregate.MultiArchitecture, featuregate.FirmwareAutoSelection)
+				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.FirmwareAutoSelection)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fgcompute.ARM64SecureBoot)))
 			})
 
 			It("should reject ARM64 EFI with SecureBoot when FirmwareAutoSelection feature gate is disabled", func() {
-				enableFeatureGates(featuregate.MultiArchitecture, featuregate.ARM64SecureBoot)
+				enableFeatureGates(fgcompute.MultiArchitecture, fgcompute.ARM64SecureBoot)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", fgcompute.FirmwareAutoSelection)))
 			})
 
 			It("should reject ARM64 EFI with SecureBoot when both feature gates are disabled", func() {
-				enableFeatureGates(featuregate.MultiArchitecture)
+				enableFeatureGates(fgcompute.MultiArchitecture)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(2))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.ARM64SecureBoot)))
-				Expect(causes[1].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", featuregate.FirmwareAutoSelection)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fgcompute.ARM64SecureBoot)))
+				Expect(causes[1].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is required for ARM64 Secure Boot", fgcompute.FirmwareAutoSelection)))
 			})
 
 			It("should accept ARM64 EFI without SecureBoot and without ARM64SecureBoot feature gate", func() {
-				enableFeatureGates(featuregate.MultiArchitecture)
+				enableFeatureGates(fgcompute.MultiArchitecture)
 				vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(false)
 
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -2858,7 +2863,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject SecureBoot on unsupported architectures", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
+			enableFeatureGates(fgcompute.MultiArchitecture)
 			vmi.Spec.Architecture = "riscv64"
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
@@ -3074,7 +3079,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Architecture = "amd64"
-			enableFeatureGates(featuregate.WorkloadEncryptionSEV)
+			enableFeatureGates(fglegacy.WorkloadEncryptionSEV)
 		})
 
 		It("should accept when the feature gate is enabled and OVMF is configured", func() {
@@ -3083,10 +3088,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
+			withDisabledFeatureGates(fglegacy.WorkloadEncryptionSEV)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fglegacy.WorkloadEncryptionSEV)))
 		})
 
 		It("should reject when UEFI is not configured", func() {
@@ -3166,10 +3171,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject when the feature gate is disabled", func() {
-				withDisabledFeatureGates(featuregate.WorkloadEncryptionSEV)
+				withDisabledFeatureGates(fglegacy.WorkloadEncryptionSEV)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fglegacy.WorkloadEncryptionSEV)))
 			})
 
 			It("should reject when persistent EFI variables are enabled", func() {
@@ -3226,7 +3231,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			vmi.Spec.Architecture = "amd64"
-			enableFeatureGates(featuregate.WorkloadEncryptionTDX)
+			enableFeatureGates(fglegacy.WorkloadEncryptionTDX)
 		})
 
 		It("should reject when SMM is enabled", func() {
@@ -3280,7 +3285,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			disableFeatureGates()
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionTDX)))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fglegacy.WorkloadEncryptionTDX)))
 		})
 
 		It("should reject when UEFI is not configured", func() {
@@ -3351,11 +3356,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		Context("feature gate disabled", func() {
 			It("should reject when the feature gate is disabled", func() {
-				withDisabledFeatureGates(featuregate.VSOCKGate)
+				withDisabledFeatureGates(fglegacy.VSOCKGate)
 				vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.VSOCKGate)))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", fglegacy.VSOCKGate)))
 			})
 		})
 	})
@@ -4300,7 +4305,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject rebootPolicy when feature gate is disabled", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.RebootPolicy}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{fgcompute.RebootPolicy}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 			vmi := libvmi.New(
@@ -4312,7 +4317,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy)))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", fgcompute.RebootPolicy)))
 			Expect(causes[0].Field).To(Equal("fake.domain.rebootPolicy"))
 		})
 	})
@@ -4338,7 +4343,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a GPU that sets both deviceName and claimRequest", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
+			enableFeatureGates(fglegacy.GPUsWithDRAGate)
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
 				libvmi.WithResourceMemory("128M"),
@@ -4368,7 +4373,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 		It("should reject a DRA-GPU when the feature-gate is NOT enabled", func() {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.GPUsWithDRAGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{fglegacy.GPUsWithDRAGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			defer disableFeatureGates()
 
@@ -4399,7 +4404,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject a DRA-GPU if its claim is missing from spec.resourceClaims", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
+			enableFeatureGates(fglegacy.GPUsWithDRAGate)
 
 			vmi := libvmi.New()
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
@@ -4421,7 +4426,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept a DRA-GPU when the gate is enabled and the claim is listed", func() {
-			enableFeatureGates(featuregate.GPUsWithDRAGate)
+			enableFeatureGates(fglegacy.GPUsWithDRAGate)
 
 			vmi := libvmi.New(
 				libvmi.WithArchitecture(runtime.GOARCH),
@@ -4475,10 +4480,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(ContainSubstring(fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization)))
+			Expect(resp.Result.Message).To(ContainSubstring(fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", fgcompute.CrossArchitectureVirtualization)))
 		})
 		It("should reject unkown value", func() {
-			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			enableFeatureGates(fgcompute.CrossArchitectureVirtualization)
 			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicy("foo"))
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
@@ -4489,7 +4494,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result.Message).To(ContainSubstring("Unknown EmulationPolicy 'foo', allowed values are"))
 		})
 		DescribeTable("should accept valid values", func(value v1.EmulationPolicy) {
-			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			enableFeatureGates(fgcompute.CrossArchitectureVirtualization)
 			vmi.Spec.EmulationPolicy = pointer.P(value)
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
@@ -4502,7 +4507,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("Software", v1.EmulationPolicySoftware),
 		)
 		It("should reject Hardware value", func() {
-			enableFeatureGates(featuregate.CrossArchitectureVirtualization)
+			enableFeatureGates(fgcompute.CrossArchitectureVirtualization)
 			vmi.Spec.EmulationPolicy = pointer.P(v1.EmulationPolicyHardware)
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)

@@ -17,19 +17,18 @@
  *
  */
 
-package featuregate
+package legacy
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
-const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+const IgnitionGate = "ExperimentalIgnitionSupport"
 
-func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedMacvtap != nil {
-			return true
-		}
-	}
-	return false
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: IgnitionGate, State: featuregate.Alpha})
+}
+
+func (g LegacyFeatureGates) IgnitionEnabled() bool {
+	return featuregate.GateEnabled(IgnitionGate, g.ConfigReader)
 }

@@ -40,7 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 var _ = Describe("Validating MigrationPolicy Admitter", func() {
@@ -55,7 +55,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationStallDetection},
+					FeatureGates: []string{compute.MigrationStallDetection},
 				},
 			},
 		},
@@ -81,7 +81,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	BeforeEach(func() {
 		admitter = NewMigrationPolicyAdmitter(config)
 		policyName = "test-policy"
-		enableFeatureGate(featuregate.MigrationStallDetection)
+		enableFeatureGate(compute.MigrationStallDetection)
 	})
 
 	AfterEach(func() {
@@ -260,7 +260,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 		Entry("reject on create without gate", "", false, nil, pointer.P(uint64(900)), false),
 		Entry("allow unchanged update without gate", "", true, pointer.P(uint64(900)), pointer.P(uint64(900)), true),
 		Entry("reject changing value without gate", "", true, pointer.P(uint64(500)), pointer.P(uint64(900)), false),
-		Entry("allow on create with MigrationDowntimeTuning", featuregate.MigrationDowntimeTuning, false, nil, pointer.P(uint64(900)), true),
+		Entry("allow on create with MigrationDowntimeTuning", compute.MigrationDowntimeTuning, false, nil, pointer.P(uint64(900)), true),
 	)
 
 	DescribeTable("experimental.downtimeTuning feature gate validation when feature gate is disabled",

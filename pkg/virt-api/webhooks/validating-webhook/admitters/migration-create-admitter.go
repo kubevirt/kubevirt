@@ -38,7 +38,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -153,7 +153,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 		if !config.DecentralizedLiveMigrationEnabled() {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", compute.DecentralizedLiveMigration),
 			}})
 		}
 		// Check to make sure if both sendTo and receive are set, that the migrationID matches in both.

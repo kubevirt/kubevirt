@@ -77,6 +77,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
@@ -1331,23 +1333,23 @@ func disableFeatureGate(kv *v1.KubeVirt, fg string) {
 }
 
 func disableTemplateFeatureGate(kv *v1.KubeVirt) {
-	disableFeatureGate(kv, featuregate.Template)
+	disableFeatureGate(kv, compute.Template)
 }
 
 func enableContainerPathVolumesFeatureGate(kv *v1.KubeVirt) {
-	enableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+	enableFeatureGate(kv, storage.ContainerPathVolumesGate)
 }
 
 func containerPathVolumesEnabled(kv *v1.KubeVirt) bool {
-	return featuregate.IsEnabled(featuregate.ContainerPathVolumesGate, kv.Spec.Configuration.DeveloperConfiguration)
+	return featuregate.IsEnabled(storage.ContainerPathVolumesGate, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func synchronizationControllerEnabled(kv *v1.KubeVirt) bool {
-	return featuregate.IsEnabled(featuregate.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration)
+	return featuregate.IsEnabled(compute.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func virtTemplateDeploymentEnabled(kv *v1.KubeVirt) bool {
-	if !featuregate.IsEnabled(featuregate.Template, kv.Spec.Configuration.DeveloperConfiguration) {
+	if !featuregate.IsEnabled(compute.Template, kv.Spec.Configuration.DeveloperConfiguration) {
 		return false
 	}
 	virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
@@ -4101,8 +4103,8 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates:         []string{featuregate.ContainerPathVolumesGate},
-							DisabledFeatureGates: []string{featuregate.Template},
+							FeatureGates:         []string{storage.ContainerPathVolumesGate},
+							DisabledFeatureGates: []string{compute.Template},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(true),
@@ -4118,7 +4120,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.ContainerPathVolumesGate},
+							FeatureGates: []string{storage.ContainerPathVolumesGate},
 						},
 						VirtTemplateDeployment: &v1.VirtTemplateDeployment{
 							Enabled: pointer.P(false),
@@ -4263,7 +4265,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			disableTemplateFeatureGate(kv)
 			if disabled {
-				disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+				disableFeatureGate(kv, storage.ContainerPathVolumesGate)
 			}
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
@@ -4319,7 +4321,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			newKv := kv.DeepCopy()
 			newKv.ObjectMeta.Generation = 2
 			newKv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				DisabledFeatureGates: []string{featuregate.ContainerPathVolumesGate},
+				DisabledFeatureGates: []string{storage.ContainerPathVolumesGate},
 			}
 			newConfig := util.GetTargetConfigFromKVWithEnvVarManager(newKv, kvTestData.mockEnvVarManager)
 
@@ -4361,7 +4363,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			disableTemplateFeatureGate(kv)
-			disableFeatureGate(kv, featuregate.ContainerPathVolumesGate)
+			disableFeatureGate(kv, storage.ContainerPathVolumesGate)
 			config := util.GetTargetConfigFromKVWithEnvVarManager(kv, kvTestData.mockEnvVarManager)
 
 			// Create new KV with ContainerPathVolumes enabled

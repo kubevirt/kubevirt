@@ -28,6 +28,10 @@ import (
 	"sort"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	_ "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	_ "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	_ "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+	_ "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 )
 
 type featureGateEntry struct {

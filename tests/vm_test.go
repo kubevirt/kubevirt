@@ -50,7 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -508,9 +508,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		)
 
 		It("[test_id:6869]should report an error status when image pull error occurs", Serial, decorators.Conformance, decorators.WgS390x, func() {
-			if checks.HasFeature(featuregate.ImageVolume) {
-				config.DisableFeatureGate(featuregate.ImageVolume)
-				DeferCleanup(config.EnableFeatureGate, featuregate.ImageVolume)
+			if checks.HasFeature(legacy.ImageVolume) {
+				config.DisableFeatureGate(legacy.ImageVolume)
+				DeferCleanup(config.EnableFeatureGate, legacy.ImageVolume)
 			}
 
 			vmi := libvmi.New(

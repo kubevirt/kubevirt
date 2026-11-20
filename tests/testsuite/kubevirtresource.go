@@ -28,6 +28,10 @@ import (
 	"strings"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	"github.com/coreos/go-semver/semver"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,7 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -108,21 +112,21 @@ func AdjustKubeVirtResource() {
 	unsupportedGates := unsupportedFeatureGatesForArch(arch)
 
 	for _, gate := range []string{
-		featuregate.CPUManager,
-		featuregate.IgnitionGate,
-		featuregate.SidecarGate,
-		featuregate.ExternalVMSnapshotGate,
-		featuregate.OfflineIncrementalBackupGate,
-		featuregate.HostDiskGate,
-		featuregate.VirtIOFSStorageVolumeGate,
-		featuregate.DownwardMetricsFeatureGate,
-		featuregate.WorkloadEncryptionSEV,
-		featuregate.ObjectGraph,
-		featuregate.DeclarativeVMState,
-		featuregate.DeclarativeHotplugVolumesGate,
-		featuregate.DecentralizedLiveMigration,
-		featuregate.UtilityVolumesGate,
-		featuregate.RebootPolicy,
+		fglegacy.CPUManager,
+		fglegacy.IgnitionGate,
+		fglegacy.SidecarGate,
+		fgstorage.ExternalVMSnapshotGate,
+		fgstorage.OfflineIncrementalBackupGate,
+		fglegacy.HostDiskGate,
+		fgstorage.VirtIOFSStorageVolumeGate,
+		fglegacy.DownwardMetricsFeatureGate,
+		fglegacy.WorkloadEncryptionSEV,
+		fgstorage.ObjectGraph,
+		fgstorage.DeclarativeVMState,
+		fgstorage.DeclarativeHotplugVolumesGate,
+		fgcompute.DecentralizedLiveMigration,
+		fgstorage.UtilityVolumesGate,
+		fgcompute.RebootPolicy,
 	} {
 		if !unsupportedGates[gate] {
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(
@@ -137,7 +141,7 @@ func AdjustKubeVirtResource() {
 	if semver.New(k8sVersion).LessThan(*semver.New("1.35.0")) {
 		kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = append(
 			kv.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates,
-			featuregate.ImageVolume,
+			fglegacy.ImageVolume,
 		)
 	}
 	kv.Spec.Configuration.ChangedBlockTrackingLabelSelectors = &v1.ChangedBlockTrackingSelectors{
@@ -263,8 +267,8 @@ func unsupportedFeatureGatesForArch(arch string) map[string]bool {
 	switch arch {
 	case "s390x":
 		return map[string]bool{
-			featuregate.CPUManager:            true,
-			featuregate.WorkloadEncryptionSEV: true,
+			fglegacy.CPUManager:            true,
+			fglegacy.WorkloadEncryptionSEV: true,
 		}
 	default:
 		return nil

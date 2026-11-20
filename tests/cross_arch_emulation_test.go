@@ -22,6 +22,8 @@ package tests_test
 import (
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,7 +33,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -46,7 +47,7 @@ import (
 var _ = Describe("[sig-compute]Cross-architecture software emulation", Serial, decorators.SigCompute, decorators.RequiresCrossArchEmulation, func() {
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.CrossArchitectureVirtualization)
+		config.EnableFeatureGate(fgcompute.CrossArchitectureVirtualization)
 	})
 
 	DescribeTable("should boot a guest using QEMU TCG emulation on a cross-architecture host",

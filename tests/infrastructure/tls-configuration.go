@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -34,7 +36,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,8 +76,8 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 
 var _ = Describe(SIGSerial("tls group preferences", func() {
 	BeforeEach(func() {
-		config.EnableFeatureGate(featuregate.TLSGroupPreferences)
-		DeferCleanup(config.DisableFeatureGate, featuregate.TLSGroupPreferences)
+		config.EnableFeatureGate(fgcompute.TLSGroupPreferences)
+		DeferCleanup(config.DisableFeatureGate, fgcompute.TLSGroupPreferences)
 	})
 
 	DescribeTable("should enforce configured TLS groups", decorators.WgS390x,
