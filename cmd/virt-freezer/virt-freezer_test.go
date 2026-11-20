@@ -29,7 +29,19 @@ var _ = Describe("Freezer", func() {
 			Namespace: "default",
 		}
 		guestInfo = &v1.VirtualMachineInstanceGuestAgentInfo{
-			GAVersion: "1.0",
+			// Basic required commands from guestagent.go
+			SupportedCommands: []v1.GuestAgentCommandInfo{
+				{Name: "guest-ping", Enabled: true},
+				{Name: "guest-get-time", Enabled: true},
+				{Name: "guest-info", Enabled: true},
+				{Name: "guest-shutdown", Enabled: true},
+				{Name: "guest-network-get-interfaces", Enabled: true},
+				{Name: "guest-get-fsinfo", Enabled: true},
+				{Name: "guest-get-host-name", Enabled: true},
+				{Name: "guest-get-users", Enabled: true},
+				{Name: "guest-get-timezone", Enabled: true},
+				{Name: "guest-get-osinfo", Enabled: true},
+			},
 		}
 	})
 

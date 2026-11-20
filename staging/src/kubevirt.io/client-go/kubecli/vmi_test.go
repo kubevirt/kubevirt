@@ -384,9 +384,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
 		Expect(err).ToNot(HaveOccurred())
 
-		osInfo := v1.VirtualMachineInstanceGuestAgentInfo{
-			GAVersion: "4.1.1",
-		}
+		osInfo := v1.VirtualMachineInstanceGuestAgentInfo{}
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "guestosinfo")),
