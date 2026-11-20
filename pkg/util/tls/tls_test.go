@@ -162,6 +162,18 @@ var _ = Describe("TLS", func() {
 			components.VirtHandlerCertSecretName,
 			"x509: certificate specifies an incompatible key usage",
 		),
+		Entry(
+			"fail if client uses a client certificate with wrong common name",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtSynchronizationControllerCertSecretName,
+			"remote error: tls: bad certificate",
+		),
+		Entry(
+			"fail if server uses a server certificate with wrong common name",
+			components.VirtSynchronizationControllerServerCertSecretName,
+			components.VirtHandlerCertSecretName,
+			"common name is invalid",
+		),
 	)
 
 	DescribeTable("on virt-handler with externally-managed certificates should", func(serverSecret, clientSecret string, errStr string) {
@@ -204,6 +216,18 @@ var _ = Describe("TLS", func() {
 			components.VirtHandlerCertSecretName,
 			components.VirtHandlerCertSecretName,
 			"x509: certificate specifies an incompatible key usage",
+		),
+		Entry(
+			"fail if client uses a client certificate with wrong common name",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtSynchronizationControllerCertSecretName,
+			"remote error: tls: bad certificate",
+		),
+		Entry(
+			"fail if server uses a server certificate with wrong common name",
+			components.VirtSynchronizationControllerServerCertSecretName,
+			components.VirtHandlerCertSecretName,
+			"common name is invalid",
 		),
 	)
 
