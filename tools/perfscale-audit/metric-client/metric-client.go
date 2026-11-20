@@ -92,10 +92,11 @@ type transport struct {
 }
 
 func (a transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if a.userName != "" {
+	if a.token != "" {
+		req.Header.Set("Authorization", "Bearer "+a.token)
+	} else if a.userName != "" {
 		req.SetBasicAuth(a.userName, a.password)
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", a.token))
 	return a.transport.RoundTrip(req)
 }
 
