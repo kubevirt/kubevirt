@@ -147,7 +147,8 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 		protocol := strings.ToLower(port.Protocol)
 		addressesToSnat := []string{ipLoopback(family)}
 
-		if m.istioEnabled {
+		// Istio only proxies TCP; other protocols must be forwarded directly to the guest.
+		if m.istioEnabled && protocol == "tcp" {
 			var portsToForward []int
 			for _, nonProxiedPort := range istio.NonProxiedPorts() {
 				if int(port.Port) == nonProxiedPort {
@@ -157,16 +158,15 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 			if err := m.forwardPorts(family, guestIP, "tcp", portsToForward...); err != nil {
 				return err
 			}
-
-			if family == nft.IPv4 {
-				addressesToSnat = append(addressesToSnat, istio.GetLoopbackAddress())
-			}
 		} else {
 			if err := m.forwardPorts(family, guestIP, protocol, int(port.Port)); err != nil {
 				return err
 			}
 		}
 
+		if m.istioEnabled && family == nft.IPv4 {
+			addressesToSnat = append(addressesToSnat, istio.GetLoopbackAddress())
+		}
 		addressesToSnatSpec := fmt.Sprintf("{ %s }", strings.Join(addressesToSnat, ", "))
 		gw := guestIPGateway(family, *bridgeIfaceSpec).String()
 		if err := m.nftable.AddRule(family, natTable, kubevirtPostInboundChain, protocol, "dport", strconv.Itoa(int(port.Port)), string(family), "saddr", addressesToSnatSpec, "counter", "snat", "to", gw); err != nil {
@@ -188,7 +188,8 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 		addressesToSnat := []string{ipLoopback(family)}
 		portRangeSpec := fmt.Sprintf("%d-%d", portRange.Start, portRange.End)
 
-		if m.istioEnabled {
+		// Istio only proxies TCP; other protocols must be forwarded directly to the guest.
+		if m.istioEnabled && protocol == "tcp" {
 			var portsToForward []int
 			for _, nonProxiedPort := range istio.NonProxiedPorts() {
 				if int(portRange.Start) <= nonProxiedPort && nonProxiedPort <= int(portRange.End) {
@@ -198,16 +199,15 @@ func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIface
 			if err := m.forwardPorts(family, guestIP, "tcp", portsToForward...); err != nil {
 				return err
 			}
-
-			if family == nft.IPv4 {
-				addressesToSnat = append(addressesToSnat, istio.GetLoopbackAddress())
-			}
 		} else {
 			if err := m.forwardPortRange(family, guestIP, protocol, int(portRange.Start), int(portRange.End)); err != nil {
 				return err
 			}
 		}
 
+		if m.istioEnabled && family == nft.IPv4 {
+			addressesToSnat = append(addressesToSnat, istio.GetLoopbackAddress())
+		}
 		addressesToSnatSpec := fmt.Sprintf("{ %s }", strings.Join(addressesToSnat, ", "))
 		gw := guestIPGateway(family, *bridgeIfaceSpec).String()
 		if err := m.nftable.AddRule(family, natTable, kubevirtPostInboundChain, protocol, "dport", portRangeSpec, string(family), "saddr", addressesToSnatSpec, "counter", "snat", "to", gw); err != nil {
