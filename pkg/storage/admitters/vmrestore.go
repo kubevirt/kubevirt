@@ -205,9 +205,15 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 		return nil, err
 	}
 
-	sourceTargetVmsAreDifferent := errors.IsNotFound(err) || (vmSnapshot.Status.SourceUID != nil && target.UID != *vmSnapshot.Status.SourceUID)
+	// The snapshot controller may not have populated the status yet
+	snapshotStatus := vmSnapshot.Status
+	if snapshotStatus == nil {
+		snapshotStatus = &snapshotv1.VirtualMachineSnapshotStatus{}
+	}
+
+	sourceTargetVmsAreDifferent := errors.IsNotFound(err) || (snapshotStatus.SourceUID != nil && target.UID != *snapshotStatus.SourceUID)
 	if sourceTargetVmsAreDifferent {
-		contentName := vmSnapshot.Status.VirtualMachineSnapshotContentName
+		contentName := snapshotStatus.VirtualMachineSnapshotContentName
 		if contentName == nil {
 			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
 		}
