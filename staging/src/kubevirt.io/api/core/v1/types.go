@@ -3718,6 +3718,13 @@ type ExperimentalMigrationOptions struct {
 	// +kubebuilder:validation:Enum=none;zstd
 	//+optional
 	Compression *MigrationCompression `json:"compression,omitempty"`
+	// ConvergenceTimeoutSec is the maximum number of seconds allowed for the
+	// converge phase after the initial bulk copy.
+	// When unset, the converge phase uses whatever remains of the
+	// CompletionTimeoutPerGiB budget (legacy end-to-end behavior).
+	// +kubebuilder:validation:Minimum=0
+	//+optional
+	ConvergenceTimeoutSec *int64 `json:"convergenceTimeoutSec,omitempty"`
 }
 
 // DowntimeTuningOptions controls how virt-launcher gradually increases
