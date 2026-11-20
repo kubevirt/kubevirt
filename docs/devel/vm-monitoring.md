@@ -67,7 +67,7 @@ No out of order request/responses are possible (e.g. no pipelining or async repl
 This means that if for any reason a QMP request could not be completed, any other caller
 trying to access the QEMU monitor will block until the blocked caller returns.
 
-To retrieve some key informations, most notably about the block device state or the balloon
+To retrieve some key information, most notably about the block device state or the balloon
 device state, the libvirtd daemon *must* use the QMP protocol.
 
 The QEMU core, including the handling of the QMP protocol, is single-threaded.

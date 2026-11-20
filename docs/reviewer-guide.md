@@ -107,7 +107,7 @@ People have to pass the automated check and they have to add unit tests and
 end-to-end tests for their features and fixes. All tests are run and required
 to pass on each PR.
 Maintainers are allowed to take in code with varying quality for as long as the
-project's maintainability is not at stake and all required criterias are met
+project's maintainability is not at stake and all required criteria are met
 (especially the testing and architectural criteria) to be open and inclusive.
 
 The lowest bar for acceptable **coding styles** is enforced via automation:

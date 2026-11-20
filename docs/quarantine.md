@@ -112,7 +112,7 @@ assigned must communicate when the test is expected to be stable.
 
 A test is eligible for de-quarantining once it demonstrates a failure rate of 0.1% or less.
 
-If the SIG believes the flakyness is resolved they can trigger the pull-kubevirt-check-dequarantine-test job by
+If the SIG believes the flakiness is resolved they can trigger the pull-kubevirt-check-dequarantine-test job by
 commenting /test pull-kubevirt-check-dequarantine-test[^1] directly on the dequarantine pull request.
 
 If the periodic test runs confirm the failure rate meets the above criteria the SIG can open a dequarantine PR.
