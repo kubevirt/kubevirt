@@ -24,7 +24,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+
+	restful "github.com/emicklei/go-restful/v3"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -51,6 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -231,6 +236,25 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.template.spec.not-a-domain in body is a forbidden property"))
 			Expect(resp.Result.Details.Causes[1].Message).To(Equal("spec.template.spec.domain in body is required"))
 			Expect(resp.Result.Message).To(Equal("spec.template.spec.not-a-domain in body is a forbidden property, spec.template.spec.domain in body is required"))
+		})
+
+		It("should reject the request with 422 when spec.template is nil", func() {
+			oldValidator := definitions.Validator
+			definitions.Validator = openapi.CreateOpenAPIValidator([]*restful.WebService{})
+			defer func() { definitions.Validator = oldValidator }()
+
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: pointer.P(false),
+				},
+			}
+			resp := admitVm(vmsAdmitter, vm)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueRequired))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("missing virtual machine template."))
 		})
 
 		It("reject syntax valid VM, but with invalid spec", func() {

@@ -21,6 +21,7 @@ package mutators
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	rt "runtime"
 
@@ -49,6 +50,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
+
+	restful "github.com/emicklei/go-restful/v3"
 )
 
 var _ = Describe("VirtualMachine Mutator", func() {
@@ -902,6 +907,17 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			resp := mutator.Mutate(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
+		})
+
+		It("should allow mutation and not panic if spec.template is nil", func() {
+			oldValidator := definitions.Validator
+			definitions.Validator = openapi.CreateOpenAPIValidator([]*restful.WebService{})
+			defer func() { definitions.Validator = oldValidator }()
+
+			vm.Spec.Template = nil
+			resp := admitVM(admissionv1.Create)
+			Expect(resp.Allowed).To(BeTrue(), fmt.Sprintf("Result: %+v", resp.Result))
+			Expect(resp.Patch).To(BeNil())
 		})
 
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
