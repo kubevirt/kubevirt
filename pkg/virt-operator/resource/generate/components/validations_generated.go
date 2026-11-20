@@ -7686,7 +7686,7 @@ var CRDsValidation map[string]string = map[string]string{
                         cores:
                           description: |-
                             Cores specifies the number of cores inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
                           format: int32
                           type: integer
                         dedicatedCpuPlacement:
@@ -7761,13 +7761,15 @@ var CRDsValidation map[string]string = map[string]string{
                         sockets:
                           description: |-
                             Sockets specifies the number of sockets inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
+                            If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                            the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                           format: int32
                           type: integer
                         threads:
                           description: |-
                             Threads specifies the number of threads inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
                           format: int32
                           type: integer
                       type: object
@@ -14360,7 +14362,7 @@ var CRDsValidation map[string]string = map[string]string{
                 cores:
                   description: |-
                     Cores specifies the number of cores inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
                   format: int32
                   type: integer
                 dedicatedCpuPlacement:
@@ -14435,13 +14437,15 @@ var CRDsValidation map[string]string = map[string]string{
                 sockets:
                   description: |-
                     Sockets specifies the number of sockets inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
+                    If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                    the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                   format: int32
                   type: integer
                 threads:
                   description: |-
                     Threads specifies the number of threads inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
                   format: int32
                   type: integer
               type: object
@@ -18976,7 +18980,7 @@ var CRDsValidation map[string]string = map[string]string{
                 cores:
                   description: |-
                     Cores specifies the number of cores inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
                   format: int32
                   type: integer
                 dedicatedCpuPlacement:
@@ -19051,13 +19055,15 @@ var CRDsValidation map[string]string = map[string]string{
                 sockets:
                   description: |-
                     Sockets specifies the number of sockets inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
+                    If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                    the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                   format: int32
                   type: integer
                 threads:
                   description: |-
                     Threads specifies the number of threads inside the vmi.
-                    Must be a value greater or equal 1.
+                    Defaults to 1 if omitted or set to 0.
                   format: int32
                   type: integer
               type: object
@@ -21571,7 +21577,7 @@ var CRDsValidation map[string]string = map[string]string{
                         cores:
                           description: |-
                             Cores specifies the number of cores inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
                           format: int32
                           type: integer
                         dedicatedCpuPlacement:
@@ -21646,13 +21652,15 @@ var CRDsValidation map[string]string = map[string]string{
                         sockets:
                           description: |-
                             Sockets specifies the number of sockets inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
+                            If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                            the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                           format: int32
                           type: integer
                         threads:
                           description: |-
                             Threads specifies the number of threads inside the vmi.
-                            Must be a value greater or equal 1.
+                            Defaults to 1 if omitted or set to 0.
                           format: int32
                           type: integer
                       type: object
@@ -27002,7 +27010,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 cores:
                                   description: |-
                                     Cores specifies the number of cores inside the vmi.
-                                    Must be a value greater or equal 1.
+                                    Defaults to 1 if omitted or set to 0.
                                   format: int32
                                   type: integer
                                 dedicatedCpuPlacement:
@@ -27079,13 +27087,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 sockets:
                                   description: |-
                                     Sockets specifies the number of sockets inside the vmi.
-                                    Must be a value greater or equal 1.
+                                    Defaults to 1 if omitted or set to 0.
+                                    If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                                    the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                                   format: int32
                                   type: integer
                                 threads:
                                   description: |-
                                     Threads specifies the number of threads inside the vmi.
-                                    Must be a value greater or equal 1.
+                                    Defaults to 1 if omitted or set to 0.
                                   format: int32
                                   type: integer
                               type: object
@@ -32970,7 +32980,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     cores:
                                       description: |-
                                         Cores specifies the number of cores inside the vmi.
-                                        Must be a value greater or equal 1.
+                                        Defaults to 1 if omitted or set to 0.
                                       format: int32
                                       type: integer
                                     dedicatedCpuPlacement:
@@ -33047,13 +33057,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     sockets:
                                       description: |-
                                         Sockets specifies the number of sockets inside the vmi.
-                                        Must be a value greater or equal 1.
+                                        Defaults to 1 if omitted or set to 0.
+                                        If cores, sockets and threads are all omitted or set to 0, sockets defaults to
+                                        the CPU limit, if specified, or the CPU request, rounded up to the nearest integer.
                                       format: int32
                                       type: integer
                                     threads:
                                       description: |-
                                         Threads specifies the number of threads inside the vmi.
-                                        Must be a value greater or equal 1.
+                                        Defaults to 1 if omitted or set to 0.
                                       format: int32
                                       type: integer
                                   type: object
