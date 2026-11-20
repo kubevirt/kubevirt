@@ -21,6 +21,7 @@ package apply
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -29,12 +30,19 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
-func applyCPU(
+type cpu struct{}
+
+func (cpu) Apply(
 	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
 ) conflict.Conflicts {
+	if instancetypeSpec == nil {
+		return nil
+	}
+
 	if vmiSpec.Domain.CPU == nil {
 		vmiSpec.Domain.CPU = &virtv1.CPU{}
 	}

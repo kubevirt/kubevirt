@@ -32,13 +32,15 @@ func Set(vm *virtv1.VirtualMachine, target metav1.Object) {
 		return
 	}
 
-	if target.GetAnnotations() == nil {
-		target.SetAnnotations(make(map[string]string))
+	targetAnnotations := target.GetAnnotations()
+	if targetAnnotations == nil {
+		targetAnnotations = make(map[string]string)
+		target.SetAnnotations(targetAnnotations)
 	}
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case api.PluralPreferenceResourceName, api.SingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.PreferenceAnnotation] = vm.Spec.Preference.Name
+		targetAnnotations[virtv1.PreferenceAnnotation] = vm.Spec.Preference.Name
 	case "", api.ClusterPluralPreferenceResourceName, api.ClusterSingularPreferenceResourceName:
-		target.GetAnnotations()[virtv1.ClusterPreferenceAnnotation] = vm.Spec.Preference.Name
+		targetAnnotations[virtv1.ClusterPreferenceAnnotation] = vm.Spec.Preference.Name
 	}
 }

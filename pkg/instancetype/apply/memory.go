@@ -21,6 +21,7 @@ package apply
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -28,11 +29,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-func applyMemory(
+type memory struct{}
+
+func (memory) Apply(
 	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	_ *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
 ) conflict.Conflicts {
+	if instancetypeSpec == nil {
+		return nil
+	}
+
 	if vmiSpec.Domain.Memory == nil {
 		vmiSpec.Domain.Memory = &virtv1.Memory{}
 	}

@@ -39,7 +39,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
 		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
 
-		vmiApplier = apply.NewVMIApplier()
+		vmiApplier = apply.NewVMI()
 		field      = k8sfield.NewPath("spec", "template", "spec")
 		maxGuest   = resource.MustParse("2G")
 	)
@@ -58,7 +58,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 	})
 
 	It("should apply memory spec to VMI", func() {
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 		Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeSpec.Memory.Guest)))
 		Expect(vmi.Spec.Domain.Memory.Hugepages).To(HaveValue(Equal(*instancetypeSpec.Memory.Hugepages)))
@@ -73,7 +73,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 			expectedOverhead := int64(float32(instancetypeSpec.Memory.Guest.Value()) * (1 - float32(instancetypeSpec.Memory.OvercommitPercent)/100))
 			Expect(expectedOverhead).ToNot(Equal(instancetypeSpec.Memory.Guest.Value()))
 
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
@@ -89,7 +89,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 				Guest: &vmiMemGuest,
 			}
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+			conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 			Expect(conflicts).To(HaveLen(1))
 			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.guest"))
 		})
@@ -102,7 +102,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 				},
 			}
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+			conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 			Expect(conflicts).To(HaveLen(1))
 			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.hugepages"))
 		})
@@ -116,7 +116,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 				},
 			}
 
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 			Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeSpec.Memory.Guest)))
 			Expect(vmi.Spec.Domain.Memory.Hugepages).To(HaveValue(Equal(*vmi.Spec.Domain.Memory.Hugepages)))
@@ -129,7 +129,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 				MaxGuest: &maxGuest,
 			}
 
-			conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+			conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 			Expect(conflicts).To(HaveLen(1))
 			Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.memory.maxGuest"))
 		})
@@ -141,7 +141,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 				MaxGuest: &maxGuest,
 			}
 
-			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+			Expect(vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)).To(Succeed())
 
 			Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeSpec.Memory.Guest)))
 			Expect(vmi.Spec.Domain.Memory.Hugepages).To(HaveValue(Equal(*instancetypeSpec.Memory.Hugepages)))
@@ -161,7 +161,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 			},
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.memory"))
 	})
@@ -179,7 +179,7 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 			},
 		}
 
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
+		conflicts := vmiApplier.Apply(field, instancetypeSpec, preferenceSpec, vmi)
 		Expect(conflicts).To(HaveLen(1))
 		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.memory"))
 	})

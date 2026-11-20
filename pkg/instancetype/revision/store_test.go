@@ -368,6 +368,19 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(createdCR).To(Equal(instancetypeControllerRevision))
 			})
 
+			DescribeTable("store should leave the VM template unchanged during conflict checks", func(annotations map[string]string) {
+				fakeInstancetype.Spec.Annotations = map[string]string{"instancetype-annotation": "value"}
+				Expect(instancetypeInformerStore.Update(fakeInstancetype)).To(Succeed())
+				vm.Spec.Template.ObjectMeta.Annotations = annotations
+				originalTemplate := vm.Spec.Template.DeepCopy()
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Template).To(Equal(originalTemplate))
+			},
+				Entry("with nil annotations", nil),
+				Entry("with existing annotations", map[string]string{"user-annotation": "preserved"}),
+			)
+
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = nonExistingResourceName
 				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))

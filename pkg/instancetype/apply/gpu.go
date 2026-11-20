@@ -16,21 +16,29 @@
  * Copyright The KubeVirt Authors.
  *
  */
+//nolint:dupl // GPU and host-device appliers have the same structure but handle different API types.
 package apply
 
 import (
+	"slices"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-func applyGPUs(
+type gpus struct{}
+
+func (gpus) Apply(
 	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	_ *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+	_ *metav1.ObjectMeta,
 ) conflict.Conflicts {
-	if len(instancetypeSpec.GPUs) == 0 {
+	if instancetypeSpec == nil || len(instancetypeSpec.GPUs) == 0 {
 		return nil
 	}
 
@@ -38,8 +46,7 @@ func applyGPUs(
 		return conflict.Conflicts{baseConflict.NewChild("domain", "devices", "gpus")}
 	}
 
-	vmiSpec.Domain.Devices.GPUs = make([]virtv1.GPU, len(instancetypeSpec.GPUs))
-	copy(vmiSpec.Domain.Devices.GPUs, instancetypeSpec.GPUs)
+	vmiSpec.Domain.Devices.GPUs = slices.Clone(instancetypeSpec.GPUs)
 
 	return nil
 }
