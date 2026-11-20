@@ -234,6 +234,21 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		expectSecretToContainKey(kubeClient, secretName, testKeyFile)
 	})
 
+	It("should patch secret with key from file ending with a newline, without the newline", func() {
+		const testKeyFile = "key contents in file"
+		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
+		Expect(os.WriteFile(filename, []byte(testKeyFile+"\n"), 0o600)).To(Succeed())
+
+		err := runAddKeyCommand(
+			"--user", userName,
+			"--file", filename,
+			vmName,
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		expectSecretToContainKey(kubeClient, secretName, testKeyFile)
+	})
+
 	It("should patch the secret specified by parameter", func() {
 		const secondSecretName = "second-secret"
 		secondSecret := &corev1.Secret{
@@ -283,6 +298,21 @@ var _ = Describe("Credentials add-ssh-key", func() {
 		err := runAddKeyCommand(
 			"--user", userName,
 			"--value", testKey,
+			vmName,
+		)
+		Expect(err).ToNot(HaveOccurred())
+
+		expectSecretToContainKey(kubeClient, secretName, testKey)
+	})
+
+	It("should not add key from file ending with a newline if secret already contains the key", func() {
+		patchSecret(kubeClient, secretName, patch.WithReplace("/data", map[string][]byte{"some-name": []byte(testKey)}))
+		filename := filepath.Join(GinkgoT().TempDir(), "test-key-file")
+		Expect(os.WriteFile(filename, []byte(testKey+"\n"), 0o600)).To(Succeed())
+
+		err := runAddKeyCommand(
+			"--user", userName,
+			"--file", filename,
 			vmName,
 		)
 		Expect(err).ToNot(HaveOccurred())

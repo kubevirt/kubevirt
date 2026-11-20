@@ -22,6 +22,7 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "remove-ssh-key",
 		Short:   "Remove credentials from a virtual machine.",
+		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
 		RunE:    cmdFlags.runRemoveKeyCommand,
 	}
