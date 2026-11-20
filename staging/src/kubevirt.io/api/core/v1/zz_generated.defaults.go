@@ -135,6 +135,15 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.EVMCS != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.EVMCS)
 				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.VSM != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VSM)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.XMMInput != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.XMMInput)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.XMMOutput != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.XMMOutput)
+				}
 			}
 			if in.Spec.Template.Spec.Domain.Features.SMM != nil {
 				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.SMM)
@@ -275,6 +284,15 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			if in.Spec.Domain.Features.Hyperv.EVMCS != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.EVMCS)
 			}
+			if in.Spec.Domain.Features.Hyperv.VSM != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VSM)
+			}
+			if in.Spec.Domain.Features.Hyperv.XMMInput != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.XMMInput)
+			}
+			if in.Spec.Domain.Features.Hyperv.XMMOutput != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.XMMOutput)
+			}
 		}
 		if in.Spec.Domain.Features.SMM != nil {
 			SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
@@ -405,6 +423,15 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				if in.Spec.Domain.Features.Hyperv.EVMCS != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.EVMCS)
 				}
+				if in.Spec.Domain.Features.Hyperv.VSM != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VSM)
+				}
+				if in.Spec.Domain.Features.Hyperv.XMMInput != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.XMMInput)
+				}
+				if in.Spec.Domain.Features.Hyperv.XMMOutput != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.XMMOutput)
+				}
 			}
 			if in.Spec.Domain.Features.SMM != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
@@ -529,6 +556,15 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.EVMCS != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.EVMCS)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.VSM != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VSM)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.XMMInput != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.XMMInput)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.XMMOutput != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.XMMOutput)
 				}
 			}
 			if in.Spec.Template.Spec.Domain.Features.SMM != nil {

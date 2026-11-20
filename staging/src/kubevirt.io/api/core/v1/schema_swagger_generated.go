@@ -705,6 +705,9 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
+		"vsm":             "VSM exposes the Virtual Secure Mode enlightenment to the guest.\nDefaults to the machine type setting.\n+optional",
+		"xmminput":        "XMMInput enables passing hypercall input via XMM registers.\nDefaults to the machine type setting.\n+optional",
+		"xmmoutput":       "XMMOutput enables passing hypercall output via XMM registers.\nDefaults to the machine type setting.\n+optional",
 	}
 }
 
