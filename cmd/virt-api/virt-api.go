@@ -22,12 +22,17 @@ package main
 import (
 	klog "kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/coveragehttp"
 	"kubevirt.io/kubevirt/pkg/service"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 )
 
 func main() {
 	klog.InitializeLogging("virt-api")
+
+	// No-op unless built with the coverage_e2e tag (--build-cover): starts the
+	// E2E coverage HTTP endpoint and SIGTERM flush handler.
+	coveragehttp.Start("virt-api")
 
 	app := virt_api.NewVirtApi()
 	service.Setup(app)

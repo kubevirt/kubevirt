@@ -20,9 +20,13 @@
 package main
 
 import (
+	"kubevirt.io/kubevirt/pkg/coveragehttp"
 	virt_operator "kubevirt.io/kubevirt/pkg/virt-operator"
 )
 
 func main() {
+	// No-op unless built with the coverage_e2e tag (--build-cover).
+	coveragehttp.Start("virt-operator")
+
 	virt_operator.Execute()
 }

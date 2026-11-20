@@ -1,0 +1,50 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubevirt-coverage
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kv-coverage-collector
+  namespace: kubevirt-coverage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kv-coverage-collector
+  template:
+    metadata:
+      labels:
+        app: kv-coverage-collector
+    spec:
+      containers:
+        - name: collector
+          image: quay.io/rh-ee-omastama/kv-coverage-collector:coverage-dev
+          imagePullPolicy: Always
+          env:
+            - name: LISTEN_ADDR
+              value: ":8080"
+            - name: COVERAGE_DIR
+              value: /coverage-data
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: coverage-data
+              mountPath: /coverage-data
+      volumes:
+        - name: coverage-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kv-coverage-collector-svc
+  namespace: kubevirt-coverage
+spec:
+  selector:
+    app: kv-coverage-collector
+  ports:
+    - port: 80
+      targetPort: 8080
