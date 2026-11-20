@@ -50,6 +50,8 @@ const (
 	repeatingLogLevel = 3
 )
 
+const agentConnectedStoreKey = "agent-connected"
+
 // AgentUpdatedEvent fire up when data is changes in the store
 type AgentUpdatedEvent struct {
 	DomainInfo api.DomainGuestInfo
@@ -82,7 +84,7 @@ func (s *AsyncAgentStore) Store(key, value any) {
 
 	domainInfo := api.DomainGuestInfo{}
 	switch key {
-	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
+	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus, GetAgent:
 		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 		if !updated {
 			return
@@ -159,6 +161,18 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 
 	agent = data.(AgentInfo)
 	return agent
+}
+
+func (s *AsyncAgentStore) SetAgentConnected(connected bool) {
+	// Capability data belongs to one agent connection and must not leak into the
+	// support result after a disconnect or guest-agent restart.
+	s.store.Delete(GetAgent)
+	s.store.Store(agentConnectedStoreKey, connected)
+}
+
+func (s *AsyncAgentStore) IsAgentConnected() bool {
+	connected, ok := s.store.Load(agentConnectedStoreKey)
+	return ok && connected.(bool)
 }
 
 // GetFSFreezeStatus returns the Guest fsfreeze status
@@ -387,12 +401,14 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
 			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
 			p.agentConnected = false
+			p.agentStore.SetAgentConnected(false)
 			p.Stop()
 			return
 		}
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
 			p.agentConnected = true
+			p.agentStore.SetAgentConnected(true)
 			p.Start()
 			return
 		}

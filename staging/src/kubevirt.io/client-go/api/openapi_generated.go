@@ -468,6 +468,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.GPU{}.OpenAPIModelName():                                                                   schema_kubevirtio_api_core_v1_GPU(ref),
 		corev1.GenerationStatus{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_GenerationStatus(ref),
 		corev1.GuestAgentCommandInfo{}.OpenAPIModelName():                                                 schema_kubevirtio_api_core_v1_GuestAgentCommandInfo(ref),
+		corev1.GuestAgentStatus{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_GuestAgentStatus(ref),
 		corev1.GuestAgentPing{}.OpenAPIModelName():                                                        schema_kubevirtio_api_core_v1_GuestAgentPing(ref),
 		corev1.HPETTimer{}.OpenAPIModelName():                                                             schema_kubevirtio_api_core_v1_HPETTimer(ref),
 		corev1.Handler{}.OpenAPIModelName():                                                               schema_kubevirtio_api_core_v1_Handler(ref),
@@ -22622,6 +22623,42 @@ func schema_kubevirtio_api_core_v1_GuestAgentCommandInfo(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_api_core_v1_GuestAgentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GuestAgentStatus is the guest-agent state reported by the VMI runtime.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"connected": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connected indicates whether the runtime currently has a live guest-agent connection.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"supportState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SupportState indicates whether capability evaluation is pending or complete.",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Unknown", "Supported", "Unsupported"},
+						},
+					},
+					"unsupportedReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnsupportedReason explains why SupportState is Unsupported.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"connected", "supportState"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_GuestAgentPing(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -28794,11 +28831,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 							Format:      "",
 						},
 					},
+					"guestAgentStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GuestAgentStatus reports the runtime-owned guest-agent connection and capability state. A nil value identifies a response from a legacy launcher.",
+							Ref:         ref(corev1.GuestAgentStatus{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			corev1.GuestAgentCommandInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceFileSystemInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSUser{}.OpenAPIModelName()},
+			corev1.GuestAgentCommandInfo{}.OpenAPIModelName(), corev1.GuestAgentStatus{}.OpenAPIModelName(), corev1.VirtualMachineInstanceFileSystemInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSInfo{}.OpenAPIModelName(), corev1.VirtualMachineInstanceGuestOSUser{}.OpenAPIModelName()},
 	}
 }
 

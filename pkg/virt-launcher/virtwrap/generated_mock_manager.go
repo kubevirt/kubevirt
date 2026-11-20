@@ -245,6 +245,20 @@ func (mr *MockDomainManagerMockRecorder) GetGuestInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockDomainManager)(nil).GetGuestInfo))
 }
 
+// GetGuestInfoWithStatus mocks base method.
+func (m *MockDomainManager) GetGuestInfoWithStatus(arg0 *v1.VirtualMachineInstance, arg1 []string) v1.VirtualMachineInstanceGuestAgentInfo {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGuestInfoWithStatus", arg0, arg1)
+	ret0, _ := ret[0].(v1.VirtualMachineInstanceGuestAgentInfo)
+	return ret0
+}
+
+// GetGuestInfoWithStatus indicates an expected call of GetGuestInfoWithStatus.
+func (mr *MockDomainManagerMockRecorder) GetGuestInfoWithStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfoWithStatus", reflect.TypeOf((*MockDomainManager)(nil).GetGuestInfoWithStatus), arg0, arg1)
+}
+
 // GetGuestOSInfo mocks base method.
 func (m *MockDomainManager) GetGuestOSInfo() *api.GuestOSInfo {
 	m.ctrl.T.Helper()

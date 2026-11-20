@@ -234,6 +234,21 @@ func (mr *MockLauncherClientMockRecorder) GetGuestInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockLauncherClient)(nil).GetGuestInfo))
 }
 
+// GetGuestInfoWithStatus mocks base method.
+func (m *MockLauncherClient) GetGuestInfoWithStatus(arg0 *v1.VirtualMachineInstance, arg1 []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGuestInfoWithStatus", arg0, arg1)
+	ret0, _ := ret[0].(*v1.VirtualMachineInstanceGuestAgentInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGuestInfoWithStatus indicates an expected call of GetGuestInfoWithStatus.
+func (mr *MockLauncherClientMockRecorder) GetGuestInfoWithStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfoWithStatus", reflect.TypeOf((*MockLauncherClient)(nil).GetGuestInfoWithStatus), arg0, arg1)
+}
+
 // GetLaunchMeasurement mocks base method.
 func (m *MockLauncherClient) GetLaunchMeasurement(arg0 *v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error) {
 	m.ctrl.T.Helper()

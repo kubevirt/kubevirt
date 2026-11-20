@@ -591,6 +591,38 @@ func (l *Launcher) GetGuestInfo(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv
 	return response, nil
 }
 
+func (l *Launcher) GetGuestInfoWithStatus(_ context.Context, request *cmdv1.GuestInfoRequest) (*cmdv1.GuestInfoResponse, error) {
+	response := &cmdv1.GuestInfoResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	if request == nil || request.GetVmi() == nil {
+		response.Response.Success = false
+		response.Response.Message = "No valid vmi object present in command server request"
+		return response, nil
+	}
+
+	vmi, commandResponse := getVMIFromRequest(request.GetVmi())
+	if !commandResponse.Success {
+		response.Response = commandResponse
+		return response, nil
+	}
+
+	guestInfo := l.domainManager.GetGuestInfoWithStatus(vmi, request.GetSupportedGuestAgentVersions())
+
+	encoded, err := json.Marshal(guestInfo)
+	if err != nil {
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	response.GuestInfoResponse = string(encoded)
+	return response, nil
+}
+
 // GetUsers returns the list of active users on the guest machine
 func (l *Launcher) GetUsers(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.GuestUserListResponse, error) {
 	response := &cmdv1.GuestUserListResponse{

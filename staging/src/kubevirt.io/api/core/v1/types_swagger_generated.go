@@ -791,12 +791,22 @@ func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 		"userList":          "UserList is a list of active guest OS users",
 		"fsInfo":            "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
 		"fsFreezeStatus":    "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.",
+		"guestAgentStatus":  "GuestAgentStatus reports the runtime-owned guest-agent connection and\ncapability state. A nil value identifies a response from a legacy launcher.\n+optional",
 	}
 }
 
 func (GuestAgentCommandInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "List of commands that QEMU guest agent supports",
+	}
+}
+
+func (GuestAgentStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                  "GuestAgentStatus is the guest-agent state reported by the VMI runtime.",
+		"connected":         "Connected indicates whether the runtime currently has a live guest-agent connection.",
+		"supportState":      "SupportState indicates whether capability evaluation is pending or complete.\n+kubebuilder:validation:Enum=Unknown;Supported;Unsupported",
+		"unsupportedReason": "UnsupportedReason explains why SupportState is Unsupported.\n+optional",
 	}
 }
 
