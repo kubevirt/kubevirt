@@ -2336,6 +2336,46 @@ var _ = Describe("Migration watcher", func() {
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
+
+		DescribeTable("host-model node selector of the target pod", func(sourcePodNodeSelector, expected map[string]string) {
+			node := newNode("testNode")
+			node.Labels = map[string]string{
+				v1.HostModelCPULabel + "nodeModel":                "true",
+				v1.HostModelRequiredFeaturesLabel + "nodeFeature": "true",
+			}
+
+			nodeSelector, err := prepareNodeSelectorForHostCpuModel(node, &k8sv1.Pod{}, sourcePodNodeSelector)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodeSelector).To(Equal(expected))
+		},
+			Entry("should use the source node host-model on the first migration",
+				map[string]string{},
+				map[string]string{
+					v1.SupportedHostModelMigrationCPU + "nodeModel": "true",
+					v1.CPUFeatureLabel + "nodeFeature":              "true",
+				},
+			),
+			Entry("should use the source node host-model on the first migration of a VMI requiring a CPU feature",
+				map[string]string{
+					v1.CPUFeatureLabel + "vmx": "true",
+				},
+				map[string]string{
+					v1.CPUFeatureLabel + "vmx":                      "true",
+					v1.SupportedHostModelMigrationCPU + "nodeModel": "true",
+					v1.CPUFeatureLabel + "nodeFeature":              "true",
+				},
+			),
+			Entry("should keep the source pod host-model selectors on later migrations",
+				map[string]string{
+					v1.SupportedHostModelMigrationCPU + "firstModel": "true",
+					v1.CPUFeatureLabel + "firstFeature":              "true",
+				},
+				map[string]string{
+					v1.SupportedHostModelMigrationCPU + "firstModel": "true",
+					v1.CPUFeatureLabel + "firstFeature":              "true",
+				},
+			),
+		)
 	})
 
 	Context("Migration policy", func() {
