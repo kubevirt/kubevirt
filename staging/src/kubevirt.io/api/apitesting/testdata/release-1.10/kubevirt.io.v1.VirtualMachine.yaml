@@ -514,6 +514,10 @@ spec:
             passt: {}
             passtBinding: {}
             pciAddress: pciAddressValue
+            portRanges:
+            - end: -3
+              protocol: protocolValue
+              start: -5
             ports:
             - name: nameValue
               port: -4
@@ -642,6 +646,7 @@ spec:
           overcommitGuestOverhead: true
           requests:
             requestsKey: "0"
+      emulationPolicy: emulationPolicyValue
       evictionStrategy: evictionStrategyValue
       hostname: hostnameValue
       livenessProbe:
@@ -673,6 +678,9 @@ spec:
         pod:
           vmIPv6NetworkCIDR: vmIPv6NetworkCIDRValue
           vmNetworkCIDR: vmNetworkCIDRValue
+        resourceClaim:
+          claimName: claimNameValue
+          requestName: requestNameValue
       nodeSelector:
         nodeSelectorKey: nodeSelectorValue
       priorityClassName: priorityClassNameValue
@@ -702,6 +710,7 @@ spec:
         resourceClaimName: resourceClaimNameValue
         resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
+      serviceAccountName: serviceAccountNameValue
       startStrategy: startStrategyValue
       subdomain: subdomainValue
       terminationGracePeriodSeconds: -29
@@ -733,6 +742,71 @@ spec:
         name: nameValue
         readOnly: true
         type: typeValue
+      virtualMachineState:
+        source:
+          name: nameValue
+        volumeClaimTemplate:
+          metadata:
+            annotations:
+              annotationsKey: annotationsValue
+            creationTimestamp: "2008-01-01T01:01:01Z"
+            deletionGracePeriodSeconds: 10
+            deletionTimestamp: "2009-01-01T01:01:01Z"
+            finalizers:
+            - finalizersValue
+            generateName: generateNameValue
+            generation: 7
+            labels:
+              labelsKey: labelsValue
+            managedFields:
+            - apiVersion: apiVersionValue
+              fieldsType: fieldsTypeValue
+              fieldsV1: {}
+              manager: managerValue
+              operation: operationValue
+              subresource: subresourceValue
+              time: "2004-01-01T01:01:01Z"
+            name: nameValue
+            namespace: namespaceValue
+            ownerReferences:
+            - apiVersion: apiVersionValue
+              blockOwnerDeletion: true
+              controller: true
+              kind: kindValue
+              name: nameValue
+              uid: uidValue
+            resourceVersion: resourceVersionValue
+            selfLink: selfLinkValue
+            uid: uidValue
+          spec:
+            accessModes:
+            - accessModesValue
+            dataSource:
+              apiGroup: apiGroupValue
+              kind: kindValue
+              name: nameValue
+            dataSourceRef:
+              apiGroup: apiGroupValue
+              kind: kindValue
+              name: nameValue
+              namespace: namespaceValue
+            resources:
+              limits:
+                limitsKey: "0"
+              requests:
+                requestsKey: "0"
+            selector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            storageClassName: storageClassNameValue
+            volumeAttributesClassName: volumeAttributesClassNameValue
+            volumeMode: volumeModeValue
+            volumeName: volumeNameValue
       volumes:
       - cloudInitConfigDrive:
           networkData: networkDataValue
@@ -813,6 +887,7 @@ spec:
             name: nameValue
   updateVolumesStrategy: updateVolumesStrategyValue
 status:
+  backupInProgress: backupInProgressValue
   changedBlockTracking:
     backupStatus:
       backupMsg: backupMsgValue
@@ -821,9 +896,11 @@ status:
       completed: true
       endTimestamp: "1988-01-01T01:01:01Z"
       failed: true
+      quiesceStatus: quiesceStatusValue
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
-      - volumeName: volumeNameValue
+      - type: typeValue
+        volumeName: volumeNameValue
     state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
@@ -871,6 +948,34 @@ status:
     data:
       dataKey: dataValue
     uid: uidValue
+  virtualMachineStateVolume:
+    containerDiskVolume:
+      checksum: 4294967288
+    hotplugVolume:
+      attachPodName: attachPodNameValue
+      attachPodUID: attachPodUIDValue
+    memoryDumpVolume:
+      claimName: claimNameValue
+      endTimestamp: "1988-01-01T01:01:01Z"
+      startTimestamp: "1986-01-01T01:01:01Z"
+      targetFileName: targetFileNameValue
+    message: messageValue
+    name: nameValue
+    persistentVolumeClaimInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    phase: phaseValue
+    reason: reasonValue
+    size: -4
+    target: targetValue
   volumeRequests:
   - addVolumeOptions:
       disk:
