@@ -42,6 +42,7 @@ function build_release_artifacts() {
     make olm-verify
     make prom-rules-verify
     make feature-gate-report FEATURE_GATE_REPORT_ARGS="--output-format=json --output-file=_out/manifests/release/feature-gates.json"
+    hack/generate-release-sbom.sh
 
     BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
 
@@ -72,7 +73,8 @@ function update_github_release() {
         _out/tests/tests.test \
         _out/manifests/release/conformance.yaml \
         _out/manifests/testing/* \
-        _out/cmd/dump/dump*
+        _out/cmd/dump/dump* \
+        _out/sboms/kubevirt-sbom.tar.gz
 }
 
 function upload_testing_manifests() {
