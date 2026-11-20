@@ -98,9 +98,6 @@ test: bazel-test
 test-integration:
 	hack/dockerized "go test -race ./tests/integration/... -count=1 -v"
 
-fuzz:
-	hack/dockerized "./hack/fuzz.sh"
-
 integ-test:
 	hack/integration-test.sh
 
