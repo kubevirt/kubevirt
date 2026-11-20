@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -48,7 +49,9 @@ func (p *AddressPool) load(resourcePrefix string, resources []string) {
 		addressEnvVarName := util.ResourceNameToEnvVar(resourcePrefix, resource)
 		addressString, isSet := os.LookupEnv(addressEnvVarName)
 		if !isSet {
-			log.Log.Warningf("%s not set for resource %s", addressEnvVarName, resource)
+			if !siblingPrefixIsSet(resourcePrefix, resource) {
+				log.Log.Warningf("%s not set for resource %s", addressEnvVarName, resource)
+			}
 			continue
 		}
 
@@ -59,6 +62,26 @@ func (p *AddressPool) load(resourcePrefix string, resources []string) {
 			p.addressesByResource[resource] = nil
 		}
 	}
+}
+
+// siblingPrefixIsSet reports whether the resource is advertised under the other
+// prefix of the PCI/MDEV pair. GPU and host-device code builds a pool for both
+// prefixes, but a device plugin sets only one of them, so the other variable is
+// always missing and not worth a warning. Prefixes with no sibling, like USB,
+// keep warning.
+func siblingPrefixIsSet(resourcePrefix, resource string) bool {
+	var sibling string
+	switch resourcePrefix {
+	case v1.PCIResourcePrefix:
+		sibling = v1.MDevResourcePrefix
+	case v1.MDevResourcePrefix:
+		sibling = v1.PCIResourcePrefix
+	default:
+		return false
+	}
+
+	_, isSet := os.LookupEnv(util.ResourceNameToEnvVar(sibling, resource))
+	return isSet
 }
 
 // Pop gets the next address available to a particular resource. The
