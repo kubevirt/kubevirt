@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "interface.go",
+        "podgroup.go",
         "priorityclass.go",
+        "workload.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/informers/scheduling/v1beta1",
     importpath = "k8s.io/client-go/informers/scheduling/v1beta1",

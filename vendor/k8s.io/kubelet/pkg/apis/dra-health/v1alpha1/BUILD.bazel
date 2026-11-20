@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "api.pb.go",
         "api_grpc.pb.go",
+        "doc.go",
+        "types.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kubelet/pkg/apis/dra-health/v1alpha1",
     importpath = "k8s.io/kubelet/pkg/apis/dra-health/v1alpha1",

@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compositepodgroup.go",
+        "expansion_generated.go",
+        "podgroup.go",
+        "workload.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/listers/scheduling/v1alpha3",
+    importpath = "k8s.io/client-go/listers/scheduling/v1alpha3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/api/scheduling/v1alpha3:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/client-go/listers:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
+)
