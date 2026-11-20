@@ -29,7 +29,7 @@ import (
 // These types mirror the KEP-5304 v1alpha1 API in k8s.io/dynamic-resource-allocation.
 type DeviceMetadata struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 	// PodClaimName is only present for template-generated claims.
 	// For pre-existing claims (resourceClaimName), this field is absent.
 	PodClaimName *string                 `json:"podClaimName,omitempty"`
