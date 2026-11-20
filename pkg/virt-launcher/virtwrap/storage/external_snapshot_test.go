@@ -505,8 +505,6 @@ var _ = Describe("Snapshot overlay commit", func() {
 		dataVolume      = "datadisk"
 		containerVolume = "containerdisk"
 		scratchVolume   = "snap-scratch-content"
-
-		registrationID = 7
 	)
 
 	domainDisk := func(volumeName, target, file string, mirror *api.DiskMirror) api.Disk {
@@ -623,11 +621,10 @@ var _ = Describe("Snapshot overlay commit", func() {
 
 		blockJobCallback.Store(nil)
 		mockConn.EXPECT().VolatileDomainEventBlockJobRegister(gomock.Any()).
-			DoAndReturn(func(callback libvirt.DomainEventBlockJobCallback) (int, error) {
+			DoAndReturn(func(callback libvirt.DomainEventBlockJobCallback) func() {
 				blockJobCallback.Store(&callback)
-				return registrationID, nil
+				return func() {}
 			}).AnyTimes()
-		mockConn.EXPECT().DomainEventDeregister(registrationID).Return(nil).AnyTimes()
 
 		removed, synced = nil, nil
 		removeOverlayFile = func(path string) error {
