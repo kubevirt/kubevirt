@@ -72,6 +72,11 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get"},
+			},
+			{
 				APIGroups: []string{
 					"kubevirt.io",
 				},
