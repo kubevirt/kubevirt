@@ -136,6 +136,9 @@ var _ = Describe("SetDriverCacheMode", func() {
 			Driver: &api.DiskDriver{},
 		}
 		configurator := newConfigurator(true, nil)
+		configurator.readWriteCache = func(string) (string, error) {
+			return "write back", nil
+		}
 		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
 		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
 	})
@@ -151,7 +154,81 @@ var _ = Describe("SetDriverCacheMode", func() {
 			Driver: &api.DiskDriver{},
 		}
 		configurator := newConfigurator(true, nil)
+		configurator.readWriteCache = func(string) (string, error) {
+			return "write back", nil
+		}
 		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
+	})
+
+	It("should auto-detect directsync from write_cache on datastore block backend", func() {
+		disk := &api.Disk{
+			Source: api.DiskSource{
+				File: "/test/overlay.qcow2",
+				DataStore: &api.DataStore{
+					Source: &api.DiskSource{Dev: "/dev/testdisk"},
+				},
+			},
+			Driver: &api.DiskDriver{},
+		}
+		configurator := newConfigurator(true, nil)
+		configurator.readWriteCache = func(path string) (string, error) {
+			Expect(path).To(Equal("/dev/testdisk"))
+			return "write through", nil
+		}
+		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
+		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheDirectSync)))
+	})
+
+	DescribeTable("should auto-detect cache from block write_cache when unset",
+		func(writeCache string, writeCacheErr error, expected string) {
+			disk := &api.Disk{
+				Driver: &api.DiskDriver{},
+				Source: api.DiskSource{Dev: "/dev/testdisk"},
+			}
+			configurator := newConfigurator(true, nil)
+			configurator.readWriteCache = func(path string) (string, error) {
+				Expect(path).To(Equal("/dev/testdisk"))
+				return writeCache, writeCacheErr
+			}
+			Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
+			Expect(disk.Driver.Cache).To(Equal(expected))
+		},
+		Entry("write through -> directsync", "write through", nil, string(v1.CacheDirectSync)),
+		Entry("write back -> none", "write back", nil, string(v1.CacheNone)),
+		Entry("probe error -> none", "", fmt.Errorf("no sysfs"), string(v1.CacheNone)),
+		Entry("unknown value -> none", "unexpected", nil, string(v1.CacheNone)),
+	)
+
+	It("should not consult write_cache for file backends", func() {
+		called := false
+		disk := &api.Disk{
+			Driver: &api.DiskDriver{},
+			Source: api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
+		}
+		configurator := newConfigurator(true, nil)
+		configurator.readWriteCache = func(string) (string, error) {
+			called = true
+			return "write through", nil
+		}
+		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
+		Expect(called).To(BeFalse())
+		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
+	})
+
+	It("should not override an explicit cache mode with write_cache", func() {
+		called := false
+		disk := &api.Disk{
+			Driver: &api.DiskDriver{Cache: string(v1.CacheNone)},
+			Source: api.DiskSource{Dev: "/dev/testdisk"},
+		}
+		configurator := newConfigurator(true, nil)
+		configurator.readWriteCache = func(string) (string, error) {
+			called = true
+			return "write through", nil
+		}
+		Expect(configurator.SetDriverCacheMode(disk)).To(Succeed())
+		Expect(called).To(BeFalse())
+		Expect(disk.Driver.Cache).To(Equal(string(v1.CacheNone)))
 	})
 })
 

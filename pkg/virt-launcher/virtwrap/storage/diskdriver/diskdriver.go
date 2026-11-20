@@ -23,12 +23,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/os/disk"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
@@ -42,14 +46,16 @@ type ioChecker interface {
 }
 
 type Configurator struct {
-	ioChecker   ioChecker
-	getDiskInfo func(path string) (*disk.DiskInfo, error)
+	ioChecker      ioChecker
+	getDiskInfo    func(path string) (*disk.DiskInfo, error)
+	readWriteCache func(path string) (string, error)
 }
 
 func New() *Configurator {
 	return &Configurator{
-		ioChecker:   &directIOChecker{},
-		getDiskInfo: disk.GetDiskInfo,
+		ioChecker:      &directIOChecker{},
+		getDiskInfo:    disk.GetDiskInfo,
+		readWriteCache: readBlockWriteCache,
 	}
 }
 
@@ -75,10 +81,12 @@ func (c *Configurator) SetDriverCacheMode(d *api.Disk) error {
 			return fmt.Errorf("unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, t.BackendPath())
 		}
 	case "":
-		if c.supportDirectIO(t, d.BackingStore) {
-			mode = v1.CacheNone
-		} else {
+		if !c.supportDirectIO(t, d.BackingStore) {
 			mode = v1.CacheWriteThrough
+		} else if c.isWriteThroughBlock(t) {
+			mode = v1.CacheDirectSync
+		} else {
+			mode = v1.CacheNone
 		}
 	case v1.CacheWriteThrough, v1.CacheWriteBack:
 	}
@@ -99,6 +107,47 @@ func (c *Configurator) supportDirectIO(t disksource.ResolvedDiskSource, backingS
 	}
 
 	return supported
+}
+
+// isWriteThroughBlock is true when a block backend's sysfs write_cache is
+// "write through". File backends are never probed.
+func (c *Configurator) isWriteThroughBlock(t disksource.ResolvedDiskSource) bool {
+	if !t.BackendIsBlock() {
+		return false
+	}
+	read := c.readWriteCache
+	if read == nil {
+		read = readBlockWriteCache
+	}
+	mode, err := read(t.BackendPath())
+	if err != nil {
+		log.Log.Reason(err).Infof("write_cache probe failed for %s, keeping cache=none", t.BackendPath())
+		return false
+	}
+	return mode == "write through"
+}
+
+func readBlockWriteCache(path string) (string, error) {
+	safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
+	if err != nil {
+		return "", err
+	}
+	fileInfo, err := safepath.StatAtNoFollow(safePath)
+	if err != nil {
+		return "", fmt.Errorf("could not stat file %s. Reason: %w", safePath.String(), err)
+	}
+	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return "", fmt.Errorf("could not get device numbers for %s", safePath.String())
+	}
+	major := unix.Major(stat.Rdev)
+	minor := unix.Minor(stat.Rdev)
+
+	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/write_cache", major, minor))
+	if err != nil {
+		return "", fmt.Errorf("cannot read write_cache for device %s: %w", safePath.String(), err)
+	}
+	return strings.TrimSpace(string(raw)), nil
 }
 
 func (c *Configurator) checkPathDirectIO(path string, isBlock bool) bool {
