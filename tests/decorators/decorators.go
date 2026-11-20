@@ -10,7 +10,7 @@ var (
 	/* SIGs */
 
 	SigCompute             = Label("sig-compute")
-	SigOperator            = Label("sig-operator")
+	SigControlPlane        = Label("sig-control-plane")
 	SigNetwork             = Label("sig-network")
 	SigStorage             = Label("sig-storage")
 	SigComputeInstancetype = Label("sig-compute-instancetype")
