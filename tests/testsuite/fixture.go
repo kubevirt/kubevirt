@@ -411,8 +411,10 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 		}
 	}
 
-	waitForAllDaemonSetsReady(3 * time.Minute)
-	waitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
+	if !flags.SkipClusterWideWorkloadReadiness {
+		waitForAllDaemonSetsReady(3 * time.Minute)
+		waitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
+	}
 }
 
 func DeployTestingInfrastructure() {

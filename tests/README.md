@@ -85,6 +85,13 @@ taken from hack/config.sh:
 make functest
 ```
 
+When `DEPLOY_TESTING_INFRA=true`, the suite deploys testing manifests and
+waits for every Pod and DaemonSet in the cluster. Set
+`KUBEVIRT_FUNC_TEST_SUITE_ARGS=-skip-cluster-wide-workload-readiness` to skip
+both waits while keeping deployment and cleanup. This option has no effect
+unless testing infrastructure deployment is enabled. Jobs that skip the waits
+must check the readiness of any testing infrastructure they require.
+
 >**outside connectivity tests:** The tests will run by default. To skip
 >the tests export `KUBEVIRT_E2E_SKIP='\[outside_connectivity\]'` 
 >environment variable before running the tests.
