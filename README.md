@@ -56,6 +56,10 @@ Try our quickstart at [kubevirt.io](https://kubevirt.io/get_kubevirt/).
 
 See our user documentation at [kubevirt.io/docs](https://kubevirt.io/user-guide).
 
+For performance and scalability results, see the
+[performance and scalability benchmarks](docs/perf-scale-benchmarks.md), including
+the test methodology and guidance on interpreting the results.
+
 Once you have the basics, you can learn more about how to run KubeVirt and its newest features by taking a look at:
 
  * [KubeVirt blog](https://kubevirt.io/blogs/)
