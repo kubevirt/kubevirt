@@ -19,7 +19,32 @@
 
 package kubevirt
 
-import "kubevirt.io/client-go/kubecli"
+import (
+	"sync"
+
+	"k8s.io/client-go/util/flowcontrol"
+
+	"kubevirt.io/client-go/kubecli"
+)
+
+var getClient = sync.OnceValue(func() kubecli.KubevirtClient {
+	const (
+		rateLimiterQPS   = 100
+		rateLimiterBurst = 200
+	)
+	config, err := kubecli.GetKubevirtClientConfig()
+	if err != nil {
+		panic(err)
+	}
+	// Lift client-go's default rate limits (QPS=5, Burst=10) to avoid
+	// silent throttling during parallel e2e tests.
+	config.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(rateLimiterQPS, rateLimiterBurst)
+	client, err := kubecli.GetKubevirtClientFromRESTConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	return client
+})
 
 // Client returns a KubeVirt client.
 //
@@ -32,9 +57,5 @@ import "kubevirt.io/client-go/kubecli"
 // This wrapper is in place to avoid the need to repeat the
 // handling of the error each time.
 func Client() kubecli.KubevirtClient {
-	client, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		panic(err)
-	}
-	return client
+	return getClient()
 }
