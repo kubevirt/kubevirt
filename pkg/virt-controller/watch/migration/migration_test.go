@@ -1177,7 +1177,11 @@ var _ = Describe("Migration watcher", func() {
 				},
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
-			migration.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(-151 * time.Second))
+			migration.Status.Conditions = append(migration.Status.Conditions, v1.VirtualMachineInstanceMigrationCondition{
+				Type:               v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
+				Status:             k8sv1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-151 * time.Second)),
+			})
 
 			addMigration(migration)
 
@@ -1186,7 +1190,6 @@ var _ = Describe("Migration watcher", func() {
 
 			sanityExecute()
 
-			// Should fail the migration
 			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
 			expectMigrationFailedState(migration.Namespace, migration.Name)
 		})
@@ -1203,7 +1206,11 @@ var _ = Describe("Migration watcher", func() {
 			}
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 			migration.Annotations[v1.MigrationUtilityVolumesTimeoutSecondsAnnotation] = "60"
-			migration.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(-65 * time.Second))
+			migration.Status.Conditions = append(migration.Status.Conditions, v1.VirtualMachineInstanceMigrationCondition{
+				Type:               v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
+				Status:             k8sv1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-65 * time.Second)),
+			})
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -1268,6 +1275,88 @@ var _ = Describe("Migration watcher", func() {
 			for _, cond := range updatedMigration.Status.Conditions {
 				Expect(cond.Type).ToNot(Equal(v1.VirtualMachineInstanceMigrationBlockedByBackup), "Condition should be removed after backup completes")
 			}
+		})
+
+		It("should keep a migration that outlived the utility volumes timeout pending while the completed backup's volume detaches", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "backup-1-target",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "backup-pvc",
+					},
+				},
+			}
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName: "backup-1",
+					Completed:  true,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.CreationTimestamp = metav1.NewTime(time.Now().Add(-151 * time.Second))
+			migration.Status.Conditions = append(migration.Status.Conditions, v1.VirtualMachineInstanceMigrationCondition{
+				Type:   v1.VirtualMachineInstanceMigrationBlockedByBackup,
+				Status: k8sv1.ConditionTrue,
+			})
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			expectMigrationPendingState(migration.Namespace, migration.Name)
+			expectMigrationCondition(migration.Namespace, migration.Name, v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+			testutils.ExpectEvent(recorder, virtcontroller.UtilityVolumeMigrationPendingReason)
+		})
+
+		It("should restart the utility volumes timeout after a backup interrupts the wait", func() {
+			start := metav1.Now()
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+				BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+					BackupName:     "backup-1",
+					StartTimestamp: &start,
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.CreationTimestamp = metav1.NewTime(time.Now().Add(-200 * time.Second))
+			migration.Status.Conditions = append(migration.Status.Conditions, v1.VirtualMachineInstanceMigrationCondition{
+				Type:               v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
+				Status:             k8sv1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-151 * time.Second)),
+			})
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+			expectMigrationPendingState(migration.Namespace, migration.Name)
+
+			updatedMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(controller.migrationIndexer.Update(updatedMigration)).To(Succeed())
+			vmi.Status.ChangedBlockTracking.BackupStatus.Completed = true
+			Expect(controller.vmiStore.Update(vmi)).To(Succeed())
+			migrationKey, err := virtcontroller.KeyFunc(migration)
+			Expect(err).ToNot(HaveOccurred())
+			controller.Queue.Add(migrationKey)
+
+			sanityExecute()
+
+			expectMigrationPendingState(migration.Namespace, migration.Name)
+			expectMigrationCondition(migration.Namespace, migration.Name, v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+			testutils.ExpectEvent(recorder, virtcontroller.UtilityVolumeMigrationPendingReason)
 		})
 
 		It("should abort backup for system-critical migration", func() {
