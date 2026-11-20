@@ -301,6 +301,61 @@ var _ = Describe("Volume Migration", func() {
 		)
 	})
 
+	Context("HasVolumeMigrationCompleted", func() {
+		const volName = "disk0"
+
+		migratedVols := []v1.StorageMigratedVolumeInfo{{
+			VolumeName: volName,
+			SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
+				ClaimName: "src",
+			},
+			DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
+				ClaimName: "dst",
+			},
+		}}
+
+		DescribeTable("should detect volume migration completion", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectRes bool) {
+			Expect(volumemigration.HasVolumeMigrationCompleted(vm, vmi)).To(Equal(expectRes))
+		},
+			Entry("with nil VMI",
+				libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration)),
+				nil, false),
+			Entry("without updateVolumesStrategy",
+				libvmi.NewVirtualMachine(libvmi.New()),
+				libvmi.New(), false),
+			Entry("with Migration strategy and empty volumeMigrationState", func() *v1.VirtualMachine {
+				vm := libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+				vm.Status.VolumeUpdateState = &v1.VolumeUpdateState{
+					VolumeMigrationState: &v1.VolumeMigrationState{},
+				}
+				return vm
+			}(), libvmi.New(), false),
+			Entry("while volume migration is in progress", func() *v1.VirtualMachine {
+				vm := libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+				vm.Status.VolumeUpdateState = &v1.VolumeUpdateState{
+					VolumeMigrationState: &v1.VolumeMigrationState{
+						MigratedVolumes: migratedVols,
+					},
+				}
+				return vm
+			}(), libvmi.New(
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Running),
+					libvmistatus.WithMigratedVolume(migratedVols[0]),
+				)),
+			), false),
+			Entry("after volume migration completed", func() *v1.VirtualMachine {
+				vm := libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+				vm.Status.VolumeUpdateState = &v1.VolumeUpdateState{
+					VolumeMigrationState: &v1.VolumeMigrationState{
+						MigratedVolumes: migratedVols,
+					},
+				}
+				return vm
+			}(), libvmi.New(), true),
+		)
+	})
+
 	Context("PatchVMIStatusWithMigratedVolumes", func() {
 		var (
 			ctrl          *gomock.Controller

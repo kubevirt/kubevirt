@@ -1134,6 +1134,23 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(err).ToNot(HaveOccurred())
 				waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace)
 				checkFileOnHotpluggedVol(vmi)
+
+				By("Waiting for the updateVolumesStrategy to be cleared")
+				Eventually(func() *v1.UpdateVolumesStrategy {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Spec.UpdateVolumesStrategy
+				}).WithTimeout(60 * time.Second).WithPolling(time.Second).Should(BeNil())
+
+				By("Verifying that hotplugged volumes can still be removed")
+				Expect(virtClient.VirtualMachine(ns).RemoveVolume(context.Background(), vm.Name, &virtv1.RemoveVolumeOptions{Name: volName})).ToNot(HaveOccurred())
+				Eventually(func() []v1.VolumeStatus {
+					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return updatedVMI.Status.VolumeStatus
+				}).WithTimeout(60 * time.Second).WithPolling(time.Second).ShouldNot(
+					ContainElement(HaveField("Name", Equal(volName))),
+				)
 			})
 
 			DescribeTable("with a datavolume and an hotplugged datavolume migrating", func(srcBlock, dstBlock bool) {
