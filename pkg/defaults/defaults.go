@@ -177,6 +177,9 @@ func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
 	if IsS390X(spec) {
 		setS390xDefaultFeatures(spec)
 	}
+	if IsPPC64LE(spec) {
+		setPPC64LEDefaultFeatures(spec)
+	}
 }
 
 func setDefaultCPUArch(clusterConfig ClusterConfigProvider, spec *v1.VirtualMachineInstanceSpec) {
@@ -188,6 +191,9 @@ func setDefaultCPUArch(clusterConfig ClusterConfigProvider, spec *v1.VirtualMach
 	case IsS390X(spec):
 		log.Log.V(4).Info("Apply s390x specific setting")
 		SetS390xDefaults(spec)
+	case IsPPC64LE(spec):
+		log.Log.V(4).Info("Apply ppc64le specific setting")
+		SetPPC64LEDefaults(spec)
 	default:
 		SetAmd64Defaults(spec)
 	}
@@ -386,7 +392,7 @@ func setDefaultArchitectureFromDataSource(vm *v1.VirtualMachine, virtClient kube
 			continue
 		}
 		switch arch {
-		case "amd64", "arm64", "s390x":
+		case "amd64", "arm64", "s390x", "ppc64le":
 			vm.Spec.Template.Spec.Architecture = arch
 		default:
 			log.Log.Warningf(ignoreUnknownArchFmt, arch, ds.Name, ds.Namespace)

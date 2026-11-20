@@ -46,6 +46,7 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			Entry("on amd64", "amd64"),
 			Entry("on arm64", "arm64"),
 			Entry("on s390x", "s390x"),
+			Entry("on ppc64le", "ppc64le"),
 		)
 
 		DescribeTable("should configure video and VNC", func(arch string, autoAttach *bool, expectedVideo api.Video) {
@@ -78,9 +79,11 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			Entry("amd64 when AutoattachGraphicsDevice is true", "amd64", new(true), newExpectedAMD64VideoDevice()),
 			Entry("arm64 when AutoattachGraphicsDevice is true", "arm64", new(true), newExpectedARM64VideoDevice()),
 			Entry("s390x when AutoattachGraphicsDevice is true", "s390x", new(true), newExpectedS390XVideoDevice()),
+			Entry("ppc64le when AutoattachGraphicsDevice is true", "ppc64le", new(true), newExpectedPPC64LEVideoDevice()),
 			Entry("amd64 when AutoattachGraphicsDevice is nil", "amd64", nil, newExpectedAMD64VideoDevice()),
 			Entry("arm64 when AutoattachGraphicsDevice is nil", "arm64", nil, newExpectedARM64VideoDevice()),
 			Entry("s390x when AutoattachGraphicsDevice is nil", "s390x", nil, newExpectedS390XVideoDevice()),
+			Entry("ppc64le when AutoattachGraphicsDevice is nil", "ppc64le", nil, newExpectedPPC64LEVideoDevice()),
 		)
 	})
 
@@ -137,6 +140,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			Entry("on arm64 without bochsForEFI", "arm64", false),
 			Entry("on s390x with bochsForEFI", "s390x", true),
 			Entry("on s390x without bochsForEFI", "s390x", false),
+			Entry("on ppc64le with bochsForEFI", "ppc64le", true),
+			Entry("on ppc64le without bochsForEFI", "ppc64le", false),
 		)
 
 		DescribeTable("amd64 defaults to VGA with VRAM", func(vmi *v1.VirtualMachineInstance, bochsForEFI bool) {
@@ -233,6 +238,15 @@ func newExpectedARM64VideoDevice() api.Video {
 }
 
 func newExpectedS390XVideoDevice() api.Video {
+	return api.Video{
+		Model: api.VideoModel{
+			Type:  v1.VirtIO,
+			Heads: new(uint(1)),
+		},
+	}
+}
+
+func newExpectedPPC64LEVideoDevice() api.Video {
 	return api.Video{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,

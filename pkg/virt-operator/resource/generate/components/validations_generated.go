@@ -778,7 +778,6 @@ var CRDsValidation map[string]string = map[string]string{
                 defaultArchitecture:
                   type: string
                 ppc64le:
-                  description: 'Deprecated: ppc64le architecture is no longer supported.'
                   properties:
                     emulatedMachines:
                       items:

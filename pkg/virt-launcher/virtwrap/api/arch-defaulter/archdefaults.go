@@ -32,6 +32,8 @@ func NewArchDefaulter(arch string) ArchDefaulter {
 		return defaulterS390X{}
 	case "amd64":
 		return defaulterAMD64{}
+	case "ppc64le":
+		return defaulterPPC64{}
 	default:
 		log.Log.Warning("Trying to create an arch defaulter from an unknown arch: " + arch + ". Falling back to AMD64")
 		return defaulterAMD64{}
