@@ -823,6 +823,13 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 			if volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
 				volume.CloudInitConfigDrive.NetworkDataSecretRef.Name += suffix
 			}
+		} else if volume.VolumeSource.Sysprep != nil {
+			if volume.VolumeSource.Sysprep.Secret != nil && appendIndexToSecretRefs {
+				volume.Sysprep.Secret.Name += suffix
+			}
+			if volume.VolumeSource.Sysprep.ConfigMap != nil && appendIndexToConfigMapRefs {
+				volume.Sysprep.ConfigMap.Name += suffix
+			}
 		}
 	}
 
