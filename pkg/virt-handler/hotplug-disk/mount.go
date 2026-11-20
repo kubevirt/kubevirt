@@ -135,7 +135,7 @@ var (
 		return isolation.IsBlockDevice(path)
 	}
 
-	isolationDetector = func() isolation.PodIsolationDetector {
+	isolationDetector = func() isolation.SocketPodIsolationDetector {
 		return isolation.NewSocketBasedIsolationDetector()
 	}
 
