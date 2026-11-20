@@ -657,6 +657,55 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Allowed).To(BeTrue())
 			})
 
+			It("should reject restore to a different VM when a referenced preference enables backend storage", func() {
+				const targetVMName = "new-test-vm"
+
+				// Backend storage is only visible after expanding the preference.
+				vm.Spec.Preference = &v1.PreferenceMatcher{Name: "some-preference"}
+				vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: v1.VirtualMachineInstanceSpec{},
+				}
+
+				vmSnapshotContent := &snapshotv1.VirtualMachineSnapshotContent{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "snapshot-content",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
+						Source: snapshotv1.SourceSpec{
+							VirtualMachine: &snapshotv1.VirtualMachine{
+								ObjectMeta: vm.ObjectMeta,
+								Spec:       vm.Spec,
+								Status:     vm.Status,
+							},
+						},
+					},
+				}
+				snapshot.Status.VirtualMachineSnapshotContentName = pointer.P(vmSnapshotContent.Name)
+
+				restore := &snapshotv1.VirtualMachineRestore{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "restore",
+						Namespace: "default",
+					},
+					Spec: snapshotv1.VirtualMachineRestoreSpec{
+						Target: corev1.TypedLocalObjectReference{
+							APIGroup: &apiGroup,
+							Kind:     "VirtualMachine",
+							Name:     targetVMName,
+						},
+						VirtualMachineSnapshotName: vmSnapshotName,
+					},
+				}
+
+				ar := createRestoreAdmissionReview(restore)
+				resp := createTestVMRestoreAdmitter(stubVMRestoreConfigChecker{snapshotEnabled: true}, snapshot, vmSnapshotContent).Admit(context.Background(), ar)
+
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)"))
+			})
+
 			Context("when using Patches", func() {
 
 				var restore *snapshotv1.VirtualMachineRestore
@@ -823,11 +872,29 @@ func createTestVMRestoreAdmitter(
 		return nil, err
 	}).AnyTimes()
 
-	return admitters.NewVMRestoreAdmitter(config, virtClient, restoreInformer)
+	return admitters.NewVMRestoreAdmitter(config, virtClient, restoreInformer, stubExpander{})
 }
 
 type stubVMRestoreConfigChecker struct {
 	snapshotEnabled bool
+}
+
+// stubExpander adds a persistent TPM when the VM references an
+// instancetype/preference, mimicking what expansion would apply.
+type stubExpander struct{}
+
+func (stubExpander) Expand(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	expanded := vm.DeepCopy()
+	if expanded.Spec.Preference == nil && expanded.Spec.Instancetype == nil {
+		return expanded, nil
+	}
+	if expanded.Spec.Template == nil {
+		expanded.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+	}
+	expanded.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+		Persistent: pointer.P(true),
+	}
+	return expanded, nil
 }
 
 func (s stubVMRestoreConfigChecker) SnapshotEnabled() bool { return s.snapshotEnabled }

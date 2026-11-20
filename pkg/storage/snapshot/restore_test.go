@@ -276,6 +276,10 @@ var _ = Describe("Restore controller", func() {
 			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+			clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+			preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+			clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -285,19 +289,26 @@ var _ = Describe("Restore controller", func() {
 			}
 
 			controller = &VMRestoreController{
-				Client:                    virtClient,
-				VMRestoreInformer:         vmRestoreInformer,
-				VMSnapshotInformer:        vmSnapshotInformer,
-				VMSnapshotContentInformer: vmSnapshotContentInformer,
-				VMInformer:                vmInformer,
-				VMIInformer:               vmiInformer,
-				PVCInformer:               pvcInformer,
-				StorageClassInformer:      storageClassInformer,
-				DataVolumeInformer:        dataVolumeInformer,
-				Recorder:                  recorder,
-				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
-				CRInformer:                crInformer,
+				Client:                      virtClient,
+				VMRestoreInformer:           vmRestoreInformer,
+				VMSnapshotInformer:          vmSnapshotInformer,
+				VMSnapshotContentInformer:   vmSnapshotContentInformer,
+				VMInformer:                  vmInformer,
+				VMIInformer:                 vmiInformer,
+				PVCInformer:                 pvcInformer,
+				StorageClassInformer:        storageClassInformer,
+				DataVolumeInformer:          dataVolumeInformer,
+				Recorder:                    recorder,
+				VolumeSnapshotProvider:      fakeVolumeSnapshotProvider,
+				CRInformer:                  crInformer,
+				InstancetypeInformer:        instancetypeInformer,
+				ClusterInstancetypeInformer: clusterInstancetypeInformer,
+				PreferenceInformer:          preferenceInformer,
+				ClusterPreferenceInformer:   clusterPreferenceInformer,
 			}
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kubevirtv1.KubeVirtConfiguration{})
+			controller.ClusterConfig = config
 			controller.Init()
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -3369,6 +3380,12 @@ var _ = Describe("restoreVirtualMachineState", func() {
 	})
 })
 
+type fakeExpander struct{}
+
+func (*fakeExpander) Expand(vm *kubevirtv1.VirtualMachine) (*kubevirtv1.VirtualMachine, error) {
+	return vm, nil
+}
+
 var _ = Describe("deleteObsoleteBackendPVC", func() {
 	const (
 		restoreNS    = "testns"
@@ -3386,7 +3403,7 @@ var _ = Describe("deleteObsoleteBackendPVC", func() {
 		virtClient = kubecli.NewMockKubevirtClient(mockCtrl)
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-		ctrl = &VMRestoreController{Client: virtClient}
+		ctrl = &VMRestoreController{Client: virtClient, expandHandler: &fakeExpander{}}
 	})
 
 	newVMRestore := func() *snapshotv1.VirtualMachineRestore {
