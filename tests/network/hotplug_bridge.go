@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -86,19 +87,32 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 	)
 
 	Context("a running VM", func() {
-		const guestSecondaryIfaceName = "eth1"
+		const (
+			guestSecondaryIfaceName = "eth1"
+			preferredModel          = "virtio"
+		)
 
 		var hotPluggedVM *v1.VirtualMachine
 		var hotPluggedVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
+			By("Creating a preference with PreferredInterfaceModel")
+			preference := builder.NewPreference(
+				builder.WithPreferredInterfaceModel(preferredModel),
+			)
+			preference, err := kubevirt.Client().VirtualMachinePreference(testsuite.GetTestNamespace(nil)).
+				Create(context.Background(), preference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Creating a VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			var err error
+			hotPluggedVM = libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+				libvmi.WithPreference(preference.Name),
+			)
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -136,6 +150,11 @@ var _ = Describe(SIG("bridge nic-hotplug", Serial, func() {
 
 				g.Expect(vmiIfaceStatus.MAC).To(Equal(vmIfaceSpec.MacAddress),
 					"hot-plugged iface in VMI status should have a MAC address as specified in VM template spec")
+
+				hotpluggedIface := vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, ifaceName)
+				g.Expect(hotpluggedIface).NotTo(BeNil())
+				g.Expect(hotpluggedIface.Model).To(Equal(preferredModel),
+					"hotplugged interface should have the preferred model from the preference")
 			}, time.Second*30, time.Second*3).Should(Succeed())
 		},
 			Entry("In place", decorators.InPlaceHotplugNICs, inPlace),
