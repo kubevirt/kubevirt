@@ -33,7 +33,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -254,10 +253,8 @@ var _ = Describe("CloudInit", func() {
 				cloudInitData, _ := readCloudInitNoCloudSource(source)
 
 				vmi := &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "fake-domain",
-						Namespace: "fake-namespace",
-					},
+					Name:      "fake-domain",
+					Namespace: "fake-namespace",
 				}
 				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).To(HaveOccurred())
@@ -272,10 +269,8 @@ var _ = Describe("CloudInit", func() {
 				instancetype := "fake-instancetype"
 
 				vmi := &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      domain,
-						Namespace: namespace,
-					},
+					Name:      domain,
+					Namespace: namespace,
 				}
 				err := GenerateLocalData(vmi, instancetype, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
@@ -381,14 +376,12 @@ var _ = Describe("CloudInit", func() {
 					createCloudInitSecretRefVolume := func(name, secret string) *v1.Volume {
 						return &v1.Volume{
 							Name: name,
-							VolumeSource: v1.VolumeSource{
-								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-									UserDataSecretRef: &k8sv1.LocalObjectReference{
-										Name: secret,
-									},
-									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
-										Name: secret,
-									},
+							CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+								UserDataSecretRef: &k8sv1.LocalObjectReference{
+									Name: secret,
+								},
+								NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+									Name: secret,
 								},
 							},
 						}
@@ -521,14 +514,12 @@ var _ = Describe("CloudInit", func() {
 					createCloudInitConfigDriveVolume := func(name, secret string) *v1.Volume {
 						return &v1.Volume{
 							Name: name,
-							VolumeSource: v1.VolumeSource{
-								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
-									UserDataSecretRef: &k8sv1.LocalObjectReference{
-										Name: secret,
-									},
-									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
-										Name: secret,
-									},
+							CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+								UserDataSecretRef: &k8sv1.LocalObjectReference{
+									Name: secret,
+								},
+								NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+									Name: secret,
 								},
 							},
 						}
@@ -595,10 +586,8 @@ var _ = Describe("CloudInit", func() {
 			userData := "fake\nuser\ndata\n"
 
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "fake-domain",
-					Namespace: "fake-namespace",
-				},
+				Name:      "fake-domain",
+				Namespace: "fake-namespace",
 			}
 			source := &v1.CloudInitNoCloudSource{
 				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),

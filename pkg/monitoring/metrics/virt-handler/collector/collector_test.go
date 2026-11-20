@@ -24,7 +24,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 )
@@ -46,9 +45,9 @@ var _ = Describe("Collector", func() {
 
 	BeforeEach(func() {
 		vmis = []*k6tv1.VirtualMachineInstance{
-			{ObjectMeta: metav1.ObjectMeta{Name: "a"}},
-			{ObjectMeta: metav1.ObjectMeta{Name: "b"}},
-			{ObjectMeta: metav1.ObjectMeta{Name: "c"}},
+			{Name: "a"},
+			{Name: "b"},
+			{Name: "c"},
 		}
 	})
 

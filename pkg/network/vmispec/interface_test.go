@@ -33,12 +33,12 @@ var _ = Describe("VMI network spec", func() {
 		It("finds no SR-IOV interfaces in list", func() {
 			ifaces := []v1.Interface{
 				{
-					Name:                   "net0",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "net0",
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
 				{
-					Name:                   "net1",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+					Name:   "net1",
+					Bridge: &v1.InterfaceBridge{},
 				},
 			}
 
@@ -48,18 +48,18 @@ var _ = Describe("VMI network spec", func() {
 
 		It("finds two SR-IOV interfaces in list", func() {
 			sriovNet1 := v1.Interface{
-				Name:                   "sriov-net1",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+				Name:  "sriov-net1",
+				SRIOV: &v1.InterfaceSRIOV{},
 			}
 			sriovNet2 := v1.Interface{
-				Name:                   "sriov-net2",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+				Name:  "sriov-net2",
+				SRIOV: &v1.InterfaceSRIOV{},
 			}
 
 			ifaces := []v1.Interface{
 				{
-					Name:                   "masq-net0",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "masq-net0",
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
 				sriovNet1,
 				sriovNet2,

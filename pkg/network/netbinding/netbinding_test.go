@@ -73,8 +73,8 @@ var _ = Describe("Network Binding", func() {
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, Binding: &v1.PluginBinding{Name: testBindingName2}}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
 					libvmi.WithInterface(v1.Interface{
-						Name:                   testNetworkName3,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+						Name:  testNetworkName3,
+						SRIOV: &v1.InterfaceSRIOV{},
 					}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
 				),
@@ -88,8 +88,8 @@ var _ = Describe("Network Binding", func() {
 				}),
 			Entry("VMI has no plugin bindings",
 				libvmi.New(libvmi.WithInterface(v1.Interface{
-					Name:                   testNetworkName1,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					Name:  testNetworkName1,
+					SRIOV: &v1.InterfaceSRIOV{},
 				}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 				),

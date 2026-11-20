@@ -79,13 +79,16 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		fakeClientset = fake.NewSimpleClientset()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineInstancetype(metav1.NamespaceDefault).Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterInstancetypes(),
+		).AnyTimes()
 
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
@@ -127,9 +130,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 		BeforeEach(func() {
 			clusterInstancetype = &v1beta1.VirtualMachineClusterInstancetype{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-cluster-instancetype",
-				},
+				Name: "test-cluster-instancetype",
 				Spec: v1beta1.VirtualMachineInstancetypeSpec{
 					CPU: v1beta1.CPUInstancetype{
 						Guest: uint32(2),
@@ -276,7 +277,8 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), controllerRevision, metav1.CreateOptions{})
+				context.Background(), controllerRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the spec points to the original clusterInstancetype
@@ -302,10 +304,8 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 		BeforeEach(func() {
 			fakeInstancetype = &v1beta1.VirtualMachineInstancetype{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-instancetype",
-					Namespace: metav1.NamespaceDefault,
-				},
+				Name:      "test-instancetype",
+				Namespace: metav1.NamespaceDefault,
 				Spec: v1beta1.VirtualMachineInstancetypeSpec{
 					CPU: v1beta1.CPUInstancetype{
 						Guest: uint32(2),
@@ -317,14 +317,16 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			}
 
 			_, err := virtClient.VirtualMachineInstancetype(metav1.NamespaceDefault).Create(
-				context.Background(), fakeInstancetype, metav1.CreateOptions{})
+				context.Background(), fakeInstancetype, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = instancetypeInformerStore.Add(fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = libvmi.NewVirtualMachine(libvmi.New(
-				libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+			),
 				libvmi.WithInstancetype(fakeInstancetype.Name),
 			)
 		})
@@ -446,7 +448,8 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), controllerRevision, metav1.CreateOptions{})
+				context.Background(), controllerRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Assert that the spec points to the original clusterInstancetype

@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "version.go",
+        "zz_generated.model_name.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/api/pkg/lib/version",
+    importpath = "github.com/operator-framework/api/pkg/lib/version",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/blang/semver/v4:go_default_library"],
+)

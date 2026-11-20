@@ -28,7 +28,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -193,7 +192,7 @@ var _ = Describe("Grace sysfs runtime info", func() {
 var _ = Describe("Grace conversion preflight", func() {
 	newGraceVMI := func() *v1.VirtualMachineInstance {
 		return &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+			Annotations: map[string]string{},
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{CPU: &v1.CPU{DedicatedCPUPlacement: true}},
 			},

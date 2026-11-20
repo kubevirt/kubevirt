@@ -351,10 +351,8 @@ var _ = Describe("HotplugVolume", func() {
 			vmi.UID = "1234"
 			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 				{
-					Name: "utility-vol",
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "test-pvc",
-					},
+					Name:      "utility-vol",
+					ClaimName: "test-pvc",
 				},
 			}
 			blockMode := k8sv1.PersistentVolumeBlock
@@ -412,12 +410,11 @@ var _ = Describe("HotplugVolume", func() {
 
 			blockMode := k8sv1.PersistentVolumeBlock
 			vmi.Spec.Volumes = []v1.Volume{
-				{Name: "kept-vol", VolumeSource: v1.VolumeSource{
+				{Name: "kept-vol",
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "kept-pvc"},
-						Hotpluggable:                      true,
-					},
-				}},
+						ClaimName:    "kept-pvc",
+						Hotpluggable: true,
+					}},
 			}
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{
 				{
@@ -1110,24 +1107,16 @@ var _ = Describe("HotplugVolume", func() {
 				},
 				{
 					Name: "filesystemvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "filesystemvolume",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "filesystemvolume",
+						Hotpluggable: true,
 					},
 				},
 				{
 					Name: "blockvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "blockvolume",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "blockvolume",
+						Hotpluggable: true,
 					},
 				},
 			}
@@ -1175,13 +1164,9 @@ var _ = Describe("HotplugVolume", func() {
 				},
 				{
 					Name: "filesystemvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "filesystemvolume",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "filesystemvolume",
+						Hotpluggable: true,
 					},
 				},
 			}
@@ -1299,24 +1284,16 @@ var _ = Describe("HotplugVolume", func() {
 				},
 				{
 					Name: "filesystemvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "filesystemvolume",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "filesystemvolume",
+						Hotpluggable: true,
 					},
 				},
 				{
 					Name: "blockvolume",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "blockvolume",
-							},
-							Hotpluggable: true,
-						},
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName:    "blockvolume",
+						Hotpluggable: true,
 					},
 				},
 			}

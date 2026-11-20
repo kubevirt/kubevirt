@@ -90,10 +90,8 @@ var _ = Describe("Template", func() {
 	namespaceStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 
 	kv := &v1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt",
-			Namespace: "kubevirt",
-		},
+		Name:      "kubevirt",
+		Namespace: "kubevirt",
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
@@ -170,10 +168,8 @@ var _ = Describe("Template", func() {
 			volumes := []v1.Volume{
 				{
 					Name: "containerdisk",
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{
-							Image: "my-image-1",
-						},
+					ContainerDisk: &v1.ContainerDiskSource{
+						Image: "my-image-1",
 					},
 				},
 			}
@@ -181,10 +177,8 @@ var _ = Describe("Template", func() {
 			vmi.Spec.Volumes = volumes
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{
-							Bus: v1.DiskBusVirtio,
-						},
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
 					},
 					Name: "containerdisk",
 				},
@@ -358,7 +352,7 @@ var _ = Describe("Template", func() {
 
 				BeforeEach(func() {
 					migration = &v1.VirtualMachineInstanceMigration{
-						ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+						Name: "test-migration", Namespace: "default",
 					}
 				})
 
@@ -591,12 +585,10 @@ var _ = Describe("Template", func() {
 			DescribeTable("should contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				config, kvStore, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "testvmi",
-						Namespace:   "testns",
-						UID:         "1234",
-						Annotations: vmiAnnotation,
-					},
+					Name:        "testvmi",
+					Namespace:   "testns",
+					UID:         "1234",
+					Annotations: vmiAnnotation,
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -663,12 +655,10 @@ var _ = Describe("Template", func() {
 			DescribeTable("should not contain tested annotations", func(vmiAnnotation, podExpectedAnnotation map[string]string) {
 				config, kvStore, svc = configFactory(defaultArch)
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "testvmi",
-						Namespace:   "testns",
-						UID:         "1234",
-						Annotations: vmiAnnotation,
-					},
+					Name:        "testvmi",
+					Namespace:   "testns",
+					UID:         "1234",
+					Annotations: vmiAnnotation,
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -713,12 +703,10 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "testvmi",
-						Namespace:   "testns",
-						UID:         "1234",
-						Annotations: annotations,
-					},
+					Name:        "testvmi",
+					Namespace:   "testns",
+					UID:         "1234",
+					Annotations: annotations,
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -819,9 +807,7 @@ var _ = Describe("Template", func() {
 			It("should be nil if no SELinux type is specified and none is needed", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -841,9 +827,7 @@ var _ = Describe("Template", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -870,10 +854,8 @@ var _ = Describe("Template", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "my-image-1",
-							},
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "my-image-1",
 						},
 					},
 				}
@@ -892,10 +874,8 @@ var _ = Describe("Template", func() {
 `,
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-						Annotations: annotations,
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
+					Annotations: annotations,
 					Spec: v1.VirtualMachineInstanceSpec{
 						Volumes: volumes,
 						Domain: v1.DomainSpec{
@@ -928,13 +908,11 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-						Labels: map[string]string{
-							debugLogs: debugLogsAnnotationValue,
-						},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+					Labels: map[string]string{
+						debugLogs: debugLogsAnnotationValue,
 					},
 				}
 
@@ -960,13 +938,11 @@ var _ = Describe("Template", func() {
 			It("should NOT add the corresponding environment variable", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-						Labels: map[string]string{
-							debugLogs: "false",
-						},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+					Labels: map[string]string{
+						debugLogs: "false",
 					},
 				}
 
@@ -988,20 +964,16 @@ var _ = Describe("Template", func() {
 			It("should add volume with secret referenced by cloud-init user secret ref", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Volumes: []v1.Volume{
 							{
 								Name: "cloud-init-user-data-secret-ref",
-								VolumeSource: v1.VolumeSource{
-									CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
 
-										UserData: "somedata",
-									},
+									UserData: "somedata",
 								},
 							},
 						},
@@ -1044,11 +1016,9 @@ var _ = Describe("Template", func() {
 			It("should add volume with secret referenced by qemu agent access cred", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						AccessCredentials: []v1.AccessCredential{
 							{
@@ -1089,11 +1059,9 @@ var _ = Describe("Template", func() {
 			It("should add volume with secret referenced by user/password", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						AccessCredentials: []v1.AccessCredential{
 							{
@@ -1137,11 +1105,9 @@ var _ = Describe("Template", func() {
 			It("should add volume with secret referenced by cloud-init user secret ref", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1151,11 +1117,9 @@ var _ = Describe("Template", func() {
 						Volumes: []v1.Volume{
 							{
 								Name: "cloud-init-user-data-secret-ref",
-								VolumeSource: v1.VolumeSource{
-									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-										UserDataSecretRef: &k8sv1.LocalObjectReference{
-											Name: "some-secret",
-										},
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "some-secret",
 									},
 								},
 							},
@@ -1187,11 +1151,9 @@ var _ = Describe("Template", func() {
 			It("should add volume with secret referenced by cloud-init network data secret ref", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1201,11 +1163,9 @@ var _ = Describe("Template", func() {
 						Volumes: []v1.Volume{
 							{
 								Name: "cloud-init-network-data-secret-ref",
-								VolumeSource: v1.VolumeSource{
-									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-										NetworkDataSecretRef: &k8sv1.LocalObjectReference{
-											Name: "some-secret",
-										},
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "some-secret",
 									},
 								},
 							},
@@ -1241,26 +1201,20 @@ var _ = Describe("Template", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "containerdisk1",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "my-image-1",
-							},
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "my-image-1",
 						},
 					},
 					{
 						Name: "containerdisk2",
-						VolumeSource: v1.VolumeSource{
-							ContainerDisk: &v1.ContainerDiskSource{
-								Image: "my-image-2",
-							},
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "my-image-2",
 						},
 					},
 				}
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -1297,13 +1251,11 @@ var _ = Describe("Template", func() {
 			)
 			BeforeEach(func() {
 				vmi = v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-						Annotations: map[string]string{
-							istio.InjectSidecarAnnotation: "true",
-						},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+					Annotations: map[string]string{
+						istio.InjectSidecarAnnotation: "true",
 					},
 				}
 				var err error
@@ -1328,7 +1280,7 @@ var _ = Describe("Template", func() {
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}
-				vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Architecture: arch, NodeSelector: nodeSelector, Domain: v1.DomainSpec{
+				vmi := v1.VirtualMachineInstance{Name: "testvmi", Namespace: "default", UID: "1234", Annotations: annotations, Spec: v1.VirtualMachineInstanceSpec{Architecture: arch, NodeSelector: nodeSelector, Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
 					},
@@ -1393,11 +1345,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmiCpuModel := "Conroe"
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1439,11 +1389,9 @@ var _ = Describe("Template", func() {
 			DescribeTable("should add node selector for machine type", func(specMachineType, statusMachineType, expectedMachineType string) {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Machine: &v1.Machine{Type: specMachineType},
@@ -1475,9 +1423,7 @@ var _ = Describe("Template", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -1493,9 +1439,7 @@ var _ = Describe("Template", func() {
 			It("should add realtime node label selector with realtime workload", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						CPU: &v1.CPU{Realtime: &v1.Realtime{}},
 					}},
@@ -1508,9 +1452,7 @@ var _ = Describe("Template", func() {
 			It("should not add realtime node label selector when no realtime workload", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{
 						CPU: &v1.CPU{Realtime: nil},
 					}},
@@ -1652,11 +1594,9 @@ var _ = Describe("Template", func() {
 				enableFeatureGate(featuregate.HypervStrictCheckGate)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1680,11 +1620,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1718,11 +1656,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enableFeatureGate(featuregate.HypervStrictCheckGate)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1734,7 +1670,7 @@ var _ = Describe("Template", func() {
 										Enabled: new(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										FeatureState: v1.FeatureState{Enabled: new(true)},
+										Enabled: new(true),
 									},
 									Frequencies: &v1.FeatureState{
 										Enabled: new(true),
@@ -1776,11 +1712,9 @@ var _ = Describe("Template", func() {
 				var retries uint32 = 4095
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -1795,8 +1729,8 @@ var _ = Describe("Template", func() {
 										Enabled: &enabled,
 									},
 									Spinlocks: &v1.FeatureSpinlocks{
-										FeatureState: v1.FeatureState{Enabled: &enabled},
-										Retries:      &retries,
+										Enabled: &enabled,
+										Retries: &retries,
 									},
 								},
 							},
@@ -1874,12 +1808,10 @@ var _ = Describe("Template", func() {
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "testvmi",
-						Namespace:   "default",
-						UID:         "1234",
-						Annotations: annotations,
-					},
+					Name:        "testvmi",
+					Namespace:   "default",
+					UID:         "1234",
+					Annotations: annotations,
 					Spec: v1.VirtualMachineInstanceSpec{
 						NodeSelector: nodeSelector,
 						Domain: v1.DomainSpec{
@@ -1994,12 +1926,10 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "testvmi",
-						Namespace:   "default",
-						UID:         "1234",
-						Annotations: annotations,
-					},
+					Name:        "testvmi",
+					Namespace:   "default",
+					UID:         "1234",
+					Annotations: annotations,
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2029,7 +1959,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				nodeAffinity := k8sv1.NodeAffinity{}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &k8sv1.Affinity{NodeAffinity: &nodeAffinity},
 						Domain: v1.DomainSpec{
@@ -2052,7 +1982,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				podAffinity := k8sv1.PodAffinity{}
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &k8sv1.Affinity{PodAffinity: &podAffinity},
 						Domain: v1.DomainSpec{
@@ -2072,7 +2002,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				podAntiAffinity := k8sv1.PodAntiAffinity{}
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Affinity: &k8sv1.Affinity{PodAntiAffinity: &podAntiAffinity},
 						Domain: v1.DomainSpec{
@@ -2091,8 +2021,8 @@ var _ = Describe("Template", func() {
 			It("should add persistent reservation anti-affinity for PR LUN with PVC", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
-					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-1234"},
+					Kind: "PersistentVolumeClaim", APIVersion: "v1",
+					Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-1234",
 				})).To(Succeed())
 
 				vmi := libvmi.New(
@@ -2120,8 +2050,8 @@ var _ = Describe("Template", func() {
 			It("should merge persistent reservation anti-affinity with existing pod anti-affinity", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				Expect(pvcCache.Add(&k8sv1.PersistentVolumeClaim{
-					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-					ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-5678"},
+					Kind: "PersistentVolumeClaim", APIVersion: "v1",
+					Namespace: "default", Name: "shared-pvc", UID: "pvc-uid-5678",
 				})).To(Succeed())
 
 				existingAntiAffinity := &k8sv1.PodAntiAffinity{
@@ -2151,7 +2081,7 @@ var _ = Describe("Template", func() {
 			It("should not add persistent reservation anti-affinity when no PR disks", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2173,7 +2103,7 @@ var _ = Describe("Template", func() {
 				podToleration := k8sv1.Toleration{Key: "test"}
 				var tolerationSeconds int64 = 14
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Tolerations: []k8sv1.Toleration{
 							{
@@ -2208,7 +2138,7 @@ var _ = Describe("Template", func() {
 					},
 				}
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						TopologySpreadConstraints: topologySpreadConstraints,
 						Domain: v1.DomainSpec{
@@ -2226,7 +2156,7 @@ var _ = Describe("Template", func() {
 			It("should add the scheduler name to the pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						SchedulerName: "test-scheduler",
 						Domain: v1.DomainSpec{
@@ -2244,10 +2174,9 @@ var _ = Describe("Template", func() {
 			It("should use the hostname and subdomain if specified on the vm", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvm",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2267,13 +2196,12 @@ var _ = Describe("Template", func() {
 			It("should add vmi labels to pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-						Labels: map[string]string{
-							"key1": "val1",
-							"key2": "val2",
-						},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+					Labels: map[string]string{
+						"key1": "val1",
+						"key2": "val2",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
@@ -2301,7 +2229,7 @@ var _ = Describe("Template", func() {
 			It("should not add empty affinity to pod", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2322,7 +2250,7 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				foundNodeSelectorRequirement := false
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Name: "testvm", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2357,11 +2285,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2397,11 +2323,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2434,11 +2358,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2474,11 +2396,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(arch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2514,11 +2434,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2547,11 +2465,9 @@ var _ = Describe("Template", func() {
 			It("should calculate vmipod cpu request based on vcpus and cpu_allocation_ratio", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2573,11 +2489,9 @@ var _ = Describe("Template", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2594,11 +2508,9 @@ var _ = Describe("Template", func() {
 			})
 			It("should allocate proportional amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2620,11 +2532,9 @@ var _ = Describe("Template", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2676,11 +2586,9 @@ var _ = Describe("Template", func() {
 
 					By("Creating a VMI")
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: "default",
-							UID:       "1234",
-						},
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
 					}
 
 					for _, memorySetter := range memorySetters {
@@ -2756,11 +2664,9 @@ var _ = Describe("Template", func() {
 				config, kvStore, svc = configFactory(arch)
 				disableFeatureGate(featuregate.ImageVolume)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2800,16 +2706,12 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes).To(
 					ContainElements(
 						k8sv1.Volume{
-							Name: "hugepages",
-							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
-							},
+							Name:     "hugepages",
+							EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 						},
 						k8sv1.Volume{
-							Name: "hugetblfs-dir",
-							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
-							}}))
+							Name:     "hugetblfs-dir",
+							EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
@@ -2833,11 +2735,9 @@ var _ = Describe("Template", func() {
 				disableFeatureGate(featuregate.ImageVolume)
 				guestMem := resource.MustParse("64M")
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -2880,16 +2780,12 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes).To(
 					ContainElements(
 						k8sv1.Volume{
-							Name: "hugepages",
-							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
-							},
+							Name:     "hugepages",
+							EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
 						},
 						k8sv1.Volume{
-							Name: "hugetblfs-dir",
-							VolumeSource: k8sv1.VolumeSource{
-								EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages},
-							}}))
+							Name:     "hugetblfs-dir",
+							EmptyDir: &k8sv1.EmptyDirVolumeSource{Medium: k8sv1.StorageMediumHugePages}}))
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
@@ -2915,8 +2811,8 @@ var _ = Describe("Template", func() {
 				namespace := "testns"
 				pvcName := "pvcFile"
 				pvc := k8sv1.PersistentVolumeClaim{
-					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Kind: "PersistentVolumeClaim", APIVersion: "v1",
+					Namespace: namespace, Name: pvcName,
 				}
 				err := pvcCache.Add(&pvc)
 				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
@@ -2924,16 +2820,12 @@ var _ = Describe("Template", func() {
 				volumeName := "pvc-volume"
 				volumes := []v1.Volume{
 					{
-						Name: volumeName,
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
-						},
+						Name:                  volumeName,
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: namespace, UID: "1234",
-					},
+					Name: "testvmi", Namespace: namespace, UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -2956,9 +2848,9 @@ var _ = Describe("Template", func() {
 					ContainElement(
 						k8sv1.Volume{
 							Name: "pvc-volume",
-							VolumeSource: k8sv1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: pvcName,
-							}}},
+							}},
 					),
 					"Found PVC volume with correct name and source configuration")
 			})
@@ -2972,8 +2864,8 @@ var _ = Describe("Template", func() {
 				pvcName := "pvcDevice"
 				mode := k8sv1.PersistentVolumeBlock
 				pvc := k8sv1.PersistentVolumeClaim{
-					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Kind: "PersistentVolumeClaim", APIVersion: "v1",
+					Namespace: namespace, Name: pvcName,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: &mode,
 					},
@@ -2984,26 +2876,20 @@ var _ = Describe("Template", func() {
 				ephemeralVolumeName := "ephemeral-volume"
 				volumes := []v1.Volume{
 					{
-						Name: volumeName,
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
-						},
+						Name:                  volumeName,
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 					},
 					{
 						Name: ephemeralVolumeName,
-						VolumeSource: v1.VolumeSource{
-							Ephemeral: &v1.EphemeralVolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
 							},
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: namespace, UID: "1234",
-					},
+					Name: "testvmi", Namespace: namespace, UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3028,9 +2914,9 @@ var _ = Describe("Template", func() {
 					ContainElement(
 						k8sv1.Volume{
 							Name: "pvc-volume",
-							VolumeSource: k8sv1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: pvcName,
-							}}},
+							}},
 					),
 					"Found PVC volume with correct name and source config")
 			})
@@ -3044,16 +2930,12 @@ var _ = Describe("Template", func() {
 				volumeName := "pvc-volume"
 				volumes := []v1.Volume{
 					{
-						Name: volumeName,
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}},
-						},
+						Name:                  volumeName,
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: namespace, UID: "1234",
-					},
+					Name: "testvmi", Namespace: namespace, UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3078,29 +2960,23 @@ var _ = Describe("Template", func() {
 				volumes := make([]v1.Volume, len(volumeNames))
 				for _, name := range volumeNames {
 					pvc := k8sv1.PersistentVolumeClaim{
-						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+						Kind: "PersistentVolumeClaim", APIVersion: "v1",
+						Namespace: namespace, Name: name,
 					}
 					err := pvcCache.Add(&pvc)
 					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
 
 					volumes = append(volumes, v1.Volume{
 						Name: name,
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: name,
-								},
-								Hotpluggable: name == hotplugFromSpecName,
-							},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName:    name,
+							Hotpluggable: name == hotplugFromSpecName,
 						},
 					})
 				}
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: namespace, UID: "1234",
-					},
+					Name: "testvmi", Namespace: namespace, UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Volumes: volumes,
 					},
@@ -3130,9 +3006,7 @@ var _ = Describe("Template", func() {
 			It("should contain launcher's secret in pod spec", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3153,27 +3027,21 @@ var _ = Describe("Template", func() {
 			volumes := []v1.Volume{
 				{
 					Name: "containerdisk1",
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{
-							Image:           "my-image-1",
-							ImagePullSecret: "pull-secret-2",
-						},
+					ContainerDisk: &v1.ContainerDiskSource{
+						Image:           "my-image-1",
+						ImagePullSecret: "pull-secret-2",
 					},
 				},
 				{
 					Name: "containerdisk2",
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: &v1.ContainerDiskSource{
-							Image: "my-image-2",
-						},
+					ContainerDisk: &v1.ContainerDiskSource{
+						Image: "my-image-2",
 					},
 				},
 			}
 
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "default", UID: "1234",
 				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
@@ -3294,11 +3162,9 @@ var _ = Describe("Template", func() {
 						DisableHotplug: true,
 					},
 				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &iface}}}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Masquerade: &iface}}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 				}
 
@@ -3317,11 +3183,9 @@ var _ = Describe("Template", func() {
 						DisableHotplug: true,
 					},
 				}
-				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &iface}}}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", Ports: ports, Masquerade: &iface}}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 				}
 
@@ -3356,16 +3220,14 @@ var _ = Describe("Template", func() {
 				}
 				domain.Devices.Interfaces = []v1.Interface{
 					{Name: "testnet",
-						Ports:                  ports1,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &masqueradeIface}},
+						Ports:      ports1,
+						Masquerade: &masqueradeIface},
 					{Name: "testnet",
-						Ports:                  ports2,
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &bridgeIface}}}
+						Ports:  ports2,
+						Bridge: &bridgeIface}}
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 				}
 
@@ -3402,9 +3264,8 @@ var _ = Describe("Template", func() {
 				WithSidecarCreator(testSidecarCreator),
 				WithMemoryOverheadCalculators(&stubMemoryOverheadCalculator{}),
 			)
-			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
-				Name: "testvmi", Namespace: "default", UID: "1234",
-			}}
+			vmi := v1.VirtualMachineInstance{
+				Name: "testvmi", Namespace: "default", UID: "1234"}
 			pod, err := svc.RenderLaunchManifest(&vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3429,9 +3290,7 @@ var _ = Describe("Template", func() {
 			It("Should require tun device by default", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Status: v1.VirtualMachineInstanceStatus{
 						RuntimeUser: util.NonRootUID,
 					},
@@ -3455,9 +3314,7 @@ var _ = Describe("Template", func() {
 				domain.Devices.AutoattachPodInterface = &autoAttach
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 					Status: v1.VirtualMachineInstanceStatus{
 						RuntimeUser: util.NonRootUID,
@@ -3482,9 +3339,7 @@ var _ = Describe("Template", func() {
 				domain.Devices.AutoattachPodInterface = &autoAttach
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
 					Status: v1.VirtualMachineInstanceStatus{
 						RuntimeUser: util.NonRootUID,
@@ -3508,9 +3363,7 @@ var _ = Describe("Template", func() {
 
 			BeforeEach(func() {
 				vmi = &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3524,10 +3377,8 @@ var _ = Describe("Template", func() {
 				disableFeatureGate(featuregate.ImageVolume)
 				vmi.Spec.Volumes = []v1.Volume{
 					{
-						Name: "downardMetrics",
-						VolumeSource: v1.VolumeSource{
-							DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
-						},
+						Name:            "downardMetrics",
+						DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
 					},
 				}
 
@@ -3540,11 +3391,9 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes).To(ContainElement(
 					k8sv1.Volume{
 						Name: "downardMetrics",
-						VolumeSource: k8sv1.VolumeSource{
-							EmptyDir: &k8sv1.EmptyDirVolumeSource{
-								Medium:    k8sv1.StorageMediumMemory,
-								SizeLimit: &oneMB,
-							},
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{
+							Medium:    k8sv1.StorageMediumMemory,
+							SizeLimit: &oneMB,
 						},
 					}))
 
@@ -3558,10 +3407,8 @@ var _ = Describe("Template", func() {
 				overhead := pod.Spec.Containers[0].Resources.Requests.Memory()
 				vmi.Spec.Volumes = []v1.Volume{
 					{
-						Name: "downardMetrics",
-						VolumeSource: v1.VolumeSource{
-							DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
-						},
+						Name:            "downardMetrics",
+						DownwardMetrics: &v1.DownwardMetricsVolumeSource{},
 					},
 				}
 				pod, err = svc.RenderLaunchManifest(vmi)
@@ -3579,19 +3426,13 @@ var _ = Describe("Template", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "configmap-volume",
-						VolumeSource: v1.VolumeSource{
-							ConfigMap: &v1.ConfigMapVolumeSource{
-								LocalObjectReference: k8sv1.LocalObjectReference{
-									Name: "test-configmap",
-								},
-							},
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							Name: "test-configmap",
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3606,10 +3447,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes).To(HaveLen(8))
 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 					Name: "configmap-volume",
-					VolumeSource: k8sv1.VolumeSource{
-						ConfigMap: &k8sv1.ConfigMapVolumeSource{
-							LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-configmap"},
-						},
+					ConfigMap: &k8sv1.ConfigMapVolumeSource{
+						Name: "test-configmap",
 					},
 				}))
 			})
@@ -3623,19 +3462,15 @@ var _ = Describe("Template", func() {
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
-							VolumeSource: v1.VolumeSource{
-								Sysprep: &v1.SysprepSource{
-									ConfigMap: &k8sv1.LocalObjectReference{
-										Name: "test-sysprep-configmap",
-									},
+							Sysprep: &v1.SysprepSource{
+								ConfigMap: &k8sv1.LocalObjectReference{
+									Name: "test-sysprep-configmap",
 								},
 							},
 						},
 					}
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "testvmi", Namespace: "default", UID: "1234",
-						},
+						Name: "testvmi", Namespace: "default", UID: "1234",
 						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 					}
 
@@ -3646,10 +3481,8 @@ var _ = Describe("Template", func() {
 					Expect(pod.Spec.Volumes).To(HaveLen(9))
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: "sysprep-configmap-volume",
-						VolumeSource: k8sv1.VolumeSource{
-							ConfigMap: &k8sv1.ConfigMapVolumeSource{
-								LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-sysprep-configmap"},
-							},
+						ConfigMap: &k8sv1.ConfigMapVolumeSource{
+							Name: "test-sysprep-configmap",
 						},
 					}))
 				})
@@ -3661,19 +3494,15 @@ var _ = Describe("Template", func() {
 					volumes := []v1.Volume{
 						{
 							Name: "sysprep-configmap-volume",
-							VolumeSource: v1.VolumeSource{
-								Sysprep: &v1.SysprepSource{
-									Secret: &k8sv1.LocalObjectReference{
-										Name: "test-sysprep-secret",
-									},
+							Sysprep: &v1.SysprepSource{
+								Secret: &k8sv1.LocalObjectReference{
+									Name: "test-sysprep-secret",
 								},
 							},
 						},
 					}
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "testvmi", Namespace: "default", UID: "1234",
-						},
+						Name: "testvmi", Namespace: "default", UID: "1234",
 						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 					}
 
@@ -3685,10 +3514,8 @@ var _ = Describe("Template", func() {
 
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: "sysprep-configmap-volume",
-						VolumeSource: k8sv1.VolumeSource{
-							Secret: &k8sv1.SecretVolumeSource{
-								SecretName: "test-sysprep-secret",
-							},
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: "test-sysprep-secret",
 						},
 					}))
 				})
@@ -3702,17 +3529,13 @@ var _ = Describe("Template", func() {
 				volumes := []v1.Volume{
 					{
 						Name: "secret-volume",
-						VolumeSource: v1.VolumeSource{
-							Secret: &v1.SecretVolumeSource{
-								SecretName: "test-secret",
-							},
+						Secret: &v1.SecretVolumeSource{
+							SecretName: "test-secret",
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 						Devices: v1.Devices{
 							DisableHotplug: true,
@@ -3728,10 +3551,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 					Name: "secret-volume",
-					VolumeSource: k8sv1.VolumeSource{
-						Secret: &k8sv1.SecretVolumeSource{
-							SecretName: "test-secret",
-						},
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: "test-secret",
 					},
 				}))
 			})
@@ -3740,9 +3561,7 @@ var _ = Describe("Template", func() {
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				vmi = &v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
-					},
+					Name: "testvmi", Namespace: "default", UID: "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						ReadinessProbe: &v1.Probe{
 							InitialDelaySeconds: 2,
@@ -3750,14 +3569,12 @@ var _ = Describe("Template", func() {
 							PeriodSeconds:       4,
 							SuccessThreshold:    5,
 							FailureThreshold:    6,
-							Handler: v1.Handler{
-								TCPSocket: &k8sv1.TCPSocketAction{
-									Port: intstr.Parse("80"),
-									Host: "123",
-								},
-								HTTPGet: &k8sv1.HTTPGetAction{
-									Path: "test",
-								},
+							TCPSocket: &k8sv1.TCPSocketAction{
+								Port: intstr.Parse("80"),
+								Host: "123",
+							},
+							HTTPGet: &k8sv1.HTTPGetAction{
+								Path: "test",
 							},
 						},
 						LivenessProbe: &v1.Probe{
@@ -3766,14 +3583,12 @@ var _ = Describe("Template", func() {
 							PeriodSeconds:       14,
 							SuccessThreshold:    15,
 							FailureThreshold:    16,
-							Handler: v1.Handler{
-								TCPSocket: &k8sv1.TCPSocketAction{
-									Port: intstr.Parse("82"),
-									Host: "1234",
-								},
-								HTTPGet: &k8sv1.HTTPGetAction{
-									Path: "test34",
-								},
+							TCPSocket: &k8sv1.TCPSocketAction{
+								Port: intstr.Parse("82"),
+								Host: "1234",
+							},
+							HTTPGet: &k8sv1.HTTPGetAction{
+								Path: "test34",
 							},
 						},
 						Domain: v1.DomainSpec{
@@ -3821,11 +3636,9 @@ var _ = Describe("Template", func() {
 			It("should not mount pci related host directories and should have gpu resource", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -3866,11 +3679,9 @@ var _ = Describe("Template", func() {
 			It("should not mount pci related host directories", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							Devices: v1.Devices{
@@ -3970,11 +3781,9 @@ var _ = Describe("Template", func() {
 			It("should add priorityClass", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "namespace",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						PriorityClassName: "test",
 					},
@@ -4276,8 +4085,8 @@ var _ = Describe("Template", func() {
 				}
 				Expect(volumes).ToNot(ContainElement(
 					k8sv1.Volume{
-						Name:         "container-disks",
-						VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}),
+						Name:     "container-disks",
+						EmptyDir: &k8sv1.EmptyDirVolumeSource{}}),
 				)
 				Expect(computeMounts).ToNot(ContainElement(
 					k8sv1.VolumeMount{
@@ -4319,11 +4128,9 @@ var _ = Describe("Template", func() {
 				Expect(volumes).To(ContainElement(
 					k8sv1.Volume{
 						Name: vmiVolume.Name,
-						VolumeSource: k8sv1.VolumeSource{
-							Image: &k8sv1.ImageVolumeSource{
-								Reference:  vmiVolume.ContainerDisk.Image,
-								PullPolicy: vmiVolume.ContainerDisk.ImagePullPolicy,
-							},
+						Image: &k8sv1.ImageVolumeSource{
+							Reference:  vmiVolume.ContainerDisk.Image,
+							PullPolicy: vmiVolume.ContainerDisk.ImagePullPolicy,
 						},
 					}),
 				)
@@ -4358,11 +4165,9 @@ var _ = Describe("Template", func() {
 				Expect(volumes).To(ContainElement(
 					k8sv1.Volume{
 						Name: containerdisk.KernelBootVolumeName,
-						VolumeSource: k8sv1.VolumeSource{
-							Image: &k8sv1.ImageVolumeSource{
-								Reference:  kernelbootcontainer.Image,
-								PullPolicy: kernelbootcontainer.ImagePullPolicy,
-							},
+						Image: &k8sv1.ImageVolumeSource{
+							Reference:  kernelbootcontainer.Image,
+							PullPolicy: kernelbootcontainer.ImagePullPolicy,
 						},
 					}),
 				)
@@ -4490,10 +4295,8 @@ var _ = Describe("Template", func() {
 			DescribeTable("should use image digest extracted from source pod during migration and avoid adding init container for container disks ", func(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod, expectedVolumes []k8sv1.Volume) {
 				// Create a mock migration object
 				migration := &v1.VirtualMachineInstanceMigration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-migration",
-						Namespace: vmi.Namespace,
-					},
+					Name:      "test-migration",
+					Namespace: vmi.Namespace,
 				}
 
 				// Use RenderMigrationManifest to test the complete migration workflow
@@ -4504,11 +4307,9 @@ var _ = Describe("Template", func() {
 				Expect(targetPod.Spec.Volumes).To(ContainElements(expectedVolumes), "Verify that expected image volumes with digests are present")
 				Expect(targetPod.Spec.Volumes).ToNot(ContainElement(k8sv1.Volume{
 					Name: containerdisk.LauncherVolume,
-					VolumeSource: k8sv1.VolumeSource{
-						Image: &k8sv1.ImageVolumeSource{
-							Reference:  "kubevirt/virt-launcher",
-							PullPolicy: config.GetImagePullPolicy(),
-						},
+					Image: &k8sv1.ImageVolumeSource{
+						Reference:  "kubevirt/virt-launcher",
+						PullPolicy: config.GetImagePullPolicy(),
 					},
 				}), "should not create launcher binary volume when no init containers are required for image digest extraction")
 
@@ -4535,11 +4336,9 @@ var _ = Describe("Template", func() {
 					[]k8sv1.Volume{
 						{
 							Name: "r0",
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "someImage@sha256:abcd1234567890",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "someImage@sha256:abcd1234567890",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4563,11 +4362,9 @@ var _ = Describe("Template", func() {
 					[]k8sv1.Volume{
 						{
 							Name: containerdisk.KernelBootVolumeName,
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "kernelImage@sha256:efgh5678901234",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "kernelImage@sha256:efgh5678901234",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4597,20 +4394,16 @@ var _ = Describe("Template", func() {
 					[]k8sv1.Volume{
 						{
 							Name: "r0",
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "someImage@sha256:abcd1234567890",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "someImage@sha256:abcd1234567890",
+								PullPolicy: "",
 							},
 						},
 						{
 							Name: containerdisk.KernelBootVolumeName,
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "kernelImage@sha256:efgh5678901234",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "kernelImage@sha256:efgh5678901234",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4622,20 +4415,16 @@ var _ = Describe("Template", func() {
 					),
 					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
 						Name: "r0",
-						VolumeSource: k8sv1.VolumeSource{
-							Image: &k8sv1.ImageVolumeSource{
-								Reference: "someImage@sha256:abcd1234567890",
-							},
+						Image: &k8sv1.ImageVolumeSource{
+							Reference: "someImage@sha256:abcd1234567890",
 						},
 					}}}},
 					[]k8sv1.Volume{
 						{
 							Name: "r0",
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "someImage@sha256:abcd1234567890",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "someImage@sha256:abcd1234567890",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4647,20 +4436,16 @@ var _ = Describe("Template", func() {
 					),
 					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
 						Name: "kernel-boot-volume",
-						VolumeSource: k8sv1.VolumeSource{
-							Image: &k8sv1.ImageVolumeSource{
-								Reference: "kernelImage@sha256:efgh5678901234",
-							},
+						Image: &k8sv1.ImageVolumeSource{
+							Reference: "kernelImage@sha256:efgh5678901234",
 						},
 					}}}},
 					[]k8sv1.Volume{
 						{
 							Name: containerdisk.KernelBootVolumeName,
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "kernelImage@sha256:efgh5678901234",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "kernelImage@sha256:efgh5678901234",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4673,38 +4458,30 @@ var _ = Describe("Template", func() {
 					),
 					&k8sv1.Pod{Spec: k8sv1.PodSpec{Volumes: []k8sv1.Volume{{
 						Name: "r0",
-						VolumeSource: k8sv1.VolumeSource{
-							Image: &k8sv1.ImageVolumeSource{
-								Reference: "someImage@sha256:abcd1234567890",
-							},
+						Image: &k8sv1.ImageVolumeSource{
+							Reference: "someImage@sha256:abcd1234567890",
 						},
 					},
 						{
 							Name: "kernel-boot-volume",
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference: "kernelImage@sha256:efgh5678901234",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference: "kernelImage@sha256:efgh5678901234",
 							},
 						},
 					}}},
 					[]k8sv1.Volume{
 						{
 							Name: "r0",
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "someImage@sha256:abcd1234567890",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "someImage@sha256:abcd1234567890",
+								PullPolicy: "",
 							},
 						},
 						{
 							Name: containerdisk.KernelBootVolumeName,
-							VolumeSource: k8sv1.VolumeSource{
-								Image: &k8sv1.ImageVolumeSource{
-									Reference:  "kernelImage@sha256:efgh5678901234",
-									PullPolicy: "",
-								},
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  "kernelImage@sha256:efgh5678901234",
+								PullPolicy: "",
 							},
 						},
 					},
@@ -4758,12 +4535,10 @@ var _ = Describe("Template", func() {
 				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "namespace",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{},
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+					Spec:      v1.VirtualMachineInstanceSpec{},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
@@ -4774,12 +4549,10 @@ var _ = Describe("Template", func() {
 			It("Should leave runtimeClassName unset on pod, if not configured", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "namespace",
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{},
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+					Spec:      v1.VirtualMachineInstanceSpec{},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
@@ -4991,10 +4764,8 @@ var _ = Describe("Template", func() {
 				if isUtility {
 					vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
 						{
-							Name: "testVolume",
-							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "pvcDevice",
-							},
+							Name:      "testVolume",
+							ClaimName: "pvcDevice",
 						},
 					}
 				}
@@ -5015,8 +4786,8 @@ var _ = Describe("Template", func() {
 				namespace := "testns"
 				mode := k8sv1.PersistentVolumeFilesystem
 				pvc := k8sv1.PersistentVolumeClaim{
-					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Kind: "PersistentVolumeClaim", APIVersion: "v1",
+					Namespace: namespace, Name: pvcName,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: &mode,
 					},
@@ -5025,12 +4796,8 @@ var _ = Describe("Template", func() {
 				volumes := []*v1.Volume{
 					{
 						Name: volumeName,
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: pvcName,
-								},
-							},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
 						},
 					},
 				}
@@ -5066,10 +4833,10 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ownerPod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 				Name: hotplugDisks,
-				VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{
+				EmptyDir: &k8sv1.EmptyDirVolumeSource{
 					Medium:    k8sv1.StorageMediumMemory,
 					SizeLimit: new(resource.MustParse("1Mi")),
-				}},
+				},
 			}))
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
@@ -5078,8 +4845,8 @@ var _ = Describe("Template", func() {
 			namespace := "testns"
 			mode := k8sv1.PersistentVolumeFilesystem
 			pvc := k8sv1.PersistentVolumeClaim{
-				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				Kind: "PersistentVolumeClaim", APIVersion: "v1",
+				Namespace: namespace, Name: pvcName,
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode: &mode,
 				},
@@ -5089,12 +4856,8 @@ var _ = Describe("Template", func() {
 			volumes := []*v1.Volume{}
 			volumes = append(volumes, &v1.Volume{
 				Name: volumeName,
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
 				},
 			})
 			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
@@ -5125,8 +4888,8 @@ var _ = Describe("Template", func() {
 			namespace := "testns"
 			mode := k8sv1.PersistentVolumeBlock
 			pvc := k8sv1.PersistentVolumeClaim{
-				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
-				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				Kind: "PersistentVolumeClaim", APIVersion: "v1",
+				Namespace: namespace, Name: pvcName,
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					VolumeMode: &mode,
 				},
@@ -5136,12 +4899,8 @@ var _ = Describe("Template", func() {
 			volumes := []*v1.Volume{}
 			volumes = append(volumes, &v1.Volume{
 				Name: volumeName,
-				VolumeSource: v1.VolumeSource{
-					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-						},
-					},
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					ClaimName: pvcName,
 				},
 			})
 			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
@@ -5303,13 +5062,11 @@ var _ = Describe("Template", func() {
 			It("should replace label with VM name", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "default",
-						UID:       "1234",
-						Labels: map[string]string{
-							v1.DeprecatedVirtualMachineNameLabel: "random_name",
-						},
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+					Labels: map[string]string{
+						v1.DeprecatedVirtualMachineNameLabel: "random_name",
 					},
 				}
 
@@ -5326,11 +5083,9 @@ var _ = Describe("Template", func() {
 				It("should create label with VM name", func() {
 					config, kvStore, svc = configFactory(defaultArch)
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: "default",
-							UID:       "1234",
-						},
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
 					}
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
@@ -5348,11 +5103,9 @@ var _ = Describe("Template", func() {
 
 					config, kvStore, svc = configFactory(defaultArch)
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      name,
-							Namespace: "default",
-							UID:       "1234",
-						},
+						Name:      name,
+						Namespace: "default",
+						UID:       "1234",
 					}
 
 					pod, err := svc.RenderLaunchManifest(&vmi)
@@ -5380,9 +5133,7 @@ var _ = Describe("Template", func() {
 					k8sClient := k8sfake.NewSimpleClientset()
 					k8sClient.Fake.PrependReactor("get", "configmaps", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 						cm := k8sv1.ConfigMap{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "test-cm",
-							},
+							Name: "test-cm",
 							Data: map[string]string{"script.sh": "some-script"},
 						}
 						return true, &cm, nil
@@ -5396,11 +5147,9 @@ var _ = Describe("Template", func() {
 
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: "test-cm",
-						VolumeSource: k8sv1.VolumeSource{
-							ConfigMap: &k8sv1.ConfigMapVolumeSource{
-								LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-cm"},
-								DefaultMode:          new(int32(0755)),
-							},
+						ConfigMap: &k8sv1.ConfigMapVolumeSource{
+							Name:        "test-cm",
+							DefaultMode: new(int32(0755)),
 						},
 					}))
 					Expect(pod.Spec.Containers[1].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
@@ -5438,9 +5187,7 @@ var _ = Describe("Template", func() {
 					k8sClient := k8sfake.NewSimpleClientset()
 					k8sClient.Fake.PrependReactor("get", "pvcs", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 						pvc := k8sv1.PersistentVolumeClaim{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: claim,
-							},
+							Name: claim,
 							Spec: k8sv1.PersistentVolumeClaimSpec{
 								VolumeMode: &mode,
 							},
@@ -5456,10 +5203,8 @@ var _ = Describe("Template", func() {
 
 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 						Name: claim,
-						VolumeSource: k8sv1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: claim,
-							},
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: claim,
 						},
 					}))
 					Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(k8sv1.VolumeMount{
@@ -5483,10 +5228,8 @@ var _ = Describe("Template", func() {
 			expectStateMounts := func(pod *k8sv1.Pod) {
 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
 					Name: "vm-state",
-					VolumeSource: k8sv1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: claimName,
-						},
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: claimName,
 					},
 				}))
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElements(
@@ -5510,10 +5253,8 @@ var _ = Describe("Template", func() {
 			BeforeEach(func() {
 				mode := k8sv1.PersistentVolumeFilesystem
 				pvc = &k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      claimName,
-						Namespace: metav1.NamespaceDefault,
-					},
+					Name:      claimName,
+					Namespace: metav1.NamespaceDefault,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: &mode,
 					},
@@ -5543,10 +5284,8 @@ var _ = Describe("Template", func() {
 
 			It("should add the pvc to Pod of a migration target", func() {
 				migration := &v1.VirtualMachineInstanceMigration{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      migrationName,
-						Namespace: metav1.NamespaceDefault,
-					},
+					Name:      migrationName,
+					Namespace: metav1.NamespaceDefault,
 				}
 
 				pvc.Labels = map[string]string{"kubevirt.io/migrationName": migrationName}
@@ -5568,10 +5307,8 @@ var _ = Describe("Template", func() {
 		Context("with shared filesystem disks", func() {
 			createFSPVC := func(name string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
 				return &k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      name,
-						Namespace: metav1.NamespaceDefault,
-					},
+					Name:      name,
+					Namespace: metav1.NamespaceDefault,
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
 						AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
@@ -5670,17 +5407,13 @@ var _ = Describe("Template", func() {
 			volumes := []v1.Volume{
 				{
 					Name: "serviceaccount-volume",
-					VolumeSource: v1.VolumeSource{
-						ServiceAccount: &v1.ServiceAccountVolumeSource{
-							ServiceAccountName: serviceAccountName,
-						},
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: serviceAccountName,
 					},
 				},
 			}
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "default", UID: "1234",
 				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
@@ -5697,9 +5430,7 @@ var _ = Describe("Template", func() {
 		It("Should not add service account if not present", func() {
 			config, kvStore, svc = configFactory(defaultArch)
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "default", UID: "1234",
 				Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{
 					Devices: v1.Devices{
 						DisableHotplug: true,
@@ -5716,9 +5447,7 @@ var _ = Describe("Template", func() {
 		It("Should set service account from spec.serviceAccountName without automounting token", func() {
 			config, kvStore, svc = configFactory(defaultArch)
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "default", UID: "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					ServiceAccountName: "my-sa",
 					Domain: v1.DomainSpec{
@@ -5750,18 +5479,14 @@ var _ = Describe("Template", func() {
 		It("Should use spec.serviceAccountName and automount token when serviceAccount volume is also present", func() {
 			config, kvStore, svc = configFactory(defaultArch)
 			vmi := v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "default", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "default", UID: "1234",
 				Spec: v1.VirtualMachineInstanceSpec{
 					ServiceAccountName: "my-sa",
 					Volumes: []v1.Volume{
 						{
 							Name: "sa-vol",
-							VolumeSource: v1.VolumeSource{
-								ServiceAccount: &v1.ServiceAccountVolumeSource{
-									ServiceAccountName: "my-sa",
-								},
+							ServiceAccount: &v1.ServiceAccountVolumeSource{
+								ServiceAccountName: "my-sa",
 							},
 						},
 					},
@@ -5805,9 +5530,7 @@ var _ = Describe("Template", func() {
 			cpuRequests = resource.MustParse("200m")
 			sampleQuantity := resource.MustParse("900m")
 			resourceQuotaWithCPULimits := k8sv1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rqNamespace,
-				},
+				Namespace: rqNamespace,
 				Spec: k8sv1.ResourceQuotaSpec{
 					Hard: k8sv1.ResourceList{
 						k8sv1.ResourceLimitsCPU: sampleQuantity,
@@ -5818,9 +5541,7 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceQuotaWithoutCPULimits := k8sv1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: noRqNamespace,
-				},
+				Namespace: noRqNamespace,
 				Spec: k8sv1.ResourceQuotaSpec{
 					Hard: k8sv1.ResourceList{
 						k8sv1.ResourceCPU: sampleQuantity,
@@ -5851,11 +5572,9 @@ var _ = Describe("Template", func() {
 
 			It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "somethingelse",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "somethingelse",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
@@ -5875,23 +5594,17 @@ var _ = Describe("Template", func() {
 
 			It("should automatically set CPU limits when namespace labels match AutoCPULimitNamespaceLabelSelector", func() {
 				namespaceWithMatchingLabels := k8sv1.Namespace{
-					TypeMeta: metav1.TypeMeta{
-						Kind: "Namespace",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:   "matching-label-ns",
-						Labels: map[string]string{"testAutoLimits": "true"},
-					},
+					Kind:   "Namespace",
+					Name:   "matching-label-ns",
+					Labels: map[string]string{"testAutoLimits": "true"},
 				}
 				err := namespaceStore.Add(&namespaceWithMatchingLabels)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "matching-label-ns",
-						UID:       "1234",
-					},
+					Name:      "testvmi",
+					Namespace: "matching-label-ns",
+					UID:       "1234",
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
@@ -5923,11 +5636,9 @@ var _ = Describe("Template", func() {
 						}
 
 						vmi := v1.VirtualMachineInstance{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "testvmi",
-								Namespace: rqNamespace,
-								UID:       "1234",
-							},
+							Name:      "testvmi",
+							Namespace: rqNamespace,
+							UID:       "1234",
 							Spec: v1.VirtualMachineInstanceSpec{
 								Domain: v1.DomainSpec{
 									Resources: resources,
@@ -5948,11 +5659,9 @@ var _ = Describe("Template", func() {
 				When("vmi does not have CPU limits set", func() {
 					It("should automatically set limits", func() {
 						vmi := v1.VirtualMachineInstance{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "testvmi",
-								Namespace: rqNamespace,
-								UID:       "1234",
-							},
+							Name:      "testvmi",
+							Namespace: rqNamespace,
+							UID:       "1234",
 							Spec: v1.VirtualMachineInstanceSpec{
 								Domain: v1.DomainSpec{
 									CPU: &v1.CPU{
@@ -5986,11 +5695,9 @@ var _ = Describe("Template", func() {
 
 				It("should not automatically set CPU limits when namespace labels does not match AutoCPULimitNamespaceLabelSelector", func() {
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: "somethingelse",
-							UID:       "1234",
-						},
+						Name:      "testvmi",
+						Namespace: "somethingelse",
+						UID:       "1234",
 						Spec: v1.VirtualMachineInstanceSpec{
 							Domain: v1.DomainSpec{
 								CPU: &v1.CPU{
@@ -6024,9 +5731,7 @@ var _ = Describe("Template", func() {
 
 			sampleQuantity := resource.MustParse("128M")
 			resourceQuotaWithMemoryLimits := k8sv1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: rqNamespace,
-				},
+				Namespace: rqNamespace,
 				Spec: k8sv1.ResourceQuotaSpec{
 					Hard: k8sv1.ResourceList{
 						k8sv1.ResourceLimitsMemory: sampleQuantity,
@@ -6037,9 +5742,7 @@ var _ = Describe("Template", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			resourceQuotaWithoutMemoryLimits := k8sv1.ResourceQuota{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: noRqNamespace,
-				},
+				Namespace: noRqNamespace,
 				Spec: k8sv1.ResourceQuotaSpec{
 					Hard: k8sv1.ResourceList{
 						k8sv1.ResourceMemory: sampleQuantity,
@@ -6068,11 +5771,9 @@ var _ = Describe("Template", func() {
 					}
 
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: rqNamespace,
-							UID:       "1234",
-						},
+						Name:      "testvmi",
+						Namespace: rqNamespace,
+						UID:       "1234",
 						Spec: v1.VirtualMachineInstanceSpec{
 							Domain: v1.DomainSpec{
 								Resources: resources,
@@ -6097,11 +5798,9 @@ var _ = Describe("Template", func() {
 				When("vmi does not have memory limits set", func() {
 					It("should automatically set limits using the default ratio", func() {
 						vmi := v1.VirtualMachineInstance{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "testvmi",
-								Namespace: rqNamespace,
-								UID:       "1234",
-							},
+							Name:      "testvmi",
+							Namespace: rqNamespace,
+							UID:       "1234",
 							Spec: v1.VirtualMachineInstanceSpec{
 								Domain: v1.DomainSpec{
 									Resources: v1.ResourceRequirements{
@@ -6121,14 +5820,10 @@ var _ = Describe("Template", func() {
 					When("there is the custom ratio label in the namespace", func() {
 						DescribeTable("should set limits", func(ratioLabelValue string, expectedUsedRatio float64) {
 							namespaceWithCustomMemoryRatio := k8sv1.Namespace{
-								TypeMeta: metav1.TypeMeta{
-									Kind: "Namespace",
-								},
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "custom-memory-ratio-ns",
-									Labels: map[string]string{
-										v1.AutoMemoryLimitsRatioLabel: ratioLabelValue,
-									},
+								Kind: "Namespace",
+								Name: "custom-memory-ratio-ns",
+								Labels: map[string]string{
+									v1.AutoMemoryLimitsRatioLabel: ratioLabelValue,
 								},
 							}
 							err := namespaceStore.Add(&namespaceWithCustomMemoryRatio)
@@ -6136,9 +5831,7 @@ var _ = Describe("Template", func() {
 
 							sampleQuantity := resource.MustParse("128M")
 							resourceQuotaWithMemoryLimits := k8sv1.ResourceQuota{
-								ObjectMeta: metav1.ObjectMeta{
-									Namespace: "custom-memory-ratio-ns",
-								},
+								Namespace: "custom-memory-ratio-ns",
 								Spec: k8sv1.ResourceQuotaSpec{
 									Hard: k8sv1.ResourceList{
 										k8sv1.ResourceLimitsMemory: sampleQuantity,
@@ -6149,11 +5842,9 @@ var _ = Describe("Template", func() {
 							Expect(err).ToNot(HaveOccurred())
 
 							vmi := v1.VirtualMachineInstance{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      "testvmi",
-									Namespace: "custom-memory-ratio-ns",
-									UID:       "1234",
-								},
+								Name:      "testvmi",
+								Namespace: "custom-memory-ratio-ns",
+								UID:       "1234",
 								Spec: v1.VirtualMachineInstanceSpec{
 									Domain: v1.DomainSpec{
 										Resources: v1.ResourceRequirements{
@@ -6179,11 +5870,9 @@ var _ = Describe("Template", func() {
 			Context("when the creation namespace have a resource quota without memory limits associated to it", func() {
 				It("should not set memory limits", func() {
 					vmi := v1.VirtualMachineInstance{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "testvmi",
-							Namespace: noRqNamespace,
-							UID:       "1234",
-						},
+						Name:      "testvmi",
+						Namespace: noRqNamespace,
+						UID:       "1234",
 						Spec: v1.VirtualMachineInstanceSpec{
 							Domain: v1.DomainSpec{
 								Resources: v1.ResourceRequirements{
@@ -6558,10 +6247,8 @@ func networkInfoAnnotVolume() k8sv1.Volume {
 	}
 	return k8sv1.Volume{
 		Name: "network-info-annotation",
-		VolumeSource: k8sv1.VolumeSource{
-			DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
-				Items: []k8sv1.DownwardAPIVolumeFile{netInfoAnnotFile},
-			},
+		DownwardAPI: &k8sv1.DownwardAPIVolumeSource{
+			Items: []k8sv1.DownwardAPIVolumeFile{netInfoAnnotFile},
 		},
 	}
 }
@@ -6629,17 +6316,13 @@ var _ = Describe("requestResource", func() {
 
 func newVMIWithSriovInterface(name, uid string) *v1.VirtualMachineInstance {
 	sriovInterface := v1.Interface{
-		Name: "sriov-nic",
-		InterfaceBindingMethod: v1.InterfaceBindingMethod{
-			SRIOV: &v1.InterfaceSRIOV{},
-		},
+		Name:  "sriov-nic",
+		SRIOV: &v1.InterfaceSRIOV{},
 	}
 	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-			UID:       types.UID(uid),
-		},
+		Name:      name,
+		Namespace: "default",
+		UID:       types.UID(uid),
 	}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{sriovInterface}
 
@@ -6657,11 +6340,9 @@ func newVMIWithDRANetwork(name string) *v1.VirtualMachineInstance {
 	vmi.Spec.Networks = []v1.Network{
 		{
 			Name: "dra-net",
-			NetworkSource: v1.NetworkSource{
-				ResourceClaim: &v1.ClaimRequest{
-					ClaimName:   "net-claim",
-					RequestName: "net-request",
-				},
+			ResourceClaim: &v1.ClaimRequest{
+				ClaimName:   "net-claim",
+				RequestName: "net-request",
 			},
 		},
 	}

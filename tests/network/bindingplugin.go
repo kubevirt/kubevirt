@@ -137,15 +137,18 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 					libvmi.WithBindingPlugin(v1.PluginBinding{Name: macvtapBindingName}),
 					libvmi.WithMac(chosenMAC),
 				)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
+				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)),
+			)
 
 			namespace := testsuite.GetTestNamespace(nil)
 			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), vmi, metav1.CreateOptions{})
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,
-				console.LoginToAlpine)
+				console.LoginToAlpine,
+			)
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(vmi.Status.Interfaces[0].MAC).To(Equal(chosenMAC), "the expected MAC address should be set in the VMI")
@@ -181,7 +184,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 			namespace := testsuite.GetTestNamespace(nil)
 			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
-				context.Background(), vmi, metav1.CreateOptions{})
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(vmiReadyTimeoutManagedTap))
 
@@ -213,11 +217,9 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 			primaryNetwork := v1.Network{
 				Name: "mynet1",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.MultusNetwork{
-						NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
-						Default:     true,
-					},
+				Multus: &v1.MultusNetwork{
+					NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
+					Default:     true,
 				},
 			}
 			serverVMI := libvmifact.NewAlpineWithTestTooling(

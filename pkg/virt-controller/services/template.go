@@ -318,9 +318,7 @@ func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, er
 	} else if sysprepVolume.ConfigMap != nil {
 		return k8sv1.VolumeSource{
 			ConfigMap: &k8sv1.ConfigMapVolumeSource{
-				LocalObjectReference: k8sv1.LocalObjectReference{
-					Name: sysprepVolume.ConfigMap.Name,
-				},
+				Name: sysprepVolume.ConfigMap.Name,
 			},
 		}, nil
 	}
@@ -625,8 +623,8 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			}
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
-					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          new(int32(0755)),
+					Name:        cm.Name,
+					DefaultMode: new(int32(0755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -764,13 +762,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	pod := k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "virt-launcher-" + domain + "-",
-			Labels:       podLabels(vmi, hostName),
-			Annotations:  podAnnotations,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
-			},
+		GenerateName: "virt-launcher-" + domain + "-",
+		Labels:       podLabels(vmi, hostName),
+		Annotations:  podAnnotations,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:                      hostName,
@@ -1127,22 +1123,20 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	tolerations = slices.Compact(tolerations)
 
 	pod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "hp-volume-",
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
-					Group:   k8sv1.SchemeGroupVersion.Group,
-					Version: k8sv1.SchemeGroupVersion.Version,
-					Kind:    "Pod",
-				}),
-			},
-			Labels: map[string]string{
-				v1.AppLabel: hotplugDisk,
-			},
-			Annotations: map[string]string{
-				v1.OwnerVMINameAnnotation: vmi.Name,
-				v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
-			},
+		GenerateName: "hp-volume-",
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
+				Group:   k8sv1.SchemeGroupVersion.Group,
+				Version: k8sv1.SchemeGroupVersion.Version,
+				Kind:    "Pod",
+			}),
+		},
+		Labels: map[string]string{
+			v1.AppLabel: hotplugDisk,
+		},
+		Annotations: map[string]string{
+			v1.OwnerVMINameAnnotation: vmi.Name,
+			v1.OwnerVMIUIDAnnotation:  string(vmi.UID),
 		},
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
@@ -1226,10 +1220,8 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 		skipMount := !types.IsUtilityVolume(vmi, volume.Name) && (phase == v1.VolumeReady || phase == v1.HotplugVolumeMounted)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
 			Name: volume.Name,
-			VolumeSource: k8sv1.VolumeSource{
-				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: claimName,
-				},
+			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
 			},
 		})
 		pvc := claimMap[volume.Name]
@@ -1280,20 +1272,18 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	copy(tmpTolerations, ownerPod.Spec.Tolerations)
 
 	pod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "hp-volume-",
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
-					Group:   k8sv1.SchemeGroupVersion.Group,
-					Version: k8sv1.SchemeGroupVersion.Version,
-					Kind:    "Pod",
-				}),
-			},
-			Labels: map[string]string{
-				v1.AppLabel: hotplugDisk,
-			},
-			Annotations: annotationsList,
+		GenerateName: "hp-volume-",
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(ownerPod, schema.GroupVersionKind{
+				Group:   k8sv1.SchemeGroupVersion.Group,
+				Version: k8sv1.SchemeGroupVersion.Version,
+				Kind:    "Pod",
+			}),
 		},
+		Labels: map[string]string{
+			v1.AppLabel: hotplugDisk,
+		},
+		Annotations: annotationsList,
 		Spec: k8sv1.PodSpec{
 			Containers: []k8sv1.Container{
 				{
@@ -1340,11 +1330,9 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 			Volumes: []k8sv1.Volume{
 				{
 					Name: volume.Name,
-					VolumeSource: k8sv1.VolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName,
-							ReadOnly:  false,
-						},
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+						ReadOnly:  false,
 					},
 				},
 				emptyDirVolume(hotplugDisks),
@@ -1379,21 +1367,19 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 
 func (t *TemplateService) RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod {
 	exporterPod := &k8sv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			// Use of DNS1035LabelMaxLength here to align with
-			// VMExportController{}.getExportPodName
-			Name:      naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
-			Namespace: vmExport.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
-					Group:   exportv1.SchemeGroupVersion.Group,
-					Version: exportv1.SchemeGroupVersion.Version,
-					Kind:    "VirtualMachineExport",
-				}),
-			},
-			Labels: map[string]string{
-				v1.AppLabel: virtExporter,
-			},
+		// Use of DNS1035LabelMaxLength here to align with
+		// VMExportController{}.getExportPodName
+		Name:      naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
+		Namespace: vmExport.Namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
+				Group:   exportv1.SchemeGroupVersion.Group,
+				Version: exportv1.SchemeGroupVersion.Version,
+				Kind:    "VirtualMachineExport",
+			}),
+		},
+		Labels: map[string]string{
+			v1.AppLabel: virtExporter,
 		},
 		Spec: k8sv1.PodSpec{
 			RestartPolicy: k8sv1.RestartPolicyNever,
@@ -1496,11 +1482,9 @@ func copyProbe(probe *v1.Probe) *k8sv1.Probe {
 		PeriodSeconds:       probe.PeriodSeconds,
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
-		ProbeHandler: k8sv1.ProbeHandler{
-			Exec:      probe.Exec,
-			HTTPGet:   probe.HTTPGet,
-			TCPSocket: probe.TCPSocket,
-		},
+		Exec:                probe.Exec,
+		HTTPGet:             probe.HTTPGet,
+		TCPSocket:           probe.TCPSocket,
 	}
 }
 

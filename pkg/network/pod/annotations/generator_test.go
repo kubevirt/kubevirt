@@ -27,8 +27,6 @@ import (
 
 	k8Scorev1 "k8s.io/api/core/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -732,22 +730,18 @@ var _ = Describe("Annotations Generator", func() {
 func newMultusDefaultPodNetwork(name, networkAttachmentDefinitionName string) *v1.Network {
 	return &v1.Network{
 		Name: name,
-		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{
-				NetworkName: networkAttachmentDefinitionName,
-				Default:     true,
-			},
+		Multus: &v1.MultusNetwork{
+			NetworkName: networkAttachmentDefinitionName,
+			Default:     true,
 		},
 	}
 }
 
 func newStubVirtLauncherPod(vmi *v1.VirtualMachineInstance, podAnnotations map[string]string) *k8Scorev1.Pod {
 	return &k8Scorev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        "virt-launcher-" + vmi.Name,
-			Namespace:   vmi.Namespace,
-			Annotations: podAnnotations,
-		},
+		Name:        "virt-launcher-" + vmi.Name,
+		Namespace:   vmi.Namespace,
+		Annotations: podAnnotations,
 	}
 }
 

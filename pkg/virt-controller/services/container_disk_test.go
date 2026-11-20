@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -39,10 +38,8 @@ var _ = Describe("Container disk", func() {
 		DescribeTable("should", func(image string, policy k8sv1.PullPolicy) {
 			ctrl := gomock.NewController(GinkgoT())
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -67,25 +64,19 @@ var _ = Describe("Container disk", func() {
 				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
 			)
 			vmi := &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi", Namespace: "namespace1", UID: "1234",
-				},
+				Name: "testvmi", Namespace: "namespace1", UID: "1234",
 			}
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "test",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: v1.DiskBusVirtio,
-					},
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
 				},
 			})
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "test",
-				VolumeSource: v1.VolumeSource{
-					ContainerDisk: &v1.ContainerDiskSource{
-						Image:           image,
-						ImagePullPolicy: policy,
-					},
+				ContainerDisk: &v1.ContainerDiskSource{
+					Image:           image,
+					ImagePullPolicy: policy,
 				},
 			})
 

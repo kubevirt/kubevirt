@@ -44,14 +44,16 @@ var _ = Describe(SIGSerial("Start a VirtualMachineInstance", func() {
 			leaderPodName := libinfra.GetLeader()
 			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(
 				context.Background(), leaderPodName,
-				metav1.DeleteOptions{})).To(Succeed())
+				metav1.DeleteOptions{},
+			)).To(Succeed())
 
 			By("Expecting a new leader to get elected")
 			Eventually(libinfra.GetLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
 			By("Starting a new VirtualMachineInstance")
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-				context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
+				context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
 		})

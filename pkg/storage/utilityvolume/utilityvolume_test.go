@@ -26,8 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 
-	corev1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -39,11 +37,9 @@ var _ = Describe("Utility volumes", func() {
 
 	utilityVolume := func(name string, volumeType v1.UtilityVolumeType) v1.UtilityVolume {
 		return v1.UtilityVolume{
-			Name: name,
-			PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: name + "-pvc",
-			},
-			Type: new(volumeType),
+			Name:      name,
+			ClaimName: name + "-pvc",
+			Type:      new(volumeType),
 		}
 	}
 

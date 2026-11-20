@@ -14,9 +14,9 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 	fstate := api.FeatureState{State: state}
 	dfstate := libvirtxml.DomainFeatureState{State: state}
 	dfhVTLBFlushState := libvirtxml.DomainFeatureHyperVTLBFlush{
-		DomainFeatureState: libvirtxml.DomainFeatureState{State: state},
-		Direct:             &libvirtxml.DomainFeatureState{State: state},
-		Extended:           &libvirtxml.DomainFeatureState{State: state},
+		State:    state,
+		Direct:   &libvirtxml.DomainFeatureState{State: state},
+		Extended: &libvirtxml.DomainFeatureState{State: state},
 	}
 	id := uint(123)
 

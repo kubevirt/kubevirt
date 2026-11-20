@@ -72,7 +72,8 @@ var _ = Describe("CPU ResourceClaim generation", func() {
 		Entry("using two emulator thread CPUs under even parity", int64(10),
 			withSupplementalPool(
 				libvmi.WithCPUCount(6, 1, 1),
-				libvmi.WithAnnotation(v1.EmulatorThreadCompleteToEvenParity, ""))),
+				libvmi.WithAnnotation(v1.EmulatorThreadCompleteToEvenParity, ""),
+			)),
 		Entry("counting an odd IO thread count once under even parity", int64(10),
 			[]libvmi.Option{
 				libvmi.WithCPUCount(6, 1, 1),

@@ -46,7 +46,8 @@ var _ = Describe(SIG("CRDs", decorators.WgS390x, func() {
 
 		for _, name := range ourCRDs {
 			crd, err := kubevirt.Client().ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(
-				context.Background(), name, metav1.GetOptions{})
+				context.Background(), name, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))

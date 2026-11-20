@@ -193,9 +193,7 @@ var _ = Describe("VCPU pinning", func() {
 							Disks: []corev1.Disk{{
 								Name:              "rootdisk",
 								DedicatedIOThread: new(true),
-								DiskDevice: corev1.DiskDevice{
-									Disk: &corev1.DiskTarget{Bus: corev1.DiskBusVirtio},
-								},
+								Disk:              &corev1.DiskTarget{Bus: corev1.DiskBusVirtio},
 							}},
 						},
 					},

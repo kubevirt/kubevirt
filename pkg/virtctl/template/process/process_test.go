@@ -586,15 +586,11 @@ func unmarshalYAML(data []byte, out any) error {
 
 func newVirtualMachineTemplateWithSpec(spec *v1beta1.VirtualMachineTemplateSpec) *v1beta1.VirtualMachineTemplate {
 	return &v1beta1.VirtualMachineTemplate{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta1.GroupVersion.String(),
-			Kind:       "VirtualMachineTemplate",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-template",
-			Namespace: metav1.NamespaceDefault,
-		},
-		Spec: *spec,
+		APIVersion: v1beta1.GroupVersion.String(),
+		Kind:       "VirtualMachineTemplate",
+		Name:       "test-template",
+		Namespace:  metav1.NamespaceDefault,
+		Spec:       *spec,
 	}
 }
 
@@ -611,13 +607,9 @@ func newVirtualMachineTemplate() *v1beta1.VirtualMachineTemplate {
 			},
 			VirtualMachine: &runtime.RawExtension{
 				Object: &virtv1.VirtualMachine{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: virtv1.GroupVersion.String(),
-						Kind:       "VirtualMachine",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: param1Placeholder,
-					},
+					APIVersion: virtv1.GroupVersion.String(),
+					Kind:       "VirtualMachine",
+					Name:       param1Placeholder,
 					Spec: virtv1.VirtualMachineSpec{
 						Preference: &virtv1.PreferenceMatcher{
 							Name: param2Placeholder,

@@ -52,7 +52,8 @@ func (f *instancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMa
 	}
 	if f.store == nil {
 		return f.virtClient.VirtualMachineInstancetype(namespacedName.Namespace).Get(
-			context.Background(), namespacedName.Name, metav1.GetOptions{})
+			context.Background(), namespacedName.Name, metav1.GetOptions{},
+		)
 	}
 
 	obj, exists, err := f.store.GetByKey(namespacedName.String())
@@ -61,7 +62,8 @@ func (f *instancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMa
 	}
 	if !exists {
 		return f.virtClient.VirtualMachineInstancetype(namespacedName.Namespace).Get(
-			context.Background(), namespacedName.Name, metav1.GetOptions{})
+			context.Background(), namespacedName.Name, metav1.GetOptions{},
+		)
 	}
 	instancetype, ok := obj.(*v1beta1.VirtualMachineInstancetype)
 	if !ok {

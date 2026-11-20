@@ -296,10 +296,8 @@ var _ = Describe("Clone", func() {
 			It("should report event if VM volumeSnapshots are invalid", func() {
 				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "disk0",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
-							Name: "testdv",
-						},
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "testdv",
 					},
 				})
 				addVM(sourceVM)
@@ -314,10 +312,8 @@ var _ = Describe("Clone", func() {
 			It("should report event if VM volumeSnapshots are not snapshotable", func() {
 				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "disk0",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
-							Name: "testdv",
-						},
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "testdv",
 					},
 				})
 				sourceVM.Status.VolumeSnapshotStatuses = []virtv1.VolumeSnapshotStatus{
@@ -774,10 +770,8 @@ var _ = Describe("Clone", func() {
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "vol1",
-					VolumeSource: virtv1.VolumeSource{
-						DataVolume: &virtv1.DataVolumeSource{
-							Name: "dv1",
-						},
+					DataVolume: &virtv1.DataVolumeSource{
+						Name: "dv1",
 					},
 				})
 				setSnapshotSource(vmClone, snapshot.Name)
@@ -1234,12 +1228,10 @@ var _ = Describe("Clone", func() {
 
 func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineSnapshot {
 	return &snapshotv1.VirtualMachineSnapshot{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            testSnapshotName,
-			Namespace:       vm.Namespace,
-			UID:             "snapshot-UID",
-			OwnerReferences: owner,
-		},
+		Name:            testSnapshotName,
+		Namespace:       vm.Namespace,
+		UID:             "snapshot-UID",
+		OwnerReferences: owner,
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: new(vmAPIGroup),
@@ -1253,11 +1245,9 @@ func createVirtualMachineSnapshot(vm *virtv1.VirtualMachine, owner ...metav1.Own
 
 func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshotContent {
 	return &snapshotv1.VirtualMachineSnapshotContent{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testSnapshotContentName,
-			Namespace: vm.Namespace,
-			UID:       "snapshotcontent-UID",
-		},
+		Name:      testSnapshotContentName,
+		Namespace: vm.Namespace,
+		UID:       "snapshotcontent-UID",
 		Spec: snapshotv1.VirtualMachineSnapshotContentSpec{
 			Source: snapshotv1.SourceSpec{
 				VirtualMachine: &snapshotv1.VirtualMachine{
@@ -1273,12 +1263,10 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.
 
 func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string, owner ...metav1.OwnerReference) *snapshotv1.VirtualMachineRestore {
 	return &snapshotv1.VirtualMachineRestore{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            testRestoreName,
-			Namespace:       vm.Namespace,
-			UID:             "restore-UID",
-			OwnerReferences: owner,
-		},
+		Name:            testRestoreName,
+		Namespace:       vm.Namespace,
+		UID:             "restore-UID",
+		OwnerReferences: owner,
 		Spec: snapshotv1.VirtualMachineRestoreSpec{
 			Target: k8sv1.TypedLocalObjectReference{
 				APIGroup: new(vmAPIGroup),
@@ -1293,11 +1281,9 @@ func createVirtualMachineRestore(vm *virtv1.VirtualMachine, snapshotName string,
 
 func createPVC(namespace string, phase k8sv1.PersistentVolumeClaimPhase) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "restore-pvc",
-			Namespace: namespace,
-			UID:       "pvc-UID",
-		},
+		Name:      "restore-pvc",
+		Namespace: namespace,
+		UID:       "pvc-UID",
 		Status: k8sv1.PersistentVolumeClaimStatus{
 			Phase: phase,
 		},

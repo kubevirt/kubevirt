@@ -54,7 +54,7 @@ func OptionsUsageTemplate() string {
 }
 
 // PrintWarningForPausedVMI prints warning message if VMI is paused
-func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName string, namespace string) {
+func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName, namespace string) {
 	vmi, err := virtCli.VirtualMachineInstance(namespace).Get(context.Background(), vmiName, k8smetav1.GetOptions{})
 	if err != nil {
 		return

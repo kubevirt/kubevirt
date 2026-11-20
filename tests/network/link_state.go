@@ -69,19 +69,15 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(v1.Interface{
-				Name: primaryLogicalNetName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
+				Name:       primaryLogicalNetName,
+				Masquerade: &v1.InterfaceMasquerade{},
 				MacAddress: mac1.String(),
 				State:      v1.InterfaceStateLinkUp,
 			}),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(v1.Interface{
-				Name: secondary2LogicalNetName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
+				Name:       secondary2LogicalNetName,
+				Bridge:     &v1.InterfaceBridge{},
 				MacAddress: mac2.String(),
 				State:      v1.InterfaceStateLinkDown,
 			}),
@@ -151,19 +147,15 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 		vmi := libvmifact.NewFedora(
 			libvmi.WithInterface(v1.Interface{
-				Name: primaryLogicalNetName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Masquerade: &v1.InterfaceMasquerade{},
-				},
+				Name:       primaryLogicalNetName,
+				Masquerade: &v1.InterfaceMasquerade{},
 				MacAddress: mac1.String(),
 				State:      v1.InterfaceStateLinkDown,
 			}),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(v1.Interface{
-				Name: secondary2LogicalNetName,
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Bridge: &v1.InterfaceBridge{},
-				},
+				Name:       secondary2LogicalNetName,
+				Bridge:     &v1.InterfaceBridge{},
 				MacAddress: mac2.String(),
 				State:      v1.InterfaceStateLinkDown,
 			}),
@@ -217,7 +209,6 @@ var _ = Describe(SIG("interface state up/down", decorators.WgS390x, func() {
 
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-
 	})
 }))
 

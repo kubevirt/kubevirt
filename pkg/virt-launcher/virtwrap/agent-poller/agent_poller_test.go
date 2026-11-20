@@ -405,7 +405,7 @@ func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout, 
 	if timeout == 0 {
 		// Calculate the time needed for the poll to execute the commands.
 		// An additional interval is included intentionally to act as a timeout buffer.
-		timeout = time.Duration((expectedExecutions)*interval) * time.Second
+		timeout = time.Duration(expectedExecutions*interval) * time.Second
 	}
 	return countSignals(done, expectedExecutions, timeout)
 }

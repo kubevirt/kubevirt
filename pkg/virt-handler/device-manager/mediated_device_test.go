@@ -30,7 +30,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -192,10 +191,8 @@ var _ = Describe("Mediated Device", func() {
 		It("Should update the device list according to the configmap", func() {
 			By("creating a cluster config")
 			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "kubevirt",
-					Namespace: "kubevirt",
-				},
+				Name:      "kubevirt",
+				Namespace: "kubevirt",
 				Spec: v1.KubeVirtSpec{
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{},
