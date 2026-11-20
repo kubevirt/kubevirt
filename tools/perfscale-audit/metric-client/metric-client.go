@@ -110,12 +110,12 @@ func NewMetricClient(cfg *audit_api.InputConfig) (*MetricClient, error) {
 	token := cfg.PrometheusBearerToken
 	userName := cfg.PrometheusUserName
 	password := cfg.PrometheusPassword
-	tlsVerify := cfg.PrometheusVerifyTLS
+	skipVerify := cfg.PrometheusVerifyTLS != nil && !*cfg.PrometheusVerifyTLS
 
 	apiCfg := api.Config{
 		Address: url,
 		RoundTripper: transport{
-			transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: tlsVerify}},
+			transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify}},
 			token:     token,
 			userName:  userName,
 			password:  password,
