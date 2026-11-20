@@ -290,9 +290,20 @@ func patchMemoryDumpPVCAnnotation(client kubecli.KubevirtClient, vm *v1.VirtualM
 
 func CalcExpectedSize(vmi *v1.VirtualMachineInstance) *resource.Quantity {
 	const memoryDumpOverhead = 100 * 1024 * 1024
-	domain := vmi.Spec.Domain
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
-	expectedPvcSize.Add(*vmiMemoryReq)
+	guestMemory := getGuestMemory(vmi)
+	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), guestMemory.Format)
+	expectedPvcSize.Add(*guestMemory)
 	return expectedPvcSize
+}
+
+// getGuestMemory returns the memory size seen by the guest, which is what
+// the dump contains. The memory request is lower than that when memory is
+// overcommitted, and is not set at all for VMs whose memory comes from
+// spec.domain.memory.guest only (e.g. instancetypes).
+func getGuestMemory(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	domain := vmi.Spec.Domain
+	if domain.Memory != nil && domain.Memory.Guest != nil {
+		return domain.Memory.Guest
+	}
+	return domain.Resources.Requests.Memory()
 }
