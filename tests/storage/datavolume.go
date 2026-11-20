@@ -188,10 +188,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				return err
 			}, 360).Should(Succeed())
 
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "resize2fs /dev/root && echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 30)).To(Succeed(), "failed to resize root")
+			Expect(console.RunCommand(vmi, "resize2fs /dev/root", 120*time.Second)).To(Succeed(), "failed to resize root")
 
 			By("Writing a 1.5G file after expansion, should succeed")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
