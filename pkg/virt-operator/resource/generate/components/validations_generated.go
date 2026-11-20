@@ -7980,6 +7980,19 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 description: Virtiofs is supported
+                                properties:
+                                  readOnly:
+                                    description: |-
+                                      ReadOnly mounts the filesystem as read-only inside the guest.
+                                      Defaults to false (read-write).
+                                    type: boolean
+                                  subPath:
+                                    description: |-
+                                      SubPath specifies a sub-directory within the source volume to be
+                                      exposed to the guest, instead of the volume's root.
+                                      Must be a relative path and must not contain '..' path elements.
+                                      Defaults to "" (volume's root).
+                                    type: string
                                 type: object
                             required:
                             - name
@@ -14650,6 +14663,19 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         description: Virtiofs is supported
+                        properties:
+                          readOnly:
+                            description: |-
+                              ReadOnly mounts the filesystem as read-only inside the guest.
+                              Defaults to false (read-write).
+                            type: boolean
+                          subPath:
+                            description: |-
+                              SubPath specifies a sub-directory within the source volume to be
+                              exposed to the guest, instead of the volume's root.
+                              Must be a relative path and must not contain '..' path elements.
+                              Defaults to "" (volume's root).
+                            type: string
                         type: object
                     required:
                     - name
@@ -19266,6 +19292,19 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                       virtiofs:
                         description: Virtiofs is supported
+                        properties:
+                          readOnly:
+                            description: |-
+                              ReadOnly mounts the filesystem as read-only inside the guest.
+                              Defaults to false (read-write).
+                            type: boolean
+                          subPath:
+                            description: |-
+                              SubPath specifies a sub-directory within the source volume to be
+                              exposed to the guest, instead of the volume's root.
+                              Must be a relative path and must not contain '..' path elements.
+                              Defaults to "" (volume's root).
+                            type: string
                         type: object
                     required:
                     - name
@@ -21865,6 +21904,19 @@ var CRDsValidation map[string]string = map[string]string{
                                 type: string
                               virtiofs:
                                 description: Virtiofs is supported
+                                properties:
+                                  readOnly:
+                                    description: |-
+                                      ReadOnly mounts the filesystem as read-only inside the guest.
+                                      Defaults to false (read-write).
+                                    type: boolean
+                                  subPath:
+                                    description: |-
+                                      SubPath specifies a sub-directory within the source volume to be
+                                      exposed to the guest, instead of the volume's root.
+                                      Must be a relative path and must not contain '..' path elements.
+                                      Defaults to "" (volume's root).
+                                    type: string
                                 type: object
                             required:
                             - name
@@ -27305,6 +27357,19 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                       virtiofs:
                                         description: Virtiofs is supported
+                                        properties:
+                                          readOnly:
+                                            description: |-
+                                              ReadOnly mounts the filesystem as read-only inside the guest.
+                                              Defaults to false (read-write).
+                                            type: boolean
+                                          subPath:
+                                            description: |-
+                                              SubPath specifies a sub-directory within the source volume to be
+                                              exposed to the guest, instead of the volume's root.
+                                              Must be a relative path and must not contain '..' path elements.
+                                              Defaults to "" (volume's root).
+                                            type: string
                                         type: object
                                     required:
                                     - name
@@ -33278,6 +33343,19 @@ var CRDsValidation map[string]string = map[string]string{
                                             type: string
                                           virtiofs:
                                             description: Virtiofs is supported
+                                            properties:
+                                              readOnly:
+                                                description: |-
+                                                  ReadOnly mounts the filesystem as read-only inside the guest.
+                                                  Defaults to false (read-write).
+                                                type: boolean
+                                              subPath:
+                                                description: |-
+                                                  SubPath specifies a sub-directory within the source volume to be
+                                                  exposed to the guest, instead of the volume's root.
+                                                  Must be a relative path and must not contain '..' path elements.
+                                                  Defaults to "" (volume's root).
+                                                type: string
                                             type: object
                                         required:
                                         - name

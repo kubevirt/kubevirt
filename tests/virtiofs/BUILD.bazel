@@ -6,6 +6,7 @@ go_library(
         "config.go",
         "containerpath.go",
         "datavolume.go",
+        "mount_options.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtiofs",
     visibility = ["//visibility:public"],
