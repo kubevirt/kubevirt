@@ -112,6 +112,8 @@ var (
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
+	// RequiresRWOFileSystemStorageClass requires a storage class with ReadWriteOnce Filesystem support
+	RequiresRWOFileSystemStorageClass = Label("RequiresRWOFileSystemStorageClass")
 	// StorageCritical tests that ensure sig-storage functionality which are conformance-unready
 	StorageCritical = Label("StorageCritical")
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
