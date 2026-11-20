@@ -21,13 +21,12 @@ package network
 
 import (
 	"context"
-	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"kubevirt.io/client-go/kubecli"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -49,8 +48,6 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const peerLabel = "nad-live-update-peer"
-
 var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	const (
 		vmName          = "migrating-vm"
@@ -59,16 +56,16 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		targetNAD       = "nad-2"
 		pollingInterval = 2 * time.Second
 		timeoutInterval = 5 * time.Minute
-
-		staticVMI1Name = "static-vmi-1"
-		staticVMI1IP   = "10.1.1.10"
-		staticVMI2Name = "static-vmi-2"
-		staticVMI2IP   = "10.1.1.20"
-		subnetMask     = "/24"
 	)
-	var testNamespace string
+	var (
+		testNamespace string
+		virtClient    kubecli.KubevirtClient
+		staticVMI2    *v1.VirtualMachineInstance
+	)
 
 	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+
 		updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
 			WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
 		}
@@ -79,7 +76,7 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		currentKv := libkubevirt.GetCurrentKv(kubevirt.Client())
+		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
@@ -89,33 +86,30 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 
 	BeforeEach(func() {
 		testNamespace = testsuite.GetTestNamespace(nil)
-		const br1 = "br-1"
-		netAttachDef1 := libnet.NewBridgeNetAttachDef(sourceNAD, br1)
+		const brBeforeChange = "br2"
+		netAttachDef1 := libnet.NewBridgeNetAttachDef(sourceNAD, brBeforeChange)
 		_, err := libnet.CreateNetAttachDef(context.Background(), testNamespace, netAttachDef1)
 		Expect(err).NotTo(HaveOccurred())
 
-		const br2 = "br-2"
-		netAttachDef2 := libnet.NewBridgeNetAttachDef(targetNAD, br2)
+		const brAfterChange = "br3"
+		netAttachDef2 := libnet.NewBridgeNetAttachDef(targetNAD, brAfterChange)
 		_, err = libnet.CreateNetAttachDef(context.Background(), testNamespace, netAttachDef2)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
-		antiAffinityTerm := k8sv1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{Key: peerLabel, Operator: metav1.LabelSelectorOpExists},
-				},
-			},
-			TopologyKey: k8sv1.LabelHostname,
-		}
+		const (
+			staticVMI1Name = "static-vmi-1"
+			staticVMI1IP   = "10.1.1.10"
+			staticVMI2Name = "static-vmi-2"
+			staticVMI2IP   = "10.1.1.20"
+			subnetMask     = "/24"
+		)
 
 		staticVMI1, err := newVMI(
 			staticVMI1Name,
 			sourceNAD,
 			staticVMI1IP+subnetMask,
-			libvmi.WithLabel(peerLabel, staticVMI1Name),
-			libvmi.WithRequiredPodAntiAffinity(antiAffinityTerm),
 		)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -123,32 +117,11 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 			Create(context.Background(), staticVMI1, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		staticVMI2, err := newVMI(
-			staticVMI2Name,
-			targetNAD,
-			staticVMI2IP+subnetMask,
-			libvmi.WithLabel(peerLabel, staticVMI2Name),
-			libvmi.WithRequiredPodAntiAffinity(antiAffinityTerm),
-		)
-		Expect(err).ToNot(HaveOccurred())
-
-		staticVMI2, err = kubevirt.Client().VirtualMachineInstance(testNamespace).
-			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		affinityToStaticVMI1 := k8sv1.PodAffinityTerm{
-			LabelSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{peerLabel: staticVMI1Name},
-			},
-			TopologyKey: k8sv1.LabelHostname,
-		}
-
 		var vmi *v1.VirtualMachineInstance
 		vmi, err = newVMI(
 			vmName,
 			sourceNAD,
 			vmIP+subnetMask,
-			libvmi.WithRequiredPodAffinity(affinityToStaticVMI1),
 		)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -156,10 +129,18 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		vm, err = kubevirt.Client().VirtualMachine(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Eventually(matcher.ThisVMI(staticVMI1)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
-			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		staticVMI2, err = newVMI(
+			staticVMI2Name,
+			targetNAD,
+			staticVMI2IP+subnetMask,
+		)
+		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(matcher.ThisVMI(staticVMI2)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
+		staticVMI2, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(staticVMI2)).
+			Create(context.Background(), staticVMI2, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		Eventually(matcher.ThisVMI(staticVMI1)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 		Eventually(matcher.ThisVM(vm)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
@@ -174,12 +155,13 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		vm, err := kubevirt.Client().VirtualMachine(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		err = updateNADNameAndAffinity(vm, targetNAD, staticVMI2Name)
-		Expect(err).NotTo(HaveOccurred())
-
-		var vmi *v1.VirtualMachineInstance
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
+		vmi, err := kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		sourceNodeName := vmi.Status.NodeName
+		Expect(sourceNodeName).ToNot(BeEmpty())
+
+		err = updateNADName(vm, targetNAD)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for migration condition to appear and disappear")
 		Eventually(matcher.ThisVMI(vmi)).
@@ -192,8 +174,22 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 			WithPolling(pollingInterval).
 			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMigrationRequired))
 
-		staticVMI2, err := kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), staticVMI2Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() (string, error) {
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testNamespace).Get(context.Background(), vmName, metav1.GetOptions{})
+			if err != nil {
+				return "", err
+			}
+			return vmi.Status.NodeName, nil
+		}).
+			WithTimeout(timeoutInterval).
+			WithPolling(pollingInterval).
+			Should(SatisfyAll(
+				Not(BeEmpty()),
+				Not(Equal(sourceNodeName)),
+			))
+
+		Eventually(matcher.ThisVMI(staticVMI2)).WithTimeout(timeoutInterval).WithPolling(pollingInterval).
+			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 		Expect(console.LoginToAlpine(staticVMI2)).To(Succeed())
 
@@ -201,22 +197,8 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 	})
 }))
 
-func updateNADNameAndAffinity(vm *v1.VirtualMachine, targetNAD, targetPeer string) error {
-	affinityToTarget := &k8sv1.Affinity{
-		PodAffinity: &k8sv1.PodAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
-				{
-					LabelSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{peerLabel: targetPeer},
-					},
-					TopologyKey: k8sv1.LabelHostname,
-				},
-			},
-		},
-	}
-
+func updateNADName(vm *v1.VirtualMachine, targetNAD string) error {
 	patchData, err := patch.New(
-		patch.WithReplace("/spec/template/spec/affinity", affinityToTarget),
 		patch.WithReplace("/spec/template/spec/networks/0/multus/networkName", targetNAD),
 	).GeneratePayload()
 	if err != nil {
@@ -227,9 +209,9 @@ func updateNADNameAndAffinity(vm *v1.VirtualMachine, targetNAD, targetPeer strin
 	return err
 }
 
-func newVMI(name, nad, ip string, opts ...libvmi.Option) (*v1.VirtualMachineInstance, error) {
+func newVMI(name, nad, ip string) (*v1.VirtualMachineInstance, error) {
 	const ifaceName = "net1"
-	networkData, err := cloudinit.NewNetworkData(
+	networkData1, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithAddresses(ip),
 		),
@@ -237,12 +219,11 @@ func newVMI(name, nad, ip string, opts ...libvmi.Option) (*v1.VirtualMachineInst
 	if err != nil {
 		return nil, err
 	}
-	baseOptions := []libvmi.Option{
+	vmi := libvmifact.NewAlpineWithTestTooling(
 		libvmi.WithName(name),
 		libvmi.WithInterface(libvmi.NewInterface(ifaceName, libvmi.WithBridgeBinding())),
 		libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, nad)),
-		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-	}
-	vmi := libvmifact.NewAlpineWithTestTooling(slices.Concat(baseOptions, opts)...)
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData1)),
+	)
 	return vmi, nil
 }
