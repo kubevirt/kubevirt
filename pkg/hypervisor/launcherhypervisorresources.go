@@ -31,9 +31,8 @@ import (
 // such as devices and memory overhead.
 type LauncherHypervisorResources interface {
 	GetHypervisorDevice() string
-	// TODO: Remove GetMemoryOverhead from this interface once VmiMemoryOverheadReport feature gate is GA
-	// and we are sure that all VMIs include the MemoryOverhead status field. At that point,
-	// memory overhead should only be calculated in virt-controller and stored in VMI status.
+	// GetMemoryOverhead estimates launcher memory overhead while virt-controller
+	// renders the pod. Runtime consumers read the stored value instead of calling this.
 	GetMemoryOverhead(vmi *v1.VirtualMachineInstance, arch string, additionalOverheadRatio *string) resource.Quantity
 }
 

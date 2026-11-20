@@ -3042,29 +3042,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				)
 			})
 
-			It("should store guestMemoryOverheadRatio if used during memory hotplug", func() {
-				currentGuestMemory := resource.MustParse("128Mi")
-				requestedGuestMemory := resource.MustParse("512Mi")
-
-				vmi := newPendingVirtualMachine("testvmi")
-				vmi.Status.Phase = virtv1.Running
-				vmi.Status.Memory = &virtv1.MemoryStatus{
-					GuestCurrent: &currentGuestMemory,
-				}
-				vmi.Spec.Domain.Memory = &virtv1.Memory{
-					Guest:    &requestedGuestMemory,
-					MaxGuest: &requestedGuestMemory,
-				}
-				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
-				overheadRatio := "2"
-				kvCR.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = &overheadRatio
-				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
-
-				controller.syncMemoryHotplug(vmi)
-
-				Expect(vmi.Labels).To(HaveKeyWithValue(virtv1.MemoryHotplugOverheadRatioLabel, overheadRatio))
-			})
-
 			It("should update memory overhead in VMI status from pod annotation", func() {
 				memoryQuantity := resource.NewQuantity(256*1024*1024, resource.BinarySI) // 256Mi
 				memory := strconv.FormatInt(memoryQuantity.Value(), 10)

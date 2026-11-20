@@ -26,7 +26,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"time"
 
@@ -54,7 +53,6 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -115,8 +113,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		recorder                 *record.FakeRecorder
 		mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 
-		networkBindingPluginMemoryCalculator *stubMemoryOverheadCalculator
-		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
+		migrationTargetPasstRepairHandler *stubTargetPasstRepairHandler
 
 		ghostRecordStore *virtcache.GhostRecordStore
 	)
@@ -151,7 +148,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	}
 
 	BeforeEach(func() {
-		networkBindingPluginMemoryCalculator = &stubMemoryOverheadCalculator{}
 		diskutils.MockDefaultOwnershipManager()
 
 		wg = &sync.WaitGroup{}
@@ -242,7 +238,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			nil,
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
-			networkBindingPluginMemoryCalculator,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -371,8 +366,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestRequested: &initialMemory,
 		}
 
-		targetPodMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		overhead := resource.MustParse("100Mi")
+		targetPodMemory := resource.MustParse("100Mi")
 		targetPodMemory.Add(requestedMemory)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetMemoryOverhead: &overhead,
+		}
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
 		}
@@ -390,7 +389,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).To(Equal(vmi.Spec.Domain.Memory.Guest))
-		Expect(networkBindingPluginMemoryCalculator.calculatedMemoryOverhead).To(BeTrue())
+		Expect(vmi.Status.MigrationState.TargetMemoryOverhead.Cmp(resource.MustParse("100Mi"))).To(Equal(0))
 	})
 
 	It("should not hotplug memory if target pod does not have enough memory", func() {
@@ -410,8 +409,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestCurrent:   &initialMemory,
 			GuestRequested: &initialMemory,
 		}
+		overhead := resource.MustParse("100Mi")
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetMemoryOverhead: &overhead,
+		}
+		// The pod can hold the requested guest memory and nothing more.
+		// The hotplug fits only when the stored overhead is left out of the check.
 		vmi.Labels = map[string]string{
-			v1.VirtualMachinePodMemoryRequestsLabel: initialMemory.String(),
+			v1.VirtualMachinePodMemoryRequestsLabel: requestedMemory.String(),
 		}
 
 		condition := &v1.VirtualMachineInstanceCondition{
@@ -420,7 +425,9 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		conditionManager.UpdateCondition(vmi, condition)
 
-		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
+		client.EXPECT().SyncVirtualMachineMemory(gomock.Any(), gomock.Any()).Times(0)
+
+		Expect(controller.hotplugMemory(vmi, client)).To(MatchError(ContainSubstring("exceeds the launcher memory request")))
 
 		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
@@ -443,10 +450,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestCurrent:   &initialMemory,
 			GuestRequested: &initialMemory,
 		}
-		vmi.Spec.Architecture = "amd64"
 
-		targetPodMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		overhead := resource.MustParse("100Mi")
+		targetPodMemory := resource.MustParse("100Mi")
 		targetPodMemory.Add(requestedMemory)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetMemoryOverhead: &overhead,
+		}
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
 		}
@@ -462,6 +472,41 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
 
 		Expect(vmi).To(matcher.HaveConditionFalseWithReason(v1.VirtualMachineInstanceMemoryChange, "Memory Hotplug Failed"))
+		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
+		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
+	})
+
+	It("should not hotplug memory when target memory overhead is not recorded", func() {
+		conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+
+		initialMemory := resource.MustParse("512Mi")
+		requestedMemory := resource.MustParse("1Gi")
+
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Memory = &v1.Memory{
+			Guest: &requestedMemory,
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = requestedMemory
+		vmi.Status.Memory = &v1.MemoryStatus{
+			GuestAtBoot:    &initialMemory,
+			GuestCurrent:   &initialMemory,
+			GuestRequested: &initialMemory,
+		}
+		vmi.Labels = map[string]string{
+			v1.VirtualMachinePodMemoryRequestsLabel: requestedMemory.String(),
+		}
+
+		condition := &v1.VirtualMachineInstanceCondition{
+			Type:   v1.VirtualMachineInstanceMemoryChange,
+			Status: k8sv1.ConditionTrue,
+		}
+		conditionManager.UpdateCondition(vmi, condition)
+
+		client.EXPECT().SyncVirtualMachineMemory(gomock.Any(), gomock.Any()).Times(0)
+
+		Expect(controller.hotplugMemory(vmi, client)).To(MatchError(ContainSubstring("target memory overhead is not set")))
+
+		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 	})

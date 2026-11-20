@@ -37,7 +37,6 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
-	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 	notifymanager "kubevirt.io/kubevirt/pkg/virt-handler/notify-manager"
 
@@ -486,7 +485,6 @@ func (app *virtHandlerApp) Run() {
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
-		netresources.NewMemoryCalculator(app.clusterConfig),
 	)
 	if err != nil {
 		panic(err)
