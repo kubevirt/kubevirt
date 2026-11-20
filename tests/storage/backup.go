@@ -1260,7 +1260,7 @@ var _ = Describe(SIG("Backup", func() {
 		}, ttlDuration+(2*time.Minute), 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
 			"The VM export should have been cleaned up according to TTL by now")
 
-		events.ExpectEvent(backup, corev1.EventTypeWarning, "VirtualMachineBackupAborting")
+		events.ExpectEvent(backup, corev1.EventTypeNormal, "VirtualMachineBackupAborting")
 
 		By("Verifying the backup is cancelled and marked as failed")
 		waitBackupFailed(virtClient, backup.Namespace, backup.Name)
