@@ -92,6 +92,19 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("client", func() {
+		It("should preserve migration gRPC status errors when the response is nil", func() {
+			mockCmdClient := cmdv1.NewMockCmdClient(gomock.NewController(GinkgoT()))
+			client := newV1Client(mockCmdClient, nil)
+			grpcErr := status.Error(codes.InvalidArgument, "invalid migration request")
+			mockCmdClient.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Return(nil, grpcErr)
+
+			err := client.MigrateVirtualMachine(vmi, &MigrationOptions{})
+
+			Expect(err).To(HaveOccurred())
+			Expect(status.Code(err)).To(Equal(codes.InvalidArgument))
+			Expect(errors.Is(err, grpcErr)).To(BeTrue())
+		})
+
 		It("socket from UID", func() {
 			sock, err := FindSocket(vmi)
 			Expect(err).ToNot(HaveOccurred())

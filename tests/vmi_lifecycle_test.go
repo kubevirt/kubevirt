@@ -858,9 +858,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
 
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
-			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Freeze failed:.*QEMU guest agent is not connected")))
+			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Freeze failed.*QEMU guest agent is not connected")))
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
-			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Unfreeze failed:.*QEMU guest agent is not connected")))
+			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Unfreeze failed.*QEMU guest agent is not connected")))
 		})
 
 		waitVMIFSFreezeStatus := func(ns, name, expectedStatus string) {
@@ -1197,7 +1197,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			defer cancel()
 			objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
 			wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{
-				"server error. command SyncVMI failed",
+				"server error. command SyncVMI failed:",
+				"command SyncVMI failed with Internal: rpc error: code = Internal desc = failed to sync vmi:",
 				"The VirtualMachineInstance crashed",
 				"cannot detect vm",
 				"Can not update a VirtualMachineInstance with unresponsive command server",
