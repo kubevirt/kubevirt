@@ -54,6 +54,14 @@ var _ = Describe("CBTHandler", func() {
 		}
 	}
 
+	setVolumes := func(volumes ...v1.Volume) {
+		vmi.Spec.Volumes = volumes
+		vmi.Spec.Domain.Devices.Disks = nil
+		for _, volume := range volumes {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{Name: volume.Name, DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}})
+		}
+	}
+
 	diskWithDataStore := func(name string, hasDataStore bool) api.Disk {
 		disk := api.Disk{Alias: api.NewUserDefinedAlias(name), Source: api.DiskSource{}}
 		if hasDataStore {
@@ -69,7 +77,7 @@ var _ = Describe("CBTHandler", func() {
 
 		DescribeTable("should handle CBT enablement when initializing based on volume/disk configuration",
 			func(volumes []v1.Volume, disks []api.Disk, expectedState v1.ChangedBlockTrackingState) {
-				vmi.Spec.Volumes = volumes
+				setVolumes(volumes...)
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: disks}}}
 				err := handler.HandleChangedBlockTracking(vmi, domain)
 				Expect(err).ToNot(HaveOccurred())
@@ -107,7 +115,7 @@ var _ = Describe("CBTHandler", func() {
 				} else {
 					vmi.Status.ChangedBlockTracking = nil
 				}
-				vmi.Spec.Volumes = []v1.Volume{pvcVolume("pvc1", "test-pvc")}
+				setVolumes(pvcVolume("pvc1", "test-pvc"))
 
 				var domain *api.Domain
 				if !domainIsNil {

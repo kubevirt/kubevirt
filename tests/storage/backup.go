@@ -573,6 +573,117 @@ var _ = Describe(SIG("Backup", func() {
 		))
 	})
 
+	It("Backup skips read-only disks and backs up a disk made writable again in Full", func() {
+		const (
+			bootDiskName  = "disk0"
+			dataDiskName  = "disk1"
+			cdromName     = "cdrom0"
+			blankDiskSize = "256Mi"
+		)
+
+		bootDv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(cd.AlpineVolumeSize)),
+		)
+		dataDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(blankDiskSize)),
+		)
+		cdromDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(libdv.StorageWithVolumeSize(blankDiskSize)),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
+		)
+		libstorage.AddDataVolumeTemplate(vm, dataDv)
+		libstorage.AddDataVolume(vm, dataDiskName, dataDv)
+		libstorage.AddDataVolumeTemplate(vm, cdromDv)
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name:       cdromName,
+			DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{Bus: v1.DiskBusSATA}},
+		})
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			Name:         cdromName,
+			VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: cdromDv.Name}},
+		})
+
+		By(fmt.Sprintf("Creating VM %s with 2 disks and a CD-ROM", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		totalSize := resource.MustParse(cd.AlpineVolumeSize)
+		totalSize.Add(resource.MustParse(blankDiskSize))
+		backupPVCSize := getTargetPVCSizeWithOverhead(totalSize.String())
+
+		restartWithDataDisk := func(diskPatch func(diskPath string) patch.PatchOption) {
+			By("Stopping the VM")
+			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() error {
+				_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				return err
+			}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+			diskIndex := slices.IndexFunc(vm.Spec.Template.Spec.Domain.Devices.Disks, func(d v1.Disk) bool { return d.Name == dataDiskName })
+			Expect(diskIndex).ToNot(Equal(-1))
+			diskPath := fmt.Sprintf("/spec/template/spec/domain/devices/disks/%d", diskIndex)
+			payload, err := patch.New(patch.WithTest(diskPath+"/name", dataDiskName), diskPatch(diskPath)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the VM again")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+		}
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating first full backup - the CD-ROM should be skipped")
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), backupPVCSize, libstorage.WithStorageProfile())
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(fullBackup.Status.IncludedVolumes).To(ConsistOf(
+			And(HaveField("VolumeName", bootDiskName), HaveField("Type", backupv1.Full)),
+			And(HaveField("VolumeName", dataDiskName), HaveField("Type", backupv1.Full)),
+		))
+
+		By(fmt.Sprintf("Making disk %s read-only", dataDiskName))
+		restartWithDataDisk(func(diskPath string) patch.PatchOption {
+			return patch.WithAdd(diskPath+"/disk/readonly", true)
+		})
+
+		By("Creating a backup while the disk is read-only - only the boot disk should be included")
+		readOnlyBackupPVC := libstorage.CreateFSPVC("read-only-backup-pvc", testsuite.GetTestNamespace(vm), backupPVCSize, libstorage.WithStorageProfile())
+		readOnlyBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, readOnlyBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(readOnlyBackup.Status.IncludedVolumes).To(ConsistOf(
+			And(HaveField("VolumeName", bootDiskName), HaveField("Type", backupv1.Incremental)),
+		))
+
+		By(fmt.Sprintf("Making disk %s writable again", dataDiskName))
+		restartWithDataDisk(func(diskPath string) patch.PatchOption {
+			return patch.WithRemove(diskPath + "/disk/readonly")
+		})
+
+		By("Creating a backup after the disk is writable again - it should fall back to Full")
+		writableBackupPVC := libstorage.CreateFSPVC("writable-backup-pvc", testsuite.GetTestNamespace(vm), backupPVCSize, libstorage.WithStorageProfile())
+		writableBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, writableBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+		Expect(writableBackup.Status.IncludedVolumes).To(ConsistOf(
+			And(HaveField("VolumeName", bootDiskName), HaveField("Type", backupv1.Incremental)),
+			And(HaveField("VolumeName", dataDiskName), HaveField("Type", backupv1.Full)),
+		))
+	})
+
 	It("Backup falls back to Full when checkpoint is corrupted", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),

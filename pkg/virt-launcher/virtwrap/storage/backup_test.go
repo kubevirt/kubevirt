@@ -38,6 +38,7 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -248,6 +249,10 @@ var _ = Describe("Backup", func() {
 			}
 
 			BeforeEach(func() {
+				vmi.Spec = libvmi.New(
+					libvmi.WithPersistentVolumeClaim("rootdisk", "root-pvc"),
+					libvmi.WithPersistentVolumeClaim("datadisk", "data-pvc"),
+				).Spec
 				backupOptions.Incremental = pointer.P(baseCheckpoint)
 				backupOptions.IncrementalCreationTime = pointer.P(metav1.NewTime(time.Now().Add(-time.Hour)))
 				redefinedDisks = nil
@@ -339,6 +344,7 @@ var _ = Describe("Backup", func() {
 
 		BeforeEach(func() {
 			backupOptions.SkipQuiesce = false
+			vmi.Spec = libvmi.New(libvmi.WithPersistentVolumeClaim("disk0", "disk0-pvc")).Spec
 			domainXML = `<domain type='kvm'>
 				<devices>
 					<disk type='file' device='disk'>
@@ -471,6 +477,37 @@ var _ = Describe("Backup", func() {
 		})
 	})
 
+	Describe("trackedDisks", func() {
+		trackedDisk := func(device, alias string) api.Disk {
+			return api.Disk{
+				Target: api.DiskTarget{Device: device},
+				Source: api.DiskSource{DataStore: &api.DataStore{}},
+				Alias:  api.NewUserDefinedAlias(alias),
+			}
+		}
+
+		It("should track only disks with an attached overlay whose volume is CBT-eligible", func() {
+			vmi.Spec = libvmi.New(
+				libvmi.WithPersistentVolumeClaim("rootdisk", "root-pvc"),
+				libvmi.WithPersistentVolumeClaim("pending", "pending-pvc"),
+				libvmi.WithCDRom("cdrom", v1.DiskBusSATA, "iso-pvc"),
+				libvmi.WithContainerDisk("containerdisk", "image"),
+			).Spec
+			pending := trackedDisk("vdb", "pending")
+			pending.Source.DataStore = nil
+
+			disks := []api.Disk{
+				trackedDisk("vda", "rootdisk"),
+				pending,
+				trackedDisk("sda", "cdrom"),
+				trackedDisk("vdc", "containerdisk"),
+				trackedDisk("vdd", "unknown"),
+			}
+
+			Expect(trackedDisks(vmi, disks)).To(Equal(sets.New("vda")))
+		})
+	})
+
 	Describe("generateDomainBackup", func() {
 		const nbdSocketPath = "/var/run/kubevirt-private/libvirt/qemu/cbt-nbd/backup-nbd-sock"
 
@@ -487,7 +524,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"), nil)
 
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PushMode)))
@@ -522,7 +559,7 @@ var _ = Describe("Backup", func() {
 					Alias: api.NewUserDefinedAlias("disk0"),
 				},
 			}
-			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"), nil)
 
 			Expect(domainCheckpoint).ToNot(BeNil())
 			Expect(domainBackup).ToNot(BeNil())
@@ -542,7 +579,7 @@ var _ = Describe("Backup", func() {
 
 		})
 
-		It("should skip disks without DataStore", func() {
+		It("should not back up untracked disks", func() {
 			disks := []api.Disk{
 				{
 					Target: api.DiskTarget{
@@ -555,7 +592,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New[string](), nil)
 
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("no"))
@@ -574,7 +611,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"), nil)
 
 			Expect(domainBackup.Incremental).ToNot(BeNil())
 			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
@@ -600,7 +637,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vdb"))
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda", "vdb"), sets.New("vdb"))
 
 			Expect(domainBackup.Incremental).ToNot(BeNil())
 			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
@@ -624,7 +661,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"))
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"), sets.New("vda"))
 
 			Expect(domainBackup.Incremental).To(BeNil())
 			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(Equal("full"))
@@ -642,7 +679,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			domainBackup, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda"), nil)
 
 			Expect(domainBackup.Incremental).To(BeNil())
 			Expect(domainBackup.BackupDisks.Disks[0].BackupMode).To(BeEmpty())
@@ -682,7 +719,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, nil)
+			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir, nbdSocketPath, sets.New("vda", "vdb"), nil)
 
 			Expect(volumesInfo).To(HaveLen(2))
 			Expect(volumesInfo[0].VolumeName).To(Equal("rootdisk"))
