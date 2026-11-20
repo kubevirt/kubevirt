@@ -37,10 +37,24 @@ var _ = Describe("HooksAPI", func() {
 				hooks.HookSidecar{
 					Image:           "some-image:v1",
 					ImagePullPolicy: "IfNotPresent",
+					ConfigMap: &hooks.ConfigMap{
+						Name:     "some-config-map",
+						Key:      "onDefineDomain.sh",
+						HookPath: "/usr/bin/onDefineDomain",
+						Checksum: &hooks.Checksum{
+							Algorithm: "sha256",
+							Value:     "some-checksum",
+						},
+					},
 				},
 				hooks.HookSidecar{
 					Image:           "another-image:v1",
 					ImagePullPolicy: "Always",
+					ConfigMap: &hooks.ConfigMap{
+						Name:     "another-config-map",
+						Key:      "preCloudInitIso.sh",
+						HookPath: "/usr/bin/preCloudInitIso",
+					},
 				},
 			}
 			vmiHookObject := &v1.VirtualMachineInstance{
@@ -50,11 +64,25 @@ var _ = Describe("HooksAPI", func() {
 [
   {
     "image": "some-image:v1",
-    "imagePullPolicy": "IfNotPresent"
+    "imagePullPolicy": "IfNotPresent",
+    "configMap": {
+      "name": "some-config-map",
+      "key": "onDefineDomain.sh",
+      "hookPath": "/usr/bin/onDefineDomain",
+      "checksum": {
+        "algorithm": "sha256",
+        "value": "some-checksum"
+      }
+    }
   },
   {
     "image": "another-image:v1",
-    "imagePullPolicy": "Always"
+    "imagePullPolicy": "Always",
+    "configMap": {
+      "name": "another-config-map",
+      "key": "preCloudInitIso.sh",
+      "hookPath": "/usr/bin/preCloudInitIso"
+    }
   }
 ]
 `,
