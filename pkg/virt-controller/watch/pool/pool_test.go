@@ -1500,6 +1500,7 @@ var _ = Describe("Pool", func() {
 			Expect(vms.Items).To(BeEmpty())
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
 		},
 			Entry("CrashLoopBackOff", v1.VirtualMachineStatusCrashLoopBackOff),
 			Entry("Unschedulable", v1.VirtualMachineStatusUnschedulable),
@@ -1508,6 +1509,177 @@ var _ = Describe("Pool", func() {
 			Entry("ErrImagePull", v1.VirtualMachineStatusErrImagePull),
 			Entry("ImagePullBackOff", v1.VirtualMachineStatusImagePullBackOff),
 		)
+
+		It("should requeue the pool when a VM is in a failing state but the duration threshold has not elapsed", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+
+			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm.Labels = pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels
+			vm.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusUnschedulable
+			vm.Status.Conditions = []v1.VirtualMachineCondition{
+				{
+					Type:          v1.VirtualMachineReady,
+					Status:        k8sv1.ConditionFalse,
+					Reason:        "TestReason",
+					LastProbeTime: metav1.NewTime(time.Now().Add(-1 * time.Minute)),
+				},
+			}
+			addVM(vm)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(1))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(BeEmpty())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
+		It("should pick the shortest requeue duration among multiple failing VMs", func() {
+			autohealing := &poolv1.VirtualMachinePoolAutohealingStrategy{}
+
+			failingVM := func(name string, failingFor time.Duration) *v1.VirtualMachine {
+				return &v1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{Name: name},
+					Status: v1.VirtualMachineStatus{
+						PrintableStatus: v1.VirtualMachineStatusUnschedulable,
+						Conditions: []v1.VirtualMachineCondition{
+							{
+								Type:          v1.VirtualMachineReady,
+								Status:        k8sv1.ConditionFalse,
+								Reason:        "TestReason",
+								LastProbeTime: metav1.NewTime(time.Now().Add(-failingFor)),
+							},
+						},
+					},
+				}
+			}
+
+			vms := []*v1.VirtualMachine{
+				failingVM("vm-0", 1*time.Minute),
+				failingVM("vm-1", 4*time.Minute),
+				failingVM("vm-2", 2*time.Minute),
+			}
+
+			filtered, requeueAfter := filterFailingVMsToStart(vms, autohealing)
+			Expect(filtered).To(BeEmpty())
+			Expect(requeueAfter).To(BeNumerically("~", time.Minute, 10*time.Second))
+		})
+
+		It("should not cleanup or requeue a failing VM without a Ready condition", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+
+			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm.Labels = pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels
+			vm.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusUnschedulable
+			vm.Status.Conditions = nil
+			addVM(vm)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(1))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(BeEmpty())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+		})
+
+		It("should cleanup eligible VMs and requeue not-yet-eligible ones in the same pool", func() {
+			pool, vm := DefaultPool(2)
+			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+
+			eligibleVM := vm.DeepCopy()
+			eligibleVM.Name = fmt.Sprintf("%s-0", pool.Name)
+			eligibleVM.Labels = pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels
+			eligibleVM.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+			eligibleVM.Status.PrintableStatus = v1.VirtualMachineStatusUnschedulable
+			eligibleVM.Status.Conditions = []v1.VirtualMachineCondition{
+				{
+					Type:          v1.VirtualMachineReady,
+					Status:        k8sv1.ConditionFalse,
+					Reason:        "TestReason",
+					LastProbeTime: metav1.NewTime(time.Now().Add(-6 * time.Minute)),
+				},
+			}
+			addVM(eligibleVM)
+
+			notYetEligibleVM := vm.DeepCopy()
+			notYetEligibleVM.Name = fmt.Sprintf("%s-1", pool.Name)
+			notYetEligibleVM.Labels = pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels
+			notYetEligibleVM.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+			notYetEligibleVM.Status.PrintableStatus = v1.VirtualMachineStatusUnschedulable
+			notYetEligibleVM.Status.Conditions = []v1.VirtualMachineCondition{
+				{
+					Type:          v1.VirtualMachineReady,
+					Status:        k8sv1.ConditionFalse,
+					Reason:        "TestReason",
+					LastProbeTime: metav1.NewTime(time.Now().Add(-1 * time.Minute)),
+				},
+			}
+			addVM(notYetEligibleVM)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(1))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
+		It("should not requeue a VM that already qualifies for cleanup via start failures", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+
+			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm.Labels = pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels
+			vm.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+			vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				ConsecutiveFailCount: 3,
+			}
+			vm.Status.PrintableStatus = v1.VirtualMachineStatusUnschedulable
+			vm.Status.Conditions = []v1.VirtualMachineCondition{
+				{
+					Type:          v1.VirtualMachineReady,
+					Status:        k8sv1.ConditionFalse,
+					Reason:        "TestReason",
+					LastProbeTime: metav1.NewTime(time.Now().Add(-1 * time.Minute)),
+				},
+			}
+			addVM(vm)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(BeEmpty())
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(0))
+		})
 
 		It("should not cleanup VMs without autohealing enabled, even if the VM failed to start", func() {
 			pool, vm := DefaultPool(3)
