@@ -1670,6 +1670,21 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) PortForward(name, por
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortForward", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).PortForward), name, port, protocol)
 }
 
+// PortForwardContext mocks base method.
+func (m *MockVirtualMachineInstanceInterface) PortForwardContext(ctx context.Context, name string, port int, protocol string) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PortForwardContext", ctx, name, port, protocol)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PortForwardContext indicates an expected call of PortForwardContext.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) PortForwardContext(ctx, name, port, protocol any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortForwardContext", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).PortForwardContext), ctx, name, port, protocol)
+}
+
 // RemoveVolume mocks base method.
 func (m *MockVirtualMachineInstanceInterface) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v122.RemoveVolumeOptions) error {
 	m.ctrl.T.Helper()
@@ -1786,6 +1801,21 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) SerialConsole(name, o
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerialConsole", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).SerialConsole), name, options)
 }
 
+// SerialConsoleContext mocks base method.
+func (m *MockVirtualMachineInstanceInterface) SerialConsoleContext(ctx context.Context, name string, options *v123.SerialConsoleOptions) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SerialConsoleContext", ctx, name, options)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SerialConsoleContext indicates an expected call of SerialConsoleContext.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) SerialConsoleContext(ctx, name, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerialConsoleContext", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).SerialConsoleContext), ctx, name, options)
+}
+
 // SoftReboot mocks base method.
 func (m *MockVirtualMachineInstanceInterface) SoftReboot(ctx context.Context, name string) error {
 	m.ctrl.T.Helper()
@@ -1813,6 +1843,21 @@ func (m *MockVirtualMachineInstanceInterface) USBRedir(vmiName string) (v123.Str
 func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) USBRedir(vmiName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "USBRedir", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).USBRedir), vmiName)
+}
+
+// USBRedirContext mocks base method.
+func (m *MockVirtualMachineInstanceInterface) USBRedirContext(ctx context.Context, vmiName string) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "USBRedirContext", ctx, vmiName)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// USBRedirContext indicates an expected call of USBRedirContext.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) USBRedirContext(ctx, vmiName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "USBRedirContext", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).USBRedirContext), ctx, vmiName)
 }
 
 // Unfreeze mocks base method.
@@ -1888,6 +1933,21 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VNC(name, preserveSes
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VNC", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VNC), name, preserveSession)
 }
 
+// VNCContext mocks base method.
+func (m *MockVirtualMachineInstanceInterface) VNCContext(ctx context.Context, name string, preserveSession bool) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VNCContext", ctx, name, preserveSession)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VNCContext indicates an expected call of VNCContext.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VNCContext(ctx, name, preserveSession any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VNCContext", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VNCContext), ctx, name, preserveSession)
+}
+
 // VSOCK mocks base method.
 func (m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v122.VSOCKOptions) (v123.StreamInterface, error) {
 	m.ctrl.T.Helper()
@@ -1901,6 +1961,21 @@ func (m *MockVirtualMachineInstanceInterface) VSOCK(name string, options *v122.V
 func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VSOCK(name, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VSOCK", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VSOCK), name, options)
+}
+
+// VSOCKContext mocks base method.
+func (m *MockVirtualMachineInstanceInterface) VSOCKContext(ctx context.Context, name string, options *v122.VSOCKOptions) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VSOCKContext", ctx, name, options)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VSOCKContext indicates an expected call of VSOCKContext.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) VSOCKContext(ctx, name, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VSOCKContext", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).VSOCKContext), ctx, name, options)
 }
 
 // Watch mocks base method.
@@ -2503,6 +2578,21 @@ func (m *MockVirtualMachineInterface) PortForward(name string, port int, protoco
 func (mr *MockVirtualMachineInterfaceMockRecorder) PortForward(name, port, protocol any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortForward", reflect.TypeOf((*MockVirtualMachineInterface)(nil).PortForward), name, port, protocol)
+}
+
+// PortForwardContext mocks base method.
+func (m *MockVirtualMachineInterface) PortForwardContext(ctx context.Context, name string, port int, protocol string) (v123.StreamInterface, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PortForwardContext", ctx, name, port, protocol)
+	ret0, _ := ret[0].(v123.StreamInterface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PortForwardContext indicates an expected call of PortForwardContext.
+func (mr *MockVirtualMachineInterfaceMockRecorder) PortForwardContext(ctx, name, port, protocol any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortForwardContext", reflect.TypeOf((*MockVirtualMachineInterface)(nil).PortForwardContext), ctx, name, port, protocol)
 }
 
 // RemoveMemoryDump mocks base method.
