@@ -9142,6 +9142,7 @@ var CRDsValidation map[string]string = map[string]string{
                               References to a NetworkAttachmentDefinition CRD object. Format:
                               <networkName>, <namespace>/<networkName>. If namespace is not
                               specified, VMI namespace is assumed.
+                            minLength: 1
                             type: string
                         required:
                         - networkName
@@ -9191,8 +9192,22 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: network source must have exactly one of pod, multus
+                        or resourceClaim
+                      rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                   maxItems: 256
                   type: array
+                  x-kubernetes-validations:
+                  - message: more than one interface is connected to a pod network
+                    rule: self.filter(n, has(n.pod)).size() <= 1
+                  - message: Multus CNI should only have one default network
+                    rule: self.filter(n, has(n.multus) && has(n.multus.default) &&
+                      n.multus.default).size() <= 1
+                  - message: Pod network cannot be defined when Multus default network
+                      is defined
+                    rule: '!(self.exists(n, has(n.pod)) && self.exists(n, has(n.multus)
+                      && has(n.multus.default) && n.multus.default))'
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -15798,6 +15813,7 @@ var CRDsValidation map[string]string = map[string]string{
                       References to a NetworkAttachmentDefinition CRD object. Format:
                       <networkName>, <namespace>/<networkName>. If namespace is not
                       specified, VMI namespace is assumed.
+                    minLength: 1
                     type: string
                 required:
                 - networkName
@@ -15847,8 +15863,21 @@ var CRDsValidation map[string]string = map[string]string{
             required:
             - name
             type: object
+            x-kubernetes-validations:
+            - message: network source must have exactly one of pod, multus or resourceClaim
+              rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
           maxItems: 256
           type: array
+          x-kubernetes-validations:
+          - message: more than one interface is connected to a pod network
+            rule: self.filter(n, has(n.pod)).size() <= 1
+          - message: Multus CNI should only have one default network
+            rule: self.filter(n, has(n.multus) && has(n.multus.default) && n.multus.default).size()
+              <= 1
+          - message: Pod network cannot be defined when Multus default network is
+              defined
+            rule: '!(self.exists(n, has(n.pod)) && self.exists(n, has(n.multus) &&
+              has(n.multus.default) && n.multus.default))'
         nodeSelector:
           additionalProperties:
             type: string
@@ -23027,6 +23056,7 @@ var CRDsValidation map[string]string = map[string]string{
                               References to a NetworkAttachmentDefinition CRD object. Format:
                               <networkName>, <namespace>/<networkName>. If namespace is not
                               specified, VMI namespace is assumed.
+                            minLength: 1
                             type: string
                         required:
                         - networkName
@@ -23076,8 +23106,22 @@ var CRDsValidation map[string]string = map[string]string{
                     required:
                     - name
                     type: object
+                    x-kubernetes-validations:
+                    - message: network source must have exactly one of pod, multus
+                        or resourceClaim
+                      rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                   maxItems: 256
                   type: array
+                  x-kubernetes-validations:
+                  - message: more than one interface is connected to a pod network
+                    rule: self.filter(n, has(n.pod)).size() <= 1
+                  - message: Multus CNI should only have one default network
+                    rule: self.filter(n, has(n.multus) && has(n.multus.default) &&
+                      n.multus.default).size() <= 1
+                  - message: Pod network cannot be defined when Multus default network
+                      is defined
+                    rule: '!(self.exists(n, has(n.pod)) && self.exists(n, has(n.multus)
+                      && has(n.multus.default) && n.multus.default))'
                 nodeSelector:
                   additionalProperties:
                     type: string
@@ -28489,6 +28533,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       References to a NetworkAttachmentDefinition CRD object. Format:
                                       <networkName>, <namespace>/<networkName>. If namespace is not
                                       specified, VMI namespace is assumed.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - networkName
@@ -28538,8 +28583,23 @@ var CRDsValidation map[string]string = map[string]string{
                             required:
                             - name
                             type: object
+                            x-kubernetes-validations:
+                            - message: network source must have exactly one of pod,
+                                multus or resourceClaim
+                              rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                           maxItems: 256
                           type: array
+                          x-kubernetes-validations:
+                          - message: more than one interface is connected to a pod
+                              network
+                            rule: self.filter(n, has(n.pod)).size() <= 1
+                          - message: Multus CNI should only have one default network
+                            rule: self.filter(n, has(n.multus) && has(n.multus.default)
+                              && n.multus.default).size() <= 1
+                          - message: Pod network cannot be defined when Multus default
+                              network is defined
+                            rule: '!(self.exists(n, has(n.pod)) && self.exists(n,
+                              has(n.multus) && has(n.multus.default) && n.multus.default))'
                         nodeSelector:
                           additionalProperties:
                             type: string
@@ -34468,6 +34528,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           References to a NetworkAttachmentDefinition CRD object. Format:
                                           <networkName>, <namespace>/<networkName>. If namespace is not
                                           specified, VMI namespace is assumed.
+                                        minLength: 1
                                         type: string
                                     required:
                                     - networkName
@@ -34518,8 +34579,23 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - name
                                 type: object
+                                x-kubernetes-validations:
+                                - message: network source must have exactly one of
+                                    pod, multus or resourceClaim
+                                  rule: (has(self.pod)?1:0)+(has(self.multus)?1:0)+(has(self.resourceClaim)?1:0)==1
                               maxItems: 256
                               type: array
+                              x-kubernetes-validations:
+                              - message: more than one interface is connected to a
+                                  pod network
+                                rule: self.filter(n, has(n.pod)).size() <= 1
+                              - message: Multus CNI should only have one default network
+                                rule: self.filter(n, has(n.multus) && has(n.multus.default)
+                                  && n.multus.default).size() <= 1
+                              - message: Pod network cannot be defined when Multus
+                                  default network is defined
+                                rule: '!(self.exists(n, has(n.pod)) && self.exists(n,
+                                  has(n.multus) && has(n.multus.default) && n.multus.default))'
                             nodeSelector:
                               additionalProperties:
                                 type: string

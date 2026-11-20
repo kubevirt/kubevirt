@@ -167,6 +167,9 @@ type VirtualMachineInstanceSpec struct {
 	Subdomain string `json:"subdomain,omitempty"`
 	// List of networks that can be attached to a vm's virtual interface.
 	// +kubebuilder:validation:MaxItems:=256
+	// +kubebuilder:validation:XValidation:rule="self.filter(n, has(n.pod)).size() <= 1",message="more than one interface is connected to a pod network"
+	// +kubebuilder:validation:XValidation:rule="self.filter(n, has(n.multus) && has(n.multus.default) && n.multus.default).size() <= 1",message="Multus CNI should only have one default network"
+	// +kubebuilder:validation:XValidation:rule="!(self.exists(n, has(n.pod)) && self.exists(n, has(n.multus) && has(n.multus.default) && n.multus.default))",message="Pod network cannot be defined when Multus default network is defined"
 	Networks []Network `json:"networks,omitempty"`
 	// Set DNS policy for the pod.
 	// Defaults to "ClusterFirst".
