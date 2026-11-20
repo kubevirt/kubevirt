@@ -5174,6 +5174,16 @@ var _ = Describe("calculateHotplugPortCountV2", func() {
 })
 
 var _ = Describe("shouldExpandOffline", func() {
+	var origGetDiskInfo func(string) (*osdisk.DiskInfo, error)
+
+	BeforeEach(func() {
+		origGetDiskInfo = getDiskInfo
+	})
+
+	AfterEach(func() {
+		getDiskInfo = origGetDiskInfo
+	})
+
 	It("should return false for a direct block device", func() {
 		disk := api.Disk{
 			Source: api.DiskSource{
@@ -5183,7 +5193,7 @@ var _ = Describe("shouldExpandOffline", func() {
 		Expect(shouldExpandOffline(disk)).To(BeFalse())
 	})
 
-	It("should return false for a datastore backed block device", func() {
+	It("should return false for a datastore backed block device that cannot be inspected", func() {
 		disk := api.Disk{
 			Source: api.DiskSource{
 				File: "/test/overlay.qcow2",
@@ -5199,6 +5209,110 @@ var _ = Describe("shouldExpandOffline", func() {
 			},
 		}
 		Expect(shouldExpandOffline(disk)).To(BeFalse())
+	})
+
+	Context("with a CBT qcow2 overlay in front of a block device", func() {
+		const (
+			volumeName  = "pvc-disk"
+			overlayPath = "/test/overlay.qcow2"
+			backendPath = "/dev/test-backend"
+		)
+
+		var disk api.Disk
+
+		BeforeEach(func() {
+			disk = api.Disk{
+				Alias: api.NewUserDefinedAlias(volumeName),
+				Source: api.DiskSource{
+					File: overlayPath,
+					DataStore: &api.DataStore{
+						Type: "block",
+						Format: &api.DataStoreFormat{
+							Type: "raw",
+						},
+						Source: &api.DiskSource{
+							Dev: backendPath,
+						},
+					},
+				},
+			}
+		})
+
+		stubDiskInfo := func(overlaySize, backendSize int64) {
+			getDiskInfo = func(path string) (*osdisk.DiskInfo, error) {
+				switch path {
+				case overlayPath:
+					return &osdisk.DiskInfo{Format: "qcow2", VirtualSize: overlaySize}, nil
+				case backendPath:
+					return &osdisk.DiskInfo{Format: "host_device", VirtualSize: backendSize}, nil
+				default:
+					return nil, fmt.Errorf("unexpected image path %s", path)
+				}
+			}
+		}
+
+		It("should return true when the backend device grew beyond the overlay's virtual size", func() {
+			stubDiskInfo(2*1024*1024*1024, 3*1024*1024*1024)
+			Expect(shouldExpandOffline(disk)).To(BeTrue())
+		})
+
+		It("should return false when the overlay already matches the backend size", func() {
+			stubDiskInfo(3*1024*1024*1024, 3*1024*1024*1024)
+			Expect(shouldExpandOffline(disk)).To(BeFalse())
+		})
+
+		It("should return false when the overlay is larger than the backend", func() {
+			stubDiskInfo(4*1024*1024*1024, 3*1024*1024*1024)
+			Expect(shouldExpandOffline(disk)).To(BeFalse())
+		})
+
+		It("should return false when the overlay info cannot be read", func() {
+			getDiskInfo = func(string) (*osdisk.DiskInfo, error) {
+				return nil, fmt.Errorf("no such file")
+			}
+			Expect(shouldExpandOffline(disk)).To(BeFalse())
+		})
+
+		It("should return false when the backend size cannot be read", func() {
+			getDiskInfo = func(path string) (*osdisk.DiskInfo, error) {
+				if path == backendPath {
+					return nil, fmt.Errorf("no such device")
+				}
+				return &osdisk.DiskInfo{Format: "qcow2", VirtualSize: 2 * 1024 * 1024 * 1024}, nil
+			}
+			Expect(shouldExpandOffline(disk)).To(BeFalse())
+		})
+
+		It("should grow the overlay to the backend size at boot", func() {
+			stubDiskInfo(2*1024*1024*1024, 3*1024*1024*1024)
+
+			var capturedArgs []string
+			origRunQemuImgResize := runQemuImgResize
+			runQemuImgResize = func(args []string) ([]byte, error) {
+				capturedArgs = args
+				return nil, nil
+			}
+			defer func() { runQemuImgResize = origRunQemuImgResize }()
+
+			vmi := libvmi.New(
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name:                      volumeName,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{},
+					}),
+				)),
+			)
+			domain := &api.Domain{Spec: api.DomainSpec{
+				Devices: api.Devices{Disks: []api.Disk{disk}},
+			}}
+
+			expandDiskImagesOffline(vmi, domain)
+
+			Expect(capturedArgs).To(Equal([]string{
+				"resize", "--preallocation=off", overlayPath,
+				strconv.FormatInt(3*1024*1024*1024, 10),
+			}))
+		})
 	})
 })
 

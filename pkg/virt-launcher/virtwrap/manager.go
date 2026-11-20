@@ -1468,6 +1468,10 @@ var runQemuImgResize = func(args []string) ([]byte, error) {
 	return exec.Command("/usr/bin/qemu-img", args...).CombinedOutput()
 }
 
+// getDiskInfo is a variable so tests can substitute it and observe image
+// sizes without running the real qemu-img binary.
+var getDiskInfo = osdisk.GetDiskInfo
+
 func expandDiskImageOffline(imagePath string, size int64, preallocated bool) error {
 	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
 	args, err := qemuImgResizeArgs(imagePath, size, preallocated)
@@ -1486,7 +1490,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 		if !dt.HasOverlay() {
 			return 0, true
 		}
-		diskInfo, err := osdisk.GetDiskInfo(dt.BackendPath())
+		diskInfo, err := getDiskInfo(dt.BackendPath())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
 			return 0, false
@@ -1550,11 +1554,18 @@ func getUsableDiskSize(path string) (int64, error) {
 
 func shouldExpandOffline(disk api.Disk) bool {
 	ds := disksource.Resolve(disk)
-	if ds.BackendIsBlock() {
+	if ds.BackendIsBlock() && !ds.HasOverlay() {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(ds.BackendPath())
+	// A qcow2 overlay pins the guest-visible size at creation time, so the
+	// overlay (the top of the chain) is what needs comparing and resizing,
+	// not the backend it points at.
+	inspectPath := ds.BackendPath()
+	if ds.HasOverlay() {
+		inspectPath = ds.SourcePath()
+	}
+	diskInfo, err := getDiskInfo(inspectPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
