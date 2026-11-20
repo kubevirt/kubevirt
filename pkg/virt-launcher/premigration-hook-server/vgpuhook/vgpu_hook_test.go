@@ -35,6 +35,7 @@ const (
 	sourceUUID  = "bb4a98d8-60c1-40c6-b39b-866b1e82bd8c"
 	sourceUUID2 = "19dcdf19-0ef0-496b-be3b-c591109ca572"
 	targetUUID  = "05b59010-d19c-47d2-9477-33b4579edc90"
+	targetUUID2 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
 )
 
 var _ = Describe("Premigration Hook Server", func() {
@@ -96,7 +97,7 @@ var _ = Describe("Premigration Hook Server", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should fail if there is more than 1 vGPU", func() {
+		It("should update each vGPU mdev uuid according to target node config", func() {
 			By("creating a VMI and libvirt domain with 2 vGPUs")
 			vmi := &v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -138,14 +139,65 @@ var _ = Describe("Premigration Hook Server", func() {
 					},
 				},
 			}
+
+			// Intentionally in reverse of the domain hostdevs to assert
+			// the rewrite is correctly matched by alias rather than by slice index.
 			c := &convertertypes.ConverterContext{
 				GPUHostDevices: []api.HostDevice{
-					newAPIHostDeviceMDev(sourceUUID, "gpu1"),
-					newAPIHostDeviceMDev(sourceUUID2, "gpu2"),
+					newAPIHostDeviceMDev(targetUUID2, "gpu2"),
+					newAPIHostDeviceMDev(targetUUID, "gpu1"),
 				},
 			}
 
-			Expect(MDevVGPULiveMigration(c, vmi, &domain)).To(MatchError("the migrating vmi should only have one vGPU"))
+			Expect(MDevVGPULiveMigration(c, vmi, &domain)).NotTo(HaveOccurred(), "failed to modify domain")
+
+			expectedDomain := libvirtxml.Domain{
+				Type: "kvm",
+				Name: "kubevirt",
+				Devices: &libvirtxml.DomainDeviceList{
+					Hostdevs: []libvirtxml.DomainHostdev{
+						newMdevHostdev(
+							targetUUID,
+							"ua-gpu-gpu1",
+							0x00,
+						),
+						newMdevHostdev(
+							targetUUID2,
+							"ua-gpu-gpu2",
+							0x01,
+						),
+					},
+				},
+			}
+
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should update each DRA vGPU mdev uuid by alias", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							GPUs: []v1.GPU{
+								{Name: "gpu1", ClaimRequest: &v1.ClaimRequest{ClaimName: "gpu-claim", RequestName: "gpu1"}},
+								{Name: "gpu2", ClaimRequest: &v1.ClaimRequest{ClaimName: "gpu-claim", RequestName: "gpu2"}},
+							},
+						},
+					},
+				},
+			}
+			domain := libvirtxml.Domain{Devices: &libvirtxml.DomainDeviceList{Hostdevs: []libvirtxml.DomainHostdev{
+				newMdevHostdev(sourceUUID, "ua-dra-gpu-gpu1", 0x00),
+				newMdevHostdev(sourceUUID2, "ua-dra-gpu-gpu2", 0x01),
+			}}}
+			c := &convertertypes.ConverterContext{GPUHostDevices: []api.HostDevice{
+				newAPIHostDeviceMDevWithAlias(targetUUID2, "dra-gpu-gpu2"),
+				newAPIHostDeviceMDevWithAlias(targetUUID, "dra-gpu-gpu1"),
+			}}
+
+			Expect(MDevVGPULiveMigration(c, vmi, &domain)).To(Succeed())
+			Expect(domain.Devices.Hostdevs[0].SubsysMDev.Source.Address.UUID).To(Equal(targetUUID))
+			Expect(domain.Devices.Hostdevs[1].SubsysMDev.Source.Address.UUID).To(Equal(targetUUID2))
 		})
 
 		It("should fail if GPU is not an mdev vGPU", func() {
@@ -192,6 +244,10 @@ var _ = Describe("Premigration Hook Server", func() {
 })
 
 func newAPIHostDeviceMDev(uuid, name string) api.HostDevice {
+	return newAPIHostDeviceMDevWithAlias(uuid, "gpu-"+name)
+}
+
+func newAPIHostDeviceMDevWithAlias(uuid, alias string) api.HostDevice {
 	return api.HostDevice{
 		Type: api.HostDeviceMDev,
 		Source: api.HostDeviceSource{
@@ -200,7 +256,7 @@ func newAPIHostDeviceMDev(uuid, name string) api.HostDevice {
 				Type: api.HostDeviceMDev,
 			},
 		},
-		Alias: api.NewUserDefinedAlias("gpu-" + name),
+		Alias: api.NewUserDefinedAlias(alias),
 	}
 }
 
