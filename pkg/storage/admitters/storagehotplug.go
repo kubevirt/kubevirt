@@ -159,6 +159,23 @@ func ValidateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 		}
 	}
 
+	if disk.Serial != "" && !isValidExpression(disk.Serial) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] serial must be made up of the following characters [A-Za-z0-9_.+-], if specified", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	maxLen := getMaxDiskSerialLength(*disk)
+	if disk.Serial != "" && len(disk.Serial) > maxLen {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] serial with bus type %s must not exceed %d characters", messagePrefix, name, bus, maxLen),
+			Field:   field,
+		}}
+	}
+
 	return nil
 }
 

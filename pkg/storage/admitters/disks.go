@@ -37,6 +37,9 @@ import (
 const (
 	maxStrLen = 256
 
+	maxVirtioBlkSerialLen = 20
+	maxSCSISerialLen      = 36
+
 	// Should be a power of 2
 	minCustomBlockSize = 512
 	maxCustomBlockSize = 2097152 // 2 MB
@@ -164,6 +167,17 @@ func getDiskBus(disk v1.Disk) v1.DiskBus {
 	}
 }
 
+func getMaxDiskSerialLength(disk v1.Disk) int {
+	switch getDiskBus(disk) {
+	case v1.DiskBusVirtio:
+		return maxVirtioBlkSerialLen
+	case v1.DiskBusSCSI:
+		return maxSCSISerialLen
+	default:
+		return maxStrLen
+	}
+}
+
 func getDiskType(disk v1.Disk) string {
 	switch {
 	case disk.Disk != nil:
@@ -257,10 +271,15 @@ func validateSerialNumValue(field *k8sfield.Path, idx int, disk v1.Disk) []metav
 
 func validateSerialNumLength(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
+	if disk.Serial == "" {
+		return causes
+	}
+
+	maxLen := getMaxDiskSerialLength(disk)
+	if len(disk.Serial) > maxLen {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
+			Message: fmt.Sprintf("%s with bus type %s must not exceed %d characters", field.Index(idx).String(), getDiskBus(disk), maxLen),
 			Field:   field.Index(idx).Child("serial").String(),
 		})
 	}

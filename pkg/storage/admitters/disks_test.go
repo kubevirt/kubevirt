@@ -377,39 +377,49 @@ var _ = Describe("Disk Validation", func() {
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
 		})
 
-		It("should reject SN > maxStrLen characters", func() {
+		DescribeTable("should reject SN > maxLen characters using bus type", func(bus v1.DiskBus, maxLen int) {
 			order := uint(1)
-			sn := strings.Repeat("1", maxStrLen+1)
+			sn := strings.Repeat("1", maxLen+1)
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:      "testdisk2",
 				BootOrder: &order,
 				Serial:    sn,
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
+					Disk: &v1.DiskTarget{Bus: bus},
 				},
 			})
 
 			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake[0].serial"))
-		})
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s must not exceed %d characters", bus, maxLen)))
+		},
+			Entry("virtio", v1.DiskBusVirtio, maxVirtioBlkSerialLen),
+			Entry("scsi", v1.DiskBusSCSI, maxSCSISerialLen),
+			Entry("empty", v1.DiskBus(""), maxStrLen),
+		)
 
-		It("should accept valid SN", func() {
+		DescribeTable("should accept valid SN using bus type", func(bus v1.DiskBus, maxLen int) {
 			order := uint(1)
+			sn := strings.Repeat("1", maxLen)
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:      "testdisk2",
 				BootOrder: &order,
-				Serial:    "SN-1_a",
+				Serial:    sn,
 				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
+					Disk: &v1.DiskTarget{Bus: bus},
 				},
 			})
 
 			causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(BeEmpty())
-		})
+		},
+			Entry("virtio", v1.DiskBusVirtio, maxVirtioBlkSerialLen),
+			Entry("scsi", v1.DiskBusSCSI, maxSCSISerialLen),
+			Entry("empty", v1.DiskBus(""), maxStrLen),
+		)
 
 		DescribeTable("Should reject disk with DedicatedIOThread and non-virtio bus", func(bus v1.DiskBus) {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
