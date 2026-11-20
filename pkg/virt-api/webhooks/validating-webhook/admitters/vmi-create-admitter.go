@@ -143,6 +143,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	warnings := warnDeprecatedAPIs(&vmi.Spec, admitter.ClusterConfig)
 	warnings = append(warnings, warnDisabledACPIAmd64(&vmi.Spec, admitter.ClusterConfig)...)
 	warnings = append(warnings, storageadmitters.WarnDeprecatedMemoryDumpVolumes(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	warnings = append(warnings, netadmitter.WarnPortsOnNonPodNetwork(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	warnings = append(warnings, netadmitter.WarnTooManyPorts(k8sfield.NewPath("spec"), &vmi.Spec)...)
 
 	return &admissionv1.AdmissionResponse{
 		Allowed:  true,
