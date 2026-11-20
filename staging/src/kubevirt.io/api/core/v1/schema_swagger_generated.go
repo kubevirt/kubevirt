@@ -116,7 +116,7 @@ func (Chassis) SwaggerDoc() map[string]string {
 
 func (Bootloader) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":     "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.",
+		"":     "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.\n+kubebuilder:validation:XValidation:rule=\"!(has(self.bios) && has(self.efi))\",message=\"has both EFI and BIOS configured, but they are mutually exclusive\"",
 		"bios": "If set (default), BIOS will be used.\n+optional",
 		"efi":  "If set, EFI will be used instead of BIOS.\n+optional",
 	}
@@ -139,8 +139,8 @@ func (EFI) SwaggerDoc() map[string]string {
 
 func (KernelBootContainer) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "If set, the VM will be booted from the defined kernel / initrd.",
-		"image":           "Image that contains initrd / kernel files.",
+		"":                "If set, the VM will be booted from the defined kernel / initrd.\n+kubebuilder:validation:XValidation:rule=\"(has(self.kernelPath) && size(self.kernelPath) != 0) || (has(self.initrdPath) && size(self.initrdPath) != 0)\",message=\"kernel boot container must be defined with at least one of the following: kernelPath, initrdPath\"",
+		"image":           "Image that contains initrd / kernel files.\n+kubebuilder:validation:XValidation:rule=\"size(self) != 0\",message=\"kernel boot container must be defined with an image\"",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
 		"kernelPath":      "The fully-qualified path to the kernel image in the host OS\n+optional",
@@ -150,7 +150,7 @@ func (KernelBootContainer) SwaggerDoc() map[string]string {
 
 func (KernelBoot) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "Represents the firmware blob used to assist in the kernel boot process.\nUsed for setting the kernel, initrd and command line arguments",
+		"":           "Represents the firmware blob used to assist in the kernel boot process.\nUsed for setting the kernel, initrd and command line arguments\n+kubebuilder:validation:XValidation:rule=\"has(self.container) || !has(self.kernelArgs) || size(self.kernelArgs) == 0\",message=\"kernel arguments cannot be provided without an external kernel\"",
 		"kernelArgs": "Arguments to be passed to the kernel at boot time",
 		"container":  "Container defines the container that containes kernel artifacts",
 	}

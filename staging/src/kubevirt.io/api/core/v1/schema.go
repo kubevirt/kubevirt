@@ -271,6 +271,7 @@ type Chassis struct {
 
 // Represents the firmware blob used to assist in the domain creation process.
 // Used for setting the QEMU BIOS file path for the libvirt domain.
+// +kubebuilder:validation:XValidation:rule="!(has(self.bios) && has(self.efi))",message="has both EFI and BIOS configured, but they are mutually exclusive"
 type Bootloader struct {
 	// If set (default), BIOS will be used.
 	// +optional
@@ -302,8 +303,10 @@ type EFI struct {
 }
 
 // If set, the VM will be booted from the defined kernel / initrd.
+// +kubebuilder:validation:XValidation:rule="(has(self.kernelPath) && size(self.kernelPath) != 0) || (has(self.initrdPath) && size(self.initrdPath) != 0)",message="kernel boot container must be defined with at least one of the following: kernelPath, initrdPath"
 type KernelBootContainer struct {
 	// Image that contains initrd / kernel files.
+	// +kubebuilder:validation:XValidation:rule="size(self) != 0",message="kernel boot container must be defined with an image"
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
 	//+optional
@@ -325,6 +328,7 @@ type KernelBootContainer struct {
 
 // Represents the firmware blob used to assist in the kernel boot process.
 // Used for setting the kernel, initrd and command line arguments
+// +kubebuilder:validation:XValidation:rule="has(self.container) || !has(self.kernelArgs) || size(self.kernelArgs) == 0",message="kernel arguments cannot be provided without an external kernel"
 type KernelBoot struct {
 	// Arguments to be passed to the kernel at boot time
 	KernelArgs string `json:"kernelArgs,omitempty"`
