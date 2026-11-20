@@ -85,7 +85,7 @@ func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *co
 		vmExport.Status.Phase = exportv1.Skipped
 	}
 
-	if !s.sourceVolumes.isPopulated && s.ReadyCondition().Reason != vmNotFoundReason {
+	if blocked := s.sourceVolumes.Blocked(); blocked != nil && blocked.requeue {
 		requeue = requeueTime
 	}
 
@@ -215,9 +215,6 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
 	sourceVolumes := &sourceVolumes{
 		volumes:         []sourceVolume{},
-		inUse:           false,
-		isPopulated:     false,
-		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
 		sourceCondition: exportv1.Condition{},
 	}
 
@@ -226,8 +223,8 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 		return nil, err
 	}
 	if !exists {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, vmNotFoundReason,
-			fmt.Sprintf("Virtual Machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.blocked = &blocker{reason: vmNotFoundReason,
+			message: fmt.Sprintf("Virtual Machine %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)}
 		return sourceVolumes, nil
 	}
 
@@ -237,24 +234,18 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 	}
 	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(volumesToExport), allPopulated)
 
-	sourceVolumes.isPopulated = allPopulated
-
 	if len(volumesToExport) == 0 {
-		sourceVolumes.isPopulated = true
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, noVolumeVMReason,
-			fmt.Sprintf("Virtual Machine %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.emptyMessage = fmt.Sprintf("Virtual Machine %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name)
 	} else if !allPopulated {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, volumesNotPopulatedReason,
-			fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.blocked = &blocker{reason: volumesNotPopulatedReason,
+			message: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name), requeue: true}
 	} else {
 		inUse, availableMessage, err := ctrl.isSourceInUseVM(vmExport)
 		if err != nil {
 			return nil, err
 		}
-		sourceVolumes.inUse = inUse
-
 		if inUse {
-			sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, inUseReason, availableMessage)
+			sourceVolumes.blocked = &blocker{reason: inUseReason, message: availableMessage}
 		}
 	}
 

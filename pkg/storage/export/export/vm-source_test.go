@@ -630,10 +630,16 @@ var _ = Describe("PVC source", func() {
 		return vm
 	}
 
-	It("Should stay pending when two VM volumes reference the same PVC", func() {
+	DescribeTable("Should stay pending when two VM volumes reference the same PVC", func(populated bool, expectedRetry time.Duration) {
 		testVMExport := createVMVMExport()
 		controller.VMInformer.GetStore().Add(createVMWithDuplicatePVC())
-		controller.PVCInformer.GetStore().Add(createPVC("shared", "kubevirt"))
+		pvc := createPVC("shared", "kubevirt")
+		if !populated {
+			dv := createPopulatingDataVolume("shared")
+			pvc.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(dv, datavolumeGVK)}
+			controller.DataVolumeInformer.GetStore().Add(dv)
+		}
+		controller.PVCInformer.GetStore().Add(pvc)
 		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Fail("no exporter pod must be created for a source with duplicate PVCs")
 			return true, nil, nil
@@ -657,9 +663,12 @@ var _ = Describe("PVC source", func() {
 		})
 		retry, err := controller.updateVMExport(testVMExport)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(retry).To(BeEquivalentTo(0))
+		Expect(retry).To(Equal(expectedRetry))
 		Expect(updated).To(BeTrue())
-	})
+	},
+		Entry("with populated volumes", true, time.Duration(0)),
+		Entry("while a DataVolume is still populating", false, requeueTime),
+	)
 
 	It("Should export once the duplicate PVC is removed from the VM", func() {
 		testVMExport := createVMVMExport()
