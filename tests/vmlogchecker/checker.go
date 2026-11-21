@@ -444,11 +444,6 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 		SIGs:  SIGCompute,
 	},
 	{
-		ID:    95,
-		Regex: regexp.MustCompile(`"level":"error","msg":"Error encountered writing access credentials using guest agent".*"pos":"access_credentials\.go.*"reason":"failed to set SSH keys: error from guest-ssh-add-authorized-keys: virError\(Code=.*, Domain=.*, Message='guest agent command failed: unable to execute QEMU agent command 'guest-ssh-add-authorized-keys': Command guest-ssh-add-authorized-keys has been disabled[^']*'\); error from using guest-file-write: unable to detect home directory of user .*guest-exec': Command guest-exec has been disabled[^']*'\)"`),
-		SIGs:  SIGCompute,
-	},
-	{
 		ID:    96,
 		Regex: regexp.MustCompile(`"level":"error","msg":"Timed out generating cloud-init iso at path .*","pos":"cloud-init\.go`),
 		SIGs:  SIGCompute | SIGPerformance,
@@ -516,6 +511,11 @@ var VirtLauncherErrorAllowlist = []AllowlistEntry{
 	{
 		ID:    111,
 		Regex: regexp.MustCompile(`"level":"error","msg":"failed to sync guest time"`),
+		SIGs:  SIGCompute,
+	},
+	{
+		ID:    112,
+		Regex: regexp.MustCompile(`"level":"error","msg":"Error encountered writing access credentials using guest agent".*"pos":"access_credentials\.go.*"reason":"failed to set SSH authorized keys: virError\(Code=.*, Domain=.*, Message='guest agent command failed: unable to execute QEMU agent command 'guest-ssh-add-authorized-keys': Command guest-ssh-add-authorized-keys has been disabled[^']*'\)"`),
 		SIGs:  SIGCompute,
 	},
 }

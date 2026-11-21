@@ -479,8 +479,7 @@ func main() {
 		*vmStatsCollectorEnabled,
 		*firmwareAutoSelectionEnabled,
 		*arm64SecureBootEnabled,
-		*allowCrossArchEmulation,
-		notifier)
+		*allowCrossArchEmulation)
 	if err != nil {
 		panic(err)
 	}
