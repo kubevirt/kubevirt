@@ -45,13 +45,13 @@
       <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file" model="virtio">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
       <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
-      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <source file="/var/run/kubevirt-ephemeral-disks/cloud-init-data/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdc" tray="closed"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
