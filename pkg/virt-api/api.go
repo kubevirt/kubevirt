@@ -562,6 +562,26 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("hibernate")).
+			To(subresourceApp.HibernateVMRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.HibernateOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"Hibernate").
+			Doc("Saves the memory and device state of a running VirtualMachine and stops it. The next start resumes from the saved state.").
+			Returns(http.StatusAccepted, "Accepted", "").
+			Returns(http.StatusConflict, "Conflict", "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("discardsavedstate")).
+			To(subresourceApp.DiscardSavedStateVMRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"DiscardSavedState").
+			Doc("Discards the saved state of a hibernated VirtualMachine. The next start boots it.").
+			Returns(http.StatusAccepted, "Accepted", "").
+			Returns(http.StatusConflict, "Conflict", "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		// AMD SEV endpoints
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("sev/fetchcertchain")).
 			To(subresourceApp.SEVFetchCertChainRequestHandler).
@@ -738,6 +758,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachines/stop",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/hibernate",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/discardsavedstate",
 						Namespaced: true,
 					},
 					{

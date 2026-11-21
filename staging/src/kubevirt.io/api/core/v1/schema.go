@@ -1095,6 +1095,10 @@ const (
 	// SnapshotOverlay represents a utility volume which holds the copy-on-write
 	// overlays of an External mode VirtualMachineSnapshot
 	SnapshotOverlay UtilityVolumeType = "SnapshotOverlay"
+
+	// SavedState represents a utility volume which receives the memory and
+	// device state of a hibernating VirtualMachineInstance
+	SavedState UtilityVolumeType = "SavedState"
 )
 
 type UtilityVolume struct {

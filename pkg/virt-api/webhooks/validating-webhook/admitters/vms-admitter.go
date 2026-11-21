@@ -300,6 +300,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, isKubeVirtServiceAccount)...)
 	causes = append(causes, validateGraceIOVirtualizationAnnotations(field.Child("template", "metadata"), &spec.Template.Spec, spec.Template.ObjectMeta.Annotations, config)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
+	if spec.Template.Spec.SavedStateSource != nil {
+		// Only the VirtualMachine controller decides to resume from a saved state.
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("%s cannot be set on a VirtualMachine, hibernate the VirtualMachine instead", field.Child("template", "spec", "savedStateSource").String()),
+			Field:   field.Child("template", "spec", "savedStateSource").String(),
+		})
+	}
 
 	causes = append(causes, storageadmitters.ValidateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec, config)...)

@@ -121,6 +121,7 @@ type LauncherClient interface {
 	GuestPing(string, int32) error
 	Close()
 	VirtualMachineMemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	SaveVirtualMachine(vmi *v1.VirtualMachineInstance, savePath string) error
 	GetQemuVersion() (string, error)
 	SyncVirtualMachineCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
@@ -412,6 +413,25 @@ func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInst
 	response, err := c.v1client.VirtualMachineMemoryDump(ctx, request)
 	err = handleError(err, "Memorydump", response)
 	return err
+}
+
+func (c *VirtLauncherClient) SaveVirtualMachine(vmi *v1.VirtualMachineInstance, savePath string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.SaveVirtualMachineRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		SavePath: savePath,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.SaveVirtualMachine(ctx, request)
+	return handleError(err, "SaveVirtualMachine", response)
 }
 
 func (c *VirtLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {

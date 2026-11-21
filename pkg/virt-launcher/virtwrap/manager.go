@@ -201,6 +201,7 @@ type DomainManager interface {
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	SaveVMI(vmi *v1.VirtualMachineInstance, savePath string) error
 	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
@@ -233,6 +234,8 @@ type LibvirtDomainManager struct {
 	storageManager *storage.StorageManager
 
 	hotplugHostDevicesInProgress chan struct{}
+	// savingState is set while the domain state is being saved to a file.
+	savingState atomic.Bool
 
 	virtShareDir           string
 	ephemeralDiskDir       string
@@ -1877,6 +1880,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		if err := l.startDomain(vmi, dom); err != nil {
 			return nil, err
 		}
+	case cli.IsDown(domState) && util.ConvReason(domState, reason) == api.ReasonSaved:
+		// The state was saved and the domain stopped, the VMI is about to stop too.
+		return util.GetDomainSpecWithFlags(dom, 0)
+	case cli.IsPaused(domState) && l.isSavingState():
+		// The save pauses the domain, it is stopped or resumed when the save ends.
+		break
 	case cli.IsPaused(domState) && !l.paused.contains(vmi.UID):
 		if util.ConvReason(domState, reason) == api.ReasonPausedUser && storage.OverlaysCommitting(l.metadataCache) {
 			// The commit worker owns this pause and will release it.
@@ -2044,6 +2053,20 @@ func (l *LibvirtDomainManager) startDomain(
 	// the lock instead (see migrateHelper).
 	if err := plugins.ApplyPreBootHooks(plugins.GetPlugins(), vmi, l.preBootArtifactPaths); err != nil {
 		return err
+	}
+
+	if vmi.Spec.SavedStateSource != nil {
+		if err := l.startFromSavedState(vmi, dom); err != nil {
+			return err
+		}
+		logger.Info("Domain started from its saved state.")
+		// The guest clock stood still while the domain was stopped.
+		l.setGuestTime(vmi)
+		if vmi.ShouldStartPaused() {
+			l.paused.add(vmi.UID)
+		}
+		l.storageManager.CommitRecoveredOverlays(vmi)
+		return nil
 	}
 
 	createFlags := getDomainCreateFlags(vmi)
@@ -2436,6 +2459,10 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 
 func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	return l.storageManager.MemoryDump(vmi, dumpPath)
+}
+
+func (l *LibvirtDomainManager) SaveVMI(vmi *v1.VirtualMachineInstance, savePath string) error {
+	return l.saveVMI(vmi, savePath)
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {

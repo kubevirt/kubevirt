@@ -87,6 +87,20 @@ func (c *fakeVirtualMachines) RemoveMemoryDump(ctx context.Context, name string)
 	return err
 }
 
+func (c *fakeVirtualMachines) Hibernate(ctx context.Context, name string, hibernateOptions *v1.HibernateOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "hibernate", name, hibernateOptions), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachines) DiscardSavedState(ctx context.Context, name string) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "discardsavedstate", name, struct{}{}), nil)
+
+	return err
+}
+
 func (c *fakeVirtualMachines) AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "addvolume", name, addVolumeOptions), nil)

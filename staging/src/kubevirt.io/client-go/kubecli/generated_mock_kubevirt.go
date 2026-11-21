@@ -2353,6 +2353,20 @@ func (mr *MockVirtualMachineInterfaceMockRecorder) DeleteCollection(ctx, opts, l
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCollection", reflect.TypeOf((*MockVirtualMachineInterface)(nil).DeleteCollection), ctx, opts, listOpts)
 }
 
+// DiscardSavedState mocks base method.
+func (m *MockVirtualMachineInterface) DiscardSavedState(ctx context.Context, name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DiscardSavedState", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DiscardSavedState indicates an expected call of DiscardSavedState.
+func (mr *MockVirtualMachineInterfaceMockRecorder) DiscardSavedState(ctx, name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscardSavedState", reflect.TypeOf((*MockVirtualMachineInterface)(nil).DiscardSavedState), ctx, name)
+}
+
 // EvacuateCancel mocks base method.
 func (m *MockVirtualMachineInterface) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v122.EvacuateCancelOptions) error {
 	m.ctrl.T.Helper()
@@ -2395,6 +2409,20 @@ func (m *MockVirtualMachineInterface) GetWithExpandedSpec(ctx context.Context, n
 func (mr *MockVirtualMachineInterfaceMockRecorder) GetWithExpandedSpec(ctx, name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWithExpandedSpec", reflect.TypeOf((*MockVirtualMachineInterface)(nil).GetWithExpandedSpec), ctx, name)
+}
+
+// Hibernate mocks base method.
+func (m *MockVirtualMachineInterface) Hibernate(ctx context.Context, name string, hibernateOptions *v122.HibernateOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Hibernate", ctx, name, hibernateOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Hibernate indicates an expected call of Hibernate.
+func (mr *MockVirtualMachineInterfaceMockRecorder) Hibernate(ctx, name, hibernateOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Hibernate", reflect.TypeOf((*MockVirtualMachineInterface)(nil).Hibernate), ctx, name, hibernateOptions)
 }
 
 // List mocks base method.

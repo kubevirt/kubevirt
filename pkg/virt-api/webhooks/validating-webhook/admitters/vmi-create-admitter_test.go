@@ -41,6 +41,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/hibernation"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -2517,6 +2518,56 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			response := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
+		})
+
+		Context("resuming from a saved state", func() {
+			BeforeEach(func() {
+				enableFeatureGates(featuregate.VMHibernation, featuregate.UtilityVolumesGate)
+				vmi.Spec.SavedStateSource = &v1.SavedStateSource{ClaimName: "state", FileName: "domain-0123456789ab.save"}
+				vmi.Spec.Architecture = "amd64"
+			})
+
+			asUser := func(ar *admissionv1.AdmissionReview, username string) *admissionv1.AdmissionReview {
+				ar.Request.UserInfo.Username = username
+				return ar
+			}
+			controllerSA := fmt.Sprintf("system:serviceaccount:%s:%s", kubeVirtNamespace, components.ControllerServiceAccountName)
+
+			It("should accept the saved state source and its volume from the VM controller", func() {
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{hibernation.SourceVolume("state")}
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				response := vmiCreateAdmitter.Admit(context.Background(), asUser(ar, controllerSA))
+				Expect(response.Allowed).To(BeTrue(), "%v", response.Result)
+			})
+
+			DescribeTable("should reject a saved state source from anyone else", func(username string) {
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{hibernation.SourceVolume("state")}
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				response := vmiCreateAdmitter.Admit(context.Background(), asUser(ar, username))
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Message).To(ContainSubstring("can only be set by KubeVirt"))
+			},
+				Entry("a user", "alice"),
+				Entry("virt-handler", fmt.Sprintf("system:serviceaccount:%s:%s", kubeVirtNamespace, components.HandlerServiceAccountName)),
+			)
+
+			DescribeTable("should reject any other utility volume on creation", func(volume v1.UtilityVolume) {
+				vmi.Spec.UtilityVolumes = []v1.UtilityVolume{volume}
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				response := vmiCreateAdmitter.Admit(context.Background(), asUser(ar, controllerSA))
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
+			},
+				Entry("of another claim", hibernation.SourceVolume("other")),
+				Entry("with another name", v1.UtilityVolume{
+					Name:                              "saved-state-target",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "state"},
+					Type:                              pointer.P(v1.SavedState),
+				}),
+			)
 		})
 
 		It("should accept sysprep volumes", func() {
