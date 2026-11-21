@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = ["resourcefiles.go"],
     embedsrcs = [
-        "templates/restore-template.yaml",
         "templates/snapshot-template.yaml",
         "templates/vm-template.yaml",
     ],

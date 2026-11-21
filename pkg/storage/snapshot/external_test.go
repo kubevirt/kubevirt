@@ -42,7 +42,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
@@ -809,8 +809,8 @@ var _ = Describe("Overlay scratch volume", func() {
 				content.Spec.VolumeBackups[0].VolumeSnapshotName = pointer.P("vs-disk1")
 				snapshots = kubevirtfake.NewSimpleClientset(vmSnapshot, content)
 				client := controller.Client.(*kubecli.MockKubevirtClient)
-				client.EXPECT().VirtualMachineSnapshot(testNamespace).Return(snapshots.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
-				client.EXPECT().VirtualMachineSnapshotContent(testNamespace).Return(snapshots.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
+				client.EXPECT().VirtualMachineSnapshot(testNamespace).Return(snapshots.SnapshotV1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
+				client.EXPECT().VirtualMachineSnapshotContent(testNamespace).Return(snapshots.SnapshotV1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
 				controller.VMSnapshotInformer, _ = testutils.NewFakeInformerFor(vmSnapshot)
 				controller.VMInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 				Expect(controller.VMSnapshotInformer.GetStore().Add(vmSnapshot)).To(Succeed())
@@ -819,7 +819,7 @@ var _ = Describe("Overlay scratch volume", func() {
 
 			reconcile := func() error {
 				var err error
-				content, err = snapshots.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace).Get(context.Background(), content.Name, metav1.GetOptions{})
+				content, err = snapshots.SnapshotV1().VirtualMachineSnapshotContents(testNamespace).Get(context.Background(), content.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				_, err = controller.updateVMSnapshotContent(content)
 				return err
@@ -853,7 +853,7 @@ var _ = Describe("Overlay scratch volume", func() {
 
 				_, err := controller.updateVMSnapshotContent(content)
 				Expect(err).ToNot(HaveOccurred())
-				updated, err := snapshots.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace).Get(context.Background(), content.Name, metav1.GetOptions{})
+				updated, err := snapshots.SnapshotV1().VirtualMachineSnapshotContents(testNamespace).Get(context.Background(), content.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(updated.Status.CreationTime).ToNot(BeNil())
 				for _, action := range k8sClient.Actions() {
@@ -919,13 +919,13 @@ var _ = Describe("Overlay scratch volume", func() {
 					vmiInterface.EXPECT().CommitSnapshot(context.Background(), vmi.Name, overlayOptions()).Return(nil)
 				}
 				k8sClient.PrependReactor("patch", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
-					failed, err := snapshots.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Get(context.Background(), vmSnapshot.Name, metav1.GetOptions{})
+					failed, err := snapshots.SnapshotV1().VirtualMachineSnapshots(testNamespace).Get(context.Background(), vmSnapshot.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(failed.Status.Phase).To(Equal(snapshotv1.Failed))
 					return false, nil, nil
 				})
 				Expect(reconcile()).To(Succeed())
-				failed, err := snapshots.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace).Get(context.Background(), vmSnapshot.Name, metav1.GetOptions{})
+				failed, err := snapshots.SnapshotV1().VirtualMachineSnapshots(testNamespace).Get(context.Background(), vmSnapshot.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(failed.Status.Phase).To(Equal(snapshotv1.Failed))
 				Expect(failed.Status.ReadyToUse).ToNot(BeNil())
@@ -1338,7 +1338,7 @@ var _ = Describe("Overlay scratch volume", func() {
 				controller.VMInformer, _ = testutils.NewFakeInformerFor(vm)
 				Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
 				restores := kubevirtfake.NewSimpleClientset(r)
-				controller.Client.(*kubecli.MockKubevirtClient).EXPECT().VirtualMachineRestore(testNamespace).Return(restores.SnapshotV1beta1().VirtualMachineRestores(testNamespace)).AnyTimes()
+				controller.Client.(*kubecli.MockKubevirtClient).EXPECT().VirtualMachineRestore(testNamespace).Return(restores.SnapshotV1().VirtualMachineRestores(testNamespace)).AnyTimes()
 				vmiInterface.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(nil, k8serrors.NewNotFound(v1.Resource("virtualmachineinstances"), vm.Name)).AnyTimes()
 				pvc := addScratch()
 				if state == "scratch in use" || state == "manual commit in use" {

@@ -22,7 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	virtsnapshot "kubevirt.io/api/snapshot"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

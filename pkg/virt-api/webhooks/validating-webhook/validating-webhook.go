@@ -88,7 +88,7 @@ func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig
 }
 
 func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient, informers *webhooks.Informers) {
-	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(clusterConfig, virtClient, informers.VMRestoreInformer))
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(virtClient, informers.VMRestoreInformer))
 }
 
 func ServeVMBackups(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient, informers *webhooks.Informers) {
@@ -140,7 +140,7 @@ func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request, cluster
 }
 
 func ServeVirtualMachineClones(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter(clusterConfig))
+	validating_webhooks.Serve(resp, req, admitters.NewVMCloneAdmitter())
 }
 
 func ServePlugins(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

@@ -45,7 +45,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -309,11 +309,11 @@ var _ = Describe("Restore controller", func() {
 			virtClient.EXPECT().VirtualMachine(testNamespace).
 				Return(kubevirtClient.KubevirtV1().VirtualMachines(testNamespace)).AnyTimes()
 			virtClient.EXPECT().VirtualMachineRestore(testNamespace).
-				Return(kubevirtClient.SnapshotV1beta1().VirtualMachineRestores(testNamespace)).AnyTimes()
+				Return(kubevirtClient.SnapshotV1().VirtualMachineRestores(testNamespace)).AnyTimes()
 			virtClient.EXPECT().VirtualMachineSnapshot(testNamespace).
-				Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
+				Return(kubevirtClient.SnapshotV1().VirtualMachineSnapshots(testNamespace)).AnyTimes()
 			virtClient.EXPECT().VirtualMachineSnapshotContent(testNamespace).
-				Return(kubevirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
+				Return(kubevirtClient.SnapshotV1().VirtualMachineSnapshotContents(testNamespace)).AnyTimes()
 
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
