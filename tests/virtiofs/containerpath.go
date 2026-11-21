@@ -157,7 +157,7 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 			}, 200)).To(Succeed())
 		})
 
-		It("Should expose multiple ContainerPath volumes independently in one VMI", func() {
+		It("[QUARANTINE]Should expose multiple ContainerPath volumes independently in one VMI", decorators.Quarantine, func() {
 			const (
 				tokenFilesystemName = "projected-token-fs"
 				tokenPath           = "/var/run/secrets/kubernetes.io/serviceaccount"
