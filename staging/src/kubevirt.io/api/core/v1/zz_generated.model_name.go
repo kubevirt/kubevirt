@@ -444,6 +444,11 @@ func (in GuestAgentCommandInfo) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GuestAgentStatus) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.GuestAgentStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GuestAgentPing) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.GuestAgentPing"
 }

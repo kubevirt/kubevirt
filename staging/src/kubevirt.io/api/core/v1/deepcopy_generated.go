@@ -6003,6 +6003,11 @@ func (in *VirtualMachineInstanceGuestAgentInfo) DeepCopyInto(out *VirtualMachine
 		copy(*out, *in)
 	}
 	in.FSInfo.DeepCopyInto(&out.FSInfo)
+	if in.GuestAgentStatus != nil {
+		in, out := &in.GuestAgentStatus, &out.GuestAgentStatus
+		*out = new(GuestAgentStatus)
+		**out = **in
+	}
 	return
 }
 

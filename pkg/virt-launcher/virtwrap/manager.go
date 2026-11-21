@@ -192,6 +192,7 @@ type DomainManager interface {
 	GetDomainStats() (*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance)
 	GetGuestInfo() v1.VirtualMachineInstanceGuestAgentInfo
+	GetGuestInfoWithStatus(*v1.VirtualMachineInstance, []string) v1.VirtualMachineInstanceGuestAgentInfo
 	GetUsers() []v1.VirtualMachineInstanceGuestOSUser
 	GetFilesystems() []v1.VirtualMachineInstanceFileSystem
 	FinalizeVirtualMachineMigration(*v1.VirtualMachineInstance, *cmdv1.VirtualMachineOptions) error
@@ -3060,6 +3061,20 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 		})
 	}
 
+	return guestInfo
+}
+
+// GetGuestInfoWithStatus queries the agent store and returns aggregated guest
+// information together with the runtime-owned guest-agent status.
+func (l *LibvirtDomainManager) GetGuestInfoWithStatus(vmi *v1.VirtualMachineInstance, supportedVersions []string) v1.VirtualMachineInstanceGuestAgentInfo {
+	guestInfo := l.GetGuestInfo()
+	guestInfo.GuestAgentStatus = agent.EvaluateGuestAgentStatus(
+		vmi,
+		l.agentData.IsAgentConnected(),
+		guestInfo.GAVersion,
+		guestInfo.SupportedCommands,
+		supportedVersions,
+	)
 	return guestInfo
 }
 

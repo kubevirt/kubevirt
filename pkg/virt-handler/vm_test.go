@@ -35,6 +35,8 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -3843,6 +3845,131 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 		})
 	})
+})
+
+var _ = Describe("feature-gated guest-agent status reporting", func() {
+	var (
+		client      *cmdclient.MockLauncherClient
+		controller  *VirtualMachineController
+		vmi         *v1.VirtualMachineInstance
+		domain      *api.Domain
+		condManager *virtcontroller.VirtualMachineInstanceConditionManager
+	)
+
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		client = cmdclient.NewMockLauncherClient(ctrl)
+		launcherClientManager := &launcherclients.MockLauncherClientManager{Client: client}
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.GuestAgentStatusReporting},
+			},
+		})
+
+		controller = &VirtualMachineController{
+			BaseController: &BaseController{
+				launcherClients: launcherClientManager,
+				clusterConfig:   config,
+			},
+		}
+		vmi = clientgoapi.NewMinimalVMI("testvmi")
+		domain = api.NewMinimalDomain("testvmi")
+		condManager = virtcontroller.NewVirtualMachineInstanceConditionManager()
+	})
+
+	It("uses launcher-provided status", func() {
+		client.EXPECT().
+			GetGuestInfoWithStatus(vmi, gomock.Any()).
+			Return(&v1.VirtualMachineInstanceGuestAgentInfo{
+				GuestAgentStatus: &v1.GuestAgentStatus{
+					Connected:    true,
+					SupportState: v1.GuestAgentSupportSupported,
+				},
+			}, nil)
+
+		Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).To(Succeed())
+		Expect(condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstanceAgentConnected, k8sv1.ConditionTrue)).To(BeTrue())
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)).To(BeFalse())
+	})
+
+	It("removes stale conditions when disconnected", func() {
+		vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+			{Type: v1.VirtualMachineInstanceAgentConnected, Status: k8sv1.ConditionTrue},
+			{Type: v1.VirtualMachineInstanceUnsupportedAgent, Status: k8sv1.ConditionTrue},
+		}
+		client.EXPECT().
+			GetGuestInfoWithStatus(vmi, gomock.Any()).
+			Return(&v1.VirtualMachineInstanceGuestAgentInfo{
+				GuestAgentStatus: &v1.GuestAgentStatus{
+					Connected:    false,
+					SupportState: v1.GuestAgentSupportUnknown,
+				},
+			}, nil)
+
+		Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).To(Succeed())
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected)).To(BeFalse())
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)).To(BeFalse())
+	})
+
+	It("falls back to the legacy path only when the RPC is unimplemented", func() {
+		domain.Spec.Devices.Channels = []api.Channel{{
+			Target: &api.ChannelTarget{
+				Name:  "org.qemu.guest_agent.0",
+				State: "connected",
+			},
+		}}
+		client.EXPECT().
+			GetGuestInfoWithStatus(vmi, gomock.Any()).
+			Return(nil, status.Error(codes.Unimplemented, "old launcher"))
+		client.EXPECT().
+			GetGuestInfo().
+			Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+
+		Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).To(Succeed())
+		Expect(condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstanceAgentConnected, k8sv1.ConditionTrue)).To(BeTrue())
+		Expect(condManager.HasCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)).To(BeTrue())
+	})
+
+	It("does not use legacy fallback for other RPC errors", func() {
+		client.EXPECT().
+			GetGuestInfoWithStatus(vmi, gomock.Any()).
+			Return(nil, status.Error(codes.Internal, "failed"))
+
+		Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).ToNot(Succeed())
+	})
+
+	It("rejects a missing authoritative status", func() {
+		client.EXPECT().
+			GetGuestInfoWithStatus(vmi, gomock.Any()).
+			Return(&v1.VirtualMachineInstanceGuestAgentInfo{}, nil)
+
+		Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).
+			To(MatchError(ContainSubstring("without status")))
+	})
+
+	DescribeTable("rejects invalid authoritative status",
+		func(status *v1.GuestAgentStatus) {
+			client.EXPECT().
+				GetGuestInfoWithStatus(vmi, gomock.Any()).
+				Return(&v1.VirtualMachineInstanceGuestAgentInfo{
+					GuestAgentStatus: status,
+				}, nil)
+
+			Expect(controller.updateGuestAgentConditions(vmi, domain, condManager)).ToNot(Succeed())
+		},
+		Entry("unsupported without a reason", &v1.GuestAgentStatus{
+			Connected:    true,
+			SupportState: v1.GuestAgentSupportUnsupported,
+		}),
+		Entry("disconnected but supported", &v1.GuestAgentStatus{
+			Connected:    false,
+			SupportState: v1.GuestAgentSupportSupported,
+		}),
+		Entry("unknown support value", &v1.GuestAgentStatus{
+			Connected:    true,
+			SupportState: "invalid",
+		}),
+	)
 })
 
 var _ = Describe("isGuestAgentSupported", func() {

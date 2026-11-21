@@ -15493,6 +15493,33 @@
      }
     }
    },
+   "v1.GuestAgentStatus": {
+    "description": "GuestAgentStatus is the guest-agent state reported by the VMI runtime.",
+    "type": "object",
+    "required": [
+     "connected",
+     "supportState"
+    ],
+    "properties": {
+     "connected": {
+      "description": "Connected indicates whether the runtime currently has a live guest-agent connection.",
+      "type": "boolean"
+     },
+     "supportState": {
+      "description": "SupportState indicates whether capability evaluation is pending or complete.",
+      "type": "string",
+      "enum": [
+       "Unknown",
+       "Supported",
+       "Unsupported"
+      ]
+     },
+     "unsupportedReason": {
+      "description": "UnsupportedReason explains why SupportState is Unsupported.",
+      "type": "string"
+     }
+    }
+   },
    "v1.GuestAgentPing": {
     "description": "GuestAgentPing configures the guest-agent based ping probe",
     "type": "object"
@@ -18984,6 +19011,10 @@
      "guestAgentVersion": {
       "description": "GAVersion is a version of currently installed guest agent",
       "type": "string"
+     },
+     "guestAgentStatus": {
+      "description": "GuestAgentStatus reports the runtime-owned guest-agent connection and capability state. A nil value identifies a response from a legacy launcher.",
+      "$ref": "#/definitions/v1.GuestAgentStatus"
      },
      "hostname": {
       "description": "Hostname represents FQDN of a guest",

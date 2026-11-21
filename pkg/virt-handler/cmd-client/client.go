@@ -114,6 +114,7 @@ type LauncherClient interface {
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
+	GetGuestInfoWithStatus(*v1.VirtualMachineInstance, []string) (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
 	Exec(string, string, []string, int32) (int, string, error)
@@ -675,6 +676,46 @@ func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 	if gaRespose.GuestInfoResponse != "" {
 		if err := json.Unmarshal([]byte(gaRespose.GetGuestInfoResponse()), guestInfo); err != nil {
 			log.Log.Reason(err).Error("error unmarshalling guest agent response")
+			return guestInfo, err
+		}
+	}
+	return guestInfo, nil
+}
+
+// GetGuestInfoWithStatus returns guest information together with the
+// launcher-owned guest-agent connection and support status.
+func (c *VirtLauncherClient) GetGuestInfoWithStatus(
+	vmi *v1.VirtualMachineInstance,
+	supportedVersions []string,
+) (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
+	guestInfo := &v1.VirtualMachineInstanceGuestAgentInfo{}
+	vmiJSON, err := json.Marshal(vmi)
+	if err != nil {
+		return guestInfo, err
+	}
+
+	request := &cmdv1.GuestInfoRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJSON,
+		},
+		SupportedGuestAgentVersions: supportedVersions,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	guestInfoResponse, err := c.v1client.GetGuestInfoWithStatus(ctx, request)
+	var response *cmdv1.Response
+	if guestInfoResponse != nil {
+		response = guestInfoResponse.Response
+	}
+
+	if err = handleError(err, "GetGuestInfoWithStatus", response); err != nil || guestInfoResponse == nil {
+		return guestInfo, err
+	}
+
+	if guestInfoResponse.GuestInfoResponse != "" {
+		if err := json.Unmarshal([]byte(guestInfoResponse.GetGuestInfoResponse()), guestInfo); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling guest agent response with status")
 			return guestInfo, err
 		}
 	}

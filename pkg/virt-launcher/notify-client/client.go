@@ -570,9 +570,9 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 			domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
 			domainCache.Status.GuestPanicInfo = prevPanicInfo
 			domainCache.Status.PanicCount = prevPanicCount
+			agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
 			log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
-			agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 		case agentUpdate := <-agentStore.AgentUpdated:
 			metadataCache.ResetNotification()
 			interfaceStatuses = agentUpdate.DomainInfo.Interfaces

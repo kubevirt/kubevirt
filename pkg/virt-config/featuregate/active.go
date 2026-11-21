@@ -351,6 +351,15 @@ const (
 	// VMs already created with the field keep using the declarative path even if
 	// the gate is later disabled.
 	DeclarativeVMState = "DeclarativeVMState"
+
+	// Owner: @julienstroheker
+	// Alpha: v1.11.0
+	//
+	// GuestAgentStatusReporting enables virt-launcher to report guest-agent
+	// connectivity and capabilities to virt-handler through the launcher API.
+	// When disabled, virt-handler retains the legacy libvirt channel inspection
+	// and guest-agent command validation behavior.
+	GuestAgentStatusReporting = "GuestAgentStatusReporting"
 )
 
 func init() {
@@ -405,4 +414,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GuestAgentStatusReporting, State: Alpha})
 }
