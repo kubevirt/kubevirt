@@ -153,3 +153,28 @@ function format_archname() {
         esac
     fi
 }
+
+function run_with_retry() {
+    local max_attempts=3
+    local delay_seconds=5
+    local attempt=1
+    local exit_code=0
+
+    while [ $attempt -le $max_attempts ]; do
+        if "$@"; then
+            return 0
+        else
+            exit_code=$?
+            echo "Command '$*' failed (attempt $attempt/$max_attempts, exit code $exit_code)."
+            if [ $attempt -lt $max_attempts ]; then
+                echo "Retrying in ${delay_seconds}s..."
+                sleep $delay_seconds
+                delay_seconds=$((delay_seconds * 2))
+            fi
+            attempt=$((attempt + 1))
+        fi
+    done
+
+    echo "Command '$*' failed after $max_attempts attempts."
+    return $exit_code
+}
