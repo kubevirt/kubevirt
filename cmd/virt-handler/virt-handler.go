@@ -274,6 +274,10 @@ func (app *virtHandlerApp) Run() {
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 	pluginInformer := factory.Plugin()
+	// Registered here, before factory.Start, because the feature gate is
+	// read from this informer's store once it has synced. Requesting it
+	// after Start would hand back an informer nothing ever runs.
+	kubeVirtInformer := factory.KubeVirt()
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	checkpointPathTmp := filepath.Join(app.VirtPrivateDir, "ghost-records-temp")
@@ -291,9 +295,6 @@ func (app *virtHandlerApp) Run() {
 	// is completely torn down.
 	ghostRecordStore := virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath, checkpointPathTmp))
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore)
-
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
@@ -303,7 +304,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector()
-	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), factory.KubeVirt(), app.namespace)
+	app.clusterConfig, err = virtconfig.NewClusterConfig(factory.CRD(), kubeVirtInformer, app.namespace)
 	if err != nil {
 		panic(err)
 	}
@@ -382,7 +383,8 @@ func (app *virtHandlerApp) Run() {
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	notifyManager := notifymanager.NewPipeManager(podIsolationDetector, app.VirtShareDir)
-	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore)
+	// launcherClientsManager and the domain informer are built further down,
+	// once the KubeVirt informer has synced and the feature gate can be read.
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat(app.clusterConfig)
@@ -391,6 +393,40 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 
 	factory.Start(stop)
+
+	// The feature gate lives in the KubeVirt CR, so it cannot be read until
+	// that informer has synced: before then ClusterConfig falls back to the
+	// defaults and every gate reads as disabled. Resolve it once here and
+	// pass the result down, so the whole process agrees on one value.
+	if !cache.WaitForCacheSync(stop, kubeVirtInformer.HasSynced) {
+		logger.Criticalf("failed to sync the KubeVirt informer")
+		return
+	}
+	var authClient kubernetes.Interface
+	if app.clusterConfig.LauncherSocketAuthenticationEnabled() {
+		authClient = app.k8sClient
+	}
+	// Logged unconditionally, including when disabled: an enabled gate that
+	// virt-handler failed to observe is otherwise indistinguishable from one
+	// that was never set.
+	logger.Infof("launcher socket authentication enabled: %t", authClient != nil)
+
+	launcherClientsManager := launcherclients.NewLauncherClientsManager(podIsolationDetector, notifyManager, ghostRecordStore, authClient)
+	domainSharedInformer := virtcache.NewSharedInformerWithAuth(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordStore, authClient)
+
+	if authClient != nil {
+		// Authenticating a socket requires checking its pod UID against the
+		// owning VMI's ActivePods, which reads the VMI store. Starting the
+		// domain informer concurrently was safe while List only needed ghost
+		// records, which are loaded from disk before either informer starts.
+		// An early List against an empty VMI store would now fail every
+		// socket, so wait for the VMI informer first.
+		logger.Info("LauncherSocketAuthentication enabled: waiting for VMI informer sync before domain list")
+		if !cache.WaitForCacheSync(stop, vmiInformer.HasSynced) {
+			logger.Criticalf("failed to sync VMI informer before starting the domain informer")
+			return
+		}
+	}
 	go domainSharedInformer.Run(stop)
 	go nodeInformer.Run(stop)
 	cache.WaitForCacheSync(
@@ -400,7 +436,7 @@ func (app *virtHandlerApp) Run() {
 		vmiTargetInformer.HasSynced,
 		domainSharedInformer.HasSynced,
 		factory.CRD().HasSynced,
-		factory.KubeVirt().HasSynced,
+		kubeVirtInformer.HasSynced,
 		nodeInformer.HasSynced,
 		pluginInformer.HasSynced,
 	)

@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/grpcserver"
@@ -73,6 +74,39 @@ var _ = Describe("Domain informer", func() {
 
 			uid := ghostRecordStore.LastKnownUID("test1-namespace/test1")
 			Expect(string(uid)).To(Equal("1234-1"))
+		})
+
+		It("should omit a socket that fails authentication and still report a missing socket", func() {
+			socketPath := filepath.Join(GinkgoT().TempDir(), "launcher-sock")
+			Expect(os.WriteFile(socketPath, []byte("not-a-socket"), 0644)).To(Succeed())
+			Expect(ghostRecordStore.Add("ns", "live", socketPath, "vmi-uid")).To(Succeed())
+
+			missing := filepath.Join(GinkgoT().TempDir(), "gone")
+			Expect(ghostRecordStore.Add("ns", "gone", missing, "vmi-uid-2")).To(Succeed())
+
+			Expect(ghostRecordStore.listAllKnownDomains()).To(HaveLen(2))
+
+			authed := ghostRecordStore.listKnownDomains(context.Background(), fake.NewSimpleClientset(), nil)
+			Expect(authed).To(HaveLen(1))
+			Expect(authed[0].Name).To(Equal("gone"))
+			Expect(authed[0].DeletionTimestamp).ToNot(BeNil())
+		})
+
+		// Exercised through DomainList rather than listKnownDomains, so that
+		// the informer's actual entry point is covered: a DomainList that
+		// drops its authClient would still pass the test above.
+		It("should authenticate through DomainList when an auth client is set", func() {
+			socketPath := filepath.Join(GinkgoT().TempDir(), "launcher-sock")
+			Expect(os.WriteFile(socketPath, []byte("not-a-socket"), 0644)).To(Succeed())
+			Expect(ghostRecordStore.Add("ns", "live", socketPath, "vmi-uid")).To(Succeed())
+
+			unauthed, err := ghostRecordStore.DomainList(context.Background(), nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unauthed.(*api.DomainList).Items).To(HaveLen(1))
+
+			list, err := ghostRecordStore.DomainList(context.Background(), fake.NewSimpleClientset(), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list.(*api.DomainList).Items).To(BeEmpty(), "a socket that fails authentication must not reach the domain cache")
 		})
 
 		It("Should find ghost record by socket ", func() {
@@ -330,6 +364,7 @@ var _ = Describe("Domain informer", func() {
 				nil,
 				new(int),
 				ghostRecordStore,
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -374,6 +409,7 @@ var _ = Describe("Domain informer", func() {
 				nil,
 				new(int),
 				ghostRecordStore,
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -458,7 +494,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 			}
 			lw := &cache.ListWatch{
 				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil), nil
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil, nil, nil), nil
 				},
 			}
 
