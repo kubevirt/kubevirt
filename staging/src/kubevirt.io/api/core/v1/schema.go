@@ -189,6 +189,14 @@ type CloudInitNoCloudSource struct {
 	// NetworkData contains NoCloud inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
+	// MetaDataSecretRef references a k8s secret that contains NoCloud metadata.
+	// + optional
+	MetaDataSecretRef *v1.LocalObjectReference `json:"metaDataSecretRef,omitempty"`
+	// MetaData contains NoCloud inline cloud-init metadata as key-value pairs.
+	// + optional
+	// +kubebuilder:validation:MaxProperties=16
+	// +kubebuilder:validation:XValidation:rule="self.all(k, k.length() <= 256 && self[k].length() <= 256)",message="metadata key and value length cannot exceed 256 characters"
+	MetaData map[string]string `json:"metaData,omitempty"`
 }
 
 // Represents a cloud-init config drive user data source.
@@ -212,6 +220,12 @@ type CloudInitConfigDriveSource struct {
 	// NetworkData contains config drive inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
+	// MetaDataSecretRef references a k8s secret that contains config drive metadata.
+	// + optional
+	MetaDataSecretRef *v1.LocalObjectReference `json:"metaDataSecretRef,omitempty"`
+	// MetaData contains config drive inline cloud-init metadata as key-value pairs.
+	// + optional
+	MetaData map[string]string `json:"metaData,omitempty"`
 }
 
 type DomainSpec struct {

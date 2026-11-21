@@ -102,3 +102,27 @@ func WithConfigDriveNetworkDataSecretName(secretName string) ConfigDriveOption {
 		source.NetworkDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
 	}
 }
+
+func WithNoCloudMetaData(metaData map[string]string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.MetaData = metaData
+	}
+}
+
+func WithNoCloudMetaDataSecretName(secretName string) NoCloudOption {
+	return func(source *v1.CloudInitNoCloudSource) {
+		source.MetaDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}
+
+func WithConfigDriveMetaData(metaData map[string]string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.MetaData = metaData
+	}
+}
+
+func WithConfigDriveMetaDataSecretName(secretName string) ConfigDriveOption {
+	return func(source *v1.CloudInitConfigDriveSource) {
+		source.MetaDataSecretRef = &k8scorev1.LocalObjectReference{Name: secretName}
+	}
+}
