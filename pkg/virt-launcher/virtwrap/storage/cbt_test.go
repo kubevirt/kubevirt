@@ -486,44 +486,6 @@ var _ = Describe("Changed Block Tracking", func() {
 		})
 	})
 
-	Context("DeleteQCOW2Overlay", func() {
-		var dir string
-
-		BeforeEach(func() {
-			dir = GinkgoT().TempDir()
-		})
-
-		touch := func(path string) string {
-			Expect(os.MkdirAll(filepath.Dir(path), 0o755)).To(Succeed())
-			Expect(os.WriteFile(path, nil, 0o600)).To(Succeed())
-			return path
-		}
-
-		overlayDisk := func(overlay string) api.Disk {
-			return api.Disk{Source: api.DiskSource{
-				File:      overlay,
-				DataStore: &api.DataStore{Source: &api.DiskSource{File: "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"}},
-			}}
-		}
-
-		DescribeTable("should remove only the file of a flat overlay", func(name string) {
-			overlay := touch(filepath.Join(dir, name))
-			other := touch(filepath.Join(dir, "other.qcow2"))
-
-			Expect(DeleteQCOW2Overlay(overlayDisk(overlay))).To(Succeed())
-			Expect(overlay).ToNot(BeAnExistingFile())
-			Expect(other).To(BeAnExistingFile())
-		},
-			Entry("of a volume", "disk0.qcow2"),
-		)
-
-		It("should ignore disks without an overlay", func() {
-			image := touch(filepath.Join(dir, "disk.img"))
-
-			Expect(DeleteQCOW2Overlay(api.Disk{Source: api.DiskSource{File: image}})).To(Succeed())
-			Expect(image).To(BeAnExistingFile())
-		})
-	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

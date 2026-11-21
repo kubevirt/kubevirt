@@ -45,6 +45,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -1042,7 +1043,7 @@ var _ = Describe("HotplugVolume", func() {
 
 				err = m.Mount(vmi, cgroupManagerMock)
 			} else {
-				err = m.Unmount(vmi, cgroupManagerMock)
+				err = m.Unmount(vmi, cgroupManagerMock, nil)
 			}
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1189,7 +1190,7 @@ var _ = Describe("HotplugVolume", func() {
 			verifyMountRecords(false, targetFilePath)
 
 			vmi.Spec.Volumes = vmi.Spec.Volumes[0:1]
-			err = m.Unmount(vmi, cgroupManagerMock)
+			err = m.Unmount(vmi, cgroupManagerMock, nil)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
 			Expect(err).To(HaveOccurred(), "record file still exists %s", filepath.Join(tempDir, string(vmi.UID)))
@@ -1235,7 +1236,7 @@ var _ = Describe("HotplugVolume", func() {
 				return []byte("Success"), nil
 			}
 
-			err = m.Unmount(vmi, cgroupManagerMock)
+			err = m.Unmount(vmi, cgroupManagerMock, nil)
 			Expect(err).To(HaveOccurred())
 
 			_, err = os.Stat(goodPathAbs)
@@ -1250,6 +1251,26 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(updated.MountTargetEntries).To(HaveLen(1))
 			Expect(updated.MountTargetEntries[0].TargetFile).To(Equal(badPathAbs))
 		})
+
+		DescribeTable("Unmount should keep volumes removed from the spec that the domain still has attached", func(targetFile string, volumeMode k8sv1.PersistentVolumeMode) {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{{
+				Name:                      "attached",
+				HotplugVolume:             &v1.HotplugVolumeStatus{},
+				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &volumeMode},
+			}}
+			attachedPath, err := newFile(targetPodPath, targetFile)
+			Expect(err).ToNot(HaveOccurred())
+			attachedPathAbs := unsafepath.UnsafeAbsolute(attachedPath.Raw())
+			Expect(m.setMountTargetRecord(vmi, &vmiMountTargetRecord{
+				MountTargetEntries: []vmiMountTargetEntry{{TargetFile: attachedPathAbs}},
+			})).To(Succeed())
+
+			Expect(m.Unmount(vmi, cgroupManagerMock, sets.New("attached"))).To(Succeed())
+			Expect(attachedPathAbs).To(BeAnExistingFile())
+		},
+			Entry("filesystem volume", "attached.img", k8sv1.PersistentVolumeFilesystem),
+			Entry("block volume", "attached", k8sv1.PersistentVolumeBlock),
+		)
 
 		It("Should not do anything if vmi has no hotplug volumes", func() {
 			volumeStatuses := make([]v1.VolumeStatus, 0)

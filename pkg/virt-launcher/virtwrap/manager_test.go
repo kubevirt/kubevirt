@@ -1018,7 +1018,7 @@ var _ = Describe("Manager", func() {
 			Expect(newspec).ToNot(BeNil())
 		})
 
-		It("should unplug a disk if a volume was unplugged", func() {
+		DescribeTable("should unplug a disk if a volume was unplugged", func(blockJob libvirt.DomainBlockJobType, expectDetach bool) {
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -1118,14 +1118,21 @@ var _ = Describe("Manager", func() {
 
 			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
-			mockLibvirt.DomainEXPECT().DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+			mockLibvirt.DomainEXPECT().GetBlockJobInfo("sda", libvirt.DomainBlockJobInfoFlags(0)).Return(&libvirt.DomainBlockJobInfo{Type: blockJob}, nil)
+			if expectDetach {
+				mockLibvirt.DomainEXPECT().DetachDeviceFlags(string(detachBytes), affectDeviceLiveAndConfigLibvirtFlags)
+			}
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(4).Return(string(xmlDomain), nil)
 			mockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DOMAIN_XML_INACTIVE).MaxTimes(1).Return(string(xmlDomain), nil)
 			manager, _ := newLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, &stubDiskDriverConfigurator{}, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, "", false, false, false, false, nil)
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
-		})
+		},
+			Entry("without a block job", libvirt.DOMAIN_BLOCK_JOB_TYPE_UNKNOWN, true),
+			Entry("deferred while a backup job holds it", libvirt.DOMAIN_BLOCK_JOB_TYPE_BACKUP, false),
+			Entry("deferred while a commit job holds it", libvirt.DOMAIN_BLOCK_JOB_TYPE_ACTIVE_COMMIT, false),
+		)
 
 		It("should not plug/unplug a disk if nothing changed", func() {
 			vmi := newVMI(testNamespace, testVmName)

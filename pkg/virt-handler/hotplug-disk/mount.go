@@ -166,8 +166,8 @@ type VolumeMounter interface {
 	// Mount any new volumes defined in the VMI
 	Mount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error
 	MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID, cgroupManager cgroup.Manager) error
-	// Unmount any volumes no longer defined in the VMI
-	Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error
+	// Unmount any volumes no longer defined in the VMI nor attached to the domain
+	Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, attachedVolumes sets.Set[string]) error
 	//UnmountAll cleans up all hotplug volumes
 	UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error
 	//IsMounted returns if the volume is mounted or not.
@@ -662,7 +662,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 }
 
 // Unmount unmounts all hotplug disk that are no longer part of the VMI
-func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, attachedVolumes sets.Set[string]) error {
 	if vmi.UID != "" {
 		record, err := m.getMountTargetRecord(vmi)
 		if err != nil {
@@ -689,31 +689,32 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 			}
 			return err
 		}
-		// Ideally we would be looking at the actual disks in the domain but:
-		// 1. The domain is built from the VMI spec
-		// 2. The domain syncs before unmount is called
-		// 3. Unmount will not get called if VMI sync fails
-		// we should be good
+		keepVolumes := attachedVolumes.Clone()
+		if keepVolumes == nil {
+			keepVolumes = sets.New[string]()
+		}
 		for _, volume := range vmi.Spec.Volumes {
-			if !storagetypes.IsHotplugVolume(&volume) {
-				continue
+			if storagetypes.IsHotplugVolume(&volume) {
+				keepVolumes.Insert(volume.Name)
 			}
+		}
+		for volumeName := range keepVolumes {
 			var path *safepath.Path
 			var err error
-			if m.isBlockVolume(&vmi.Status, volume.Name) {
-				path, err = safepath.JoinNoFollow(basePath, volume.Name)
+			if m.isBlockVolume(&vmi.Status, volumeName) {
+				path, err = safepath.JoinNoFollow(basePath, volumeName)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
 				}
-			} else if m.isDirectoryMounted(vmi, volume.Name) {
-				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volume.Name, false)
+			} else if m.isDirectoryMounted(vmi, volumeName) {
+				path, err = m.hotplugDiskManager.GetFileSystemDirectoryTargetPathFromHostView(virtlauncherUID, volumeName, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue
 				}
 			} else {
-				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volume.Name, false)
+				path, err = m.hotplugDiskManager.GetFileSystemDiskTargetPathFromHostView(virtlauncherUID, volumeName, false)
 				if errors.Is(err, os.ErrNotExist) {
 					// already unmounted or never mounted
 					continue

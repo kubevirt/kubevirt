@@ -62,6 +62,8 @@ const (
 const (
 	//VolumeReadyReason is the reason set when the volume is ready.
 	VolumeReadyReason = "VolumeReady"
+	//VolumeDetachPendingReason is the reason set when an unplugged volume is still attached to the domain
+	VolumeDetachPendingReason = "VolumeDetachPending"
 	//VolumeUnMountedFromPodReason is the reason set when the volume is unmounted from the virtlauncher pod
 	VolumeUnMountedFromPodReason = "VolumeUnMountedFromPod"
 	//VolumeMountedToPodReason is the reason set when the volume is mounted to the virtlauncher pod
