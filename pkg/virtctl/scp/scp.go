@@ -163,7 +163,7 @@ func usage() string {
   {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi:.
 
   # Copy a file to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi.mynamespace:myfile.bin
+  {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi/mynamespace:myfile.bin
 
   # Copy a file from the remote location to a local folder
   {{ProgramName}} scp jdoe@vmi/testvmi:myfile.bin ~/myfile.bin`
