@@ -2865,7 +2865,7 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 }
 
 func (l *LibvirtDomainManager) getDomainDirtyRateStats(calculationDuration time.Duration) ([]*stats.DomainStatsDirtyRate, error) {
-	return l.virConn.GetDomainDirtyRate(calculationDuration, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING)
+	return l.virConn.GetDomainDirtyRate(calculationDuration, libvirt.DOMAIN_DIRTYRATE_MODE_DIRTY_BITMAP)
 }
 
 func formatPCIAddressStr(address *api.Address) string {
