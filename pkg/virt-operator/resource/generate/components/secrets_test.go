@@ -1,6 +1,7 @@
 package components
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -12,6 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -60,6 +63,50 @@ var _ = Describe("Certificate Management", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(count).To(Equal(1))
 			Expect(bundle).To(Equal(expectBundle))
+		})
+
+		Context("drop message", func() {
+			var logOutput *bytes.Buffer
+
+			BeforeEach(func() {
+				logger := log.DefaultLogger()
+				logOutput = &bytes.Buffer{}
+				logger.SetIOWriter(logOutput)
+				// Info messages are logged at verbosity 2, the virt-operator
+				// default. The unit test logger starts at 0 and would drop them.
+				Expect(logger.SetVerbosityLevel(2)).To(Succeed())
+				DeferCleanup(func() {
+					// restore what the suite setup and the logger default set
+					logger.SetIOWriter(GinkgoWriter)
+					Expect(logger.SetVerbosityLevel(0)).To(Succeed())
+				})
+			})
+
+			It("should not be logged when the bundle only holds the current CA", func() {
+				now := time.Now()
+				current := newSelfSignedCert(now.Add(-3*time.Minute), now.Add(1*time.Hour))
+				givenBundle := caCertsToBundle([]*tls.Certificate{current})
+
+				bundle, count, err := MergeCABundle(current, givenBundle, 2*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(count).To(Equal(1))
+				Expect(bundle).To(Equal(givenBundle))
+				Expect(logOutput.String()).ToNot(ContainSubstring("dropping"))
+			})
+
+			It("should report how many CAs are dropped", func() {
+				now := time.Now()
+				current := newSelfSignedCert(now.Add(-3*time.Minute), now.Add(1*time.Hour))
+				given := []*tls.Certificate{
+					current,
+					newSelfSignedCert(now.Add(-20*time.Minute), now.Add(1*time.Hour)),
+				}
+
+				_, count, err := MergeCABundle(current, caCertsToBundle(given), 2*time.Minute)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(count).To(Equal(1))
+				Expect(logOutput.String()).To(ContainSubstring("dropping 1 of them now"))
+			})
 		})
 
 		It("should kick out a CA cert which are outside of the overlap period", func() {
