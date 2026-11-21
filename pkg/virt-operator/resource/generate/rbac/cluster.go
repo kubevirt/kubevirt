@@ -83,6 +83,7 @@ const (
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
 	apiVMInstancesVNCScreenshot             = "virtualmachineinstances/vnc/screenshot"
+	apiVMInstancesScreenshot                = "virtualmachineinstances/screenshot"
 	apiVMInstancesPortForward               = "virtualmachineinstances/portforward"
 	apiVMInstancesPause                     = "virtualmachineinstances/pause"
 	apiVMInstancesUnpause                   = "virtualmachineinstances/unpause"
@@ -213,6 +214,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesConsole,
 					apiVMInstancesVNC,
 					apiVMInstancesVNCScreenshot,
+					apiVMInstancesScreenshot,
 					apiVMInstancesPortForward,
 					apiVMInstancesGuestOSInfo,
 					apiVMInstancesFileSysList,

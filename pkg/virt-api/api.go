@@ -362,13 +362,25 @@ func (app *virtAPIApp) composeSubresources() {
 			Param(definitions.PreserveSessionParam(subws)).
 			Operation(version.Version + "VNC").
 			Doc("Open a websocket connection to connect to VNC on the specified VirtualMachineInstance."))
+		// Kept for existing clients. kube-apiserver authorizes this path as
+		// virtualmachineinstances/vnc. New callers should use the screenshot subresource.
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("vnc/screenshot")).
 			To(subresourceApp.ScreenshotRequestHandler).
 			Param(definitions.NamespaceParam(subws)).
 			Param(definitions.NameParam(subws)).
 			Param(definitions.MoveCursorParam(subws)).
 			Operation(version.Version + "VNCScreenshot").
+			Deprecate().
 			Doc("Get a PNG VNC screenshot of the specified VirtualMachineInstance."))
+		// Screenshot does not open a VNC session. A single path segment lets kube-apiserver
+		// authorize virtualmachineinstances/screenshot without also granting keyboard and mouse input.
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("screenshot")).
+			To(subresourceApp.ScreenshotRequestHandler).
+			Param(definitions.NamespaceParam(subws)).
+			Param(definitions.NameParam(subws)).
+			Param(definitions.MoveCursorParam(subws)).
+			Operation(version.Version + "Screenshot").
+			Doc("Get a PNG screenshot of the specified VirtualMachineInstance."))
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("usbredir")).
 			To(subresourceApp.USBRedirRequestHandler).
 			Param(definitions.NamespaceParam(subws)).
@@ -686,6 +698,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/vnc/screenshot",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/screenshot",
 						Namespaced: true,
 					},
 					{
