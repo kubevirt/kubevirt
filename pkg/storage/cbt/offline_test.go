@@ -499,33 +499,37 @@ var _ = Describe("Offline tracker advance gating", func() {
 		})
 	})
 
-	Describe("reconcileOfflinePull TTL expiry", func() {
-		expiredBackup := func() *backupv1.VirtualMachineBackup {
+	Describe("reconcileOffline TTL expiry", func() {
+		vm := &v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: testNamespace}}
+
+		expiredBackup := func(mode backupv1.BackupMode) *backupv1.VirtualMachineBackup {
 			b := pullBackup()
+			b.Spec.Mode = pointer.P(mode)
 			b.CreationTimestamp = metav1.NewTime(time.Now().Add(-3 * time.Hour))
+			started := metav1.Now()
+			b.Status.StartTimestamp = &started
 			return b
 		}
 
-		It("fails the backup and does not advance even if the export had served", func() {
-			tracker := seedTracker()
-			backup := expiredBackup()
-			setExportReady(backup)
+		DescribeTable("fails the backup and does not advance the tracker",
+			func(mode backupv1.BackupMode, prepare func(*backupv1.VirtualMachineBackup)) {
+				tracker := seedTracker()
+				backup := expiredBackup(mode)
+				prepare(backup)
 
-			Expect(ctrl.reconcileOfflinePull(backup, tracker)).To(Succeed())
-			Expect(latestCheckpointName()).To(Equal("checkpoint-1"))
-			Expect(isBackupFailed(backup)).To(BeTrue())
-			Expect(isBackupComplete(backup)).To(BeFalse())
-		})
-
-		It("fails the backup and does not advance when it expired while still preparing", func() {
-			tracker := seedTracker()
-			backup := expiredBackup()
-			setPreparingExport(backup)
-
-			Expect(ctrl.reconcileOfflinePull(backup, tracker)).To(Succeed())
-			Expect(latestCheckpointName()).To(Equal("checkpoint-1"))
-			Expect(isBackupFailed(backup)).To(BeTrue())
-		})
+				Expect(ctrl.reconcileOffline(backup, vm, tracker, false)).To(Succeed())
+				Expect(latestCheckpointName()).To(Equal("checkpoint-1"))
+				Expect(isBackupFailed(backup)).To(BeTrue())
+				Expect(isBackupComplete(backup)).To(BeFalse())
+				failed := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionFailed))
+				Expect(failed).ToNot(BeNil())
+				Expect(failed.Reason).To(Equal(backupv1.ReasonFailed))
+				Expect(failed.Message).To(ContainSubstring(backupTTLExpiredMsg))
+			},
+			Entry("pull mode after export ready", backupv1.PullMode, setExportReady),
+			Entry("pull mode while preparing export", backupv1.PullMode, setPreparingExport),
+			Entry("push mode after export ready", backupv1.PushMode, setExportReady),
+		)
 	})
 
 	Describe("reconcileOfflinePush (export-phase completion)", func() {
