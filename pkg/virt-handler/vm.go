@@ -102,7 +102,7 @@ type netstat interface {
 
 type downwardMetricsManager interface {
 	Run(stopCh chan struct{})
-	StartServer(vmi *v1.VirtualMachineInstance, pid int) error
+	StartServer(vmi *v1.VirtualMachineInstance, pid int, requestRetry func(time.Duration)) error
 	StopServer(vmi *v1.VirtualMachineInstance)
 }
 
@@ -2003,7 +2003,11 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
+	vmiKey := controller.VirtualMachineInstanceKey(vmi)
+	requestRetry := func(delay time.Duration) {
+		c.queue.AddAfter(vmiKey, delay)
+	}
+	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid(), requestRetry); err != nil {
 		return err
 	}
 

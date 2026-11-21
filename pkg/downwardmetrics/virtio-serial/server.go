@@ -53,7 +53,8 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) {
+// onExit receives how long the server served; 0 if it never connected.
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string, onExit func(servedFor time.Duration)) {
 	report := newMetricsReporter(nodeName, launcherSocketPath)
 
 	server := downwardMetricsServer{
@@ -62,7 +63,11 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 		virtioSerialSocket: channelSocketPath,
 		reportFn:           report,
 	}
-	go server.start(ctx)
+	go func() {
+		var servedFor time.Duration
+		defer func() { onExit(servedFor) }()
+		servedFor = server.start(ctx)
+	}()
 }
 
 type metricsReporter func() (*api.Metrics, error)
@@ -88,14 +93,22 @@ type downwardMetricsServer struct {
 	reportFn           metricsReporter
 }
 
-func (s *downwardMetricsServer) start(ctx context.Context) {
+// start connects and serves, returning how long it served (0 if it never connected).
+func (s *downwardMetricsServer) start(ctx context.Context) time.Duration {
 	conn, err := connect(ctx, s.virtioSerialSocket, s.maxConnectAttempts)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to connect to virtio-serial socket")
-		return
+		return 0
 	}
 
+	connectedAt := time.Now()
 	s.serve(ctx, conn)
+	if ctx.Err() != nil {
+		log.Log.Infof("DownwardMetrics virtio-serial server stopped: %v", ctx.Err())
+	} else {
+		log.Log.Warning("DownwardMetrics virtio-serial server exited: guest closed the connection")
+	}
+	return time.Since(connectedAt)
 }
 
 func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
