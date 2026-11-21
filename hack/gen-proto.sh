@@ -11,6 +11,7 @@ protoc --proto_path=pkg/hooks/v1alpha2 --go_out=plugins=grpc,import_path=v1alpha
 protoc --proto_path=pkg/hooks/v1alpha3 --go_out=plugins=grpc,import_path=v1alpha3:pkg/hooks/v1alpha3 pkg/hooks/v1alpha3/api_v1alpha3.proto
 protoc --proto_path=pkg/hooks/plugins/v1alpha1/ --go_out=plugins=grpc,import_path=v1alpha1:pkg/hooks/plugins/v1alpha1 pkg/hooks/plugins/v1alpha1/api.proto
 protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/v1/notify.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/v2/notify.proto
 protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/info/info.proto
 protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/v1/cmd.proto
 protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/info/info.proto

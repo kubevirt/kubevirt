@@ -123,6 +123,7 @@ var _ = Describe("Domain Watcher", func() {
 				nil,
 				new(int),
 				nil,
+				nil,
 			)
 
 			Eventually(d.result).Should(BeClosed())
