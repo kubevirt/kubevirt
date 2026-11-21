@@ -17102,7 +17102,7 @@
     }
    },
    "v1.PermittedHostDevices": {
-    "description": "PermittedHostDevices holds information about devices allowed for passthrough",
+    "description": "PermittedHostDevices holds information about devices allowed for passthrough.\n\nvirt-handler exposes each entry as a device plugin. An entry that does not set externalResourceProvider can be allocated only by virt-controller.",
     "type": "object",
     "properties": {
      "mediatedDevices": {

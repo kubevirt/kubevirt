@@ -605,8 +605,14 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.routes = append(strategy.routes, components.GetAllRoutes(operatorNamespace)...)
 
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewHandlerV1ValidatingAdmissionPolicyBinding())
-	virtHandlerServiceAccount := getVirtHandlerServiceAccount(config.GetNamespace())
+	virtHandlerServiceAccount := components.ServiceAccountUsername(config.GetNamespace(), components.HandlerServiceAccountName)
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
+
+	// Host devices registered by virt-handler are cluster-wide extended resources.
+	// Restrict them to pods created by virt-controller (see issue kubevirt/kubevirt#19288).
+	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewHostDevicesValidatingAdmissionPolicyBinding(config.GetNamespace()))
+	controllerServiceAccount := components.ServiceAccountUsername(config.GetNamespace(), components.ControllerServiceAccountName)
+	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHostDevicesValidatingAdmissionPolicy(controllerServiceAccount))
 
 	if config.PluginsEnabled() {
 		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewSidecarSubPathValidatingAdmissionPolicyBinding())
@@ -652,11 +658,6 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	}
 
 	return strategy, nil
-}
-
-func getVirtHandlerServiceAccount(namespace string) string {
-	prefix := fmt.Sprintf("system:serviceaccount:%s", namespace)
-	return fmt.Sprintf("%s:%s", prefix, components.HandlerServiceAccountName)
 }
 
 func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {

@@ -4024,7 +4024,10 @@ const (
 	USBResourcePrefix  = "USB_RESOURCE"
 )
 
-// PermittedHostDevices holds information about devices allowed for passthrough
+// PermittedHostDevices holds information about devices allowed for passthrough.
+//
+// virt-handler exposes each entry as a device plugin. An entry that does not
+// set externalResourceProvider can be allocated only by virt-controller.
 type PermittedHostDevices struct {
 	// +listType=atomic
 	PciHostDevices []PciHostDevice `json:"pciHostDevices,omitempty"`
