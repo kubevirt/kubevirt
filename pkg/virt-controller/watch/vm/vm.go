@@ -3551,14 +3551,23 @@ func (c *Controller) handleKubeVirtUpdate(oldObj, newObj any) {
 	if !ok {
 		return
 	}
-	oldCBTSelectors := okv.Spec.Configuration.ChangedBlockTrackingLabelSelectors
-	newCBTSelectors := nkv.Spec.Configuration.ChangedBlockTrackingLabelSelectors
-	if equality.Semantic.DeepEqual(oldCBTSelectors, newCBTSelectors) {
+
+	oldCfg := virtv1.KubeVirtConfiguration{
+		ChangedBlockTrackingLabelSelectors: okv.Spec.Configuration.ChangedBlockTrackingLabelSelectors,
+		CPUModel:                           okv.Spec.Configuration.CPUModel,
+	}
+	newCfg := virtv1.KubeVirtConfiguration{
+		ChangedBlockTrackingLabelSelectors: nkv.Spec.Configuration.ChangedBlockTrackingLabelSelectors,
+		CPUModel:                           nkv.Spec.Configuration.CPUModel,
+	}
+	if equality.Semantic.DeepEqual(oldCfg, newCfg) {
 		return
 	}
 
 	// In case the ChangedBlockTrackingLabelSelectors has changed,
-	// we need to re-queue all the VMs as the CBT might have changed for them
+	// we need to re-queue all the VMs as the CBT might have changed for them.
+	// Similarly, for the CPUModel we need to re-queue all the VMs, so we set `RestartRequired` on VMs which don't have
+	// the CPUModel set.
 	keys := c.vmIndexer.ListKeys()
 	for _, key := range keys {
 		c.Queue.Add(key)
