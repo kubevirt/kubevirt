@@ -998,6 +998,7 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 
 	logInterval := 0
 	iterationNumber := 0
+	compressionEnabled, _ := shouldCompressMigration(m.options)
 
 	for {
 		isIterationBoundary := false
@@ -1033,7 +1034,7 @@ func (m *migrationMonitor) startMonitor(ready chan<- error) {
 				logInterval++
 			}
 			if logInterval%monitorLogInterval == 0 || isIterationBoundary {
-				LogMigrationInfo(loopLogger, MigrationUID(vmi), jobStats)
+				LogMigrationInfo(loopLogger, MigrationUID(vmi), jobStats, compressionEnabled)
 			}
 		}
 	}
@@ -1050,7 +1051,7 @@ func MigrationUID(vmi *v1.VirtualMachineInstance) types.UID {
 }
 
 // LogMigrationInfo logs the same migration info as `virsh -r domjobinfo`
-func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo) {
+func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.DomainJobInfo, compressionEnabled bool) {
 	bToMiB := func(bytes uint64) uint64 {
 		return bytes / 1024 / 1024
 	}
@@ -1066,8 +1067,8 @@ func LogMigrationInfo(logger *log.FilteredLogger, uid types.UID, info *libvirt.D
 	}
 
 	compressionInfo := ""
-	if info.DataProcessed > 0 && info.MemNormalBytes > info.DataProcessed {
-		ratio := float64(info.MemNormalBytes) / float64(info.DataProcessed)
+	if compressionEnabled && info.MemProcessed > 0 && info.MemNormalBytes > info.MemProcessed {
+		ratio := float64(info.MemNormalBytes) / float64(info.MemProcessed)
 		compressionInfo = fmt.Sprintf(" CompressionRatio:%.2fx", ratio)
 	}
 
