@@ -317,4 +317,20 @@ var _ = Describe("Validating Pool Admitter", func() {
 		resp := poolAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
+
+	It("should reject a pool with an empty virtualMachineTemplate without panicking", func() {
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Operation: admissionv1.Create,
+				Resource:  webhooks.VirtualMachinePoolGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: []byte(`{"apiVersion":"pool.kubevirt.io/v1beta1","kind":"VirtualMachinePool","metadata":{"name":"pool","namespace":"default"},"spec":{"selector":{"matchLabels":{"app":"test"}},"virtualMachineTemplate":{}}}`),
+				},
+			},
+		}
+
+		resp := poolAdmitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(ContainElement(HaveField("Message", "missing virtual machine template.")))
+	})
 })
