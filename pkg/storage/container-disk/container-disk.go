@@ -41,6 +41,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/container-disk/diskpaths"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -52,10 +53,6 @@ type containerDiskConfig interface {
 	GetSupportContainerRequest(typeName v1.SupportContainerType, resourceName kubev1.ResourceName) *resource.Quantity
 	GetSupportContainerLimit(typeName v1.SupportContainerType, resourceName kubev1.ResourceName) *resource.Quantity
 }
-
-var podsBaseDir = util.KubeletPodsDir
-
-var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
@@ -69,11 +66,11 @@ const ephemeralStorageOverheadSize = "50M"
 var digestRegex = regexp.MustCompile(`sha256:([a-zA-Z0-9]+)`)
 
 func GetLegacyVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) string {
-	return filepath.Join(mountBaseDir, string(vmi.UID))
+	return filepath.Join(diskpaths.GetMountBaseDir(), string(vmi.UID))
 }
 
 func GetVolumeMountDirOnGuest(vmi *v1.VirtualMachineInstance) string {
-	return filepath.Join(mountBaseDir, string(vmi.UID))
+	return filepath.Join(diskpaths.GetMountBaseDir(), string(vmi.UID))
 }
 
 func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (*safepath.Path, error) {
@@ -81,7 +78,7 @@ func GetVolumeMountDirOnHost(vmi *v1.VirtualMachineInstance) (*safepath.Path, er
 	foundEntries := 0
 	foundBasepath := ""
 	for podUID := range vmi.Status.ActivePods {
-		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", podsBaseDir, string(podUID))
+		basepath = fmt.Sprintf("%s/%s/volumes/kubernetes.io~empty-dir/container-disks", diskpaths.GetPodsBaseDir(), string(podUID))
 		exists, err := diskutils.FileExists(basepath)
 		if err != nil {
 			return nil, err
@@ -114,34 +111,22 @@ func GetDiskTargetName(volumeIndex int) string {
 }
 
 func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
+	return filepath.Join(diskpaths.GetMountBaseDir(), GetDiskTargetName(volumeIndex))
 }
 
 func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
 	artifactBase := filepath.Base(artifact)
-	return filepath.Join(mountBaseDir, KernelBootName, artifactBase)
-}
-
-// SetLocalDirectoryOnly TODO: Refactor this package. This package is used by virt-controller
-// to set proper paths on the virt-launcher template and by virt-launcher to create directories
-// at the right location. The functions have side-effects and mix path setting and creation
-// which makes it hard to differentiate the usage per component.
-func SetLocalDirectoryOnly(dir string) {
-	mountBaseDir = dir
+	return filepath.Join(diskpaths.GetMountBaseDir(), KernelBootName, artifactBase)
 }
 
 func SetLocalDirectory(dir string) error {
-	SetLocalDirectoryOnly(dir)
+	diskpaths.SetLocalDirectory(dir)
 	return os.MkdirAll(dir, 0750)
-}
-
-func SetKubeletPodsDirectory(dir string) {
-	podsBaseDir = dir
 }
 
 // used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
-	podsBaseDir = dir
+	diskpaths.SetKubeletPodsDirectory(dir)
 	return os.MkdirAll(dir, 0750)
 }
 
