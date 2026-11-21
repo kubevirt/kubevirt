@@ -20,6 +20,7 @@
 package cloudinit
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -423,51 +424,31 @@ func BuildIsoPlan(data *CloudInitData) (*IsoPlan, error) {
 }
 
 func dirToIso(inDir, isoOutFile, volumeID string) error {
-
-	var args []string
-
-	args = append(args, "-output")
-	args = append(args, isoOutFile)
-	args = append(args, "-volid")
-	args = append(args, volumeID)
-	args = append(args, "-joliet")
-	args = append(args, "-rock")
-	args = append(args, "-partition_cyl_align")
-	args = append(args, "on")
-	args = append(args, inDir)
-
-	isoBinary := "xorrisofs"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
 	// #nosec No risk for attacker injection. Parameters are predefined strings
-	cmd := exec.Command(isoBinary, args...)
-
-	err := cmd.Start()
-	if err != nil {
-		log.Log.Reason(err).Errorf("%s cmd failed to start while generating iso file %s", isoBinary, isoOutFile)
-		return err
+	cmd := exec.CommandContext(ctx, "xorrisofs",
+		"-output", isoOutFile,
+		"-volid", volumeID,
+		"-joliet", "-rock",
+		"-partition_cyl_align", "on", inDir,
+	)
+	// Give stdout and stderr up to one second to close after exit or timeout.
+	cmd.WaitDelay = time.Second
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		return nil
 	}
 
-	done := make(chan error)
-	go func() { done <- cmd.Wait() }()
-
-	timeout := time.After(10 * time.Second)
-
-	for {
-		select {
-		case <-timeout:
-			log.Log.Errorf("Timed out generating cloud-init iso at path %s", isoOutFile)
-			cmd.Process.Kill()
-		case err := <-done:
-			if err != nil {
-				log.Log.Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
-				if cleanupErr := os.Remove(isoOutFile); cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
-					return errors.Join(err, cleanupErr)
-				}
-				return err
-			}
-			return nil
-		}
+	if ctx.Err() != nil {
+		err = errors.Join(err, ctx.Err())
 	}
+	err = fmt.Errorf("failed to generate ISO with %s: %w (output: %s)", cmd.String(), err, strings.TrimSpace(string(output)))
+	if cleanupErr := os.Remove(isoOutFile); cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
+		return errors.Join(err, cleanupErr)
+	}
+	return err
 }
 
 func SetLocalDirectory(dir string) error {
