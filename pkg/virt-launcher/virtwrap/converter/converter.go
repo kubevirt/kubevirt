@@ -74,6 +74,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		architecture,
 	)
 	scsiControllerModel := c.Architecture.SCSIControllerModel(virtioModel)
+	defaultVideoModel := c.Architecture.DefaultVideoModel(vmi.IsBootloaderEFI(), c.BochsForEFIGuests)
 
 	configurators := []convertertypes.Configurator{
 		metadata.DomainConfigurator{},
@@ -102,7 +103,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 			compute.BalloonWithVirtioModel(virtioModel),
 		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests, c.AllowCrossArchEmulation),
+		compute.NewGraphicsDomainConfigurator(defaultVideoModel, c.AllowCrossArchEmulation),
 		compute.SoundDomainConfigurator{},
 		compute.NewHostDeviceDomainConfigurator(
 			c.GenericHostDevices,

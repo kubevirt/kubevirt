@@ -33,6 +33,10 @@ func (converterS390X) SCSIControllerModel(_ string) string {
 	return "virtio-scsi"
 }
 
+func (converterS390X) DefaultVideoModel(_, _ bool) string {
+	return v1.VirtIO
+}
+
 func (converterS390X) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return false
 }
