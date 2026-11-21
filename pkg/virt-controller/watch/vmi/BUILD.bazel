@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "config.go",
         "datavolumes.go",
         "lifecycle.go",
         "storage.go",
@@ -53,6 +54,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "config_test.go",
         "vmi_suite_test.go",
         "vmi_test.go",
     ],
