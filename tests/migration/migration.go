@@ -1846,9 +1846,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
-				if !foundSC {
-					Skip("Skip test when Block storage is not present") //nolint:forbidigo
-				}
+				Expect(foundSC).To(BeTrue(), "RWX block storage class is required for test_id:2731")
 
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistrySource(libdv.WithURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)), libdv.WithPullMethod(cdiv1.RegistryPullNode), libdv.WithPlatformArch(defaultArch)),
@@ -1921,7 +1919,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 240*time.Second)).To(Succeed())
 			},
 				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
-				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
+				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, decorators.RequiresRWXBlock, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
 			)
 
 			It("[sig-compute][test_id:3241]Immediate migration cancellation after migration starts running cancel a migration by deleting vmim object", func() {
