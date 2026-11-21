@@ -21,6 +21,7 @@ package virtctl
 
 import (
 	"context"
+	"flag"
 	"os"
 	"path/filepath"
 
@@ -29,6 +30,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -61,6 +63,37 @@ var _ = Describe(SIG("[sig-compute]SSH and SCP", decorators.SigCompute, decorato
 		},
 			Entry("[test_id:11661]over TCP port-forward", false),
 			Entry("[test_id:?]over VSOCK", true),
+		)
+
+		DescribeTable("should honor an explicitly selected kubeconfig context", func(vsock bool) {
+			loadingRules := k8sclientcmd.NewDefaultClientConfigLoadingRules()
+			if kubeconfig := flag.Lookup("kubeconfig").Value.String(); kubeconfig != "" {
+				loadingRules.Precedence = filepath.SplitList(kubeconfig)
+			}
+			config, err := loadingRules.Load()
+			Expect(err).ToNot(HaveOccurred())
+			// The copied config lives elsewhere, so preserve certificate and key paths.
+			Expect(k8sclientcmd.ResolveLocalPaths(config)).To(Succeed())
+			Expect(config.Contexts).To(HaveKey(config.CurrentContext))
+			selected := config.Contexts[config.CurrentContext].DeepCopy()
+			const contextName = "virtctl-ssh-test"
+			config.Contexts[contextName] = selected
+			// Without --context the proxy subprocess must fail, rather than
+			// silently using the same cluster via the current context.
+			config.CurrentContext = "missing-context"
+			configPath := filepath.Join(GinkgoT().TempDir(), "kube config's file")
+			Expect(k8sclientcmd.WriteToFile(*config, configPath)).To(Succeed())
+			extraArgs := []string{"--kubeconfig=" + configPath, "--context=" + contextName}
+
+			runSSHCommand(vmi.Name, "root", keyFile, vsock, extraArgs...)
+			remoteFile := "vmi/" + vmi.Name + ":./context-test-" + rand.String(randSuffixLen)
+			runSCPCommand(keyFile, remoteFile, keyFile, false, vsock, extraArgs...)
+			copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
+			runSCPCommand(remoteFile, copyBackFile, keyFile, false, vsock, extraArgs...)
+			compareFile(keyFile, copyBackFile)
+		},
+			Entry("over TCP port-forward", false),
+			Entry("over VSOCK", true),
 		)
 
 		DescribeTable("should copy a local file back and forth", func(vsock bool) {
@@ -131,7 +164,7 @@ func createVMWithPublicKey() (vmi *v1.VirtualMachineInstance, keyFile string) {
 	return libwait.WaitUntilVMIReady(vmi, console.LoginToFedora), keyFile
 }
 
-func runSSHCommand(name, user, keyFile string, vsock bool) {
+func runSSHCommand(name, user, keyFile string, vsock bool, extraArgs ...string) {
 	libssh.DisableSSHAgent()
 	args := []string{
 		"ssh",
@@ -147,10 +180,10 @@ func runSSHCommand(name, user, keyFile string, vsock bool) {
 	}
 	args = append(args, "vmi/"+name)
 
-	runVirtctlBinary(args)
+	runVirtctlBinary(append(args, extraArgs...))
 }
 
-func runSCPCommand(src, dst, keyFile string, recursive, vsock bool) {
+func runSCPCommand(src, dst, keyFile string, recursive, vsock bool, extraArgs ...string) {
 	libssh.DisableSSHAgent()
 	args := []string{
 		"scp",
@@ -168,7 +201,7 @@ func runSCPCommand(src, dst, keyFile string, recursive, vsock bool) {
 	}
 	args = append(args, src, dst)
 
-	runVirtctlBinary(args)
+	runVirtctlBinary(append(args, extraArgs...))
 }
 
 func runVirtctlBinary(args []string) {

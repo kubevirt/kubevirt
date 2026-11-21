@@ -20,6 +20,7 @@
 package portforward
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -71,7 +72,8 @@ func NewCommand() *cobra.Command {
 			}
 			return nil
 		},
-		RunE: c.Run,
+		PreRunE: applyProxyFlags,
+		RunE:    c.Run,
 	}
 	cmd.Flags().BoolVar(&forwardToStdio, forwardToStdioFlag, forwardToStdio,
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
@@ -84,6 +86,46 @@ func NewCommand() *cobra.Command {
 			`the VSOCK port to support KubeVirt's TLS handshake`, vsockTLSFlag, vsockFlag))
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
+}
+
+const proxyFlagsEnv = "VIRTCTL_PROXY_FLAGS"
+
+// applyProxyFlags restores inherited global flags before client configuration is read.
+// Explicit command-line flags take precedence over the transported defaults.
+func applyProxyFlags(cmd *cobra.Command, _ []string) error {
+	raw, present := os.LookupEnv(proxyFlagsEnv)
+	if !present {
+		return nil
+	}
+	if err := os.Unsetenv(proxyFlagsEnv); err != nil {
+		return err
+	}
+	var args []string
+	if err := json.Unmarshal([]byte(raw), &args); err != nil || args == nil {
+		return fmt.Errorf("invalid %s: expected a JSON array of strings", proxyFlagsEnv)
+	}
+
+	flags := cmd.InheritedFlags()
+	// Snapshot CLI changes before applying any transported repetitions.
+	explicit := make(map[string]bool)
+	for _, arg := range args {
+		name, _, ok := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
+		flag := flags.Lookup(name)
+		if !strings.HasPrefix(arg, "--") || !ok || flag == nil {
+			return fmt.Errorf("invalid %s: expected global flags in --name=value form", proxyFlagsEnv)
+		}
+		explicit[name] = flag.Changed
+	}
+	for _, arg := range args {
+		name, value, _ := strings.Cut(strings.TrimPrefix(arg, "--"), "=")
+		if !explicit[name] {
+			if err := flags.Set(name, value); err != nil {
+				// Flag parsers may include the value in their errors.
+				return fmt.Errorf("invalid %s: invalid value for --%s", proxyFlagsEnv, name)
+			}
+		}
+	}
+	return nil
 }
 
 type PortForward struct {
