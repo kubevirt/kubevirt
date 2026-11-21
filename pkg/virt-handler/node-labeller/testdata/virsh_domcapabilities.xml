@@ -1,4 +1,5 @@
 <domainCapabilities>
+    <domain>kvm</domain>
     <cpu>
         <mode name='host-passthrough' supported='yes'/>
         <mode name='host-model' supported='yes'>
@@ -34,5 +35,33 @@
           </enum>
         </launchSecurity>
         <tdx supported='no'/>
+        <hyperv supported='yes'>
+          <enum name='features'>
+            <value>relaxed</value>
+            <value>vapic</value>
+            <value>spinlocks</value>
+            <value>vpindex</value>
+            <value>runtime</value>
+            <value>synic</value>
+            <value>stimer</value>
+            <value>reset</value>
+            <value>vendor_id</value>
+            <value>frequencies</value>
+            <value>reenlightenment</value>
+            <value>tlbflush</value>
+            <value>ipi</value>
+            <value>evmcs</value>
+            <value>avic</value>
+            <value>emsr_bitmap</value>
+            <value>xmm_input</value>
+          </enum>
+          <defaults>
+            <spinlocks>4095</spinlocks>
+            <stimer_direct>on</stimer_direct>
+            <tlbflush_direct>on</tlbflush_direct>
+            <tlbflush_extended>on</tlbflush_extended>
+            <vendor_id>Linux KVM Hv</vendor_id>
+          </defaults>
+        </hyperv>
     </features>
 </domainCapabilities>

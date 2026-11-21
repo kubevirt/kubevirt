@@ -18,6 +18,8 @@
 
 package nodelabeller
 
+import "encoding/xml"
+
 type cpuFeatures map[string]bool
 
 type supportedFeatures struct {
@@ -37,11 +39,13 @@ type hostCPUModel struct {
 
 // HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
+	Domain          string                       `xml:"domain"`
 	CPU             CPU                          `xml:"cpu"`
 	SEV             SEVConfiguration             `xml:"features>sev"`
 	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
 	TDX             TDXConfiguration             `xml:"features>tdx"`
 	LaunchSecurity  LaunchSecurityConfiguration  `xml:"features>launchSecurity"`
+	Hyperv          HypervConfiguration          `xml:"features>hyperv"`
 }
 
 // CPU represents slice of cpu modes
@@ -117,4 +121,28 @@ type LaunchSecurityConfiguration struct {
 type SecTypeEnum struct {
 	Name   string   `xml:"name,attr"`
 	Values []string `xml:"value"`
+}
+
+// HypervConfiguration represents the hyperv section of virsh domcapabilities
+type HypervConfiguration struct {
+	Supported string         `xml:"supported,attr"`
+	Enums     []HypervEnum   `xml:"enum"`
+	Defaults  HypervDefaults `xml:"defaults"`
+}
+
+// HypervEnum represents an enum of the hyperv section of virsh domcapabilities
+type HypervEnum struct {
+	Name   string   `xml:"name,attr"`
+	Values []string `xml:"value"`
+}
+
+// HypervDefaults represents the defaults of the hyperv section of virsh domcapabilities
+type HypervDefaults struct {
+	Values []HypervDefault `xml:",any"`
+}
+
+// HypervDefault represents a single default, e.g. <stimer_direct>on</stimer_direct>
+type HypervDefault struct {
+	XMLName xml.Name
+	Value   string `xml:",chardata"`
 }

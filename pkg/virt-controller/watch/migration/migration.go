@@ -64,6 +64,7 @@ import (
 	workqueuemetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util/hyperv"
 	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1026,6 +1027,24 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 			return err
 		}
 		maps.Copy(templatePod.Spec.NodeSelector, nodeSelectors)
+	}
+
+	// See hyperv.HypervModeAnnotation for why this is keyed on the source pod.
+	if migration.IsDecentralizedTarget() {
+		// the selectors from the source cluster decide the marker
+		hypervSelectors := hypervNodeSelectorEntries(vmi.Status.MigrationState.SourceState.NodeSelectors)
+		if len(hypervSelectors) > 0 {
+			maps.Copy(templatePod.Spec.NodeSelector, hypervSelectors)
+			templatePod.ObjectMeta.Annotations[hyperv.HypervModeAnnotation] = hyperv.HypervModeHostModel
+		} else {
+			delete(templatePod.ObjectMeta.Annotations, hyperv.HypervModeAnnotation)
+		}
+	} else if sourcePod.Annotations[hyperv.HypervModeAnnotation] == hyperv.HypervModeHostModel {
+		hypervSelectors, err := c.prepareNodeSelectorForHypervHostModel(vmi, sourcePod)
+		if err != nil {
+			return err
+		}
+		maps.Copy(templatePod.Spec.NodeSelector, hypervSelectors)
 	}
 
 	// Ensure migration happens only between nodes with the same CPU vendor
@@ -2612,6 +2631,39 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, source
 	}
 
 	return result, nil
+}
+
+// prepareNodeSelectorForHypervHostModel returns the hyperv selectors for the
+// migration target of a hyperv host-model domain. Its features are those of
+// the node it first started on: the first migration requires all hyperv labels
+// of that node, later migrations pass the source pod's selectors on verbatim.
+func (c *Controller) prepareNodeSelectorForHypervHostModel(vmi *virtv1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error) {
+	// The hyperv selectors of a first launcher pod, if any, only reflect the
+	// VMI spec.
+	if _, wasMigrationTarget := sourcePod.Labels[virtv1.MigrationJobLabel]; wasMigrationTarget {
+		return hypervNodeSelectorEntries(sourcePod.Spec.NodeSelector), nil
+	}
+
+	node, err := c.getNodeForVMI(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	selectors := hypervNodeSelectorEntries(node.Labels)
+	if len(selectors) == 0 {
+		log.Log.Object(vmi).Infof("node %s publishes no %s labels, migration target of hyperv host-model VMI stays unconstrained", node.Name, virtv1.HypervLabel)
+	}
+	return selectors, nil
+}
+
+func hypervNodeSelectorEntries(selectors map[string]string) map[string]string {
+	entries := make(map[string]string)
+	for key, value := range selectors {
+		if strings.HasPrefix(key, virtv1.HypervLabel) {
+			entries[key] = value
+		}
+	}
+	return entries
 }
 
 func getHostCpuModelFromMap(selectorMap map[string]string) (map[string]string, string, error) {
