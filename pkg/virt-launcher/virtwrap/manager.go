@@ -1435,12 +1435,12 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 		}
 		if shouldExpandOffline(disk) {
 			ds := disksource.Resolve(disk)
-			possibleGuestSize, ok := possibleGuestSize(disk, ds)
+			targetSize, ok := offlineExpandTarget(disk, ds)
 			if !ok {
 				logger.Errorf("Failed to get possible guest size from disk")
 				continue
 			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
+			err := expandDiskImageOffline(ds.SourcePath(), targetSize, isPVCPreallocated(volumeName, vmi))
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -1468,6 +1468,10 @@ var runQemuImgResize = func(args []string) ([]byte, error) {
 	return exec.Command("/usr/bin/qemu-img", args...).CombinedOutput()
 }
 
+// getDiskInfo is a variable so tests can substitute it and observe image
+// sizes without running the real qemu-img binary.
+var getDiskInfo = osdisk.GetDiskInfo
+
 func expandDiskImageOffline(imagePath string, size int64, preallocated bool) error {
 	log.Log.Infof("pre-start expansion of image %s to size %d", imagePath, size)
 	args, err := qemuImgResizeArgs(imagePath, size, preallocated)
@@ -1486,7 +1490,7 @@ func possibleGuestSize(disk api.Disk, dt disksource.ResolvedDiskSource) (int64, 
 		if !dt.HasOverlay() {
 			return 0, true
 		}
-		diskInfo, err := osdisk.GetDiskInfo(dt.BackendPath())
+		diskInfo, err := getDiskInfo(dt.BackendPath())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
 			return 0, false
@@ -1548,19 +1552,47 @@ func getUsableDiskSize(path string) (int64, error) {
 	return actualSize + availableSize, nil
 }
 
+// offlineExpandTarget returns the size the disk's top image should be grown
+// to during the pre-start expansion pass. For a block backend fronted by a
+// qcow2 overlay (CBT), the target is the backend device size itself: the
+// overlay's virtual size is pinned at creation time and does not track a
+// later PVC expansion. Other disks keep the capacity/overhead-based
+// computation from possibleGuestSize.
+func offlineExpandTarget(disk api.Disk, ds disksource.ResolvedDiskSource) (int64, bool) {
+	if ds.BackendIsBlock() {
+		if !ds.HasOverlay() {
+			return 0, false
+		}
+		diskInfo, err := getDiskInfo(ds.BackendPath())
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
+			return 0, false
+		}
+		return diskInfo.VirtualSize, true
+	}
+	return possibleGuestSize(disk, ds)
+}
+
 func shouldExpandOffline(disk api.Disk) bool {
 	ds := disksource.Resolve(disk)
-	if ds.BackendIsBlock() {
+	if ds.BackendIsBlock() && !ds.HasOverlay() {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(ds.BackendPath())
+	// A qcow2 overlay pins the guest-visible size at creation time, so the
+	// overlay (the top of the chain) is what needs comparing and resizing,
+	// not the backend it points at.
+	inspectPath := ds.BackendPath()
+	if ds.HasOverlay() {
+		inspectPath = ds.SourcePath()
+	}
+	diskInfo, err := getDiskInfo(inspectPath)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
 	}
-	possibleGuestSize, ok := possibleGuestSize(disk, ds)
-	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
+	targetSize, ok := offlineExpandTarget(disk, ds)
+	if !ok || targetSize <= diskInfo.VirtualSize {
 		return false
 	}
 	return true
