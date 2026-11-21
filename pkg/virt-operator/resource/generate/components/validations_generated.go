@@ -7771,6 +7771,15 @@ var CRDsValidation map[string]string = map[string]string{
                           format: int32
                           type: integer
                       type: object
+                      x-kubernetes-validations:
+                      - message: Not more than two threads must be provided when DedicatedCPUPlacement
+                          is true
+                        rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                          || !has(self.threads) || self.threads <= 2'
+                      - message: Number of sockets in CPU topology is greater than
+                          the maximum sockets allowed
+                        rule: '!has(self.maxSockets) || self.maxSockets == 0 || !has(self.sockets)
+                          || self.sockets <= self.maxSockets'
                     devices:
                       description: Devices allows adding disks, network interfaces,
                         and others
@@ -14445,6 +14454,15 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int32
                   type: integer
               type: object
+              x-kubernetes-validations:
+              - message: Not more than two threads must be provided when DedicatedCPUPlacement
+                  is true
+                rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                  || !has(self.threads) || self.threads <= 2'
+              - message: Number of sockets in CPU topology is greater than the maximum
+                  sockets allowed
+                rule: '!has(self.maxSockets) || self.maxSockets == 0 || !has(self.sockets)
+                  || self.sockets <= self.maxSockets'
             devices:
               description: Devices allows adding disks, network interfaces, and others
               properties:
@@ -19061,6 +19079,15 @@ var CRDsValidation map[string]string = map[string]string{
                   format: int32
                   type: integer
               type: object
+              x-kubernetes-validations:
+              - message: Not more than two threads must be provided when DedicatedCPUPlacement
+                  is true
+                rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                  || !has(self.threads) || self.threads <= 2'
+              - message: Number of sockets in CPU topology is greater than the maximum
+                  sockets allowed
+                rule: '!has(self.maxSockets) || self.maxSockets == 0 || !has(self.sockets)
+                  || self.sockets <= self.maxSockets'
             devices:
               description: Devices allows adding disks, network interfaces, and others
               properties:
@@ -21656,6 +21683,15 @@ var CRDsValidation map[string]string = map[string]string{
                           format: int32
                           type: integer
                       type: object
+                      x-kubernetes-validations:
+                      - message: Not more than two threads must be provided when DedicatedCPUPlacement
+                          is true
+                        rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                          || !has(self.threads) || self.threads <= 2'
+                      - message: Number of sockets in CPU topology is greater than
+                          the maximum sockets allowed
+                        rule: '!has(self.maxSockets) || self.maxSockets == 0 || !has(self.sockets)
+                          || self.sockets <= self.maxSockets'
                     devices:
                       description: Devices allows adding disks, network interfaces,
                         and others
@@ -27089,6 +27125,15 @@ var CRDsValidation map[string]string = map[string]string{
                                   format: int32
                                   type: integer
                               type: object
+                              x-kubernetes-validations:
+                              - message: Not more than two threads must be provided
+                                  when DedicatedCPUPlacement is true
+                                rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                                  || !has(self.threads) || self.threads <= 2'
+                              - message: Number of sockets in CPU topology is greater
+                                  than the maximum sockets allowed
+                                rule: '!has(self.maxSockets) || self.maxSockets ==
+                                  0 || !has(self.sockets) || self.sockets <= self.maxSockets'
                             devices:
                               description: Devices allows adding disks, network interfaces,
                                 and others
@@ -33057,6 +33102,16 @@ var CRDsValidation map[string]string = map[string]string{
                                       format: int32
                                       type: integer
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: Not more than two threads must be provided
+                                      when DedicatedCPUPlacement is true
+                                    rule: '!has(self.dedicatedCpuPlacement) || !self.dedicatedCpuPlacement
+                                      || !has(self.threads) || self.threads <= 2'
+                                  - message: Number of sockets in CPU topology is
+                                      greater than the maximum sockets allowed
+                                    rule: '!has(self.maxSockets) || self.maxSockets
+                                      == 0 || !has(self.sockets) || self.sockets <=
+                                      self.maxSockets'
                                 devices:
                                   description: Devices allows adding disks, network
                                     interfaces, and others

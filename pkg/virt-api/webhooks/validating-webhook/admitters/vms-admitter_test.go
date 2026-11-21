@@ -1447,6 +1447,101 @@ var _ = Describe("Validating VM Admitter", func() {
 			// Ensure CPU has remained nil within the now admitted VMISpec
 			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
 		})
+
+		It("should reject more than two threads on dedicated CPU placement derived from an instancetype and preference", func() {
+			const (
+				clusterInstancetypeName = "clusterInstancetype"
+				clusterPreferenceName   = "clusterPreference"
+			)
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterInstancetypeName,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest:                 uint32(4),
+						DedicatedCPUPlacement: pointer.P(true),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			clusterPreference := &instancetypev1beta1.VirtualMachineClusterPreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterPreferenceName,
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
+					},
+				},
+			}
+			virtClient.EXPECT().VirtualMachineClusterPreference().Return(
+				fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			_, err = virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithClusterInstancetype(clusterInstancetypeName),
+				libvmi.WithClusterPreference(clusterPreferenceName),
+			)
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.dedicatedCpuPlacement"))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal("Not more than two threads must be provided at spec.template.spec.domain.cpu.threads (got 4) when DedicatedCPUPlacement is true"))
+		})
+
+		It("should accept more than two threads on dedicated CPU placement in the template without an instancetype", func() {
+			// CEL rejects such a raw template before the webhook is reached
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(
+					libvmi.WithNamespace(metav1.NamespaceDefault),
+					libvmi.WithMemoryRequest("128Mi"),
+				),
+			)
+			vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
+				DedicatedCPUPlacement: true,
+				Threads:               4,
+			}
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeTrue())
+		})
+
+		It("should reject sockets greater than maxSockets derived from an instancetype", func() {
+			const clusterInstancetypeName = "clusterInstancetype"
+			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterInstancetypeName,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest:      uint32(4),
+						MaxSockets: pointer.P(uint32(2)),
+					},
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
+					},
+				},
+			}
+			_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithClusterInstancetype(clusterInstancetypeName),
+			)
+			response := admitVm(vmsAdmitter, vm)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
+		})
 	})
 
 	Context("Live update", func() {
@@ -1468,34 +1563,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		AfterEach(func() {
 			disableFeatureGates()
 		})
-
-		DescribeTableSubtree("CPU on supported arch", func(arch string) {
-			const maximumSockets uint32 = 24
-
-			BeforeEach(func() {
-				vm.Spec.Template.Spec.Architecture = arch
-				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-					MaxSockets: maximumSockets,
-				}
-			})
-
-			It("should reject VM creation when number of sockets exceeds the maximum configured", func() {
-				vm.Spec.Template.Spec.Domain.CPU.Sockets = maximumSockets + 1
-				response := admitVm(vmsAdmitter, vm)
-				Expect(response.Allowed).To(BeFalse())
-				Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.cpu.sockets"))
-				Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("Number of sockets in CPU topology is greater than the maximum sockets allowed"))
-			})
-
-			When("Hot CPU change is in progress", func() {
-				BeforeEach(func() {
-					vm.Status.Ready = true
-				})
-			})
-		},
-			Entry("amd64", "amd64"),
-			Entry("s390x", "s390x"),
-		)
 
 		DescribeTableSubtree("Memory on supported arch", func(arch string) {
 			var maxGuest resource.Quantity

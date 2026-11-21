@@ -151,6 +151,13 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		// keep working even if the gate is disabled afterwards.
 		causes = filterOutDeclarativeVMStateGateCause(causes, k8sfield.NewPath("spec", "template", "spec"))
 	}
+
+	// CEL validation of the CPU type only sees the raw template, so validate
+	// instancetype- and preference-derived values here on the expanded spec.
+	if vm.Spec.Instancetype != nil || vm.Spec.Preference != nil {
+		causes = append(causes, validateInstancetypeCPU(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec)...)
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -361,10 +368,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		return causes
 	}
 
-	if spec.Template.Spec.Domain.CPU != nil {
-		causes = append(causes, validateLiveUpdateCPU(field, &spec.Template.Spec.Domain)...)
-	}
-
 	if spec.Template.Spec.Domain.Memory != nil && spec.Template.Spec.Domain.Memory.MaxGuest != nil {
 		if err := memory.ValidateLiveUpdateMemory(&spec.Template.Spec, spec.Template.Spec.Domain.Memory.MaxGuest); err != nil {
 			causes = append(causes, metav1.StatusCause{
@@ -378,12 +381,27 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	return causes
 }
 
-func validateLiveUpdateCPU(field *k8sfield.Path, domain *v1.DomainSpec) (causes []metav1.StatusCause) {
-	if domain.CPU.Sockets != 0 && domain.CPU.MaxSockets != 0 && domain.CPU.Sockets > domain.CPU.MaxSockets {
+func validateInstancetypeCPU(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) (causes []metav1.StatusCause) {
+	if spec.Domain.CPU == nil {
+		return nil
+	}
+
+	if spec.Domain.CPU.DedicatedCPUPlacement && spec.Domain.CPU.Threads > 2 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Not more than two threads must be provided at %v (got %v) when DedicatedCPUPlacement is true",
+				field.Child("domain", "cpu", "threads").String(),
+				spec.Domain.CPU.Threads,
+			),
+			Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+		})
+	}
+
+	if spec.Domain.CPU.MaxSockets != 0 && spec.Domain.CPU.Sockets > spec.Domain.CPU.MaxSockets {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("Number of sockets in CPU topology is greater than the maximum sockets allowed"),
-			Field:   field.Child("template", "spec", "domain", "cpu", "sockets").String(),
+			Field:   field.Child("domain", "cpu", "sockets").String(),
 		})
 	}
 
