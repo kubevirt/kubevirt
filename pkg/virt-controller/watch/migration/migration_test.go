@@ -2421,7 +2421,7 @@ var _ = Describe("Migration watcher", func() {
 			})
 		})
 
-		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testResolvedConfig func(*v1.VMIMConfigurationOptions)) {
+		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testResolvedConfig func(*v1.VMIMConfigurationOptions), additionalEvents ...string) {
 			By("Initialize VMI and migration")
 			vmi = newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
@@ -2446,6 +2446,9 @@ var _ = Describe("Migration watcher", func() {
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+			for _, reason := range additionalEvents {
+				testutils.ExpectEvent(recorder, reason)
+			}
 			fields := Fields{
 				"TargetNode":          Equal("node01"),
 				"TargetPod":           Equal(targetPod.Name),
@@ -2484,6 +2487,17 @@ var _ = Describe("Migration watcher", func() {
 				func(c *v1.VMIMConfigurationOptions) {
 					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
 				},
+			),
+			Entry("set both bandwidth and zstd compression",
+				func(p *migrationsv1.MigrationPolicySpec) {
+					p.BandwidthPerMigration = &stubResourceQuantity
+					p.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{Compression: new(v1.MigrationCompressionZstd)}
+				},
+				func(c *v1.VMIMConfigurationOptions) {
+					Expect(c.BandwidthPerMigration.Equal(stubResourceQuantity)).To(BeTrue())
+					Expect(c.ExperimentalMigrationOptions.Compression).To(PointTo(Equal(v1.MigrationCompressionZstd)))
+				},
+				"Warning MigrationCompressionConflict",
 			),
 			Entry("set completion time per GiB",
 				func(p *migrationsv1.MigrationPolicySpec) { p.CompletionTimeoutPerGiB = &stubNumber },
