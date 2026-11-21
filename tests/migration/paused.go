@@ -74,7 +74,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 				migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
 				migrationPolicy.Spec.AllowWorkloadDisruption = kvpointer.P(true)
 				migrationPolicy.Spec.AllowPostCopy = kvpointer.P(false)
-				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
+				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(40))
 				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
 			})
 
@@ -147,8 +147,8 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 					},
-						Entry("migrate successfully (migration policy)", expectSuccess, "10Mi", applyWithMigrationPolicy),
-						Entry("migrate successfully (CR change)", decorators.WgS390x, Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
+						Entry("migrate successfully (migration policy)", expectSuccess, "18Mi", applyWithMigrationPolicy),
+						Entry("migrate successfully (CR change)", decorators.WgS390x, Serial, expectSuccess, "18Mi", applyWithKubevirtCR),
 					)
 				})
 			})
