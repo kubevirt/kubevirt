@@ -46,31 +46,43 @@ var _ = Describe("Default pod network", func() {
 		),
 	)
 
-	DescribeTable("It should add the pod network using bridge binding", func(vmi *v1.VirtualMachineInstance) {
-		config := stubClusterConfig{
-			defaultNetworkInterface:              string(v1.BridgeInterface),
-			isBridgeInterfaceEnabledOnPodNetwork: true,
-		}
+	DescribeTable("It should add the pod network using the cluster-wide default binding",
+		func(config stubClusterConfig, expectedIface v1.Interface, vmi *v1.VirtualMachineInstance) {
+			Expect(vmispec.SetDefaultNetworkInterface(config, &vmi.Spec)).To(Succeed())
 
-		Expect(vmispec.SetDefaultNetworkInterface(config, &vmi.Spec)).To(Succeed())
-
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{*v1.DefaultBridgeNetworkInterface()}))
-		Expect(vmi.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
-	},
-		Entry("when AutoattachPodInterface is undefined", libvmi.New()),
-		Entry("when AutoattachPodInterface is true", libvmi.New(libvmi.WithAutoAttachPodInterface(true))),
-	)
-
-	DescribeTable("It should add the pod network using masquerade binding", func(vmi *v1.VirtualMachineInstance) {
-		config := stubClusterConfig{defaultNetworkInterface: string(v1.MasqueradeInterface)}
-
-		Expect(vmispec.SetDefaultNetworkInterface(config, &vmi.Spec)).To(Succeed())
-
-		Expect(vmi.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}))
-		Expect(vmi.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
-	},
-		Entry("when AutoattachPodInterface is undefined", libvmi.New()),
-		Entry("when AutoattachPodInterface is true", libvmi.New(libvmi.WithAutoAttachPodInterface(true))),
+			Expect(vmi.Spec.Domain.Devices.Interfaces).To(Equal([]v1.Interface{expectedIface}))
+			Expect(vmi.Spec.Networks).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+		},
+		Entry("bridge binding, when AutoattachPodInterface is undefined",
+			stubClusterConfig{
+				defaultNetworkInterface:              string(v1.BridgeInterface),
+				isBridgeInterfaceEnabledOnPodNetwork: true,
+			},
+			*v1.DefaultBridgeNetworkInterface(), libvmi.New()),
+		Entry("bridge binding, when AutoattachPodInterface is true",
+			stubClusterConfig{
+				defaultNetworkInterface:              string(v1.BridgeInterface),
+				isBridgeInterfaceEnabledOnPodNetwork: true,
+			},
+			*v1.DefaultBridgeNetworkInterface(), libvmi.New(libvmi.WithAutoAttachPodInterface(true))),
+		Entry("masquerade binding, when AutoattachPodInterface is undefined",
+			stubClusterConfig{defaultNetworkInterface: string(v1.MasqueradeInterface)},
+			*v1.DefaultMasqueradeNetworkInterface(), libvmi.New()),
+		Entry("masquerade binding, when AutoattachPodInterface is true",
+			stubClusterConfig{defaultNetworkInterface: string(v1.MasqueradeInterface)},
+			*v1.DefaultMasqueradeNetworkInterface(), libvmi.New(libvmi.WithAutoAttachPodInterface(true))),
+		Entry("passt binding, when AutoattachPodInterface is undefined",
+			stubClusterConfig{
+				defaultNetworkInterface: string(v1.PasstBindingInterface),
+				passtBindingEnabled:     true,
+			},
+			*v1.DefaultPasstBindingNetworkInterface(), libvmi.New()),
+		Entry("passt binding, when AutoattachPodInterface is true",
+			stubClusterConfig{
+				defaultNetworkInterface: string(v1.PasstBindingInterface),
+				passtBindingEnabled:     true,
+			},
+			*v1.DefaultPasstBindingNetworkInterface(), libvmi.New(libvmi.WithAutoAttachPodInterface(true))),
 	)
 
 	DescribeTable("It should return an error", func(config stubClusterConfig, expectedErrMsg string) {
@@ -87,12 +99,20 @@ var _ = Describe("Default pod network", func() {
 			stubClusterConfig{defaultNetworkInterface: string(v1.DeprecatedSlirpInterface)},
 			"slirp interface is deprecated as of v1.3",
 		),
+		Entry("when passt binding is the cluster-wide default, but the PasstBinding feature gate is disabled",
+			stubClusterConfig{
+				defaultNetworkInterface: string(v1.PasstBindingInterface),
+				passtBindingEnabled:     false,
+			},
+			"passtBinding interface is not enabled: the PasstBinding feature gate is disabled",
+		),
 	)
 })
 
 type stubClusterConfig struct {
 	defaultNetworkInterface              string
 	isBridgeInterfaceEnabledOnPodNetwork bool
+	passtBindingEnabled                  bool
 }
 
 func (scc stubClusterConfig) GetDefaultNetworkInterface() string {
@@ -101,4 +121,8 @@ func (scc stubClusterConfig) GetDefaultNetworkInterface() string {
 
 func (scc stubClusterConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 	return scc.isBridgeInterfaceEnabledOnPodNetwork
+}
+
+func (scc stubClusterConfig) PasstBindingEnabled() bool {
+	return scc.passtBindingEnabled
 }

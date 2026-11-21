@@ -50,6 +50,7 @@ type ClusterConfigProvider interface {
 	GetMaximumGuestMemory() *resource.Quantity
 	GetDefaultNetworkInterface() string
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
+	PasstBindingEnabled() bool
 	GetEvictionStrategy() *v1.EvictionStrategy
 }
 

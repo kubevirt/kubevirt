@@ -2522,6 +2522,8 @@ const (
 	DeprecatedSlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
+	// Virtual machine instance passt binding interface
+	PasstBindingInterface NetworkInterfaceType = "passtBinding"
 )
 
 type DriverCache string

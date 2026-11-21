@@ -93,6 +93,7 @@ var _ = Describe("test configuration", func() {
 		Entry("is bridge, GetDefaultNetworkInterface should return bridge", "bridge", "bridge"),
 		Entry("is slirp, GetDefaultNetworkInterface should return slirp", "slirp", "slirp"),
 		Entry("is masquerade, GetDefaultNetworkInterface should return masquerade", "masquerade", "masquerade"),
+		Entry("is passtBinding, GetDefaultNetworkInterface should return passtBinding", "passtBinding", "passtBinding"),
 		Entry("when unset, GetDefaultNetworkInterface should return the default", "", "bridge"),
 		Entry("when invalid, GetDefaultNetworkInterface should return the default", "invalid", "bridge"),
 	)
