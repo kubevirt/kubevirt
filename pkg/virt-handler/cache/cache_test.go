@@ -36,7 +36,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -73,6 +76,30 @@ var _ = Describe("Domain informer", func() {
 
 			uid := ghostRecordStore.LastKnownUID("test1-namespace/test1")
 			Expect(string(uid)).To(Equal("1234-1"))
+		})
+
+		// Ghost records are only read when the gate is off. With an auth
+		// client set, DomainList must switch to the VMI store and ignore
+		// them entirely, which is the whole point of this change.
+		It("should read ghost records only when no auth client is set", func() {
+			socketPath := filepath.Join(GinkgoT().TempDir(), "launcher-sock")
+			Expect(os.WriteFile(socketPath, []byte("not-a-socket"), 0644)).To(Succeed())
+			Expect(ghostRecordStore.Add("ns", "live", socketPath, "vmi-uid")).To(Succeed())
+
+			unauthed, err := ghostRecordStore.DomainList(context.Background(), nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(unauthed.(*api.DomainList).Items).To(HaveLen(1))
+
+			// Empty VMI store, so VMI-based discovery finds nothing. A
+			// DomainList still reading ghost records would return the one
+			// above.
+			vmiStore := cache.NewStore(func(obj any) (string, error) {
+				vmi := obj.(*v1.VirtualMachineInstance)
+				return vmi.Namespace + "/" + vmi.Name, nil
+			})
+			list, err := ghostRecordStore.DomainList(context.Background(), fake.NewSimpleClientset(), vmiStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(list.(*api.DomainList).Items).To(BeEmpty())
 		})
 
 		It("Should find ghost record by socket ", func() {
@@ -330,6 +357,7 @@ var _ = Describe("Domain informer", func() {
 				nil,
 				new(int),
 				ghostRecordStore,
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -374,6 +402,7 @@ var _ = Describe("Domain informer", func() {
 				nil,
 				new(int),
 				ghostRecordStore,
+				nil, nil,
 			)
 			defer d.Stop()
 
@@ -458,7 +487,7 @@ var _ = Describe("Domain watcher ListerWatcher", func() {
 			}
 			lw := &cache.ListWatch{
 				WatchFuncWithContext: func(ctx context.Context, _ metav1.ListOptions) (watch.Interface, error) {
-					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil), nil
+					return newDomainWatcher(ctx, runServer, 10, 1*time.Hour, nil, consecutiveFails, nil, nil, nil), nil
 				},
 			}
 
