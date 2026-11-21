@@ -508,7 +508,10 @@ func dirToIso(inDir, isoOutFile, volumeID string) error {
 		case err := <-done:
 			if err != nil {
 				log.Log.Reason(err).Errorf("%s returned non-zero exit code while generating iso file %s with args '%s'", isoBinary, isoOutFile, strings.Join(cmd.Args, " "))
-				return errors.Join(err, os.Remove(isoOutFile))
+				if cleanupErr := os.Remove(isoOutFile); cleanupErr != nil && !errors.Is(cleanupErr, os.ErrNotExist) {
+					return errors.Join(err, cleanupErr)
+				}
+				return err
 			}
 			return nil
 		}
