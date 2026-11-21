@@ -114,5 +114,68 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
+
+		It("Should cache the isolation result on repeated Detect calls", func() {
+			detector := NewSocketBasedIsolationDetector()
+			result1, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Close the socket to verify subsequent Detect calls use cache rather than dialing
+			socket.Close()
+			<-finished
+			finished = nil
+
+			result2, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result2).To(Equal(result1))
+		})
+
+		It("Should discard the cached isolation result on Teardown", func() {
+			detector := NewSocketBasedIsolationDetector()
+			_, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Close socket and teardown VM
+			socket.Close()
+			<-finished
+			finished = nil
+
+			detector.Teardown(vm)
+
+			// Next call must fail because cache is cleared and socket is closed
+			_, err = detector.Detect(vm)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should not cache detection errors", func() {
+			// Close socket so initial detect fails
+			socket.Close()
+			<-finished
+			finished = nil
+
+			detector := NewSocketBasedIsolationDetector()
+			_, err := detector.Detect(vm)
+			Expect(err).To(HaveOccurred())
+
+			// Recreate the socket
+			socketFile := cmdclient.SocketFilePathOnHost(podUID)
+			socket, err = net.Listen("unix", socketFile)
+			Expect(err).ToNot(HaveOccurred())
+			finished = make(chan struct{})
+			go func() {
+				for {
+					conn, err := socket.Accept()
+					if err != nil {
+						close(finished)
+						return
+					}
+					conn.Close()
+				}
+			}()
+
+			result, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Pid()).To(Equal(os.Getpid()))
+		})
 	})
 })

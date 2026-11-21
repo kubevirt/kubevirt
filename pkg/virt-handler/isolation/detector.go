@@ -24,10 +24,12 @@ package isolation
 import (
 	"fmt"
 	"net"
+	"sync"
 	"syscall"
 	"time"
 
 	ps "github.com/mitchellh/go-ps"
+	"golang.org/x/sync/singleflight"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -43,11 +45,15 @@ type PodIsolationDetector interface {
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
 
 	DetectForSocket(socket string) (IsolationResult, error)
+
+	Teardown(vm *v1.VirtualMachineInstance)
 }
 
 const isolationDialTimeout = 5
 
 type socketBasedIsolationDetector struct {
+	cache       sync.Map
+	detectGroup singleflight.Group
 }
 
 // NewSocketBasedIsolationDetector takes socketDir and creates a socket based IsolationDetector
@@ -57,13 +63,47 @@ func NewSocketBasedIsolationDetector() PodIsolationDetector {
 }
 
 func (s *socketBasedIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
-	// Look up the socket of the virt-launcher Pod which was created for that VM, and extract the PID from it
-	socket, err := cmdclient.FindSocket(vm)
+	if vm == nil || vm.UID == "" {
+		socket, err := cmdclient.FindSocket(vm)
+		if err != nil {
+			return nil, err
+		}
+		return s.DetectForSocket(socket)
+	}
+
+	if val, ok := s.cache.Load(vm.UID); ok {
+		return val.(IsolationResult), nil
+	}
+
+	result, err, _ := s.detectGroup.Do(string(vm.UID), func() (any, error) {
+		if val, ok := s.cache.Load(vm.UID); ok {
+			return val.(IsolationResult), nil
+		}
+
+		socket, err := cmdclient.FindSocket(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := s.DetectForSocket(socket)
+		if err != nil {
+			return nil, err
+		}
+
+		s.cache.Store(vm.UID, res)
+		return res, nil
+	})
 	if err != nil {
 		return nil, err
 	}
+	return result.(IsolationResult), nil
+}
 
-	return s.DetectForSocket(socket)
+func (s *socketBasedIsolationDetector) Teardown(vm *v1.VirtualMachineInstance) {
+	if vm == nil || vm.UID == "" {
+		return
+	}
+	s.cache.Delete(vm.UID)
 }
 
 func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (IsolationResult, error) {

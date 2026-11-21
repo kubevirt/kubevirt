@@ -20,6 +20,7 @@ go_library(
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/moby/sys/mountinfo:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
+        "//vendor/golang.org/x/sync/singleflight:go_default_library",
     ],
 )
 

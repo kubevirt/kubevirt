@@ -140,8 +140,14 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 	return manager, err
 }
 
-func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool) (Manager, error) {
-	isolationRes, err := detectVMIsolation(vmi)
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDevice string, allowEmulation bool, detector ...isolation.PodIsolationDetector) (Manager, error) {
+	var isoDetector isolation.PodIsolationDetector
+	if len(detector) > 0 && detector[0] != nil {
+		isoDetector = detector[0]
+	} else {
+		isoDetector = isolation.NewSocketBasedIsolationDetector()
+	}
+	isolationRes, err := detectVMIsolation(vmi, isoDetector)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +190,8 @@ func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
 
 // detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.
 // Socket is optional and makes the execution faster
-func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.IsolationResult, err error) {
+func detectVMIsolation(vm *v1.VirtualMachineInstance, detector isolation.PodIsolationDetector) (isolationRes isolation.IsolationResult, err error) {
 	const detectionErrFormat = "cannot detect vm \"%s\", err: %v"
-	detector := isolation.NewSocketBasedIsolationDetector()
 
 	isolationRes, err = detector.Detect(vm)
 
