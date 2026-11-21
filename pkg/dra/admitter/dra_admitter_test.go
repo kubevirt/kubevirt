@@ -44,8 +44,7 @@ const (
 )
 
 type fakeConfigChecker struct {
-	gpuDRAEnabled        bool
-	hostDeviceDRAEnabled bool
+	gpuDRAEnabled bool
 }
 
 func resourceClaim(name string) v1.VirtualMachineInstanceResourceClaim {
@@ -130,10 +129,6 @@ func hostDeviceSpec(resourceClaims []v1.VirtualMachineInstanceResourceClaim, hos
 
 func (f *fakeConfigChecker) GPUsWithDRAGateEnabled() bool {
 	return f.gpuDRAEnabled
-}
-
-func (f *fakeConfigChecker) HostDevicesWithDRAEnabled() bool {
-	return f.hostDeviceDRAEnabled
 }
 
 func (f *fakeConfigChecker) NetworkDevicesWithDRAGateEnabled() bool {
@@ -333,7 +328,7 @@ var _ = Describe("DRA Admitter", func() {
 			"spec.domain.devices.gpus",
 		),
 		Entry("HostDevice",
-			func() { checker.hostDeviceDRAEnabled = true },
+			func() {},
 			func() *v1.VirtualMachineInstanceSpec {
 				return hostDeviceSpec(nil, hostDeviceWithDeviceNameAndClaimRequest("hd1", "vfio.device.example.com", claimRequest(claim1, req1)))
 			},
@@ -373,7 +368,7 @@ var _ = Describe("DRA Admitter", func() {
 			"spec.domain.devices.gpus[0]",
 		),
 		Entry("HostDevice",
-			func() { checker.hostDeviceDRAEnabled = true },
+			func() {},
 			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
 				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
 					Name:         "hd1",
@@ -405,7 +400,7 @@ var _ = Describe("DRA Admitter", func() {
 			"spec.domain.devices.gpus[0]",
 		),
 		Entry("HostDevice",
-			func() { checker.hostDeviceDRAEnabled = true },
+			func() {},
 			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
 				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
 					Name:         "hd1",
@@ -436,7 +431,7 @@ var _ = Describe("DRA Admitter", func() {
 			"spec.domain.devices.gpus[0]",
 		),
 		Entry("HostDevice",
-			func() { checker.hostDeviceDRAEnabled = true },
+			func() {},
 			func(claimRequest *v1.ClaimRequest) *v1.VirtualMachineInstanceSpec {
 				return hostDeviceSpec([]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)}, v1.HostDevice{
 					Name:         "hd1",
@@ -554,7 +549,7 @@ var _ = Describe("DRA Admitter", func() {
 			"spec.domain.devices.gpus[1]",
 		),
 		Entry("HostDevice",
-			func() { checker.hostDeviceDRAEnabled = true },
+			func() {},
 			func() *v1.VirtualMachineInstanceSpec {
 				return hostDeviceSpec(
 					[]v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
@@ -661,22 +656,7 @@ var _ = Describe("DRA Admitter", func() {
 		})
 	})
 
-	Context("DRA HostDevices with feature gate disabled", func() {
-		It("should reject DRA HostDevices when the feature gate is off", func() {
-			checker.hostDeviceDRAEnabled = false
-			spec := hostDeviceSpec(nil, hostDeviceWithClaimRequest("hd1", claim1, req1))
-			causes := validateCreationDRA(field, spec, checker)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(ContainSubstring("feature gate is not enabled"))
-			Expect(causes[0].Field).To(Equal("spec.domain.devices.hostDevices"))
-		})
-	})
-
 	Context("HostDevice resourceClaims cross-validation", func() {
-		BeforeEach(func() {
-			checker.hostDeviceDRAEnabled = true
-		})
-
 		It("should reject when HostDevice claimName is not listed in spec.resourceClaims", func() {
 			spec := hostDeviceSpec(
 				[]v1.VirtualMachineInstanceResourceClaim{resourceClaim("other-claim")},
@@ -691,7 +671,6 @@ var _ = Describe("DRA Admitter", func() {
 
 	Context("mixed DRA and non-DRA HostDevices", func() {
 		It("should accept a VMI with both DRA and non-DRA HostDevices", func() {
-			checker.hostDeviceDRAEnabled = true
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
 				Domain: v1.DomainSpec{
@@ -718,10 +697,6 @@ var _ = Describe("DRA Admitter", func() {
 	})
 
 	Context("HostDevice index accuracy", func() {
-		BeforeEach(func() {
-			checker.hostDeviceDRAEnabled = true
-		})
-
 		It("should report correct index when non-DRA devices precede a DRA device with missing claimName", func() {
 			spec := &v1.VirtualMachineInstanceSpec{
 				ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{resourceClaim(claim1)},
@@ -818,7 +793,6 @@ var _ = Describe("DRA Admitter", func() {
 	Context("mixed GPUs and HostDevices sharing resourceClaims", func() {
 		BeforeEach(func() {
 			checker.gpuDRAEnabled = true
-			checker.hostDeviceDRAEnabled = true
 		})
 
 		It("should accept when both GPUs and HostDevices reference claims present in resourceClaims", func() {
