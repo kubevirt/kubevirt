@@ -116,6 +116,9 @@ const (
 	ImagePullBackOffReason = "ImagePullBackOff"
 	// InvalidImageNameReason is set when a containerDisk image name is invalid.
 	InvalidImageNameReason = "InvalidImageName"
+	// FailedPodSandboxCreationReason is set when the kubelet fails to create the virt-launcher pod's
+	// sandbox (e.g. a CNI ADD failure). The detail is relayed verbatim from the pod's kubelet event.
+	FailedPodSandboxCreationReason = "FailedCreatePodSandBox"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"
