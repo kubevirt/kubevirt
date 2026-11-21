@@ -624,6 +624,54 @@ var _ = Describe("Live migration source", func() {
 		)
 	})
 
+	DescribeTable("configures multifd according to the migration bandwidth limit", func(bandwidth string, expectedBandwidth uint64, expectedThreads int) {
+		domain := cli.NewMockVirDomain(ctrl)
+		monitorDomain := cli.NewMockVirDomain(ctrl)
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(domain, nil)
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(monitorDomain, nil)
+		domain.EXPECT().Free().Return(nil)
+		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
+		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return("<domain type='kvm'><devices/></domain>", nil)
+
+		monitorDomainFreed := make(chan struct{})
+		monitorDomain.EXPECT().Free().DoAndReturn(func() error {
+			close(monitorDomainFreed)
+			return nil
+		})
+
+		options := &cmdclient.MigrationOptions{
+			Bandwidth:                resource.MustParse(bandwidth),
+			ParallelMigrationThreads: new(uint(8)),
+			Compression:              new(string(v1.MigrationCompressionZstd)),
+		}
+		domain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ string, params *libvirt.DomainMigrateParameters, flags libvirt.DomainMigrateFlags) error {
+			const multifdFlags = libvirt.MIGRATE_PARALLEL | libvirt.MIGRATE_COMPRESSED
+			wantMultifd := expectedThreads > 0
+			Expect(params.BandwidthSet).To(Equal(expectedBandwidth > 0))
+			Expect(params.Bandwidth).To(Equal(expectedBandwidth))
+			Expect(params.ParallelConnectionsSet).To(Equal(wantMultifd))
+			Expect(params.CompressionSet).To(Equal(wantMultifd))
+			if wantMultifd {
+				Expect(flags & multifdFlags).To(Equal(multifdFlags))
+				Expect(params.ParallelConnections).To(Equal(expectedThreads))
+				Expect(params.Compression).To(Equal("zstd"))
+			} else {
+				Expect(flags & multifdFlags).To(BeZero())
+			}
+			return nil
+		})
+
+		migrationDone := make(chan struct{})
+		close(migrationDone)
+		prep := newMigrationPreparation()
+		DeferCleanup(prep.cancel)
+		Expect(libvirtDomainManager.migrateHelper(prep, vmi, options, migrationDone)).To(Succeed())
+		Eventually(monitorDomainFreed).Should(BeClosed())
+	},
+		Entry("keeps multifd and compression with zero bandwidth", "0", uint64(0), 8),
+		Entry("disables multifd and compression with a bandwidth limit", "64Mi", uint64(64), 0),
+	)
+
 	Context("shouldConfigureParallelMigration", func() {
 		DescribeTable("should not configure parallel migration", func(options *cmdclient.MigrationOptions) {
 			shouldConfigure, _ := shouldConfigureParallelMigration(options)
