@@ -74,7 +74,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return nil
 	}
 
-	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &route.ObjectMeta, route.Spec)...).GeneratePayload()
+	patchBytes, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{}, &cachedRoute.ObjectMeta, route.Spec)...).GeneratePayload()
 	if err != nil {
 		return err
 	}
