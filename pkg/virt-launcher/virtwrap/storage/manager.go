@@ -20,6 +20,7 @@
 package storage
 
 import (
+	"sync/atomic"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -39,6 +40,8 @@ type StorageManager struct {
 
 	overlayUsage         func(overlayDir string) (int64, error)
 	overlayUsageInterval time.Duration
+
+	freezing atomic.Bool
 }
 
 func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache) *StorageManager {
@@ -55,4 +58,17 @@ func NewStorageManager(connection cli.Connection, metadataCache *metadata.Cache)
 func (m *StorageManager) MigrationInProgress() bool {
 	migrationMetadata, exists := m.metadataCache.Migration.Load()
 	return exists && migrationMetadata.StartTimestamp != nil && migrationMetadata.EndTimestamp == nil
+}
+
+// beginFreezing marks a freeze as in progress, returning false if one already is.
+func (m *StorageManager) beginFreezing() bool {
+	return m.freezing.CompareAndSwap(false, true)
+}
+
+func (m *StorageManager) endFreezing() {
+	m.freezing.Store(false)
+}
+
+func (m *StorageManager) IsFreezing() bool {
+	return m.freezing.Load()
 }

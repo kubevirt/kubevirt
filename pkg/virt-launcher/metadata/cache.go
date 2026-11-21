@@ -41,6 +41,7 @@ type Cache struct {
 	SnapshotOverlay    SafeData[api.SnapshotOverlayMetadata]
 	GuestPanicHandled  SafeData[bool]
 	CompletedMigration SafeData[CompletedMigrationData]
+	FSFreezeStatus     SafeData[api.FSFreeze]
 
 	notificationSignal chan struct{}
 }
@@ -58,6 +59,7 @@ func NewCache() *Cache {
 	cache.SnapshotOverlay.dirtyChannel = cache.notificationSignal
 	cache.GuestPanicHandled.dirtyChannel = cache.notificationSignal
 	cache.CompletedMigration.dirtyChannel = cache.notificationSignal
+	cache.FSFreezeStatus.dirtyChannel = cache.notificationSignal
 	return cache
 }
 
