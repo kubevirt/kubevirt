@@ -1435,12 +1435,12 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 		}
 		if shouldExpandOffline(disk) {
 			ds := disksource.Resolve(disk)
-			possibleGuestSize, ok := possibleGuestSize(disk, ds)
+			targetSize, ok := offlineExpandTarget(disk, ds)
 			if !ok {
 				logger.Errorf("Failed to get possible guest size from disk")
 				continue
 			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
+			err := expandDiskImageOffline(ds.SourcePath(), targetSize, isPVCPreallocated(volumeName, vmi))
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -1552,6 +1552,27 @@ func getUsableDiskSize(path string) (int64, error) {
 	return actualSize + availableSize, nil
 }
 
+// offlineExpandTarget returns the size the disk's top image should be grown
+// to during the pre-start expansion pass. For a block backend fronted by a
+// qcow2 overlay (CBT), the target is the backend device size itself: the
+// overlay's virtual size is pinned at creation time and does not track a
+// later PVC expansion. Other disks keep the capacity/overhead-based
+// computation from possibleGuestSize.
+func offlineExpandTarget(disk api.Disk, ds disksource.ResolvedDiskSource) (int64, bool) {
+	if ds.BackendIsBlock() {
+		if !ds.HasOverlay() {
+			return 0, false
+		}
+		diskInfo, err := getDiskInfo(ds.BackendPath())
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
+			return 0, false
+		}
+		return diskInfo.VirtualSize, true
+	}
+	return possibleGuestSize(disk, ds)
+}
+
 func shouldExpandOffline(disk api.Disk) bool {
 	ds := disksource.Resolve(disk)
 	if ds.BackendIsBlock() && !ds.HasOverlay() {
@@ -1570,8 +1591,8 @@ func shouldExpandOffline(disk api.Disk) bool {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
 	}
-	possibleGuestSize, ok := possibleGuestSize(disk, ds)
-	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
+	targetSize, ok := offlineExpandTarget(disk, ds)
+	if !ok || targetSize <= diskInfo.VirtualSize {
 		return false
 	}
 	return true
