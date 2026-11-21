@@ -159,19 +159,31 @@ func (h *VMStatsHandler) GetVMStats(request *restful.Request, response *restful.
 
 	requests := body.resolve(onNode)
 	results := make(map[string]*VMStatsResult)
+	skippedCommands := make(map[string]map[string]string)
 	vmis := make([]*v1.VirtualMachineInstance, 0, len(requests))
-	for key := range requests {
-		if vmi, ok := onNode[key]; ok {
-			vmis = append(vmis, vmi)
-		} else {
+	for key, req := range requests {
+		vmi, ok := onNode[key]
+		if !ok {
 			results[key] = &VMStatsResult{Error: "VMI not found on node"}
+			continue
 		}
+		collectReq, skipped, vmiErr := prepareVMStatsCollection(vmi, req)
+		if vmiErr != "" {
+			results[key] = &VMStatsResult{Error: vmiErr}
+			continue
+		}
+		if len(skipped) > 0 {
+			skippedCommands[key] = skipped
+		}
+		requests[key] = collectReq
+		vmis = append(vmis, vmi)
 	}
 
 	scraper := NewVMStatsScraper(len(vmis), cmdclient.NewClient, requests)
 	h.collector.Collect(vmis, scraper, collector.CollectionTimeout)
 
 	maps.Copy(results, scraper.GetValues())
+	applySkippedCommands(results, skippedCommands)
 
 	for _, vmi := range vmis {
 		key := fmt.Sprintf("%s/%s", vmi.Namespace, vmi.Name)
@@ -212,6 +224,40 @@ func (b *vmStatsRequestBody) validate() error {
 	}
 
 	return nil
+}
+
+func prepareVMStatsCollection(vmi *v1.VirtualMachineInstance, req *cmdv1.VMStatsRequest) (collect *cmdv1.VMStatsRequest, skipped map[string]string, vmiErr string) {
+	if reason := collector.VMIStatsSkipReason(vmi); reason != "" {
+		return nil, nil, reason
+	}
+	if req == nil || req.DirtyRate == nil {
+		return req, nil, ""
+	}
+	reason := collector.DirtyRateSkipReason(vmi)
+	if reason == "" {
+		return req, nil, ""
+	}
+
+	skipped = map[string]string{stats.DirtyRateKey: reason}
+	trimmed := *req
+	trimmed.DirtyRate = nil
+	if trimmed == (cmdv1.VMStatsRequest{}) {
+		return nil, skipped, reason
+	}
+	return &trimmed, skipped, ""
+}
+
+func applySkippedCommands(results map[string]*VMStatsResult, skippedByKey map[string]map[string]string) {
+	for key, skipped := range skippedByKey {
+		res := results[key]
+		if res == nil || res.Stats == nil {
+			continue
+		}
+		if res.Stats.Errors == nil {
+			res.Stats.Errors = make(map[string]string, len(skipped))
+		}
+		maps.Copy(res.Stats.Errors, skipped)
+	}
 }
 
 func (b *vmStatsRequestBody) resolve(onNode map[string]*v1.VirtualMachineInstance) map[string]*cmdv1.VMStatsRequest {
