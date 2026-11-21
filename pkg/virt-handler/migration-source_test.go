@@ -315,6 +315,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			MigrationUID:                   "migration-1",
 			TargetNodeAddress:              "127.0.0.1",
 			TargetDirectMigrationNodePorts: map[string]int{"12345": migrationproxy.LibvirtDirectMigrationPort},
 		}
@@ -325,16 +326,15 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			}
 		}
 
+		expected := resource.MustParse(expectedBandwidth)
 		proxy.EXPECT().StartSourceListener(
 			string(vmi.UID),
+			"migration-1",
 			"127.0.0.1",
 			map[string]int{"12345": migrationproxy.LibvirtDirectMigrationPort},
 			gomock.Any(),
-			gomock.Any(),
-		).DoAndReturn(func(_ string, _ string, _ map[string]int, _ *safepath.Path, bandwidth resource.Quantity) error {
-			Expect(bandwidth.Equal(resource.MustParse(expectedBandwidth))).To(BeTrue())
-			return nil
-		})
+			gomock.Cond(expected.Equal),
+		)
 
 		Expect(controller.handleSourceMigrationProxy(vmi)).To(Succeed())
 	},
@@ -353,6 +353,34 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			}
 			return d
 		}
+
+		const currentMigrationUID types.UID = "current-migration"
+		DescribeTable("should release the bandwidth cap for an active migration at switchover",
+			func(reason api.StateChangeReason, migrationUID types.UID, end *metav1.Time, wantCalls int) {
+				vmi := libvmi.New()
+				vmi.UID = vmiTestUUID
+				vmi.Status.NodeName = host
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					MigrationUID: currentMigrationUID,
+					SourceNode:   host,
+				}
+				domain := newDomainMigrationKubevirtMetadata(migrationUID, end, false, v1.MigrationPreCopy)
+				domain.SetState(api.Paused, reason)
+				domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp = new(metav1.Now())
+
+				proxy := NewMockproxyManager(gomock.NewController(GinkgoT()))
+				controller.migrationProxy = proxy
+				proxy.EXPECT().StopThrottlingBandwidth(string(vmi.UID), string(currentMigrationUID)).Times(wantCalls)
+
+				controller.setMigrationProgressStatus(vmi, domain)
+			},
+			Entry("when libvirt pauses the source for stop-and-copy", api.ReasonPausedMigration, currentMigrationUID, nil, 1),
+			Entry("when libvirt pauses the source for post-copy", api.ReasonPausedPostcopy, currentMigrationUID, nil, 1),
+			Entry("when the guest is paused for another reason", api.ReasonPausedUser, currentMigrationUID, nil, 0),
+			Entry("when the pause belongs to an earlier attempt", api.ReasonPausedMigration, types.UID("old-migration"), nil, 0),
+			Entry("after the migration has ended", api.ReasonPausedMigration, currentMigrationUID, new(metav1.Now()), 0),
+		)
+
 		DescribeTable("should leave the VMI untouched", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
 			vmiCopy := vmi.DeepCopy()

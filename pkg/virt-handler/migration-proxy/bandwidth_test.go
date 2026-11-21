@@ -59,7 +59,7 @@ var _ = Describe("MigrationProxy bandwidth limiter", func() {
 		Expect(newBandwidthLimiter(resource.MustParse("0"))).To(BeNil())
 	})
 
-	It("limits only the direct migration source proxy", func() {
+	It("limits only the direct migration source proxy until switchover", func() {
 		ephemeraldiskutils.MockDefaultOwnershipManager()
 		tmpDir, err := os.MkdirTemp("", "migrationproxy-bandwidth")
 		Expect(err).ToNot(HaveOccurred())
@@ -78,23 +78,44 @@ var _ = Describe("MigrationProxy bandwidth limiter", func() {
 			"12346": LibvirtBlockMigrationPort,
 			"12347": 0,
 		}
-		Expect(manager.StartSourceListener("vmi", "127.0.0.1", ports, mountRoot, resource.MustParse("64Mi"))).To(Succeed())
+		bandwidth := resource.MustParse("64Mi")
+		const bandwidthBytes = 64 * 1024 * 1024
+		Expect(manager.StartSourceListener("vmi", "migration-1", "127.0.0.1", ports, mountRoot, bandwidth)).To(Succeed())
 
 		proxies := manager.sourceProxies["vmi"]
 		Expect(proxies).To(HaveLen(3))
 		var directProxy *migrationProxy
 		for _, proxy := range proxies {
+			Expect(proxy.bandwidthBytes).To(Equal(int64(bandwidthBytes)))
 			if strings.Contains(proxy.unixSocketPath, "-49152-source.sock") {
 				directProxy = proxy
 				continue
 			}
 			Expect(proxy.limiter).To(BeNil())
-			Expect(proxy.bandwidthBytes).To(Equal(int64(64 * 1024 * 1024)))
 		}
 		Expect(directProxy).ToNot(BeNil())
+		limiter := directProxy.limiter
+		Expect(limiter).ToNot(BeNil())
+		Expect(limiter.Limit()).To(Equal(rate.Limit(bandwidthBytes)))
+
+		manager.StopThrottlingBandwidth("vmi", "migration-1")
+		Expect(limiter.Limit()).To(Equal(rate.Inf))
+		manager.StopThrottlingBandwidth("vmi", "migration-1")
+		Expect(manager.StartSourceListener("vmi", "migration-1", "127.0.0.1", ports, mountRoot, bandwidth)).To(Succeed())
+		Expect(manager.sourceProxies["vmi"]).To(ContainElement(BeIdenticalTo(directProxy)))
 		Expect(directProxy.limiter).ToNot(BeNil())
-		Expect(directProxy.limiter.Limit()).To(Equal(rate.Limit(64 * 1024 * 1024)))
-		Expect(directProxy.bandwidthBytes).To(Equal(int64(64 * 1024 * 1024)))
+		Expect(directProxy.limiter.Limit()).To(Equal(rate.Inf))
+
+		// A failed replacement must allow retrying the same attempt.
+		Expect(manager.StartSourceListener("vmi", "migration-2", "127.0.0.1", ports, nil, bandwidth)).To(HaveOccurred())
+		Expect(manager.StartSourceListener("vmi", "migration-2", "127.0.0.1", ports, mountRoot, bandwidth)).To(Succeed())
+		var newProxy *migrationProxy
+		Expect(manager.sourceProxies["vmi"]).To(ContainElement(WithTransform(func(proxy *migrationProxy) string {
+			return proxy.unixSocketPath
+		}, Equal(directProxy.unixSocketPath)), &newProxy))
+		Expect(newProxy.limiter).ToNot(BeNil())
+		manager.StopThrottlingBandwidth("vmi", "migration-1")
+		Expect(newProxy.limiter.Limit()).To(Equal(rate.Limit(bandwidthBytes)))
 	})
 
 	It("returns context errors before writing partially read bytes", func() {

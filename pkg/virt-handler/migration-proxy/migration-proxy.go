@@ -76,6 +76,7 @@ type migrationProxy struct {
 
 	limiter        *rate.Limiter
 	bandwidthBytes int64
+	migrationUID   string
 
 	listener           net.Listener
 	serverTLSConfig    *tls.Config
@@ -252,7 +253,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	}
 }
 
-func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path, bandwidth resource.Quantity) error {
+func (m *migrationProxyManager) StartSourceListener(key, migrationUID, targetAddress string, destSrcPortMap map[string]int, mountRoot *safepath.Path, bandwidth resource.Quantity) error {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -272,7 +273,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		}
 		for _, curProxy := range curProxies {
 			_, ok := destSrcLookup[curProxy.targetAddress]
-			if !ok || curProxy.bandwidthBytes != bandwidthBytes {
+			if !ok || curProxy.bandwidthBytes != bandwidthBytes || curProxy.migrationUID != migrationUID {
 				return false
 			}
 		}
@@ -283,15 +284,13 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 
 	if exists {
 		if isExistingProxy(curProxies, targetAddress, destSrcPortMap) {
-			// No Op, already exists
 			return nil
-		} else {
-			// stop the current proxy and point it somewhere new.
-			for _, curProxy := range curProxies {
-				curProxy.logger.Infof("Manager is stopping proxy on source node due to new target location")
-				curProxy.Stop()
-			}
 		}
+		for _, curProxy := range curProxies {
+			curProxy.logger.Info("Manager is replacing proxy on source node")
+			curProxy.Stop()
+		}
+		delete(m.sourceProxies, key)
 	}
 	migrationTLSConfig := m.migrationTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
@@ -313,8 +312,10 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		if srcPort == LibvirtDirectMigrationPort {
 			limiter = newBandwidthLimiter(bandwidth)
 		}
+
 		proxy := NewSourceProxy(mountRoot, unixSocketPath, targetFullAddr, migrationTLSConfig, key, limiter)
 		proxy.bandwidthBytes = bandwidthBytes
+		proxy.migrationUID = migrationUID
 
 		err := proxy.Start()
 		if err != nil {
@@ -330,6 +331,18 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 	}
 	m.sourceProxies[key] = proxiesList
 	return nil
+}
+
+// RemoveSourceBandwidthLimit releases the pre-copy cap on all direct connections for this migration.
+func (m *migrationProxyManager) StopThrottlingBandwidth(vmiUID, migrationUID string) {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	for _, proxy := range m.sourceProxies[vmiUID] {
+		if proxy.limiter != nil && proxy.migrationUID == migrationUID {
+			proxy.limiter.SetLimit(rate.Inf)
+		}
+	}
 }
 
 func (m *migrationProxyManager) StopSourceListener(key string) {

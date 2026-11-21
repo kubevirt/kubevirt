@@ -199,7 +199,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
-				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
+				manager.StartSourceListener("mykey", "migration", "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")
@@ -282,7 +282,7 @@ var _ = Describe("MigrationProxy", func() {
 					[]string{virtqemudRelativePath, directRelativePath})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)
-				err = manager.StartSourceListener(key1, "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
+				err = manager.StartSourceListener(key1, "migration-1", "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 				Expect(err).ShouldNot(HaveOccurred())
 
 				defer manager.StopTargetListener(key1)
@@ -300,7 +300,7 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 
-				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
+				err = manager.StartSourceListener(key2, "migration-2", "127.0.0.1", destSrcPortMap, mountRoot, resource.MustParse("0"))
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
 

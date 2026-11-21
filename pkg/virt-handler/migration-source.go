@@ -61,8 +61,9 @@ type passtRepairSourceHandler interface {
 }
 
 type proxyManager interface {
-	StartSourceListener(key string, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path, bandwidth resource.Quantity) error
+	StartSourceListener(key, migrationUID, targetAddress string, destSrcPortMap map[string]int, baseDir *safepath.Path, bandwidth resource.Quantity) error
 	StopSourceListener(key string)
+	StopThrottlingBandwidth(vmiUID, migrationUID string)
 }
 
 type MigrationSourceController struct {
@@ -204,6 +205,11 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	}
 	if migrationMetadata.StartTimestamp != nil {
 		vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+		if migrationMetadata.EndTimestamp == nil && !migrationMetadata.Failed &&
+			!isMigrationDone(vmi.Status.MigrationState) && domain.Status.Status == api.Paused &&
+			(domain.Status.Reason == api.ReasonPausedMigration || domain.Status.Reason == api.ReasonPausedPostcopy) {
+			c.migrationProxy.StopThrottlingBandwidth(string(vmi.UID), string(migrationMetadata.UID))
+		}
 	}
 
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
@@ -506,6 +512,7 @@ func (c *MigrationSourceController) handleSourceMigrationProxy(vmi *v1.VirtualMa
 	}
 	err = c.migrationProxy.StartSourceListener(
 		string(vmi.UID),
+		string(vmi.Status.MigrationState.MigrationUID),
 		vmi.Status.MigrationState.TargetNodeAddress,
 		vmi.Status.MigrationState.TargetDirectMigrationNodePorts,
 		mountRoot,
