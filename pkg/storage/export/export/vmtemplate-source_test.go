@@ -596,6 +596,10 @@ var _ = Describe("VMTemplate ManifestData", func() {
 		Expect(key).To(BeEmpty())
 		Expect(result).To(BeNil())
 	})
+
+	It("should support OCI export", func() {
+		Expect(NewVMTemplateSource(nil, &sourceVolumes{}).SupportsOCI()).To(BeTrue())
+	})
 })
 
 var _ = Describe("VMTemplate source helpers", func() {

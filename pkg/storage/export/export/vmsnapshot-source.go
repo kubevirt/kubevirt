@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
@@ -47,14 +48,16 @@ const (
 )
 
 type VMSnapshotSource struct {
-	sourceVolumes *sourceVolumes
-	vmName        string
+	sourceVolumes        *sourceVolumes
+	vmName               string
+	vmManifestInputsFunc func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error)
 }
 
-func NewVMSnapshotSource(sourceVolumes *sourceVolumes, vmName string) *VMSnapshotSource {
+func NewVMSnapshotSource(sourceVolumes *sourceVolumes, vmName string, vmManifestInputsFunc func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error)) *VMSnapshotSource {
 	return &VMSnapshotSource{
-		sourceVolumes: sourceVolumes,
-		vmName:        vmName,
+		sourceVolumes:        sourceVolumes,
+		vmName:               vmName,
+		vmManifestInputsFunc: vmManifestInputsFunc,
 	}
 }
 
@@ -97,6 +100,21 @@ func (s *VMSnapshotSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport,
 	}
 
 	return 0, nil
+}
+
+func (s *VMSnapshotSource) ManifestData() (key string, data []byte, extra map[string]string, err error) {
+	if s.vmManifestInputsFunc == nil {
+		return "", nil, nil, nil
+	}
+	vm, dvs, err := s.vmManifestInputsFunc()
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return vmManifestData(vm, dvs)
+}
+
+func (s *VMSnapshotSource) SupportsOCI() bool {
+	return true
 }
 
 func (s *VMSnapshotSource) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport) error {

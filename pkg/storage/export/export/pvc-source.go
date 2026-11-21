@@ -81,6 +81,14 @@ func (s *PVCSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *c
 	return requeue, nil
 }
 
+func (s *PVCSource) ManifestData() (key string, data []byte, extra map[string]string, err error) {
+	return "", nil, nil, nil
+}
+
+func (s *PVCSource) SupportsOCI() bool {
+	return false
+}
+
 func (ctrl *VMExportController) handlePVC(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj

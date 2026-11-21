@@ -246,6 +246,14 @@ func (s *VMBackupSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, p
 	return requeue, nil
 }
 
+func (s *VMBackupSource) ManifestData() (key string, data []byte, extra map[string]string, err error) {
+	return "", nil, nil, nil
+}
+
+func (s *VMBackupSource) SupportsOCI() bool {
+	return false
+}
+
 func (ctrl *VMExportController) handleVMBackup(obj any) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
