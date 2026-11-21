@@ -61,15 +61,17 @@ func (c CPUDomainConfigurator) configureCPUTopology(vmi *v1.VirtualMachineInstan
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.isHotplugSupported {
-		minEnabledCPUCount := cpuTopology.Cores * cpuTopology.Threads
 		enabledCPUCount := cpuCount
 		cpuTopology.Sockets = vmiCPU.MaxSockets
 		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
 
 		VCPUs := &api.VCPUs{}
+		// Enabled vCPUs are never hotpluggable: a VM cannot live-unplug below
+		// its boot CPU count, and KVM fails to synchronize the TSC of vCPUs
+		// that libvirt device-adds after QEMU has started.
 		for id := uint32(0); id < cpuCount; id++ {
 			isEnabled := id < enabledCPUCount
-			isHotpluggable := id >= minEnabledCPUCount
+			isHotpluggable := !isEnabled
 			VCPUs.VCPU = append(VCPUs.VCPU, api.VCPUsVCPU{
 				ID:           id,
 				Enabled:      boolToYesNo(&isEnabled, true),
