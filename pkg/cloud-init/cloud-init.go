@@ -97,7 +97,7 @@ type DeviceData struct {
 }
 
 // ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
-// reads their content into a CloudInitData struct. Does not resolve secret refs.
+// reads their content and mounted secrets.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceDir string) (cloudInitData *CloudInitData, err error) {
 	// ClusterInstancetypeAnnotation will take precedence over a namespaced Instancetype
 	// for setting instance_type in the metadata
@@ -110,7 +110,8 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.CloudInitNoCloud != nil {
-			keys, err := resolveNoCloudSecrets(vmi, secretSourceDir)
+			volume.CloudInitNoCloud = volume.CloudInitNoCloud.DeepCopy()
+			keys, err := resolveNoCloudSecrets(volume, vmi.Spec.AccessCredentials, secretSourceDir)
 			if err != nil {
 				return nil, err
 			}
@@ -121,8 +122,8 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance, secretSourceD
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
-
-			keys, err := resolveConfigDriveSecrets(vmi, secretSourceDir)
+			volume.CloudInitConfigDrive = volume.CloudInitConfigDrive.DeepCopy()
+			keys, err := resolveConfigDriveSecrets(volume, vmi.Spec.AccessCredentials, secretSourceDir)
 			if err != nil {
 				return nil, err
 			}
@@ -189,20 +190,11 @@ func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceD
 	return keys, nil
 }
 
-// resolveNoCloudSecrets is looking for CloudInitNoCloud volumes with UserDataSecretRef
-// requests. It reads the `userdata` secret the corresponds to the given CloudInitNoCloud
-// volume and sets the UserData field on that volume.
-//
-// Note: when using this function, make sure that your code can access the secret volumes.
-func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) (map[string]string, error) {
-	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, isNoCloudAccessCredential)
+// resolveNoCloudSecrets reads SSH keys and applies mounted data to the copied source.
+func resolveNoCloudSecrets(volume v1.Volume, accessCredentials []v1.AccessCredential, secretSourceDir string) (map[string]string, error) {
+	keys, err := resolveSSHPublicKeys(accessCredentials, secretSourceDir, isNoCloudAccessCredential)
 	if err != nil {
 		return keys, err
-	}
-
-	volume := findCloudInitNoCloudSecretVolume(vmi.Spec.Volumes)
-	if volume == nil {
-		return keys, nil
 	}
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
@@ -228,20 +220,11 @@ func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir strin
 	return keys, nil
 }
 
-// resolveConfigDriveSecrets is looking for CloudInitConfigDriveSource volume source with
-// UserDataSecretRef and NetworkDataSecretRef and resolves the secret from the corresponding
-// VolumeMount.
-//
-// Note: when using this function, make sure that your code can access the secret volumes.
-func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir string) (map[string]string, error) {
-	keys, err := resolveSSHPublicKeys(vmi.Spec.AccessCredentials, secretSourceDir, isConfigDriveAccessCredential)
+// resolveConfigDriveSecrets reads SSH keys and applies mounted data to the copied source.
+func resolveConfigDriveSecrets(volume v1.Volume, accessCredentials []v1.AccessCredential, secretSourceDir string) (map[string]string, error) {
+	keys, err := resolveSSHPublicKeys(accessCredentials, secretSourceDir, isConfigDriveAccessCredential)
 	if err != nil {
 		return keys, err
-	}
-
-	volume := findCloudInitConfigDriveSecretVolume(vmi.Spec.Volumes)
-	if volume == nil {
-		return keys, nil
 	}
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
@@ -266,22 +249,6 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 	return keys, nil
 }
 
-// findCloudInitConfigDriveSecretVolume loops over a given list of volumes and return a pointer
-// to the first volume with a CloudInitConfigDrive source and UserDataSecretRef field set.
-func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
-	for _, volume := range volumes {
-		if volume.CloudInitConfigDrive == nil {
-			continue
-		}
-		if volume.CloudInitConfigDrive.UserDataSecretRef != nil ||
-			volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
-			return &volume
-		}
-	}
-
-	return nil
-}
-
 func readFirstFoundFileFromDir(basedir string, files []string) (string, error) {
 	var err error
 	var data string
@@ -302,21 +269,6 @@ func readFileFromDir(basedir, file string) (string, error) {
 		return "", err
 	}
 	return string(data), nil
-}
-
-// findCloudInitNoCloudSecretVolume loops over a given list of volumes and return a pointer
-// to the first CloudInitNoCloud volume with a UserDataSecretRef field set.
-func findCloudInitNoCloudSecretVolume(volumes []v1.Volume) *v1.Volume {
-	for _, volume := range volumes {
-		if volume.CloudInitNoCloud == nil {
-			continue
-		}
-		if volume.CloudInitNoCloud.UserDataSecretRef != nil ||
-			volume.CloudInitNoCloud.NetworkDataSecretRef != nil {
-			return &volume
-		}
-	}
-	return nil
 }
 
 func readRawOrBase64Data(rawData, base64Data string) (string, error) {
