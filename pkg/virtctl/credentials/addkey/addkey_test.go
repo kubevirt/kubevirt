@@ -113,7 +113,7 @@ var _ = Describe("Credentials add-ssh-key", func() {
 			"--file", "some-nonexisting-file.pub",
 			vmName,
 		)
-		Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
+		Expect(err).To(MatchError(os.ErrNotExist))
 	})
 
 	It("should fail if VM does not exist", func() {

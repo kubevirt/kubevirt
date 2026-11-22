@@ -229,7 +229,7 @@ var _ = Describe("Convert command", func() {
 
 		It("should fail when template file does not exist", func() {
 			_, err := runCmd(setFlag(fileFlag, filepath.Join(GinkgoT().TempDir(), "something")))
-			Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
+			Expect(err).To(MatchError(os.ErrNotExist))
 		})
 	})
 })

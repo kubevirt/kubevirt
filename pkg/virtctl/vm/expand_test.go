@@ -73,7 +73,7 @@ var _ = Describe("Expand command", func() {
 
 	It("should fail when input file does not exist", func() {
 		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--file", "invalid/path")
-		Expect(cmd()).To(MatchError("error reading file open invalid/path: no such file or directory"))
+		Expect(cmd()).To(MatchError(os.ErrNotExist))
 	})
 
 	DescribeTable("should succeed when called on vm with", func(extraArgs []string) {
