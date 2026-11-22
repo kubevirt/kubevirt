@@ -193,6 +193,27 @@ Typical cases where code regeneration should be triggered are:
 
 We have a check in our CI system so that you do not miss when `make generate` needs to be called.
 
+By default `make generate` runs every generator each time. To skip work whose
+inputs did not change since the last successful run, set
+`KUBEVIRT_GENERATE_INCREMENTAL=true`:
+
+```bash
+export KUBEVIRT_GENERATE_INCREMENTAL=true
+make generate
+```
+
+With this set, `make generate`:
+
+ * skips entirely when nothing changed since the last successful run
+ * runs only the steps affected by the change when only files under `pkg/`,
+   `cmd/` or `tests/` changed (for example, `go generate` only in the changed
+   directories)
+ * runs the full workflow for any other change, such as API types, `hack/` or
+   `vendor/`
+
+To force a full run, set `KUBEVIRT_GENERATE_FULL=true`. `make generate-verify`
+and CI (`CI=true`) always do a full run.
+
  * Another case is when kubevirtci is updated, in order to vendor cluster-up run `hack/bump-kubevirtci.sh` and then
    `make generate`
 

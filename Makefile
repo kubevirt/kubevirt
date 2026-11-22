@@ -50,15 +50,13 @@ bazel-test:
 gen-proto:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/gen-proto.sh"
 
+# Set KUBEVIRT_GENERATE_INCREMENTAL=true to skip work whose inputs did not
+# change since the last successful run. KUBEVIRT_GENERATE_FULL=true forces a
+# full run even then.
 generate:
-	hack/dockerized hack/build-ginkgo.sh
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
-	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
-	hack/dockerized hack/sync-kubevirtci.sh
-	hack/dockerized hack/common-instancetypes/sync.sh
-	hack/dockerized hack/virt-template/sync.sh
-	./hack/update-generated-api-testdata.sh
+	./hack/generate-incremental.sh
 
+generate-verify: export KUBEVIRT_GENERATE_FULL := true
 generate-verify: generate
 	./hack/verify-generate.sh
 	./hack/check-for-binaries.sh
