@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/dynamic-resource-allocation/resourceclaim"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -108,7 +110,7 @@ func resolveDevice(
 	}
 
 	for _, req := range md.Requests {
-		if req.Name == requestName {
+		if resourceclaim.BaseRequestRef(req.Name) == requestName {
 			if len(req.Devices) == 0 {
 				return nil, fmt.Errorf("request %q has no devices", requestName)
 			}

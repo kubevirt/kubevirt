@@ -22,6 +22,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
+        "//vendor/k8s.io/dynamic-resource-allocation/resourceclaim:go_default_library",
         "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

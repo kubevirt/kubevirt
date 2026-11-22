@@ -147,6 +147,21 @@ var _ = Describe("DownwardAPIAttributes", func() {
 			Expect(addr).To(Equal(pciAddr))
 		})
 
+		It("should resolve metadata when the claim request uses firstAvailable subrequest", func() {
+			pciAddr := pciAddr0400
+			md := metadataWithStringAttribute("my-gpu-claim", "gpu-request/any", metadata.PCIBusIDAttribute, pciAddr)
+			createMetadataFile("my-gpu-claim", "gpu-request", md)
+
+			resourceClaims := []v1.VirtualMachineInstanceResourceClaim{{
+				Name:              "vmi-claim-ref",
+				ResourceClaimName: ptr.To("my-gpu-claim"),
+			}}
+
+			addr, err := GetPCIAddressForClaim(tempDir, resourceClaims, "vmi-claim-ref", "gpu-request")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(addr).To(Equal(pciAddr))
+		})
+
 		It("should resolve metadata for template-generated claims (ResourceClaimTemplateName)", func() {
 			mdevUUID := "123e4567-e89b-12d3-a456-426614174000"
 			createTemplateMetadataFile("vmi-template-ref", "vgpu-request", &metadata.DeviceMetadata{
