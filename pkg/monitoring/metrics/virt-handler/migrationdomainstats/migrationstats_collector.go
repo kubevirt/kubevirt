@@ -37,6 +37,7 @@ var (
 			migrateVmiDirtyMemoryRate,
 			migrateVmiMemoryTransferRate,
 			migrateVmiLastDowntime,
+			migrateVmiCompressionRatio,
 		},
 		CollectCallback: migrationStatsCollectorCallback,
 	}
@@ -80,6 +81,13 @@ var (
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migration_last_downtime_duration_seconds",
 			Help: "Time, in seconds, the guest was paused during the cut-over of its last successful live migration, reported by the source node.",
+		},
+	)
+
+	migrateVmiCompressionRatio = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_compression_ratio",
+			Help: "Final compression ratio of the last successful live migration with compression enabled, reported by the source node.",
 		},
 	)
 )
@@ -136,6 +144,10 @@ func parse(r *result) []operatormetrics.CollectorResult {
 
 	if r.downtimeSet {
 		crs = append(crs, newCR(r, migrateVmiLastDowntime, domainstats.MillisecondsToSeconds(r.downtime)))
+	}
+
+	if r.compressionRatioSet {
+		crs = append(crs, newCR(r, migrateVmiCompressionRatio, r.compressionRatio))
 	}
 
 	return crs

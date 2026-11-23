@@ -197,6 +197,7 @@ func (h *handler) handleDomainCompletedMigrationStats(obj interface{}) {
 		downtimeSet: completedStats.DowntimeSet,
 		downtime:    completedStats.Downtime,
 	}
+	applyCompressionRatio(&r, completedStats, vmi, migrationUID)
 
 	h.Lock()
 	defer h.Unlock()
@@ -228,6 +229,27 @@ func hasNewerSuccessfulMigration(vmi *v1.VirtualMachineInstance, migrationUID st
 		string(migrationState.MigrationUID) != migrationUID &&
 		migrationState.StartTimestamp != nil &&
 		migrationState.StartTimestamp.Time.After(migrationStartTimestamp)
+}
+
+func applyCompressionRatio(r *result, stats *api.CompletedMigrationStats, vmi *v1.VirtualMachineInstance, migrationUID string) {
+	if !stats.CompressionRatioSet || !compressionEnabledForMigration(vmi, migrationUID) {
+		return
+	}
+	r.compressionRatioSet = true
+	r.compressionRatio = stats.CompressionRatio
+}
+
+func compressionEnabledForMigration(vmi *v1.VirtualMachineInstance, migrationUID string) bool {
+	migrationState := vmi.Status.MigrationState
+	if migrationState == nil || string(migrationState.MigrationUID) != migrationUID {
+		return false
+	}
+	opts := migrationState.VMIMConfigurationOptions
+	if opts == nil || opts.ExperimentalMigrationOptions == nil || opts.ExperimentalMigrationOptions.Compression == nil {
+		return false
+	}
+	compression := *opts.ExperimentalMigrationOptions.Compression
+	return compression != "" && compression != v1.MigrationCompressionNone
 }
 
 func (h *handler) vmiForCompletedStats(key string) (*v1.VirtualMachineInstance, bool) {

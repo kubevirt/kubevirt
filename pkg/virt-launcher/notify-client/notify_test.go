@@ -421,9 +421,11 @@ var _ = Describe("Notify", func() {
 
 		It("should convert and persist completed migration stats", func() {
 			domainJobInfo := libvirt.DomainJobInfo{
-				Operation:   libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
-				DowntimeSet: true,
-				Downtime:    150,
+				Operation:      libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT,
+				DowntimeSet:    true,
+				Downtime:       150,
+				DataProcessed:  100,
+				MemNormalBytes: 250,
 			}
 			metadataCache := metadata.NewCache()
 			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1"})
@@ -434,6 +436,8 @@ var _ = Describe("Notify", func() {
 			Expect(exists).To(BeTrue())
 			Expect(completedMigration.Stats.DowntimeSet).To(BeTrue())
 			Expect(completedMigration.Stats.Downtime).To(Equal(uint64(150)))
+			Expect(completedMigration.Stats.CompressionRatioSet).To(BeTrue())
+			Expect(completedMigration.Stats.CompressionRatio).To(Equal(2.5))
 			Expect(string(completedMigration.MigrationUID)).To(Equal("migration-1"))
 		})
 

@@ -63,6 +63,7 @@
 | kubevirt_vmi_memory_swap_out_traffic_bytes | Metric | Gauge | The total amount of memory written out to swap space of the guest in bytes. |
 | kubevirt_vmi_memory_unused_bytes | Metric | Gauge | The amount of memory left completely unused by the system. Memory that is available but used for reclaimable caches should NOT be reported as free. |
 | kubevirt_vmi_memory_usable_bytes | Metric | Gauge | The amount of memory which can be reclaimed by balloon without pushing the guest system to swap, corresponds to 'Available' in /proc/meminfo. |
+| kubevirt_vmi_migration_compression_ratio | Metric | Gauge | Final compression ratio (NormalData / DataProcessed) of the last successful live migration with compression enabled, reported by the source node. |
 | kubevirt_vmi_migration_data_bytes_total | Metric | Counter | The total Guest OS data to be migrated to the new VM. |
 | kubevirt_vmi_migration_data_processed_bytes | Metric | Gauge | The total Guest OS data processed and migrated to the new VM. |
 | kubevirt_vmi_migration_data_remaining_bytes | Metric | Gauge | The remaining guest OS data to be migrated to the new VM. |

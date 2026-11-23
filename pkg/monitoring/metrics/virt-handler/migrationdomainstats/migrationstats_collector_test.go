@@ -37,11 +37,13 @@ var _ = Describe("migration metrics", func() {
 
 	Context("on Collect", func() {
 		vmiStats := &result{
-			vmi:         "test-vmi-1",
-			namespace:   "test-namespace",
-			node:        "source-node",
-			downtimeSet: true,
-			downtime:    150,
+			vmi:                 "test-vmi-1",
+			namespace:           "test-namespace",
+			node:                "source-node",
+			downtimeSet:         true,
+			downtime:            150,
+			compressionRatioSet: true,
+			compressionRatio:    2.5,
 			domainJobInfo: stats.DomainJobInfo{
 				DataTotalSet:     true,
 				DataTotal:        3,
@@ -66,6 +68,7 @@ var _ = Describe("migration metrics", func() {
 			Entry("kubevirt_vmi_migration_dirty_memory_rate_bytes", migrateVmiDirtyMemoryRate, 3.0),
 			Entry("kubevirt_vmi_migration_memory_transfer_rate_bytes", migrateVmiMemoryTransferRate, 4.0),
 			Entry("kubevirt_vmi_migration_last_downtime_duration_seconds", migrateVmiLastDowntime, 0.15),
+			Entry("kubevirt_vmi_migration_compression_ratio", migrateVmiCompressionRatio, 2.5),
 		)
 
 		It("should publish a zero downtime when it was reported", func() {
