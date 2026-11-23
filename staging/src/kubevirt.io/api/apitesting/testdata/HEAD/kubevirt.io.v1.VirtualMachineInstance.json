@@ -1117,7 +1117,6 @@
             "stallProgressTimeout": -20,
             "switchoverTimeout": -17,
             "precopyPossibleFactor": "0",
-            "patienceWindowDecayFactor": "0",
             "searchLocalMinima": true,
             "completionTimeoutFactor": "0"
           },
