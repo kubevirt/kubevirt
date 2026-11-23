@@ -103,9 +103,10 @@ which components get updated first).
 ## When is a PR good enough?
 
 For defining the lowest acceptable standards the project relies on automation.
-People have to pass the automated check and they have to add unit tests and
-end-to-end tests for their features and fixes. All tests are run and required
-to pass on each PR.
+PRs must pass the required automated checks and provide adequate test coverage
+for all features and bug fixes at the appropriate level: unit, integration, or
+end-to-end. End-to-end tests are required only when explicitly called for by
+the change's testing requirements.
 Maintainers are allowed to take in code with varying quality for as long as the
 project's maintainability is not at stake and all required criterias are met
 (especially the testing and architectural criteria) to be open and inclusive.
@@ -120,5 +121,13 @@ The lowest bar for acceptable golang **coding standards** (anti-patterns, coding
   analyzers when one builds kubevirt. If a check fails the build fails.
 
 The lowest **testing bar** to pass:
-* New code requires new unit tests.
-* New features and bug fixes require at least on e2e test (the core case must be tested).
+* All features and bug fixes require adequate test coverage of the core behavior.
+* Choose unit, integration, or end-to-end tests according to the behavior being
+  verified. Prefer the lowest level that reliably exercises the behavior and,
+  for bug fixes, prevents the regression.
+* Add end-to-end tests when correctness depends on runtime interactions that
+  unit or integration fixtures cannot adequately reproduce, such as interactions
+  with QEMU/libvirt, the guest, or Kubernetes components. For example, verifying
+  that a VM remains operational after live migration requires exercising the
+  running virtualization stack; checking the generated migration configuration
+  alone cannot establish this.
