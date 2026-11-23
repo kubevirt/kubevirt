@@ -51,7 +51,6 @@ const (
 	DefaultSwitchoverTimeout                 int64  = 60
 	DefaultEwmaAlpha                                = "0.4"
 	DefaultPrecopyPossibleFactor                    = "1.5"
-	DefaultPatienceWindowDecayFactor                = "0.5"
 	DefaultSearchLocalMinima                 bool   = true
 	DefaultCompletionTimeoutFactor                  = "2"
 	StallDetectorFactorPrecision                    = 3

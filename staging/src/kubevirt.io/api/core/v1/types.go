@@ -3676,14 +3676,9 @@ type StallDetectorOptions struct {
 	// Defaults to 1.5.
 	//+optional
 	PrecopyPossibleFactor *resource.Quantity `json:"precopyPossibleFactor,omitempty"`
-	// PatienceWindowDecayFactor is the factor by which the relaxation patience window is
-	// multiplied after each best-remaining-bytes relaxation step.
-	// Defaults to 0.5.
-	//+optional
-	PatienceWindowDecayFactor *resource.Quantity `json:"patienceWindowDecayFactor,omitempty"`
-	// SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
-	// reach a local minimum near the best observed value. When false, actions may trigger
-	// as soon as a stall is detected.
+	// SearchLocalMinima controls whether convergence actions wait for remaining bytes
+	// to approach the minimum within the sliding window. When false, actions may
+	// trigger as soon as a stall is detected.
 	// Defaults to true.
 	//+optional
 	SearchLocalMinima *bool `json:"searchLocalMinima,omitempty"`

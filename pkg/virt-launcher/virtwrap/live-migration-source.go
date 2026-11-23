@@ -480,7 +480,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 		monitor.stallDetector = newStallDetector(options, allowPostCopy, vmitrait.HasVFIO(vmi))
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
-				"stallMargin=%d%% stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%g patienceWindowDecayFactor=%g bandwidthEWMAAlpha=%g searchLocalMinima=%t completionTimeoutFactor=%g",
+				"stallMargin=%d%% stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%g bandwidthEWMAAlpha=%g searchLocalMinima=%t completionTimeoutFactor=%g",
 			stallDetectorEnabled,
 			options.ProgressTimeout,
 			options.CompletionTimeoutPerGiB,
@@ -491,7 +491,6 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 			options.StallDetectorOptions.StallProgressTimeout,
 			options.StallDetectorOptions.SwitchoverTimeout,
 			options.StallDetectorOptions.PrecopyPossibleFactor.AsApproximateFloat64(),
-			options.StallDetectorOptions.PatienceWindowDecayFactor.AsApproximateFloat64(),
 			options.StallDetectorOptions.EwmaAlpha.AsApproximateFloat64(),
 			options.StallDetectorOptions.SearchLocalMinima,
 			options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64(),

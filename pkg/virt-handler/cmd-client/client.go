@@ -69,14 +69,13 @@ const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 var ErrNoSocketFound = errors.New("no sockets found for VMI")
 
 type StallDetectorOptions struct {
-	StallMargin               int64
-	StallProgressTimeout      int64
-	SwitchoverTimeout         int64
-	EwmaAlpha                 resource.Quantity
-	PrecopyPossibleFactor     resource.Quantity
-	PatienceWindowDecayFactor resource.Quantity
-	SearchLocalMinima         bool
-	CompletionTimeoutFactor   resource.Quantity
+	StallMargin             int64
+	StallProgressTimeout    int64
+	SwitchoverTimeout       int64
+	EwmaAlpha               resource.Quantity
+	PrecopyPossibleFactor   resource.Quantity
+	SearchLocalMinima       bool
+	CompletionTimeoutFactor resource.Quantity
 }
 
 type MigrationOptions struct {

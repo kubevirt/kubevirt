@@ -754,14 +754,13 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 			Expect(options.StallDetectorOptions).ToNot(BeNil())
 			Expect(options.StallDetectorOptions).To(Equal(&cmdclient.StallDetectorOptions{
-				StallMargin:               virtconfig.DefaultStallMargin,
-				StallProgressTimeout:      virtconfig.DefaultStallProgressTimeout,
-				SwitchoverTimeout:         virtconfig.DefaultSwitchoverTimeout,
-				EwmaAlpha:                 resource.MustParse(virtconfig.DefaultEwmaAlpha),
-				PrecopyPossibleFactor:     resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor),
-				PatienceWindowDecayFactor: resource.MustParse(virtconfig.DefaultPatienceWindowDecayFactor),
-				SearchLocalMinima:         virtconfig.DefaultSearchLocalMinima,
-				CompletionTimeoutFactor:   resource.MustParse(virtconfig.DefaultCompletionTimeoutFactor),
+				StallMargin:             virtconfig.DefaultStallMargin,
+				StallProgressTimeout:    virtconfig.DefaultStallProgressTimeout,
+				SwitchoverTimeout:       virtconfig.DefaultSwitchoverTimeout,
+				EwmaAlpha:               resource.MustParse(virtconfig.DefaultEwmaAlpha),
+				PrecopyPossibleFactor:   resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor),
+				SearchLocalMinima:       virtconfig.DefaultSearchLocalMinima,
+				CompletionTimeoutFactor: resource.MustParse(virtconfig.DefaultCompletionTimeoutFactor),
 			}))
 		}).Times(1).Return(nil)
 

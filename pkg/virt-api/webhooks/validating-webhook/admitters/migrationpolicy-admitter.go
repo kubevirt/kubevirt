@@ -160,12 +160,6 @@ func (admitter *MigrationPolicyAdmitter) Admit(_ context.Context, ar *admissionv
 			false,
 		)...)
 		causes = append(causes, validateStallDetectorFactor(
-			stallDetectorField.Child("patienceWindowDecayFactor"),
-			sd.PatienceWindowDecayFactor,
-			0, 1,
-			false,
-		)...)
-		causes = append(causes, validateStallDetectorFactor(
 			stallDetectorField.Child("completionTimeoutFactor"),
 			sd.CompletionTimeoutFactor,
 			1, math.MaxFloat64,
