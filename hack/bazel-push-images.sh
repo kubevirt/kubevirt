@@ -86,6 +86,98 @@ else
     ALT_TARGETS=(${PUSH_TARGETS[@]})
 fi
 
+if [[ "${BAZEL_IMAGE_REGISTRY:-}" == "1" ]]; then
+    if [[ -n "${image_prefix_alt:-}" || -v PUSH_TARGETS_ALT && "${PUSH_TARGETS_ALT}" != "${PUSH_TARGETS[*]}" ]]; then
+        echo "Bazel image registry does not support alternate image prefixes or target sets" >&2
+        exit 2
+    fi
+    if [[ "${BUILD_ARCH//,/ }" == *" "* ]]; then
+        echo "Bazel image registry currently requires a single build architecture" >&2
+        exit 2
+    fi
+
+    targets=("${PUSH_TARGETS[@]}" virt-template-apiserver virt-template-controller)
+    push_query_targets=()
+    for target in "${targets[@]}"; do
+        push_query_targets+=("//:push-${target}")
+    done
+    query_output=$(bazel query --output=build "set(${push_query_targets[*]})")
+
+    image_labels=()
+    image_specs=()
+    for target in "${targets[@]}"; do
+        image_label=$(printf '%s\n' "${query_output}" |
+            sed -n "/name = \"push-${target}\"/,/^)/{s/^[[:space:]]*image = \"\([^\"]*\)\".*/\1/p;}" |
+            head -n1)
+        if [[ -z "${image_label}" ]]; then
+            echo "Unable to find image target for //:push-${target}" >&2
+            exit 1
+        fi
+        image_labels+=("${image_label}")
+        image_tag=${docker_tag}
+        if [[ "${target}" == virt-template-* ]]; then
+            image_tag=${VIRT_TEMPLATE_VERSION:-v0.3.0}
+        elif [[ -n "${docker_tag_alt}" ]]; then
+            image_specs+=("${target}@${docker_tag_alt}=${image_label}")
+        fi
+        image_specs+=("${target}@${image_tag}=${image_label}")
+    done
+
+    bazel build \
+        --config="${ARCHITECTURE}" ${BAZEL_CS_CONFIG} \
+        --output_groups=oci_tarball \
+        --define container_prefix= \
+        --define image_prefix= \
+        --define container_tag= \
+        "${image_labels[@]}"
+
+    registry_args=(
+        --listen-address "${BAZEL_REGISTRY_LISTEN_ADDRESS:-0.0.0.0}"
+        --port "${BAZEL_REGISTRY_PORT:-5001}"
+        --tag "${docker_tag}"
+        --repository-prefix "${BAZEL_REGISTRY_REPOSITORY_PREFIX:-kubevirt/${image_prefix:-}}"
+        --advertise "${BAZEL_REGISTRY_ADVERTISE:-127.0.0.1}"
+    )
+    for spec in "${image_specs[@]}"; do
+        target=${spec%%@*}
+        image_tag=${spec#*@}
+        image_tag=${image_tag%%=*}
+        image_label=${spec#*=}
+        label_path=${image_label#//}
+        package=${label_path%%:*}
+        image_target=${label_path##*:}
+        layout="bazel-bin/${package}/${image_target}_oci_layout.tar"
+        registry_args+=(--image "${target}@${image_tag}=${layout}")
+    done
+
+    pid_file="${TMPDIR:-/tmp}/kubevirt-bazel-image-registry.pid"
+    log_file="${TMPDIR:-/tmp}/kubevirt-bazel-image-registry.log"
+    if [[ -f "${pid_file}" ]] && kill -0 "$(cat "${pid_file}")" 2>/dev/null; then
+        old_registry_pid=$(cat "${pid_file}")
+        kill -TERM "${old_registry_pid}"
+        for _ in $(seq 1 30); do
+            kill -0 "${old_registry_pid}" 2>/dev/null || break
+            sleep 0.1
+        done
+        if kill -0 "${old_registry_pid}" 2>/dev/null; then
+            echo "Bazel image registry process ${old_registry_pid} did not stop" >&2
+            exit 1
+        fi
+    fi
+    rm -f "${pid_file}"
+    nohup python3 -u hack/bazel_image_registry.py "${registry_args[@]}" >"${log_file}" 2>&1 </dev/null &
+    registry_pid=$!
+    echo "${registry_pid}" >"${pid_file}"
+    sleep 1
+    if ! kill -0 "${registry_pid}" 2>/dev/null; then
+        cat "${log_file}" >&2
+        rm -f "${pid_file}"
+        exit 1
+    fi
+    cat "${log_file}"
+    exit 0
+fi
+
 for tag in ${docker_tag} ${docker_tag_alt}; do
     if [[ ${tag} == "${docker_tag}" ]]; then
         targets=(${PUSH_TARGETS[@]})

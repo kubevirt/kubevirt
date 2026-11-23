@@ -17,6 +17,7 @@ def virt_template_images():
     pull(
         name = "virt_template_apiserver",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_AMD64,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-apiserver",
     )
@@ -24,6 +25,7 @@ def virt_template_images():
     pull(
         name = "virt_template_apiserver_aarch64",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_ARM64,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-apiserver",
     )
@@ -31,6 +33,7 @@ def virt_template_images():
     pull(
         name = "virt_template_apiserver_s390x",
         digest = VIRT_TEMPLATE_APISERVER_DIGEST_S390X,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-apiserver",
     )
@@ -38,6 +41,7 @@ def virt_template_images():
     pull(
         name = "virt_template_controller",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_AMD64,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-controller",
     )
@@ -45,6 +49,7 @@ def virt_template_images():
     pull(
         name = "virt_template_controller_aarch64",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_ARM64,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-controller",
     )
@@ -52,6 +57,7 @@ def virt_template_images():
     pull(
         name = "virt_template_controller_s390x",
         digest = VIRT_TEMPLATE_CONTROLLER_DIGEST_S390X,
+        layer_handling = "eager",
         registry = "quay.io",
         repository = "kubevirt/virt-template-controller",
     )

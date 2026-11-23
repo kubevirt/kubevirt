@@ -193,6 +193,12 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 
+cluster-sync-registry-stop:
+	hack/dockerized "./hack/cluster-sync-registry.sh stop"
+
+cluster-sync-registry-test:
+	python3 -m unittest discover -s hack -p 'test_bazel_image_registry.py'
+
 builder-build:
 	./hack/builder/build.sh
 
@@ -302,6 +308,8 @@ rpm-mirror-checker:
 	cluster-clean \
 	cluster-deploy \
 	cluster-sync \
+	cluster-sync-registry-stop \
+	cluster-sync-registry-test \
 	olm-verify \
 	olm-push \
 	coverage \

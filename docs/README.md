@@ -60,4 +60,25 @@ the VMI's pod and receives lifecycle commands from virt-handler.
  * `make cluster-sync`: After deploying a fresh environment, or after making
    changes to code in this tree, this command will sync the Pods and DaemonSets
    in the running KubeVirt environment with the state of this tree.
+   To run the full sync without pushing images, set `CLUSTER_SYNC_NO_PUSH=true`
+   and point `DOCKER_PREFIX` at a node-reachable address for the Bazel registry:
+   ```bash
+   CLUSTER_SYNC_NO_PUSH=true \
+   DOCKER_PREFIX=192.168.1.10:5001/kubevirt \
+   BAZEL_REGISTRY_ADVERTISE=192.168.1.10 \
+     make cluster-sync KUBEVIRT_PROVIDER=k8s-1.37
+   ```
+   This builds the image targets used by cluster-sync, including test and
+   virt-template images, and serves the Bazel OCI layouts directly. No-push
+   cluster-sync currently supports one build architecture per run and does not
+   support cross-architecture emulation images. The registry keeps running in
+   the Bazel builder container after the sync, so it can serve
+   a recreated cluster until stopped with `make cluster-sync-registry-stop`.
+   Configure every cluster node to trust the HTTP registry before pulling:
+
+   ```toml
+   [[registry]]
+   location = "192.168.1.10:5001"
+   insecure = true
+   ```
  * `make cluster-down`: This will tear down a running KubeVirt environment.

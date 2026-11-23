@@ -19,6 +19,7 @@ hack/config-provider-*
 cluster/.console.vv
 build-tools/desc/desc
 hack/config-local.sh
+hack/__pycache__/
 tags
 .GeneratedDockerfile
 .gradle
