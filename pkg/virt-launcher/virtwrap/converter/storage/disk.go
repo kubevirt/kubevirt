@@ -258,8 +258,8 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 			usedDeviceMap:   make(map[string]string),
 		}
 	}
-	deviceNamer := prefixMap[prefix]
-	if name, ok := deviceNamer.getExistingVolumeValue(diskName); ok {
+	namer := prefixMap[prefix]
+	if name, ok := namer.getExistingVolumeValue(diskName); ok {
 		for i := range 26 * 26 * 26 {
 			calculatedName := formatDeviceName(prefix, i)
 			if calculatedName == name {
@@ -272,9 +272,9 @@ func makeDeviceName(diskName string, bus v1.DiskBus, prefixMap map[string]device
 	// Name not found yet, generate next new one.
 	for i := range 26 * 26 * 26 {
 		name := formatDeviceName(prefix, i)
-		if _, ok := deviceNamer.getExistingTargetValue(name); !ok {
-			deviceNamer.existingNameMap[diskName] = name
-			deviceNamer.usedDeviceMap[name] = diskName
+		if _, ok := namer.getExistingTargetValue(name); !ok {
+			namer.existingNameMap[diskName] = name
+			namer.usedDeviceMap[name] = diskName
 			return name, i
 		}
 	}
