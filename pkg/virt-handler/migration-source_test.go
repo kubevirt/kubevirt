@@ -53,6 +53,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -702,6 +703,33 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 					Expect(options.ParallelMigrationThreads).To(BeNil())
+				}).Times(1).Return(nil)
+
+				controller.Execute()
+				testutils.ExpectEvent(recorder, VMIMigrating)
+			},
+				Entry("if CPU is limited", k8sv1.ResourceList{k8sv1.ResourceCPU: resource.MustParse("4")}, nil),
+				Entry("if CPU is dedicated", nil, &v1.CPU{DedicatedCPUPlacement: true, Cores: 2, Sockets: 1, Threads: 1}),
+			)
+
+			DescribeTable("should skip compression when multifd is unavailable", func(vmiLimits k8sv1.ResourceList, cpu *v1.CPU) {
+				vmi.Spec.Domain.Resources.Limits = vmiLimits
+				vmi.Spec.Domain.CPU = cpu
+				vmi.Status.MigrationState.VMIMConfigurationOptions = &v1.VMIMConfigurationOptions{
+					BandwidthPerMigration:   new(resource.MustParse("0Mi")),
+					ProgressTimeout:         new(int64(150)),
+					CompletionTimeoutPerGiB: new(int64(150)),
+					UnsafeMigrationOverride: new(false),
+					AllowAutoConverge:       new(false),
+					AllowPostCopy:           new(false),
+					AdvancedMigrationOptions: &v1.AdvancedMigrationOptions{
+						Compression: pointer.P(v1.MigrationCompressionZstd),
+					},
+				}
+
+				client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).Do(func(_ *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
+					Expect(options.ParallelMigrationThreads).To(BeNil())
+					Expect(options.Compression).To(BeNil())
 				}).Times(1).Return(nil)
 
 				controller.Execute()
