@@ -8,7 +8,6 @@ go_library(
         "grpcutil.go",
         "metadata.go",
         "method.go",
-        "regex.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/grpcutil",
     importpath = "google.golang.org/grpc/internal/grpcutil",

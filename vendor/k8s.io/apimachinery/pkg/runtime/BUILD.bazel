@@ -12,6 +12,8 @@ go_library(
         "embedded.go",
         "error.go",
         "extension.go",
+        "fieldinfo_126.go",
+        "fieldinfo_127.go",
         "generated.pb.go",
         "helper.go",
         "interfaces.go",

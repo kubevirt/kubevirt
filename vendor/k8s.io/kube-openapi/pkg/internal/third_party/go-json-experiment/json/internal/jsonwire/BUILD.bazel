@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "decode.go",
+        "encode.go",
+        "wire.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/internal/jsonwire",
+    importpath = "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/internal/jsonwire",
+    visibility = ["//vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json:__subpackages__"],
+    deps = ["//vendor/k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/internal/jsonflags:go_default_library"],
+)
