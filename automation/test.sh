@@ -257,6 +257,10 @@ set_lane_push_targets() {
       ;;
     sig-compute)
       export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-ext-kernel-boot-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo cirros-custom-container-disk-demo disks-images-provider example-cloudinit-hook-sidecar example-hook-sidecar fedora-with-test-tooling-container-disk sidecar-shim virt-exportproxy virtio-container-disk"
+      # Periodic jobs execute both serial and parallel tests, they need additional targets
+      if [[ $JOB_NAME == periodic-* ]]; then
+        export PUSH_TARGETS="${PUSH_TARGETS} example-node-hook-plugin test-launcher-hook-sidecar"
+      fi
       ;;
     sig-monitoring)
       export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo disks-images-provider fedora-with-test-tooling-container-disk virt-exportproxy"
