@@ -792,4 +792,25 @@ var _ = Describe("PVC source", func() {
 		Expect(updated.Status.Links.Internal.Manifests).ToNot(ContainElement(
 			HaveField("Type", exportv1.OCI)))
 	})
+
+	It("Should return manifest data for a VM source", func() {
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumes())
+		controller.PVCInformer.GetStore().Add(createPVC("volume1", "kubevirt"))
+		controller.PVCInformer.GetStore().Add(createPVC("volume2", "kubevirt"))
+
+		testVMExport := createVMVMExport()
+		source := NewVMSource(&sourceVolumes{}, func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error) {
+			return controller.getVMManifestInputs(testVMExport.Namespace, testVMExport.Spec.Source.Name)
+		})
+
+		key, data, extra, err := source.ManifestData()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(key).To(Equal(vmManifest))
+		Expect(data).ToNot(BeEmpty())
+		Expect(extra).ToNot(BeEmpty())
+	})
+
+	It("Should support OCI export", func() {
+		Expect(NewVMSource(&sourceVolumes{}, nil).SupportsOCI()).To(BeTrue())
+	})
 })

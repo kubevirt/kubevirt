@@ -20,6 +20,7 @@
 package export
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -39,12 +41,14 @@ import (
 )
 
 type VMSource struct {
-	sourceVolumes *sourceVolumes
+	sourceVolumes        *sourceVolumes
+	vmManifestInputsFunc func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error)
 }
 
-func NewVMSource(sourceVolumes *sourceVolumes) *VMSource {
+func NewVMSource(sourceVolumes *sourceVolumes, vmManifestInputsFunc func() (*virtv1.VirtualMachine, []*cdiv1.DataVolume, error)) *VMSource {
 	return &VMSource{
-		sourceVolumes: sourceVolumes,
+		sourceVolumes:        sourceVolumes,
+		vmManifestInputsFunc: vmManifestInputsFunc,
 	}
 }
 
@@ -90,6 +94,76 @@ func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *co
 	}
 
 	return requeue, nil
+}
+
+func (s *VMSource) ManifestData() (key string, data []byte, extra map[string]string, err error) {
+	if s.vmManifestInputsFunc == nil {
+		return "", nil, nil, nil
+	}
+	vm, dvs, err := s.vmManifestInputsFunc()
+	if err != nil {
+		return "", nil, nil, err
+	}
+	return vmManifestData(vm, dvs)
+}
+
+func (s *VMSource) SupportsOCI() bool {
+	return true
+}
+
+func vmManifestData(vm *virtv1.VirtualMachine, dvs []*cdiv1.DataVolume) (key string, data []byte, extra map[string]string, err error) {
+	if vm == nil {
+		return "", nil, nil, nil
+	}
+
+	data, err = generateVMDefinitionFromVm(vm)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	extra, err = extraVMData(dvs)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	return vmManifest, data, extra, nil
+}
+
+func generateVMDefinitionFromVm(vm *virtv1.VirtualMachine) ([]byte, error) {
+	expandedVm := vm.DeepCopy()
+	// Clear status
+	expandedVm.Status = virtv1.VirtualMachineStatus{}
+	expandedVm.ManagedFields = nil
+	cleanedObjectMeta := metav1.ObjectMeta{}
+	cleanedObjectMeta.Name = expandedVm.ObjectMeta.Name
+	cleanedObjectMeta.Namespace = expandedVm.ObjectMeta.Namespace
+	cleanedObjectMeta.Labels = expandedVm.ObjectMeta.Labels
+	cleanedObjectMeta.Annotations = expandedVm.Annotations
+	expandedVm.ObjectMeta = cleanedObjectMeta
+
+	// Update dvTemplates if exists
+	expandedVm, err := updateHttpSourceDataVolumeTemplate(expandedVm)
+	if err != nil {
+		return nil, err
+	}
+	vmBytes, err := json.Marshal(expandedVm)
+	if err != nil {
+		return nil, err
+	}
+	return vmBytes, nil
+}
+
+func extraVMData(dvs []*cdiv1.DataVolume) (map[string]string, error) {
+	extra := make(map[string]string)
+	for _, datavolume := range dvs {
+		if datavolume != nil {
+			dvBytes, err := json.Marshal(datavolume)
+			if err != nil {
+				return nil, err
+			}
+			extra[fmt.Sprintf("dv-%s", datavolume.Name)] = string(dvBytes)
+		}
+	}
+	return extra, nil
 }
 
 func (ctrl *VMExportController) handleVMExport(obj interface{}) {
