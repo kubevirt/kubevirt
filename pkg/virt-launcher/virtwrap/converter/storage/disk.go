@@ -85,7 +85,9 @@ func setErrorPolicy(diskDevice *v1.Disk, disk *api.Disk) error {
 	return nil
 }
 
-func convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc) error {
+func convert_v1_BlockSize_To_api_BlockIO(
+	source *v1.Disk, disk *api.Disk, arch string, detectOptimalBlockIO OptimalBlockIODetectFunc,
+) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -340,7 +342,14 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
-func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, ioThreadPool *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint, useSupplementalPool bool) (uint, uint) {
+func assignDiskIOThread(
+	disk *v1.Disk,
+	apiDisk *api.Disk,
+	ioThreadPool *api.DiskIOThreads,
+	autoThreads int,
+	currentDedicatedThread, currentAutoThread uint,
+	useSupplementalPool bool,
+) (uint, uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
 		// if using supplementalPool, always assign the entire pool
 		if useSupplementalPool {
