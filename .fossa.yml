@@ -5,6 +5,7 @@ version: 3
 project:
   id: git@github.com:kubevirt/kubevirt.git
   url: github.com/kubevirt/kubevirt
+  team: Kubevirt
 
 target:
   only:
