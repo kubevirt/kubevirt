@@ -95,5 +95,50 @@ var _ = Describe("Premigration Hook Server", func() {
 			By("ensuring the generated XML is accurate")
 			Expect(newXML).To(MatchXML(expectedXML), "the target XML is not as expected")
 		})
+
+		It("should leave the domain features untouched", func() {
+			// avic, emsr_bitmap and xmm_input cannot be represented by api.Features
+			domXML := `<domain type="kvm" id="1">
+  <name>kubevirt</name>
+  <vcpu placement="static">2</vcpu>
+  <cputune>
+    <vcpupin vcpu="0" cpuset="4"></vcpupin>
+    <vcpupin vcpu="1" cpuset="5"></vcpupin>
+  </cputune>
+  <features>
+    <hyperv mode="custom">
+      <relaxed state="on"/>
+      <avic state="on"/>
+      <emsr_bitmap state="on"/>
+      <xmm_input state="on"/>
+    </hyperv>
+    <kvm>
+      <hint-dedicated state="on"/>
+    </kvm>
+  </features>
+</domain>`
+			vmi := libvmi.New(
+				libvmi.WithName("kubevirt"),
+				libvmi.WithNamespace("testns"),
+				libvmi.WithCPUCount(2, 0, 0),
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithArchitecture("amd64"),
+			)
+			c := &convertertypes.ConverterContext{
+				CPUSet: []int{6, 7},
+				Topology: &cmdv1.Topology{NumaCells: []*cmdv1.Cell{{
+					Id:   0,
+					Cpus: []*cmdv1.CPU{{Id: 6, Siblings: []uint32{6}}, {Id: 7, Siblings: []uint32{7}}},
+				}}},
+			}
+
+			var domain, original libvirtxml.Domain
+			Expect(domain.Unmarshal(domXML)).To(Succeed())
+			Expect(original.Unmarshal(domXML)).To(Succeed())
+
+			Expect(cpuhook.CPUDedicatedHook(c, vmi, &domain)).To(Succeed())
+
+			Expect(domain.Features).To(Equal(original.Features))
+		})
 	})
 })
