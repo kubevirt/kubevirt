@@ -38,7 +38,7 @@ func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bo
 	desiredNets := vm.Spec.Template.Spec.Networks
 	currentNets := vmi.Spec.Networks
 
-	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved}
+	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved, haveNewDRANetworkBeenAdded}
 	if vmi.IsMigratable() {
 		netChangePredicates = append(netChangePredicates, haveNetsChangedIgnoringNADName)
 	} else {
@@ -115,6 +115,20 @@ func areNormalizedIfacesEqual(iface1, iface2 v1.Interface) bool {
 func haveCurrentNetsBeenRemoved(desiredNetsByName, currentNetsByName map[string]v1.Network) bool {
 	for currentNetName := range currentNetsByName {
 		if _, desiredNetExists := desiredNetsByName[currentNetName]; !desiredNetExists {
+			return true
+		}
+	}
+
+	return false
+}
+
+// haveNewDRANetworkBeenAdded checks if a DRA network, absent from the VMI spec,
+// was added to the VM spec. DRA networks require a resource claim to be
+// allocated for the virt-launcher pod, which is only possible at pod creation;
+// without a restart such a network would silently never be plugged.
+func haveNewDRANetworkBeenAdded(desiredNetsByName, currentNetsByName map[string]v1.Network) bool {
+	for netName, net := range desiredNetsByName {
+		if _, currentNetExists := currentNetsByName[netName]; !currentNetExists && vmispec.IsDRANetwork(net) {
 			return true
 		}
 	}

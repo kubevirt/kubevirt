@@ -56,6 +56,12 @@ var _ = Describe("IsRestartRequired", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
 			),
 		),
+		Entry("With a DRA network",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+				libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
+			),
+		),
 	)
 
 	It("should not require restart when networks are added", func() {
@@ -233,5 +239,47 @@ var _ = Describe("IsRestartRequired", func() {
 		)
 
 		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+	})
+
+	It("should require restart when a DRA network is added", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+			libvmi.WithInterface(libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
+		)
+
+		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
+
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces,
+			libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()),
+		)
+		vm.Spec.Template.Spec.Networks = append(
+			vm.Spec.Template.Spec.Networks,
+			*libvmi.DRANetwork(secondaryNetName1, "claim1", "vf"),
+		)
+
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+	})
+
+	It("should not require restart when a Multus network is added to a VM with DRA networks", func() {
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
+		)
+
+		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
+
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces,
+			libvmi.NewInterface(secondaryNetName1, libvmi.WithBridgeBinding()),
+		)
+		vm.Spec.Template.Spec.Networks = append(
+			vm.Spec.Template.Spec.Networks,
+			*libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1),
+		)
+
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
 	})
 })
