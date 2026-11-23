@@ -9,22 +9,6 @@ source $(dirname "$0")/config.sh
 CLIENT_GEN_BASE=kubevirt.io/client-go
 
 # KubeVirt stuff
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/schema.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/plugin/v1alpha1/types.go
-
 deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \

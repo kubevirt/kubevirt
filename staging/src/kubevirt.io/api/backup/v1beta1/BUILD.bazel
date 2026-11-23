@@ -7,7 +7,6 @@ go_library(
         "doc.go",
         "register.go",
         "types.go",
-        "types_swagger_generated.go",
         "zz_generated.model_name.go",
     ],
     importpath = "kubevirt.io/api/backup/v1beta1",
