@@ -3641,10 +3641,10 @@ type TLSConfiguration struct {
 }
 
 type StallDetectorOptions struct {
-	// StallMargin is the fractional tolerance, expressed as a percentage, used when
-	// comparing remaining migration bytes against the best observed value to detect stalls
-	// and local minima. A stall is reported when remaining bytes stay above
-	// (1 - StallMargin/100) of the outside-window minimum.
+	// StallMargin is the percentage tolerance for detecting stalls and choosing switchover.
+	// A stall is detected when remaining bytes are at least (1 - StallMargin/100) of the
+	// minimum outside the window. Switchover qualifies at or below (1 + StallMargin/100)
+	// of the minimum inside the window when local minimum search is enabled.
 	// Defaults to 4.
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:Maximum=100
@@ -3657,8 +3657,10 @@ type StallDetectorOptions struct {
 	// Defaults to 0.4.
 	//+optional
 	EwmaAlpha *resource.Quantity `json:"ewmaAlpha,omitempty"`
-	// StallProgressTimeout is the duration in seconds of the sliding window used to track
-	// minimum remaining-bytes and detect when migration progress has stalled.
+	// StallProgressTimeout is the duration in seconds of the sliding window used to
+	// detect stalled migration progress and select local minima for switchover. Smaller
+	// values reduce total migration time while potentially increasing downtime. Similarly,
+	// larger values increase total migration time but could reduce downtime.
 	// Defaults to 40.
 	//+optional
 	// +kubebuilder:validation:Minimum=0

@@ -477,13 +477,7 @@ func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager
 	if stallDetectorEnabled {
 		monitor.iterationCh = make(chan int, 16)
 		monitor.switchOverDeadline = monitor.acceptableCompletionTime
-		monitor.stallDetector = &stallDetector{
-			stallDetectorOptions:    *options.StallDetectorOptions,
-			maxDowntimeMs:           options.MaxDowntimeMs,
-			allowPostCopy:           allowPostCopy,
-			allowWorkloadDisruption: options.AllowWorkloadDisruption,
-			hasVFIO:                 vmitrait.HasVFIO(vmi),
-		}
+		monitor.stallDetector = newStallDetector(options, allowPostCopy, vmitrait.HasVFIO(vmi))
 		monitor.logger.V(3).Infof(
 			"initialized migration monitor: stallDetection=%t progressTimeout=%ds completionTimeoutPerGiB=%d maxDowntimeMs=%d allowPostCopy=%t allowWorkloadDisruption=%t "+
 				"stallMargin=%d%% stallProgressTimeout=%ds switchoverTimeout=%ds preCopyPossibleFactor=%g patienceWindowDecayFactor=%g bandwidthEWMAAlpha=%g searchLocalMinima=%t completionTimeoutFactor=%g",
@@ -772,12 +766,9 @@ func (m *migrationMonitor) reconcilePauseState(dom cli.VirDomain, logger *log.Fi
 
 func (m *migrationMonitor) handleStallDetection(dom cli.VirDomain, stats *libvirt.DomainJobInfo, elapsedNs int64, isIterationBoundary bool, logger *log.FilteredLogger) {
 
-	// This stall detection mechanism implements VEP 248. In each iteration, pre-copy tries to transfer VM state data (i.e.
-	// memory) from source to target. Multiple iterations are required because as the VM transfers data it is
-	// actively dirtying new memory. For high-dirty rate VMs with a large writable working set, we would never
-	// converge. Stall detection tracks how many bytes are left and if with in a progress timeout window we make
-	// little to no progress we are stalled. Then the goal is to manually force trigger switch-over at a local minima
-	// of remaining bytes. See VEP for more details.
+	// VEP 248 detects a stall by comparing remaining bytes at iteration boundaries
+	// with the minimum outside the progress window. After stall, the minimum
+	// inside that window guides switchover timing.
 	sd := m.stallDetector
 
 	if !sd.initialMaxDowntimeSet {
