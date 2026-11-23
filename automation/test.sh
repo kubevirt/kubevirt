@@ -91,9 +91,11 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_ISTIO=true
     export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
-    export KUBEVIRT_NUM_SECONDARY_NICS=1
-    export KUBEVIRT_SECONDARY_IFACES_TO_IP=eth1
-    export KUBEVIRT_DEPLOY_NET_DRA_DRIVER=true
+    if [[ ${KUBEVIRT_SINGLE_STACK} != "true" ]]; then
+      export KUBEVIRT_NUM_SECONDARY_NICS=1
+      export KUBEVIRT_SECONDARY_IFACES_TO_IP=eth1
+      export KUBEVIRT_DEPLOY_NET_DRA_DRIVER=true
+    fi
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     if [[ "${KUBEVIRT_PROVIDER}" == "${SRIOV_TEST_LANE}" && $JOB_NAME =~ ^(pull|periodic)-kubevirt-e2e-${SRIOV_TEST_LANE}-sig-network$ ]]; then
       export KUBEVIRT_WITH_SRIOV=true
@@ -241,7 +243,7 @@ set_lane_push_targets() {
       export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-with-test-tooling-container-disk fedora-with-test-tooling-container-disk virt-exportproxy"
       ;;
     ipv6-sig-network)
-      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk fedora-with-test-tooling-container-disk network-passt-binding network-passt-binding-cni test-helpers virt-exportproxy"
+      export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk fedora-with-test-tooling-container-disk network-passt-binding network-passt-binding-cni virt-exportproxy"
       ;;
     sig-network)
       export PUSH_TARGETS="${BASE_PUSH_TARGETS} alpine-container-disk-demo alpine-with-test-tooling-container-disk cirros-container-disk-demo fedora-with-test-tooling-container-disk network-passt-binding network-passt-binding-cni test-network-vhostuser-dra-binding test-helpers virt-exportproxy"
@@ -784,9 +786,11 @@ else
   add_to_label_filter '!(single-replica)' '&&'
 fi
 
-# Single stack IPv6 cluster should skip tests that require dual stack cluster
+# Single stack IPv6 cluster should skip tests that require dual stack cluster,
+# and the network DRA driver tests, as the driver does not support IPv6
 if [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
   add_to_label_filter '(!requires-dual-stack-cluster)' '&&'
+  add_to_label_filter '(!DRA-Network)' '&&'
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is

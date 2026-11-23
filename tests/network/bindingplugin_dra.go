@@ -27,8 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/libnet"
-
 	resourcev1 "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -78,7 +76,6 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		}
 
 		BeforeAll(func() {
-			libnet.SkipWhenClusterNotSupportIpv4()
 			sidecarImage := libregistry.GetUtilityImageFromRegistry("test-network-vhostuser-dra-binding")
 			err := config.RegisterKubevirtConfigChange(
 				config.WithNetBindingPluginIfNotPresent(bindingName, v1.InterfaceBindingPlugin{
