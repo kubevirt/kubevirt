@@ -19,7 +19,11 @@ func GetPodIPByFamily(pod *k8sv1.Pod, family k8sv1.IPFamily) string {
 }
 
 func GetVmiPrimaryIPByFamily(vmi *v1.VirtualMachineInstance, family k8sv1.IPFamily) string {
-	return GetIP(vmi.Status.Interfaces[0].IPs, family)
+	iface := GetVmiPrimaryInterface(vmi)
+	if iface == nil {
+		return ""
+	}
+	return GetIP(iface.IPs, family)
 }
 
 func GetIP(ips []string, family k8sv1.IPFamily) string {

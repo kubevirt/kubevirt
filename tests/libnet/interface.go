@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/tests/console"
 )
 
@@ -67,6 +68,31 @@ func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	}
 
 	return nil
+}
+
+// LookupInterfaceByName searches an interface slice for an interface matching the specified name.
+func LookupInterfaceByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, name string) *v1.VirtualMachineInstanceNetworkInterface {
+	return vmispec.LookupInterfaceStatusByName(interfaces, name)
+}
+
+// LookupInterfaceStatusByName returns the interface status matching the name, or nil if not found or vmi is nil.
+func LookupInterfaceStatusByName(vmi *v1.VirtualMachineInstance, name string) *v1.VirtualMachineInstanceNetworkInterface {
+	if vmi == nil {
+		return nil
+	}
+	return vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, name)
+}
+
+// GetVmiPrimaryInterface returns the primary interface for a VMI (matching the default pod network name),
+// or the first reported interface if none matches by name, or nil if no interfaces are reported.
+func GetVmiPrimaryInterface(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceNetworkInterface {
+	if vmi == nil || len(vmi.Status.Interfaces) == 0 {
+		return nil
+	}
+	if iface := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, v1.DefaultPodNetwork().Name); iface != nil {
+		return iface
+	}
+	return &vmi.Status.Interfaces[0]
 }
 
 func NewLinkStateAssersionCmd(mac string, desiredLinkState v1.InterfaceState) string {
