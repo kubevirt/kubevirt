@@ -149,6 +149,11 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AdvancedMigrationOptions != nil {
+		in, out := &in.AdvancedMigrationOptions, &out.AdvancedMigrationOptions
+		*out = new(v1.AdvancedMigrationOptions)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ExperimentalMigrationOptions != nil {
 		in, out := &in.ExperimentalMigrationOptions, &out.ExperimentalMigrationOptions
 		*out = new(v1.ExperimentalMigrationOptions)

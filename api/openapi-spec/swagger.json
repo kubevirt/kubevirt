@@ -13901,6 +13901,16 @@
      }
     }
    },
+   "v1.AdvancedMigrationOptions": {
+    "description": "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+    "type": "object",
+    "properties": {
+     "compression": {
+      "description": "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
+      "type": "string"
+     }
+    }
+   },
    "v1.ArchConfiguration": {
     "type": "object",
     "properties": {
@@ -15151,10 +15161,6 @@
     "description": "ExperimentalMigrationOptions is an alpha API for experimental migration tunables. It is intended for experimental purposes only and will be removed in the future.",
     "type": "object",
     "properties": {
-     "compression": {
-      "description": "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
-      "type": "string"
-     },
      "downtimeTuning": {
       "description": "DowntimeTuning configures iteration-aware downtime ramping for live migration convergence.",
       "$ref": "#/definitions/v1.DowntimeTuningOptions"
@@ -18287,6 +18293,10 @@
     "description": "VMIMConfigurationOptions holds the resolved migration options for a single migration. It is written to VirtualMachineInstanceMigrationState and represents the effective configuration after merging KubeVirt defaults with any matched MigrationPolicy.",
     "type": "object",
     "properties": {
+     "advanced": {
+      "description": "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+      "$ref": "#/definitions/v1.AdvancedMigrationOptions"
+     },
      "allowAutoConverge": {
       "description": "AllowAutoConverge allows the platform to compromise performance/availability of VMIs to guarantee successful VMI live migrations. Defaults to false",
       "type": "boolean"
@@ -20812,6 +20822,10 @@
      "selectors"
     ],
     "properties": {
+     "advanced": {
+      "description": "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+      "$ref": "#/definitions/v1.AdvancedMigrationOptions"
+     },
      "allowAutoConverge": {
       "type": "boolean"
      },

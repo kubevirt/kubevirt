@@ -57,6 +57,9 @@ type MigrationPolicySpec struct {
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
 	//+optional
 	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
+	// AdvancedMigrationOptions holds stable Beta opt-in migration tunables.
+	//+optional
+	AdvancedMigrationOptions *k6tv1.AdvancedMigrationOptions `json:"advanced,omitempty"`
 	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
 	// purposes only and will be removed in the future.
 	//+optional

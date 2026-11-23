@@ -2219,7 +2219,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Creating a migration policy with compression enabled")
 				policy := GeneratePolicyAndAlignVMI(vmi)
-				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+				policy.Spec.AdvancedMigrationOptions = &v1.AdvancedMigrationOptions{
 					Compression: pointer.P(v1.MigrationCompressionZstd),
 				}
 				policy = CreateMigrationPolicy(virtClient, policy)
@@ -2240,9 +2240,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Verifying compression is set in the migration configuration")
 				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
-				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions).ToNot(BeNil())
-				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
-				Expect(*vmi.Status.MigrationState.VMIMConfigurationOptions.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.AdvancedMigrationOptions).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.AdvancedMigrationOptions.Compression).ToNot(BeNil())
+				Expect(*vmi.Status.MigrationState.VMIMConfigurationOptions.AdvancedMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
 
 				By("Verifying compression was applied via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
@@ -2272,8 +2272,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				policy.Spec.AllowPostCopy = pointer.P(true)
 				policy.Spec.CompletionTimeoutPerGiB = pointer.P(postCopyCompletionTimeoutPerGiB)
 				policy.Spec.MaxDowntimeMs = pointer.P(uint64(1))
-				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
+				policy.Spec.AdvancedMigrationOptions = &v1.AdvancedMigrationOptions{
 					Compression: pointer.P(v1.MigrationCompressionZstd),
+				}
+				policy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{
 					DowntimeTuning: &v1.DowntimeTuningOptions{
 						InitialMs:           pointer.P(int64(1)),
 						StartAfterIteration: pointer.P(postCopyDowntimeTuneNeverIterate),
@@ -2313,9 +2315,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(*mc.AllowAutoConverge).To(BeTrue())
 				Expect(mc.AllowPostCopy).ToNot(BeNil())
 				Expect(*mc.AllowPostCopy).To(BeTrue())
-				Expect(mc.ExperimentalMigrationOptions).ToNot(BeNil())
-				Expect(mc.ExperimentalMigrationOptions.Compression).ToNot(BeNil())
-				Expect(*mc.ExperimentalMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
+				Expect(mc.AdvancedMigrationOptions).ToNot(BeNil())
+				Expect(mc.AdvancedMigrationOptions.Compression).ToNot(BeNil())
+				Expect(*mc.AdvancedMigrationOptions.Compression).To(Equal(v1.MigrationCompressionZstd))
 
 				By("Verifying compression and autoconverge via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)

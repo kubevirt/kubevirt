@@ -388,6 +388,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1.AccessCredential{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		corev1.AccessCredentialSecretSource{}.OpenAPIModelName():                                          schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
 		corev1.AddVolumeOptions{}.OpenAPIModelName():                                                      schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
+		corev1.AdvancedMigrationOptions{}.OpenAPIModelName():                                              schema_kubevirtio_api_core_v1_AdvancedMigrationOptions(ref),
 		corev1.ArchConfiguration{}.OpenAPIModelName():                                                     schema_kubevirtio_api_core_v1_ArchConfiguration(ref),
 		corev1.ArchSpecificConfiguration{}.OpenAPIModelName():                                             schema_kubevirtio_api_core_v1_ArchSpecificConfiguration(ref),
 		corev1.AuthorizedKeysFile{}.OpenAPIModelName():                                                    schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
@@ -19667,6 +19668,26 @@ func schema_kubevirtio_api_core_v1_AddVolumeOptions(ref common.ReferenceCallback
 	}
 }
 
+func schema_kubevirtio_api_core_v1_AdvancedMigrationOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"compression": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ArchConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22025,13 +22046,6 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 						SchemaProps: spec.SchemaProps{
 							Description: "DowntimeTuning configures iteration-aware downtime ramping for live migration convergence.",
 							Ref:         ref(corev1.DowntimeTuningOptions{}.OpenAPIModelName()),
-						},
-					},
-					"compression": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Compression selects the algorithm for compressing the live migration data stream. When omitted (nil) or set to \"none\", compression is disabled.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -28036,6 +28050,12 @@ func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.Reference
 							Format:      "",
 						},
 					},
+					"advanced": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+							Ref:         ref(corev1.AdvancedMigrationOptions{}.OpenAPIModelName()),
+						},
+					},
 					"experimental": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ExperimentalMigrationOptions is an alpha API. It is intended for experimental purposes only and will be removed in the future.",
@@ -28046,7 +28066,7 @@ func schema_kubevirtio_api_core_v1_VMIMConfigurationOptions(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName(), corev1.ExperimentalMigrationOptions{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), corev1.AdvancedMigrationOptions{}.OpenAPIModelName(), corev1.ExperimentalMigrationOptions{}.OpenAPIModelName()},
 	}
 }
 
@@ -34409,6 +34429,12 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 							Format: "",
 						},
 					},
+					"advanced": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AdvancedMigrationOptions holds stable Beta opt-in migration tunables.",
+							Ref:         ref(corev1.AdvancedMigrationOptions{}.OpenAPIModelName()),
+						},
+					},
 					"experimental": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ExperimentalMigrationOptions is an alpha API. It is intended for experimental purposes only and will be removed in the future.",
@@ -34420,7 +34446,7 @@ func schema_kubevirtio_api_migrations_v1alpha1_MigrationPolicySpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			resource.Quantity{}.OpenAPIModelName(), corev1.ExperimentalMigrationOptions{}.OpenAPIModelName(), migrationsv1alpha1.Selectors{}.OpenAPIModelName()},
+			resource.Quantity{}.OpenAPIModelName(), corev1.AdvancedMigrationOptions{}.OpenAPIModelName(), corev1.ExperimentalMigrationOptions{}.OpenAPIModelName(), migrationsv1alpha1.Selectors{}.OpenAPIModelName()},
 	}
 }
 

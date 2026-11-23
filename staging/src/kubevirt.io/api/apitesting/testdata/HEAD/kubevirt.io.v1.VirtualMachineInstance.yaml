@@ -785,6 +785,8 @@ status:
     failed: true
     failureReason: failureReasonValue
     migrationConfiguration:
+      advanced:
+        compression: compressionValue
       allowAutoConverge: true
       allowPostCopy: true
       allowWorkloadDisruption: true
@@ -792,7 +794,6 @@ status:
       completionTimeoutPerGiB: -23
       disableTLS: true
       experimental:
-        compression: compressionValue
         downtimeTuning:
           cooldownSeconds: -15
           initialMs: -9

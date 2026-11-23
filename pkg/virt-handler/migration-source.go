@@ -588,10 +588,12 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		}
 	}
 
-	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
-		if exp.Compression != nil {
-			options.Compression = new(string(*exp.Compression))
+	if adv := migrationConfiguration.AdvancedMigrationOptions; adv != nil {
+		if adv.Compression != nil {
+			options.Compression = new(string(*adv.Compression))
 		}
+	}
+	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
 		if c.clusterConfig.MigrationDowntimeTuningEnabled() && exp.DowntimeTuning != nil {
 			options.DowntimeTuning = exp.DowntimeTuning
 		}

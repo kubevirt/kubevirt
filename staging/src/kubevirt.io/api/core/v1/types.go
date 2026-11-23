@@ -3703,6 +3703,16 @@ const (
 	MigrationCompressionZstd MigrationCompression = "zstd"
 )
 
+// AdvancedMigrationOptions holds stable Beta opt-in migration tunables.
+type AdvancedMigrationOptions struct {
+	// Compression selects the algorithm for compressing the live migration
+	// data stream. When omitted (nil) or set to "none", compression is
+	// disabled.
+	// +kubebuilder:validation:Enum=none;zstd
+	//+optional
+	Compression *MigrationCompression `json:"compression,omitempty"`
+}
+
 // ExperimentalMigrationOptions is an alpha API for experimental migration tunables.
 // It is intended for experimental purposes only and will be removed in the future.
 type ExperimentalMigrationOptions struct {
@@ -3712,12 +3722,6 @@ type ExperimentalMigrationOptions struct {
 	// migration convergence.
 	//+optional
 	DowntimeTuning *DowntimeTuningOptions `json:"downtimeTuning,omitempty"`
-	// Compression selects the algorithm for compressing the live migration
-	// data stream. When omitted (nil) or set to "none", compression is
-	// disabled.
-	// +kubebuilder:validation:Enum=none;zstd
-	//+optional
-	Compression *MigrationCompression `json:"compression,omitempty"`
 }
 
 // DowntimeTuningOptions controls how virt-launcher gradually increases
@@ -3810,6 +3814,9 @@ type VMIMConfigurationOptions struct {
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.
 	// However, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.
 	MatchSELinuxLevelOnMigration *bool `json:"matchSELinuxLevelOnMigration,omitempty"`
+	// AdvancedMigrationOptions holds stable Beta opt-in migration tunables.
+	//+optional
+	AdvancedMigrationOptions *AdvancedMigrationOptions `json:"advanced,omitempty"`
 	// ExperimentalMigrationOptions is an alpha API. It is intended for experimental
 	// purposes only and will be removed in the future.
 	ExperimentalMigrationOptions *ExperimentalMigrationOptions `json:"experimental,omitempty"`

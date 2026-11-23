@@ -1110,6 +1110,9 @@
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true,
+        "advanced": {
+          "compression": "compressionValue"
+        },
         "experimental": {
           "stallDetector": {
             "stallMargin": -11,
@@ -1126,8 +1129,7 @@
             "steps": -5,
             "startAfterIteration": -19,
             "cooldownSeconds": -15
-          },
-          "compression": "compressionValue"
+          }
         }
       },
       "targetCPUSet": [

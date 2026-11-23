@@ -44,6 +44,11 @@ func (in AddVolumeOptions) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AdvancedMigrationOptions) OpenAPIModelName() string {
+	return "io.kubevirt.api.core.v1.AdvancedMigrationOptions"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ArchConfiguration) OpenAPIModelName() string {
 	return "io.kubevirt.api.core.v1.ArchConfiguration"
 }
