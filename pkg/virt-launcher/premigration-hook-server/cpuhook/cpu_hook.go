@@ -60,9 +60,7 @@ func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 		return fmt.Errorf("failed to generate domain for target CPU set and topology: %w", err)
 	}
 
-	if err = convertCPUDedicatedFields(processedDomain, domain); err != nil {
-		return fmt.Errorf("failed to convert CPU dedicated fields: %w", err)
-	}
+	convertCPUDedicatedFields(processedDomain, domain)
 
 	log.Log.Object(vmi).Info("cpuDedicatedHook: CPU dedicated processing completed")
 	return nil
@@ -96,7 +94,7 @@ func generateDomainForTargetCPU(
 	return domain, nil
 }
 
-func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) {
 	if domcfg.CPU == nil {
 		domcfg.CPU = &libvirtxml.DomainCPU{}
 	}
@@ -104,6 +102,4 @@ func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) er
 	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
 	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
 	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
-
-	return nil
 }
