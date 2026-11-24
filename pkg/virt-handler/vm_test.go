@@ -2899,9 +2899,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Message).To(Equal("VMI specifies non-migratable generic PCI host device"))
 				})
 
-				DescribeTable("should allow live migration only for mdev vGPUs", func(gpus []v1.GPU, domain *api.Domain, status k8sv1.ConditionStatus, message string) {
+				draGPUs := []v1.GPU{{
+					Name: "m10",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   "gpu-claim",
+						RequestName: "gpu-request",
+					},
+				}}
+				DescribeTable("should allow live migration only for mdev vGPUs", func(gpus []v1.GPU, claims []v1.VirtualMachineInstanceResourceClaim, domain *api.Domain, status k8sv1.ConditionStatus, message string) {
 					vmi := clientgoapi.NewMinimalVMI("testvmi")
 					vmi.Spec.Domain.Devices.GPUs = gpus
+					vmi.Spec.ResourceClaims = claims
 
 					config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
@@ -2918,6 +2926,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable))
 						Expect(condition.Message).To(Equal(message))
 					}
+					Expect(controller.calculateLiveStorageMigrationCondition(vmi, domain).Status).To(Equal(status))
 				},
 					Entry("mdev vGPU",
 						[]v1.GPU{{
@@ -2927,27 +2936,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 							Name:       "m11",
 							DeviceName: "nvidia.com/GRID_M10-2B",
 						}},
+						nil,
 						newMdevDomain("gpu-m10", "gpu-m11"),
 						k8sv1.ConditionTrue,
 						"",
 					),
-					Entry("DRA mdev vGPU",
-						[]v1.GPU{{
-							Name: "m10",
-							ClaimRequest: &v1.ClaimRequest{
-								ClaimName:   "gpu-claim",
-								RequestName: "gpu-request",
-							},
+					Entry("DRA mdev vGPU backed by a ResourceClaimTemplate",
+						draGPUs,
+						[]v1.VirtualMachineInstanceResourceClaim{{
+							Name:                      "gpu-claim",
+							ResourceClaimTemplateName: new("vgpu-template"),
 						}},
 						newMdevDomain("dra-gpu-m10"),
 						k8sv1.ConditionTrue,
 						"",
+					),
+					Entry("DRA mdev vGPU backed by a ResourceClaim",
+						draGPUs,
+						[]v1.VirtualMachineInstanceResourceClaim{{
+							Name:              "gpu-claim",
+							ResourceClaimName: new("existing-vgpu"),
+						}},
+						newMdevDomain("dra-gpu-m10"),
+						k8sv1.ConditionFalse,
+						"cannot migrate VMI whose DRA GPU is backed by a ResourceClaim; use a ResourceClaimTemplate instead",
 					),
 					Entry("passthrough PCI GPU",
 						[]v1.GPU{{
 							Name:       "m10",
 							DeviceName: "nvidia.com/M10",
 						}},
+						nil,
 						&api.Domain{
 							Spec: api.DomainSpec{
 								Devices: api.Devices{

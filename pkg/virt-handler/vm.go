@@ -1270,6 +1270,18 @@ func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, doma
 		return "VMI specifies a GPU but feature gate " + featuregate.MDevVGPULiveMigration + " is not enabled", true
 	}
 
+	draGPUClaims := sets.New[string]()
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if drautil.IsGPUDRA(gpu) {
+			draGPUClaims.Insert(gpu.ClaimRequest.ClaimName)
+		}
+	}
+	for _, claim := range vmi.Spec.ResourceClaims {
+		if claim.ResourceClaimName != nil && draGPUClaims.Has(claim.Name) {
+			return "cannot migrate VMI whose DRA GPU is backed by a ResourceClaim; use a ResourceClaimTemplate instead", true
+		}
+	}
+
 	if len(vmi.Spec.Domain.Devices.GPUs) >= 1 && !areAllMdevGPUs(vmi.Spec.Domain.Devices.GPUs, domain) {
 		return "VMI specifies non-migratable GPU device", true
 	}
