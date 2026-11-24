@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
@@ -113,5 +114,32 @@ var _ = Describe("SSH", func() {
 				fmt.Sprintf("ProxyCommand=%s port-forward --stdio=true --vsock --vsock-tls=false vm/%s/%s %d",
 					os.Args[0], fakeName, fakeNamespace, 12345)),
 		)
+
+		It("LocalClientCmd should pass proxy flags to the ProxyCommand", func() {
+			opts := ssh.SSHOptions{SSHPort: 12345}
+			cmd := ssh.LocalClientCmd("ssh", fakeKind, fakeNamespace, fakeName, &opts, []string{"target"},
+				"--kubeconfig=/path/kube.config", "--kubeconfig=/path with 'quote'/kube.config")
+			Expect(cmd.Args[2]).To(Equal(fmt.Sprintf(
+				"ProxyCommand=%s port-forward --stdio=true --kubeconfig=/path/kube.config '--kubeconfig=/path with '\\''quote'\\''/kube.config' %s/%s/%s %d",
+				os.Args[0], fakeKind, fakeName, fakeNamespace, 12345)))
+		})
+
+		It("ProxyClientFlags should only return explicitly set client flags", func() {
+			root := &cobra.Command{Use: "root"}
+			root.PersistentFlags().String("kubeconfig", "", "")
+			root.PersistentFlags().String("context", "", "")
+			root.PersistentFlags().String("namespace", "", "")
+			root.PersistentFlags().String("token", "", "")
+			root.PersistentFlags().String("server", "", "")
+			child := &cobra.Command{Use: "child"}
+			root.AddCommand(child)
+
+			Expect(root.PersistentFlags().Set("kubeconfig", "/path/kube.config")).To(Succeed())
+			Expect(root.PersistentFlags().Set("context", "ctx")).To(Succeed())
+			Expect(root.PersistentFlags().Set("namespace", "ns")).To(Succeed())
+			Expect(root.PersistentFlags().Set("token", "secret")).To(Succeed())
+
+			Expect(ssh.ProxyClientFlags(child)).To(ConsistOf("--kubeconfig=/path/kube.config", "--context=ctx"))
+		})
 	})
 })
