@@ -1976,13 +1976,23 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 
 	It("fails with an aborted-before-libvirt error when preparation was already cancelled before the hooks ran", func() {
 		connection.EXPECT().LookupDomainByName("default_test").Return(domain, nil).Times(2)
-		domain.EXPECT().Free().Return(nil).Times(2)
+		domainFreed := make(chan struct{}, 2)
+		domain.EXPECT().Free().DoAndReturn(func() error {
+			domainFreed <- struct{}{}
+			return nil
+		}).Times(2)
 		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
 		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
 		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
 
 		migrationDone := make(chan struct{})
-		DeferCleanup(func() { close(migrationDone) })
+		DeferCleanup(func() {
+			close(migrationDone)
+			// Wait for both migrateHelper and the background monitor to release their domains
+			// before gomock verifies the Free expectations.
+			Eventually(domainFreed).Should(Receive())
+			Eventually(domainFreed).Should(Receive())
+		})
 		prep := newMigrationPreparation()
 		DeferCleanup(prep.cancel)
 		// Simulate a concurrent CancelVMIMigration that claimed the preparation while migrateHelper runs.
@@ -1998,7 +2008,11 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 			lookups.Add(1)
 			return domain, nil
 		}).Times(2)
-		domain.EXPECT().Free().Return(nil).Times(2)
+		domainFreed := make(chan struct{}, 2)
+		domain.EXPECT().Free().DoAndReturn(func() error {
+			domainFreed <- struct{}{}
+			return nil
+		}).Times(2)
 		domain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 0, nil)
 		domain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(domainXML, nil)
 		domain.EXPECT().GetJobStats(gomock.Any()).AnyTimes().Return(&libvirt.DomainJobInfo{}, nil)
@@ -2008,7 +2022,13 @@ var _ = Describe("PreMigrationSource launcher hook", func() {
 		})
 
 		migrationDone := make(chan struct{})
-		DeferCleanup(func() { close(migrationDone) })
+		DeferCleanup(func() {
+			close(migrationDone)
+			// Wait for both migrateHelper and the background monitor to release their domains
+			// before gomock verifies the Free expectations.
+			Eventually(domainFreed).Should(Receive())
+			Eventually(domainFreed).Should(Receive())
+		})
 		prep := newMigrationPreparation()
 		DeferCleanup(prep.cancel)
 		Expect(manager.migrateHelper(prep, vmi, &cmdclient.MigrationOptions{Bandwidth: resource.MustParse("64Mi")}, migrationDone)).To(Succeed())
