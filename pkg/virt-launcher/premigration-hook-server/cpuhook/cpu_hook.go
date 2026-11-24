@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 )
 
 // CPUDedicatedHook handles CPU pinning adjustments for dedicated CPU migrations.
@@ -60,7 +60,7 @@ func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 		return fmt.Errorf("failed to generate domain for target CPU set and topology: %w", err)
 	}
 
-	if err = cpudedicated.ConvertCPUDedicatedFields(processedDomain, domain); err != nil {
+	if err = convertCPUDedicatedFields(processedDomain, domain); err != nil {
 		return fmt.Errorf("failed to convert CPU dedicated fields: %w", err)
 	}
 
@@ -94,4 +94,16 @@ func generateDomainForTargetCPU(
 	}
 
 	return domain, nil
+}
+
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+	if domcfg.CPU == nil {
+		domcfg.CPU = &libvirtxml.DomainCPU{}
+	}
+	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
+	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
+	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
+	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
+
+	return nil
 }
