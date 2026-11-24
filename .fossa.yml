@@ -7,7 +7,33 @@ project:
   url: github.com/kubevirt/kubevirt
   team: Kubevirt
 
-target:
+targets:
   only:
   - type: gomod
     path: ./
+
+paths:
+  exclude:
+    - .bazeldnf
+    - bazel-bin
+    - bazel-out
+    - kubevirtci
+
+# https://github.com/fossas/fossa-cli/blob/v3.20.13/docs/features/first-party-license-scans.md#path-filtering-first-party-license-scans
+vendoredDependencies:
+  licenseScanPathFilters:
+    exclude:
+      - ".bazeldnf/*"
+      - ".bazeldnf/**"
+      - "bazel-bin/*"
+      - "bazel-bin/**"
+      - "bazel-out/*"
+      - "bazel-out/**"
+      - "bazel-genfiles/*"
+      - "bazel-genfiles/**"
+      - "bazel-testlogs/*"
+      - "bazel-testlogs/**"
+      - "bazel-kubevirt/*"
+      - "bazel-kubevirt/**"
+      - "kubevirtci/*"
+      - "kubevirtci/**"
