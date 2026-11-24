@@ -1668,8 +1668,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: Deprecated. Use architectureConfiguration instead.
               type: string
             permittedHostDevices:
-              description: PermittedHostDevices holds information about devices allowed
-                for passthrough
+              description: |-
+                PermittedHostDevices holds information about devices allowed for passthrough.
+
+                virt-handler exposes each entry as a device plugin. An entry that does not
+                set externalResourceProvider can be allocated only by virt-controller.
               properties:
                 mediatedDevices:
                   items:

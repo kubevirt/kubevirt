@@ -25682,7 +25682,7 @@ func schema_kubevirtio_api_core_v1_PermittedHostDevices(ref common.ReferenceCall
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PermittedHostDevices holds information about devices allowed for passthrough",
+				Description: "PermittedHostDevices holds information about devices allowed for passthrough.\n\nvirt-handler exposes each entry as a device plugin. An entry that does not set externalResourceProvider can be allocated only by virt-controller.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pciHostDevices": {

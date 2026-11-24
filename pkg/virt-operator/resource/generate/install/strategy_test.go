@@ -40,6 +40,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
+
 	//"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -240,6 +242,25 @@ var _ = Describe("Install Strategy", func() {
 				delete(original.Labels, v1.ManagedByLabel)
 				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
+		})
+
+		It("should install the host-device ValidatingAdmissionPolicy and its binding", func() {
+			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			var foundPolicy, foundBinding bool
+			for _, policy := range strategy.ValidatingAdmissionPolicies() {
+				if policy.Name == vap.HostDevicesRestrictionPolicyName {
+					foundPolicy = true
+				}
+			}
+			for _, binding := range strategy.ValidatingAdmissionPolicyBindings() {
+				if binding.Name == vap.HostDevicesRestrictionBindingName {
+					foundBinding = true
+				}
+			}
+			Expect(foundPolicy).To(BeTrue())
+			Expect(foundBinding).To(BeTrue())
 		})
 	})
 
