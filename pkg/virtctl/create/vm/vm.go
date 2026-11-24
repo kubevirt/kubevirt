@@ -793,7 +793,7 @@ func (c *createVM) buildCloudInitConfig() (string, error) {
 			return "", params.FlagErr(PasswordFileFlag, "%w", err)
 		}
 		if password := strings.TrimSpace(string(data)); password != "" {
-			config.WriteString(fmt.Sprintf("\npassword: %s\nchpasswd: { expire: False }", password))
+			fmt.Fprintf(&config, "\npassword: %s\nchpasswd: { expire: False }", password)
 		}
 	}
 
