@@ -8446,12 +8446,15 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         hyperv:
-                          description: Defaults to the machine type setting.
+                          description: |-
+                            Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                            when the host supports them. If any feature is explicitly disabled,
+                            the explicit feature list is used instead.
                           properties:
                             evmcs:
                               description: |-
                                 EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8462,7 +8465,7 @@ var CRDsValidation map[string]string = map[string]string{
                             frequencies:
                               description: |-
                                 Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8473,7 +8476,7 @@ var CRDsValidation map[string]string = map[string]string{
                             ipi:
                               description: |-
                                 IPI improves performances in overcommited environments. Requires vpindex.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8484,7 +8487,7 @@ var CRDsValidation map[string]string = map[string]string{
                             reenlightenment:
                               description: |-
                                 Reenlightenment enables the notifications on TSC frequency changes.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8495,7 +8498,7 @@ var CRDsValidation map[string]string = map[string]string{
                             relaxed:
                               description: |-
                                 Relaxed instructs the guest OS to disable watchdog timeouts.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8506,7 +8509,7 @@ var CRDsValidation map[string]string = map[string]string{
                             reset:
                               description: |-
                                 Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8517,7 +8520,7 @@ var CRDsValidation map[string]string = map[string]string{
                             runtime:
                               description: |-
                                 Runtime improves the time accounting to improve scheduling in the guest.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8545,7 +8548,7 @@ var CRDsValidation map[string]string = map[string]string{
                             synic:
                               description: |-
                                 SyNIC enables the Synthetic Interrupt Controller.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8556,7 +8559,7 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: |-
                                 SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 direct:
                                   description: Represents if a feature is enabled
@@ -8577,7 +8580,7 @@ var CRDsValidation map[string]string = map[string]string{
                             tlbflush:
                               description: |-
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 direct:
                                   description: |-
@@ -8610,7 +8613,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vapic:
                               description: |-
                                 VAPIC improves the paravirtualized handling of interrupts.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8621,7 +8624,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vendorid:
                               description: |-
                                 VendorID allows setting the hypervisor vendor id.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -8637,7 +8640,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vpindex:
                               description: |-
                                 VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -12444,7 +12447,7 @@ var CRDsValidation map[string]string = map[string]string{
                 evmcs:
                   description: |-
                     EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12455,7 +12458,7 @@ var CRDsValidation map[string]string = map[string]string{
                 frequencies:
                   description: |-
                     Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12466,7 +12469,7 @@ var CRDsValidation map[string]string = map[string]string{
                 ipi:
                   description: |-
                     IPI improves performances in overcommited environments. Requires vpindex.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12477,7 +12480,7 @@ var CRDsValidation map[string]string = map[string]string{
                 reenlightenment:
                   description: |-
                     Reenlightenment enables the notifications on TSC frequency changes.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12488,7 +12491,7 @@ var CRDsValidation map[string]string = map[string]string{
                 relaxed:
                   description: |-
                     Relaxed instructs the guest OS to disable watchdog timeouts.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12499,7 +12502,7 @@ var CRDsValidation map[string]string = map[string]string{
                 reset:
                   description: |-
                     Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12510,7 +12513,7 @@ var CRDsValidation map[string]string = map[string]string{
                 runtime:
                   description: |-
                     Runtime improves the time accounting to improve scheduling in the guest.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12537,7 +12540,7 @@ var CRDsValidation map[string]string = map[string]string{
                 synic:
                   description: |-
                     SyNIC enables the Synthetic Interrupt Controller.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12548,7 +12551,7 @@ var CRDsValidation map[string]string = map[string]string{
                 synictimer:
                   description: |-
                     SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     direct:
                       description: Represents if a feature is enabled or disabled.
@@ -12568,7 +12571,7 @@ var CRDsValidation map[string]string = map[string]string{
                 tlbflush:
                   description: |-
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     direct:
                       description: |-
@@ -12600,7 +12603,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vapic:
                   description: |-
                     VAPIC improves the paravirtualized handling of interrupts.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12611,7 +12614,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vendorid:
                   description: |-
                     VendorID allows setting the hypervisor vendor id.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -12627,7 +12630,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vpindex:
                   description: |-
                     VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -15111,12 +15114,15 @@ var CRDsValidation map[string]string = map[string]string{
                       type: boolean
                   type: object
                 hyperv:
-                  description: Defaults to the machine type setting.
+                  description: |-
+                    Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                    when the host supports them. If any feature is explicitly disabled,
+                    the explicit feature list is used instead.
                   properties:
                     evmcs:
                       description: |-
                         EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15127,7 +15133,7 @@ var CRDsValidation map[string]string = map[string]string{
                     frequencies:
                       description: |-
                         Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15138,7 +15144,7 @@ var CRDsValidation map[string]string = map[string]string{
                     ipi:
                       description: |-
                         IPI improves performances in overcommited environments. Requires vpindex.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15149,7 +15155,7 @@ var CRDsValidation map[string]string = map[string]string{
                     reenlightenment:
                       description: |-
                         Reenlightenment enables the notifications on TSC frequency changes.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15160,7 +15166,7 @@ var CRDsValidation map[string]string = map[string]string{
                     relaxed:
                       description: |-
                         Relaxed instructs the guest OS to disable watchdog timeouts.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15171,7 +15177,7 @@ var CRDsValidation map[string]string = map[string]string{
                     reset:
                       description: |-
                         Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15182,7 +15188,7 @@ var CRDsValidation map[string]string = map[string]string{
                     runtime:
                       description: |-
                         Runtime improves the time accounting to improve scheduling in the guest.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15210,7 +15216,7 @@ var CRDsValidation map[string]string = map[string]string{
                     synic:
                       description: |-
                         SyNIC enables the Synthetic Interrupt Controller.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15221,7 +15227,7 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: |-
                         SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         direct:
                           description: Represents if a feature is enabled or disabled.
@@ -15241,7 +15247,7 @@ var CRDsValidation map[string]string = map[string]string{
                     tlbflush:
                       description: |-
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         direct:
                           description: |-
@@ -15273,7 +15279,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vapic:
                       description: |-
                         VAPIC improves the paravirtualized handling of interrupts.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15284,7 +15290,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vendorid:
                       description: |-
                         VendorID allows setting the hypervisor vendor id.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -15300,7 +15306,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vpindex:
                       description: |-
                         VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19727,12 +19733,15 @@ var CRDsValidation map[string]string = map[string]string{
                       type: boolean
                   type: object
                 hyperv:
-                  description: Defaults to the machine type setting.
+                  description: |-
+                    Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                    when the host supports them. If any feature is explicitly disabled,
+                    the explicit feature list is used instead.
                   properties:
                     evmcs:
                       description: |-
                         EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19743,7 +19752,7 @@ var CRDsValidation map[string]string = map[string]string{
                     frequencies:
                       description: |-
                         Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19754,7 +19763,7 @@ var CRDsValidation map[string]string = map[string]string{
                     ipi:
                       description: |-
                         IPI improves performances in overcommited environments. Requires vpindex.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19765,7 +19774,7 @@ var CRDsValidation map[string]string = map[string]string{
                     reenlightenment:
                       description: |-
                         Reenlightenment enables the notifications on TSC frequency changes.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19776,7 +19785,7 @@ var CRDsValidation map[string]string = map[string]string{
                     relaxed:
                       description: |-
                         Relaxed instructs the guest OS to disable watchdog timeouts.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19787,7 +19796,7 @@ var CRDsValidation map[string]string = map[string]string{
                     reset:
                       description: |-
                         Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19798,7 +19807,7 @@ var CRDsValidation map[string]string = map[string]string{
                     runtime:
                       description: |-
                         Runtime improves the time accounting to improve scheduling in the guest.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19826,7 +19835,7 @@ var CRDsValidation map[string]string = map[string]string{
                     synic:
                       description: |-
                         SyNIC enables the Synthetic Interrupt Controller.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19837,7 +19846,7 @@ var CRDsValidation map[string]string = map[string]string{
                     synictimer:
                       description: |-
                         SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         direct:
                           description: Represents if a feature is enabled or disabled.
@@ -19857,7 +19866,7 @@ var CRDsValidation map[string]string = map[string]string{
                     tlbflush:
                       description: |-
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         direct:
                           description: |-
@@ -19889,7 +19898,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vapic:
                       description: |-
                         VAPIC improves the paravirtualized handling of interrupts.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19900,7 +19909,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vendorid:
                       description: |-
                         VendorID allows setting the hypervisor vendor id.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -19916,7 +19925,7 @@ var CRDsValidation map[string]string = map[string]string{
                     vpindex:
                       description: |-
                         VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                        Defaults to the machine type setting.
+                        Defaults to enabling the feature when the host supports it.
                       properties:
                         enabled:
                           description: |-
@@ -22331,12 +22340,15 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         hyperv:
-                          description: Defaults to the machine type setting.
+                          description: |-
+                            Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                            when the host supports them. If any feature is explicitly disabled,
+                            the explicit feature list is used instead.
                           properties:
                             evmcs:
                               description: |-
                                 EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22347,7 +22359,7 @@ var CRDsValidation map[string]string = map[string]string{
                             frequencies:
                               description: |-
                                 Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22358,7 +22370,7 @@ var CRDsValidation map[string]string = map[string]string{
                             ipi:
                               description: |-
                                 IPI improves performances in overcommited environments. Requires vpindex.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22369,7 +22381,7 @@ var CRDsValidation map[string]string = map[string]string{
                             reenlightenment:
                               description: |-
                                 Reenlightenment enables the notifications on TSC frequency changes.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22380,7 +22392,7 @@ var CRDsValidation map[string]string = map[string]string{
                             relaxed:
                               description: |-
                                 Relaxed instructs the guest OS to disable watchdog timeouts.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22391,7 +22403,7 @@ var CRDsValidation map[string]string = map[string]string{
                             reset:
                               description: |-
                                 Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22402,7 +22414,7 @@ var CRDsValidation map[string]string = map[string]string{
                             runtime:
                               description: |-
                                 Runtime improves the time accounting to improve scheduling in the guest.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22430,7 +22442,7 @@ var CRDsValidation map[string]string = map[string]string{
                             synic:
                               description: |-
                                 SyNIC enables the Synthetic Interrupt Controller.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22441,7 +22453,7 @@ var CRDsValidation map[string]string = map[string]string{
                             synictimer:
                               description: |-
                                 SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 direct:
                                   description: Represents if a feature is enabled
@@ -22462,7 +22474,7 @@ var CRDsValidation map[string]string = map[string]string{
                             tlbflush:
                               description: |-
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 direct:
                                   description: |-
@@ -22495,7 +22507,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vapic:
                               description: |-
                                 VAPIC improves the paravirtualized handling of interrupts.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22506,7 +22518,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vendorid:
                               description: |-
                                 VendorID allows setting the hypervisor vendor id.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -22522,7 +22534,7 @@ var CRDsValidation map[string]string = map[string]string{
                             vpindex:
                               description: |-
                                 VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                                Defaults to the machine type setting.
+                                Defaults to enabling the feature when the host supports it.
                               properties:
                                 enabled:
                                   description: |-
@@ -27783,12 +27795,15 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: boolean
                                   type: object
                                 hyperv:
-                                  description: Defaults to the machine type setting.
+                                  description: |-
+                                    Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                                    when the host supports them. If any feature is explicitly disabled,
+                                    the explicit feature list is used instead.
                                   properties:
                                     evmcs:
                                       description: |-
                                         EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27799,7 +27814,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     frequencies:
                                       description: |-
                                         Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27810,7 +27825,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     ipi:
                                       description: |-
                                         IPI improves performances in overcommited environments. Requires vpindex.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27821,7 +27836,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     reenlightenment:
                                       description: |-
                                         Reenlightenment enables the notifications on TSC frequency changes.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27832,7 +27847,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     relaxed:
                                       description: |-
                                         Relaxed instructs the guest OS to disable watchdog timeouts.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27843,7 +27858,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     reset:
                                       description: |-
                                         Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27854,7 +27869,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     runtime:
                                       description: |-
                                         Runtime improves the time accounting to improve scheduling in the guest.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27882,7 +27897,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     synic:
                                       description: |-
                                         SyNIC enables the Synthetic Interrupt Controller.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27893,7 +27908,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     synictimer:
                                       description: |-
                                         SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         direct:
                                           description: Represents if a feature is
@@ -27914,7 +27929,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     tlbflush:
                                       description: |-
                                         TLBFlush improves performances in overcommited environments. Requires vpindex.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         direct:
                                           description: |-
@@ -27947,7 +27962,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     vapic:
                                       description: |-
                                         VAPIC improves the paravirtualized handling of interrupts.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27958,7 +27973,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     vendorid:
                                       description: |-
                                         VendorID allows setting the hypervisor vendor id.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -27974,7 +27989,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     vpindex:
                                       description: |-
                                         VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                                        Defaults to the machine type setting.
+                                        Defaults to enabling the feature when the host supports it.
                                       properties:
                                         enabled:
                                           description: |-
@@ -30201,7 +30216,7 @@ var CRDsValidation map[string]string = map[string]string{
                 evmcs:
                   description: |-
                     EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30212,7 +30227,7 @@ var CRDsValidation map[string]string = map[string]string{
                 frequencies:
                   description: |-
                     Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30223,7 +30238,7 @@ var CRDsValidation map[string]string = map[string]string{
                 ipi:
                   description: |-
                     IPI improves performances in overcommited environments. Requires vpindex.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30234,7 +30249,7 @@ var CRDsValidation map[string]string = map[string]string{
                 reenlightenment:
                   description: |-
                     Reenlightenment enables the notifications on TSC frequency changes.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30245,7 +30260,7 @@ var CRDsValidation map[string]string = map[string]string{
                 relaxed:
                   description: |-
                     Relaxed instructs the guest OS to disable watchdog timeouts.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30256,7 +30271,7 @@ var CRDsValidation map[string]string = map[string]string{
                 reset:
                   description: |-
                     Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30267,7 +30282,7 @@ var CRDsValidation map[string]string = map[string]string{
                 runtime:
                   description: |-
                     Runtime improves the time accounting to improve scheduling in the guest.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30294,7 +30309,7 @@ var CRDsValidation map[string]string = map[string]string{
                 synic:
                   description: |-
                     SyNIC enables the Synthetic Interrupt Controller.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30305,7 +30320,7 @@ var CRDsValidation map[string]string = map[string]string{
                 synictimer:
                   description: |-
                     SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     direct:
                       description: Represents if a feature is enabled or disabled.
@@ -30325,7 +30340,7 @@ var CRDsValidation map[string]string = map[string]string{
                 tlbflush:
                   description: |-
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     direct:
                       description: |-
@@ -30357,7 +30372,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vapic:
                   description: |-
                     VAPIC improves the paravirtualized handling of interrupts.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30368,7 +30383,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vendorid:
                   description: |-
                     VendorID allows setting the hypervisor vendor id.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -30384,7 +30399,7 @@ var CRDsValidation map[string]string = map[string]string{
                 vpindex:
                   description: |-
                     VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                    Defaults to the machine type setting.
+                    Defaults to enabling the feature when the host supports it.
                   properties:
                     enabled:
                       description: |-
@@ -33759,12 +33774,15 @@ var CRDsValidation map[string]string = map[string]string{
                                           type: boolean
                                       type: object
                                     hyperv:
-                                      description: Defaults to the machine type setting.
+                                      description: |-
+                                        Hyperv configures Hyper-V enlightenments. Unset features are enabled
+                                        when the host supports them. If any feature is explicitly disabled,
+                                        the explicit feature list is used instead.
                                       properties:
                                         evmcs:
                                           description: |-
                                             EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33775,7 +33793,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         frequencies:
                                           description: |-
                                             Frequencies improves the TSC clock source handling for Hyper-V on KVM.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33786,7 +33804,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         ipi:
                                           description: |-
                                             IPI improves performances in overcommited environments. Requires vpindex.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33797,7 +33815,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         reenlightenment:
                                           description: |-
                                             Reenlightenment enables the notifications on TSC frequency changes.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33808,7 +33826,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         relaxed:
                                           description: |-
                                             Relaxed instructs the guest OS to disable watchdog timeouts.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33819,7 +33837,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         reset:
                                           description: |-
                                             Reset enables Hyperv reboot/reset for the vmi. Requires synic.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33830,7 +33848,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         runtime:
                                           description: |-
                                             Runtime improves the time accounting to improve scheduling in the guest.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33858,7 +33876,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         synic:
                                           description: |-
                                             SyNIC enables the Synthetic Interrupt Controller.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33869,7 +33887,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         synictimer:
                                           description: |-
                                             SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             direct:
                                               description: Represents if a feature
@@ -33890,7 +33908,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         tlbflush:
                                           description: |-
                                             TLBFlush improves performances in overcommited environments. Requires vpindex.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             direct:
                                               description: |-
@@ -33924,7 +33942,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         vapic:
                                           description: |-
                                             VAPIC improves the paravirtualized handling of interrupts.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33935,7 +33953,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         vendorid:
                                           description: |-
                                             VendorID allows setting the hypervisor vendor id.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-
@@ -33951,7 +33969,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         vpindex:
                                           description: |-
                                             VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
-                                            Defaults to the machine type setting.
+                                            Defaults to enabling the feature when the host supports it.
                                           properties:
                                             enabled:
                                               description: |-

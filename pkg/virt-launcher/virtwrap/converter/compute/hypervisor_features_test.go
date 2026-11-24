@@ -26,6 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	hypervutil "kubevirt.io/kubevirt/pkg/util/hyperv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -35,7 +36,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{})))
@@ -47,7 +48,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(expectedFeatures)))
@@ -63,7 +64,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(expectedFeatures)))
@@ -79,7 +80,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(expectedFeatures)))
@@ -95,7 +96,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(expectedFeatures)))
@@ -116,7 +117,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(expectedFeatures)))
@@ -142,7 +143,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -157,10 +158,120 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{ACPI: &api.FeatureEnabled{}})))
+		})
+	})
+
+	Context("Hyperv host-model", func() {
+		newAmd64VMI := func(hyperv *v1.FeatureHyperv, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+			opts = append([]libvmi.Option{
+				libvmi.WithArchitecture("amd64"),
+				withFeatures(v1.Features{Hyperv: hyperv}),
+			}, opts...)
+			return libvmi.New(opts...)
+		}
+
+		hostModelConfigurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, true)
+
+		It("should emit host-model with reenlightenment and vendor_id off for an empty feature set", func() {
+			vmi := newAmd64VMI(&v1.FeatureHyperv{})
+			var domain api.Domain
+
+			Expect(hostModelConfigurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
+				ACPI: &api.FeatureEnabled{},
+				Hyperv: &api.FeatureHyperv{
+					Mode:            hypervutil.HypervModeHostModel,
+					Reenlightenment: &api.FeatureState{State: "off"},
+					VendorID:        &api.FeatureVendorID{State: "off"},
+				},
+			})))
+		})
+
+		It("should emit explicit settings as overrides on top of host-model", func() {
+			vmi := newAmd64VMI(&v1.FeatureHyperv{
+				Relaxed:         &v1.FeatureState{Enabled: new(true)},
+				Reenlightenment: &v1.FeatureState{Enabled: new(true)},
+				VendorID: &v1.FeatureVendorID{
+					FeatureState: v1.FeatureState{Enabled: new(true)},
+					VendorID:     "myvendor",
+				},
+			})
+			var domain api.Domain
+
+			Expect(hostModelConfigurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
+				ACPI: &api.FeatureEnabled{},
+				Hyperv: &api.FeatureHyperv{
+					Mode:            hypervutil.HypervModeHostModel,
+					Relaxed:         &api.FeatureState{State: "on"},
+					Reenlightenment: &api.FeatureState{State: "on"},
+					VendorID:        &api.FeatureVendorID{State: "on", Value: "myvendor"},
+				},
+			})))
+		})
+
+		DescribeTable("should keep the explicit feature list", func(vmi *v1.VirtualMachineInstance, expectedHyperv *api.FeatureHyperv) {
+			var domain api.Domain
+
+			Expect(hostModelConfigurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
+				ACPI:   &api.FeatureEnabled{},
+				Hyperv: expectedHyperv,
+			})))
+		},
+			Entry("for a non-candidate VMI", newAmd64VMI(
+				&v1.FeatureHyperv{Relaxed: &v1.FeatureState{Enabled: new(true)}},
+				libvmi.WithArchitecture("arm64"),
+			), &api.FeatureHyperv{Relaxed: &api.FeatureState{State: "on"}}),
+			Entry("when a feature is disabled", newAmd64VMI(&v1.FeatureHyperv{
+				Relaxed: &v1.FeatureState{Enabled: new(true)},
+				VPIndex: &v1.FeatureState{Enabled: new(false)},
+			}), &api.FeatureHyperv{
+				Relaxed: &api.FeatureState{State: "on"},
+				VPIndex: &api.FeatureState{State: "off"},
+			}),
+			Entry("when a sub-feature is disabled", newAmd64VMI(&v1.FeatureHyperv{
+				TLBFlush: &v1.TLBFlush{Direct: &v1.FeatureState{Enabled: new(false)}},
+			}), &api.FeatureHyperv{
+				TLBFlush: &api.TLBFlush{State: "on", Direct: &api.FeatureState{State: "off"}},
+			}),
+			Entry("when the hypervclock timer is disabled", newAmd64VMI(&v1.FeatureHyperv{}, libvmi.WithClock(v1.Clock{
+				Timer: &v1.Timer{Hyperv: &v1.HypervTimer{Enabled: new(false)}},
+			})), &api.FeatureHyperv{}),
+		)
+
+		It("should not use host-model when it is not allowed", func() {
+			vmi := newAmd64VMI(&v1.FeatureHyperv{})
+			var domain api.Domain
+
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
+				ACPI:   &api.FeatureEnabled{},
+				Hyperv: &api.FeatureHyperv{},
+			})))
+		})
+
+		It("should keep passthrough when host-model is allowed", func() {
+			vmi := libvmi.New(withFeatures(v1.Features{
+				HypervPassthrough: &v1.HyperVPassthrough{Enabled: new(true)},
+			}))
+			var domain api.Domain
+
+			Expect(hostModelConfigurator.Configure(vmi, &domain)).To(Succeed())
+
+			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
+				ACPI:   &api.FeatureEnabled{},
+				Hyperv: &api.FeatureHyperv{Mode: api.HypervModePassthrough},
+			})))
 		})
 	})
 
@@ -200,7 +311,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -242,7 +353,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -265,7 +376,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -283,7 +394,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -301,7 +412,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 			}))
 			var domain api.Domain
 
-			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false)
+			configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, false, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -317,7 +428,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		vmi := libvmi.New(withFeatures(v1.Features{}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(true, false)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(true, false, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{
@@ -330,7 +441,7 @@ var _ = Describe("HypervisorFeatures Domain Configurator", func() {
 		vmi := libvmi.New(withFeatures(v1.Features{}))
 		var domain api.Domain
 
-		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, true)
+		configurator := compute.NewHypervisorFeaturesDomainConfigurator(false, true, false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain).To(Equal(newDomainWithFeatures(&api.Features{

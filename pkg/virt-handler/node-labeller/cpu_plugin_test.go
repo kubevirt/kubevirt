@@ -22,6 +22,7 @@
 package nodelabeller
 
 import (
+	"encoding/xml"
 	"runtime"
 	"strings"
 
@@ -263,6 +264,44 @@ var _ = Describe("Node-labeller config", func() {
 			},
 			Entry("When Intel TDX is supported", true),
 			Entry("When Intel TDX is not supported", false),
+		)
+	})
+
+	Context("hyperv features from domain capabilities", func() {
+		domCapsFeatures := []string{
+			"relaxed", "vapic", "spinlocks", "vpindex", "runtime", "synic", "stimer", "reset", "vendor_id",
+			"frequencies", "reenlightenment", "tlbflush", "ipi", "evmcs", "avic", "emsr_bitmap", "xmm_input",
+		}
+
+		DescribeTable("should be loaded", func(domCapabilitiesFileName string, expected []string) {
+			nlController.domCapabilitiesFileName = domCapabilitiesFileName
+			Expect(nlController.loadDomCapabilities()).To(Succeed())
+			Expect(nlController.hypervDomCapsFeatures.items).To(ConsistOf(expected))
+		},
+			Entry("with defaults", "virsh_domcapabilities.xml",
+				append([]string{"stimer_direct", "tlbflush_direct", "tlbflush_extended"}, domCapsFeatures...)),
+			Entry("without defaults", "domcapabilities_tdx.xml", domCapsFeatures),
+			Entry("without a hyperv section", "s390x/virsh_domcapabilities.xml", nil),
+		)
+
+		DescribeTable("should include", func(domain, supported string, expected []string) {
+			caps := HostDomCapabilities{
+				Domain: domain,
+				Hyperv: HypervConfiguration{
+					Supported: supported,
+					Enums:     []HypervEnum{{Name: "features", Values: []string{"stimer", "tlbflush"}}},
+					Defaults: HypervDefaults{Values: []HypervDefault{
+						{XMLName: xml.Name{Local: "spinlocks"}, Value: "4095"},
+						{XMLName: xml.Name{Local: "stimer_direct"}, Value: "off"},
+						{XMLName: xml.Name{Local: "tlbflush_direct"}, Value: "on"},
+					}},
+				},
+			}
+			Expect(hypervHostModelFeatures(caps)).To(ConsistOf(expected))
+		},
+			Entry("only the defaults that are on", "kvm", "yes", []string{"stimer", "tlbflush", "tlbflush_direct"}),
+			Entry("nothing from qemu domain capabilities", "qemu", "yes", nil),
+			Entry("nothing when hyperv is unsupported", "kvm", "no", nil),
 		)
 	})
 

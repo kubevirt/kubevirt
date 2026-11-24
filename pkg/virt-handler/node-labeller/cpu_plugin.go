@@ -135,6 +135,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	n.SEV = hostDomCapabilities.SEV
 	n.SecureExecution = hostDomCapabilities.SecureExecution
 	n.TDX = hostDomCapabilities.TDX
+	n.hypervDomCapsFeatures.items = hypervHostModelFeatures(hostDomCapabilities)
 
 	return nil
 }
@@ -181,6 +182,27 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 	}
 
 	return hostDomCapabilities, err
+}
+
+// hypervHostModelFeatures returns the features libvirt hyperv host-model may
+// enable: the hyperv features enum plus the sub-features that default to on.
+func hypervHostModelFeatures(caps HostDomCapabilities) []string {
+	if caps.Domain != "kvm" || caps.Hyperv.Supported != isSupported {
+		return nil
+	}
+
+	var features []string
+	for _, enum := range caps.Hyperv.Enums {
+		if enum.Name == "features" {
+			features = append(features, enum.Values...)
+		}
+	}
+	for _, d := range caps.Hyperv.Defaults.Values {
+		if d.Value == "on" {
+			features = append(features, d.XMLName.Local)
+		}
+	}
+	return features
 }
 
 // GetStructureFromXMLFile load data from xml file and unmarshals them into given structure

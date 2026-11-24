@@ -22077,13 +22077,13 @@ func schema_kubevirtio_api_core_v1_FeatureHyperv(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"relaxed": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Relaxed instructs the guest OS to disable watchdog timeouts. Defaults to the machine type setting.",
+							Description: "Relaxed instructs the guest OS to disable watchdog timeouts. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"vapic": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VAPIC improves the paravirtualized handling of interrupts. Defaults to the machine type setting.",
+							Description: "VAPIC improves the paravirtualized handling of interrupts. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
@@ -22095,67 +22095,67 @@ func schema_kubevirtio_api_core_v1_FeatureHyperv(ref common.ReferenceCallback) c
 					},
 					"vpindex": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors. Defaults to the machine type setting.",
+							Description: "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime improves the time accounting to improve scheduling in the guest. Defaults to the machine type setting.",
+							Description: "Runtime improves the time accounting to improve scheduling in the guest. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"synic": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SyNIC enables the Synthetic Interrupt Controller. Defaults to the machine type setting.",
+							Description: "SyNIC enables the Synthetic Interrupt Controller. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"synictimer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.",
+							Description: "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.SyNICTimer{}.OpenAPIModelName()),
 						},
 					},
 					"reset": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reset enables Hyperv reboot/reset for the vmi. Requires synic. Defaults to the machine type setting.",
+							Description: "Reset enables Hyperv reboot/reset for the vmi. Requires synic. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"vendorid": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VendorID allows setting the hypervisor vendor id. Defaults to the machine type setting.",
+							Description: "VendorID allows setting the hypervisor vendor id. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureVendorID{}.OpenAPIModelName()),
 						},
 					},
 					"frequencies": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Frequencies improves the TSC clock source handling for Hyper-V on KVM. Defaults to the machine type setting.",
+							Description: "Frequencies improves the TSC clock source handling for Hyper-V on KVM. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"reenlightenment": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reenlightenment enables the notifications on TSC frequency changes. Defaults to the machine type setting.",
+							Description: "Reenlightenment enables the notifications on TSC frequency changes. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"tlbflush": {
 						SchemaProps: spec.SchemaProps{
-							Description: "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Description: "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.TLBFlush{}.OpenAPIModelName()),
 						},
 					},
 					"ipi": {
 						SchemaProps: spec.SchemaProps{
-							Description: "IPI improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Description: "IPI improves performances in overcommited environments. Requires vpindex. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
 					"evmcs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic. Defaults to the machine type setting.",
+							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic. Defaults to enabling the feature when the host supports it.",
 							Ref:         ref(corev1.FeatureState{}.OpenAPIModelName()),
 						},
 					},
@@ -22285,7 +22285,7 @@ func schema_kubevirtio_api_core_v1_Features(ref common.ReferenceCallback) common
 					},
 					"hyperv": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Defaults to the machine type setting.",
+							Description: "Hyperv configures Hyper-V enlightenments. Unset features are enabled when the host supports them. If any feature is explicitly disabled, the explicit feature list is used instead.",
 							Ref:         ref(corev1.FeatureHyperv{}.OpenAPIModelName()),
 						},
 					},

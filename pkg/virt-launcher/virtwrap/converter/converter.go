@@ -112,7 +112,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
-		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
+		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX, hypervHostModelAllowed(c)),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
 		storage.NewVirtiofsConfigurator(),
@@ -218,6 +218,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
+}
+
+// hypervHostModelAllowed reports whether the domain runs on KVM, which libvirt
+// needs to expand hyperv host-model. domain.Spec.Type cannot tell yet: the KVM
+// configurator that may fall back to emulation runs after the hyperv one.
+func hypervHostModelAllowed(c *convertertypes.ConverterContext) bool {
+	return c.HypervisorDeviceAvailable && c.HypervisorName != v1.HyperVDirectHypervisorName && !c.AllowCrossArchEmulation
 }
 
 func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {

@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hyperv"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -389,6 +390,10 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, err
 	}
 
+	if sourcePod.Annotations[hyperv.HypervModeAnnotation] == hyperv.HypervModeHostModel {
+		targetPod.Annotations[hyperv.HypervModeAnnotation] = hyperv.HypervModeHostModel
+	}
+
 	return targetPod, err
 }
 
@@ -660,6 +665,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
+	}
+	// The hyperv marker is internal and must not come from VMI annotations.
+	delete(podAnnotations, hyperv.HypervModeAnnotation)
+	if role == launcherPodVM && hyperv.IsHostModelCandidate(vmi) {
+		podAnnotations[hyperv.HypervModeAnnotation] = hyperv.HypervModeHostModel
 	}
 	if role == launcherPodTemporary {
 		// mark pod as temp - only used for provisioning

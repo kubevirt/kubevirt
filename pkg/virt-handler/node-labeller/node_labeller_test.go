@@ -221,6 +221,35 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKeyWithValue(v1.TDXLabel, "true"))
 	})
 
+	It("should add hyperv labels from domain capabilities", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		for _, feature := range []string{"relaxed", "avic", "emsr_bitmap", "stimer_direct"} {
+			Expect(node.Labels).To(HaveKeyWithValue(v1.HypervLabel+feature, "true"))
+		}
+	})
+
+	It("should remove hyperv labels that the domain capabilities no longer report", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.HypervLabel + "stimer_direct"))
+
+		fakeNodeStore.Update(node)
+		// no hyperv defaults in there
+		nlController.domCapabilitiesFileName = "domcapabilities_tdx.xml"
+		Expect(nlController.loadAll()).To(Succeed())
+		nlController.queue.Add(nodeName)
+		res = nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node = retrieveNode(kubeClient)
+		Expect(node.Labels).ToNot(HaveKey(v1.HypervLabel + "stimer_direct"))
+	})
+
 	It("should not add vm-arch labels when feature gate is disabled", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())

@@ -2090,6 +2090,58 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
 			Expect(domain.Spec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
 		})
+
+		newAmd64HypervVMI := func() *v1.VirtualMachineInstance {
+			return &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Architecture: "amd64",
+					Domain: v1.DomainSpec{
+						Features: &v1.Features{
+							Hyperv: &v1.FeatureHyperv{},
+						},
+					},
+				},
+			}
+		}
+
+		It("should convert to hyperv host-model when the hypervisor device is available", func() {
+			c := &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter("amd64"),
+				AllowEmulation:            true,
+				HypervisorDeviceAvailable: true,
+			}
+
+			Expect(vmiToDomainXML(newAmd64HypervVMI(), c)).To(ContainSubstring(`<hyperv mode="host-model">`))
+		})
+
+		It("should not convert to hyperv host-model when the hypervisor device is not available", func() {
+			c := &convertertypes.ConverterContext{
+				Architecture:   archconverter.NewConverter("amd64"),
+				AllowEmulation: true,
+			}
+
+			Expect(vmiToDomain(newAmd64HypervVMI(), c).Spec.Features.Hyperv.Mode).To(BeEmpty())
+		})
+
+		DescribeTable("should only allow hyperv host-model on KVM", func(c *convertertypes.ConverterContext, allowed bool) {
+			Expect(hypervHostModelAllowed(c)).To(Equal(allowed))
+		},
+			Entry("hypervisor device available", &convertertypes.ConverterContext{HypervisorDeviceAvailable: true}, true),
+			Entry("hypervisor device unavailable", &convertertypes.ConverterContext{}, false),
+			Entry("hyperv-direct hypervisor", &convertertypes.ConverterContext{
+				HypervisorDeviceAvailable: true,
+				HypervisorName:            v1.HyperVDirectHypervisorName,
+			}, false),
+			Entry("cross-architecture emulation", &convertertypes.ConverterContext{
+				HypervisorDeviceAvailable: true,
+				AllowCrossArchEmulation:   true,
+			}, false),
+		)
 	})
 
 	Context("serial console", func() {
