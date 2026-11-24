@@ -138,6 +138,9 @@ func cirrosMemory() string {
 	if isARM64() {
 		return "256Mi"
 	}
+	if isPPC64LE() {
+		return "512Mi"
+	}
 	return "128Mi"
 }
 
