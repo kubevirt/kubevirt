@@ -897,6 +897,48 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				"Gate1", "Gate2", "Gate3"),
 		)
 	})
+
+	Context("Configuration Validation", func() {
+		var admitter *KubeVirtUpdateAdmitter
+
+		BeforeEach(func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+		})
+
+		It("should reject update with unsupported defaultNetworkInterface", func() {
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := oldKV.DeepCopy()
+			newKV.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
+				NetworkInterface: "passtBinding",
+			}
+			response := admitKVUpdate(admitter, oldKV, newKV)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(ContainElement(HaveField("Field", "spec.configuration.network.defaultNetworkInterface")))
+		})
+
+		It("should reject update with invalid imagePullPolicy", func() {
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := oldKV.DeepCopy()
+			newKV.Spec.Configuration.ImagePullPolicy = "InvalidPolicy"
+			response := admitKVUpdate(admitter, oldKV, newKV)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("spec.configuration.imagePullPolicy"))
+		})
+
+		It("should reject update with invalid developer configuration values", func() {
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := oldKV.DeepCopy()
+			newKV.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				MemoryOvercommit:       -1,
+				CPUAllocationRatio:     -1,
+				LessPVCSpaceToleration: 150,
+			}
+			response := admitKVUpdate(admitter, oldKV, newKV)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(3))
+		})
+	})
 })
 
 func admitKVUpdate(admitter *KubeVirtUpdateAdmitter, oldKV, newKV *v1.KubeVirt) *admissionv1.AdmissionResponse {
