@@ -64,6 +64,23 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
 		})
+		It("does not mutate caller VMI volumes when resolving secrets", func() {
+			vmi := libvmi.New(
+				libvmi.WithFirmwareUUID("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"),
+				libvmi.WithCloudInitNoCloud(
+					cloudinitdata.WithNoCloudUserDataSecretName("user"),
+					cloudinitdata.WithNoCloudNetworkDataSecretName("network"),
+				),
+			)
+			writeFixture(root, "cloudinitdisk/userdata", "secret-user")
+			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
+
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmi.Spec.Volumes[0].CloudInitNoCloud.UserData).To(BeEmpty())
+			Expect(vmi.Spec.Volumes[0].CloudInitNoCloud.NetworkData).To(BeEmpty())
+		})
 		It("reads raw user and network payloads", func() {
 			vmi := libvmi.New(
 				libvmi.WithFirmwareUUID("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"),
@@ -312,6 +329,23 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			Expect(data.DataSource).To(Equal(cloudinit.DataSourceConfigDrive))
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
+		})
+		It("does not mutate caller VMI volumes when resolving secrets", func() {
+			vmi := libvmi.New(
+				libvmi.WithFirmwareUUID("cf73b4f4-6975-4d93-b51c-b7ae392bdea5"),
+				libvmi.WithCloudInitConfigDrive(
+					cloudinitdata.WithConfigDriveUserDataSecretName("user"),
+					cloudinitdata.WithConfigDriveNetworkDataSecretName("network"),
+				),
+			)
+			writeFixture(root, "cloudinitdisk/userdata", "secret-user")
+			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
+
+			_, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vmi.Spec.Volumes[0].CloudInitConfigDrive.UserData).To(BeEmpty())
+			Expect(vmi.Spec.Volumes[0].CloudInitConfigDrive.NetworkData).To(BeEmpty())
 		})
 		It("reads raw user and network payloads", func() {
 			vmi := libvmi.New(
