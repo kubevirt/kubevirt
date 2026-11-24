@@ -103,19 +103,12 @@ var istioTests = func(vmType VmType) {
 			{Port: sshPort},
 		}
 	)
-	BeforeEach(func() {
-		namespace = testsuite.GetTestNamespace(nil)
-	})
-
 	Context("Virtual Machine with istio supported interface", func() {
 		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
-			By("Starting HTTP Server")
-			vmnetserver.StartPythonHTTPServer(vmi, targetPort)
-
 			By("Getting back the VMI IP")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			serverVMI, err := virtClient.VirtualMachineInstance(serverVMI.Namespace).Get(context.Background(), serverVMI.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
+			vmiIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, k8sv1.IPv4Protocol)
 
 			By("Running job to send a request to the server")
 			return virtClient.BatchV1().Jobs(namespace).Create(
@@ -124,8 +117,9 @@ var istioTests = func(vmType VmType) {
 				metav1.CreateOptions{},
 			)
 		}
-		BeforeEach(func() {
+		prepareNetwork := func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
+			namespace = testsuite.GetTestNamespace(nil)
 
 			By("Create NetworkAttachmentDefinition")
 			nad := libnet.NewNetAttachDef("istio-cni", "")
@@ -139,8 +133,8 @@ var istioTests = func(vmType VmType) {
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
 			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-		})
-		JustBeforeEach(func() {
+		}
+		startVMI := func(ports []v1.Port) {
 			// Enable sidecar injection by setting the namespace label
 			Expect(libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
@@ -148,14 +142,20 @@ var istioTests = func(vmType VmType) {
 			}()
 
 			By("Creating VMI")
-			vmi, err = newVMIWithIstioSidecar(vmiPorts, vmType)
+			vmi, err = newVMIWithIstioSidecar(ports, vmType)
 			Expect(err).ShouldNot(HaveOccurred())
 			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Waiting for VMI to be ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+		}
+
+		BeforeEach(prepareNetwork)
+		JustBeforeEach(func() {
+			startVMI(vmiPorts)
 		})
+
 		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
@@ -246,6 +246,9 @@ var istioTests = func(vmType VmType) {
 		})
 		Describe("Inbound traffic", func() {
 			checkVMIReachability := func(vmi *v1.VirtualMachineInstance, targetPort int) error {
+				By("Starting HTTP Server")
+				vmnetserver.StartPythonHTTPServer(vmi, targetPort)
+
 				httpJob, err := createJobCheckingVMIReachability(vmi, targetPort)
 				if err != nil {
 					return err
