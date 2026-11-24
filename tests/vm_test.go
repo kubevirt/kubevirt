@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -545,6 +546,38 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).Should(
 				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.InvalidImageNameReason),
+			)
+		})
+
+		It("should report FailedMount when an access credential secret does not exist", decorators.WgS390x, func() {
+			const secretName = "missing-ssh-key"
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(
+				libvmi.WithAccessCredentialSSHPublicKey(secretName, "fedora"),
+			))
+
+			By("Expecting the missing Secret to be reported without failing the VM")
+			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusFailedMount))
+			Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithMessage(v1.VirtualMachineInstanceSynchronized, secretName),
+			)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 30*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.FailedMountReason),
+			)
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 30*time.Second, 1*time.Second).Should(
+				HaveConditionFalseWithMessage(v1.VirtualMachineInstanceSynchronized, secretName),
+			)
+
+			By("Creating the Secret and expecting the same VM to start")
+			secret := libsecret.New(secretName, libsecret.DataString{
+				"fedora": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyNotASecret",
+			})
+			_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			startupTimeout := time.Duration(flags.StartupTimeoutSecondsXLarge()) * time.Second
+			Eventually(ThisVM(vm), startupTimeout, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusRunning))
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 30*time.Second, 1*time.Second).ShouldNot(
+				HaveConditionFalseWithReason(v1.VirtualMachineInstanceSynchronized, controller.FailedMountReason),
 			)
 		})
 

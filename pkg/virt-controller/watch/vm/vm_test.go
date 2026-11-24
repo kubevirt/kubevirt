@@ -4762,7 +4762,53 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("Reason: ErrImagePull", virtcontroller.ErrImagePullReason, v1.VirtualMachineStatusErrImagePull),
 				Entry("Reason: ImagePullBackOff", virtcontroller.ImagePullBackOffReason, v1.VirtualMachineStatusImagePullBackOff),
 				Entry("Reason: InvalidImageName", virtcontroller.InvalidImageNameReason, v1.VirtualMachineStatusErrImagePull),
+				Entry("Reason: FailedMount", virtcontroller.FailedMountReason, v1.VirtualMachineStatusFailedMount),
 			)
+
+			It("should replace the VM FailedMount message when the VMI reports a different volume", func() {
+				const (
+					volumeA = `MountVolume.SetUp failed for volume "a-ssh-key-access-cred" : secret "a-ssh-key" not found`
+					volumeB = `MountVolume.SetUp failed for volume "b-ssh-key-access-cred" : secret "b-ssh-key" not found`
+				)
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vmi.Status.Phase = v1.Scheduling
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+					Type:    v1.VirtualMachineInstanceSynchronized,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  virtcontroller.FailedMountReason,
+					Message: volumeB,
+				}}
+				vm.Status.Conditions = []v1.VirtualMachineCondition{{
+					Type:    v1.VirtualMachineConditionType(v1.VirtualMachineInstanceSynchronized),
+					Status:  k8sv1.ConditionFalse,
+					Reason:  virtcontroller.FailedMountReason,
+					Message: volumeA,
+				}}
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				vm.Status.Conditions = []v1.VirtualMachineCondition{{
+					Type:    v1.VirtualMachineConditionType(v1.VirtualMachineInstanceSynchronized),
+					Status:  k8sv1.ConditionFalse,
+					Reason:  virtcontroller.FailedMountReason,
+					Message: volumeA,
+				}}
+				addVirtualMachine(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				sanityExecute(vm)
+
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusFailedMount))
+				var message string
+				for _, cond := range vm.Status.Conditions {
+					if cond.Reason == virtcontroller.FailedMountReason {
+						message = cond.Message
+					}
+				}
+				Expect(message).To(Equal(volumeB))
+			})
 		})
 
 		Context("Instancetype and Preferences", func() {

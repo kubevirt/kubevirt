@@ -2517,6 +2517,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusWaitingForVolumeBinding, c.isVirtualMachineStatusWaitingForVolumeBinding},
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
+		{virtv1.VirtualMachineStatusFailedMount, c.isVirtualMachineStatusFailedMount},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
@@ -2655,6 +2656,14 @@ func (c *Controller) isVirtualMachineStatusImagePullBackOff(vm *virtv1.VirtualMa
 	return syncCond != nil && syncCond.Status == k8score.ConditionFalse && syncCond.Reason == controller.ImagePullBackOffReason
 }
 
+// isVirtualMachineStatusFailedMount determines whether the VM status field should be set to "FailedMount"
+func (c *Controller) isVirtualMachineStatusFailedMount(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceSynchronized,
+		k8score.ConditionFalse,
+		controller.FailedMountReason)
+}
+
 // isVirtualMachineStatusPvcNotFound determines whether the VM status field should be set to "FailedPvcNotFound".
 func (c *Controller) isVirtualMachineStatusPvcNotFound(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	cm := controller.NewVirtualMachineInstanceConditionManager()
@@ -2771,6 +2780,9 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 			LastProbeTime:      cond.LastProbeTime,
 			LastTransitionTime: cond.LastTransitionTime,
 		})
+		if cond.Reason == controller.FailedMountReason {
+			syncFailedMountMessage(vm, cond.Message)
+		}
 	}
 
 	// remove vm conditions that don't exist on vmi (excluding the ignore list)
@@ -2785,6 +2797,22 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 		}
 		return false
 	})
+}
+
+// syncFailedMountMessage copies the current FailedMount description onto the VM.
+// UpdateCondition leaves the message unchanged when the reason stays the same.
+func syncFailedMountMessage(vm *virtv1.VirtualMachine, message string) {
+	for i := range vm.Status.Conditions {
+		cond := &vm.Status.Conditions[i]
+		if cond.Type != virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceSynchronized) {
+			continue
+		}
+		if cond.Reason != controller.FailedMountReason || cond.Status != k8score.ConditionFalse {
+			return
+		}
+		cond.Message = message
+		return
+	}
 }
 
 func processFailureCondition(vm *virtv1.VirtualMachine, syncErr common.SyncError) {

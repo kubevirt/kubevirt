@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -401,6 +402,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			if imageErr := checkForContainerImageError(pod); imageErr != nil {
 				// only overwrite syncErr if imageErr != nil
 				syncErr = imageErr
+			} else if syncErr == nil {
+				if mountErr := c.checkForVolumeMountError(vmiCopy, pod); mountErr != nil {
+					syncErr = mountErr
+				}
 			}
 
 			if controller.IsPodReady(pod) && vmi.DeletionTimestamp == nil {
@@ -1004,6 +1009,206 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 		}
 	}
 	return nil
+}
+
+const (
+	// Give kubelet time to mount volumes before virt-controller reads pod events.
+	volumeMountFailureGracePeriod = 30 * time.Second
+	volumeMountRetryInterval      = 15 * time.Second
+	volumeMountMaxRetries         = 6
+	// Kubelet waits up to 2 minutes and 2 seconds between retries of a failed mount.
+	// An event older than that, plus one check, is no longer being reported.
+	volumeMountFailureFreshness = 2*time.Minute + 2*time.Second + volumeMountRetryInterval
+	// Same limit as a Kubernetes condition message.
+	maxSyncConditionMessageLen = 32 * 1024
+	// Kubelet uses this text when the event names the volume that failed to mount.
+	volumeMountSetupFailure = "MountVolume.SetUp failed"
+)
+
+// checkForVolumeMountError checks if kubelet reported FailedMount for the virt-launcher pod
+// and returns a syncErr with the event message, or nil otherwise.
+// Every volume kubelet is still reporting is included. A condition recorded
+// before this pod is dropped so the new pod's events can be stored.
+func (c *Controller) checkForVolumeMountError(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) common.SyncError {
+	if !isPodBlockedOnVolumeMount(pod) {
+		return nil
+	}
+	dropFailedMountFromPreviousPod(vmi, pod)
+
+	key := controller.VirtualMachineInstanceKey(vmi)
+	waited := time.Since(volumeMountCheckStart(pod))
+	if waited < volumeMountFailureGracePeriod {
+		c.Queue.AddAfter(key, volumeMountFailureGracePeriod-waited)
+		return nil
+	}
+
+	message, specific, err := c.findFailedMountMessage(pod)
+	if err != nil {
+		log.Log.Object(vmi).Errorf("failed to list virt-launcher pod events: %v", err)
+		if failedMount := currentFailedMountError(vmi); failedMount != nil {
+			c.Queue.AddAfter(key, volumeMountRetryInterval)
+			return failedMount
+		}
+		if shouldRetryVolumeMountCheck(pod) {
+			c.Queue.AddAfter(key, volumeMountRetryInterval)
+		}
+		return nil
+	}
+	// A timeout event does not name the volume. Keep looking for one that does
+	// until the retries run out.
+	if message == "" || (!specific && shouldRetryVolumeMountCheck(pod)) {
+		if shouldRetryVolumeMountCheck(pod) {
+			c.Queue.AddAfter(key, volumeMountRetryInterval)
+		}
+		return nil
+	}
+
+	message = truncateSyncConditionMessage(message)
+	c.Queue.AddAfter(key, volumeMountRetryInterval)
+	return failedMountSyncError(vmi, message)
+}
+
+func isPodBlockedOnVolumeMount(pod *k8sv1.Pod) bool {
+	if pod == nil || pod.DeletionTimestamp != nil || pod.Status.Phase != k8sv1.PodPending {
+		return false
+	}
+	return controller.NewPodConditionManager().HasConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionTrue)
+}
+
+func currentFailedMountError(vmi *virtv1.VirtualMachineInstance) common.SyncError {
+	cond := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	if cond == nil || cond.Status != k8sv1.ConditionFalse || cond.Reason != controller.FailedMountReason {
+		return nil
+	}
+	return common.NewSyncError(fmt.Errorf("%s", cond.Message), controller.FailedMountReason)
+}
+
+// dropFailedMountFromPreviousPod removes a FailedMount condition recorded for an older pod.
+// CheckFailure does not change the message when the reason stays the same.
+func dropFailedMountFromPreviousPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	cond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	if cond == nil || cond.Status != k8sv1.ConditionFalse || cond.Reason != controller.FailedMountReason {
+		return
+	}
+	if !pod.CreationTimestamp.IsZero() && cond.LastTransitionTime.Before(&pod.CreationTimestamp) {
+		conditionManager.RemoveCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	}
+}
+
+// failedMountSyncError returns the FailedMount syncErr for message.
+// CheckFailure does not change the message when the reason stays the same,
+// so a different message replaces the recorded condition.
+func failedMountSyncError(vmi *virtv1.VirtualMachineInstance, message string) common.SyncError {
+	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
+	cond := conditionManager.GetCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	if cond != nil && cond.Status == k8sv1.ConditionFalse && cond.Reason == controller.FailedMountReason && cond.Message != message {
+		conditionManager.RemoveCondition(vmi, virtv1.VirtualMachineInstanceSynchronized)
+	}
+	return common.NewSyncError(fmt.Errorf("%s", message), controller.FailedMountReason)
+}
+
+func shouldRetryVolumeMountCheck(pod *k8sv1.Pod) bool {
+	deadline := volumeMountFailureGracePeriod + volumeMountRetryInterval*time.Duration(volumeMountMaxRetries)
+	return time.Since(volumeMountCheckStart(pod)) < deadline
+}
+
+// volumeMountCheckStart is when kubelet can start mounting volumes for this pod.
+func volumeMountCheckStart(pod *k8sv1.Pod) time.Time {
+	cond := controller.NewPodConditionManager().GetCondition(pod, k8sv1.PodScheduled)
+	if cond != nil && cond.Status == k8sv1.ConditionTrue && !cond.LastTransitionTime.IsZero() {
+		return cond.LastTransitionTime.Time
+	}
+	return pod.CreationTimestamp.Time
+}
+
+func (c *Controller) findFailedMountMessage(pod *k8sv1.Pod) (message string, specific bool, err error) {
+	events, err := c.clientset.CoreV1().Events(pod.Namespace).List(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.uid=%s", pod.UID),
+	})
+	if err != nil {
+		return "", false, err
+	}
+
+	now := time.Now()
+	latestByVolume := map[string]*k8sv1.Event{}
+	var newestGeneric *k8sv1.Event
+	for i := range events.Items {
+		event := &events.Items[i]
+		if event.Reason != controller.FailedMountReason || event.InvolvedObject.UID != pod.UID || event.Message == "" {
+			continue
+		}
+		if !mountEventIsFresh(event, now) {
+			continue
+		}
+		if !strings.Contains(event.Message, volumeMountSetupFailure) {
+			if newestGeneric == nil || eventHappenedAfter(event, newestGeneric) {
+				newestGeneric = event
+			}
+			continue
+		}
+		name, ok := mountedVolumeName(event.Message)
+		if !ok {
+			name = event.Message
+		}
+		previous := latestByVolume[name]
+		if previous == nil || eventHappenedAfter(event, previous) {
+			latestByVolume[name] = event
+		}
+	}
+	if len(latestByVolume) > 0 {
+		names := slices.Sorted(maps.Keys(latestByVolume))
+		parts := make([]string, 0, len(names))
+		for _, name := range names {
+			parts = append(parts, latestByVolume[name].Message)
+		}
+		return strings.Join(parts, "\n"), true, nil
+	}
+	if newestGeneric != nil {
+		return newestGeneric.Message, false, nil
+	}
+	return "", false, nil
+}
+
+func mountEventIsFresh(event *k8sv1.Event, now time.Time) bool {
+	return !eventTime(event).Before(now.Add(-volumeMountFailureFreshness))
+}
+
+func mountedVolumeName(message string) (string, bool) {
+	const prefix = `MountVolume.SetUp failed for volume "`
+	if !strings.HasPrefix(message, prefix) {
+		return "", false
+	}
+	name, _, found := strings.Cut(message[len(prefix):], `"`)
+	if !found || name == "" {
+		return "", false
+	}
+	return name, true
+}
+
+func eventHappenedAfter(event, other *k8sv1.Event) bool {
+	return eventTime(event).After(eventTime(other))
+}
+
+func eventTime(event *k8sv1.Event) time.Time {
+	if !event.LastTimestamp.IsZero() {
+		return event.LastTimestamp.Time
+	}
+	if !event.EventTime.IsZero() {
+		return event.EventTime.Time
+	}
+	return event.FirstTimestamp.Time
+}
+
+func truncateSyncConditionMessage(message string) string {
+	if len(message) <= maxSyncConditionMessageLen {
+		return message
+	}
+	truncated := message[:maxSyncConditionMessageLen]
+	for !utf8.ValidString(truncated) {
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
