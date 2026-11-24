@@ -7,5 +7,5 @@ FOSSA_OPTS=""
 if [[ "${CI:-}" == "true" ]]; then
     FOSSA_OPTS="--branch=$PULL_BASE_REF"
 fi
-FOSSA_API_KEY="$(cat $FOSSA_TOKEN_FILE)" fossa analyze $FOSSA_OPTS
-FOSSA_API_KEY="$(cat $FOSSA_TOKEN_FILE)" fossa test --timeout=1800
+FOSSA_API_KEY="$(<"$FOSSA_TOKEN_FILE")" fossa analyze $FOSSA_OPTS
+FOSSA_API_KEY="$(<"$FOSSA_TOKEN_FILE")" fossa test --timeout=1800
