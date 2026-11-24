@@ -35,6 +35,10 @@ const (
 	ConfigName        = "config"
 	DefaultFSOverhead = virtv1.Percent("0.055")
 	FSOverheadMsg     = "Using default 5.5%% filesystem overhead for pvc size"
+
+	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
+	// to modify the PVC according to the storage profile.
+	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 var ErrFailedToFindCdi error = errors.New("No CDI instances found")
