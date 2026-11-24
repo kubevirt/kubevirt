@@ -259,8 +259,7 @@ func newSecretWithKey(vm *v1.VirtualMachine, sshKey string) *core.Secret {
 
 func secretContainsKey(secretData map[string][]byte, key string) bool {
 	for _, data := range secretData {
-		lines := strings.SplitSeq(string(data), "\n")
-		for line := range lines {
+		for line := range strings.SplitSeq(string(data), "\n") {
 			if common.LineContainsKey(line, key) {
 				return true
 			}
