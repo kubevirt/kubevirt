@@ -962,31 +962,67 @@ var _ = Describe("DiskConfigurator", func() {
 			Entry("Disk-type disk", libvmi.WithPersistentVolumeClaim("myvol", "my-claim", libvmi.WithDiskBus(v1.DiskBusSCSI)), "disk"),
 		)
 
-		It("should assign queues when block multi-queue is enabled", func() {
-			vmi := libvmi.New(
-				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim"),
-				libvmi.WithBlockMultiQueue(),
-				libvmi.WithCPUCount(2, 1, 1),
-			)
-			configurator := storage.NewDiskConfigurator(
-				storage.DiskWithArchitecture(amd64),
-				storage.DiskWithVirtioModel(virtioModel),
-				storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
-			)
-			var domain api.Domain
+		DescribeTable("should respect block multi-queue settings on disks",
+			func(setting *bool, bus v1.DiskBus, cpuTopology libvmi.Option, expectedQueues *uint) {
+				vmi := libvmi.New(
+					libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskBus(bus)),
+					cpuTopology,
+				)
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				configurator := storage.NewDiskConfigurator(
+					storage.DiskWithArchitecture(amd64),
+					storage.DiskWithVirtioModel(virtioModel),
+					storage.DiskWithPermanentVolumes(map[string]v1.VolumeStatus{"mypvc": {}}),
+				)
+				var domain api.Domain
+				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues))
 
-			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+				target := api.DiskTarget{Bus: bus, Device: "sda"}
+				model := ""
+				if bus == v1.DiskBusVirtio {
+					target.Device = "vda"
+					model = virtioModel
+				}
+				expectedDisk := newDisk("mypvc",
+					diskWithDevice("disk"),
+					diskWithType("file"),
+					diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
+					diskWithTarget(target),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: expectedQueues,
+					}),
+					diskWithModel(model),
+				)
+				if bus == v1.DiskBusSCSI {
+					expectedDisk.Address = &api.Address{Type: "drive", Controller: "0", Bus: "0", Unit: "0"}
+				}
+				Expect(domain).To(Equal(newDomainWithDisks(expectedDisk)))
+			},
+			Entry("enabled with two vCPUs", new(true), v1.DiskBusVirtio, libvmi.WithCPUCount(2, 1, 1), new(uint(2))),
+			Entry("omitted keeps queues unspecified", nil, v1.DiskBusVirtio, libvmi.WithCPUCount(1, 2, 3), nil),
+			Entry("false requests one virtio-blk queue", new(false), v1.DiskBusVirtio, libvmi.WithCPUCount(1, 2, 3), new(uint(1))),
+			Entry("true uses the complete CPU topology", new(true), v1.DiskBusVirtio, libvmi.WithCPUCount(1, 2, 3), new(uint(6))),
+			Entry("false adds no queues to a SCSI disk", new(false), v1.DiskBusSCSI, libvmi.WithCPUCount(1, 2, 3), nil),
+			Entry("true adds no queues to a SCSI disk", new(true), v1.DiskBusSCSI, libvmi.WithCPUCount(1, 2, 3), nil),
+			Entry("false adds no queues to a SATA disk", new(false), v1.DiskBusSATA, libvmi.WithCPUCount(1, 2, 3), nil),
+		)
 
-			expectedDomain := newDomainWithDisks(newDisk("mypvc",
-				diskWithDevice("disk"),
-				diskWithType("file"),
-				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
-				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", Queues: new(uint(2))}),
-				diskWithModel(virtioModel),
-			))
-			Expect(domain).To(Equal(expectedDomain))
-		})
+		DescribeTable("should preserve queue settings after DownwardMetrics volume conversion",
+			func(setting *bool, expectedQueues *uint) {
+				vmi := libvmi.New(libvmi.WithDownwardMetricsVolume("metrics"), libvmi.WithCPUCount(2, 1, 1))
+				vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+				configurator := storage.NewDiskConfigurator(storage.DiskWithArchitecture(amd64))
+				var domain api.Domain
+				Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+				Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+				Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues))
+			},
+			Entry("omitted keeps queues unspecified", nil, nil),
+			Entry("true keeps existing driver replacement behavior", new(true), nil),
+			Entry("false requests one queue", new(false), new(uint(1))),
+		)
 
 		It("should set disk IO mode when requested", func() {
 			vmi := libvmi.New(
