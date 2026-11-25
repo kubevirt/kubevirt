@@ -246,7 +246,7 @@ func (ctrl *VMExportController) getOrCreatePVCFromSnapshot(vmExport *exportv1.Vi
 	}
 
 	// leaving source name and namespace blank because we don't care in this context
-	pvc, err := snapshot.CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
+	pvc, err := snapshot.CreateRestorePVCDefForExport(restorePVCName, volumeSnapshot, volumeBackup)
 	if err != nil {
 		return nil, err
 	}
