@@ -193,8 +193,9 @@ type VirtualMachineInstanceSpec struct {
 	// will be made available to the domain which consumes them
 	// by name.
 	//
-	// This field should only be configured if one of the feature-gates GPUsWithDRA, HostDevicesWithDRA,
-	// or NetworkDevicesWithDRA is enabled.
+	// DRA HostDevices may reference these claims without a feature gate.
+	// DRA GPUs require the GPUsWithDRA feature gate, and DRA networks require
+	// the NetworkDevicesWithDRA feature gate.
 	//
 	// +listType=map
 	// +listMapKey=name
