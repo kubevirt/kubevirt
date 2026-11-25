@@ -17,7 +17,7 @@
  *
  */
 
-package converter
+package converter_test
 
 import (
 	_ "embed"
@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
@@ -588,7 +589,7 @@ var _ = Describe("Converter", func() {
 				vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 
 				domain := &api.Domain{}
-				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 				Expect(err).ToNot(HaveOccurred())
 				expectedController := api.Controller{Type: expectedType, Index: "0", Model: expectedModel}
 				Expect(domain.Spec.Devices.Controllers).To(ContainElement(expectedController))
@@ -631,7 +632,7 @@ var _ = Describe("Converter", func() {
 				c.Architecture = archconverter.NewConverter(amd64)
 				vmiArchMutate(amd64, vmi, c)
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
-				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
+				Expect(converter.PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(string(data)).To(Equal(convertedDomainWithDevicesOnRootBus))
@@ -913,7 +914,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed())
 		})
 
 		It("should succeed with SCSI reservation", func() {
@@ -963,7 +964,7 @@ var _ = Describe("Converter", func() {
 				},
 			})
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Disks).To(ContainElement(api.Disk{
 				Type:     "block",
 				Device:   "cdrom",
@@ -997,7 +998,7 @@ var _ = Describe("Converter", func() {
 					c.ApplyCBT = map[string]string{volumeName: cbtPath}
 
 					dom := &api.Domain{}
-					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+					Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 
 					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
 					disk := dom.Spec.Devices.Disks[0]
@@ -1062,7 +1063,7 @@ var _ = Describe("Converter", func() {
 					setupContext(c, volumeName)
 
 					dom := &api.Domain{}
-					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+					Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 
 					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
 					disk := dom.Spec.Devices.Disks[0]
@@ -1121,7 +1122,7 @@ var _ = Describe("Converter", func() {
 			policy := v1.IOThreadsPolicy(v1.IOThreadsPolicyShared)
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
@@ -1146,7 +1147,7 @@ var _ = Describe("Converter", func() {
 				vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread = nil
 			}
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).To(ContainElement(api.Controller{
 				Type:  "scsi",
 				Index: "0",
@@ -1162,7 +1163,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "sata"
 			dom := &api.Domain{}
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 			Expect(dom.Spec.Devices.Controllers).ToNot(ContainElement(HaveField("Type", "scsi")))
 		})
 
@@ -1228,19 +1229,19 @@ var _ = Describe("Converter", func() {
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should fail when input device is set to keyboard type", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 
 		It("should succeed when input device is set to usb bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &api.Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should succeed when input device bus is empty", func() {
@@ -1449,7 +1450,7 @@ var _ = Describe("Converter", func() {
 
 				domain := api.Domain{}
 
-				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)).To(Succeed())
+				Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, &domain, c)).To(Succeed())
 
 				if domain.Spec.QEMUCmd == nil || (domain.Spec.QEMUCmd.QEMUArg == nil) {
 					return
@@ -1662,7 +1663,7 @@ var _ = Describe("Converter", func() {
 
 				c = createContextWithDevices(vmi, c)
 				domain := &api.Domain{}
-				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to process strict PCIe NUMA-aware topology"))
@@ -1919,7 +1920,7 @@ var _ = Describe("Converter", func() {
 			const identifyDevice = "sriov-test"
 			c.SRIOVDevices = append(c.SRIOVDevices, api.HostDevice{Type: identifyDevice})
 
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 			Expect(domain.Spec.Devices.HostDevices).To(Equal([]api.HostDevice{{Type: identifyDevice}}))
 		})
 	})
@@ -2768,7 +2769,7 @@ var _ = Describe("Converter", func() {
 			domain.Spec.IOThreads.IOThreads = 2 // Expected value: 1 shared + 1 dedicated thread
 
 			// Now do the conversion
-			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+			Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 			api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
 
 			// Verify the total number of ioThreads
@@ -3643,7 +3644,7 @@ var _ = Describe("Converter", func() {
 			if errMatch != "" {
 				// The error should be catch by webhook.
 				domain := &api.Domain{}
-				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 				Expect(err.Error()).To(ContainSubstring(errMatch))
 				return
 			}
@@ -3855,7 +3856,7 @@ var _ = Describe("Converter", func() {
 					}
 
 					dom := &api.Domain{}
-					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+					Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
 
 					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
 					disk := dom.Spec.Devices.Disks[0]
@@ -4386,7 +4387,7 @@ func vmiToDomainXML(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterC
 
 func vmiToDomain(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) *api.Domain {
 	domain := &api.Domain{}
-	ExpectWithOffset(1, Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+	ExpectWithOffset(1, converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
 	return domain
 }
