@@ -161,7 +161,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	// Volume requests operate on vm.Status.VolumeRequests and vm.Spec.Template.Spec.Volumes from the
-	// original request, not the instancetype-expanded copy, so vm is intentional here.
+	// original request, not the expanded and defaulted copy, so vm is intentional here.
 	causes, err = admitter.validateVolumeRequests(ctx, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
