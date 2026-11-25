@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -345,6 +346,117 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(sourcePVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
+		Context("Interrupted recovery", func() {
+			const (
+				jobName       = "recover-" + migrationName
+				launcherImage = "test-launcher"
+			)
+
+			BeforeEach(func() {
+				migration.UID = "migration-uid"
+				migration.Status.Phase = virtv1.MigrationPreparingTarget
+				virtClient.EXPECT().BatchV1().Return(k8sClient.BatchV1()).AnyTimes()
+			})
+
+			It("retains the recovery Job until its owning migration is deleted", func() {
+				Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).
+					To(MatchError("a migration recovery had to be initiated"))
+
+				job, err := k8sClient.BatchV1().Jobs(nsName).Get(context.Background(), jobName, k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(k8smetav1.IsControlledBy(job, migration)).To(BeTrue())
+				Expect(job.Spec.TTLSecondsAfterFinished).To(BeNil())
+			})
+
+			It("does not consume a terminal Job owned by a previous migration of the same name", func() {
+				ctx := context.Background()
+				jobs := k8sClient.BatchV1().Jobs(nsName)
+				previousMigration := migration.DeepCopy()
+				previousMigration.UID = "previous-migration-uid"
+				job := buildRecoveryJob(jobName, launcherImage, previousMigration)
+				job.Status.Conditions = []batchv1.JobCondition{{
+					Type: batchv1.JobFailed, Status: v1.ConditionTrue, Reason: batchv1.JobReasonPodFailurePolicy,
+				}}
+				_, err := jobs.Create(ctx, job, k8smetav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).
+					To(MatchError(ContainSubstring("is not controlled by migration")))
+				Expect(migration.Status.Phase).To(Equal(virtv1.MigrationPreparingTarget))
+				_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(ctx, targetPVCName, k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = jobs.Get(ctx, jobName, k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("removes a failed Job whose result does not determine the migration outcome", func() {
+				ctx := context.Background()
+				jobs := k8sClient.BatchV1().Jobs(nsName)
+				Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).
+					To(MatchError("a migration recovery had to be initiated"))
+
+				job, err := jobs.Get(ctx, jobName, k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				job.Status.Conditions = []batchv1.JobCondition{{
+					Type: batchv1.JobFailed, Status: v1.ConditionTrue, Reason: batchv1.JobReasonDeadlineExceeded,
+					Message: "recovery Job deadline exceeded",
+				}}
+				_, err = jobs.UpdateStatus(ctx, job, k8smetav1.UpdateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).
+					To(MatchError("recovery Job deadline exceeded"))
+				Expect(migration.Status.Phase).To(Equal(virtv1.MigrationPreparingTarget))
+				_, err = jobs.Get(ctx, jobName, k8smetav1.GetOptions{})
+				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+			})
+
+			DescribeTable("replays a terminal Job result after a migration status write fails",
+				func(condition batchv1.JobCondition, phase virtv1.VirtualMachineInstanceMigrationPhase, retainedPVC, removedPVC string) {
+					ctx := context.Background()
+					jobs := k8sClient.BatchV1().Jobs(nsName)
+					Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).
+						To(MatchError("a migration recovery had to be initiated"))
+
+					job, err := jobs.Get(ctx, jobName, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					condition.Status = v1.ConditionTrue
+					condition.LastTransitionTime = k8smetav1.NewTime(time.Now().Add(-time.Minute))
+					job.Status.Conditions = []batchv1.JobCondition{condition}
+					_, err = jobs.UpdateStatus(ctx, job, k8smetav1.UpdateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+
+					// PVC changes succeed, but the migration phase has not been persisted.
+					attempt := migration.DeepCopy()
+					Expect(RecoverFromBrokenMigration(virtClient, attempt, pvcStore, vmi, launcherImage)).To(Succeed())
+					Expect(attempt.Status.Phase).To(Equal(phase))
+
+					pvcs := k8sClient.CoreV1().PersistentVolumeClaims(nsName)
+					retained, err := pvcs.Get(ctx, retainedPVC, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(retained.Labels).To(HaveKeyWithValue(PVCPrefix, vmiName))
+					_, err = pvcs.Get(ctx, removedPVC, k8smetav1.GetOptions{})
+					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+					// The PVC informer has caught up before the next recovery attempt.
+					Expect(pvcStore.Update(retained)).To(Succeed())
+					Expect(pvcStore.Delete(&v1.PersistentVolumeClaim{
+						ObjectMeta: k8smetav1.ObjectMeta{Namespace: nsName, Name: removedPVC},
+					})).To(Succeed())
+
+					Expect(RecoverFromBrokenMigration(virtClient, migration, pvcStore, vmi, launcherImage)).To(Succeed())
+					Expect(migration.Status.Phase).To(Equal(phase))
+					_, err = jobs.Get(ctx, jobName, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+				},
+				Entry("with a completed Job", batchv1.JobCondition{Type: batchv1.JobComplete},
+					virtv1.MigrationSucceeded, targetPVCName, sourcePVCName),
+				Entry("with the expected Job failure", batchv1.JobCondition{
+					Type: batchv1.JobFailed, Reason: batchv1.JobReasonPodFailurePolicy,
+				}, virtv1.MigrationFailed, sourcePVCName, targetPVCName),
+			)
+		})
+
 		It("Should build a recovery job without RunAsUser, RunAsGroup, or FSGroup", func() {
 			job := buildRecoveryJob("test-recovery", "test-image", migration)
 
