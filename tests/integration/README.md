@@ -26,3 +26,27 @@ in the builder environment, use, for example:
 ```sh
 hack/dockerized "go test -race ./tests/integration/compute -count=1 -v"
 ```
+
+Each framework allocates an initial namespace name in `New()`, available through
+`f.Namespace()` before startup. `Start()` creates it and registers cleanup for
+the same scope as the framework. Use `CreateNamespace(ctx)` for additional
+namespaces or when individual specs need their own cleanup scope.
+
+To seed a persisted KubeVirt CR, pass `framework.WithKubeVirtCR(kv)` to `New()`.
+The option copies the object and defaults an empty namespace to `f.Namespace()`;
+`Start()` creates the CR and any explicit namespace it needs. This option does
+not configure the in-process controllers: `WithKubeVirtConfig` continues to
+configure those separately.
+
+```go
+f := framework.New(framework.WithKubeVirtCR(&v1.KubeVirt{
+    ObjectMeta: metav1.ObjectMeta{Name: "kubevirt"},
+    Spec: v1.KubeVirtSpec{
+        Configuration: v1.KubeVirtConfiguration{
+            PermittedHostDevices: permittedHostDevices,
+        },
+    },
+}))
+f.Start(context.Background())
+// The KubeVirt CR is now available in f.Namespace().
+```

@@ -76,6 +76,21 @@ func WithKubeVirtConfig(config *v1.KubeVirtConfiguration) Option {
 	}
 }
 
+// WithKubeVirtCR creates a copy of kv in the API server during Start. An empty
+// namespace defaults to the framework namespace. This does not configure the
+// in-process controllers; use WithKubeVirtConfig for their configuration.
+func WithKubeVirtCR(kv *v1.KubeVirt) Option {
+	return func(f *Framework) {
+		if kv == nil {
+			return
+		}
+		f.kubeVirt = kv.DeepCopy()
+		if f.kubeVirt.Namespace == "" {
+			f.kubeVirt.Namespace = f.Namespace()
+		}
+	}
+}
+
 type Framework struct {
 	env           *envtest.Environment
 	virtClient    kubecli.KubevirtClient
@@ -84,6 +99,9 @@ type Framework struct {
 
 	vmController  *vm.Controller
 	vmiController *vmi.Controller
+
+	namespace string
+	kubeVirt  *v1.KubeVirt
 
 	podSimulator *PodSimulator
 	kvConfig     *v1.KubeVirtConfiguration
@@ -106,7 +124,8 @@ func New(opts ...Option) *Framework {
 			CRDs:               crds,
 			UseExistingCluster: new(bool),
 		},
-		kvConfig: &v1.KubeVirtConfiguration{},
+		namespace: fmt.Sprintf("test-%s", rand.String(namespaceSuffixLen)),
+		kvConfig:  &v1.KubeVirtConfiguration{},
 	}
 	for _, opt := range opts {
 		opt(f)
@@ -124,6 +143,14 @@ func (f *Framework) Start(ctx context.Context) {
 
 	f.initClients(cfg)
 	f.createSeedData()
+	f.createNamespace(ctx, f.Namespace())
+	if f.kubeVirt != nil {
+		if f.kubeVirt.Namespace != f.Namespace() && f.kubeVirt.Namespace != testNamespace && f.kubeVirt.Namespace != "default" {
+			f.createNamespace(ctx, f.kubeVirt.Namespace)
+		}
+		_, err := f.virtClient.GeneratedKubeVirtClient().KubevirtV1().KubeVirts(f.kubeVirt.Namespace).Create(ctx, f.kubeVirt.DeepCopy(), metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred(), "failed to create initial KubeVirt CR")
+	}
 
 	factory := controller.NewKubeInformerFactory(f.virtClient.RestClient(), f.virtClient, f.k8sClient, nil, testNamespace)
 
@@ -171,9 +198,22 @@ func (f *Framework) K8sClient() kubernetes.Interface {
 	return f.k8sClient
 }
 
+// Namespace returns the initial namespace name, available immediately after New.
+// Start creates it and registers its cleanup before returning.
+func (f *Framework) Namespace() string {
+	return f.namespace
+}
+
+// CreateNamespace creates an additional namespace with cleanup scoped to its caller.
 func (f *Framework) CreateNamespace(ctx context.Context) string {
 	GinkgoHelper()
 	ns := fmt.Sprintf("test-%s", rand.String(namespaceSuffixLen))
+	f.createNamespace(ctx, ns)
+	return ns
+}
+
+func (f *Framework) createNamespace(ctx context.Context, ns string) {
+	GinkgoHelper()
 	_, err := f.virtClient.CoreV1().Namespaces().Create(ctx, &k8sv1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns},
 	}, metav1.CreateOptions{})
@@ -192,7 +232,6 @@ func (f *Framework) CreateNamespace(ctx context.Context) string {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pods.Items).To(BeEmpty())
 	})
-	return ns
 }
 
 // envtest has no namespace or garbage collection controllers. Delete all

@@ -65,6 +65,17 @@ func (q *blockingQueue) Done(key string) {
 }
 
 var _ = Describe("Framework configuration", func() {
+	It("keeps persisted CR configuration separate from controller configuration", func() {
+		config := &virtv1.KubeVirtConfiguration{CPUModel: "host-model"}
+		kv := &virtv1.KubeVirt{Spec: virtv1.KubeVirtSpec{
+			Configuration: virtv1.KubeVirtConfiguration{CPUModel: "host-passthrough"},
+		}}
+		f := New(WithKubeVirtCR(kv), WithKubeVirtCR(nil), WithKubeVirtConfig(config))
+		Expect(f.kubeVirt.Spec.Configuration.CPUModel).To(Equal("host-passthrough"))
+		Expect(f.kvConfig.CPUModel).To(Equal("host-model"))
+		Expect(f.kubeVirt.Namespace).To(Equal(f.Namespace()))
+	})
+
 	It("ignores a nil configuration without discarding an earlier option", func() {
 		strategy := virtv1.VMRolloutStrategyStage
 		config := &virtv1.KubeVirtConfiguration{VMRolloutStrategy: &strategy}
