@@ -28,7 +28,7 @@ import (
 	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 )
 
 var sideEffectNone = admissionregistrationv1.SideEffectClassNone

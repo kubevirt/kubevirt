@@ -39,7 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	pool "kubevirt.io/api/pool"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 )
 
 type rightsEntry struct {

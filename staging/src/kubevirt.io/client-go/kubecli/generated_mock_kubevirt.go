@@ -90,7 +90,7 @@ import (
 	v1beta121 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	v1alpha16 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	v1beta122 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
-	v1beta123 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	v125 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1"
 	networkattachmentdefinitionclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
 	prometheusoperator "kubevirt.io/client-go/prometheusoperator"
 	version "kubevirt.io/client-go/version"
@@ -1354,10 +1354,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachinePreference(namespace any
 }
 
 // VirtualMachineRestore mocks base method.
-func (m *MockKubevirtClient) VirtualMachineRestore(namespace string) v1beta123.VirtualMachineRestoreInterface {
+func (m *MockKubevirtClient) VirtualMachineRestore(namespace string) v125.VirtualMachineRestoreInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineRestore", namespace)
-	ret0, _ := ret[0].(v1beta123.VirtualMachineRestoreInterface)
+	ret0, _ := ret[0].(v125.VirtualMachineRestoreInterface)
 	return ret0
 }
 
@@ -1368,10 +1368,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineRestore(namespace any) *
 }
 
 // VirtualMachineSnapshot mocks base method.
-func (m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v1beta123.VirtualMachineSnapshotInterface {
+func (m *MockKubevirtClient) VirtualMachineSnapshot(namespace string) v125.VirtualMachineSnapshotInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineSnapshot", namespace)
-	ret0, _ := ret[0].(v1beta123.VirtualMachineSnapshotInterface)
+	ret0, _ := ret[0].(v125.VirtualMachineSnapshotInterface)
 	return ret0
 }
 
@@ -1382,10 +1382,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineSnapshot(namespace any) 
 }
 
 // VirtualMachineSnapshotContent mocks base method.
-func (m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v1beta123.VirtualMachineSnapshotContentInterface {
+func (m *MockKubevirtClient) VirtualMachineSnapshotContent(namespace string) v125.VirtualMachineSnapshotContentInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineSnapshotContent", namespace)
-	ret0, _ := ret[0].(v1beta123.VirtualMachineSnapshotContentInterface)
+	ret0, _ := ret[0].(v125.VirtualMachineSnapshotContentInterface)
 	return ret0
 }
 

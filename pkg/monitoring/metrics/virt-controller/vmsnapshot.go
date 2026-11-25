@@ -23,7 +23,7 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
 	io_prometheus_client "github.com/prometheus/client_model/go"
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1"
 )
 
 var (
