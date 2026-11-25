@@ -79,6 +79,22 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 				Action: "poweroff",
 			},
 		),
+		Entry("ppc64le with I6300ESB",
+			"ppc64le",
+			v1.Watchdog{
+				Name: "mywatchdog",
+				WatchdogDevice: v1.WatchdogDevice{
+					I6300ESB: &v1.I6300ESBWatchdog{
+						Action: v1.WatchdogActionPoweroff,
+					},
+				},
+			},
+			api.Watchdog{
+				Alias:  api.NewUserDefinedAlias("mywatchdog"),
+				Model:  "i6300esb",
+				Action: "poweroff",
+			},
+		),
 		Entry("s390x with Diag288",
 			"s390x",
 			v1.Watchdog{
@@ -111,6 +127,11 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 			"arm64",
 			v1.Watchdog{Name: "unsupportedwatchdog"},
 			"not supported on architecture",
+		),
+		Entry("ppc64le with no watchdog type",
+			"ppc64le",
+			v1.Watchdog{Name: "emptywatchdog"},
+			"can't be mapped",
 		),
 		Entry("amd64 with no watchdog type",
 			"amd64",

@@ -1,4 +1,4 @@
-//go:build amd64 || s390x
+//go:build amd64 || s390x || ppc64le
 
 /*
  * This file is part of the KubeVirt project
