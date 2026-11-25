@@ -745,7 +745,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	hostName := dns.SanitizeHostname(vmi)
 	enableServiceLinks := false
 
-	var podSeccompProfile *k8sv1.SeccompProfile = nil
+	// Default to RuntimeDefault so virt-launcher pods satisfy the restricted
+	// Pod Security Standard, which requires an explicit seccomp profile.
+	// Clusters that need a different profile (for example a localhost profile
+	// that allows userfaultfd for post-copy migration) can override this via
+	// seccompConfiguration.virtualMachineInstanceProfile.
+	podSeccompProfile := &k8sv1.SeccompProfile{
+		Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+	}
 	if seccompConf := t.clusterConfig.GetConfig().SeccompConfiguration; seccompConf != nil && seccompConf.VirtualMachineInstanceProfile != nil {
 		vmProfile := seccompConf.VirtualMachineInstanceProfile
 		if customProfile := vmProfile.CustomProfile; customProfile != nil {
@@ -760,7 +767,6 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 				}
 			}
 		}
-
 	}
 
 	pod := k8sv1.Pod{

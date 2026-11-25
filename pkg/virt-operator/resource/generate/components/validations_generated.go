@@ -1779,7 +1779,9 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 virtualMachineInstanceProfile:
                   description: VirtualMachineInstanceProfile defines what profile
-                    should be used with virt-launcher. Defaults to none
+                    should be used with virt-launcher. When unset, virt-launcher
+                    pods use the RuntimeDefault seccomp profile so they can run
+                    under the restricted Pod Security Standard.
                   properties:
                     customProfile:
                       description: CustomProfile allows to request arbitrary profile

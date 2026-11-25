@@ -519,15 +519,17 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		It("should not set seccomp profile by default", func() {
+		It("should default seccomp profile to RuntimeDefault", func() {
 			_, kvStore, svc = configFactory(defaultArch)
 			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeNil())
+			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeEquivalentTo(&k8sv1.SeccompProfile{
+				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+			}))
 		})
 
-		It("should set seccomp profile when configured", func() {
+		It("should set localhost seccomp profile when configured", func() {
 			expectedProfile := &k8sv1.SeccompProfile{
 				Type:             k8sv1.SeccompProfileTypeLocalhost,
 				LocalhostProfile: new("kubevirt/kubevirt.json"),
@@ -547,7 +549,27 @@ var _ = Describe("Template", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeEquivalentTo(expectedProfile))
+		})
 
+		It("should set RuntimeDefault seccomp profile when configured", func() {
+			expectedProfile := &k8sv1.SeccompProfile{
+				Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+			}
+			_, kvStore, svc = configFactory(defaultArch)
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
+				VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
+					CustomProfile: &v1.CustomProfile{
+						RuntimeDefaultProfile: true,
+					},
+				},
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(pod.Spec.SecurityContext.SeccompProfile).To(BeEquivalentTo(expectedProfile))
 		})
 
 		Context("with NonRoot feature-gate", func() {
@@ -4840,6 +4862,9 @@ var _ = Describe("Template", func() {
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
 				FSGroup:   pointer.P(int64(util.NonRootUID)),
+				SeccompProfile: &k8sv1.SeccompProfile{
+					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+				},
 			}),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
@@ -4850,6 +4875,9 @@ var _ = Describe("Template", func() {
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: new(true),
 				FSGroup:      &nonRootUser,
+				SeccompProfile: &k8sv1.SeccompProfile{
+					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+				},
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
@@ -4864,6 +4892,9 @@ var _ = Describe("Template", func() {
 				RunAsGroup:   &nonRootUser,
 				RunAsNonRoot: new(true),
 				FSGroup:      &nonRootUser,
+				SeccompProfile: &k8sv1.SeccompProfile{
+					Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+				},
 			}),
 		)
 

@@ -3589,7 +3589,9 @@ type VirtualMachineInstanceProfile struct {
 
 // SeccompConfiguration holds Seccomp configuration for Kubevirt components
 type SeccompConfiguration struct {
-	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none
+	// VirtualMachineInstanceProfile defines what profile should be used with virt-launcher.
+	// When unset, virt-launcher pods use the RuntimeDefault seccomp profile so they can
+	// run under the restricted Pod Security Standard.
 	VirtualMachineInstanceProfile *VirtualMachineInstanceProfile `json:"virtualMachineInstanceProfile,omitempty"`
 }
 

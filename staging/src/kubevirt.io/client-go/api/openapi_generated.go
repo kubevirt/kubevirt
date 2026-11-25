@@ -26947,7 +26947,7 @@ func schema_kubevirtio_api_core_v1_SeccompConfiguration(ref common.ReferenceCall
 				Properties: map[string]spec.Schema{
 					"virtualMachineInstanceProfile": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. Defaults to none",
+							Description: "VirtualMachineInstanceProfile defines what profile should be used with virt-launcher. When unset, virt-launcher pods use the RuntimeDefault seccomp profile so they can run under the restricted Pod Security Standard.",
 							Ref:         ref(corev1.VirtualMachineInstanceProfile{}.OpenAPIModelName()),
 						},
 					},
