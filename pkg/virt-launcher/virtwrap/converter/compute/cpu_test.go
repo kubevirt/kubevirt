@@ -371,7 +371,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 				VCPU: &api.VCPU{Placement: "static", CPUs: 4},
 				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
 					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 1, Enabled: "yes", Hotpluggable: "yes"},
+					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
 					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
 				}},
@@ -423,7 +423,7 @@ var _ = Describe("CPU Domain Configurator", func() {
 				VCPU: &api.VCPU{Placement: "static", CPUs: 4},
 				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
 					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
-					{ID: 1, Enabled: "yes", Hotpluggable: "yes"},
+					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
 					{ID: 2, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
 				}},
@@ -497,6 +497,41 @@ var _ = Describe("CPU Domain Configurator", func() {
 					{ID: 3, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 4, Enabled: "no", Hotpluggable: "yes"},
 					{ID: 5, Enabled: "no", Hotpluggable: "yes"},
+				}},
+			}}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should mark vCPUs of all boot sockets as non-hotpluggable", func() {
+			vmi := libvmi.New(
+				libvmi.WithCPUCount(2, 1, 2),
+				libvmi.WithMaxSockets(4),
+			)
+			var domain api.Domain
+
+			configurator := compute.NewCPUDomainConfigurator(
+				compute.CPUWithHotplugSupported(true),
+				compute.CPUWithMPXCPUValidation(false),
+				compute.CPUWithCrossArchEmulation(false),
+				compute.CPUWithMemfdSupported(true),
+			)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{Spec: api.DomainSpec{
+				CPU: api.CPU{
+					Mode:     v1.CPUModeHostModel,
+					Topology: &api.CPUTopology{Sockets: 4, Cores: 2, Threads: 1},
+				},
+				VCPU: &api.VCPU{Placement: "static", CPUs: 8},
+				VCPUs: &api.VCPUs{VCPU: []api.VCPUsVCPU{
+					{ID: 0, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 1, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 2, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 3, Enabled: "yes", Hotpluggable: "no"},
+					{ID: 4, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 5, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 6, Enabled: "no", Hotpluggable: "yes"},
+					{ID: 7, Enabled: "no", Hotpluggable: "yes"},
 				}},
 			}}
 			Expect(domain).To(Equal(expectedDomain))
