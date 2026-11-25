@@ -703,7 +703,87 @@ func guestAgentConnected(domain *api.Domain) bool {
 	return false
 }
 
-func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMachineInstance, channelConnected bool, condManager *controller.VirtualMachineInstanceConditionManager) error {
+func (c *VirtualMachineController) updateGuestAgentConditions(
+	vmi *v1.VirtualMachineInstance,
+	domain *api.Domain,
+	condManager *controller.VirtualMachineInstanceConditionManager,
+) error {
+	channelConnected := guestAgentConnected(domain)
+	if !c.clusterConfig.GuestAgentStatusReportingEnabled() {
+		return c.updateGuestAgentConditionsLegacy(vmi, channelConnected, condManager)
+	}
+
+	client, err := c.launcherClients.GetLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
+
+	guestInfo, err := client.GetGuestInfoWithStatus(vmi, c.clusterConfig.GetSupportedAgentVersions())
+	if cmdclient.IsUnimplemented(err) {
+		return c.updateGuestAgentConditionsLegacy(vmi, channelConnected, condManager)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := validateGuestAgentStatus(guestInfo.GuestAgentStatus); err != nil {
+		return err
+	}
+
+	status := guestInfo.GuestAgentStatus
+	if !status.Connected {
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceAgentConnected)
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)
+		return nil
+	}
+
+	condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:          v1.VirtualMachineInstanceAgentConnected,
+		LastProbeTime: metav1.Now(),
+		Status:        k8sv1.ConditionTrue,
+	})
+
+	switch status.SupportState {
+	case v1.GuestAgentSupportUnknown, v1.GuestAgentSupportSupported:
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceUnsupportedAgent)
+	case v1.GuestAgentSupportUnsupported:
+		condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+			Type:          v1.VirtualMachineInstanceUnsupportedAgent,
+			LastProbeTime: metav1.Now(),
+			Status:        k8sv1.ConditionTrue,
+			Reason:        status.UnsupportedReason,
+		})
+	}
+
+	return nil
+}
+
+func validateGuestAgentStatus(status *v1.GuestAgentStatus) error {
+	if status == nil {
+		return fmt.Errorf("launcher returned guest-agent info without status")
+	}
+
+	switch status.SupportState {
+	case v1.GuestAgentSupportUnknown, v1.GuestAgentSupportSupported:
+		if status.UnsupportedReason != "" {
+			return fmt.Errorf("guest-agent status %q cannot include an unsupported reason", status.SupportState)
+		}
+	case v1.GuestAgentSupportUnsupported:
+		if status.UnsupportedReason == "" {
+			return fmt.Errorf("unsupported guest agent requires an unsupported reason")
+		}
+	default:
+		return fmt.Errorf("unknown guest-agent support state %q", status.SupportState)
+	}
+
+	if !status.Connected && status.SupportState != v1.GuestAgentSupportUnknown {
+		return fmt.Errorf("disconnected guest agent cannot have support state %q", status.SupportState)
+	}
+
+	return nil
+}
+
+func (c *VirtualMachineController) updateGuestAgentConditionsLegacy(vmi *v1.VirtualMachineInstance, channelConnected bool, condManager *controller.VirtualMachineInstanceConditionManager) error {
 
 	// Update the condition when GA is connected
 	switch {
@@ -1008,7 +1088,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
 	snapshotoverlay.UpdateVMIStatus(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
-	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
+	err := c.updateGuestAgentConditions(vmi, domain, condManager)
 	if err != nil {
 		return err
 	}

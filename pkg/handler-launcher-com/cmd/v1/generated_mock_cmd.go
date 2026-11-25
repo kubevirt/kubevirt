@@ -301,6 +301,26 @@ func (mr *MockCmdClientMockRecorder) GetGuestInfo(ctx, in any, opts ...any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockCmdClient)(nil).GetGuestInfo), varargs...)
 }
 
+// GetGuestInfoWithStatus mocks base method.
+func (m *MockCmdClient) GetGuestInfoWithStatus(ctx context.Context, in *GuestInfoRequest, opts ...grpc.CallOption) (*GuestInfoResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetGuestInfoWithStatus", varargs...)
+	ret0, _ := ret[0].(*GuestInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGuestInfoWithStatus indicates an expected call of GetGuestInfoWithStatus.
+func (mr *MockCmdClientMockRecorder) GetGuestInfoWithStatus(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfoWithStatus", reflect.TypeOf((*MockCmdClient)(nil).GetGuestInfoWithStatus), varargs...)
+}
+
 // GetLaunchMeasurement mocks base method.
 func (m *MockCmdClient) GetLaunchMeasurement(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*LaunchMeasurementResponse, error) {
 	m.ctrl.T.Helper()
@@ -998,6 +1018,21 @@ func (m *MockCmdServer) GetGuestInfo(arg0 context.Context, arg1 *EmptyRequest) (
 func (mr *MockCmdServerMockRecorder) GetGuestInfo(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfo", reflect.TypeOf((*MockCmdServer)(nil).GetGuestInfo), arg0, arg1)
+}
+
+// GetGuestInfoWithStatus mocks base method.
+func (m *MockCmdServer) GetGuestInfoWithStatus(arg0 context.Context, arg1 *GuestInfoRequest) (*GuestInfoResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGuestInfoWithStatus", arg0, arg1)
+	ret0, _ := ret[0].(*GuestInfoResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGuestInfoWithStatus indicates an expected call of GetGuestInfoWithStatus.
+func (mr *MockCmdServerMockRecorder) GetGuestInfoWithStatus(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGuestInfoWithStatus", reflect.TypeOf((*MockCmdServer)(nil).GetGuestInfoWithStatus), arg0, arg1)
 }
 
 // GetLaunchMeasurement mocks base method.

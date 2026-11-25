@@ -99,6 +99,35 @@ var _ = Describe("Virt remote commands", func() {
 	})
 
 	Context("server", func() {
+		It("returns guest info with runtime-owned status", func() {
+			vmi := v1.NewVMIReferenceFromName("testvmi")
+			supportedVersions := []string{"4.*", "5.*"}
+			expected := v1.VirtualMachineInstanceGuestAgentInfo{
+				GAVersion: "5.2",
+				GuestAgentStatus: &v1.GuestAgentStatus{
+					Connected:    true,
+					SupportState: v1.GuestAgentSupportSupported,
+				},
+			}
+
+			domainManager.EXPECT().
+				GetGuestInfoWithStatus(vmi, supportedVersions).
+				Return(expected)
+
+			actual, err := client.GetGuestInfoWithStatus(vmi, supportedVersions)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual).To(Equal(&expected))
+		})
+
+		It("rejects a guest-info status request without a VMI", func() {
+			server := NewLauncher(domainManager, options)
+			response, err := server.GetGuestInfoWithStatus(context.Background(), &cmdv1.GuestInfoRequest{})
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(response.Response.Success).To(BeFalse())
+			Expect(response.Response.Message).To(ContainSubstring("vmi object"))
+		})
+
 		It("retains the source plugin snapshot from sync when migration is requested", func() {
 			previous := plugins.GetPlugins()
 			DeferCleanup(plugins.SetPlugins, previous)

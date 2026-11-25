@@ -3074,12 +3074,38 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	// It will be set to "frozen" if the request was made, or unset otherwise.
 	// This does not reflect the actual state of the guest filesystem.
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
+	// GuestAgentStatus reports the runtime-owned guest-agent connection and
+	// capability state. A nil value identifies a response from a legacy launcher.
+	// +optional
+	GuestAgentStatus *GuestAgentStatus `json:"guestAgentStatus,omitempty"`
 }
 
 // List of commands that QEMU guest agent supports
 type GuestAgentCommandInfo struct {
 	Name    string `json:"name"`
 	Enabled bool   `json:"enabled,omitempty"`
+}
+
+// GuestAgentSupportState describes whether the connected guest agent satisfies
+// the capabilities required by KubeVirt.
+type GuestAgentSupportState string
+
+const (
+	GuestAgentSupportUnknown     GuestAgentSupportState = "Unknown"
+	GuestAgentSupportSupported   GuestAgentSupportState = "Supported"
+	GuestAgentSupportUnsupported GuestAgentSupportState = "Unsupported"
+)
+
+// GuestAgentStatus is the guest-agent state reported by the VMI runtime.
+type GuestAgentStatus struct {
+	// Connected indicates whether the runtime currently has a live guest-agent connection.
+	Connected bool `json:"connected"`
+	// SupportState indicates whether capability evaluation is pending or complete.
+	// +kubebuilder:validation:Enum=Unknown;Supported;Unsupported
+	SupportState GuestAgentSupportState `json:"supportState"`
+	// UnsupportedReason explains why SupportState is Unsupported.
+	// +optional
+	UnsupportedReason string `json:"unsupportedReason,omitempty"`
 }
 
 // VirtualMachineInstanceGuestOSUserList comprises the list of all active users on guest machine

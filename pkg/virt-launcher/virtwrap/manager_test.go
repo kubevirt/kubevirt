@@ -3353,6 +3353,28 @@ var _ = Describe("Manager", func() {
 		}))
 	})
 
+	DescribeTable("returns guest-agent status with guest info",
+		func(connected bool, supportedCommands []v1.GuestAgentCommandInfo, expectedState v1.GuestAgentSupportState) {
+			agentStore := agentpoller.NewAsyncAgentStore()
+			agentStore.SetAgentConnected(connected)
+			agentStore.Store(agentpoller.GetAgent, agentpoller.AgentInfo{
+				Version:           "5.2",
+				SupportedCommands: supportedCommands,
+			})
+			manager, _ := NewLibvirtDomainManager(mockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, &agentStore, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, "", false, false, false, false, nil)
+
+			guestInfo := manager.GetGuestInfoWithStatus(&v1.VirtualMachineInstance{}, []string{"5.*"})
+			Expect(guestInfo.GuestAgentStatus).ToNot(BeNil())
+			Expect(guestInfo.GuestAgentStatus.Connected).To(Equal(connected))
+			Expect(guestInfo.GuestAgentStatus.SupportState).To(Equal(expectedState))
+		},
+		Entry("when disconnected", false, nil, v1.GuestAgentSupportUnknown),
+		Entry("when connected and capabilities use the legacy version fallback", true, nil, v1.GuestAgentSupportSupported),
+		Entry("when connected and capabilities are unsupported", true, []v1.GuestAgentCommandInfo{
+			{Name: "guest-ping", Enabled: true},
+		}, v1.GuestAgentSupportUnsupported),
+	)
+
 	It("executes GetUsers", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, []api.User{

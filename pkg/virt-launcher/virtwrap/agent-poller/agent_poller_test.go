@@ -112,6 +112,7 @@ var _ = Describe("Qemu agent poller", func() {
 			agent := agentStore.GetGA()
 
 			Expect(agent).To(Equal(agentVersion))
+			Expect(agentStore.AgentUpdated).To(Receive())
 		})
 
 		It("should fire an event for new fsfreezestatus", func() {
@@ -326,6 +327,7 @@ var _ = Describe("Qemu agent poller", func() {
 			agentPoller.UpdateFromEvent(nil, agentConnectEvent)
 			Expect(agentPoller.agentDone).ToNot(BeNil())
 			Expect(agentPoller.agentConnected).To(BeTrue())
+			Expect(agentPoller.agentStore.IsAgentConnected()).To(BeTrue())
 
 			agentDisconnectEvent := &libvirt.DomainEventAgentLifecycle{
 				State:  libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED,
@@ -335,6 +337,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 			Expect(agentPoller.agentDone).To(BeNil())
 			Expect(agentPoller.agentConnected).To(BeFalse())
+			Expect(agentPoller.agentStore.IsAgentConnected()).To(BeFalse())
 		})
 
 		It("should start agent poller on agent connect event", func() {
