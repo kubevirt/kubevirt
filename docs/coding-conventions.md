@@ -334,6 +334,24 @@ coding conventions](#detailed-coding-conventions).
       and the [black box testing documentation](https://pkg.go.dev/testing#hdr-Overview).
 - Table-driven tests are preferred for testing matrices of scenarios/inputs.
     - Use Gingko's `DescribeTable` to construct test tables.
+- Keep unit tests independent of the test runner's architecture.
+    - Do not use `runtime.GOARCH` to choose test inputs, expected results, or
+      which architecture-specific cases run. Each runner should exercise the
+      same architecture-dependent behavior.
+    - Read the host architecture at the production boundary and pass it to the
+      code that needs it through an argument or constructor option. Unit tests
+      should inject explicit architecture values through that same API rather
+      than replacing package globals.
+    - Use table-driven tests to cover all host/guest architecture combinations
+      supported by the feature, including matching architectures. Add cases for
+      unsupported combinations when the code under test is responsible for
+      rejecting them. Do not assume that every KubeVirt architecture supports
+      every feature or pairing.
+    - Assert the expected behavior for each case, including errors and fallback
+      behavior where applicable. Stub host capabilities and external dependencies
+      such as device or emulator availability so the cases run on every runner.
+    - Reserve tests that require real architecture-specific hardware or binaries
+      for integration or end-to-end suites with the appropriate decorators.
 - Do not expect an asynchronous thing to happen immediately.
     - For example do not wait for one second and expect a VM to be running.
     - Wait and retry instead, in test code use `Eventually`.
