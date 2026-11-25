@@ -8,7 +8,6 @@ go_library(
         "discontinued.go",
         "dra.go",
         "netiface.go",
-        "netsource.go",
         "passt.go",
         "validator.go",
     ],
@@ -34,8 +33,8 @@ go_test(
         "discontinued_test.go",
         "dra_test.go",
         "netiface_test.go",
-        "netsource_test.go",
         "passt_test.go",
+        "validator_test.go",
     ],
     race = "on",
     deps = [
