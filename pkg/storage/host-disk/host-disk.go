@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/volumepath"
 )
 
-func GetMountedHostDiskPath(volumeName string, path string) string {
+func GetMountedHostDiskPath(volumeName, path string) string {
 	return filepath.Join(volumepath.FilesystemDir(volumeName), filepath.Base(path))
 }
 
