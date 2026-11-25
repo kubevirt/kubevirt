@@ -92,6 +92,9 @@ type MigrationOptions struct {
 	StallDetectorOptions     *StallDetectorOptions
 	Compression              *string
 	DowntimeTuning           *v1.DowntimeTuningOptions
+	// ConvergenceTimeoutSec is a fixed converge-phase budget after the initial bulk copy.
+	// Nil keeps legacy behavior (remainder of CompletionTimeoutPerGiB).
+	ConvergenceTimeoutSec *int64
 }
 
 type LauncherClient interface {

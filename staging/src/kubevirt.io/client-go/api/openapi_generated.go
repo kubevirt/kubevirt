@@ -22034,6 +22034,13 @@ func schema_kubevirtio_api_core_v1_ExperimentalMigrationOptions(ref common.Refer
 							Format:      "",
 						},
 					},
+					"convergenceTimeoutSec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConvergenceTimeoutSec is the maximum number of seconds allowed for the converge phase after the initial bulk copy. When unset, the converge phase uses whatever remains of the CompletionTimeoutPerGiB budget (legacy end-to-end behavior).",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 			},
 		},

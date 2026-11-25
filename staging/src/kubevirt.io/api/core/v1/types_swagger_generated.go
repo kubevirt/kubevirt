@@ -1080,10 +1080,11 @@ func (StallDetectorOptions) SwaggerDoc() map[string]string {
 
 func (ExperimentalMigrationOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "ExperimentalMigrationOptions is an alpha API for experimental migration tunables.\nIt is intended for experimental purposes only and will be removed in the future.",
-		"stallDetector":  "+optional",
-		"downtimeTuning": "DowntimeTuning configures iteration-aware downtime ramping for live\nmigration convergence.\n+optional",
-		"compression":    "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+kubebuilder:validation:Enum=none;zstd\n+optional",
+		"":                      "ExperimentalMigrationOptions is an alpha API for experimental migration tunables.\nIt is intended for experimental purposes only and will be removed in the future.",
+		"stallDetector":         "+optional",
+		"downtimeTuning":        "DowntimeTuning configures iteration-aware downtime ramping for live\nmigration convergence.\n+optional",
+		"compression":           "Compression selects the algorithm for compressing the live migration\ndata stream. When omitted (nil) or set to \"none\", compression is\ndisabled.\n+kubebuilder:validation:Enum=none;zstd\n+optional",
+		"convergenceTimeoutSec": "ConvergenceTimeoutSec is the maximum number of seconds allowed for the\nconverge phase after the initial bulk copy.\nWhen unset, the converge phase uses whatever remains of the\nCompletionTimeoutPerGiB budget (legacy end-to-end behavior).\n+kubebuilder:validation:Minimum=0\n+optional",
 	}
 }
 
