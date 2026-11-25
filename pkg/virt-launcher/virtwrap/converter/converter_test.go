@@ -58,6 +58,7 @@ import (
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/kvm"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -4504,5 +4505,35 @@ var _ = Describe("Defaults", func() {
 
 		defaults.SetS390xWatchdog(&vmi.Spec)
 		Expect(vmi.Spec.Domain.Devices.Watchdog).To(BeNil())
+	})
+})
+
+var _ = Describe("Cross-architecture converter emulation", func() {
+	BeforeEach(func() {
+		kvm.SetEmulatorBinaryExistsFunc(func(string) error {
+			return nil
+		})
+	})
+
+	AfterEach(func() {
+		kvm.ResetEmulatorBinaryExistsFunc()
+	})
+
+	It("should configure qemu and cross-arch emulator using runtime.GOARCH", func() {
+		crossArch := "arm64"
+		expectedEmulator := "/usr/bin/qemu-system-aarch64"
+		if runtime.GOARCH == "arm64" {
+			crossArch = "amd64"
+			expectedEmulator = "/usr/bin/qemu-system-x86_64"
+		}
+
+		vmi := libvmi.New(libvmi.WithArchitecture(crossArch))
+		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+			Architecture:              archconverter.NewConverter(crossArch),
+			HypervisorDeviceAvailable: true,
+			AllowCrossArchEmulation:   true,
+		})
+		Expect(domain.Spec.Type).To(Equal("qemu"))
+		Expect(domain.Spec.Devices.Emulator).To(Equal(expectedEmulator))
 	})
 })

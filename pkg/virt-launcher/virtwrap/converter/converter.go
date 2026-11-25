@@ -21,6 +21,7 @@ package converter
 
 import (
 	"fmt"
+	"runtime"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -162,7 +163,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		configurators = append(configurators, mshv.NewMshvDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
 	default:
 		if c.AllowCrossArchEmulation {
-			configurators = append(configurators, kvm.NewKvmDomainConfiguratorWithCrossArch(c.AllowEmulation, c.HypervisorDeviceAvailable, c.AllowCrossArchEmulation, c.HostArchitecture))
+			configurators = append(configurators, kvm.NewKvmDomainConfiguratorWithCrossArch(
+				c.AllowEmulation,
+				c.HypervisorDeviceAvailable,
+				c.AllowCrossArchEmulation,
+				runtime.GOARCH,
+			))
 		} else {
 			configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
 		}

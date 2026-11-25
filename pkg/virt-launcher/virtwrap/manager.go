@@ -1675,7 +1675,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		Architecture:              l.selectConverterArch(vmi.Spec.Architecture),
 		AllowEmulation:            allowEmulation,
 		AllowCrossArchEmulation:   l.allowCrossArchEmulation && vmi.Spec.Architecture != "" && vmi.Spec.Architecture != runtime.GOARCH,
-		HostArchitecture:          runtime.GOARCH,
 		HypervisorDeviceAvailable: l.hypervisorDeviceAvailable,
 		CPUSet:                    podCPUSet,
 		IsBlockPVC:                isBlockPVCMap,

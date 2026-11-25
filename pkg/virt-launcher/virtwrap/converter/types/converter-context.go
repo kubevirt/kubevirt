@@ -71,7 +71,6 @@ type ConverterContext struct {
 	HypervisorName                  string
 	IOMMUFDEnabled                  bool
 	AllowCrossArchEmulation         bool
-	HostArchitecture                string
 	VSOCKProcPath                   string
 	SCSIMultiIOThreadEnabled        bool
 	MultiIOThreadAutoPolicyEnabled  bool
