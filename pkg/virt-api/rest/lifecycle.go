@@ -57,17 +57,6 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		return
 	}
 
-	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
-		return
-	}
-	// Starting the VM is what recovers its uncommitted snapshot overlays
-	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
-	if condition != nil && condition.Status == k8sv1.ConditionTrue && condition.Reason != storagetypes.UncommittedOverlaysReason {
-		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
-		return
-	}
-
 	startPaused := false
 	startChangeRequestData := make(map[string]string)
 	bodyStruct := &v1.StartOptions{}
@@ -80,6 +69,32 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 	if startPaused {
 		startChangeRequestData[v1.StartRequestDataPausedKey] = v1.StartRequestDataPausedTrue
+	}
+
+	if app.clusterConfig.VMHibernationEnabled() {
+		var current *v1.VirtualMachineInstance
+		if err == nil {
+			current = vmi
+		}
+		if handled, statusErr := app.startDuringHibernation(vm, current, bodyStruct.DryRun); handled {
+			if statusErr != nil {
+				writeError(statusErr, response)
+				return
+			}
+			response.WriteHeader(http.StatusAccepted)
+			return
+		}
+	}
+
+	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
+		return
+	}
+	// Starting the VM is what recovers its uncommitted snapshot overlays
+	condition := controller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineManualRecoveryRequired)
+	if condition != nil && condition.Status == k8sv1.ConditionTrue && condition.Reason != storagetypes.UncommittedOverlaysReason {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+		return
 	}
 
 	var patchErr error
@@ -111,7 +126,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
 			_, patchErr = app.virtClient.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
-			patchBytes, err := getRunningPatch(vm, true)
+			patchBytes, err := getStartPatch(vm, startRunStrategy(vm))
 			if err != nil {
 				writeError(errors.NewInternalError(err), response)
 				return
@@ -199,6 +214,13 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	} else if err != nil {
 		writeError(errors.NewInternalError(err), response)
 		return
+	}
+
+	if app.clusterConfig.VMHibernationEnabled() && hasVMI {
+		if statusErr := stopDuringHibernation(vm, vmi); statusErr != nil {
+			writeError(statusErr, response)
+			return
+		}
 	}
 
 	var oldGracePeriodSeconds int64
@@ -631,6 +653,18 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	}
 
 	return patchSet.GeneratePayload()
+}
+
+// getStartPatch returns the patch starting vm with runStrategy, or with
+// spec.running for a VM that uses it, which can only express Always.
+func getStartPatch(vm *v1.VirtualMachine, runStrategy v1.VirtualMachineRunStrategy) ([]byte, error) {
+	if vm.Spec.RunStrategy == nil {
+		return getRunningPatch(vm, true)
+	}
+	return patch.New(
+		patch.WithTest("/spec/runStrategy", vm.Spec.RunStrategy),
+		patch.WithReplace("/spec/runStrategy", runStrategy),
+	).GeneratePayload()
 }
 
 func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {

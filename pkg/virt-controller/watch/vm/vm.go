@@ -69,6 +69,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hibernation"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
@@ -173,6 +174,7 @@ func NewController(queue workqueue.TypedRateLimitingInterface[string],
 		},
 		clusterConfig:                     clusterConfig,
 		netSynchronizer:                   netSynchronizer,
+		hibernation:                       hibernation.NewController(clientset, pvcInformer.GetIndexer(), recorder),
 		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
 		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
@@ -289,6 +291,7 @@ type Controller struct {
 	dataSourceStore        cache.Store
 	namespaceStore         cache.Store
 	pvcStore               cache.Indexer
+	hibernation            *hibernation.Controller
 	crIndexer              cache.Indexer
 	instancetypeController instancetypeHandler
 	recorder               record.EventRecorder
@@ -994,6 +997,19 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 	}
 	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
+	if hibernation.IsSupersededRestore(vm, vmi, c.clusterConfig.VMHibernationEnabled()) {
+		// The VMI failed to resume from the saved state and its guest never
+		// ran. Once a start superseded it by retrying the resume, or the saved
+		// state is discarded, it is replaced like a VMI that never started,
+		// which the Once and Manual run strategies would not do on their own.
+		log.Log.Object(vm).Infof("Replacing VMI %s, which failed to resume from the saved state", vmi.Name)
+		vm, err = c.stopVMI(vm, vmi)
+		if err != nil {
+			return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
+		}
+		return vm, nil
+	}
+
 	switch runStrategy {
 	case virtv1.RunStrategyAlways:
 		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
@@ -1242,6 +1258,14 @@ func (c *Controller) cleanupRestartRequired(vm *virtv1.VirtualMachine) *virtv1.V
 }
 
 func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
+	if message, blocked := hibernation.BlocksStart(vm); blocked && c.clusterConfig.VMHibernationEnabled() {
+		// Booting would discard the saved state, which only a discard request
+		// may do, and resuming again is only retried on a start request. With
+		// the feature gate off, the VM boots and its saved state is discarded.
+		log.Log.Object(vm).V(3).Info(message)
+		c.recorder.Event(vm, k8score.EventTypeWarning, hibernation.ResumeFailedReason, message)
+		return vm, nil
+	}
 	if vm.Status.BackupInProgress != nil {
 		log.Log.Object(vm).V(3).Infof("Delaying start while backup %s is in progress", *vm.Status.BackupInProgress)
 		c.recorder.Eventf(vm, k8score.EventTypeNormal, startHeldReason, "Start delayed until backup %s completes", *vm.Status.BackupInProgress)
@@ -1345,6 +1369,12 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, fmt.Errorf("failed create validation: %v", validateErr)
 	}
 
+	if c.clusterConfig.VMHibernationEnabled() {
+		if err := c.hibernation.PrepareRestore(vm, vmi); err != nil {
+			return vm, err
+		}
+	}
+
 	c.expectations.ExpectCreations(vmKey, 1)
 	vmi, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {
@@ -1355,6 +1385,11 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	}
 	log.Log.Object(vm).Infof("Started VM by creating the new virtual machine instance %s", vmi.Name)
 	c.recorder.Eventf(vm, k8score.EventTypeNormal, common.SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
+	if c.clusterConfig.VMHibernationEnabled() {
+		// Only a created VMI moves the saved state to Restoring: a failed
+		// creation leaves it Saved, to be resumed by the next attempt.
+		c.hibernation.RestoreCreated(vm, vmi)
+	}
 
 	if scratch != nil {
 		if err := snapshotoverlay.HotplugRecoveryScratch(c.clientset, vmi, scratch); err != nil {
@@ -1595,7 +1630,10 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		// if a vmi associated with the vm hits a running phase, then reset the start failure counter
 		vm.Status.StartFailure = nil
 
-	} else if vmi != nil && vmiFailedEarly(vmi) {
+	} else if vmi != nil && vmiFailedEarly(vmi) && !hibernation.IsRestoreFailure(vmi) {
+		// A failed resume from a saved state is handled by the hibernation,
+		// which holds the next start: backing off would only delay the boot
+		// after the saved state is discarded.
 		// if the VMI failed without ever hitting running successfully,
 		// record this as a start failure so we can back off retrying
 		if vm.Status.StartFailure != nil && vm.Status.StartFailure.LastFailedVMIUID == vmi.UID {
@@ -1684,6 +1722,16 @@ func (c *Controller) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	vmKey, err := controller.KeyFunc(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error(failedExtractVmkeyFromVmErrMsg)
+		return vm, nil
+	}
+
+	if hibernation.IsInProgress(vm, vmi) {
+		// The domain stops on its own once its state is saved, or keeps running
+		// if the save fails, in which case the hibernation restores the run
+		// strategy it replaced first. A VMI that reported the result of its
+		// restore is kept until the result is recorded.
+		log.Log.Object(vm).V(3).Infof("Delaying the stop of VMI %s until its hibernation step completes", vmi.Name)
+		c.Queue.AddAfter(vmKey, 5*time.Second)
 		return vm, nil
 	}
 
@@ -2450,6 +2498,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 
 	c.trimDoneVolumeRequests(vm)
 	memorydump.UpdateRequest(vm, vmi)
+	c.hibernation.UpdateStatus(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
 		popStateChangeRequest(vm)
@@ -2505,6 +2554,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		statusFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool
 	}{
 		{virtv1.VirtualMachineStatusTerminating, c.isVirtualMachineStatusTerminating},
+		{virtv1.VirtualMachineStatusHibernating, c.isVirtualMachineStatusHibernating},
 		{virtv1.VirtualMachineStatusStopping, c.isVirtualMachineStatusStopping},
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
@@ -2518,7 +2568,9 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusErrImagePull, c.isVirtualMachineStatusErrImagePull},
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
+		{virtv1.VirtualMachineStatusResumeFailed, c.isVirtualMachineStatusResumeFailed},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
+		{virtv1.VirtualMachineStatusHibernated, c.isVirtualMachineStatusHibernated},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 		{virtv1.VirtualMachineStatusWaitingForReceiver, c.isVirtualMachineWaitingReceiver},
 	}
@@ -2554,6 +2606,23 @@ func (c *Controller) isVirtualMachineStatusCrashLoopBackOff(vm *virtv1.VirtualMa
 	}
 
 	return false
+}
+
+// isVirtualMachineStatusHibernating determines whether the VM status field should be set to "Hibernating".
+func (c *Controller) isVirtualMachineStatusHibernating(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	return hibernation.IsHibernating(vm, vmi)
+}
+
+// isVirtualMachineStatusResumeFailed determines whether the VM status field should be set to "ResumeFailed".
+func (c *Controller) isVirtualMachineStatusResumeFailed(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	_, blocked := hibernation.BlocksStart(vm)
+	return blocked && (vmi == nil || vmi.IsFinal())
+}
+
+// isVirtualMachineStatusHibernated determines whether the VM status field should be set to "Hibernated".
+func (c *Controller) isVirtualMachineStatusHibernated(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	state := vm.Status.SavedState
+	return state != nil && state.Phase == virtv1.HibernationSaved && !state.Discard && c.isVirtualMachineStatusStopped(vm, vmi)
 }
 
 // isVirtualMachineStatusStopped determines whether the VM status field should be set to "Stopped".
@@ -3322,6 +3391,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
+	}
+
+	if err := c.hibernation.Sync(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling hibernation: %v", err), hibernation.ErrorReason), nil
 	}
 
 	if vmi, err = c.syncDynamicAnnotationsAndLabelsToVMI(vmCopy, vmi); err != nil {

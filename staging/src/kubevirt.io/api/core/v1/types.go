@@ -139,6 +139,12 @@ type VirtualMachineInstanceSpec struct {
 	//
 	// +optional
 	StartStrategy *StartStrategy `json:"startStrategy,omitempty"`
+	// SavedStateSource, when set, makes the VirtualMachineInstance resume from
+	// a previously saved memory and device state instead of booting.
+	// It is set by the VirtualMachine controller when a hibernated
+	// VirtualMachine is started and requires the VMHibernation feature gate.
+	// +optional
+	SavedStateSource *SavedStateSource `json:"savedStateSource,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -425,6 +431,12 @@ type VirtualMachineInstanceStatus struct {
 	// +nullable
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+
+	// SavedState reports the save of the memory and device state of the
+	// VirtualMachineInstance, or its resume from a saved state.
+	// +nullable
+	// +optional
+	SavedState *VirtualMachineInstanceSavedStateStatus `json:"savedState,omitempty" optional:"true"`
 
 	// VirtualMachineStateVolume tracks the live VirtualMachineState PVC
 	// (persistent UEFI, TPM and CBT state). It is the source of truth for the
@@ -1509,6 +1521,20 @@ const (
 	// The suffix is the PVC's UID.
 	PersistentReservationLabelPrefix = "pr.kubevirt.io/"
 
+	// SavedStateParallelChannelsAnnotation tunes the number of parallel
+	// channels used to write and read a saved memory state. Experimental.
+	SavedStateParallelChannelsAnnotation string = "kubevirt.io/saved-state-parallel-channels"
+	// SavedStateBypassCacheAnnotation set to "false" makes the saved state
+	// image go through the page cache instead of using direct I/O. Experimental.
+	SavedStateBypassCacheAnnotation string = "kubevirt.io/saved-state-bypass-cache"
+	// SavedStateTimeoutAnnotation overrides how long saving the memory state
+	// may take, as a duration, e.g. "90s". Experimental.
+	SavedStateTimeoutAnnotation string = "kubevirt.io/saved-state-timeout"
+	// HibernationStopRequestDataKey marks the stop request a hibernation adds
+	// to a VirtualMachine, with the saved state PVC as value, so that only that
+	// request is withdrawn when the hibernation is cancelled.
+	HibernationStopRequestDataKey string = "kubevirt.io/hibernation"
+
 	// PVCMemoryDumpAnnotation is the name of the memory dump representing the vm name,
 	// pvc name and the timestamp the memory dump was collected
 	PVCMemoryDumpAnnotation string = "kubevirt.io/memory-dump"
@@ -2197,6 +2223,13 @@ const (
 	VirtualMachineStatusPaused VirtualMachinePrintableStatus = "Paused"
 	// VirtualMachineStatusStopping indicates that the virtual machine is in the process of being stopped.
 	VirtualMachineStatusStopping VirtualMachinePrintableStatus = "Stopping"
+	// VirtualMachineStatusHibernating indicates that the state of the virtual machine is being saved before it stops.
+	VirtualMachineStatusHibernating VirtualMachinePrintableStatus = "Hibernating"
+	// VirtualMachineStatusHibernated indicates that the virtual machine is stopped and resumes from its saved state on the next start.
+	VirtualMachineStatusHibernated VirtualMachinePrintableStatus = "Hibernated"
+	// VirtualMachineStatusResumeFailed indicates that the virtual machine could not resume from its saved state,
+	// and is stopped until the resume is retried or the saved state is discarded.
+	VirtualMachineStatusResumeFailed VirtualMachinePrintableStatus = "ResumeFailed"
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
 	VirtualMachineStatusTerminating VirtualMachinePrintableStatus = "Terminating"
@@ -2282,6 +2315,13 @@ type VirtualMachineStatus struct {
 	// +nullable
 	// +optional
 	MemoryDumpRequest *VirtualMachineMemoryDumpRequest `json:"memoryDumpRequest,omitempty" optional:"true"`
+
+	// SavedState tracks the memory and device state saved by a hibernation
+	// request, from the request until the VirtualMachine resumed from it or
+	// the state was discarded.
+	// +nullable
+	// +optional
+	SavedState *VirtualMachineSavedState `json:"savedState,omitempty" optional:"true"`
 
 	// ObservedGeneration is the generation observed by the vmi when started.
 	// +optional
@@ -3147,6 +3187,145 @@ type SnapshotOverlayOptions struct {
 	Volumes []string `json:"volumes,omitempty"`
 }
 
+// SavedStateSource references a memory and device state saved by a hibernation.
+type SavedStateSource struct {
+	// ClaimName is the name of the PVC holding the saved state.
+	ClaimName string `json:"claimName"`
+	// FileName is the name of the saved state file at the root of the PVC.
+	FileName string `json:"fileName"`
+}
+
+// VirtualMachineInstanceSavedStatePhase is the phase of a save of the memory
+// and device state of a VirtualMachineInstance, or of its resume from one.
+type VirtualMachineInstanceSavedStatePhase string
+
+const (
+	// SavedStateSaving means virt-handler committed to save the state to the
+	// saved state volume, and the state is being written. The VM controller
+	// can no longer cancel the hibernation.
+	SavedStateSaving VirtualMachineInstanceSavedStatePhase = "Saving"
+	// SavedStateSaved means the state was written and the domain was stopped.
+	SavedStateSaved VirtualMachineInstanceSavedStatePhase = "Saved"
+	// SavedStateSaveFailed means writing the state failed and the domain kept running.
+	SavedStateSaveFailed VirtualMachineInstanceSavedStatePhase = "SaveFailed"
+	// SavedStateRestoring means virt-handler committed to resume the domain
+	// from the saved state: from then on, the guest may run.
+	SavedStateRestoring VirtualMachineInstanceSavedStatePhase = "Restoring"
+	// SavedStateRestored means the domain resumed from the saved state.
+	SavedStateRestored VirtualMachineInstanceSavedStatePhase = "Restored"
+	// SavedStateRestoreFailed means resuming from the saved state failed. The domain was not started.
+	SavedStateRestoreFailed VirtualMachineInstanceSavedStatePhase = "RestoreFailed"
+)
+
+// VirtualMachineInstanceSavedStateStatus reports a save of the memory and
+// device state of a VirtualMachineInstance, or its resume from one.
+type VirtualMachineInstanceSavedStateStatus struct {
+	// Phase of the save or restore.
+	Phase VirtualMachineInstanceSavedStatePhase `json:"phase"`
+	// FileName is the name of the saved state file at the root of the volume.
+	// +optional
+	FileName string `json:"fileName,omitempty"`
+	// StartTimestamp is when the save or restore started.
+	// +optional
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// EndTimestamp is when the save or restore ended.
+	// +optional
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+	// Message is a human readable detail, set on failure.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+// VirtualMachineSavedStatePhase is the lifecycle phase of the saved state of a VirtualMachine.
+type VirtualMachineSavedStatePhase string
+
+const (
+	// HibernationPending means the request was accepted and the saved state volume is being provisioned and attached.
+	HibernationPending VirtualMachineSavedStatePhase = "Pending"
+	// HibernationSaving means the memory and device state are being written.
+	HibernationSaving VirtualMachineSavedStatePhase = "Saving"
+	// HibernationSaved means the state was saved and the VirtualMachine is stopped.
+	// The next start resumes the VirtualMachine from it.
+	HibernationSaved VirtualMachineSavedStatePhase = "Saved"
+	// HibernationRestoring means a VirtualMachineInstance resuming from the saved state was created.
+	HibernationRestoring VirtualMachineSavedStatePhase = "Restoring"
+	// HibernationRestored means the VirtualMachine resumed from the saved state, which was then deleted.
+	HibernationRestored VirtualMachineSavedStatePhase = "Restored"
+	// HibernationRestoreFailed means resuming from the saved state failed before the guest ran,
+	// e.g. because of an incompatible CPU or a corrupt saved state, or no node could resume it.
+	// The saved state is kept and the VirtualMachine is not started again on its own: a start
+	// retries the resume, and discarding the saved state lets the VirtualMachine boot.
+	HibernationRestoreFailed VirtualMachineSavedStatePhase = "RestoreFailed"
+	// HibernationFailed means the save failed or was cancelled, or the saved state was discarded.
+	// The saved state volume is deleted and the next start boots the VirtualMachine.
+	// A hibernation that fails while the VirtualMachineInstance runs leaves it running.
+	HibernationFailed VirtualMachineSavedStatePhase = "Failed"
+)
+
+// VirtualMachineSavedState tracks a hibernation of a VirtualMachine.
+type VirtualMachineSavedState struct {
+	// Phase of the hibernation.
+	Phase VirtualMachineSavedStatePhase `json:"phase"`
+	// ClaimName is the PVC holding the saved state. It is owned by the VirtualMachine.
+	ClaimName string `json:"claimName"`
+	// StorageClassName used to provision the PVC. Empty means the default storage class.
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
+	// FileName is the saved state file at the root of the PVC.
+	// +optional
+	FileName string `json:"fileName,omitempty"`
+	// SourceUID is the UID of the VirtualMachineInstance the state was saved from.
+	SourceUID types.UID `json:"sourceUID"`
+	// RequestTimestamp is when the hibernation was requested.
+	// A Pending hibernation times out from it.
+	// +optional
+	RequestTimestamp *metav1.Time `json:"requestTimestamp,omitempty"`
+	// RunStrategy is the run strategy of the VirtualMachine when the hibernation was requested.
+	// It is restored when the hibernation is cancelled or fails while the VirtualMachineInstance runs,
+	// and when the hibernated VirtualMachine is started.
+	// +optional
+	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty"`
+	// SourceNodeSelector holds the node labels a node needs to resume the
+	// state, e.g. the host-model CPU of the node the state was saved on.
+	// +optional
+	SourceNodeSelector map[string]string `json:"sourceNodeSelector,omitempty"`
+	// SpecHash identifies the VirtualMachine spec the state was saved from.
+	// A start with a different spec discards the saved state.
+	// +optional
+	SpecHash string `json:"specHash,omitempty"`
+	// VolumeClaimUIDs maps the PVCs backing the VirtualMachine disks to
+	// their UIDs at save time. A start with a replaced PVC discards the saved state.
+	// +optional
+	VolumeClaimUIDs map[string]types.UID `json:"volumeClaimUIDs,omitempty"`
+	// RestoreUID is the UID of the VirtualMachineInstance resuming from the saved state.
+	// +optional
+	RestoreUID types.UID `json:"restoreUID,omitempty"`
+	// SupersededUID is the UID of the VirtualMachineInstance that failed to
+	// resume from the saved state and that a start request retrying the
+	// resume superseded. The VM controller replaces it, whatever the run strategy.
+	// +optional
+	SupersededUID types.UID `json:"supersededUID,omitempty"`
+	// SaveStartTimestamp is when the state started to be written.
+	// +optional
+	SaveStartTimestamp *metav1.Time `json:"saveStartTimestamp,omitempty"`
+	// SaveEndTimestamp is when the state was written.
+	// +optional
+	SaveEndTimestamp *metav1.Time `json:"saveEndTimestamp,omitempty"`
+	// RestoreStartTimestamp is when the domain started to resume from the saved state.
+	// +optional
+	RestoreStartTimestamp *metav1.Time `json:"restoreStartTimestamp,omitempty"`
+	// RestoreEndTimestamp is when the domain resumed from the saved state.
+	// +optional
+	RestoreEndTimestamp *metav1.Time `json:"restoreEndTimestamp,omitempty"`
+	// Discard requests the saved state to be deleted. The next start boots the VirtualMachine.
+	// Set while Pending, it cancels the hibernation and the VirtualMachine keeps running.
+	// +optional
+	Discard bool `json:"discard,omitempty"`
+	// Message is a human readable detail about the phase.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
 type VirtualMachineMemoryDumpRequest struct {
 	// ClaimName is the name of the pvc that will contain the memory dump
@@ -3186,6 +3365,23 @@ const (
 	// The memorydump failed
 	MemoryDumpFailed MemoryDumpPhase = "Failed"
 )
+
+// HibernateOptions are provided when hibernating a VirtualMachine: its memory
+// and device state are saved to a PVC and the VirtualMachine is stopped.
+// The next start resumes it from the saved state.
+type HibernateOptions struct {
+	// StorageClassName of the PVC holding the saved state. Defaults to the default storage class.
+	// +optional
+	StorageClassName *string `json:"storageClassName,omitempty"`
+	// When present, indicates that modifications should not be
+	// persisted. An invalid or unrecognized dryRun directive will
+	// result in an error response and no further processing of the
+	// request. Valid values are:
+	// - All: all dry run stages will be processed
+	// +optional
+	// +listType=atomic
+	DryRun []string `json:"dryRun,omitempty"`
+}
 
 // AddVolumeOptions is provided when dynamically hot plugging a volume and disk
 type AddVolumeOptions struct {

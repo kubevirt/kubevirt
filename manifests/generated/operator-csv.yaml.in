@@ -1074,6 +1074,8 @@ spec:
           - virtualmachines/removevolume
           - virtualmachines/memorydump
           - virtualmachines/removememorydump
+          - virtualmachines/hibernate
+          - virtualmachines/discardsavedstate
           - virtualmachines/evacuate/cancel
           verbs:
           - update
@@ -1261,6 +1263,8 @@ spec:
           - virtualmachines/removevolume
           - virtualmachines/memorydump
           - virtualmachines/removememorydump
+          - virtualmachines/hibernate
+          - virtualmachines/discardsavedstate
           - virtualmachines/evacuate/cancel
           verbs:
           - update

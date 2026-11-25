@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/hibernation"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
@@ -1527,6 +1528,15 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vm.Status.StartFailure.RetryAfterTimestamp).ToNot(BeNil())
 				Expect(vm.Status.StartFailure.LastFailedVMIUID).To(Equal(vmi.UID))
 				Expect(vm.Status.StartFailure.ConsecutiveFailCount).To(Equal(1))
+			})
+
+			It("should not count a failed resume from a saved state as a start failure", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vmi.Status.Phase = v1.Failed
+				vmi.Spec.SavedStateSource = &v1.SavedStateSource{ClaimName: "state", FileName: "domain-0123456789ab.save"}
+				vmi.Status.SavedState = &v1.VirtualMachineInstanceSavedStateStatus{Phase: v1.SavedStateRestoreFailed}
+				syncStartFailureStatus(vm, vmi)
+				Expect(vm.Status.StartFailure).To(BeNil(), "a discard must boot the VM without a crash loop backoff")
 			})
 
 			It("should track a new start failures when a new VMI fails without hitting running state", func() {
@@ -3478,6 +3488,184 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 				testutils.ExpectEvent(recorder, startHeldReason)
 			})
+		})
+
+		Context("Hibernation", func() {
+			enableHibernation := func() {
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featuregate.VMHibernation, featuregate.UtilityVolumesGate},
+						},
+					}},
+				})
+			}
+
+			restoreFailedVM := func() *v1.VirtualMachine {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Status.SavedState = &v1.VirtualMachineSavedState{
+					Phase: v1.HibernationRestoreFailed, ClaimName: "state", Message: "Resuming from the saved state failed",
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				return vm
+			}
+
+			It("should not boot a VM whose resume failed until its saved state is discarded or retried", func() {
+				enableHibernation()
+				vm := restoreFailedVM()
+
+				sanityExecute(vm)
+
+				_, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+				testutils.ExpectEvent(recorder, hibernation.ResumeFailedReason)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusResumeFailed))
+			})
+
+			It("should boot a VM whose resume failed when the feature gate is off", func() {
+				vm := restoreFailedVM()
+
+				sanityExecute(vm)
+
+				_, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			failedRestore := func(runStrategy v1.VirtualMachineRunStrategy, change func(*v1.VirtualMachineSavedState, types.UID)) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.RunStrategy = new(runStrategy)
+				vm.Spec.Running = nil
+				vmi.UID = "restore-vmi-uid"
+				vmi.Status.Phase = v1.Failed
+				vmi.Spec.SavedStateSource = &v1.SavedStateSource{ClaimName: "state", FileName: "domain-0123456789ab.save"}
+				vmi.Status.SavedState = &v1.VirtualMachineInstanceSavedStateStatus{Phase: v1.SavedStateRestoreFailed, Message: "corrupt"}
+				vm.Status.SavedState = &v1.VirtualMachineSavedState{
+					Phase: v1.HibernationRestoreFailed, ClaimName: "state", FileName: "domain-0123456789ab.save", RestoreUID: vmi.UID, Message: "corrupt",
+				}
+				change(vm.Status.SavedState, vmi.UID)
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				controller.vmiIndexer.Add(vmi)
+				return vm, vmi
+			}
+			retried := func(state *v1.VirtualMachineSavedState, uid types.UID) {
+				state.Phase = v1.HibernationSaved
+				state.RestoreUID = ""
+				state.SupersededUID = uid
+			}
+			waiting := func(*v1.VirtualMachineSavedState, types.UID) {}
+			// The update recording the creation of the restore VMI was lost.
+			savedAfterLostUpdate := func(state *v1.VirtualMachineSavedState, _ types.UID) {
+				state.Phase = v1.HibernationSaved
+				state.RestoreUID = ""
+				state.Message = ""
+			}
+			restoringWithoutUID := func(state *v1.VirtualMachineSavedState, _ types.UID) {
+				state.Phase = v1.HibernationRestoring
+				state.RestoreUID = ""
+				state.Message = ""
+			}
+
+			DescribeTable("should replace the VMI that failed to resume only once a start retried the resume, whatever the run strategy",
+				func(runStrategy v1.VirtualMachineRunStrategy, change func(*v1.VirtualMachineSavedState, types.UID), replaced bool) {
+					enableHibernation()
+					vm, vmi := failedRestore(runStrategy, change)
+
+					sanityExecute(vm)
+
+					current, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					if replaced {
+						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"), "the run strategy starts the restore again once it is gone")
+						return
+					}
+					Expect(err).ToNot(HaveOccurred(), "kept until a retry or a discard")
+					Expect(current.UID).To(Equal(vmi.UID))
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(vm.Status.SavedState.Phase).To(Equal(v1.HibernationRestoreFailed), "the failure is recorded")
+					Expect(vm.Status.SavedState.RestoreUID).To(Equal(vmi.UID))
+				},
+				Entry("Once, retried", v1.RunStrategyOnce, retried, true),
+				Entry("Manual, retried", v1.RunStrategyManual, retried, true),
+				Entry("Always, retried", v1.RunStrategyAlways, retried, true),
+				Entry("Once, waiting for a retry or a discard", v1.RunStrategyOnce, waiting, false),
+				Entry("Manual, waiting for a retry or a discard", v1.RunStrategyManual, waiting, false),
+				Entry("Once, Saved after a lost update", v1.RunStrategyOnce, savedAfterLostUpdate, false),
+				Entry("Always, Saved after a lost update", v1.RunStrategyAlways, savedAfterLostUpdate, false),
+				Entry("RerunOnFailure, Saved after a lost update", v1.RunStrategyRerunOnFailure, savedAfterLostUpdate, false),
+				Entry("Manual, Saved after a lost update", v1.RunStrategyManual, savedAfterLostUpdate, false),
+				Entry("Once, Restoring without the VMI UID", v1.RunStrategyOnce, restoringWithoutUID, false),
+				Entry("Always, Restoring without the VMI UID", v1.RunStrategyAlways, restoringWithoutUID, false),
+			)
+
+			DescribeTable("should never retry the resume on its own while the update recording the restore VMI fails",
+				func(runStrategy v1.VirtualMachineRunStrategy) {
+					enableHibernation()
+					stale, vmi := failedRestore(runStrategy, savedAfterLostUpdate)
+
+					for range 3 {
+						// Every update of the VM status is lost: the cache keeps the VM Saved.
+						addVirtualMachine(stale.DeepCopy())
+						sanityExecute(stale)
+
+						vmis, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(stale.Namespace).List(context.TODO(), metav1.ListOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(vmis.Items).To(HaveLen(1), "neither deleted nor recreated")
+						Expect(vmis.Items[0].UID).To(Equal(vmi.UID))
+					}
+				},
+				Entry("Once", v1.RunStrategyOnce),
+				Entry("Always", v1.RunStrategyAlways),
+				Entry("RerunOnFailure", v1.RunStrategyRerunOnFailure),
+			)
+
+			It("should start the restore of a VM that runs once after its failed VMI is replaced", func() {
+				enableHibernation()
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.RunStrategy = new(v1.RunStrategyOnce)
+				vm.Spec.Running = nil
+				vm.Status.SavedState = &v1.VirtualMachineSavedState{Phase: v1.HibernationSaved, ClaimName: "state", FileName: "domain-0123456789ab.save"}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Once starts a VMI when there is none")
+			})
+
+			It("should stop the VMI of a VM deleted while its hibernation is pending", func() {
+				enableHibernation()
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.RunStrategy = new(v1.RunStrategyHalted)
+				vm.Spec.Running = nil
+				vm.DeletionTimestamp = new(metav1.Now())
+				watchtesting.MarkAsReady(vmi)
+				vmi.Status.Phase = v1.Running
+				vm.Status.SavedState = &v1.VirtualMachineSavedState{
+					Phase: v1.HibernationPending, ClaimName: "state", SourceUID: vmi.UID, RunStrategy: new(v1.RunStrategyAlways),
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				controller.vmiIndexer.Add(vmi)
+
+				sanityExecute(vm)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(ContainSubstring("not found")), "a deletion never waits for the hibernation")
+			})
+
 		})
 
 		Context("Changed Block Tracking", func() {
