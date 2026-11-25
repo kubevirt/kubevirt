@@ -424,6 +424,15 @@ func (app *VirtOperatorApp) Run() {
 
 	caManager := kvtls.NewKubernetesClientCAManager(apiAuthConfig.GetStore())
 
+	// VerifyClientCertIfGiven checks a client certificate when one is presented
+	// and allows the handshake when it is not. kube-apiserver does not present
+	// one to admission webhooks unless the cluster sets
+	// --admission-control-config-file (AdmissionConfiguration kubeConfigFile).
+	// RequireAndVerifyClientCert would fail that handshake, and these webhooks
+	// use failurePolicy Fail, so every KubeVirt CR write would be rejected.
+	// A presented certificate is still verified, including its CN, by
+	// SetupTLSWithCertManager. The admitters only return a verdict and have
+	// no side effects, so replaying an AdmissionReview cannot change the cluster.
 	tlsConfig := kvtls.SetupTLSWithCertManager(caManager, app.operatorCertManager, tls.VerifyClientCertIfGiven, app.clusterConfig)
 
 	webhookServer := &http.Server{
