@@ -357,6 +357,73 @@ var _ = Describe("Backend Storage", func() {
 		})
 	})
 
+	Context("UpdateVolumeStatus", func() {
+		const (
+			sourcePVCName = "persistent-state-for-testvmi-source"
+			targetPVCName = "persistent-state-for-testvmi-target"
+		)
+
+		newPVC := func(name string) *v1.PersistentVolumeClaim {
+			return &v1.PersistentVolumeClaim{
+				ObjectMeta: k8smetav1.ObjectMeta{Name: name},
+				Spec:       v1.PersistentVolumeClaimSpec{AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce}},
+			}
+		}
+
+		expectStateVolume := func(vmi *virtv1.VirtualMachineInstance, claimName string) {
+			Expect(CurrentPVCName(vmi)).To(Equal(claimName))
+			Expect(vmi.Status.VirtualMachineStateVolume).ToNot(BeNil())
+			Expect(vmi.Status.VirtualMachineStateVolume.Name).To(Equal(VolumeName))
+			Expect(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo).ToNot(BeNil())
+			Expect(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(claimName))
+			Expect(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.AccessModes).To(ConsistOf(v1.ReadWriteOnce))
+		}
+
+		It("should set the VirtualMachineState volume along with the volume status", func() {
+			vmi := &virtv1.VirtualMachineInstance{}
+
+			backendStorage.UpdateVolumeStatus(vmi, newPVC(sourcePVCName))
+
+			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
+			expectStateVolume(vmi, sourcePVCName)
+		})
+
+		It("should move the VirtualMachineState volume to the PVC handed off by a migration", func() {
+			vmi := &virtv1.VirtualMachineInstance{}
+			backendStorage.UpdateVolumeStatus(vmi, newPVC(sourcePVCName))
+
+			backendStorage.UpdateVolumeStatus(vmi, newPVC(targetPVCName))
+
+			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
+			expectStateVolume(vmi, targetPVCName)
+		})
+	})
+
+	Context("SyncVirtualMachineStateVolume", func() {
+		It("should clear the VirtualMachineState volume when there is no backend-storage volume status", func() {
+			vmi := &virtv1.VirtualMachineInstance{}
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{{Name: "rootdisk"}}
+			vmi.Status.VirtualMachineStateVolume = &virtv1.VolumeStatus{Name: VolumeName}
+
+			SyncVirtualMachineStateVolume(vmi)
+
+			Expect(vmi.Status.VirtualMachineStateVolume).To(BeNil())
+		})
+
+		It("should not alias the volume status entry", func() {
+			vmi := &virtv1.VirtualMachineInstance{}
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{{
+				Name:                      VolumeName,
+				PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: "pvc"},
+			}}
+
+			SyncVirtualMachineStateVolume(vmi)
+			vmi.Status.VolumeStatus[0].PersistentVolumeClaimInfo.ClaimName = "other-pvc"
+
+			Expect(vmi.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal("pvc"))
+		})
+	})
+
 	Context("createPVC", func() {
 		var (
 			k8sClient *k8sfake.Clientset

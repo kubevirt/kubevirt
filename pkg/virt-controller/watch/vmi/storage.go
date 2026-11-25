@@ -426,13 +426,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	vmi.Status.VolumeStatus = newStatus
 
 	// Surface the backend-storage volume in its own status field, for both paths.
-	vmi.Status.VirtualMachineStateVolume = nil
-	for i := range newStatus {
-		if backendstorage.IsBackendStorageVolume(newStatus[i]) {
-			vmi.Status.VirtualMachineStateVolume = newStatus[i].DeepCopy()
-			break
-		}
-	}
+	backendstorage.SyncVirtualMachineStateVolume(vmi)
 	return nil
 }
 

@@ -647,6 +647,7 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 			}
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = pvc.Name
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = pvc.Spec.AccessModes
+			SyncVirtualMachineStateVolume(vmi)
 			return
 		}
 	}
@@ -657,6 +658,21 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 			AccessModes: pvc.Spec.AccessModes,
 		},
 	})
+	SyncVirtualMachineStateVolume(vmi)
+}
+
+// SyncVirtualMachineStateVolume mirrors the backend-storage entry of status.volumeStatus into
+// status.virtualMachineStateVolume, and clears it when the VMI has no such entry.
+// It has to run whenever that entry changes: the live PVC is replaced when an RWO
+// backend-storage PVC is handed off to the migration target.
+func SyncVirtualMachineStateVolume(vmi *corev1.VirtualMachineInstance) {
+	vmi.Status.VirtualMachineStateVolume = nil
+	for i := range vmi.Status.VolumeStatus {
+		if IsBackendStorageVolume(vmi.Status.VolumeStatus[i]) {
+			vmi.Status.VirtualMachineStateVolume = vmi.Status.VolumeStatus[i].DeepCopy()
+			return
+		}
+	}
 }
 
 func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels map[string]string) (*v1.PersistentVolumeClaim, error) {

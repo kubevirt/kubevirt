@@ -21,6 +21,7 @@ package vmi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -1060,6 +1061,94 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
 			Expect(patch.IsEmpty()).To(BeFalse(), "Patch should not be empty")
 		})
+
+		Context("VirtualMachineState volume", func() {
+			const stateVolumePath = "/status/virtualMachineStateVolume"
+
+			stateVolume := func(claimName string) *virtv1.VolumeStatus {
+				return &virtv1.VolumeStatus{
+					Name:                      backendstorage.VolumeName,
+					PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: claimName},
+				}
+			}
+
+			BeforeEach(func() {
+				newVMI.Status.Interfaces = slices.Clone(oldVMI.Status.Interfaces)
+			})
+
+			DescribeTable("should patch it when it changes", func(oldVolume, newVolume *virtv1.VolumeStatus, expectedOps ...string) {
+				oldVMI.Status.VirtualMachineStateVolume = oldVolume
+				newVMI.Status.VirtualMachineStateVolume = newVolume
+
+				payload, err := prepareVMIPatch(oldVMI, newVMI).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				var ops []map[string]interface{}
+				Expect(json.Unmarshal(payload, &ops)).To(Succeed())
+				var actualOps []string
+				for _, op := range ops {
+					Expect(op["path"]).To(Equal(stateVolumePath))
+					actualOps = append(actualOps, op["op"].(string))
+				}
+				Expect(actualOps).To(Equal(expectedOps))
+			},
+				Entry("from unset", nil, stateVolume("target-pvc"), "add"),
+				Entry("to another PVC", stateVolume("source-pvc"), stateVolume("target-pvc"), "test", "replace"),
+				Entry("to unset", stateVolume("source-pvc"), nil, "test", "remove"),
+			)
+
+			It("should not patch it when it is unchanged", func() {
+				oldVMI.Status.VirtualMachineStateVolume = stateVolume("source-pvc")
+				newVMI.Status.VirtualMachineStateVolume = stateVolume("source-pvc")
+
+				Expect(prepareVMIPatch(oldVMI, newVMI).IsEmpty()).To(BeTrue(), "Patch should be empty")
+			})
+		})
+	})
+
+	It("should follow the VirtualMachineState PVC of a running VMI to the migration target", func() {
+		const (
+			sourcePVCName = "persistent-state-for-testvmi-source"
+			targetPVCName = "persistent-state-for-testvmi-target"
+		)
+		rwo := []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+
+		vmi := newPendingVirtualMachine("testvmi")
+		vmi.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{Persistent: pointer.P(true)}
+		setReadyCondition(vmi, k8sv1.ConditionTrue, "")
+		vmi.Status.Phase = virtv1.Running
+		sourceStatus := virtv1.VolumeStatus{
+			Name:                      backendstorage.VolumeName,
+			PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{ClaimName: sourcePVCName, AccessModes: rwo},
+		}
+		vmi.Status.VolumeStatus = []virtv1.VolumeStatus{sourceStatus}
+		vmi.Status.VirtualMachineStateVolume = sourceStatus.DeepCopy()
+		pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+		// The migration handed the state off: the source PVC is being deleted and the target carries the label.
+		sourcePVC := newPvc(vmi.Namespace, sourcePVCName)
+		sourcePVC.Labels = map[string]string{backendstorage.PVCPrefix: vmi.Name}
+		sourcePVC.Spec.AccessModes = rwo
+		sourcePVC.DeletionTimestamp = pointer.P(metav1.Now())
+		sourcePVC.Finalizers = []string{"kubernetes.io/pvc-protection"}
+		targetPVC := newPvc(vmi.Namespace, targetPVCName)
+		targetPVC.Labels = map[string]string{backendstorage.PVCPrefix: vmi.Name}
+		targetPVC.Spec.AccessModes = rwo
+		targetPVC.Status.Phase = k8sv1.ClaimBound
+		addDataVolumePVC(sourcePVC)
+		addDataVolumePVC(targetPVC)
+
+		addVirtualMachine(vmi)
+		addPod(pod)
+
+		sanityExecute()
+
+		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(backendstorage.CurrentPVCName(updatedVMI)).To(Equal(targetPVCName))
+		Expect(updatedVMI.Status.VirtualMachineStateVolume).ToNot(BeNil())
+		Expect(updatedVMI.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo).ToNot(BeNil())
+		Expect(updatedVMI.Status.VirtualMachineStateVolume.PersistentVolumeClaimInfo.ClaimName).To(Equal(targetPVCName))
 	})
 
 	It("should fail which when network VMI spec validator fail", func() {

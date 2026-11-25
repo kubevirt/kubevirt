@@ -648,6 +648,28 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 		}
 		log.Log.V(3).Object(oldVMI).Infof("Patching Volume Status")
 	}
+
+	// The live VirtualMachineState PVC changes on a running VMI when an RWO backend-storage PVC
+	// is handed off to a migration target, so it has to be patched like the volume status above.
+	if !equality.Semantic.DeepEqual(newVMI.Status.VirtualMachineStateVolume, oldVMI.Status.VirtualMachineStateVolume) {
+		const stateVolumePath = "/status/virtualMachineStateVolume"
+		switch {
+		case oldVMI.Status.VirtualMachineStateVolume == nil:
+			patchSet.AddOption(patch.WithAdd(stateVolumePath, newVMI.Status.VirtualMachineStateVolume))
+		case newVMI.Status.VirtualMachineStateVolume == nil:
+			patchSet.AddOption(
+				patch.WithTest(stateVolumePath, oldVMI.Status.VirtualMachineStateVolume),
+				patch.WithRemove(stateVolumePath),
+			)
+		default:
+			patchSet.AddOption(
+				patch.WithTest(stateVolumePath, oldVMI.Status.VirtualMachineStateVolume),
+				patch.WithReplace(stateVolumePath, newVMI.Status.VirtualMachineStateVolume),
+			)
+		}
+		log.Log.V(3).Object(oldVMI).Infof("Patching VirtualMachineState volume status")
+	}
+
 	// We don't own the object anymore, so patch instead of update
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	if !vmiConditions.ConditionsEqual(oldVMI, newVMI) {
