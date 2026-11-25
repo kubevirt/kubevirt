@@ -288,6 +288,12 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 					GenerateName: jobName + "-",
 				},
 				Spec: v1.PodSpec{
+					// The source PVC may be bound to a node cordoned for maintenance.
+					Tolerations: []v1.Toleration{{
+						Key:      v1.TaintNodeUnschedulable,
+						Operator: v1.TolerationOpExists,
+						Effect:   v1.TaintEffectNoSchedule,
+					}},
 					RestartPolicy: v1.RestartPolicyNever,
 					SecurityContext: &v1.PodSecurityContext{
 						RunAsNonRoot: pointer.P(true),
