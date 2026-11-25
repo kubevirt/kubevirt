@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
+var hostArchitecture = runtime.GOARCH
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *convertertypes.ConverterContext) (err error) {
 
 	precond.MustNotBeNil(vmi)
@@ -167,7 +169,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				c.AllowEmulation,
 				c.HypervisorDeviceAvailable,
 				c.AllowCrossArchEmulation,
-				runtime.GOARCH,
+				hostArchitecture,
 			))
 		} else {
 			configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))

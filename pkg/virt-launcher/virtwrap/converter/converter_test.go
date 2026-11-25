@@ -4519,21 +4519,26 @@ var _ = Describe("Cross-architecture converter emulation", func() {
 		kvm.ResetEmulatorBinaryExistsFunc()
 	})
 
-	It("should configure qemu and cross-arch emulator using runtime.GOARCH", func() {
-		crossArch := "arm64"
-		expectedEmulator := "/usr/bin/qemu-system-aarch64"
-		if runtime.GOARCH == "arm64" {
-			crossArch = "amd64"
-			expectedEmulator = "/usr/bin/qemu-system-x86_64"
-		}
+	DescribeTable("should configure hypervisor type and emulator",
+		func(hostArch, guestArch, expectedType, expectedEmulator string) {
+			origHostArch := hostArchitecture
+			hostArchitecture = hostArch
+			DeferCleanup(func() {
+				hostArchitecture = origHostArch
+			})
 
-		vmi := libvmi.New(libvmi.WithArchitecture(crossArch))
-		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
-			Architecture:              archconverter.NewConverter(crossArch),
-			HypervisorDeviceAvailable: true,
-			AllowCrossArchEmulation:   true,
-		})
-		Expect(domain.Spec.Type).To(Equal("qemu"))
-		Expect(domain.Spec.Devices.Emulator).To(Equal(expectedEmulator))
-	})
+			vmi := libvmi.New(libvmi.WithArchitecture(guestArch))
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{
+				Architecture:              archconverter.NewConverter(guestArch),
+				HypervisorDeviceAvailable: true,
+				AllowCrossArchEmulation:   true,
+			})
+			Expect(domain.Spec.Type).To(Equal(expectedType))
+			Expect(domain.Spec.Devices.Emulator).To(Equal(expectedEmulator))
+		},
+		Entry("arm64 guest on amd64 host", "amd64", "arm64", "qemu", "/usr/bin/qemu-system-aarch64"),
+		Entry("amd64 guest on arm64 host", "arm64", "amd64", "qemu", "/usr/bin/qemu-system-x86_64"),
+		Entry("s390x guest on amd64 host", "amd64", "s390x", "qemu", "/usr/bin/qemu-system-s390x"),
+		Entry("amd64 guest on amd64 host", "amd64", "amd64", "kvm", ""),
+	)
 })
