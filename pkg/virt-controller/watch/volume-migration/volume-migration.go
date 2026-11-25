@@ -227,7 +227,7 @@ func VolumeMigrationCancel(clientset kubecli.KubevirtClient, vmi *virtv1.Virtual
 		return false, nil
 	}
 	// A volumem migration can be canceled only if the original set of volumes is restored
-	if revertedToOldVolumes(vmi, vm) {
+	if RevertedToOldVolumes(vmi, vm) {
 		vmiCopy, err := PatchVMIVolumes(clientset, vmi, vm)
 		if err != nil {
 			return true, err
@@ -248,8 +248,8 @@ func changeMigratedVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.Virtua
 	return false
 }
 
-// revertedToOldVolumes checks that all migrated volumes have been reverted from destination to the source volume
-func revertedToOldVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) bool {
+// RevertedToOldVolumes checks that all migrated volumes have been reverted from destination to the source volume
+func RevertedToOldVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) bool {
 	updatedVols := updatedVolumesMapping(vmi, vm)
 	for _, migVol := range vmi.Status.MigratedVolumes {
 		if migVol.SourcePVCInfo == nil {

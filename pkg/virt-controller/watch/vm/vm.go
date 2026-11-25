@@ -2899,7 +2899,28 @@ func (c *Controller) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	vm.Status.VolumeRequests = tmpVolRequests
 }
 
-func validLiveUpdateVolumes(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+func liveVolumesForComparison(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Volume {
+	if vm.Spec.UpdateVolumesStrategy != nil || vmi == nil {
+		return nil
+	}
+	liveVols := storagetypes.GetVolumesByName(&vmi.Spec)
+	// Cancellation can clear the strategy while the VMI still references the destinations.
+	if volumemig.IsVolumeMigrating(vmi) && volumemig.RevertedToOldVolumes(vmi, vm) &&
+		volumemig.MigratedVolumesMatchVMSpec(vmi.Status.MigratedVolumes, &vmi.Spec) {
+		for _, migrated := range vmi.Status.MigratedVolumes {
+			vol := liveVols[migrated.VolumeName]
+			if vol.PersistentVolumeClaim != nil {
+				vol.PersistentVolumeClaim.ClaimName = migrated.SourcePVCInfo.ClaimName
+			} else if vol.DataVolume != nil {
+				vol.DataVolume.Name = migrated.SourcePVCInfo.ClaimName
+			}
+		}
+	}
+	return liveVols
+}
+
+func validLiveUpdateVolumes(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	liveVols := liveVolumesForComparison(vm, vmi)
 	oldVols := storagetypes.GetVolumesByName(&oldVMSpec.Template.Spec)
 	// Evaluate if any volume has changed or has been added
 	for _, v := range vm.Spec.Template.Spec.Volumes {
@@ -2916,6 +2937,9 @@ func validLiveUpdateVolumes(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Vir
 		case (v.VolumeSource.PersistentVolumeClaim != nil || v.VolumeSource.DataVolume != nil) &&
 			vm.Spec.UpdateVolumesStrategy != nil &&
 			*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+			delete(oldVols, v.Name)
+		// A PVC/DV may already match the VMI or be reverting a live migration.
+		case (v.PersistentVolumeClaim != nil || v.DataVolume != nil) && equality.Semantic.DeepEqual(liveVols[v.Name], &v):
 			delete(oldVols, v.Name)
 		// The volume has changed
 		case !equality.Semantic.DeepEqual(*oldVol, v):
@@ -3005,7 +3029,7 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		return false
 	}
 
-	if validLiveUpdateVolumes(&lastSeenVM.Spec, currentVM) {
+	if validLiveUpdateVolumes(&lastSeenVM.Spec, currentVM, vmi) {
 		lastSeenVM.Spec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
 	}
 	if validLiveUpdateDisks(&lastSeenVM.Spec, currentVM) {
