@@ -34,16 +34,24 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	vap "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components/validatingadmissionpolicies"
 )
 
 const (
-	controllerUser = "system:serviceaccount:kubevirt:kubevirt-controller"
-	otherUser      = "system:serviceaccount:tenant:default"
-	usbResource    = "devices.kubevirt.io/usb"
-	gpuResource    = "nvidia.com/TU104GL_Tesla_T4"
-	mdevResource   = "nvidia.com/GRID_T4-1Q"
-	kvmResource    = "devices.kubevirt.io/kvm"
+	controllerUser     = "system:serviceaccount:kubevirt:kubevirt-controller"
+	otherUser          = "system:serviceaccount:tenant:default"
+	usbResource        = "devices.kubevirt.io/usb"
+	gpuResource        = "nvidia.com/TU104GL_Tesla_T4"
+	mdevResource       = "nvidia.com/GRID_T4-1Q"
+	kvmResource        = "devices.kubevirt.io/kvm"
+	tunResource        = "devices.kubevirt.io/tun"
+	vhostNetResource   = "devices.kubevirt.io/vhost-net"
+	sevResource        = "devices.kubevirt.io/sev"
+	vhostVsockResource = "devices.kubevirt.io/vhost-vsock"
+	tdxResource        = "devices.kubevirt.io/tdx"
+	iommufdResource    = "devices.kubevirt.io/iommufd"
+	prHelperResource   = "devices.kubevirt.io/pr-helper"
 )
 
 func kubeVirtParams(cfg v1.KubeVirtConfiguration) map[string]interface{} {
@@ -249,4 +257,83 @@ var _ = Describe("Host device ValidatingAdmissionPolicy", func() {
 		Expect(admitHostDevice(podWithResources(nil, resourceList(usbResource, "1")), cfg, otherUser)).To(Succeed())
 		Expect(admitHostDevice(podWithResources(nil, resourceList("intel.com/qat", "1")), cfg, otherUser)).NotTo(Succeed())
 	})
+
+	DescribeTable("should follow the feature gates virt-handler uses when it registers a plugin",
+		func(cfg v1.KubeVirtConfiguration, resourceName, username string, admit bool) {
+			err := admitHostDevice(podWithResources(nil, resourceList(resourceName, "1")), cfg, username)
+			if admit {
+				Expect(err).NotTo(HaveOccurred())
+				return
+			}
+			Expect(err).To(MatchError(ContainSubstring(vap.HostDevicesRestrictionErr)))
+		},
+		Entry("SEV is beta, so a default CR denies it",
+			v1.KubeVirtConfiguration{}, sevResource, otherUser, false),
+		Entry("vhost-vsock is beta, so a default CR denies it",
+			v1.KubeVirtConfiguration{}, vhostVsockResource, otherUser, false),
+		Entry("TDX is alpha, so a default CR leaves it allocatable",
+			v1.KubeVirtConfiguration{}, tdxResource, otherUser, true),
+		Entry("iommufd is alpha, so a default CR leaves it allocatable",
+			v1.KubeVirtConfiguration{}, iommufdResource, otherUser, true),
+		Entry("pr-helper stays allocatable until persistent reservation is enabled",
+			v1.KubeVirtConfiguration{}, prHelperResource, otherUser, true),
+		Entry("kvm stays allocatable",
+			v1.KubeVirtConfiguration{}, kvmResource, otherUser, true),
+		Entry("tun stays allocatable",
+			v1.KubeVirtConfiguration{}, tunResource, otherUser, true),
+		Entry("vhost-net stays allocatable",
+			v1.KubeVirtConfiguration{}, vhostNetResource, otherUser, true),
+		Entry("virt-controller may request SEV",
+			v1.KubeVirtConfiguration{}, sevResource, controllerUser, true),
+		Entry("disabling WorkloadEncryptionSEV makes sev allocatable again",
+			v1.KubeVirtConfiguration{DeveloperConfiguration: &v1.DeveloperConfiguration{
+				DisabledFeatureGates: []string{featuregate.WorkloadEncryptionSEV},
+			}}, sevResource, otherUser, true),
+		Entry("disabling only SEV still denies vhost-vsock",
+			v1.KubeVirtConfiguration{DeveloperConfiguration: &v1.DeveloperConfiguration{
+				DisabledFeatureGates: []string{featuregate.WorkloadEncryptionSEV},
+			}}, vhostVsockResource, otherUser, false),
+		Entry("an explicit featureGates entry wins over disabledFeatureGates for an alpha gate",
+			v1.KubeVirtConfiguration{DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates:         []string{featuregate.WorkloadEncryptionTDX},
+				DisabledFeatureGates: []string{featuregate.WorkloadEncryptionTDX},
+			}}, tdxResource, otherUser, false),
+		Entry("enabling IOMMUFD denies iommufd",
+			v1.KubeVirtConfiguration{DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.IOMMUFDGate},
+			}}, iommufdResource, otherUser, false),
+		Entry("the legacy PersistentReservation gate denies pr-helper",
+			v1.KubeVirtConfiguration{DeveloperConfiguration: &v1.DeveloperConfiguration{
+				FeatureGates: []string{featuregate.PersistentReservation},
+			}}, prHelperResource, otherUser, false),
+		Entry("persistentReservationConfiguration.enabled false overrides the legacy gate",
+			v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.PersistentReservation},
+				},
+				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
+					Enabled: pointerBool(false),
+				},
+			}, prHelperResource, otherUser, true),
+		Entry("persistentReservationConfiguration.enabled true denies pr-helper",
+			v1.KubeVirtConfiguration{
+				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
+					Enabled: pointerBool(true),
+				},
+			}, prHelperResource, otherUser, false),
+	)
+
+	It("should deny a feature-gated device requested from an init container", func() {
+		pod := podWithResources(nil, nil)
+		pod.Spec.InitContainers = []corev1.Container{{
+			Name:      "init",
+			Image:     "registry.k8s.io/pause:3.10",
+			Resources: corev1.ResourceRequirements{Limits: resourceList(vhostVsockResource, "1")},
+		}}
+		Expect(admitHostDevice(pod, v1.KubeVirtConfiguration{}, otherUser)).To(MatchError(ContainSubstring(vap.HostDevicesRestrictionErr)))
+	})
 })
+
+func pointerBool(v bool) *bool {
+	return &v
+}

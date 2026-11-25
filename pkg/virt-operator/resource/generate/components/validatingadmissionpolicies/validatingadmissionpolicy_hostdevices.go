@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -41,31 +42,66 @@ const (
 
 	// HostDevicesRestrictionErr is returned when a pod requests a KubeVirt-managed
 	// host device and the caller is not virt-controller.
-	HostDevicesRestrictionErr = "only the virt-controller service account may request host devices declared in permittedHostDevices"
+	HostDevicesRestrictionErr = "only the virt-controller service account may request host devices registered by virt-handler"
 
 	managedHostDeviceResourcesVar = "managedHostDeviceResources"
+
+	// Resource names registered by virt-handler outside permittedHostDevices.
+	// Keep them aligned with pkg/virt-handler/device-manager and the constants in
+	// pkg/virt-controller/services/template.go.
+	sevResource        = "devices.kubevirt.io/sev"
+	vhostVsockResource = "devices.kubevirt.io/vhost-vsock"
+	tdxResource        = "devices.kubevirt.io/tdx"
+	iommufdResource    = "devices.kubevirt.io/iommufd"
+	prHelperResource   = "devices.kubevirt.io/pr-helper"
 )
 
 // managedHostDeviceNamesExpr lists the device-plugin resources virt-handler
-// registers from KubeVirt.spec.configuration.permittedHostDevices.
+// registers from KubeVirt.spec.configuration.permittedHostDevices, plus the
+// feature-gated plugins it registers beside that list.
 //
-// Keep this in sync with every JSON field of v1.PermittedHostDevices. A new
-// device category that is missing here is still registered by virt-handler and
-// becomes allocatable by any pod. The element types differ, so each field is
-// mapped on its own before the lists are concatenated. The unit test walks the
-// struct and fails when a JSON name is absent from this expression.
+// Keep the permittedHostDevices half in sync with every JSON field of
+// v1.PermittedHostDevices. A new device category that is missing here is still
+// registered by virt-handler and becomes allocatable by any pod. The element
+// types differ, so each field is mapped on its own before the lists are
+// concatenated. The unit test walks the struct and fails when a JSON name is
+// absent from this expression. externalResourceProvider devices are excluded:
+// another plugin owns them.
 //
-// externalResourceProvider devices are excluded: another plugin owns them.
-// Feature-gated plugins that virt-handler registers outside permittedHostDevices
-// (sev, vhost-vsock, the TDX-QGS socket, iommufd, and the persistent-reservation
-// helper) are not listed here.
-const managedHostDeviceNamesExpr = `
+// The feature-gated half follows the same enablement virt-handler uses.
+// WorkloadEncryptionSEV and VSOCK are beta, so they are on unless
+// disabledFeatureGates lists them; an explicit featureGates entry wins.
+// WorkloadEncryptionTDX and IOMMUFD are alpha, so they are on only when
+// featureGates lists them. The pr-helper follows
+// persistentReservationConfiguration.enabled when that pointer is set, and
+// otherwise the legacy PersistentReservation feature gate.
+// devices.kubevirt.io/kvm, tun, and vhost-net stay out of this list.
+var managedHostDeviceNamesExpr = fmt.Sprintf(`
 	params.spec.?configuration.?permittedHostDevices.?pciHostDevices.orValue([]).filter(d,
 		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)
 	+ params.spec.?configuration.?permittedHostDevices.?mediatedDevices.orValue([]).filter(d,
 		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)
 	+ params.spec.?configuration.?permittedHostDevices.?usb.orValue([]).filter(d,
-		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)`
+		d.resourceName != "" && !d.?externalResourceProvider.orValue(false)).map(d, d.resourceName)
+	+ ((params.spec.?configuration.?developerConfiguration.?featureGates.orValue([]).exists(g, g == %[1]q)
+		|| !(params.spec.?configuration.?developerConfiguration.?disabledFeatureGates.orValue([]).exists(g, g == %[1]q)))
+		? [%[2]q] : [])
+	+ ((params.spec.?configuration.?developerConfiguration.?featureGates.orValue([]).exists(g, g == %[3]q)
+		|| !(params.spec.?configuration.?developerConfiguration.?disabledFeatureGates.orValue([]).exists(g, g == %[3]q)))
+		? [%[4]q] : [])
+	+ (params.spec.?configuration.?developerConfiguration.?featureGates.orValue([]).exists(g, g == %[5]q)
+		? [%[6]q] : [])
+	+ (params.spec.?configuration.?developerConfiguration.?featureGates.orValue([]).exists(g, g == %[7]q)
+		? [%[8]q] : [])
+	+ (params.spec.?configuration.?persistentReservationConfiguration.?enabled.orValue(
+		params.spec.?configuration.?developerConfiguration.?featureGates.orValue([]).exists(g, g == %[9]q))
+		? [%[10]q] : [])`,
+	featuregate.WorkloadEncryptionSEV, sevResource,
+	featuregate.VSOCKGate, vhostVsockResource,
+	featuregate.WorkloadEncryptionTDX, tdxResource,
+	featuregate.IOMMUFDGate, iommufdResource,
+	featuregate.PersistentReservation, prHelperResource,
+)
 
 // podRequestsExtendedResourceExpr matches a pod whose container or init-container
 // limits name an extended resource. Pod.spec is required, so it is not guarded
@@ -92,10 +128,10 @@ const podRequestsManagedHostDeviceExpr = `
 // NewHostDevicesValidatingAdmissionPolicy denies pods that request a host device
 // virt-handler itself exposes, unless virt-controller is creating the pod.
 //
-// Device plugins have no authorization scope, so a resource name listed in
-// spec.configuration.permittedHostDevices can otherwise be allocated to any pod
-// in the cluster. Extended-resource requests cannot be added after the pod is
-// created, so the check runs on CREATE only and does not interfere with later
+// Device plugins have no authorization scope, so a resource name virt-handler
+// registers can otherwise be allocated to any pod in the cluster. Extended-resource
+// requests cannot be added after the pod is created, so the check runs on CREATE
+// only and does not interfere with later
 // annotation or label updates. Devices with externalResourceProvider are left
 // alone: KubeVirt does not own that device plugin, and other workloads may
 // legitimately request it. Container and init-container limits are checked.

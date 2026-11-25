@@ -204,7 +204,9 @@ func (c *DeviceController) updateTdxDevice() (Device, error) {
 	}
 }
 
-// updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
+// updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node.
+// Every resource name produced here is a cluster-wide extended resource. The host-device ValidatingAdmissionPolicy
+// must restrict each of them, including the feature-gated plugins below, or any pod can allocate the device.
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
 

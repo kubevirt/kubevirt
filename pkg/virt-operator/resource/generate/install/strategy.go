@@ -609,7 +609,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHandlerV1ValidatingAdmissionPolicy(virtHandlerServiceAccount))
 
 	// Host devices registered by virt-handler are cluster-wide extended resources.
-	// Restrict them to pods created by virt-controller (see issue kubevirt/kubevirt#19288).
+	// Restrict them to pods created by virt-controller, including the feature-gated
+	// plugins (see kubevirt/kubevirt#19288 and kubevirt/kubevirt#19641).
 	strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, vap.NewHostDevicesValidatingAdmissionPolicyBinding(config.GetNamespace()))
 	controllerServiceAccount := components.ServiceAccountUsername(config.GetNamespace(), components.ControllerServiceAccountName)
 	strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, vap.NewHostDevicesValidatingAdmissionPolicy(controllerServiceAccount))
