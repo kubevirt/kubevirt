@@ -26,13 +26,12 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/blockqueue"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/disksource"
@@ -136,10 +135,8 @@ func readBlockWriteCache(path string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("could not get device numbers for %s", safePath.String())
 	}
-	major := unix.Major(stat.Rdev)
-	minor := unix.Minor(stat.Rdev)
-
-	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/write_cache", major, minor))
+	rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is uint32 on e.g. MIPS.
+	raw, err := blockqueue.ReadAttr(rdev, "write_cache")
 	if err != nil {
 		return "", fmt.Errorf("cannot read write_cache for device %s: %w", safePath.String(), err)
 	}
