@@ -97,12 +97,14 @@ func (ctrl *VMBackupController) startOfflineBackup(backup *backupv1.VirtualMachi
 	}
 
 	if backup.IsPushMode() {
-		pvcReason, err := ctrl.verifyBackupTargetPVC(backup.Spec.PvcName, backup.Namespace)
+		// Offline backups have no live VMI; use the VM template for target PVC
+		// sizing and storage-class selection when auto-provisioning.
+		_, reason, err := ctrl.ensureBackupTargetPVC(backup, vmiFromVMTemplate(vm))
 		if err != nil {
 			return err
 		}
-		if pvcReason != "" {
-			setInitializing(backup, pvcReason)
+		if reason != "" {
+			setInitializing(backup, reason)
 			return nil
 		}
 	}
@@ -372,6 +374,21 @@ func offlineEligibleVolumes(vm *v1.VirtualMachine) []backupv1.BackupVolumeInfo {
 		}
 	}
 	return volumes
+}
+
+// vmiFromVMTemplate builds a VMI-shaped object from the stopped VM so shared
+// target-PVC helpers can size and pick a storage class without a live VMI.
+func vmiFromVMTemplate(vm *v1.VirtualMachine) *v1.VirtualMachineInstance {
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vm.Name,
+			Namespace: vm.Namespace,
+		},
+	}
+	if vm.Spec.Template != nil {
+		vmi.Spec = *vm.Spec.Template.Spec.DeepCopy()
+	}
+	return vmi
 }
 
 // Includes the creation time so a backup deleted and recreated with the same
