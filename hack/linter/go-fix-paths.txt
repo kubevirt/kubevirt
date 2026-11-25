@@ -83,7 +83,6 @@ pkg/virt-launcher/virtwrap/agent
 pkg/virt-launcher/virtwrap/api/arch-defaulter
 pkg/virt-launcher/virtwrap/cmd-server
 pkg/virt-launcher/virtwrap/converter
-pkg/virt-launcher/virtwrap/cpudedicated
 pkg/virt-launcher/virtwrap/device/hostdevice/generic
 pkg/virt-launcher/virtwrap/device/hostdevice/gpu
 pkg/virt-launcher/virtwrap/disksource
