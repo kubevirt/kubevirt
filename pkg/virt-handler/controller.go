@@ -66,6 +66,8 @@ const (
 	VolumeUnMountedFromPodReason = "VolumeUnMountedFromPod"
 	//VolumeMountedToPodReason is the reason set when the volume is mounted to the virtlauncher pod
 	VolumeMountedToPodReason = "VolumeMountedToPod"
+	//HotplugMountFailedReason is the reason set when a hotplug volume cannot be mounted to the virtlauncher pod
+	HotplugMountFailedReason = "HotplugMountFailed"
 	//VolumeUnplugged is the reason set when the volume is completely unplugged from the VMI
 	VolumeUnplugged = "VolumeUnplugged"
 	//VMIDefined is the reason set when a VMI is defined

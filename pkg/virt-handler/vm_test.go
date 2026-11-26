@@ -3780,6 +3780,128 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 	})
 
+	Context("handling hotplug volume mount errors", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		notFound := func(volume string) error {
+			return &hotplugvolume.VolumeMountError{
+				Volume: volume,
+				Err:    fmt.Errorf("failed to mount filesystem hotplug volume %s: volume has no disk image (disk.img): %w", volume, os.ErrNotExist),
+			}
+		}
+		waiting := func(volume string) error {
+			return &hotplugvolume.VolumeMountError{
+				Volume: volume,
+				Err:    fmt.Errorf("failed to get source path for volume %s: %w", volume, hotplugvolume.ErrWaitingForHotplugMount),
+			}
+		}
+		attachedToNode := func(volume string) v1.VolumeStatus {
+			return v1.VolumeStatus{
+				Name:          volume,
+				Phase:         v1.HotplugVolumeAttachedToNode,
+				Reason:        "SuccessfulCreate",
+				Message:       "Created hotplug attachment pod",
+				HotplugVolume: &v1.HotplugVolumeStatus{AttachPodName: "pod", AttachPodUID: "1234"},
+			}
+		}
+		volumeStatus := func(volume string) v1.VolumeStatus {
+			for _, status := range vmi.Status.VolumeStatus {
+				if status.Name == volume {
+					return status
+				}
+			}
+			Fail("no volume status for " + volume)
+			return v1.VolumeStatus{}
+		}
+
+		BeforeEach(func() {
+			vmi = clientgoapi.NewMinimalVMI("testvmi")
+		})
+
+		It("should do nothing without an error", func() {
+			Expect(controller.handleHotplugMountErrors(vmi, nil)).To(Succeed())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeZero())
+		})
+
+		It("should report a volume that cannot be mounted with an event and on its volume status", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{attachedToNode("empty-a"), attachedToNode("other")}
+
+			Expect(controller.handleHotplugMountErrors(vmi, notFound("empty-a"))).To(Succeed())
+			testutils.ExpectEvent(recorder, "HotplugFailed")
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeZero())
+
+			Expect(volumeStatus("empty-a").Phase).To(Equal(v1.HotplugVolumeAttachedToNode))
+			Expect(volumeStatus("empty-a").Reason).To(Equal(HotplugMountFailedReason))
+			Expect(volumeStatus("empty-a").Message).To(ContainSubstring("volume has no disk image (disk.img)"))
+			Expect(volumeStatus("other")).To(Equal(attachedToNode("other")))
+		})
+
+		It("should not change the status of a volume that is past AttachedToNode", func() {
+			ready := attachedToNode("empty-a")
+			ready.Phase = v1.VolumeReady
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{ready}
+
+			Expect(controller.handleHotplugMountErrors(vmi, notFound("empty-a"))).To(Succeed())
+			testutils.ExpectEvent(recorder, "HotplugFailed")
+			Expect(volumeStatus("empty-a")).To(Equal(ready))
+		})
+
+		It("should keep the reason while the volume is not mounted and replace it once it is", func() {
+			vmi.Spec.Volumes = []v1.Volume{{Name: "empty-a"}}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{attachedToNode("empty-a")}
+			Expect(controller.handleHotplugMountErrors(vmi, notFound("empty-a"))).To(Succeed())
+			testutils.ExpectEvent(recorder, "HotplugFailed")
+
+			mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "empty-a", gomock.Any()).Return(false, nil)
+			controller.updateVolumeStatusesFromDomain(vmi, nil)
+			Expect(volumeStatus("empty-a").Phase).To(Equal(v1.HotplugVolumeAttachedToNode))
+			Expect(volumeStatus("empty-a").Reason).To(Equal(HotplugMountFailedReason))
+
+			mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "empty-a", gomock.Any()).Return(true, nil)
+			controller.updateVolumeStatusesFromDomain(vmi, nil)
+			Expect(volumeStatus("empty-a").Phase).To(Equal(v1.HotplugVolumeMounted))
+			Expect(volumeStatus("empty-a").Reason).To(Equal(VolumeMountedToPodReason))
+			testutils.ExpectEvent(recorder, VolumeMountedToPodReason)
+		})
+
+		It("should requeue for a volume waiting for its attachment pod", func() {
+			Expect(controller.handleHotplugMountErrors(vmi, waiting("pending"))).To(Succeed())
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
+		It("should return any other error", func() {
+			otherErr := errors.New("mount command failed")
+			Expect(controller.handleHotplugMountErrors(vmi, otherErr)).To(MatchError(otherErr))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeZero())
+		})
+
+		It("should handle every error when several volumes fail", func() {
+			otherErr := errors.New("mount command failed")
+			err := controller.handleHotplugMountErrors(vmi, errors.Join(notFound("empty-a"), waiting("pending"), otherErr, notFound("empty-b")))
+
+			Expect(err).To(MatchError(otherErr))
+			Expect(err).ToNot(MatchError(os.ErrNotExist))
+			Expect(err).ToNot(MatchError(hotplugvolume.ErrWaitingForHotplugMount))
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+			testutils.ExpectEvent(recorder, "empty-a")
+			testutils.ExpectEvent(recorder, "empty-b")
+		})
+
+		It("should only set the status of the volumes that cannot be mounted when several volumes fail", func() {
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{attachedToNode("empty-a"), attachedToNode("pending"), attachedToNode("empty-b")}
+			err := controller.handleHotplugMountErrors(vmi, errors.Join(notFound("empty-a"), waiting("pending"), notFound("empty-b")))
+
+			Expect(err).ToNot(HaveOccurred())
+			testutils.ExpectEvent(recorder, "empty-a")
+			testutils.ExpectEvent(recorder, "empty-b")
+			Expect(volumeStatus("empty-a").Reason).To(Equal(HotplugMountFailedReason))
+			Expect(volumeStatus("empty-a").Message).To(ContainSubstring("hotplug volume empty-a:"))
+			Expect(volumeStatus("empty-b").Reason).To(Equal(HotplugMountFailedReason))
+			Expect(volumeStatus("empty-b").Message).To(ContainSubstring("hotplug volume empty-b:"))
+			Expect(volumeStatus("pending")).To(Equal(attachedToNode("pending")))
+		})
+	})
+
 	Context("launcher client verification in sync", func() {
 		It("should set domainAlive to false when GetVerifiedLauncherClient fails", func() {
 			vmi := libvmi.New(

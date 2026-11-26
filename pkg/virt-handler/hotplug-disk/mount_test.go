@@ -877,6 +877,8 @@ var _ = Describe("HotplugVolume", func() {
 			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", types.UID("ghfjk"), record, false)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(os.ErrNotExist), "expected os.ErrNotExist for missing disk.img")
+			Expect(err).To(MatchError(ContainSubstring("volume has no disk image (disk.img)")))
+			Expect(err).To(MatchError(ContainSubstring("for example created by a CDI DataVolume")))
 		})
 
 		It("mountFileSystemHotplugVolume should return error if getSourcePodFilePath fails", func() {
@@ -1070,6 +1072,59 @@ var _ = Describe("HotplugVolume", func() {
 				Expect(capturedPaths).To(ContainElements(expectedPaths))
 			}
 		}
+
+		It("should keep mounting the other volumes when a filesystem volume has no disk.img", func() {
+			fs := k8sv1.PersistentVolumeFilesystem
+			hotplugPVC := func(name string) v1.Volume {
+				return v1.Volume{Name: name, VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: name},
+					Hotpluggable:                      true,
+				}}}
+			}
+			hotplugStatus := func(name string, sourcePodUID types.UID) v1.VolumeStatus {
+				return v1.VolumeStatus{
+					Name:                      name,
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{VolumeMode: &fs},
+					HotplugVolume:             &v1.HotplugVolumeStatus{AttachPodName: "pod", AttachPodUID: sourcePodUID},
+				}
+			}
+			// The volume without disk.img comes first, so it used to stop the volumes after it from being mounted
+			vmi.Spec.Volumes = []v1.Volume{hotplugPVC("aaa-empty"), hotplugPVC("bbb-ready")}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{hotplugStatus("aaa-empty", "pod-a"), hotplugStatus("bbb-ready", "pod-b")}
+
+			emptyPath, err := newDir(tempDir, "pod-a", "volumes", "aaa-empty")
+			Expect(err).ToNot(HaveOccurred())
+			readyPath, err := newDir(tempDir, "pod-b", "volumes", "bbb-ready")
+			Expect(err).ToNot(HaveOccurred())
+			readyDisk, err := newFile(unsafepath.UnsafeAbsolute(readyPath.Raw()), "disk.img")
+			Expect(err).ToNot(HaveOccurred())
+			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+				path := emptyPath
+				if volumeName == "bbb-ready" {
+					path = readyPath
+				}
+				return fmt.Appendf(nil, findmntByVolumeRes, volumeName, unsafepath.UnsafeAbsolute(path.Raw())), nil
+			}
+			isBlockDevice = func(*safepath.Path) (bool, error) { return false, nil }
+
+			mounted := []string{}
+			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
+				Expect(unsafepath.UnsafeRelative(sourcePath.Raw())).To(Equal(unsafepath.UnsafeAbsolute(readyDisk.Raw())))
+				mounted = append(mounted, filepath.Base(unsafepath.UnsafeAbsolute(targetPath.Raw())))
+				return []byte("Success"), nil
+			}
+			ownershipManager.EXPECT().SetFileOwnership(gomock.Any()).Times(1)
+
+			err = m.Mount(vmi, cgroupManagerMock)
+			Expect(mounted).To(Equal([]string{"bbb-ready.img"}))
+			Expect(err).To(MatchError(os.ErrNotExist))
+			Expect(err).To(MatchError(ContainSubstring("failed to mount filesystem hotplug volume aaa-empty")))
+			Expect(err).To(MatchError(ContainSubstring("volume has no disk image (disk.img)")))
+			Expect(err).ToNot(MatchError(ContainSubstring("bbb-ready")))
+			var mountErr *VolumeMountError
+			Expect(errors.As(err, &mountErr)).To(BeTrue())
+			Expect(mountErr.Volume).To(Equal("aaa-empty"))
+		})
 
 		It("mount and umount should work for filesystem volumes", func() {
 			setExpectedCgroupRuns(2)
