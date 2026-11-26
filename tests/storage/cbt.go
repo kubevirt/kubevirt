@@ -402,6 +402,63 @@ var _ = Describe("[sig-compute-migrations] CBT with migration", decorators.SigCo
 	It("should persist CBT data across live migration", decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, decorators.NoFlakeCheck, func() {
 		runCBTPersistenceTest(virtClient, "migrate")
 	})
+
+	It("should live migrate with a hotplugged block volume on RWO backend storage", decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWOFsVMStateStorageClass, decorators.RequiresRWXBlock, func() {
+		sc, found := libstorage.GetRWXBlockStorageClass()
+		if !found {
+			Fail("RWXBlock storage class not found")
+		}
+
+		By("Creating VM with CBT label")
+		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.StorageWithReadWriteManyAccessMode(),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+			),
+		),
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Ensuring backend storage is ReadWriteOnce")
+		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: backendstorage.PVCPrefix + "=" + vm.Name,
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pvcs.Items).To(HaveLen(1))
+		Expect(pvcs.Items[0].Status.AccessModes).To(ConsistOf(k8sv1.ReadWriteOnce))
+
+		By("Hotplugging a blank block DataVolume")
+		hotplugVolumeName := "hotplug-vol"
+		hotplugDV := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.StorageWithReadWriteManyAccessMode(),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+			),
+		)
+		hotplugDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), hotplugDV, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDV.Name)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDV.Name, true)
+
+		By("Performing live migration")
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+	})
 })
 
 func runCBTPersistenceTest(virtClient kubecli.KubevirtClient, op string) {
