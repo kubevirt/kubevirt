@@ -69,12 +69,21 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	enableFeatureGate := func(fg string) {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fg}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = nil
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
 	disableFeatureGates := func() {
 		kvConfig := kv.DeepCopy()
 		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = nil
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = nil
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+	}
+
+	withDisabledFeatureGates := func(gates ...string) {
+		kvConfig := kv.DeepCopy()
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = nil
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = gates
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 
@@ -240,7 +249,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 	DescribeTable("maxDowntimeMs feature gate validation",
 		func(gate string, isUpdate bool, oldMs, newMs *uint64, expectAllowed bool) {
 			if gate == "" {
-				disableFeatureGates()
+				withDisabledFeatureGates(featuregate.MigrationDowntimeTuning)
 			} else {
 				enableFeatureGate(gate)
 			}
@@ -265,7 +274,7 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 
 	DescribeTable("experimental.downtimeTuning feature gate validation when feature gate is disabled",
 		func(isUpdate bool, oldDT, newDT *v1.DowntimeTuningOptions, expectAllowed bool) {
-			disableFeatureGates()
+			withDisabledFeatureGates(featuregate.MigrationDowntimeTuning)
 			newPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			if newDT != nil {
 				newPolicy.Spec.ExperimentalMigrationOptions = &v1.ExperimentalMigrationOptions{

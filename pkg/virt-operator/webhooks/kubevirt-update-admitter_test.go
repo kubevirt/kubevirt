@@ -174,10 +174,13 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		}
 	},
-		Entry("should reject when MaxDowntimeMs is newly set without feature gate",
+		Entry("should reject when MaxDowntimeMs is newly set with MigrationDowntimeTuning disabled",
 			&v1.KubeVirtConfiguration{},
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationDowntimeTuning},
+				},
 			},
 			true,
 		),
@@ -195,27 +198,36 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			&v1.KubeVirtConfiguration{},
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.MigrationDowntimeTuning},
-				},
 			},
 			false,
 		),
 		Entry("should allow unrelated update when MaxDowntimeMs is unchanged and feature gate is disabled",
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationDowntimeTuning},
+				},
 			},
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationDowntimeTuning},
+				},
 			},
 			false,
 		),
 		Entry("should reject changing MaxDowntimeMs when feature gate is disabled",
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(500))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationDowntimeTuning},
+				},
 			},
 			&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{MaxDowntimeMs: pointer.P(uint64(900))},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					DisabledFeatureGates: []string{featuregate.MigrationDowntimeTuning},
+				},
 			},
 			true,
 		),
