@@ -45,4 +45,5 @@ hack/builder/manifests/
 *~
 .bazeldnf/
 user.bazelrc
+.generate-changed-dirs
 .vscode/
