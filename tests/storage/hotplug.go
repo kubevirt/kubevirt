@@ -852,6 +852,12 @@ var _ = Describe(SIG("Hotplug", func() {
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem),
 			)
 
+			volumeStatuses := func(g Gomega) []v1.VolumeStatus {
+				updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				g.Expect(err).ToNot(HaveOccurred())
+				return updatedVMI.Status.VolumeStatus
+			}
+
 			It("should attach a volume while another hotplugged volume has no claim", func() {
 				const (
 					missingVolume = "missing-volume"
@@ -861,11 +867,6 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Hotplugging a volume whose claim does not exist")
 				addPVCVolumeVMI(vmi.Name, vmi.Namespace, missingVolume, "claim-that-does-not-exist", v1.DiskBusSCSI, false, "")
-				volumeStatuses := func(g Gomega) []v1.VolumeStatus {
-					updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					g.Expect(err).ToNot(HaveOccurred())
-					return updatedVMI.Status.VolumeStatus
-				}
 				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).Should(ContainElement(And(
 					HaveField("Name", missingVolume),
 					HaveField("Phase", v1.VolumePending),
@@ -882,6 +883,43 @@ var _ = Describe(SIG("Hotplug", func() {
 				verifyVolumeAndDiskVMIRemoved(vmi, missingVolume)
 				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).ShouldNot(
 					ContainElement(HaveField("Name", missingVolume)), "status of volume %s should be dropped", missingVolume)
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, readyVolume)
+			})
+
+			It("should attach a volume while the claim of another hotplugged volume is pending", func() {
+				const (
+					pendingVolume = "pending-volume"
+					pendingClaim  = "pending-claim"
+					readyVolume   = "ready-volume"
+				)
+				dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+
+				By("Creating a claim in a storage class that does not exist, so it never binds")
+				libstorage.CreateFSPVC(pendingClaim, vmi.Namespace, "1Gi", libstorage.WithStorageClass("storage-class-that-does-not-exist"))
+
+				By("Hotplugging the volume whose claim is pending")
+				addPVCVolumeVMI(vmi.Name, vmi.Namespace, pendingVolume, pendingClaim, v1.DiskBusSCSI, false, "")
+				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).Should(ContainElement(And(
+					HaveField("Name", pendingVolume),
+					HaveField("Phase", v1.VolumePending),
+					HaveField("Reason", controller.PVCNotReadyReason),
+				)), "volume %s should wait for its claim to bind", pendingVolume)
+
+				By("Hotplugging a volume whose claim is bound")
+				addPVCVolumeVMI(vmi.Name, vmi.Namespace, readyVolume, dv.Name, v1.DiskBusSCSI, false, "")
+				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, readyVolume)
+				verifySingleAttachmentPod(virtClient, vmi)
+				Consistently(volumeStatuses).WithTimeout(10*time.Second).WithPolling(time.Second).Should(ContainElement(And(
+					HaveField("Name", pendingVolume),
+					HaveField("Phase", v1.VolumePending),
+					HaveField("HotplugVolume.AttachPodName", BeEmpty()),
+				)), "volume %s should stay out of the attachment pod", pendingVolume)
+
+				By("Removing the volume whose claim is pending")
+				removeVolumeVMI(vmi.Name, vmi.Namespace, pendingVolume, false)
+				verifyVolumeAndDiskVMIRemoved(vmi, pendingVolume)
+				Eventually(volumeStatuses).WithTimeout(60*time.Second).WithPolling(time.Second).ShouldNot(
+					ContainElement(HaveField("Name", pendingVolume)), "status of volume %s should be dropped", pendingVolume)
 				libstorage.VerifyVolumeStatus(virtClient, vmi, v1.VolumeReady, "", true, readyVolume)
 			})
 		})

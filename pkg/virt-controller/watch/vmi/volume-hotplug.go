@@ -232,7 +232,7 @@ func (c *Controller) hotplugVolumeReadiness(vmi *v1.VirtualMachineInstance, volu
 	if isUtilityVolumeWithBlockPVC {
 		return false, false, nil
 	}
-	return storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
+	return storagetypes.HotplugVolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer, c.storageClassStore)
 }
 
 func servedByAttachmentPod(volume *v1.Volume, attachmentPods []*k8sv1.Pod) bool {
