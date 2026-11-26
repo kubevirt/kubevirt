@@ -139,8 +139,7 @@ func calculateSecondaryIfaceStatuses(
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
-			// Remove pod-status unconditionally so it is cleaned even after the
-			// gate is disabled.
+			// Remove pod-status unconditionally so it is cleaned even after the gate is disabled.
 			updatedIfaceStatus.InfoSource = vmispec.RemoveInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)

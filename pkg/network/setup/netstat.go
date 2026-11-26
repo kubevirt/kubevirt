@@ -138,9 +138,17 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}
 
-	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
+	interfacesStatus = ifacesStatusFromInfoSource(interfacesStatus,
+		multusStatusNetworksByName,
+		vmiInterfacesSpecByName,
+		netvmispec.InfoSourceMultusStatus,
+	)
 	if networkDRAEnabled {
-		interfacesStatus = ifacesStatusFromPodStatus(interfacesStatus, podStatusNetworksByName, vmiInterfacesSpecByName)
+		interfacesStatus = ifacesStatusFromInfoSource(interfacesStatus,
+			podStatusNetworksByName,
+			vmiInterfacesSpecByName,
+			netvmispec.InfoSourcePodStatus,
+		)
 	}
 
 	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
@@ -211,45 +219,22 @@ func movePrimaryIfaceStatusToFront(
 	)
 }
 
-func ifacesStatusFromMultus(
+func ifacesStatusFromInfoSource(
 	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+	networksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
 	vmIfacesSpecByName map[string]v1.Interface,
+	infoSource string,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	for multusIfaceName := range multusStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, multusIfaceName)
-		_, existInSpec := vmIfacesSpecByName[multusIfaceName]
+	for ifaceName := range networksByName {
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, ifaceName)
+		_, existInSpec := vmIfacesSpecByName[ifaceName]
 		if existInSpec && ifaceStatus == nil {
 			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       multusIfaceName,
-				InfoSource: netvmispec.InfoSourceMultusStatus,
+				Name:       ifaceName,
+				InfoSource: infoSource,
 			})
 		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus)
-		}
-	}
-	return interfacesStatus
-}
-
-// ifacesStatusFromPodStatus preserves the pod-status info source set by the
-// virt-controller, which this rebuild would otherwise drop. The source is owned
-// by the virt-controller (derived from the pod) and is not visible to the
-// domain, so it is carried over from the previous status.
-func ifacesStatusFromPodStatus(
-	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
-	podStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
-	vmIfacesSpecByName map[string]v1.Interface,
-) []v1.VirtualMachineInstanceNetworkInterface {
-	for podIfaceName := range podStatusNetworksByName {
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(interfacesStatus, podIfaceName)
-		_, existInSpec := vmIfacesSpecByName[podIfaceName]
-		if existInSpec && ifaceStatus == nil {
-			interfacesStatus = append(interfacesStatus, v1.VirtualMachineInstanceNetworkInterface{
-				Name:       podIfaceName,
-				InfoSource: netvmispec.InfoSourcePodStatus,
-			})
-		} else if ifaceStatus != nil {
-			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourcePodStatus)
+			ifaceStatus.InfoSource = netvmispec.AddInfoSource(ifaceStatus.InfoSource, infoSource)
 		}
 	}
 	return interfacesStatus
