@@ -177,6 +177,58 @@ var _ = Describe("Controllers Domain Configurator", func() {
 			}),
 	)
 
+	DescribeTable("should respect block multi-queue settings on the SCSI controller",
+		func(setting *bool, autoThreads uint, dedicated, withIOMMU bool, expectedDriver *api.ControllerDriver) {
+			vmi := libvmi.New(
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(dedicated)),
+				libvmi.WithCPUCount(1, 2, 3),
+			)
+			vmi.Spec.Domain.Devices.BlockMultiQueue = setting
+
+			var sharedDriver *api.ControllerDriver
+			if withIOMMU {
+				sharedDriver = &api.ControllerDriver{IOMMU: "on"}
+			}
+			var domain api.Domain
+			Expect(compute.NewControllersDomainConfigurator(
+				compute.ControllersWithSCSIModel("virtio-scsi"),
+				compute.ControllersWithSCSIIOThreads(autoThreads),
+				compute.ControllersWithControllerDriver(sharedDriver),
+			).Configure(vmi, &domain)).To(Succeed())
+
+			var scsiController api.Controller
+			Expect(domain.Spec.Devices.Controllers).To(ContainElement(HaveField("Type", "scsi"), &scsiController))
+			Expect(scsiController.Driver).To(Equal(expectedDriver))
+			if withIOMMU {
+				var serialController api.Controller
+				Expect(domain.Spec.Devices.Controllers).To(ContainElement(HaveField("Type", "virtio-serial"), &serialController))
+				Expect(serialController.Driver).To(Equal(&api.ControllerDriver{IOMMU: "on"}))
+			}
+		},
+		Entry("omitted without IOThreads keeps queues unspecified", nil, uint(0), true, false, nil),
+		Entry("true without IOThreads keeps queues unspecified", pointer.P(true), uint(0), true, false, nil),
+		Entry("false without IOThreads requests one queue", pointer.P(false), uint(0), true, false,
+			&api.ControllerDriver{Queues: pointer.P(uint(1))}),
+		Entry("false with a dedicated IOThread requests one queue", pointer.P(false), uint(4), true, false,
+			&api.ControllerDriver{Queues: pointer.P(uint(1)), IOThread: pointer.P(uint(1))}),
+		Entry("true retains the queue count and IOThread for the full CPU topology", pointer.P(true), uint(4), true, false,
+			&api.ControllerDriver{Queues: pointer.P(uint(6)), IOThread: pointer.P(uint(1))}),
+		Entry("omitted retains the queue count and IOThread", nil, uint(4), true, false,
+			&api.ControllerDriver{Queues: pointer.P(uint(6)), IOThread: pointer.P(uint(1))}),
+		Entry("omitted without a dedicated IOThread keeps queues unspecified", nil, uint(4), false, false, nil),
+		Entry("true without a dedicated IOThread keeps queues unspecified", pointer.P(true), uint(4), false, false, nil),
+		Entry("false without a dedicated IOThread requests one queue", pointer.P(false), uint(4), false, false,
+			&api.ControllerDriver{Queues: pointer.P(uint(1))}),
+		Entry("omitted preserves IOMMU without adding queues", nil, uint(0), true, true,
+			&api.ControllerDriver{IOMMU: "on"}),
+		Entry("true preserves IOMMU without adding queues", pointer.P(true), uint(0), true, true,
+			&api.ControllerDriver{IOMMU: "on"}),
+		Entry("false preserves IOMMU with one queue", pointer.P(false), uint(0), true, true,
+			&api.ControllerDriver{IOMMU: "on", Queues: pointer.P(uint(1))}),
+		Entry("false preserves IOMMU and the IOThread with one queue", pointer.P(false), uint(4), true, true,
+			&api.ControllerDriver{IOMMU: "on", Queues: pointer.P(uint(1)), IOThread: pointer.P(uint(1))}),
+	)
+
 	DescribeTable("should configure PCI controller based on arch support and annotation", func(vmi *v1.VirtualMachineInstance, supportPCIHole64Disabling bool, expectedControllers []api.Controller, expectedSysInfo []api.SysInfo) {
 		var domain api.Domain
 

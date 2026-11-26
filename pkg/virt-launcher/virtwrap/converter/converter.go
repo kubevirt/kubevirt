@@ -1113,7 +1113,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	var numBlkQueues *uint
-	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
+	blockMultiQueue := vmi.Spec.Domain.Devices.BlockMultiQueue
+	blockMultiQueueDisabled := blockMultiQueue != nil && !*blockMultiQueue
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	vcpus := uint(cpuCount)
@@ -1121,7 +1122,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		vcpus = uint(1)
 	}
 
-	if virtioBlkMQRequested {
+	if blockMultiQueue != nil && *blockMultiQueue {
 		numBlkQueues = &vcpus
 	}
 
@@ -1162,6 +1163,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		if err != nil {
 			return err
+		}
+
+		// Volume conversion can replace the disk driver, so apply the opt-out after it.
+		if blockMultiQueueDisabled && newDisk.Target.Bus == v1.DiskBusVirtio {
+			newDisk.Driver.Queues = pointer.P(uint(1))
 		}
 
 		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk, c.Architecture.GetArchitecture()); err != nil {
