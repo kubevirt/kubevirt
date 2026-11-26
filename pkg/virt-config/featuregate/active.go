@@ -292,6 +292,7 @@ const (
 
 	// Owner: @michalskrivanek
 	// Alpha: v1.10.0
+	// Beta: v1.11.0
 	//
 	// MigrationDowntimeTuning enables iteration-aware downtime ramping for live
 	// migration convergence via the ExperimentalMigrationOptions.DowntimeTuning field.
@@ -397,7 +398,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: FirmwareAutoSelection, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationStallDetection, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationDowntimeTuning, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: CrossArchitectureVirtualization, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PortRangesSpec, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: TLSGroupPreferences, State: Alpha})
