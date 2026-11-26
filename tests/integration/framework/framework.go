@@ -51,6 +51,7 @@ const (
 	launcherSubGID      = 107
 	controllerWorkers   = 3
 	namespaceSuffixLen  = 8
+	startupTimeout      = time.Minute
 	// Allow time for cold CRD watch caches to initialize on slower CI workers.
 	namespaceCleanupTimeout  = time.Minute
 	namespaceCleanupInterval = 100 * time.Millisecond
@@ -78,6 +79,7 @@ func WithKubeVirtConfig(config *v1.KubeVirtConfiguration) Option {
 
 type Framework struct {
 	env           *envtest.Environment
+	restConfig    *rest.Config
 	virtClient    kubecli.KubevirtClient
 	k8sClient     kubernetes.Interface
 	dynamicClient dynamic.Interface
@@ -123,7 +125,12 @@ func (f *Framework) Start(ctx context.Context) {
 	Expect(err).NotTo(HaveOccurred(), "failed to start envtest")
 
 	f.initClients(cfg)
-	f.createSeedData()
+	f.restConfig = rest.CopyConfig(cfg)
+	// Startup must be bounded even when the shared framework has a background
+	// lifetime context. Canceling startup must not stop the running controllers.
+	startupCtx, cancelStartup := context.WithTimeout(f.ctx, startupTimeout)
+	defer cancelStartup()
+	f.createSeedData(startupCtx)
 
 	factory := controller.NewKubeInformerFactory(f.virtClient.RestClient(), f.virtClient, f.k8sClient, nil, testNamespace)
 
@@ -142,7 +149,7 @@ func (f *Framework) Start(ctx context.Context) {
 		syncs = append(syncs, informer.HasSynced)
 		f.wg.Go(func() { informer.RunWithContext(f.ctx) })
 	}
-	Expect(cache.WaitForCacheSync(f.ctx.Done(), syncs...)).To(BeTrue(), "failed to sync informer caches")
+	Expect(cache.WaitForCacheSync(startupCtx.Done(), syncs...)).To(BeTrue(), "failed to sync informer caches")
 
 	f.wg.Go(func() { f.vmiController.Run(controllerWorkers, f.ctx.Done()) })
 	f.wg.Go(func() { f.vmController.Run(controllerWorkers, f.ctx.Done()) })
@@ -169,6 +176,11 @@ func (f *Framework) VirtClient() kubecli.KubevirtClient {
 
 func (f *Framework) K8sClient() kubernetes.Interface {
 	return f.k8sClient
+}
+
+// RESTConfig returns a copy for constructing additional clients after Start.
+func (f *Framework) RESTConfig() *rest.Config {
+	return rest.CopyConfig(f.restConfig)
 }
 
 func (f *Framework) CreateNamespace(ctx context.Context) string {
@@ -395,10 +407,10 @@ func buildVMController(
 	return ctrl
 }
 
-func (f *Framework) createSeedData() {
+func (f *Framework) createSeedData(ctx context.Context) {
 	GinkgoHelper()
 	for _, ns := range []string{"default", testNamespace} {
-		_, err := f.virtClient.CoreV1().Namespaces().Create(f.ctx, &k8sv1.Namespace{
+		_, err := f.virtClient.CoreV1().Namespaces().Create(ctx, &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: ns},
 		}, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
@@ -406,7 +418,7 @@ func (f *Framework) createSeedData() {
 		}
 	}
 
-	_, err := f.virtClient.CoreV1().Nodes().Create(f.ctx, &k8sv1.Node{
+	_, err := f.virtClient.CoreV1().Nodes().Create(ctx, &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{Name: testNodeName},
 		Status: k8sv1.NodeStatus{
 			Conditions: []k8sv1.NodeCondition{
