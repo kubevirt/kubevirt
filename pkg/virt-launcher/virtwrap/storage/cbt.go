@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/sets"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -310,6 +311,13 @@ func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *co
 	logger := log.Log.Object(vmi)
 	applyCBTMap := make(map[string]string)
 
+	hotplugVolumes := sets.New[string]()
+	for _, status := range vmi.Status.VolumeStatus {
+		if status.HotplugVolume != nil {
+			hotplugVolumes.Insert(status.Name)
+		}
+	}
+
 	for _, volume := range vmi.Spec.Volumes {
 		if !cbt.IsCBTEligibleVolume(&volume) {
 			continue
@@ -319,7 +327,7 @@ func ApplyChangedBlockTrackingForMigration(vmi *v1.VirtualMachineInstance, c *co
 		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
 
 		if isMigrationNewBackendStorage(vmi) {
-			_, isHotplug := c.HotplugVolumes[volumeName]
+			isHotplug := hotplugVolumes.Has(volumeName)
 			isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
 			imagePath := volumepath.Image(volumeName, isBlock, isHotplug)
 
