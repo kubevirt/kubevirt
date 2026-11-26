@@ -5,7 +5,6 @@ source hack/bootstrap.sh
 source hack/config.sh
 
 WHAT=${WHAT:-"//staging/src/kubevirt.io/client-go/... //pkg/... //cmd/... //tests/framework/..."}
-
 rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then

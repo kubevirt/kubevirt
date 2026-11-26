@@ -222,6 +222,9 @@ lint-metrics:
 	./hack/prom-metric-linter/metric_name_linter.sh --operator-name="kubevirt" --sub-operator-name="kubevirt" --metrics-file=metrics.json
 	rm metrics.json
 
+rpm-mirror-checker:
+	hack/dockerized "go run ./hack/rpm-mirror-checker/rpm-mirror-checker.go"
+
 .PHONY: \
 	build-verify \
 	conformance \
@@ -258,5 +261,6 @@ lint-metrics:
 	format \
 	fmt \
 	lint \
-	lint-metrics\
+	lint-metrics \
+	rpm-mirror-checker \
 	$(NULL)
