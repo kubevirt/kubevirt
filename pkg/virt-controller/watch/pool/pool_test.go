@@ -1394,6 +1394,23 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
 		})
 
+		It("should preserve finalizers already on the pool when adding its own", func() {
+			const otherFinalizer = "example.com/protect-pool"
+
+			pool, _ := DefaultPool(0)
+			pool.Finalizers = []string{otherFinalizer}
+
+			poolRevision := createPoolRevision(pool)
+			addPool(pool)
+			addCR(poolRevision)
+
+			sanityExecute()
+
+			updatedPool, err := fakeVirtClient.PoolV1beta1().VirtualMachinePools(pool.Namespace).Get(context.TODO(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedPool.Finalizers).To(ConsistOf(otherFinalizer, poolv1.VirtualMachinePoolControllerFinalizer))
+		})
+
 		It("should create VMs with finalizers", func() {
 			pool, _ := DefaultPool(2)
 			pool.Status.Replicas = 2

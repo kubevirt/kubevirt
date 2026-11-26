@@ -1719,7 +1719,7 @@ func (c *Controller) addPoolFinalizer(pool *poolv1.VirtualMachinePool) error {
 		return nil
 	}
 
-	newFinalizers := make([]string, 0, len(pool.Finalizers))
+	newFinalizers := make([]string, len(pool.Finalizers))
 	copy(newFinalizers, pool.Finalizers)
 	newFinalizers = append(newFinalizers, poolv1.VirtualMachinePoolControllerFinalizer)
 
