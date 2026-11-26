@@ -1433,17 +1433,13 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 		if !isPVCBacked(volumeName, vmi) {
 			continue
 		}
-		if shouldExpandOffline(disk) {
-			ds := disksource.Resolve(disk)
-			possibleGuestSize, ok := possibleGuestSize(disk, ds)
-			if !ok {
-				logger.Errorf("Failed to get possible guest size from disk")
-				continue
-			}
-			err := expandDiskImageOffline(ds.SourcePath(), possibleGuestSize, isPVCPreallocated(volumeName, vmi))
-			if err != nil {
-				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
-			}
+		ds := disksource.Resolve(disk)
+		size, ok := offlineExpansionSize(disk, ds)
+		if !ok {
+			continue
+		}
+		if err := expandDiskImageOffline(ds.SourcePath(), size, isPVCPreallocated(volumeName, vmi)); err != nil {
+			logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 		}
 	}
 }
@@ -1548,22 +1544,33 @@ func getUsableDiskSize(path string) (int64, error) {
 	return actualSize + availableSize, nil
 }
 
-func shouldExpandOffline(disk api.Disk) bool {
-	ds := disksource.Resolve(disk)
-	if ds.BackendIsBlock() {
-		// Block devices don't need to be expanded
-		return false
+func offlineExpansionSize(disk api.Disk, ds disksource.ResolvedDiskSource) (int64, bool) {
+	var size int64
+	switch {
+	case ds.BackendIsBlock() && !ds.HasOverlay():
+		return 0, false
+	case ds.BackendIsBlock():
+		// The qcow2 overlay pins the guest-visible size at creation time,
+		// so it must be grown to the backend device size explicitly.
+		info, err := osdisk.GetDiskInfo(ds.BackendPath())
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get block device size")
+			return 0, false
+		}
+		size = info.VirtualSize
+	default:
+		var ok bool
+		if size, ok = possibleGuestSize(disk, ds); !ok {
+			return 0, false
+		}
 	}
-	diskInfo, err := osdisk.GetDiskInfo(ds.BackendPath())
+	// Compare against the top image, the one the resize targets.
+	info, err := osdisk.GetDiskInfo(ds.SourcePath())
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
-		return false
+		return 0, false
 	}
-	possibleGuestSize, ok := possibleGuestSize(disk, ds)
-	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
-		return false
-	}
-	return true
+	return size, size > info.VirtualSize
 }
 
 func (l *LibvirtDomainManager) getGPUDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {

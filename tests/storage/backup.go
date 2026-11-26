@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -486,6 +487,97 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Verifying incremental backup size matches the amount of data written")
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
+	})
+
+	It("grows the CBT overlay to the expanded block PVC size after VM restart", decorators.StorageReq, decorators.RequiresVolumeExpansion, decorators.RequiresBlockStorage, func() {
+		sc, exists := libstorage.GetRWOBlockStorageClass()
+		if !exists {
+			Fail("Failed when Block storage is not present")
+		}
+		if !volumeExpansionAllowed(sc) {
+			Fail("Failed when volume expansion storage class not available")
+		}
+
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+				libdv.StorageWithAccessMode(corev1.ReadWriteOnce),
+				libdv.StorageWithBlockVolumeMode(),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		pvcName := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		originalSize, exists := pvc.Status.Capacity[corev1.ResourceStorage]
+		Expect(exists).To(BeTrue())
+		// CSI drivers round block volumes to whole GiB, so grow by a full
+		// GiB: doubling a sub-GiB volume could be a no-op.
+		newSize := originalSize.DeepCopy()
+		newSize.Add(resource.MustParse("1Gi"))
+
+		By("Stopping the VM gracefully")
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			return err
+		}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
+			"VMI should be deleted after VM stop")
+
+		By("Expanding the block PVC while the VM is stopped")
+		patchData, err := patch.New(
+			patch.WithAdd("/spec/resources/requests/storage", newSize),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(), pvcName, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() int64 {
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			capacity, exists := pvc.Status.Capacity[corev1.ResourceStorage]
+			if !exists {
+				return 0
+			}
+			return capacity.Value()
+		}, 360*time.Second, 2*time.Second).Should(BeNumerically(">=", newSize.Value()), "PVC should report at least the expanded capacity")
+
+		By("Starting the VM again")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Verifying the guest sees the expanded size")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		// Before the fix the overlay kept its creation-time virtual size, so
+		// the guest device stayed at the original PVC size after a restart.
+		Eventually(func() error {
+			return console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: fmt.Sprintf("[ $(lsblk /dev/vda -b -d -n -o SIZE) -gt %d ]; echo $?\n", originalSize.Value())},
+				&expect.BExp{R: "0"},
+			}, 10)
+		}, 120).Should(Succeed(), "guest block device should see the expanded PVC size")
 	})
 
 	It("Backup falls back to Full for a volume repointed at another PVC", func() {
