@@ -47,7 +47,7 @@ var _ = Describe("Operator writes against a real API server", Label("integration
 		f.Start(context.Background())
 	}, NodeTimeout(2*time.Minute))
 
-	DescribeTable("should document no-op writes after convergence and drift repair",
+	DescribeTable("should stop writing after convergence and drift repair",
 		func(ctx SpecContext, setup operatorResourceSetup, introduceDrift bool) {
 			ns := f.CreateNamespace(ctx)
 			cfg := f.RESTConfig()
@@ -150,10 +150,7 @@ var _ = Describe("Operator writes against a real API server", Label("integration
 				observe()
 			}
 
-			// FIXME(lyarwood): each reconciliation incorrectly sends a no-op
-			// PATCH after the resource has converged. Document that behavior for now;
-			// change the write assertion to BeEmpty() when the bug is fixed.
-			By("documenting one incorrect no-op PATCH per reconciliation after convergence")
+			By("completing three more reconciliations without PATCH or UPDATE requests")
 			baselineRV := resource.get().GetResourceVersion()
 			writes.reset()
 			for range 3 {
@@ -161,9 +158,7 @@ var _ = Describe("Operator writes against a real API server", Label("integration
 				observe()
 				Expect(resource.get().GetResourceVersion()).To(Equal(baselineRV), "steady-state reconciliation must not change the object")
 			}
-			requests := writes.snapshot()
-			Expect(requests).To(HaveLen(3), "currently one no-op PATCH per reconciliation")
-			Expect(requests).To(HaveEach(HavePrefix("PATCH ")))
+			Expect(writes.snapshot()).To(BeEmpty(), "converged resources must not receive no-op writes")
 		},
 		Entry("virt-api at steady state", serviceReconcileFixture, false, SpecTimeout(time.Minute)),
 		Entry("virt-api after drift repair", serviceReconcileFixture, true, SpecTimeout(time.Minute)),

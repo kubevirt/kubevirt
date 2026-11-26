@@ -520,8 +520,30 @@ func generateServicePatch(
 		service.Spec.SessionAffinity = cachedService.Spec.SessionAffinity
 	}
 
-	// If the Specs don't equal each other, replace it
-	if !equality.Semantic.DeepEqual(cachedService.Spec, service.Spec) {
+	// Compare with server-assigned networking fields when the strategy leaves them
+	// unspecified. Keep these out of the patch so the API server can still handle
+	// allocation changes when an explicitly configured IP family policy changes.
+	desiredSpec := service.Spec.DeepCopy()
+	if len(desiredSpec.ClusterIPs) == 0 {
+		desiredSpec.ClusterIPs = cachedService.Spec.ClusterIPs
+	}
+	if len(desiredSpec.IPFamilies) == 0 {
+		desiredSpec.IPFamilies = cachedService.Spec.IPFamilies
+	}
+	if desiredSpec.IPFamilyPolicy == nil {
+		desiredSpec.IPFamilyPolicy = cachedService.Spec.IPFamilyPolicy
+	}
+	// Unlike allocated IPs, an omitted internal traffic policy means Cluster.
+	// Normalize both sides, including objects from clients without defaulting.
+	if desiredSpec.InternalTrafficPolicy == nil {
+		desiredSpec.InternalTrafficPolicy = new(corev1.ServiceInternalTrafficPolicyCluster)
+	}
+	cachedSpec := cachedService.Spec.DeepCopy()
+	if cachedSpec.InternalTrafficPolicy == nil {
+		cachedSpec.InternalTrafficPolicy = new(corev1.ServiceInternalTrafficPolicyCluster)
+	}
+
+	if !equality.Semantic.DeepEqual(cachedSpec, desiredSpec) {
 		patchOps = append(patchOps, patch.WithReplace("/spec", service.Spec))
 	}
 	patchset := patch.New(patchOps...)
