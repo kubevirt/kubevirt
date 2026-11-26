@@ -16,7 +16,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	v1beta1 "kubevirt.io/api/backup/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
-
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -102,12 +101,13 @@ func (mr *MockDomainManagerMockRecorder) DeleteVMI(arg0 any) *gomock.Call {
 }
 
 // Exec mocks base method.
-func (m *MockDomainManager) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (string, error) {
+func (m *MockDomainManager) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exec", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // Exec indicates an expected call of Exec.

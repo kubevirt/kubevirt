@@ -229,7 +229,8 @@ func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (strin
 
 func (l *AccessCredentialManager) agentGuestExec(domName, command string, args []string) (string, error) {
 	var timeoutInSeconds int32 = 10
-	return agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
+	stdOut, _, err := agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
+	return stdOut, err
 }
 
 // Requires usage of mkdir, chown, chmod

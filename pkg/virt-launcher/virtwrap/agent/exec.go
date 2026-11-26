@@ -23,6 +23,7 @@ type execStatusReturnData struct {
 	Exited   bool   `json:"exited"`
 	ExitCode int    `json:"exitcode"`
 	OutData  string `json:"out-data"`
+	ErrData  string `json:"err-data"`
 }
 
 // ExecExitCode returned at non-zero return codes
@@ -34,10 +35,9 @@ func (e ExecExitCode) Error() string {
 	return fmt.Sprint("exited with error code:", e.ExitCode)
 }
 
-// GuestExec sends the provided command and args to the guest agent for execution and returns an error on an unsucessful exit code
-// The resulting stdout will be returned as a string
-func GuestExec(virConn cli.Connection, domName string, command string, args []string, timeoutSeconds int32) (string, error) {
-	stdOut := ""
+// GuestExec sends the provided command and args to the guest agent for execution and returns an error on an unsuccessful exit code.
+// The resulting stdout and stderr will be returned as strings.
+func GuestExec(virConn cli.Connection, domName string, command string, args []string, timeoutSeconds int32) (string, string, error) {
 	argsStr := ""
 	for _, arg := range args {
 		if argsStr == "" {
@@ -50,20 +50,22 @@ func GuestExec(virConn cli.Connection, domName string, command string, args []st
 	cmdExec := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "%s", "arg": [ %s ], "capture-output":true } }`, command, argsStr)
 	output, err := virConn.QemuAgentCommand(cmdExec, domName)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	execRes := &execReturn{}
 	err = json.Unmarshal([]byte(output), execRes)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if execRes.Return.Pid <= 0 {
-		return "", fmt.Errorf("Invalid pid [%d] returned from qemu agent during access credential injection: %s", execRes.Return.Pid, output)
+		return "", "", fmt.Errorf("Invalid pid [%d] returned from qemu agent during access credential injection: %s", execRes.Return.Pid, output)
 	}
 
 	exited := false
 	exitCode := 0
+	stdOut := ""
+	stdErr := ""
 	statusCheck := time.NewTicker(time.Duration(timeoutSeconds) * 100 * time.Millisecond)
 	defer statusCheck.Stop()
 	checkUntil := time.Now().Add(time.Duration(timeoutSeconds) * time.Second)
@@ -72,20 +74,25 @@ func GuestExec(virConn cli.Connection, domName string, command string, args []st
 		cmdExecStatus := fmt.Sprintf(`{"execute": "guest-exec-status", "arguments": { "pid": %d } }`, execRes.Return.Pid)
 		output, err := virConn.QemuAgentCommand(cmdExecStatus, domName)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		execStatusRes := &execStatusReturn{}
 		err = json.Unmarshal([]byte(output), execStatusRes)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 
 		if execStatusRes.Return.Exited {
 			stdOutBytes, err := base64.StdEncoding.DecodeString(execStatusRes.Return.OutData)
 			if err != nil {
-				return "", err
+				return "", "", err
+			}
+			stdErrBytes, err := base64.StdEncoding.DecodeString(execStatusRes.Return.ErrData)
+			if err != nil {
+				return "", "", err
 			}
 			stdOut = string(stdOutBytes)
+			stdErr = string(stdErrBytes)
 			exitCode = execStatusRes.Return.ExitCode
 			exited = true
 			break
@@ -97,10 +104,10 @@ func GuestExec(virConn cli.Connection, domName string, command string, args []st
 	}
 
 	if !exited {
-		return "", fmt.Errorf("Timed out waiting for guest pid [%d] for command [%s] to exit", execRes.Return.Pid, command)
+		return "", "", fmt.Errorf("Timed out waiting for guest pid [%d] for command [%s] to exit", execRes.Return.Pid, command)
 	} else if exitCode != 0 {
-		return stdOut, ExecExitCode{exitCode}
+		return stdOut, stdErr, ExecExitCode{exitCode}
 	}
 
-	return stdOut, nil
+	return stdOut, stdErr, nil
 }

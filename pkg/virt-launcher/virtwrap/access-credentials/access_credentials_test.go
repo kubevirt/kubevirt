@@ -46,6 +46,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -102,6 +103,26 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
 
 		Expect(manager.agentGuestExec(domName, command, args)).To(Equal("ssh somekey123 test-key\n"))
+	})
+
+	It("should return qemu agent exec stdout and stderr on a non-zero exit", func() {
+		const domName = "some-domain"
+		const command = "cat"
+		args := []string{"/tmp/missing"}
+
+		const expectedCmd = `{"execute": "guest-exec", "arguments": { "path": "cat", "arg": [ "/tmp/missing" ], "capture-output":true } }`
+		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
+
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(
+			`{"return":{"exitcode":1,"out-data":"","err-data":"Y2F0OiAvdG1wL21pc3Npbmc6IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkK","exited":true}}`,
+			nil,
+		)
+
+		stdOut, stdErr, err := agent.GuestExec(mockLibvirt.VirtConnection, domName, command, args, 1)
+		Expect(err).To(MatchError(agent.ExecExitCode{ExitCode: 1}))
+		Expect(stdOut).To(BeEmpty())
+		Expect(stdErr).To(Equal("cat: /tmp/missing: No such file or directory\n"))
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {

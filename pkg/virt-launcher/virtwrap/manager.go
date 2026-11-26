@@ -198,7 +198,7 @@ type DomainManager interface {
 	HotplugHostDevices(vmi *v1.VirtualMachineInstance) error
 	InterfacesStatus() []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
-	Exec(string, string, []string, int32) (string, error)
+	Exec(string, string, []string, int32) (string, string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
@@ -784,7 +784,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 	return nil
 }
 
-func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, timeoutSeconds int32) (string, error) {
+func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, timeoutSeconds int32) (string, string, error) {
 	return agent.GuestExec(l.virConn, domainName, command, args, timeoutSeconds)
 }
 

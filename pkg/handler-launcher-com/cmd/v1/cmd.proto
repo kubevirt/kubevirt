@@ -185,6 +185,7 @@ message ExecResponse {
   Response response = 1;
   int32 exitCode = 2;
   string stdOut = 3;
+  string stdErr = 4;
 }
 
 message GuestPingRequest {
