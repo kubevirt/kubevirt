@@ -529,8 +529,8 @@ var _ = Describe("Changed Block Tracking", func() {
 					newPVCVolume(volumeName, "test-hotplug-pvc", true),
 				}
 				converterContext.IsBlockPVC[volumeName] = isBlock
-				converterContext.HotplugVolumes = map[string]v1.VolumeStatus{
-					volumeName: {Name: volumeName, Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
+				vmi.Status.VolumeStatus = []v1.VolumeStatus{
+					{Name: volumeName, Phase: v1.VolumeReady, HotplugVolume: &v1.HotplugVolumeStatus{}},
 				}
 				setRWOMigrationState(vmi)
 
