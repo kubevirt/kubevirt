@@ -4,8 +4,7 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-WHAT=${WHAT:-"//staging/src/kubevirt.io/... //pkg/... //cmd/... //tests/framework/..."}
-
+WHAT=${WHAT:-"//staging/src/kubevirt.io/... //pkg/... //cmd/... //tests/framework/... //hack/rpm-mirror-checker/..."}
 rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then
