@@ -211,7 +211,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			&noopNodeHookExecutor{},
 			container_disk.NewMounter(mockIsolationDetector, checkpoint.NewSimpleCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()), config),
 			mockHotplugVolumeMounter,
-			ghostRecordStore,
 		)
 		controller.getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ hypervisor.HypervisorNodeInformation, _ bool) (cgroup.Manager, error) {
 			return mockCgroupManager, nil

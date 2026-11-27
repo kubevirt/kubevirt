@@ -25,10 +25,12 @@ import (
 	"time"
 
 	"golang.org/x/sync/singleflight"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -49,6 +51,7 @@ type LauncherClientsManager interface {
 	GetLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo
 	CloseLauncherClient(vmi *v1.VirtualMachineInstance)
 	IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error)
+	LastKnownUID(namespace, name string) types.UID
 }
 
 type notifyManager interface {
@@ -249,4 +252,8 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 		clientInfo.SocketFile = socketFile
 	}
 	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
+}
+
+func (l *launcherClientsManager) LastKnownUID(namespace, name string) types.UID {
+	return l.ghostRecordStore.LastKnownUID(controller.NamespacedKey(namespace, name))
 }

@@ -523,7 +523,6 @@ func (app *virtHandlerApp) Run() {
 		nodeHookManager,
 		cdMounter,
 		hvMounter,
-		ghostRecordStore,
 	)
 	if err != nil {
 		panic(err)
