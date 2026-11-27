@@ -26,6 +26,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
@@ -368,20 +369,50 @@ func (m *MetricClient) getResourceRequestCountsByOperation(r *audit_api.Result, 
 			continue
 		}
 
-		key := audit_api.ResultType(fmt.Sprintf(audit_api.ResultTypeResourceOperationCountFormat, verb, resource))
-
-		val, ok := r.Values[key]
-		if ok {
-			val.Value = val.Value + result.value
-			r.Values[key] = val
-		} else {
-			r.Values[key] = audit_api.ResultValue{
-				Value: result.value,
-			}
-		}
+		addResourceOperationCount(r, verb, resource, componentFromPod(result.labels["pod"]), result.value)
 	}
 
 	return nil
+}
+
+// kubevirtComponents are the components whose pods the resourceRequestCountsByOperation
+// query selects on.
+var kubevirtComponents = []string{"virt-handler", "virt-controller", "virt-operator", "virt-api"}
+
+// componentFromPod maps a pod name to the kubevirt component it belongs to, or ""
+// when the pod belongs to none of them. Pod names carry deployment suffixes
+// (virt-controller-7d9b8f6c5-x2x7v) and component names contain dashes themselves,
+// so the name has to be matched by known prefix rather than split on a separator.
+func componentFromPod(pod string) string {
+	for _, component := range kubevirtComponents {
+		if strings.HasPrefix(pod, component) {
+			return component
+		}
+	}
+	return ""
+}
+
+// addResourceOperationCount accumulates count into the aggregate verb-resource key
+// and, when component is not empty, into its per-component breakdown. The breakdown
+// lets a change in the aggregate be attributed to the component that issued the
+// requests instead of leaving the four kubevirt clients indistinguishable.
+func addResourceOperationCount(r *audit_api.Result, verb, resource, component string, count float64) {
+	keys := []audit_api.ResultType{
+		audit_api.ResultType(fmt.Sprintf(audit_api.ResultTypeResourceOperationCountFormat, verb, resource)),
+	}
+	if component != "" {
+		keys = append(keys, audit_api.ResultType(fmt.Sprintf(audit_api.ResultTypeResourceOperationComponentCountFormat, verb, resource, component)))
+	}
+	for _, key := range keys {
+		if val, ok := r.Values[key]; ok {
+			val.Value = val.Value + count
+			r.Values[key] = val
+		} else {
+			r.Values[key] = audit_api.ResultValue{
+				Value: count,
+			}
+		}
+	}
 }
 
 func (m *MetricClient) getCPUAndMemoryUsageOfComponents(r *audit_api.Result, rangeVector time.Duration) error {

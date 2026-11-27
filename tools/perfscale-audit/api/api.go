@@ -132,6 +132,10 @@ const (
 
 const (
 	ResultTypeResourceOperationCountFormat = "%s-%s-count"
+	// ResultTypeResourceOperationComponentCountFormat additionally breaks the request
+	// count down by the kubevirt component that issued the requests, e.g.
+	// UPDATE-virtualmachineinstances-virt-handler-count.
+	ResultTypeResourceOperationComponentCountFormat = "%s-%s-%s-count"
 )
 
 const (
