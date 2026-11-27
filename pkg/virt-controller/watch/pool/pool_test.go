@@ -1471,6 +1471,42 @@ var _ = Describe("Pool", func() {
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
 		})
 
+		It("should cleanup failing VMs with autohealing even if they do not match the scale-in selectors", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{
+				StartUpFailureThreshold: pointer.P(uint32(3)),
+			}
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						Selectors: &poolv1.VirtualMachinePoolSelectors{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"does-not": "match"},
+							},
+						},
+					},
+				},
+			}
+
+			addPool(pool)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm.Status.StartFailure = &v1.VirtualMachineStartFailure{
+				ConsecutiveFailCount: 3,
+			}
+
+			createVMsWithOrdinal(pool, 1, poolRevision, poolRevision, vm)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(BeEmpty())
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(1))
+		})
+
 		DescribeTable("should cleanup VMs when VM is in failing state for too long", func(printableStatus v1.VirtualMachinePrintableStatus) {
 			pool, vm := DefaultPool(1)
 			pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
