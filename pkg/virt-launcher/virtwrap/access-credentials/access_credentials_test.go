@@ -120,9 +120,35 @@ var _ = Describe("AccessCredentials", func() {
 		)
 
 		stdOut, stdErr, err := agent.GuestExec(mockLibvirt.VirtConnection, domName, command, args, 1)
-		Expect(err).To(MatchError(agent.ExecExitCode{ExitCode: 1}))
+		Expect(err).To(MatchError(agent.ExecExitCode{
+			ExitCode: 1,
+			StdErr:   "cat: /tmp/missing: No such file or directory\n",
+		}))
 		Expect(stdOut).To(BeEmpty())
 		Expect(stdErr).To(Equal("cat: /tmp/missing: No such file or directory\n"))
+	})
+
+	It("should preserve qemu agent exec stderr in access credential errors", func() {
+		const domName = "some-domain"
+		const command = "getent"
+		args := []string{"passwd", "missing-user"}
+
+		const expectedCmd = `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "missing-user" ], "capture-output":true } }`
+		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
+
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
+		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(
+			`{"return":{"exitcode":2,"out-data":"","err-data":"Z2V0ZW50OiBVbmtub3duIHVzZXIgbmFtZTogbWlzc2luZy11c2VyCg==","exited":true}}`,
+			nil,
+		)
+
+		stdOut, err := manager.agentGuestExec(domName, command, args)
+		Expect(stdOut).To(BeEmpty())
+		Expect(err).To(MatchError(agent.ExecExitCode{
+			ExitCode: 2,
+			StdErr:   "getent: Unknown user name: missing-user\n",
+		}))
+		Expect(err).To(MatchError(ContainSubstring("Unknown user name: missing-user")))
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {

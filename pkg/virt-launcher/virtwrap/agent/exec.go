@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -29,10 +30,15 @@ type execStatusReturnData struct {
 // ExecExitCode returned at non-zero return codes
 type ExecExitCode struct {
 	ExitCode int
+	StdErr   string
 }
 
 func (e ExecExitCode) Error() string {
-	return fmt.Sprint("exited with error code:", e.ExitCode)
+	message := fmt.Sprint("exited with error code:", e.ExitCode)
+	if stdErr := strings.TrimSpace(e.StdErr); stdErr != "" {
+		message += ": " + stdErr
+	}
+	return message
 }
 
 // GuestExec sends the provided command and args to the guest agent for execution and returns an error on an unsuccessful exit code.
@@ -106,7 +112,7 @@ func GuestExec(virConn cli.Connection, domName string, command string, args []st
 	if !exited {
 		return "", "", fmt.Errorf("Timed out waiting for guest pid [%d] for command [%s] to exit", execRes.Return.Pid, command)
 	} else if exitCode != 0 {
-		return stdOut, stdErr, ExecExitCode{exitCode}
+		return stdOut, stdErr, ExecExitCode{ExitCode: exitCode, StdErr: stdErr}
 	}
 
 	return stdOut, stdErr, nil
