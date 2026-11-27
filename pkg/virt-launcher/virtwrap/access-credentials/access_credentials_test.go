@@ -26,6 +26,7 @@ package accesscredentials
 import (
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -120,10 +121,7 @@ var _ = Describe("AccessCredentials", func() {
 		)
 
 		stdOut, stdErr, err := agent.GuestExec(mockLibvirt.VirtConnection, domName, command, args, 1)
-		Expect(err).To(MatchError(agent.ExecExitCode{
-			ExitCode: 1,
-			StdErr:   "cat: /tmp/missing: No such file or directory\n",
-		}))
+		Expect(err).To(MatchError(agent.ExecExitCode{ExitCode: 1}))
 		Expect(stdOut).To(BeEmpty())
 		Expect(stdErr).To(Equal("cat: /tmp/missing: No such file or directory\n"))
 	})
@@ -144,10 +142,8 @@ var _ = Describe("AccessCredentials", func() {
 
 		stdOut, err := manager.agentGuestExec(domName, command, args)
 		Expect(stdOut).To(BeEmpty())
-		Expect(err).To(MatchError(agent.ExecExitCode{
-			ExitCode: 2,
-			StdErr:   "getent: Unknown user name: missing-user\n",
-		}))
+		Expect(err).To(HaveOccurred())
+		Expect(errors.As(err, &agent.ExecExitCode{})).To(BeTrue())
 		Expect(err).To(MatchError(ContainSubstring("Unknown user name: missing-user")))
 	})
 

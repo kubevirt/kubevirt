@@ -229,7 +229,16 @@ func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (strin
 
 func (l *AccessCredentialManager) agentGuestExec(domName, command string, args []string) (string, error) {
 	var timeoutInSeconds int32 = 10
-	stdOut, _, err := agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
+	stdOut, stdErr, err := agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
+	if err == nil {
+		return stdOut, nil
+	}
+
+	exitCode := agent.ExecExitCode{}
+	if errors.As(err, &exitCode) && stdErr != "" {
+		return stdOut, fmt.Errorf("%w: %s", err, strings.TrimSpace(stdErr))
+	}
+
 	return stdOut, err
 }
 
