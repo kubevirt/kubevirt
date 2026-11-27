@@ -582,7 +582,10 @@ func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
 			thresholdResult.ThresholdMetric = v.Metric
 			thresholdResult.ThresholdRatio = result.Value / metricResult.Value
 			thresholdResult.ThresholdValue = metricResult.Value * v.Ratio
-			if (result.Value * v.Ratio) < metricResult.Value {
+			// The count must not exceed the metric it is measured against scaled by
+			// the ratio, e.g. UPDATE requests on VMIs must stay below ratio * created
+			// pods.
+			if result.Value > (metricResult.Value * v.Ratio) {
 				thresholdResult.ThresholdExceeded = true
 			}
 			result.ThresholdResult = &thresholdResult
