@@ -26,6 +26,8 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/filewatcher"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -51,7 +54,12 @@ type Notify struct {
 	vmiStore  cache.Store
 }
 
-func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+func (n *Notify) HandleDomainEvent(ctx context.Context, request *notifyv1.DomainEventRequest) (*notifyv1.Response, error) {
+	identity, err := auth.IdentityFromContext(ctx)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.Unauthenticated, err.Error())
+	}
+
 	response := &notifyv1.Response{
 		Success: true,
 	}
@@ -80,35 +88,53 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
 
 	log.Log.Object(domain).V(3).Infof("Received Domain Event of type %s", request.EventType)
 	switch request.EventType {
-	case string(watch.Added):
-		n.eventChan <- watch.Event{Type: watch.Added, Object: domain}
-	case string(watch.Modified):
-		n.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
-	case string(watch.Deleted):
-		n.eventChan <- watch.Event{Type: watch.Deleted, Object: domain}
+	case string(watch.Added), string(watch.Modified), string(watch.Deleted):
+		if err := verifyDomainIdentity(identity, domain); err != nil {
+			log.Log.Object(domain).Reason(err).Warningf("Rejected Domain Event of type %s", request.EventType)
+			return nil, grpcstatus.Error(codes.PermissionDenied, err.Error())
+		}
+		n.eventChan <- watch.Event{Type: watch.EventType(request.EventType), Object: domain}
 	case string(watch.Error):
 		log.Log.Object(domain).Errorf("Domain error event with message: %s", status.Message)
 	}
 	return response, nil
 }
 
-func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
+// verifyDomainIdentity ensures the client reports only its own domain. Besides namespace/name,
+// virt-handler relies on Spec.Metadata.KubeVirt.UID to tell which VMI a domain belongs to.
+func verifyDomainIdentity(identity auth.Identity, domain *api.Domain) error {
+	if err := identity.Verify(domain.Namespace, domain.Name, domain.UID); err != nil {
+		return err
+	}
+	return identity.Verify(domain.Namespace, domain.Name, domain.Spec.Metadata.KubeVirt.UID)
+}
+
+func (n *Notify) HandleK8SEvent(ctx context.Context, request *notifyv1.K8SEventRequest) (*notifyv1.Response, error) {
+	identity, err := auth.IdentityFromContext(ctx)
+	if err != nil {
+		return nil, grpcstatus.Error(codes.Unauthenticated, err.Error())
+	}
+
 	response := &notifyv1.Response{
 		Success: true,
 	}
 
 	// unmarshal k8s event
 	var event k8sv1.Event
-	err := json.Unmarshal(request.EventJSON, &event)
+	err = json.Unmarshal(request.EventJSON, &event)
 	if err != nil {
 		response.Success = false
 		response.Message = fmt.Sprintf("Error unmarshalling k8s event: %v", err)
 		return response, nil
 	}
 
-	// get vmi and record event
 	involvedObj := event.InvolvedObject
+	if err = identity.Verify(involvedObj.Namespace, involvedObj.Name, involvedObj.UID); err != nil {
+		log.Log.Reason(err).Warningf("Rejected k8s event with reason %s", event.Reason)
+		return nil, grpcstatus.Error(codes.PermissionDenied, err.Error())
+	}
 
+	// get vmi and record event
 	if obj, exists, err := n.vmiStore.GetByKey(involvedObj.Namespace + "/" + involvedObj.Name); err != nil {
 		response.Success = false
 		response.Message = fmt.Sprintf("Error getting VMI: %v", err)
@@ -128,7 +154,8 @@ func RunServer(virtShareDir string, stopChan <-chan struct{}, c chan watch.Event
 		interval = watchInterval[0]
 	}
 
-	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
+	// Clients are virt-handler pipes, the credentials expose the identity of the VMI each pipe serves
+	grpcServer := grpc.NewServer(grpc.Creds(auth.NewServerCredentials()))
 	notifyServer := &Notify{
 		eventChan: c,
 		recorder:  recorder,

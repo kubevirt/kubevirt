@@ -47,12 +47,15 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -93,10 +96,7 @@ var _ = Describe("Notify", func() {
 			go func(ec chan watch.Event, rec *record.FakeRecorder, vs cache.Store) {
 				notifyserver.RunServer(shareDir, stop, ec, rec, vs)
 			}(eventChan, recorder, vmiStore)
-			// mimic pipe
-			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
-			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
-			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
+			startNotifyPipe(shareDir, auth.Identity{Namespace: metav1.NamespaceDefault, Name: "test", UID: "1234"})
 
 			client = NewNotifier(NewGRPCNotifyClient(shareDir))
 
@@ -111,11 +111,16 @@ var _ = Describe("Notify", func() {
 			)
 		})
 
-		metadataCache := func() *metadata.Cache { return metadata.NewCache() }
+		// virt-launcher stores the VMI UID once the domain is defined
+		metadataCache := func() *metadata.Cache {
+			mc := metadata.NewCache()
+			mc.UID.Set("1234")
+			return mc
+		}
 
 		Context("server", func() {
 			DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
-				domain := api.NewMinimalDomain("test")
+				domain := api.NewMinimalDomainWithUUID("test", "1234")
 				x, err := xml.Marshal(domain.Spec)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -364,6 +369,7 @@ var _ = Describe("Notify", func() {
 			vmiStore.Add(vmi)
 
 			metadataCache := metadata.NewCache()
+			metadataCache.UID.Set("1234")
 			interfaceStatus := []api.InterfaceStatus{{Ip: "10.0.0.1", InterfaceName: "eth0"}}
 			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, vmi, nil, metadataCache, false)
 
@@ -557,6 +563,7 @@ var _ = Describe("Notify", func() {
 
 		It("should include migration results updated while domain XML is being read", func() {
 			metadataCache := metadata.NewCache()
+			metadataCache.UID.Set("1234")
 			start := metav1.NewTime(time.Unix(100, 0))
 			end := metav1.NewTime(time.Unix(200, 0))
 			metadataCache.Migration.Store(api.MigrationMetadata{UID: "migration-1", StartTimestamp: &start})
@@ -695,10 +702,7 @@ var _ = Describe("Notify", func() {
 			go func(rec record.EventRecorder, store cache.Store) {
 				notifyserver.RunServer(shareDir, stop, eventChan, rec, store)
 			}(recorder, vmiStore)
-			// mimic pipe
-			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
-			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
-			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
+			startNotifyPipe(shareDir, auth.Identity{Namespace: metav1.NamespaceDefault, Name: "fake-vmi", UID: "4321"})
 
 			client = NewNotifier(NewGRPCNotifyClient(shareDir))
 
@@ -1139,4 +1143,13 @@ func (s *callbackNotifyServer) HandleK8SEvent(ctx context.Context, req *notifyv1
 		return s.onK8SEvent(ctx, req)
 	}
 	return &notifyv1.Response{Success: true}, nil
+}
+
+// startNotifyPipe mimics the pipe virt-handler creates for the VMI with the given identity
+func startNotifyPipe(shareDir string, identity auth.Identity) {
+	listener, err := net.Listen("unix", filepath.Join(shareDir, "domain-notify-pipe.sock"))
+	Expect(err).ToNot(HaveOccurred())
+	ctx, cancel := context.WithCancel(context.Background())
+	DeferCleanup(cancel)
+	pipe.Serve(ctx, log.Log, listener, pipe.NewConnectToNotifyFunc(shareDir, identity))
 }

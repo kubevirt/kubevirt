@@ -35,6 +35,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
 )
 
 var _ = Describe("InjectNotify", func() {
@@ -84,6 +85,83 @@ var _ = Describe("InjectNotify", func() {
 		listener, err := InjectNotify(pod, "dir", true)
 		Expect(err).ToNot(HaveOccurred())
 		defer listener.Close()
+	})
+})
+
+var _ = Describe("NewConnectToNotifyFunc", func() {
+	var (
+		virtShareDir string
+		notifyLn     net.Listener
+	)
+
+	BeforeEach(func() {
+		virtShareDir = GinkgoT().TempDir()
+		var err error
+		notifyLn, err = net.Listen("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(notifyLn.Close)
+	})
+
+	It("should send the client identity ahead of the client data", func() {
+		identity := auth.Identity{Namespace: "default", Name: "testvmi", UID: "1234"}
+
+		conn, err := NewConnectToNotifyFunc(virtShareDir, identity)()
+		Expect(err).ToNot(HaveOccurred())
+		defer conn.Close()
+		_, err = conn.Write([]byte("Hello"))
+		Expect(err).ToNot(HaveOccurred())
+
+		notifyConn, err := notifyLn.Accept()
+		Expect(err).ToNot(HaveOccurred())
+		defer notifyConn.Close()
+		Expect(auth.ReadIdentity(notifyConn)).To(Equal(identity))
+		Expect(readMsg(notifyConn, 5)).To(Equal("Hello"))
+	})
+
+	It("should fail and close the connection when the identity is incomplete", func() {
+		_, err := NewConnectToNotifyFunc(virtShareDir, auth.Identity{Namespace: "default", Name: "testvmi"})()
+		Expect(err).To(MatchError(ContainSubstring("incomplete identity")))
+
+		notifyConn, err := notifyLn.Accept()
+		Expect(err).ToNot(HaveOccurred())
+		defer notifyConn.Close()
+		_, err = readMsg(notifyConn, 1)
+		Expect(err).To(MatchError(io.EOF))
+	})
+
+	It("should fail when the notify server is not listening", func() {
+		_, err := NewConnectToNotifyFunc(GinkgoT().TempDir(), auth.Identity{Namespace: "default", Name: "testvmi", UID: "1234"})()
+		Expect(err).To(MatchError(ContainSubstring("error connecting to domain-notify.sock")))
+	})
+})
+
+var _ = Describe("Serve", func() {
+	It("should proxy accepted connections until ctx is canceled", func() {
+		pipePath := filepath.Join(GinkgoT().TempDir(), "domain-notify-pipe.sock")
+		listener, err := net.Listen("unix", pipePath)
+		Expect(err).ToNot(HaveOccurred())
+
+		notifyS, notify := net.Pipe()
+		defer notify.Close()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		Serve(ctx, log.Log, listener, func() (net.Conn, error) { return notifyS, nil })
+
+		client, err := net.Dial("unix", pipePath)
+		Expect(err).ToNot(HaveOccurred())
+		defer client.Close()
+		_, err = client.Write([]byte("Hello"))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(readMsg(notify, 5)).To(Equal("Hello"))
+
+		cancel()
+		Eventually(func() error {
+			conn, err := net.Dial("unix", pipePath)
+			if err == nil {
+				conn.Close()
+			}
+			return err
+		}).Should(HaveOccurred())
 	})
 })
 
