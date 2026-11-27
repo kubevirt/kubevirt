@@ -20,7 +20,13 @@ go_binary(
 
 go_test(
     name = "go_default_test",
-    srcs = ["virt-probe_test.go"],
+    srcs = [
+        "virt-probe_test.go",
+        "virt_probe_suite_test.go",
+    ],
     embed = [":go_default_library"],
     race = "on",
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+    ],
 )
