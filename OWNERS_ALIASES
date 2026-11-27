@@ -43,6 +43,7 @@ aliases:
     - enp0s3
     - 0xFelix
     - orelmisan
+    - lyarwood
   sig-test-approvers:
     - akalenyu
     - kbidarkar
@@ -51,6 +52,7 @@ aliases:
     - dhiller
     - 0xFelix
     - orelmisan
+    - lyarwood
   sig-test-emeritus_approvers:
     - AlonaKaplan
 
