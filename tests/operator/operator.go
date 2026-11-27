@@ -688,6 +688,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				By(fmt.Sprintf("Using user defined tag %s for previous kubevirt", previousImageTag))
 			}
 
+			testingManifestsDir := ""
+			if updateOperator {
+				testingManifestsDir = testsuite.TestingInfrastructureManifestsDir()
+				Expect(testingManifestsDir).NotTo(BeEmpty(),
+					fmt.Sprintf("operator update tests require a rendered testing manifests directory; set -testing-manifest-path (selected value %q; _out/manifests/testing fallback unavailable)",
+						flags.TestingManifestPath))
+			}
+
 			// This test should run fine on single-node setups as long as no VM is created pre-update
 			createVMs := true
 			if !checks.HasAtLeastTwoNodes() {
@@ -722,7 +730,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			if updateOperator {
 				By("Deleting testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-f", flags.TestingManifestPath)
+				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "delete", "-R", "-f", testingManifestsDir)
 				Expect(err).ToNot(HaveOccurred(), "failed to delete testing manifests: "+stderr)
 
 				By("Deleting virt-operator installation")
@@ -859,7 +867,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				installOperator(flags.OperatorManifestPath)
 
 				By("Re-installing testing manifests")
-				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-f", flags.TestingManifestPath)
+				_, stderr, err := clientcmd.RunCommand(metav1.NamespaceNone, "kubectl", "apply", "-R", "-f", testingManifestsDir)
 				Expect(err).ToNot(HaveOccurred(), "failed to re-install the testing manifests: "+stderr)
 			} else {
 				By("Updating KubeVirt object With current tag")

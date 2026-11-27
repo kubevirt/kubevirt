@@ -88,8 +88,14 @@ func resolveManifestsDir(pathToManifestsDir string) string {
 	return ""
 }
 
+// TestingInfrastructureManifestsDir returns the directory used by suite setup
+// and by tests that need to reapply the same testing infrastructure.
+func TestingInfrastructureManifestsDir() string {
+	return resolveManifestsDir(flags.TestingManifestPath)
+}
+
 func GetListOfManifests() []string {
-	pathToManifestsDir := resolveManifestsDir(flags.PathToTestingInfrastrucureManifests)
+	pathToManifestsDir := TestingInfrastructureManifestsDir()
 	if pathToManifestsDir == "" {
 		return nil
 	}

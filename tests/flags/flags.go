@@ -82,13 +82,13 @@ func init() {
 	flag.BoolVar(&DeployFakeKWOKNodesFlag, "deploy-fake-kwok-nodes", false, "Deploy fake KWOK nodes to test performance.")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.BoolVar(&SkipClusterWideWorkloadReadiness, "skip-cluster-wide-workload-readiness", false, "Skip cluster-wide Pod and DaemonSet readiness waits when deploying testing infrastructure")
-	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
+	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "", "Deprecated alias for -testing-manifest-path; takes precedence when both are set")
 	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
 	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "quay.io/kubevirt", "Set registry of the release to test updating from")
 	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 	flag.StringVar(&ArtifactsDir, "artifacts", os.Getenv("ARTIFACTS"), "Directory for storing reporter artifacts like junit files or logs")
 	flag.StringVar(&OperatorManifestPath, "operator-manifest-path", "", "Set path to virt-operator manifest file")
-	flag.StringVar(&TestingManifestPath, "testing-manifest-path", "", "Set path to testing manifests directory")
+	flag.StringVar(&TestingManifestPath, "testing-manifest-path", "", "Path to rendered testing manifests (defaults to _out/manifests/testing)")
 	flag.BoolVar(&SkipShasumCheck, "skip-shasums-check", false, "Skip tests with sha sums.")
 	flag.BoolVar(&SkipDualStackTests, "skip-dual-stack-test", false, "Skip test that actively checks for the presence of IPv6 address in the cluster pods.")
 	flag.StringVar(&IPV4ConnectivityCheckAddress, "conn-check-ipv4-address", "", "Address that is used for testing IPV4 connectivity to the outside world")
@@ -113,5 +113,9 @@ func NormalizeFlags() {
 
 	if KubeVirtUtilityRepoPrefix == "" {
 		KubeVirtUtilityRepoPrefix = KubeVirtRepoPrefix
+	}
+
+	if PathToTestingInfrastrucureManifests != "" {
+		TestingManifestPath = PathToTestingInfrastrucureManifests
 	}
 }
