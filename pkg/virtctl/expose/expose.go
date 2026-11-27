@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -226,7 +225,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 
 func (c *command) createService(resInfo *resourceInfo) error {
 	ownerRef := metav1.NewControllerRef(resInfo.owner, resInfo.gvk)
-	ownerRef.BlockOwnerDeletion = pointer.P(false)
+	ownerRef.BlockOwnerDeletion = new(false)
 
 	service := &k8sv1.Service{
 		ObjectMeta: metav1.ObjectMeta{

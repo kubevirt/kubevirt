@@ -41,7 +41,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -419,7 +418,7 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 		},
 	}
 	securityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: pointer.P(!c.root),
+		RunAsNonRoot: new(!c.root),
 		RunAsUser:    u,
 		RunAsGroup:   g,
 		FSGroup:      f,
