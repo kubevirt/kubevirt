@@ -19,11 +19,15 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -98,6 +102,60 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 			Expect(mappings).To(HaveLen(len(domSpec.MemoryBacking.HugePages.HugePage)))
 			Expect(mappings).To(HaveLen(len(domSpec.CPU.NUMA.Cells)))
 			Expect(mappings).To(HaveLen(len(domSpec.NUMATune.MemNodes)))
+
+			By("checking if the guest came up and is healthy")
+			Expect(console.LoginToAlpine(cpuVMI)).To(Succeed())
+		})
+
+	It("topology should be mapped with transparent hugepages",
+		decorators.RequiresNodeWithCPUManager, func() {
+			kvconfig.EnableFeatureGate(featuregate.THPMemoryBacking)
+			DeferCleanup(kvconfig.DisableFeatureGate, featuregate.THPMemoryBacking)
+
+			var err error
+			cpuVMI := libvmifact.NewAlpine()
+			cpuVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("128Mi")
+			cpuVMI.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 3,
+				DedicatedCPUPlacement: true,
+				NUMA:                  &v1.NUMA{GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{}},
+			}
+			cpuVMI.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{Mode: pointer.P(v1.HugepagesModeTransparent)},
+			}
+
+			By("Starting a VirtualMachineInstance")
+			cpuVMI, err = virtClient.VirtualMachineInstance(
+				testsuite.NamespaceTestDefault).Create(context.Background(), cpuVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			cpuVMI = libwait.WaitForSuccessfulVMIStart(cpuVMI)
+
+			By("Fetching the domain XML")
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(cpuVMI)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domSpec.CPU.NUMA.Cells).ToNot(BeEmpty())
+			Expect(domSpec.NUMATune.MemNodes).To(HaveLen(len(domSpec.CPU.NUMA.Cells)))
+			Expect(domSpec.MemoryBacking).ToNot(BeNil())
+			Expect(domSpec.MemoryBacking.HugePages).To(BeNil())
+			Expect(domSpec.MemoryBacking.Locked).ToNot(BeNil())
+			Expect(domSpec.MemoryBacking.NoSharePages).ToNot(BeNil())
+			Expect(domSpec.MemoryBacking.Allocation).ToNot(BeNil())
+			Expect(domSpec.MemoryBacking.Allocation.Mode).To(Equal(api.MemoryAllocationModeImmediate))
+
+			By("Checking anonymous memory is bound to the passthrough NUMA nodes")
+			handler, err := libnode.GetVirtHandlerPod(virtClient, cpuVMI.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			pid := getQEMUPID(handler, cpuVMI)
+			scanner := bufio.NewScanner(strings.NewReader(getNUMAMapping(virtClient, handler, pid)))
+			rex := regexp.MustCompile(`bind:(\d+) .+anon=(\d+).+N(\d+)=(\d+)`)
+			mappings := 0
+			for scanner.Scan() {
+				if findings := rex.FindStringSubmatch(scanner.Text()); findings != nil {
+					Expect(mustAtoi(findings[1])).To(Equal(mustAtoi(findings[3])))
+					mappings++
+				}
+			}
+			Expect(mappings).To(Equal(len(domSpec.CPU.NUMA.Cells)))
 
 			By("checking if the guest came up and is healthy")
 			Expect(console.LoginToAlpine(cpuVMI)).To(Succeed())

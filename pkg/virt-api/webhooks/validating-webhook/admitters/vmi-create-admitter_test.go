@@ -4382,6 +4382,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject transparent mode without pageSize or memory request/guest", func() {
+			enableFeatureGates(featuregate.THPMemoryBacking)
+			vmi := newHugepageVMI(libvmi.WithHugepagesMode(v1.HugepagesModeTransparent))
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = ""
+			vmi.Spec.Domain.Resources.Requests = nil
+			vmi.Spec.Domain.Resources.Limits = nil
+			vmi.Spec.Domain.Memory.Guest = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).ToNot(BeEmpty())
+			Expect(causes[0].Message).To(ContainSubstring("should be provided"))
+		})
+
 		It("should reject unknown mode", func() {
 			enableFeatureGates(featuregate.THPMemoryBacking)
 			vmi := newHugepageVMI()

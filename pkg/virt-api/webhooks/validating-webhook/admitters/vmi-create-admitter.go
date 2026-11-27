@@ -1107,7 +1107,10 @@ func validateMemoryIsProvided(field *k8sfield.Path, spec *v1.VirtualMachineInsta
 	}
 
 	if spec.Domain.Memory.Hugepages != nil {
-		return nil
+		if !hugepages.IsTransparent(spec.Domain.Memory.Hugepages) ||
+			spec.Domain.Memory.Hugepages.PageSize != "" {
+			return nil
+		}
 	}
 
 	if spec.Domain.Memory.Guest == nil || spec.Domain.Memory.Guest.IsZero() {
@@ -1399,8 +1402,11 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 		return causes
 	}
 
-	if spec.Domain.Memory == nil || spec.Domain.Memory != nil &&
-		spec.Domain.Memory.Guest == nil && spec.Domain.Memory.Hugepages == nil {
+	hasGuest := spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil
+	hasUsableHugepages := spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil &&
+		(!hugepages.IsTransparent(spec.Domain.Memory.Hugepages) ||
+			spec.Domain.Memory.Hugepages.PageSize != "")
+	if !hasGuest && !hasUsableHugepages {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("no memory requested, at least one of '%s', '%s' or '%s' must be set",
@@ -2376,6 +2382,24 @@ func validateHugepagesMode(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 			Message: fmt.Sprintf("%s feature gate is not enabled", featuregate.THPMemoryBacking),
 			Field:   modeField.String(),
 		})
+	}
+
+	if len(causes) == 0 && hugepages.IsTransparent(hp) && hp.PageSize == "" {
+		hasMemory := !spec.Domain.Resources.Requests.Memory().IsZero() ||
+			!spec.Domain.Resources.Limits.Memory().IsZero() ||
+			(spec.Domain.Memory.Guest != nil && !spec.Domain.Memory.Guest.IsZero())
+		if !hasMemory {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s, %s, %s or %s should be provided",
+					field.Child("domain", "resources", "requests", "memory").String(),
+					field.Child("domain", "resources", "limits", "memory").String(),
+					field.Child("domain", "memory", "hugepages", "pageSize").String(),
+					field.Child("domain", "memory", "guest").String(),
+				),
+				Field: field.Child("domain", "memory", "hugepages").String(),
+			})
+		}
 	}
 
 	return causes

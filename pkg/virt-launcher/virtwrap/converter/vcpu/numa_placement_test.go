@@ -10,6 +10,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -263,6 +264,67 @@ var _ = Describe("NumaPlacement", func() {
 			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
 
 			Expect(givenSpec.MemoryBacking.NoSharePages).To(Equal(&api.NoSharePages{}))
+		})
+	})
+
+	Context("with transparent hugepages", func() {
+		var expectedMemoryBacking *api.MemoryBacking
+		BeforeEach(func() {
+			givenVMI.Spec.Domain.Memory.Hugepages = &v1.Hugepages{
+				Mode: pointer.P(v1.HugepagesModeTransparent),
+			}
+			givenSpec.MemoryBacking = &api.MemoryBacking{
+				Locked:       &api.Locked{},
+				Allocation:   &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
+				NoSharePages: &api.NoSharePages{},
+			}
+			expectedMemoryBacking = &api.MemoryBacking{
+				Locked:       &api.Locked{},
+				Allocation:   &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate},
+				NoSharePages: &api.NoSharePages{},
+			}
+		})
+
+		It("should map cells without hugepage backing pages", func() {
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+			Expect(givenSpec.CPUTune).To(Equal(expectedSpec.CPUTune))
+			Expect(givenSpec.NUMATune).To(Equal(expectedSpec.NUMATune))
+			Expect(givenSpec.CPU).To(Equal(expectedSpec.CPU))
+			Expect(givenSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
+		})
+
+		It("should split memory evenly in MiB when not divisible by cell count", func() {
+			var err error
+			memory := resource.MustParse("64Mi")
+			givenSpec.Memory, err = QuantityToByte(memory)
+			Expect(err).ToNot(HaveOccurred())
+			givenVMI.Spec.Domain.Memory.Guest = &memory
+			givenSpec.CPUTune.VCPUPin = append(givenSpec.CPUTune.VCPUPin, api.CPUTuneVCPUPin{
+				VCPU: 4, CPUSet: "40",
+			})
+			givenTopology.NumaCells = append(givenTopology.NumaCells, &cmdv1.Cell{
+				Id: 5,
+				Cpus: []*cmdv1.CPU{
+					{Id: 40},
+				},
+			})
+
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).To(Succeed())
+			Expect(givenSpec.MemoryBacking.HugePages).To(BeNil())
+
+			var sum uint64
+			for _, cell := range givenSpec.CPU.NUMA.Cells {
+				sum += *cell.Memory
+			}
+			Expect(sum).To(Equal(uint64(64 * 1024 * 1024)))
+			Expect(*givenSpec.CPU.NUMA.Cells[0].Memory).To(Equal(*givenSpec.CPU.NUMA.Cells[1].Memory + 1024*1024))
+			Expect(*givenSpec.CPU.NUMA.Cells[1].Memory).To(Equal(*givenSpec.CPU.NUMA.Cells[2].Memory))
+		})
+
+		It("should reject memory that is not MiB-aligned", func() {
+			memory := resource.MustParse("1000")
+			givenVMI.Spec.Domain.Memory.Guest = &memory
+			Expect(numaMapping(givenVMI, givenSpec, givenTopology)).ToNot(Succeed())
 		})
 	})
 })

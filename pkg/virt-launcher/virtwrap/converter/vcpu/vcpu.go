@@ -14,6 +14,7 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hugepages"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
@@ -714,11 +715,13 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 				Mode:    "strict",
 				NodeSet: strconv.Itoa(int(cell.Id)),
 			})
-			domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
-				Size:    strconv.Itoa(int(hugepagesSize)),
-				Unit:    hugepagesUnit,
-				NodeSet: strconv.Itoa(guestCellID),
-			})
+			if domain.MemoryBacking.HugePages != nil {
+				domain.MemoryBacking.HugePages.HugePage = append(domain.MemoryBacking.HugePages.HugePage, api.HugePage{
+					Size:    strconv.Itoa(int(hugepagesSize)),
+					Unit:    hugepagesUnit,
+					NodeSet: strconv.Itoa(guestCellID),
+				})
+			}
 		}
 	}
 
@@ -736,18 +739,22 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 }
 
 func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (size uint64, unit string, enabled bool, err error) {
+	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.Hugepages == nil {
+		return 0, "b", false, nil
+	}
+	if hugepages.IsTransparent(vmi.Spec.Domain.Memory.Hugepages) {
+		return 1024 * 1024, "b", true, nil
+	}
 	if domain.MemoryBacking != nil && domain.MemoryBacking.HugePages != nil {
-		if vmi.Spec.Domain.Memory.Hugepages != nil {
-			quantity, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize)
-			if err != nil {
-				return 0, "", false, fmt.Errorf("could not parse hugepage value %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
-			}
-			size, err := QuantityToByte(quantity)
-			if err != nil {
-				return 0, "b", false, fmt.Errorf("could not convert page size to MiB %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
-			}
-			return size.Value, "b", true, nil
+		quantity, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize)
+		if err != nil {
+			return 0, "", false, fmt.Errorf("could not parse hugepage value %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
 		}
+		size, err := QuantityToByte(quantity)
+		if err != nil {
+			return 0, "b", false, fmt.Errorf("could not convert page size to MiB %v: %v", vmi.Spec.Domain.Memory.Hugepages.PageSize, err)
+		}
+		return size.Value, "b", true, nil
 	}
 	return 0, "b", false, nil
 }
