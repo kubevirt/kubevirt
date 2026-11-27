@@ -932,6 +932,44 @@ var _ = Describe("test configuration", func() {
 		})
 	})
 
+	DescribeTable("when TDX configuration", func(confidentialCompute *v1.ConfidentialComputeConfiguration, expectedEnforced bool, expectedSocketPath string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			ConfidentialCompute: confidentialCompute,
+		})
+		Expect(clusterConfig.RequireQGS()).To(Equal(expectedEnforced))
+		Expect(clusterConfig.GetQGSSocketPath()).To(Equal(expectedSocketPath))
+	},
+		Entry("is nil, should return defaults",
+			nil,
+			virtconfig.DefaultTDXAttestationEnforced, virtconfig.DefaultQGSSocketPath,
+		),
+		Entry("has nil TDX, should return defaults",
+			&v1.ConfidentialComputeConfiguration{TDX: nil},
+			virtconfig.DefaultTDXAttestationEnforced, virtconfig.DefaultQGSSocketPath,
+		),
+		Entry("partial attestation config should fill missing fields with defaults",
+			&v1.ConfidentialComputeConfiguration{
+				TDX: &v1.TDXConfiguration{
+					Attestation: pointer.P(v1.TDXAttestationConfiguration{
+						Enforced: pointer.P(true),
+					}),
+				},
+			},
+			true, virtconfig.DefaultQGSSocketPath,
+		),
+		Entry("has full config, should return configured values",
+			&v1.ConfidentialComputeConfiguration{
+				TDX: &v1.TDXConfiguration{
+					Attestation: pointer.P(v1.TDXAttestationConfiguration{
+						Enforced:      pointer.P(true),
+						QgsSocketPath: pointer.P("/custom/path/qgs.socket"),
+					}),
+				},
+			},
+			true, "/custom/path/qgs.socket",
+		),
+	)
+
 	Context("GetHypervisor", func() {
 		var KvmHypervisorConfig = v1.HypervisorConfiguration{
 			Name: v1.KvmHypervisorName,
