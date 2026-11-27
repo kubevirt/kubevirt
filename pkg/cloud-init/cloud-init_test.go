@@ -56,6 +56,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "cloudinitdisk/..data", "..version")
 			symlinkFixture(root, "cloudinitdisk/userdata", "..data/userdata")
 			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
+			original := vmi.DeepCopy()
 
 			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
@@ -63,6 +64,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			Expect(data.DataSource).To(Equal(cloudinit.DataSourceNoCloud))
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
+			Expect(vmi).To(Equal(original))
 		})
 		It("reads raw user and network payloads", func() {
 			vmi := libvmi.New(
@@ -305,6 +307,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			symlinkFixture(root, "cloudinitdisk/..data", "..version")
 			symlinkFixture(root, "cloudinitdisk/userdata", "..data/userdata")
 			writeFixture(root, "cloudinitdisk/networkdata", "secret-network")
+			original := vmi.DeepCopy()
 
 			data, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, root)
 
@@ -312,6 +315,7 @@ var _ = Describe("ReadCloudInitVolumeDataSource", func() {
 			Expect(data.DataSource).To(Equal(cloudinit.DataSourceConfigDrive))
 			Expect(data.UserData).To(Equal("secret-user"))
 			Expect(data.NetworkData).To(Equal("secret-network"))
+			Expect(vmi).To(Equal(original))
 		})
 		It("reads raw user and network payloads", func() {
 			vmi := libvmi.New(
