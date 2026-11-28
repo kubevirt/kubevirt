@@ -502,7 +502,7 @@ func getBackupStatus(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceB
 	if vmi == nil || vmi.Status.ChangedBlockTracking == nil || vmi.Status.ChangedBlockTracking.BackupStatus == nil {
 		return nil
 	}
-	return vmi.Status.ChangedBlockTracking.BackupStatus
+	return vmi.Status.ChangedBlockTracking.BackupStatus.DeepCopy()
 }
 
 func (ctrl *VMBackupController) reconcileStart(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, vmiExists bool, backupTracker *backupv1.VirtualMachineBackupTracker, backupDeleting bool, sourceName string) error {
@@ -618,17 +618,10 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 	}
 
 	if backupDeleting {
-		abortReason := backupv1.BackupAbortCancel
-		if shouldFinalizePullBackupOnDelete(backup) {
-			// Pull-mode deletion is the client completion signal. Finalize when
-			// DeletionTimestamp is before the TTL deadline; otherwise Cancel.
-			abortReason = backupv1.BackupAbortFinalize
-		}
-		if err := ctrl.handleAbort(backup, vmi, abortReason); err != nil {
-			return err
-		}
-		ctrl.setAborting(backup, backupAborting, abortReason)
-	} else if isPullMode(backup) {
+		return ctrl.abort(backup, vmi)
+	}
+
+	if isPullMode(backup) {
 		if err := ctrl.handlePullMode(backup, vmi); err != nil {
 			return err
 		}
@@ -647,6 +640,9 @@ func (ctrl *VMBackupController) reconcileActive(backup *backupv1.VirtualMachineB
 }
 
 func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
+	if isPullMode(backup) {
+		setPullCompletionStatus(backup, backupStatus)
+	}
 	if backupTracker != nil && backupStatus.CheckpointName != nil && !backupStatus.Failed {
 		if err := ctrl.updateBackupTracker(backup.Namespace, backupTracker, backupStatus); err != nil {
 			log.Log.Object(backup).Reason(err).Error("Failed to update BackupTracker")
@@ -666,8 +662,6 @@ func (ctrl *VMBackupController) reconcileCompleted(backup *backupv1.VirtualMachi
 	ctrl.resolveCompletion(backup, backupStatus)
 
 	if backupStatus.Failed {
-		// Active reconcile may have copied CheckpointName once volumes appeared;
-		// a failed/canceled backup must not retain it as a usable checkpoint.
 		backup.Status.CheckpointName = nil
 	} else if backupTracker != nil {
 		backup.Status.CheckpointName = backupStatus.CheckpointName
@@ -745,17 +739,16 @@ func (ctrl *VMBackupController) startBackup(backup *backupv1.VirtualMachineBacku
 	return nil
 }
 
-func (ctrl *VMBackupController) handleAbort(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, abortReason backupv1.BackupAbortReason) error {
+func (ctrl *VMBackupController) abort(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance) error {
 	backupOptions := &backupv1.BackupOptions{
 		BackupName:      backup.Name,
 		Cmd:             backupv1.Abort,
 		BackupStartTime: &backup.CreationTimestamp,
-		AbortReason:     abortReason,
 	}
-
 	if err := ctrl.client.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions); err != nil {
 		return err
 	}
+	ctrl.setAborting(backup)
 	return nil
 }
 
@@ -1152,19 +1145,14 @@ func setProgressing(backup *backupv1.VirtualMachineBackup) {
 	})
 }
 
-func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup, message string, abortReason backupv1.BackupAbortReason) {
+func (ctrl *VMBackupController) setAborting(backup *backupv1.VirtualMachineBackup) {
 	cond := meta.FindStatusCondition(backup.Status.Conditions, string(backupv1.ConditionProgressing))
 	if cond == nil || cond.Reason != backupv1.ReasonAborting {
-		eventSev := corev1.EventTypeWarning
-		if abortReason == backupv1.BackupAbortFinalize {
-			// Pull-mode finalize (delete after successful client pull) is expected.
-			eventSev = corev1.EventTypeNormal
-		}
-		ctrl.recorder.Event(backup, eventSev, backupAbortingEvent, message)
+		ctrl.recorder.Event(backup, corev1.EventTypeNormal, backupAbortingEvent, backupAborting)
 	}
 	meta.SetStatusCondition(&backup.Status.Conditions, metav1.Condition{
 		Type: string(backupv1.ConditionProgressing), Status: metav1.ConditionTrue,
-		Reason: backupv1.ReasonAborting, Message: message,
+		Reason: backupv1.ReasonAborting, Message: backupAborting,
 	})
 }
 
