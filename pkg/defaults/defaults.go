@@ -56,6 +56,9 @@ type ClusterConfigProvider interface {
 var _ ClusterConfigProvider = (*virtconfig.ClusterConfig)(nil)
 
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig ClusterConfigProvider, virtClient kubecli.KubevirtClient) {
+	if vm.Spec.Template == nil {
+		return
+	}
 	setDefaultArchitectureFromDataSource(vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
 	setVMDefaultMachineType(vm, clusterConfig)
