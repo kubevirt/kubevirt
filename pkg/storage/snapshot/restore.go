@@ -706,7 +706,13 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 }
 
 func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualMachine) (bool, error) {
-	if !backendstorage.IsBackendStorageNeeded(snapshotVM) {
+	// Expand the snapshot VM spec to resolve instancetype/preference references.
+	vmToCheck, err := ExpandSnapshotVMSpec(snapshotVM, t.controller.expandHandler)
+	if err != nil {
+		return false, err
+	}
+
+	if !backendstorage.IsBackendStorageNeeded(vmToCheck) {
 		return true, nil
 	}
 
@@ -721,7 +727,7 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 		return false, err
 	}
 
-	backendVolumeName := storageutils.BackendPVCVolumeName(snapshotVM.Name)
+	backendVolumeName := storageutils.BackendPVCVolumeName(vmToCheck.Name)
 	var backupPVCName string
 	for _, vb := range content.Spec.VolumeBackups {
 		if vb.VolumeName == backendVolumeName {
@@ -739,7 +745,7 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 
 	// Prefer the live lookup over the snapshot-recorded name, which may change (for example, after a migration).
 	backendPVCName := backupPVCName
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(vmToCheck, t.controller.Client, storageutils.WithBackendVolume)
 	switch {
 	case err == nil && len(volumes) > 0:
 		backendPVCName = volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName
@@ -764,7 +770,7 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 
 	// Declarative VMs don't need the backend label stamped on the restore PVC below,
 	// since restoreVirtualMachineState already repoints source at it directly.
-	if !backendstorage.HasLegacyBackendStorage(snapshotVM) {
+	if !backendstorage.HasLegacyBackendStorage(vmToCheck) {
 		return true, nil
 	}
 
@@ -1394,7 +1400,17 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 
 func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	// Target should always exist at this point, just nil check for safety.
-	if target.Exists() && backendstorage.IsBackendStorageNeeded(target.VirtualMachine()) {
+	if !target.Exists() {
+		return nil
+	}
+
+	// Expand the target VM spec locally to resolve instancetype/preference references.
+	vmToCheck, err := ctrl.expandHandler.Expand(target.VirtualMachine())
+	if err != nil {
+		return fmt.Errorf("failed to expand VM %s/%s: %w", target.VirtualMachine().Namespace, target.VirtualMachine().Name, err)
+	}
+
+	if backendstorage.IsBackendStorageNeeded(vmToCheck) {
 		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
 		})
