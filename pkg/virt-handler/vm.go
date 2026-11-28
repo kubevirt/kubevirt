@@ -26,6 +26,7 @@ import (
 	goerror "errors"
 	"fmt"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -124,6 +125,8 @@ type VirtualMachineController struct {
 	heartBeat                *heartbeat.HeartBeat
 	heartBeatInterval        time.Duration
 	lastSeenPanicCount       sync.Map
+	migrationCleanupWait     sync.Map
+	k8sClient                kubernetes.Interface
 	netConf                  netconf
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
@@ -197,6 +200,7 @@ func NewVirtualMachineController(
 
 	c := &VirtualMachineController{
 		BaseController:           baseCtrl,
+		k8sClient:                k8sClient,
 		capabilities:             capabilities,
 		containerDiskMounter:     cdMounter,
 		downwardMetricsManager:   downwardMetricsManager,
@@ -394,6 +398,11 @@ func (c *VirtualMachineController) execute(key string) error {
 			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*5)
 		}
 
+		return nil
+	}
+
+	if vmiExists && domainMigrated(domain) && c.shouldDelayMigrationSourceCleanup(vmi, domain) {
+		c.queue.AddAfter(key, time.Second)
 		return nil
 	}
 
@@ -1368,6 +1377,117 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 	return multiCond.generateStorageLiveMigrationCondition()
 }
 
+// For migrations preserving Pod IPs, defer source teardown until the target Pod
+// reports Ready. Target ownership is acknowledged independently, so its unpaused
+// readiness gate can advance while source teardown waits here.
+func (c *VirtualMachineController) shouldDelayMigrationSourceCleanup(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	if !migrationSourceCanWaitForTargetPod(vmi, domain, c.host) {
+		return false
+	}
+	state := vmi.Status.MigrationState
+	migration := domain.Spec.Metadata.KubeVirt.Migration
+
+	started, waiting := c.migrationSourceCleanupStart(vmi, migration)
+	if time.Since(started) >= time.Minute {
+		c.logger.Object(vmi).Warning("Timed out waiting for migration target Pod readiness; allowing source cleanup")
+		return false
+	}
+
+	if state.TargetPod == "" || state.SourcePod == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	pod, err := c.k8sClient.CoreV1().Pods(vmi.Namespace).Get(ctx, state.TargetPod, metav1.GetOptions{})
+	if err != nil {
+		c.logger.Object(vmi).Reason(err).Info("Could not observe migration target Pod readiness")
+		return waiting
+	}
+	if pod.Labels[v1.CreatedByLabel] != string(vmi.UID) ||
+		pod.Labels[v1.MigrationJobLabel] != string(state.MigrationUID) || pod.Spec.NodeName != state.TargetNode {
+		return false
+	}
+	if controller.IsPodDownOrGoingDown(pod) {
+		return false
+	}
+	if !c.migrationPreservesPodIPs(ctx, vmi, pod, waiting) {
+		return false
+	}
+	c.migrationCleanupWait.LoadOrStore(vmi.UID, started)
+	// IsPodReady is a launcher-startup check and deliberately ignores compute
+	// readiness. Services require the kubelet's aggregate PodReady condition.
+	return pod.Status.Phase != k8sv1.PodRunning ||
+		!controller.NewPodConditionManager().HasConditionWithStatus(pod, k8sv1.PodReady, k8sv1.ConditionTrue)
+}
+
+func (c *VirtualMachineController) migrationSourceCleanupStart(vmi *v1.VirtualMachineInstance,
+	migration *api.MigrationMetadata,
+) (time.Time, bool) {
+	// Prefer the durable completion time, including after a handler restart. A
+	// migrated-domain event can precede that timestamp; bound that initial wait
+	// locally too. The launcher's own timeout also bounds a missing acknowledgement.
+	observed, waiting := c.migrationCleanupWait.Load(vmi.UID)
+	started := time.Now()
+	if waiting {
+		started = observed.(time.Time)
+	}
+	for _, end := range []*metav1.Time{migration.EndTimestamp, vmi.Status.MigrationState.EndTimestamp} {
+		if end != nil && end.Time.Before(started) {
+			started = end.Time
+		}
+	}
+	return started, waiting
+}
+
+// Distinct source addresses no longer reach the guest after QEMU leaves (for
+// example with masquerade). Only overlap endpoints whose full Pod IP sets are
+// preserved. Once confirmed, a transient API failure can retain the prior wait;
+// an initial failure must not start advertising an unproven source endpoint.
+func (c *VirtualMachineController) migrationPreservesPodIPs(ctx context.Context,
+	vmi *v1.VirtualMachineInstance, target *k8sv1.Pod, waiting bool,
+) bool {
+	state := vmi.Status.MigrationState
+	source, err := c.k8sClient.CoreV1().Pods(vmi.Namespace).Get(ctx, state.SourcePod, metav1.GetOptions{})
+	if err != nil {
+		return waiting
+	}
+	if source.Labels[v1.CreatedByLabel] != string(vmi.UID) || source.Spec.NodeName != c.host ||
+		source.Spec.HostNetwork || target.Spec.HostNetwork || controller.IsPodDownOrGoingDown(source) {
+		return false
+	}
+	if len(vmi.Status.ActivePods) != 0 && vmi.Status.ActivePods[source.UID] != c.host {
+		return false
+	}
+	sourceIPs := migrationPodIPs(source)
+	return len(sourceIPs) != 0 && sourceIPs.Equal(migrationPodIPs(target))
+}
+
+func migrationPodIPs(pod *k8sv1.Pod) sets.Set[netip.Addr] {
+	podIPs := pod.Status.PodIPs
+	if len(podIPs) == 0 {
+		podIPs = []k8sv1.PodIP{{IP: pod.Status.PodIP}}
+	}
+	ips := sets.New[netip.Addr]()
+	for _, podIP := range podIPs {
+		ip, err := netip.ParseAddr(podIP.IP)
+		if err != nil {
+			return nil
+		}
+		ips.Insert(ip.Unmap())
+	}
+	return ips
+}
+
+func migrationSourceCanWaitForTargetPod(vmi *v1.VirtualMachineInstance, domain *api.Domain, host string) bool {
+	state := vmi.Status.MigrationState
+	if vmi.DeletionTimestamp != nil || vmi.IsFinal() || state == nil || state.Failed ||
+		state.SourceNode != host || state.TargetNode == "" || vmi.IsDecentralizedMigration() {
+		return false
+	}
+	migration := domain.Spec.Metadata.KubeVirt.Migration
+	return migration != nil && migration.UID == state.MigrationUID
+}
+
 func (c *VirtualMachineController) deleteVM(vmi *v1.VirtualMachineInstance) error {
 	err := c.processVmDelete(vmi)
 	if err != nil {
@@ -1619,7 +1739,11 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	// "DELETE"
 	domain := api.NewDomainReferenceFromName(vmi.Namespace, vmi.Name)
 	c.logger.Object(domain).Infof("Removing domain from cache during final cleanup")
-	return c.domainStore.Delete(domain)
+	if err := c.domainStore.Delete(domain); err != nil {
+		return err
+	}
+	c.migrationCleanupWait.Delete(vmi.UID)
+	return nil
 }
 
 func (c *VirtualMachineController) processVmDestroy(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {

@@ -550,6 +550,8 @@ func main() {
 		// exits, the wait loop breaks.
 		mon.RunForever(*qemuTimeout, signalStopChan)
 
+		virtlauncher.WaitForMigrationSourceCleanup(vmi, domainManager, signalStopChan)
+
 		// Allow hooks to gracefully shutdown
 		hookManager.Shutdown()
 
