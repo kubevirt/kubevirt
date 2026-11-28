@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -40,6 +41,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	pluginv1alpha1 "kubevirt.io/api/plugin/v1alpha1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/grpcserver"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -48,6 +50,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
@@ -502,9 +506,16 @@ var _ = Describe("Virt remote commands", func() {
 						notifyserver.RunServer(notifyShareDir, notifyStop, eventChan, recorder, vmiStore)
 					}()
 
-					notifyServer := filepath.Join(notifyShareDir, "domain-notify.sock")
-					pipePath := filepath.Join(notifyShareDir, "domain-notify-pipe.sock")
-					Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
+					vmi = libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace(k8sv1.NamespaceDefault))
+					vmi.UID = types.UID("1234")
+					vmiStore.Add(vmi)
+
+					// mimic the pipe virt-handler creates for the VMI
+					listener, err := net.Listen("unix", filepath.Join(notifyShareDir, "domain-notify-pipe.sock"))
+					Expect(err).ToNot(HaveOccurred())
+					ctx, cancel := context.WithCancel(context.Background())
+					DeferCleanup(cancel)
+					pipe.Serve(ctx, log.Log, listener, pipe.NewConnectToNotifyFunc(notifyShareDir, auth.IdentityFromVMI(vmi)))
 
 					Eventually(func() bool {
 						_, err := os.Stat(filepath.Join(notifyShareDir, "domain-notify.sock"))
@@ -512,10 +523,6 @@ var _ = Describe("Virt remote commands", func() {
 					}).WithTimeout(5 * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
 
 					notifier = notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(notifyShareDir))
-
-					vmi = libvmi.New(libvmi.WithName("testvmi"), libvmi.WithNamespace(k8sv1.NamespaceDefault))
-					vmi.UID = types.UID("1234")
-					vmiStore.Add(vmi)
 
 					server = &Launcher{
 						domainManager: domainManager,

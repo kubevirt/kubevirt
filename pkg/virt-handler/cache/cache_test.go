@@ -38,9 +38,13 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/grpcserver"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -178,10 +182,6 @@ var _ = Describe("Domain informer", func() {
 
 			ctrl := gomock.NewController(GinkgoT())
 			domainManager = virtwrap.NewMockDomainManager(ctrl)
-			// mimic pipe
-			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
-			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
-			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 		})
 
 		AfterEach(func() {
@@ -413,7 +413,16 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should watch for domain events.", func() {
-			domain := api.NewMinimalDomain("test")
+			domain := api.NewMinimalDomainWithUUID("test", "test-uid")
+			domain.UID = domain.Spec.Metadata.KubeVirt.UID
+
+			// mimic the pipe virt-handler creates for the VMI of the domain
+			listener, err := net.Listen("unix", filepath.Join(shareDir, "domain-notify-pipe.sock"))
+			Expect(err).ToNot(HaveOccurred())
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			identity := auth.Identity{Namespace: domain.Namespace, Name: domain.Name, UID: domain.UID}
+			pipe.Serve(ctx, log.Log, listener, pipe.NewConnectToNotifyFunc(shareDir, identity))
 
 			runInformer(wg, stopChan, informer)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
@@ -421,7 +430,7 @@ var _ = Describe("Domain informer", func() {
 			client := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(shareDir))
 
 			// verify add
-			err := client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			err = client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) { verifyObj("default/test", domain, g) }, time.Second, 200*time.Millisecond).Should(Succeed())
 

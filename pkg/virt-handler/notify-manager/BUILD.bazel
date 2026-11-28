@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/virt-handler/notify-server/auth:go_default_library",
         "//pkg/virt-handler/notify-server/pipe:go_default_library",
         "//pkg/vmitrait:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -29,6 +30,7 @@ go_test(
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

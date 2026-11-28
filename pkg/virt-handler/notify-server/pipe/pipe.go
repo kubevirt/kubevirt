@@ -38,15 +38,24 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
 )
 
-func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
+// NewConnectToNotifyFunc returns a connectFunc connecting to virt-handler's domain-notify.sock.
+// Every connection starts with id, so the notify server knows on whose behalf the proxied client
+// talks.
+func NewConnectToNotifyFunc(virtShareDir string, id auth.Identity) connectFunc {
 	return func() (net.Conn, error) {
 		conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to domain-notify.sock: %w", err)
 		}
-		return conn, err
+		// Proxy starts copying client data only after connecting, the identity always comes first
+		if err = auth.WriteIdentity(conn, id); err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("error sending client identity to domain-notify.sock: %w", err)
+		}
+		return conn, nil
 	}
 }
 
@@ -86,6 +95,15 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 
 type connectFunc func() (net.Conn, error)
 type proxyFunc func(net.Conn)
+
+// Serve proxies every connection accepted on listener to the connection returned by connect.
+// It does not block, listener is closed once ctx is done.
+func Serve(ctx context.Context, logger *log.FilteredLogger, listener net.Listener, connect connectFunc) {
+	connChan := ChanFromListener(ctx, logger, listener)
+	go Pipe(ctx, connChan, func(conn net.Conn) {
+		Proxy(logger, conn, connect)
+	})
+}
 
 func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
 	for {

@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+	virtwrapapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var _ = Describe("startDomainNotifyPipe", func() {
@@ -316,6 +317,36 @@ var _ = Describe("DomainNotifyServer integration", func() {
 			}
 
 			Expect(timedOut).To(BeFalse(), "should not time out")
+		})
+
+		It("should reject events about another VMI", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			otherVMI := api.NewMinimalVMI("other-vmi")
+			otherVMI.UID = "5678"
+			Expect(vmiStore.Add(vmi)).To(Succeed())
+			Expect(vmiStore.Add(otherVMI)).To(Succeed())
+
+			pipeDir, pipePath := preparePipe()
+
+			listener, err := net.Listen("unix", pipePath)
+			Expect(err).ToNot(HaveOccurred())
+
+			handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
+
+			client := notifyclient.NewNotifier(notifyclient.NewGRPCNotifyClient(pipeDir))
+			defer client.Close()
+
+			err = client.SendK8sEvent(otherVMI, "Normal", "fooReason", "barMessage")
+			Expect(err).To(MatchError(ContainSubstring("PermissionDenied")))
+
+			domain := virtwrapapi.NewMinimalDomainWithNS(otherVMI.Namespace, otherVMI.Name)
+			domain.UID = otherVMI.UID
+			domain.Spec.Metadata.KubeVirt.UID = otherVMI.UID
+			err = client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+			Expect(err).To(MatchError(ContainSubstring("PermissionDenied")))
+
+			Expect(recorder.Events).To(BeEmpty())
 		})
 
 		It("should eventually get notify events once pipe is online", func() {

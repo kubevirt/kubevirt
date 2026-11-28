@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/auth"
 	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
 )
@@ -64,14 +65,9 @@ func (m *pipeManager) startDomainNotifyPipe(domainPipeStopChan <-chan struct{}, 
 }
 
 func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-	logger := log.Log.Object(vmi)
-	fdChan := pipe.ChanFromListener(ctx, logger, ln)
-
-	// Process new connections
-	// exit when stop encountered
-	go pipe.Pipe(ctx, fdChan, func(conn net.Conn) {
-		pipe.Proxy(logger, conn, pipe.NewConnectToNotifyFunc(virtShareDir))
-	})
+	// The pipe is dedicated to the VMI, its identity lets the notify server reject events about other VMIs
+	connect := pipe.NewConnectToNotifyFunc(virtShareDir, auth.IdentityFromVMI(vmi))
+	pipe.Serve(ctx, log.Log.Object(vmi), ln, connect)
 }
 
 func contextFromChan(c <-chan struct{}) context.Context {
