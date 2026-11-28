@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["coverage-uploader.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/coverage-uploader",
+    visibility = ["//visibility:private"],
+    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
+)
+
+go_binary(
+    name = "coverage-uploader",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
