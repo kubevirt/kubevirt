@@ -1765,7 +1765,6 @@ type Network struct {
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
 	Name string `json:"name"`
 	// NetworkSource represents the network type and the source interface that should be connected to the virtual machine.
-	// Defaults to Pod, if no type is specified.
 	NetworkSource `json:",inline"`
 }
 
