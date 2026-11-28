@@ -47,10 +47,8 @@ const (
 )
 
 var (
-	Collector = operatormetrics.Collector{
-		Metrics:         []operatormetrics.Metric{vmiGPUInfo},
-		CollectCallback: collectCallback,
-	}
+	// Collector must only be populated during setup. package-level initialization causes an ordering panic on unoptimized builds.
+	Collector operatormetrics.Collector
 
 	gpuCache *gpuInfoCache
 )
@@ -75,6 +73,11 @@ func Setup(nodeName string, vmiInformer cache.SharedIndexInformer) {
 	gpuCache = &gpuInfoCache{
 		nodeName:    nodeName,
 		vmiInformer: vmiInformer,
+	}
+
+	Collector = operatormetrics.Collector{
+		Metrics:         []operatormetrics.Metric{vmiGPUInfo},
+		CollectCallback: collectCallback,
 	}
 }
 
