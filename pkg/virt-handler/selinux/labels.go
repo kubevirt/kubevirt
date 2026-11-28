@@ -144,9 +144,14 @@ func RelabelFilesUnprivileged(continueOnError bool, files ...*safepath.Path) err
 	return nil
 }
 
-func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance) (string, error) {
-	detector := isolation.NewSocketBasedIsolationDetector()
-	isolationRes, err := detector.Detect(vmi)
+func GetVirtLauncherContext(vmi *v1.VirtualMachineInstance, detector ...isolation.PodIsolationDetector) (string, error) {
+	var isoDetector isolation.PodIsolationDetector
+	if len(detector) > 0 && detector[0] != nil {
+		isoDetector = detector[0]
+	} else {
+		isoDetector = isolation.NewSocketBasedIsolationDetector()
+	}
+	isolationRes, err := isoDetector.Detect(vmi)
 	if err != nil {
 		return "", err
 	}

@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -113,6 +114,128 @@ var _ = Describe("Isolation Detector", func() {
 			root, err := result.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
+		})
+
+		It("Should cache the isolation result on repeated Detect calls", func() {
+			detector := NewSocketBasedIsolationDetector()
+			result1, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Close the socket to verify subsequent Detect calls use cache rather than dialing
+			socket.Close()
+			<-finished
+			finished = nil
+
+			result2, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result2).To(Equal(result1))
+		})
+
+		It("Should discard the cached isolation result on Teardown", func() {
+			detector := NewSocketBasedIsolationDetector()
+			_, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Close socket and teardown VM
+			socket.Close()
+			<-finished
+			finished = nil
+
+			detector.Teardown(vm)
+
+			// Next call must fail because cache is cleared and socket is closed
+			_, err = detector.Detect(vm)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should not cache detection errors", func() {
+			// Close socket so initial detect fails
+			socket.Close()
+			<-finished
+			finished = nil
+
+			detector := NewSocketBasedIsolationDetector()
+			_, err := detector.Detect(vm)
+			Expect(err).To(HaveOccurred())
+
+			// Recreate the socket
+			socketFile := cmdclient.SocketFilePathOnHost(podUID)
+			socket, err = net.Listen("unix", socketFile)
+			Expect(err).ToNot(HaveOccurred())
+			finished = make(chan struct{})
+			go func() {
+				for {
+					conn, err := socket.Accept()
+					if err != nil {
+						close(finished)
+						return
+					}
+					conn.Close()
+				}
+			}()
+
+			result, err := detector.Detect(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Pid()).To(Equal(os.Getpid()))
+		})
+
+		It("Should coordinate Teardown with in-flight Detect and not cache or reuse stale results", func() {
+			detector := &socketBasedIsolationDetector{}
+
+			var newDetectErr error
+			var newDetectRes IsolationResult
+			secondDetectDone := make(chan struct{})
+
+			detector.detectCallback = func() {
+				// While the first Detect is in-flight, Teardown is called concurrently
+				detector.Teardown(vm)
+
+				// Close the socket so that subsequent dials cannot succeed
+				socket.Close()
+				<-finished
+				finished = nil
+
+				// Concurrently launch a new Detect call after Teardown
+				// It must not join the old singleflight operation nor reuse the old result
+				go func() {
+					defer close(secondDetectDone)
+					newDetectRes, newDetectErr = detector.Detect(vm)
+				}()
+			}
+
+			// In-flight Detect call
+			_, inFlightErr := detector.Detect(vm)
+			// The in-flight Detect was invalidated by Teardown
+			Expect(inFlightErr).To(MatchError(ContainSubstring("isolation detection invalidated by teardown")))
+
+			// Wait for the new Detect call launched after Teardown to finish
+			<-secondDetectDone
+			// It should fail because it did not join the old singleflight and socket was closed
+			Expect(newDetectErr).To(HaveOccurred())
+			Expect(newDetectRes).To(BeNil())
+
+			// Verify that the cache is empty and no stale launcher PID remains cached
+			_, err := detector.Detect(vm)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should handle concurrent Detect and Teardown calls safely", func() {
+			detector := NewSocketBasedIsolationDetector()
+			var wg sync.WaitGroup
+			numGoroutines := 20
+
+			for range numGoroutines {
+				wg.Add(2)
+				go func() {
+					defer wg.Done()
+					_, _ = detector.Detect(vm)
+				}()
+				go func() {
+					defer wg.Done()
+					detector.Teardown(vm)
+				}()
+			}
+			wg.Wait()
 		})
 	})
 })

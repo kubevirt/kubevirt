@@ -368,6 +368,9 @@ func (f *fakeIsolationDetector) DetectForSocket(_ string) (isolation.IsolationRe
 	panic("should not be called")
 }
 
+func (f *fakeIsolationDetector) Teardown(_ *v1.VirtualMachineInstance) {
+}
+
 type fakeTLSConn struct {
 	net.Conn
 	handshakeCalled bool
