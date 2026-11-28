@@ -29,17 +29,21 @@ import (
 
 // AssertAllPodIPsReportedOnVMI checks that each Pod IP is present in the VMI reported IPs
 func AssertAllPodIPsReportedOnVMI(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
-	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
-		return fmt.Errorf("VMI Status.Interfaces[0].IP %s does not equal pod's Status.PodIP %s",
-			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
+	iface := GetVmiPrimaryInterface(vmi)
+	if iface == nil {
+		return fmt.Errorf("VMI has no reported network interfaces")
+	}
+	if iface.IP != vmiPod.Status.PodIP {
+		return fmt.Errorf("VMI primary interface IP %s does not equal pod's Status.PodIP %s",
+			iface.IP, vmiPod.Status.PodIP)
 	}
 
 	// Ensure each Pod IP is present in the VMI reported IP set.
-	vmiIPSet := ipSliceToSet(vmi.Status.Interfaces[0].IPs)
+	vmiIPSet := ipSliceToSet(iface.IPs)
 	for _, podIP := range vmiPod.Status.PodIPs {
 		if _, exists := vmiIPSet[podIP.IP]; !exists {
 			return fmt.Errorf("pod IP %q to be present in VMI IPs %v",
-				podIP.IP, vmi.Status.Interfaces[0].IPs)
+				podIP.IP, iface.IPs)
 		}
 	}
 

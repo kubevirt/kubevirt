@@ -96,7 +96,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
 				vmi := runVMI(*vmiRef)
-				addr := vmi.Status.Interfaces[0].IP
+				vmiIface := libnet.GetVmiPrimaryInterface(vmi)
+				Expect(vmiIface).NotTo(BeNil())
+				addr := vmiIface.IP
 
 				payloadSize := 0
 				ipHeaderSize := 28 // IPv4 specific
@@ -104,7 +106,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(outboundVMI.Status.Interfaces[0].IP).To(Equal(vmiPod.Status.PodIP), "Should have matching IP between pod and vmi")
+				outboundIface := libnet.GetVmiPrimaryInterface(outboundVMI)
+				Expect(outboundIface).NotTo(BeNil())
+				Expect(outboundIface.IP).To(Equal(vmiPod.Status.PodIP), "Should have matching IP between pod and vmi")
 
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
@@ -158,10 +162,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				By("checking the MAC address of eth0 is inline with vmi status")
 				if vmiHasCustomMacAddress(vmi) {
-					Expect(vmi.Status.Interfaces).NotTo(BeEmpty())
-					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
+					Expect(vmiIface.MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
 				}
-				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
+				Expect(libnet.CheckMacAddress(vmi, "eth0", vmiIface.MAC)).To(Succeed())
 			},
 				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
@@ -176,7 +179,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			const testPort = 1500
 			vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToAlpine)
 
-			ip := inboundVMI.Status.Interfaces[0].IP
+			inboundIface := libnet.GetVmiPrimaryInterface(inboundVMI)
+			Expect(inboundIface).NotTo(BeNil())
+			ip := inboundIface.IP
 
 			By("start connectivity job on the same node as the VM")
 			localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
@@ -449,7 +454,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+				serverIface := libnet.GetVmiPrimaryInterface(serverVMI)
+				Expect(serverIface).NotTo(BeNil())
+				Expect(serverIface.IPs).NotTo(BeEmpty())
 
 				By("starting a tcp server")
 				vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
@@ -494,7 +501,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+				serverIface := libnet.GetVmiPrimaryInterface(serverVMI)
+				Expect(serverIface).NotTo(BeNil())
+				Expect(serverIface.IPs).NotTo(BeEmpty())
 
 				By("starting a http server")
 				vmnetserver.StartPythonHTTPServer(serverVMI, tcpPort)
@@ -597,7 +606,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+				serverIface := libnet.GetVmiPrimaryInterface(serverVMI)
+				Expect(serverIface).NotTo(BeNil())
+				Expect(serverIface.IPs).NotTo(BeEmpty())
 
 				By("Starting TCP servers on forwarded and non-forwarded ports")
 				for _, allowedPort := range allowedPorts {
@@ -627,7 +638,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
+				serverIface := libnet.GetVmiPrimaryInterface(serverVMI)
+				Expect(serverIface).NotTo(BeNil())
+				Expect(serverIface.IPs).NotTo(BeEmpty())
 
 				allowedPorts := []int{8081}
 				const deniedPort = 9091
