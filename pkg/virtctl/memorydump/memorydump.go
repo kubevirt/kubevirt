@@ -366,6 +366,10 @@ func WaitForMemoryDumpComplete(virtClient kubecli.KubevirtClient, namespace, vmN
 			return false, nil
 		}
 
+		if vm.Status.MemoryDumpRequest.Phase == v1.MemoryDumpFailed {
+			return false, fmt.Errorf("memory dump failed: %s", vm.Status.MemoryDumpRequest.Message)
+		}
+
 		if vm.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
 			fmt.Printf("Waiting for memorydump %s to complete, current phase: %s...\n", claimName, vm.Status.MemoryDumpRequest.Phase)
 			return false, nil
