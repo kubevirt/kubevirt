@@ -6218,6 +6218,67 @@ var _ = Describe("VirtualMachine", func() {
 					return &v1.VolumeUpdateState{VolumeMigrationState: migState(src, dst)}
 				}
 
+				Context("cancelling a chained volume migration", func() {
+					var vm *v1.VirtualMachine
+					var vmi *v1.VirtualMachineInstance
+					var revision *v1.VirtualMachineSpec
+
+					BeforeEach(func() {
+						vmi = libvmi.New(libvmi.WithNamespace(ns), libvmi.WithPersistentVolumeClaim(diskName, "a"))
+						vm = libvmi.NewVirtualMachine(vmi.DeepCopy())
+						revision = vm.Spec.DeepCopy()
+						vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "b"
+						vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "c"
+						vmi.Status.MigratedVolumes = migVols("b", "c")
+						vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+							Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue,
+						}}
+					})
+
+					It("should allow reverting to the second migration's source and keep it after cancellation", func() {
+						client := virtFakeClient.KubevirtV1().VirtualMachineInstances(ns)
+						vmi, err := client.Create(context.Background(), vmi, metav1.CreateOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(controller.syncRestartRequired(revision, vm, vmi)).To(BeFalse())
+						Expect(controller.handleVolumeUpdateRequest(vm, vmi)).To(Succeed())
+
+						vmi, err = client.Get(context.Background(), vmi.Name, metav1.GetOptions{})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("b"))
+						Expect(vmi.Status.MigratedVolumes).To(BeEmpty())
+						Expect(virtcontroller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+							v1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonVolumesChangeCancellation)).To(BeTrue())
+						Expect(controller.syncRestartRequired(revision, vm, vmi)).To(BeFalse())
+					})
+
+					DescribeTable("should still require a restart", func(change func(*v1.VirtualMachine, *v1.VirtualMachineInstance)) {
+						change(vm, vmi)
+						Expect(controller.syncRestartRequired(revision, vm, vmi)).To(BeTrue())
+					},
+						Entry("when replacement is explicitly requested", func(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) {
+							vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
+						}),
+						Entry("when changing to a third claim", func(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) {
+							vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName = "d"
+						}),
+						Entry("when only one of two volumes is reverted", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
+							other := libvmi.New(libvmi.WithPersistentVolumeClaim("disk1", "target")).Spec.Volumes[0]
+							vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, other)
+							vmi.Spec.Volumes = append(vmi.Spec.Volumes, other)
+							revision.Template.Spec.Volumes = append(revision.Template.Spec.Volumes, other)
+							mig := migVols("source", "target")[0]
+							mig.VolumeName = other.Name
+							vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, mig)
+						}),
+						Entry("when changing the disk bus", func(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) {
+							vm.Spec.Template.Spec.Domain.Devices.Disks[0].Disk.Bus = v1.DiskBusSATA
+						}),
+						Entry("when changing the volume's read-only flag", func(vm *v1.VirtualMachine, _ *v1.VirtualMachineInstance) {
+							vm.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ReadOnly = true
+						}),
+					)
+				})
+
 				DescribeTable("should handle migratedVolumes propagation from VMI to VM", func(
 					volClaim string,
 					vmiMigratedVols []v1.StorageMigratedVolumeInfo,
@@ -7814,7 +7875,7 @@ var _ = Describe("VirtualMachine", func() {
 			oldVm.Spec.Template.Spec.Volumes = oldVols
 			newVm.Spec.Template.Spec.Volumes = newVols
 
-			Expect(validLiveUpdateVolumes(&oldVm.Spec, newVm)).To(Equal(expectValid))
+			Expect(validLiveUpdateVolumes(&oldVm.Spec, newVm, nil)).To(Equal(expectValid))
 		},
 			Entry("without changes", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test1", false)}, true),
 			Entry("for container disks", []v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test1"}}}},
