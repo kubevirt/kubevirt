@@ -176,6 +176,16 @@ func DefaultMasqueradeNetworkInterface() *Interface {
 	return iface
 }
 
+func DefaultPasstBindingNetworkInterface() *Interface {
+	iface := &Interface{
+		Name: "default",
+		InterfaceBindingMethod: InterfaceBindingMethod{
+			PasstBinding: &InterfacePasstBinding{},
+		},
+	}
+	return iface
+}
+
 func DefaultPodNetwork() *Network {
 	defaultNet := &Network{
 		Name: "default",

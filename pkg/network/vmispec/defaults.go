@@ -28,6 +28,7 @@ import (
 type netClusterConfigurer interface {
 	GetDefaultNetworkInterface() string
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
+	PasstBindingEnabled() bool
 }
 
 func SetDefaultNetworkInterface(config netClusterConfigurer, spec *v1.VirtualMachineInstanceSpec) error {
@@ -48,6 +49,11 @@ func SetDefaultNetworkInterface(config netClusterConfigurer, spec *v1.VirtualMac
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 	case v1.MasqueradeInterface:
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+	case v1.PasstBindingInterface:
+		if !config.PasstBindingEnabled() {
+			return fmt.Errorf("passtBinding interface is not enabled: the PasstBinding feature gate is disabled")
+		}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultPasstBindingNetworkInterface()}
 	case v1.DeprecatedSlirpInterface:
 		return fmt.Errorf("slirp interface is deprecated as of v1.3")
 	}

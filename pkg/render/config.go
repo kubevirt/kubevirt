@@ -154,6 +154,10 @@ func (c *offlineConfig) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 	return *c.config.NetworkConfiguration.PermitBridgeInterfaceOnPodNetwork
 }
 
+func (c *offlineConfig) PasstBindingEnabled() bool {
+	return c.IsFeatureGateEnabled(featuregate.PasstBinding)
+}
+
 func targetArchitecture(opts Options) string {
 	if opts.Architecture != "" {
 		return opts.Architecture
