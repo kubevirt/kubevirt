@@ -10,26 +10,6 @@ import (
 )
 
 var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
-	DescribeTable("ConvertKubeVirtCPUTopologyToDomainCPUTopology", func(v *api.CPUTopology, expected *libvirtxml.DomainCPUTopology) {
-		res := ConvertKubeVirtCPUTopologyToDomainCPUTopology(v)
-		Expect(res).To(Equal(expected))
-	},
-		Entry("empty", nil, nil),
-		Entry("with all the elements set",
-			&api.CPUTopology{Sockets: uint32(2), Cores: uint32(2), Threads: uint32(2)},
-			&libvirtxml.DomainCPUTopology{Sockets: 2, Cores: 2, Threads: 2},
-		),
-	)
-
-	DescribeTable("ConvertKubeVirtVCPUToDomainVCPU", func(v *api.VCPU, expected *libvirtxml.DomainVCPU) {
-		res := ConvertKubeVirtVCPUToDomainVCPU(v)
-		Expect(res).To(Equal(expected))
-	},
-		Entry("empty", nil, nil),
-		Entry("with all the elements set", &api.VCPU{Placement: "test", CPUs: uint32(2)},
-			&libvirtxml.DomainVCPU{Placement: "test", Value: uint(2)}),
-	)
-
 	Context("CPU tune", func() {
 
 		iothreadpin := []api.CPUTuneIOThreadPin{

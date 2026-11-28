@@ -44,6 +44,8 @@ func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 	}
 	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 	// assigned in the source node with the new CPUs assigned in the target node
+	setCPUTopology(vmi, domain)
+
 	xmlstr, err := domain.Marshal()
 	if err != nil {
 		return fmt.Errorf("failed to marshal domain to XML: %w", err)
@@ -66,6 +68,29 @@ func CPUDedicatedHook(c *convertertypes.ConverterContext, vmi *v1.VirtualMachine
 	return nil
 }
 
+// setCPUTopology sets the guest CPU topology and the vCPU count, including
+// vCPUs available for hotplug, from the VMI spec.
+func setCPUTopology(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+	}
+
+	if domain.CPU == nil {
+		domain.CPU = &libvirtxml.DomainCPU{}
+	}
+	domain.CPU.Topology = &libvirtxml.DomainCPUTopology{
+		Sockets: int(cpuTopology.Sockets),
+		Cores:   int(cpuTopology.Cores),
+		Threads: int(cpuTopology.Threads),
+	}
+	domain.VCPU = &libvirtxml.DomainVCPU{
+		Placement: "static",
+		Value:     uint(vcpu.CalculateRequestedVCPUs(cpuTopology)),
+	}
+}
+
 func generateDomainForTargetCPU(
 	vmi *v1.VirtualMachineInstance,
 	domSpec *api.DomainSpec,
@@ -74,19 +99,6 @@ func generateDomainForTargetCPU(
 ) (*api.Domain, error) {
 	domain := api.NewMinimalDomain(vmi.Name)
 	domain.Spec = *domSpec
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	vmiCPU := vmi.Spec.Domain.CPU
-	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
-		cpuTopology.Sockets = vmiCPU.MaxSockets
-		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
-	}
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
 	if err := vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuSet); err != nil {
 		return nil, err
 	}
@@ -95,11 +107,6 @@ func generateDomainForTargetCPU(
 }
 
 func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) {
-	if domcfg.CPU == nil {
-		domcfg.CPU = &libvirtxml.DomainCPU{}
-	}
-	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
-	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
 	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
 	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
 }
