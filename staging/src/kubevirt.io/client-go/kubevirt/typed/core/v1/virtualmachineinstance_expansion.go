@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	backupv1 "kubevirt.io/api/backup/v1beta1"
@@ -90,12 +91,28 @@ func (c *virtualMachineInstances) Screenshot(ctx context.Context, name string, o
 	if options.MoveCursor == true {
 		moveCursor = "true"
 	}
+
+	// Try /screenshot first so a caller with only virtualmachineinstances/screenshot
+	// succeeds. Older virt-api servers do not serve that route and return 404;
+	// only then fall back to /vnc/screenshot. Other errors, including Forbidden,
+	// are returned without trying the legacy path.
+	// TODO: https://github.com/kubevirt/kubevirt/issues/19992
+	// Drop the fallback once virt-api versions that only serve vnc/screenshot
+	// are unsupported.
+	raw, err := c.screenshot(ctx, name, moveCursor, "screenshot")
+	if errors.IsNotFound(err) {
+		return c.screenshot(ctx, name, moveCursor, "vnc", "screenshot")
+	}
+	return raw, err
+}
+
+func (c *virtualMachineInstances) screenshot(ctx context.Context, name, moveCursor string, subresource ...string) ([]byte, error) {
 	res := c.GetClient().Get().
 		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
 		Namespace(c.GetNamespace()).
 		Resource("virtualmachineinstances").
 		Name(name).
-		SubResource("vnc", "screenshot").
+		SubResource(subresource...).
 		Param("moveCursor", moveCursor).
 		Do(ctx)
 

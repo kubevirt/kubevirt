@@ -530,6 +530,78 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 		Entry("with proxied server URL", proxyPath),
 	)
 
+	DescribeTable("should take a screenshot from the screenshot subresource", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		png := []byte("png")
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "screenshot"), "moveCursor=false"),
+			ghttp.RespondWith(http.StatusOK, png),
+		))
+		screenshot, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Screenshot(context.Background(), "testvm", &v1.ScreenshotOptions{})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(screenshot).To(Equal(png))
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
+
+	DescribeTable("should fall back to vnc/screenshot when the screenshot subresource is not found", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		png := []byte("legacy-png")
+		server.AppendHandlers(
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "screenshot"), "moveCursor=true"),
+				ghttp.RespondWithJSONEncoded(http.StatusNotFound, &k8smetav1.Status{
+					Status:  k8smetav1.StatusFailure,
+					Message: "the server could not find the requested resource",
+					Reason:  k8smetav1.StatusReasonNotFound,
+					Code:    http.StatusNotFound,
+				}),
+			),
+			ghttp.CombineHandlers(
+				ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "vnc/screenshot"), "moveCursor=true"),
+				ghttp.RespondWith(http.StatusOK, png),
+			),
+		)
+		screenshot, err := client.VirtualMachineInstance(k8sv1.NamespaceDefault).Screenshot(context.Background(), "testvm", &v1.ScreenshotOptions{MoveCursor: true})
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(screenshot).To(Equal(png))
+		Expect(server.ReceivedRequests()).To(HaveLen(2))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
+
+	DescribeTable("should return Forbidden from the screenshot subresource without falling back", func(proxyPath string) {
+		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
+		Expect(err).ToNot(HaveOccurred())
+
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", path.Join(proxyPath, subVMIPath, "screenshot"), "moveCursor=false"),
+			ghttp.RespondWithJSONEncoded(http.StatusForbidden, &k8smetav1.Status{
+				Status:  k8smetav1.StatusFailure,
+				Message: "virtualmachineinstances.screenshot is forbidden",
+				Reason:  k8smetav1.StatusReasonForbidden,
+				Code:    http.StatusForbidden,
+			}),
+		))
+		_, err = client.VirtualMachineInstance(k8sv1.NamespaceDefault).Screenshot(context.Background(), "testvm", &v1.ScreenshotOptions{})
+
+		Expect(err).To(HaveOccurred())
+		Expect(errors.IsForbidden(err)).To(BeTrue())
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+	},
+		Entry("with regular server URL", ""),
+		Entry("with proxied server URL", proxyPath),
+	)
+
 	DescribeTable("should evacuate cancel a VirtualMachineInstance", func(proxyPath string) {
 		client, err := GetKubevirtClientFromFlags(server.URL()+proxyPath, "")
 		Expect(err).ToNot(HaveOccurred())

@@ -243,6 +243,7 @@ var _ = Describe("Authorizer", func() {
 			},
 				Entry("single-segment: console", "console", "console"),
 				Entry("single-segment: vnc", "vnc", "vnc"),
+				Entry("single-segment: screenshot", "screenshot", "screenshot"),
 				Entry("deep: vnc/screenshot", "vnc/screenshot", "vnc/screenshot"),
 				Entry("deep: sev/fetchcertchain", "sev/fetchcertchain", "sev/fetchcertchain"),
 				Entry("deep: sev/querylaunchmeasurement", "sev/querylaunchmeasurement", "sev/querylaunchmeasurement"),

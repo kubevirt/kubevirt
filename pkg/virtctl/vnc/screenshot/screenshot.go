@@ -51,7 +51,10 @@ func (s *Screenshot) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// setup connection with VM
+	// Screenshot() tries /screenshot first and falls back to /vnc/screenshot only
+	// on 404, so this works with screenshot-only RBAC and with older virt-api.
+	// A Forbidden response is returned without trying the legacy path.
+	// https://github.com/kubevirt/kubevirt/issues/19992
 	vmi := args[0]
 	screenshot, err := virtCli.VirtualMachineInstance(namespace).Screenshot(context.Background(), vmi, &v1.ScreenshotOptions{MoveCursor: s.moveCursor})
 	if err != nil {
