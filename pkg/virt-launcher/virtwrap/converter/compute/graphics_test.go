@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
@@ -38,7 +39,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithAutoattachGraphicsDevice(false))
 
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator(arch, false, false)
+			defaultVideoModel := archconverter.NewConverter(arch).DefaultVideoModel(vmi.IsBootloaderEFI(), false)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain).To(Equal(api.Domain{}))
@@ -53,7 +55,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = autoAttach
 
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator(arch, false, false)
+			defaultVideoModel := archconverter.NewConverter(arch).DefaultVideoModel(vmi.IsBootloaderEFI(), false)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -88,7 +91,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 		It("should disable graphics when cross-arch emulation is enabled", func() {
 			vmi := libvmi.New()
 			domain := api.Domain{}
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", false, true)
+			defaultVideoModel := archconverter.NewConverter("amd64").DefaultVideoModel(vmi.IsBootloaderEFI(), false)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, true)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			Expect(domain.Spec.Devices.Graphics).To(BeNil())
@@ -101,7 +105,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithVideo("virtio"))
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator(arch, bochsForEFI, false)
+			defaultVideoModel := archconverter.NewConverter(arch).DefaultVideoModel(vmi.IsBootloaderEFI(), bochsForEFI)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -142,7 +147,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 		DescribeTable("amd64 defaults to VGA with VRAM", func(vmi *v1.VirtualMachineInstance, bochsForEFI bool) {
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", bochsForEFI, false)
+			defaultVideoModel := archconverter.NewConverter("amd64").DefaultVideoModel(vmi.IsBootloaderEFI(), bochsForEFI)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -181,7 +187,8 @@ var _ = Describe("Graphics Domain Configurator", func() {
 			vmi := libvmi.New(libvmi.WithUefi(true))
 			var domain api.Domain
 
-			configurator := compute.NewGraphicsDomainConfigurator("amd64", true, false)
+			defaultVideoModel := archconverter.NewConverter("amd64").DefaultVideoModel(vmi.IsBootloaderEFI(), true)
+			configurator := compute.NewGraphicsDomainConfigurator(defaultVideoModel, false)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{

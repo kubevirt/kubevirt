@@ -31,6 +31,7 @@ const (
 type Converter interface {
 	GetArchitecture() string
 	SCSIControllerModel(virtioModel string) string
+	DefaultVideoModel(isEFI, useBochsForEFI bool) string
 	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
 	IsSMBiosNeeded() bool

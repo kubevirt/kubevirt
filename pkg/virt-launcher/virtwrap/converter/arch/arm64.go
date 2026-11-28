@@ -33,6 +33,11 @@ func (converterARM64) SCSIControllerModel(model string) string {
 	return model
 }
 
+func (converterARM64) DefaultVideoModel(_, _ bool) string {
+	// ARM64's QEMU/KVM only supports virtio-gpu.
+	return v1.VirtIO
+}
+
 func (converterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return true
 }

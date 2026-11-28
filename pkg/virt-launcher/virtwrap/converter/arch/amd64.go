@@ -35,6 +35,13 @@ func (converterAMD64) SCSIControllerModel(model string) string {
 	return model
 }
 
+func (converterAMD64) DefaultVideoModel(isEFI, useBochsForEFI bool) string {
+	if isEFI && useBochsForEFI {
+		return "bochs"
+	}
+	return "vga"
+}
+
 func (converterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 	for _, input := range vmi.Spec.Domain.Devices.Inputs {
 		if bus := input.Bus; bus == "usb" || bus == "" {
