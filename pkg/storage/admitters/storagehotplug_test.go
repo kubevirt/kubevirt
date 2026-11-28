@@ -21,6 +21,7 @@ package admitters
 
 import (
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -880,6 +881,55 @@ var _ = Describe("Utility Volumes Admitter", func() {
 			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			Expect(causes[0].Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
 			Expect(causes[0].Field).To(Equal("spec.utilityVolumes"))
+		})
+	})
+
+	Context("ValidateHotplugDiskConfiguration serial", func() {
+		DescribeTable("should reject SN exceeding maxLen characters using bus type", func(bus v1.DiskBus, maxLen int) {
+			disk := &v1.Disk{
+				Name:   "hotplug-disk",
+				Serial: strings.Repeat("1", maxLen+1),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: bus},
+				},
+			}
+
+			causes := ValidateHotplugDiskConfiguration(disk, disk.Name, "hotplug-test", "disk")
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s must not exceed %d characters", bus, maxLen)))
+		},
+			Entry("virtio", v1.DiskBusVirtio, maxVirtioBlkSerialLen),
+			Entry("scsi", v1.DiskBusSCSI, maxSCSISerialLen),
+		)
+
+		DescribeTable("should accept SN using bus type", func(bus v1.DiskBus, maxLen int) {
+			disk := &v1.Disk{
+				Name:   "hotplug-disk",
+				Serial: strings.Repeat("1", maxLen),
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: bus},
+				},
+			}
+
+			causes := ValidateHotplugDiskConfiguration(disk, disk.Name, "hotplug-test", "disk")
+			Expect(causes).To(BeEmpty())
+		},
+			Entry("virtio", v1.DiskBusVirtio, maxVirtioBlkSerialLen),
+			Entry("scsi", v1.DiskBusSCSI, maxSCSISerialLen),
+		)
+
+		It("should reject invalid SN characters", func() {
+			disk := &v1.Disk{
+				Name:   "hotplug-disk",
+				Serial: "$$$$",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+				},
+			}
+
+			causes := ValidateHotplugDiskConfiguration(disk, disk.Name, "hotplug-test", "disk")
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("[A-Za-z0-9_.+-]"))
 		})
 	})
 })

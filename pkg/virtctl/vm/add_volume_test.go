@@ -50,6 +50,9 @@ type verifyFn func(*v1.AddVolumeOptions)
 
 const (
 	concurrentErrorAdd = "the server rejected our request due to an error in our request"
+
+	maxSerialLenVirtio = 20
+	maxSerialLenSCSI   = 36
 )
 
 var _ = Describe("Add volume command", func() {
@@ -248,6 +251,60 @@ var _ = Describe("Add volume command", func() {
 				longDiskName := rand.String(64)
 				cmd := testing.NewRepeatableVirtctlCommand("addvolume", vmiName, "--volume-name="+volumeName, "--disk-name="+longDiskName)
 				Expect(cmd()).To(MatchError(ContainSubstring("Invalid disk")))
+			})
+
+			DescribeTable("should fail when default serial inherited from volume name exceeds limit of bus type", func(bus string, nameLen int) {
+				longName := rand.String(nameLen)
+				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&v1beta1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				args := []string{"addvolume", vmiName, "--volume-name=" + longName}
+				if bus != "" {
+					args = append(args, "--bus="+bus)
+				}
+				cmd := testing.NewRepeatableVirtctlCommand(args...)
+				Expect(cmd()).To(MatchError(ContainSubstring("exceeds the maximum character limit")))
+			},
+				Entry("scsi", "scsi", maxSerialLenSCSI+1),
+				Entry("default (scsi)", "", maxSerialLenSCSI+1),
+				Entry("virtio", "virtio", maxSerialLenVirtio+1),
+			)
+
+			DescribeTable("should fail when explicit serial exceeds bus limit", func(bus string, serialLen int) {
+				Expect(runCmd("--bus=" + bus + " --serial=" + rand.String(serialLen))).To(
+					MatchError(ContainSubstring("must not exceed the maximum character limit")))
+			},
+				Entry("scsi", "scsi", maxSerialLenSCSI+1),
+				Entry("virtio", "virtio", maxSerialLenVirtio+1),
+			)
+
+			It("should succeed with long volume name when explicit serial is within bus limit", func() {
+				longName := rand.String(maxSerialLenSCSI + 1)
+				serial := "test-serial"
+				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&v1beta1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				expectVMEndpointAddVolume(verifyDiskSerial(serial), verifyDVVolumeSource)
+				cmd := testing.NewRepeatableVirtctlCommand(
+					"addvolume", vmiName,
+					"--volume-name="+longName,
+					"--serial="+serial,
+				)
+				Expect(cmd()).To(Succeed())
 			})
 		})
 
