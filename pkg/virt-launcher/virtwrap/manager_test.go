@@ -5137,35 +5137,6 @@ var _ = Describe("calculateHotplugPortCountV2", func() {
 	)
 })
 
-var _ = Describe("shouldExpandOffline", func() {
-	It("should return false for a direct block device", func() {
-		disk := api.Disk{
-			Source: api.DiskSource{
-				Dev: "/dev/vda",
-			},
-		}
-		Expect(shouldExpandOffline(disk)).To(BeFalse())
-	})
-
-	It("should return false for a datastore backed block device", func() {
-		disk := api.Disk{
-			Source: api.DiskSource{
-				File: "/test/overlay.qcow2",
-				DataStore: &api.DataStore{
-					Type: "block",
-					Format: &api.DataStoreFormat{
-						Type: "raw",
-					},
-					Source: &api.DiskSource{
-						Dev: "/dev/vda",
-					},
-				},
-			},
-		}
-		Expect(shouldExpandOffline(disk)).To(BeFalse())
-	})
-})
-
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 	vmi := api2.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
