@@ -266,7 +266,7 @@ var _ = Describe("Clone", func() {
 				expectCloneBeInPhase(clone.PhaseUnset)
 			})
 
-			It("clone should fail if source VM has backendstorage", func() {
+			It("clone should proceed if source VM has legacy backend storage (persistent TPM)", func() {
 				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
 					Persistent: new(true),
 				}
@@ -274,9 +274,10 @@ var _ = Describe("Clone", func() {
 				vmClone.Status.Phase = clone.PhaseUnset
 				addClone(vmClone)
 
-				controller.Execute()
-				expectEvent(SourceWithBackendStorageInvalid)
-				expectCloneBeInPhase(clone.Failed)
+				sanityExecute()
+				expectEvent(SnapshotCreated)
+				expectSnapshotExists()
+				expectCloneBeInPhase(clone.SnapshotInProgress)
 			})
 
 			It("clone should proceed if source VM uses the declarative virtualMachineState API", func() {
@@ -749,7 +750,7 @@ var _ = Describe("Clone", func() {
 				expectCloneBeInPhase(clone.Failed)
 			})
 
-			It("clone should fail if source VMSnapshot has backendstorage", func() {
+			It("clone should proceed if source VMSnapshot has legacy backend storage (persistent TPM)", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = new(true)
 				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
@@ -764,8 +765,10 @@ var _ = Describe("Clone", func() {
 				addSnapshotContent(snapshotContent)
 
 				sanityExecute()
-				expectEvent(SnapshotContentInvalid)
-				expectCloneBeInPhase(clone.Failed)
+				expectEvent(SnapshotReady)
+				expectEvent(RestoreCreated)
+				expectCloneBeInPhase(clone.RestoreInProgress)
+				expectRestoreExists()
 			})
 
 			It("should fail clone if snaphshot ready - but not all volumes were snapshoted", func() {

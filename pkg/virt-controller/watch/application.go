@@ -967,6 +967,7 @@ func (vca *VirtControllerApp) initRestoreController() {
 		VolumeSnapshotProvider:    vca.snapshotController,
 		Recorder:                  recorder,
 		CRInformer:                vca.controllerRevisionInformer,
+		ClusterConfig:             vca.clusterConfig,
 	}
 	if err := vca.restoreController.Init(); err != nil {
 		panic(err)
