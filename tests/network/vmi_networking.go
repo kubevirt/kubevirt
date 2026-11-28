@@ -88,8 +88,14 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				)
-				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
-				inboundVMIWithMultiQueueSingleCPU = vmiWithMultiQueue()
+				inboundVMIWithCustomMacAddress = libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithInterface(libvmi.NewInterface(
+						libvmi.PodNetwork("default").Name, libvmi.WithBridgeBinding(), libvmi.WithMac("de:ad:00:00:be:af"))),
+					libvmi.WithNetwork(libvmi.PodNetwork("default")))
+				inboundVMIWithMultiQueueSingleCPU = libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithNetworkInterfaceMultiQueue(true),
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(libvmi.PodNetwork("default")))
 
 				outboundVMI = runVMI(outboundVMI)
 			})
@@ -157,7 +163,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("checking the MAC address of eth0 is inline with vmi status")
-				if vmiHasCustomMacAddress(vmi) {
+				if vmi.Spec.Domain.Devices.Interfaces != nil &&
+					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress != "" {
 					Expect(vmi.Status.Interfaces).NotTo(BeEmpty())
 					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
 				}
@@ -919,11 +926,6 @@ func gatewayIPFromCIDR(cidr string) string {
 	return ip.String()
 }
 
-func vmiHasCustomMacAddress(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Devices.Interfaces != nil &&
-		vmi.Spec.Domain.Devices.Interfaces[0].MacAddress != ""
-}
-
 func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 
@@ -932,20 +934,6 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	Expect(err).ToNot(HaveOccurred())
 	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 	return vmi
-}
-
-func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
-	return libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithInterface(libvmi.NewInterface(
-			v1.DefaultPodNetwork().Name, libvmi.WithBridgeBinding(), libvmi.WithMac(mac))),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
-}
-
-func vmiWithMultiQueue() *v1.VirtualMachineInstance {
-	return libvmifact.NewAlpineWithTestTooling(
-		libvmi.WithNetworkInterfaceMultiQueue(true),
-		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 
 func newNodeAffinity(selector k8sv1.NodeSelectorOperator, nodeName string) *k8sv1.NodeAffinity {
