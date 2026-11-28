@@ -75,3 +75,22 @@ if [ "$ARCH" == "x86_64" ]; then
 elif [ "$ARCH" == "aarch64" ]; then
   virsh domcapabilities --machine q35 --arch x86_64 --virttype qemu > /var/lib/kubevirt-node-labeller/virsh_domcapabilities_x86_64.xml 2>/dev/null || true
 fi
+
+# virtqemud probed QEMU above and wrote its capability cache under /var/cache
+# or /run. Keep those files for virt-handler. It copies them into each
+# virt-launcher and labels the copy for that pod. Launchers do not mount this
+# directory: a shared cache would let one pod change what the next VM trusts.
+mkdir -p /var/lib/kubevirt-node-labeller/qemu-capabilities
+for caps_dir in \
+    /var/cache/libvirt/qemu/capabilities \
+    /run/libvirt/qemu/cache/capabilities \
+    /var/run/libvirt/qemu/cache/capabilities
+do
+    [ -d "$caps_dir" ] || continue
+    find "$caps_dir" -maxdepth 1 -type f -name '*.xml' -print |
+        while read -r caps_file; do
+            base=$(basename "$caps_file")
+            cp "$caps_file" "/var/lib/kubevirt-node-labeller/qemu-capabilities/${base}" &&
+                chmod 644 "/var/lib/kubevirt-node-labeller/qemu-capabilities/${base}" || true
+        done
+done
