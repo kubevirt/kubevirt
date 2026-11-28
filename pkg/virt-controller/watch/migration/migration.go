@@ -1650,6 +1650,8 @@ func (c *Controller) handleVMBackup(migration *virtv1.VirtualMachineInstanceMigr
 		return false, nil
 	}
 
+	conditionManager.RemoveCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+
 	if migration.Spec.Priority != nil && *migration.Spec.Priority == virtv1.PrioritySystemCritical {
 		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup) {
 			if err := c.abortBackupForCriticalMigration(migration, vmi); err != nil {
@@ -1738,7 +1740,21 @@ func (c *Controller) handleUtilityVolumes(migrationCopy *virtv1.VirtualMachineIn
 	}
 
 	utilityVolumesTimeout := c.getUtilityVolumesTimeoutSeconds(migrationCopy)
-	secondsSpentWaiting := timeSinceCreationSeconds(&migrationCopy.ObjectMeta)
+	now := v1.Now()
+	condition := conditionManager.GetCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+	if condition == nil || condition.LastTransitionTime.IsZero() {
+		conditionManager.RemoveCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+		condition = &virtv1.VirtualMachineInstanceMigrationCondition{
+			Type:               virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             "UtilityVolumesPresent",
+			Message:            "Migration is waiting for utility volumes to detach.",
+		}
+		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, *condition)
+	}
+	secondsSpentWaiting := int64(now.Sub(condition.LastTransitionTime.Time).Seconds())
 
 	if secondsSpentWaiting >= utilityVolumesTimeout {
 		c.recorder.Eventf(
@@ -1759,17 +1775,6 @@ func (c *Controller) handleUtilityVolumes(migrationCopy *virtv1.VirtualMachineIn
 		"Migration waiting for utility volumes to detach from VMI [%s/%s]. Will timeout in %d seconds.",
 		vmi.Namespace, vmi.Name, utilityVolumesTimeout-secondsSpentWaiting)
 	log.Log.Object(migrationCopy).V(3).Infof("Migration waiting for utility volumes to detach from VMI [%s/%s].", vmi.Namespace, vmi.Name)
-
-	if !conditionManager.HasCondition(migrationCopy, virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes) {
-		condition := virtv1.VirtualMachineInstanceMigrationCondition{
-			Type:          virtv1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes,
-			Status:        k8sv1.ConditionTrue,
-			LastProbeTime: v1.Now(),
-			Reason:        "UtilityVolumesPresent",
-			Message:       fmt.Sprintf("Migration is waiting for utility volumes to detach. Will timeout in %d seconds.", utilityVolumesTimeout-secondsSpentWaiting),
-		}
-		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
-	}
 
 	delay := time.Second * time.Duration(utilityVolumesTimeout-secondsSpentWaiting)
 	c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityRunning), After: delay}, migrationKey)
