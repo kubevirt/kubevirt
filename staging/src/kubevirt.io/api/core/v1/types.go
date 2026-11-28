@@ -1305,6 +1305,10 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 	// This label indicates what launcher image a VMI is currently running with.
 	OutdatedLauncherImageLabel string = "kubevirt.io/outdatedLauncherImage"
+	// SkipLauncherImageCheckLabel, when set to "true" on a virt-launcher pod,
+	// exempts its VMI from outdated launcher image detection and image-driven
+	// workload updates. The alternative launcher provider owns image updates.
+	SkipLauncherImageCheckLabel string = "kubevirt.io/skip-launcher-image-check"
 	// This label indicates the virt-handler image fingerprint running on this node. Used on Node.
 	VirtHandlerImageHashLabel string = "kubevirt.io/virt-handler-image-hash"
 	// Namespace recommended by Kubernetes for commonly recognized labels

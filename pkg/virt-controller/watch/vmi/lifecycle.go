@@ -302,7 +302,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				break
 			}
 		}
-		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage)
+		vmiCopy = c.setLauncherContainerInfo(vmiCopy, foundImage, pod.Labels[virtv1.SkipLauncherImageCheckLabel] == "true")
 
 		if err := c.syncPausedConditionToPod(vmiCopy, pod); err != nil {
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
@@ -850,8 +850,8 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	return updatedPod, nil
 }
 
-func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
-	if curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
+func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string, skipImageCheck bool) *virtv1.VirtualMachineInstance {
+	if !skipImageCheck && curPodImage != "" && curPodImage != c.templateService.GetLauncherImage() {
 		if vmi.Labels == nil {
 			vmi.Labels = map[string]string{}
 		}

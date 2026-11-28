@@ -497,6 +497,63 @@ var _ = Describe("Workload Updater", func() {
 
 	})
 
+	DescribeTable("should exempt only explicitly labeled current launchers from image updates", func(value string, exempt bool) {
+		vmi := newVirtualMachineInstance("alternative", true, "alternative-image")
+		pod := newLauncherPodForVMI(vmi)
+		pod.Labels[v1.SkipLauncherImageCheckLabel] = value
+		Expect(controller.podIndexer.Add(pod)).To(Succeed())
+		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
+		kv := newKubeVirt(0)
+		kv.Spec.WorkloadUpdateStrategy.WorkloadUpdateMethods = []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate, v1.WorkloadUpdateMethodEvict}
+		Expect(controller.isOutdated(vmi)).To(Equal(!exempt))
+		data := controller.getUpdateData(kv)
+		if exempt {
+			Expect(data.allOutdatedVMIs).To(BeEmpty())
+			Expect(data.migratableOutdatedVMIs).To(BeEmpty())
+		} else {
+			Expect(data.allOutdatedVMIs).To(ConsistOf(vmi))
+			Expect(data.migratableOutdatedVMIs).To(ConsistOf(vmi))
+		}
+
+		// An exemption must not prevent migrations for requested live updates.
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type: v1.VirtualMachineInstanceMemoryChange, Status: k8sv1.ConditionTrue,
+		})
+		Expect(controller.getUpdateData(kv).migratableOutdatedVMIs).To(ConsistOf(vmi))
+
+		// Non-migratable exempt workloads must not fall back to eviction either.
+		vmi.Status.Conditions = nil
+		if exempt {
+			Expect(controller.getUpdateData(kv).evictOutdatedVMIs).To(BeEmpty())
+		} else {
+			Expect(controller.getUpdateData(kv).evictOutdatedVMIs).To(ConsistOf(vmi))
+		}
+
+		// Removing the label restores image-based detection.
+		delete(pod.Labels, v1.SkipLauncherImageCheckLabel)
+		Expect(controller.isOutdated(vmi)).To(BeTrue())
+	},
+		Entry("when explicitly enabled", "true", true),
+		Entry("when disabled", "false", false),
+		Entry("when empty", "", false),
+	)
+
+	It("should not exempt a current launcher based on a labeled migration target", func() {
+		vmi := newVirtualMachineInstance("alternative", true, "alternative-image")
+		vmi.Status.NodeName = "source"
+		pod := newLauncherPodForVMI(vmi)
+		pod.Spec.NodeName = "source"
+		Expect(controller.podIndexer.Add(pod)).To(Succeed())
+		target := pod.DeepCopy()
+		target.Name = "target"
+		target.Spec.NodeName = "target"
+		target.Labels[v1.SkipLauncherImageCheckLabel] = "true"
+		Expect(controller.podIndexer.Add(target)).To(Succeed())
+		Expect(controller.isOutdated(vmi)).To(BeTrue())
+		Expect(controller.podIndexer.Delete(pod)).To(Succeed())
+		Expect(controller.isOutdated(vmi)).To(BeTrue(), "a missing current pod must not exempt the VMI")
+	})
+
 	Context("LiveUpdate features", func() {
 		It("VMI needs to be migrated when memory hotplug is requested", func() {
 			condition := v1.VirtualMachineInstanceCondition{
