@@ -301,10 +301,10 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateL
 
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
-		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
+		// CA and operator certificates are reconciled before publishing webhook CA bundles.
 		switch secret.Name {
 		// TODO drop "kubevirt-backup-ca" after v1.10, once the previous release no longer ships it
-		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, "kubevirt-backup-ca":
+		case components.KubeVirtCASecretName, components.KubeVirtExportCASecretName, components.VirtOperatorCertSecretName, "kubevirt-backup-ca":
 			continue
 		}
 
@@ -435,6 +435,19 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
 	if err != nil {
 		return err
+	}
+
+	// Provision the operator's serving certificate before publishing the CA bundle.
+	// After CR recreation the certificate manager may still serve the previous
+	// installation's certificate. Publishing the new CA first would make the
+	// operator's own finalizer patch fail admission.
+	for _, secret := range r.targetStrategy.CertificateSecrets() {
+		if secret.Name != components.VirtOperatorCertSecretName {
+			continue
+		}
+		if _, err := r.createOrUpdateCertificateSecret(queue, caCert, secret, certDuration, certRenewBefore, caRenewBefore); err != nil {
+			return err
+		}
 	}
 
 	// create/update ValidatingWebhookConfiguration

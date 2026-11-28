@@ -22,11 +22,14 @@ package apply
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -85,6 +88,18 @@ const (
       }]
 	`
 )
+
+// certificateStrategy limits reconciliation to the certificate and webhook resources.
+type certificateStrategy struct {
+	fakestrategy.FakeStrategy
+	configMaps []*corev1.ConfigMap
+	webhook    *admissionregistrationv1.ValidatingWebhookConfiguration
+}
+
+func (s *certificateStrategy) ConfigMaps() []*corev1.ConfigMap { return s.configMaps }
+func (s *certificateStrategy) ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration {
+	return []*admissionregistrationv1.ValidatingWebhookConfiguration{s.webhook}
+}
 
 var _ = Describe("Apply", func() {
 
@@ -400,6 +415,124 @@ var _ = Describe("Apply", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
+	})
+
+	Context("operator webhook certificates", func() {
+		DescribeTable("should provision a trusted operator certificate before publishing the webhook CA bundle", func(existing bool, failCertificate bool) {
+			const namespace = "operator-namespace"
+			kv := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: namespace}}
+			strategy := &certificateStrategy{
+				configMaps: components.NewCAConfigMaps(namespace),
+				webhook:    components.NewOpertorValidatingWebhookConfiguration(namespace),
+			}
+			strategy.FakeCertificateSecrets = append(components.NewCACertSecrets(namespace), components.NewCertSecrets(namespace, namespace)...)
+			client := fake.NewSimpleClientset()
+			stores := util.Stores{
+				SecretCache:            cache.NewStore(cache.MetaNamespaceKeyFunc),
+				ConfigMapCache:         cache.NewStore(cache.MetaNamespaceKeyFunc),
+				ValidationWebhookCache: cache.NewStore(cache.MetaNamespaceKeyFunc),
+				MutatingWebhookCache:   cache.NewStore(cache.MetaNamespaceKeyFunc),
+			}
+			expectations := &util.Expectations{
+				Secrets:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Secrets")),
+				ConfigMap:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
+				ValidationWebhook: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
+				MutatingWebhook:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("MutatingWebhook")),
+			}
+			if existing {
+				// Recreating the CA must also recover an existing webhook and serving secret.
+				oldCA := components.NewCACertSecrets(namespace)[0]
+				Expect(components.PopulateSecretWithCertificate(oldCA, nil, &metav1.Duration{Duration: Duration7d})).To(Succeed())
+				ca, err := components.LoadCertificates(oldCA)
+				Expect(err).NotTo(HaveOccurred())
+				secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: components.VirtOperatorCertSecretName, Namespace: namespace}}
+				Expect(components.PopulateSecretWithCertificate(secret, ca, &metav1.Duration{Duration: Duration1d})).To(Succeed())
+				_, err = client.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(stores.SecretCache.Add(secret.DeepCopy())).To(Succeed())
+				webhook := strategy.webhook.DeepCopy()
+				webhook.Generation = 1
+				injectOperatorMetadata(kv, &webhook.ObjectMeta, "", "", "", true)
+				SetGeneration(&kv.Status.Generations, webhook)
+				for i := range webhook.Webhooks {
+					webhook.Webhooks[i].ClientConfig.CABundle = cert.EncodeCertPEM(ca.Leaf)
+				}
+				_, err = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(stores.ValidationWebhookCache.Add(webhook.DeepCopy())).To(Succeed())
+			}
+			client.ClearActions()
+			if failCertificate {
+				client.PrependReactor("*", "secrets", func(action testing.Action) (bool, runtime.Object, error) {
+					if create, ok := action.(testing.CreateAction); ok && create.GetObject().(*corev1.Secret).Name == components.VirtOperatorCertSecretName {
+						return true, nil, fmt.Errorf("operator certificate creation failed")
+					}
+					if patch, ok := action.(testing.PatchAction); ok && patch.GetName() == components.VirtOperatorCertSecretName {
+						return true, nil, fmt.Errorf("operator certificate rotation failed")
+					}
+					return false, nil, nil
+				})
+			}
+			published := false
+			client.PrependReactor("*", "validatingwebhookconfigurations", func(action testing.Action) (bool, runtime.Object, error) {
+				var webhook *admissionregistrationv1.ValidatingWebhookConfiguration
+				switch a := action.(type) {
+				case testing.CreateAction:
+					webhook = a.GetObject().(*admissionregistrationv1.ValidatingWebhookConfiguration)
+				case testing.PatchAction:
+					payload, err := jsonpatch.DecodePatch(a.GetPatch())
+					Expect(err).NotTo(HaveOccurred())
+					cached, _, _ := stores.ValidationWebhookCache.Get(strategy.webhook)
+					original, err := json.Marshal(cached)
+					Expect(err).NotTo(HaveOccurred())
+					updated, err := payload.Apply(original)
+					Expect(err).NotTo(HaveOccurred())
+					webhook = &admissionregistrationv1.ValidatingWebhookConfiguration{}
+					Expect(json.Unmarshal(updated, webhook)).To(Succeed())
+				default:
+					return false, nil, nil
+				}
+				Expect(failCertificate).To(BeFalse(), "must not publish a CA bundle if the operator certificate cannot be provisioned")
+				obj, err := client.Tracker().Get(corev1.SchemeGroupVersion.WithResource("secrets"), namespace, components.VirtOperatorCertSecretName)
+				Expect(err).NotTo(HaveOccurred(), "the serving secret must exist when the webhook is published")
+				servingCert, err := components.LoadCertificates(obj.(*corev1.Secret))
+				Expect(err).NotTo(HaveOccurred())
+				for _, wh := range webhook.Webhooks {
+					roots := x509.NewCertPool()
+					Expect(roots.AppendCertsFromPEM(wh.ClientConfig.CABundle)).To(BeTrue())
+					_, err = servingCert.Leaf.Verify(x509.VerifyOptions{Roots: roots, DNSName: components.VirtOperatorServiceName + "." + namespace + ".svc"})
+					Expect(err).NotTo(HaveOccurred(), "the published CA bundle must trust the operator serving certificate")
+				}
+				published = true
+				return false, nil, nil
+			})
+			r := &Reconciler{kv: kv, kvKey: namespace + "/kubevirt", targetStrategy: strategy, stores: stores, k8sClient: client, expectations: expectations}
+			queue := workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]())
+			defer queue.ShutDown()
+			err := r.createOrUpdateComponentsWithCertificates(queue)
+			if failCertificate {
+				Expect(err).To(MatchError(ContainSubstring("operator certificate")))
+				Expect(published).To(BeFalse())
+			} else {
+				Expect(err).NotTo(HaveOccurred())
+				Expect(published).To(BeTrue())
+				writes := 0
+				for _, action := range client.Actions() {
+					if a, ok := action.(testing.CreateAction); ok && a.GetResource().Resource == "secrets" && a.GetObject().(*corev1.Secret).Name == components.VirtOperatorCertSecretName {
+						writes++
+					}
+					if a, ok := action.(testing.PatchAction); ok && a.GetResource().Resource == "secrets" && a.GetName() == components.VirtOperatorCertSecretName {
+						writes++
+					}
+				}
+				Expect(writes).To(Equal(1), "reconcile the operator certificate exactly once per pass")
+			}
+		},
+			Entry("on installation", false, false),
+			Entry("after CA recreation with a stale webhook", true, false),
+			Entry("when certificate creation fails", false, true),
+			Entry("when certificate rotation fails", true, true),
+		)
 	})
 
 	Context("certificate secrets", func() {
