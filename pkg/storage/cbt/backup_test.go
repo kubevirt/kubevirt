@@ -139,6 +139,9 @@ var _ = Describe("Backup Controller", func() {
 				Namespace: testNamespace,
 			},
 			Spec: v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{Devices: v1.Devices{Disks: []v1.Disk{
+					{Name: "disk0", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
+				}}},
 				Volumes: []v1.Volume{
 					{
 						Name: "disk0",

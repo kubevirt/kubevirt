@@ -65,6 +65,10 @@ var _ = Describe("Offline backup", func() {
 			Spec: v1.VirtualMachineSpec{
 				Template: &v1.VirtualMachineInstanceTemplateSpec{
 					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{Devices: v1.Devices{Disks: []v1.Disk{
+							{Name: "rootdisk", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
+							{Name: "hostdisk", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
+						}}},
 						Volumes: []v1.Volume{
 							{Name: "rootdisk", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 								PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "rootdisk"},
@@ -83,6 +87,26 @@ var _ = Describe("Offline backup", func() {
 			volumes := offlineEligibleVolumes(vmWithVolumes())
 			Expect(volumes).To(ConsistOf(backupv1.BackupVolumeInfo{VolumeName: "rootdisk"}),
 				"cloudinit isn't CBT-eligible, and hostdisk has no PVC the offline exporter pod can mount")
+		})
+
+		It("includes disks that only exist once VMI defaults are applied", func() {
+			vm := vmWithVolumes()
+			spec := &vm.Spec.Template.Spec
+			spec.Domain.Devices.Disks = []v1.Disk{{Name: "datadisk"}}
+			spec.Domain.Devices.Filesystems = []v1.Filesystem{{Name: "fsdisk", Virtiofs: &v1.FilesystemVirtiofs{}}}
+			spec.Volumes = append(spec.Volumes,
+				v1.Volume{Name: "datadisk", VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "datadisk"}}},
+				v1.Volume{Name: "fsdisk", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "fsdisk"},
+				}}},
+			)
+			stored := spec.DeepCopy()
+
+			Expect(offlineEligibleVolumes(vm)).To(ConsistOf(
+				backupv1.BackupVolumeInfo{VolumeName: "rootdisk"},
+				backupv1.BackupVolumeInfo{VolumeName: "datadisk"},
+			), "rootdisk has no disk entry and datadisk has no target, both of which the VMI defaults fill in; fsdisk stays a filesystem")
+			Expect(spec).To(Equal(stored), "the stored VM must not be defaulted in place")
 		})
 
 		It("returns nil when the template is absent", func() {

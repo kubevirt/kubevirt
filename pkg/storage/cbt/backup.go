@@ -934,7 +934,7 @@ func (ctrl *VMBackupController) vmiFromSource(backup *backupv1.VirtualMachineBac
 func (ctrl *VMBackupController) verifyVMIEligibleForBackup(vmi *v1.VirtualMachineInstance) string {
 	hasEligibleVolumes := false
 	for _, volume := range vmi.Spec.Volumes {
-		if IsCBTEligibleVolume(&volume) {
+		if IsCBTEligibleVolume(&volume, vmi.Spec.Domain.Devices.Disks) {
 			hasEligibleVolumes = true
 			break
 		}

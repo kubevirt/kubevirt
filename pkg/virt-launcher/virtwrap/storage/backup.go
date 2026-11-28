@@ -41,6 +41,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -159,10 +160,11 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
+	tracked := trackedDisks(vmi, domainDisks)
 	var disksWithoutBitmap sets.Set[string]
 	if isIncrementalBackup(backupOptions) {
 		base := checkpointDefinition(*backupOptions.Incremental, backupOptions.IncrementalCreationTime)
-		_, disksWithoutBitmap, err = redefineCheckpointOnUsableDisks(dom, domainDisks, base)
+		_, disksWithoutBitmap, err = redefineCheckpointOnUsableDisks(dom, domainDisks, tracked, base)
 		if err != nil && !errors.Is(err, errNoUsableCheckpointBitmap) {
 			logger.Reason(err).Errorf("failed to redefine base checkpoint %s", base.Name)
 			return err
@@ -176,7 +178,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			return err
 		}
 	}
-	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath, disksWithoutBitmap)
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath, nbdSocketPath, tracked, disksWithoutBitmap)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -227,7 +229,19 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
+func trackedDisks(vmi *v1.VirtualMachineInstance, disks []api.Disk) sets.Set[string] {
+	volumes := storagetypes.GetVolumesByName(&vmi.Spec)
+	tracked := sets.New[string]()
+	for _, disk := range disks {
+		volume, ok := volumes[disk.Alias.GetName()]
+		if ok && disk.Target.Device != "" && DiskHasDataStore(&disk) && cbt.IsCBTEligibleVolume(volume, vmi.Spec.Domain.Devices.Disks) {
+			tracked.Insert(disk.Target.Device)
+		}
+	}
+	return tracked
+}
+
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath, nbdSocketPath string, tracked, disksWithoutBitmap sets.Set[string]) (*api.DomainBackup, *api.DomainCheckpoint, []v1.VirtualMachineInstanceBackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
@@ -256,7 +270,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 			Name: disk.Target.Device,
 		}
 		volumeName := disk.Alias.GetName()
-		if DiskHasDataStore(&disk) {
+		if tracked.Has(disk.Target.Device) {
 			backupDisk.Backup = "yes"
 			backupDisk.Type = "file"
 			if backupOptions.Mode == backupv1.PullMode {
@@ -575,8 +589,8 @@ func checkpointDefinition(name string, creationTime *metav1.Time) *api.DomainChe
 
 var errNoUsableCheckpointBitmap = errors.New("no disk carries a usable checkpoint bitmap")
 
-func redefineCheckpointOnUsableDisks(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
-	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, disks, domainCheckpoint)
+func redefineCheckpointOnUsableDisks(dom cli.VirDomain, disks []api.Disk, tracked sets.Set[string], domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
+	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, disks, tracked, domainCheckpoint)
 	if err != nil {
 		return nil, disksWithoutBitmap, err
 	}
@@ -599,12 +613,12 @@ func redefineCheckpointOnUsableDisks(dom cli.VirDomain, disks []api.Disk, domain
 // persistent, recording and consistent. Each successful probe leaves a
 // single-disk definition behind, so callers must redefine the checkpoint
 // afterwards, see redefineCheckpointOnUsableDisks.
-func findDisksWithCheckpointBitmap(dom cli.VirDomain, disks []api.Disk, domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
+func findDisksWithCheckpointBitmap(dom cli.VirDomain, disks []api.Disk, tracked sets.Set[string], domainCheckpoint *api.DomainCheckpoint) (*api.CheckpointDisks, sets.Set[string], error) {
 	checkpointDisks := &api.CheckpointDisks{}
 	disksWithoutBitmap := sets.New[string]()
 
 	for _, disk := range disks {
-		if disk.Target.Device == "" || !DiskHasDataStore(&disk) {
+		if !tracked.Has(disk.Target.Device) {
 			continue
 		}
 

@@ -68,7 +68,7 @@ func (c *MemoryCalculator) Calculate(vmi *v1.VirtualMachineInstance) resource.Qu
 	// and multiply by that instead.
 	trackerCount := c.backupTrackerCountForVMI(vmi.Name, vmi.Namespace)
 	logger := log.Log.Object(vmi)
-	for _, q := range c.cbtVolumeCapacities(vmi.Spec.Volumes, vmi.Namespace) {
+	for _, q := range c.cbtVolumeCapacities(&vmi.Spec, vmi.Namespace) {
 		// QEMU allocates one bit per granularity-sized block for each dirty bitmap:
 		// https://gitlab.com/qemu-project/qemu/-/blob/master/util/hbitmap.c#L803
 		// e.g., a 1TiB disk will warrant an overhead of 2MiB memory per associated bitmap.
@@ -87,10 +87,10 @@ func (c *MemoryCalculator) Calculate(vmi *v1.VirtualMachineInstance) resource.Qu
 	return totalMemory
 }
 
-func (c *MemoryCalculator) cbtVolumeCapacities(volumes []v1.Volume, namespace string) []resource.Quantity {
+func (c *MemoryCalculator) cbtVolumeCapacities(spec *v1.VirtualMachineInstanceSpec, namespace string) []resource.Quantity {
 	var capacities []resource.Quantity
-	for _, vol := range volumes {
-		if !IsCBTEligibleVolume(&vol) {
+	for _, vol := range spec.Volumes {
+		if !IsCBTEligibleVolume(&vol, spec.Domain.Devices.Disks) {
 			continue
 		}
 		pvcName := storagetypes.PVCNameFromVirtVolume(&vol)

@@ -21,6 +21,7 @@ package cbt
 
 import (
 	"path/filepath"
+	"slices"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -326,9 +327,19 @@ func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineI
 	}
 }
 
-func IsCBTEligibleVolume(volume *v1.Volume) bool {
-	return volume.VolumeSource.PersistentVolumeClaim != nil ||
-		volume.VolumeSource.DataVolume != nil
+// Only a writable, non-shareable disk can take the qcow2 overlay holding CBT's bitmaps, so
+// read-only disks, CD-ROMs, LUNs and PVCs backing no disk at all (virtiofs) are excluded.
+// Disks must be defaulted, as a VMI's are, or they have no target yet.
+func IsCBTEligibleVolume(volume *v1.Volume, disks []v1.Disk) bool {
+	if volume.VolumeSource.PersistentVolumeClaim == nil && volume.VolumeSource.DataVolume == nil {
+		return false
+	}
+	i := slices.IndexFunc(disks, func(disk v1.Disk) bool { return disk.Name == volume.Name })
+	if i == -1 {
+		return false
+	}
+	disk := &disks[i]
+	return disk.Disk != nil && !disk.Disk.ReadOnly && (disk.Shareable == nil || !*disk.Shareable)
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
