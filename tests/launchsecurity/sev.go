@@ -324,12 +324,19 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsXHuge())
 
+				By("Verifying that kernel hashes are not requested without a direct kernel boot")
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domainSpec.OS.Kernel).To(BeEmpty())
+				Expect(domainSpec.LaunchSecurity).ToNot(BeNil())
+				Expect(domainSpec.LaunchSecurity.KernelHashes).To(BeEmpty())
+
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Verifying that SEV is enabled in the guest")
 				const consoleTimeout = 60
-				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+				err = console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
