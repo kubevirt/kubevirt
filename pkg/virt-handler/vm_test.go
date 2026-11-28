@@ -3851,7 +3851,6 @@ var _ = Describe("isGuestAgentSupported", func() {
 	var vmiWithSSH *v1.VirtualMachineInstance
 	var basicCommands []v1.GuestAgentCommandInfo
 	var sshCommands []v1.GuestAgentCommandInfo
-	var oldSshCommands []v1.GuestAgentCommandInfo
 	var passwordCommands []v1.GuestAgentCommandInfo
 	const agentSupported = "This guest agent is supported"
 
@@ -3883,7 +3882,6 @@ var _ = Describe("isGuestAgentSupported", func() {
 				},
 			},
 		}
-
 		basicCommands = []v1.GuestAgentCommandInfo{}
 		for _, cmdName := range requiredGuestAgentCommands {
 			basicCommands = append(basicCommands, v1.GuestAgentCommandInfo{
@@ -3895,14 +3893,6 @@ var _ = Describe("isGuestAgentSupported", func() {
 		sshCommands = []v1.GuestAgentCommandInfo{}
 		for _, cmdName := range sshRelatedGuestAgentCommands {
 			sshCommands = append(sshCommands, v1.GuestAgentCommandInfo{
-				Name:    cmdName,
-				Enabled: true,
-			})
-		}
-
-		oldSshCommands = []v1.GuestAgentCommandInfo{}
-		for _, cmdName := range oldSSHRelatedGuestAgentCommands {
-			oldSshCommands = append(oldSshCommands, v1.GuestAgentCommandInfo{
 				Name:    cmdName,
 				Enabled: true,
 			})
@@ -3960,16 +3950,6 @@ var _ = Describe("isGuestAgentSupported", func() {
 		var commands []v1.GuestAgentCommandInfo
 		commands = append(commands, basicCommands...)
 		commands = append(commands, sshCommands...)
-
-		result, reason := isGuestAgentSupported(vmiWithSSH, commands)
-		Expect(result).To(BeTrue())
-		Expect(reason).To(Equal(agentSupported))
-	})
-
-	It("should succeed with SSH and old required commands", func() {
-		var commands []v1.GuestAgentCommandInfo
-		commands = append(commands, basicCommands...)
-		commands = append(commands, oldSshCommands...)
 
 		result, reason := isGuestAgentSupported(vmiWithSSH, commands)
 		Expect(result).To(BeTrue())

@@ -40,15 +40,6 @@ var sshRelatedGuestAgentCommands = []string{
 	"guest-ssh-remove-authorized-keys",
 }
 
-var oldSSHRelatedGuestAgentCommands = []string{
-	"guest-exec-status",
-	"guest-exec",
-	"guest-file-open",
-	"guest-file-close",
-	"guest-file-read",
-	"guest-file-write",
-}
-
 var passwordRelatedGuestAgentCommands = []string{
 	"guest-set-user-password",
 }
@@ -88,7 +79,7 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 		}
 	}
 
-	if checkSSH && !sshRelatedCommandsSupported(availableCmdsMap) {
+	if checkSSH && !guestAgentCommandSubsetSupported(sshRelatedGuestAgentCommands, availableCmdsMap) {
 		return false, "This guest agent doesn't support required public key commands"
 	}
 
@@ -97,9 +88,4 @@ func isGuestAgentSupported(vmi *v1.VirtualMachineInstance, commands []v1.GuestAg
 	}
 
 	return true, "This guest agent is supported"
-}
-
-func sshRelatedCommandsSupported(availableCmdsMap map[string]bool) bool {
-	return guestAgentCommandSubsetSupported(sshRelatedGuestAgentCommands, availableCmdsMap) ||
-		guestAgentCommandSubsetSupported(oldSSHRelatedGuestAgentCommands, availableCmdsMap)
 }

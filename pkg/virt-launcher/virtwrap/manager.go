@@ -327,7 +327,6 @@ func NewLibvirtDomainManager(
 	firmwareAutoSelectionEnabled bool,
 	arm64SecureBootEnabled bool,
 	allowCrossArchEmulation bool,
-	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
 	return newLibvirtDomainManager(connection,
 		virtShareDir,
@@ -347,8 +346,7 @@ func NewLibvirtDomainManager(
 		vmStatsCollectorEnabled,
 		firmwareAutoSelectionEnabled,
 		arm64SecureBootEnabled,
-		allowCrossArchEmulation,
-		eventSender)
+		allowCrossArchEmulation)
 }
 
 func newLibvirtDomainManager(
@@ -370,7 +368,6 @@ func newLibvirtDomainManager(
 	firmwareAutoSelectionEnabled bool,
 	arm64SecureBootEnabled bool,
 	allowCrossArchEmulation bool,
-	eventSender accesscredentials.EventSender,
 ) (DomainManager, error) {
 	// Check hypervisor device availability
 	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(hypervisorName).GetHypervisorDevice()
@@ -415,7 +412,7 @@ func newLibvirtDomainManager(
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.storageManager = storage.NewStorageManager(connection, metadataCache)
-	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache, eventSender)
+	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
 		list, err := manager.getDomainStats()

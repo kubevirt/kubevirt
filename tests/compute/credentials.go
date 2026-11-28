@@ -177,7 +177,7 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 					},
 				}),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(
-					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-ssh-add-authorized-keys"),
+					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-ssh-add-authorized-keys"),
 				))),
 			Entry("[test_id:6223] for user password", decorators.WgS390x, userPassSecretID, userPassData,
 				libvmi.WithAccessCredentialUserPassword(userPassSecretID),

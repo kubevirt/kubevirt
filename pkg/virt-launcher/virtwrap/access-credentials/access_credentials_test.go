@@ -18,13 +18,11 @@
  */
 
 // Ignoring long lines warning, because there are a lot of long strings that cannot be easily split to multiple lines.
-// This functionality is deprecated, and they will be removed in the future.
 
 //nolint:lll
 package accesscredentials
 
 import (
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -32,14 +30,12 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	k8sv1 "k8s.io/api/core/v1"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -67,7 +63,7 @@ var _ = Describe("AccessCredentials", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLibvirt = testing.NewLibvirt(ctrl)
 
-		manager = NewManager(mockLibvirt.VirtConnection, &lock, metadata.NewCache(), nil)
+		manager = NewManager(mockLibvirt.VirtConnection, &lock, metadata.NewCache())
 		manager.resyncCheckIntervalSeconds = 1
 		tmpDir, err = os.MkdirTemp("", "credential-test")
 		Expect(err).ToNot(HaveOccurred())
@@ -89,20 +85,6 @@ var _ = Describe("AccessCredentials", func() {
 
 		return &domain.Spec
 	}
-
-	It("should handle qemu agent exec", func() {
-		const domName = "some-domain"
-		const command = "some-command"
-		args := []string{"arg1", "arg2"}
-
-		const expectedCmd = `{"execute": "guest-exec", "arguments": { "path": "some-command", "arg": [ "arg1", "arg2" ], "capture-output":true } }`
-		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
-
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
-
-		Expect(manager.agentGuestExec(domName, command, args)).To(Equal("ssh somekey123 test-key\n"))
-	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {
 		const domName = "some-domain"
@@ -126,111 +108,21 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
 		mockLibvirt.DomainEXPECT().Free().Times(1)
 
-		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
-		Expect(deprecated).To(BeFalse())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
 
-	It("should dynamically update ssh key with old qemu agent", func() {
-		const domName = "some-domain"
-		const user = "someowner"
-		const filePath = "/home/someowner/.ssh"
+	It("should fail to update ssh key on error", func() {
+		domName := "some-domain"
+		user := "someowner"
 
 		authorizedKeys := []string{"ssh some injected key"}
 
 		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
-		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
 		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
 		mockLibvirt.DomainEXPECT().Free().Times(1)
 
-		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
-		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
-		const expectedOpenCmdRes = `{"return":1000}`
-
-		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
-		const expectedReadCmd = `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
-		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": %q}}`, existingKey)
-
-		mergedKeys := base64.StdEncoding.EncodeToString([]byte(strings.Join(authorizedKeys, "\n")))
-		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": %q } }`, mergedKeys)
-
-		const expectedCloseCmd = `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
-
-		const expectedExecReturn = `{"return":{"pid":789}}`
-		const expectedStatusCmd = `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
-
-		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
-		const expectedHomeDirCmd = `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
-		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":%q,"exited":true}}`, getentBase64Str)
-
-		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", %q ], "capture-output":true } }`, filePath)
-		const expectedMkdirRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", %q ], "capture-output":true } }`, filePath)
-		const expectedParentChownRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", %q ], "capture-output":true } }`, filePath)
-		const expectedParentChmodRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		const expectedFileChownRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		const expectedFileChmodRes = `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		// Detect user home dir
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil).Times(1)
-
-		// Expected Read File
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedReadCmd, domName).Return(expectedReadCmdRes, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
-
-		// Expected prepare directory
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil).Times(1)
-
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedParentChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChownRes, nil).Times(1)
-
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil).Times(1)
-
-		// Expected Write file
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedWriteOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedWriteCmd, domName).Return("", nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
-
-		// Expected set file permissions
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil).Times(1)
-
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
-
-		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
-		Expect(deprecated).To(BeTrue())
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should fail to update ssh key if both methods return error", func() {
-		const domName = "some-domain"
-		const user = "someowner"
-
-		authorizedKeys := []string{"ssh some injected key"}
-
-		mockLibvirt.ConnectionEXPECT().LookupDomainByName(domName).Return(mockLibvirt.VirtDomain, nil).Times(1)
-		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
-		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
-		mockLibvirt.DomainEXPECT().Free().Times(1)
-
-		// Detect user home dir
-		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
-
-		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
-		Expect(deprecated).To(BeFalse())
-		Expect(err).To(MatchError(ContainSubstring("failed to set SSH keys")))
+		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).
+			To(MatchError(ContainSubstring("failed to set SSH authorized keys")))
 	})
 
 	It("should support multiple ssh keys in one secret value", func() {
@@ -377,28 +269,4 @@ var _ = Describe("AccessCredentials", func() {
 
 		manager.watchSecrets(vmi)
 	})
-
-	It("should send event if deprecated flow was used", func() {
-		fakeVmi := &v1.VirtualMachineInstance{}
-
-		var eventSent atomic.Bool
-		manager.eventSender = &fakeEventSender{SendK8sEventFunc: func(vmi *v1.VirtualMachineInstance, severity, reason, message string) error {
-			Expect(vmi).To(BeIdenticalTo(fakeVmi))
-			Expect(severity).To(Equal(k8sv1.EventTypeWarning))
-			Expect(reason).To(Equal(v1.AccessCredentialsSyncSuccess.String()))
-			eventSent.Store(true)
-			return nil
-		}}
-
-		manager.reportAccessCredentialResult(fakeVmi, true, "", true)
-		Expect(eventSent.Load()).Should(BeTrue())
-	})
 })
-
-type fakeEventSender struct {
-	SendK8sEventFunc func(vmi *v1.VirtualMachineInstance, severity, reason, message string) error
-}
-
-func (f *fakeEventSender) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity, reason, message string) error {
-	return f.SendK8sEventFunc(vmi, severity, reason, message)
-}
