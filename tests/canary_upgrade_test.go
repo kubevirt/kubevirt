@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
-var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators.SigOperator, func() {
+var _ = Describe("[sig-control-plane]virt-handler canary upgrade", Serial, decorators.SigControlPlane, func() {
 
 	var originalKV *v1.KubeVirt
 	var virtCli kubecli.KubevirtClient
