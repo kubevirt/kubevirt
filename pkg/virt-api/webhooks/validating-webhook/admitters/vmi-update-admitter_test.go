@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 
+	fgstorage "kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -42,7 +44,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -81,7 +83,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	DescribeTable("ContainerPath feature gate on VMI update", func(previouslyUsed, allowed bool) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.ContainerPathVolumesGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{fgstorage.ContainerPathVolumesGate}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 		oldVMI := newBaseVmi()
 		volume := v1.Volume{Name: "containerpath", VolumeSource: v1.VolumeSource{
@@ -117,9 +119,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable("should protect actual disks during an external snapshot", func(state string, detach, changeStorage, allowed bool) {
 		for _, externalEnabled := range []bool{false, true} {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.UtilityVolumesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fgstorage.UtilityVolumesGate}
 			if externalEnabled {
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, featuregate.ExternalVMSnapshotGate)
+				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates, fgstorage.ExternalVMSnapshotGate)
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := libvmi.New(libvmi.WithPersistentVolumeClaim("data", "data-pvc"))
@@ -209,7 +211,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		Context("with Node Restriction feature gate enabled", func() {
-			BeforeEach(func() { enableFeatureGate(featuregate.NodeRestrictionGate) })
+			BeforeEach(func() { enableFeatureGate(compute.NodeRestrictionGate) })
 
 			shouldNotAllowCrossNodeRequest := And(
 				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
@@ -312,7 +314,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{compute.NodeRestrictionGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "got"
@@ -433,7 +435,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{featuregate.NodeRestrictionGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.DisabledFeatureGates = []string{compute.NodeRestrictionGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			vmi := api.NewMinimalVMI("testvmi")
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels

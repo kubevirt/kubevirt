@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +45,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -554,7 +556,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		Context("with port ranges", Serial, func() {
 			BeforeEach(func() {
-				config.EnableFeatureGate(featuregate.PortRangesSpec)
+				config.EnableFeatureGate(fgnetwork.PortRangesSpec)
 			})
 
 			masqueradeVMIWithForward := func(portRanges []v1.PortRange) *v1.VirtualMachineInstance {

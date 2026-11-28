@@ -22,6 +22,8 @@ package render
 import (
 	"runtime"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -214,7 +216,7 @@ func (c *offlineConfig) GetDiskVerification() *v1.DiskVerification {
 }
 
 func (c *offlineConfig) GetHypervisor() *v1.HypervisorConfiguration {
-	return virtconfig.GetHypervisorFromKvConfig(c.config, c.IsFeatureGateEnabled(featuregate.ConfigurableHypervisor))
+	return virtconfig.GetHypervisorFromKvConfig(c.config, c.IsFeatureGateEnabled(fglegacy.ConfigurableHypervisor))
 }
 
 func (c *offlineConfig) GetVirtLauncherVerbosity() uint {

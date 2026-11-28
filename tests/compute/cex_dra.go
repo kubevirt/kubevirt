@@ -25,6 +25,8 @@ import (
 	"slices"
 	"time"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -34,7 +36,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -104,7 +105,7 @@ var _ = Describe("[sig-compute]DRA CEX", Serial, decorators.SigCompute, decorato
 })
 
 func cexDRAKubeVirtAlreadyConfigured() bool {
-	if !checks.HasFeature(featuregate.HostDevicesGate) {
+	if !checks.HasFeature(fglegacy.HostDevicesGate) {
 		return false
 	}
 	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
@@ -133,11 +134,11 @@ func configureCexDRAKubeVirt() {
 	}
 	config.DeveloperConfiguration.DisabledFeatureGates = slices.DeleteFunc(
 		config.DeveloperConfiguration.DisabledFeatureGates,
-		func(fg string) bool { return fg == featuregate.HostDevicesGate },
+		func(fg string) bool { return fg == fglegacy.HostDevicesGate },
 	)
-	if !slices.Contains(config.DeveloperConfiguration.FeatureGates, featuregate.HostDevicesGate) {
+	if !slices.Contains(config.DeveloperConfiguration.FeatureGates, fglegacy.HostDevicesGate) {
 		config.DeveloperConfiguration.FeatureGates = append(
-			config.DeveloperConfiguration.FeatureGates, featuregate.HostDevicesGate,
+			config.DeveloperConfiguration.FeatureGates, fglegacy.HostDevicesGate,
 		)
 	}
 	// Empty types: virt-handler must not instantiate AP mdevs. The CEX DRA

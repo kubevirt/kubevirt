@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -70,7 +72,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -384,7 +386,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		enableCPUDRAGate := func() {
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
-			kvCR.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.CPUsWithDRAGate}
+			kvCR.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{fgcompute.CPUsWithDRAGate}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 		}
 

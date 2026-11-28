@@ -29,6 +29,8 @@ import (
 	"strings"
 	"time"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -60,7 +62,6 @@ import (
 	exportapi "kubevirt.io/kubevirt/pkg/storage/export/export"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1348,15 +1349,15 @@ var _ = Describe(SIG("Backup", func() {
 		var clusterIsRoot bool
 
 		BeforeEach(func() {
-			clusterIsRoot = checks.HasFeature(featuregate.Root)
+			clusterIsRoot = checks.HasFeature(fglegacy.Root)
 			if !clusterIsRoot {
-				kvconfig.EnableFeatureGate(featuregate.Root)
+				kvconfig.EnableFeatureGate(fglegacy.Root)
 			}
 		})
 
 		AfterEach(func() {
 			if !clusterIsRoot {
-				kvconfig.DisableFeatureGate(featuregate.Root)
+				kvconfig.DisableFeatureGate(fglegacy.Root)
 			}
 		})
 

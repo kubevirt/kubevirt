@@ -26,6 +26,9 @@ import (
 	"slices"
 	"strconv"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
@@ -545,14 +548,14 @@ func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.S
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.Template) {
+	if hasFeatureGateEnabled(config, fgcompute.Template) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.virtTemplateDeployment.enabled",
-		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", featuregate.Template),
+		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", fgcompute.Template),
 	}}
 }
 
@@ -561,14 +564,14 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.OptOutRoleAggregation) {
+	if hasFeatureGateEnabled(config, fglegacy.OptOutRoleAggregation) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.roleAggregationStrategy",
-		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
+		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", fglegacy.OptOutRoleAggregation),
 	}}
 }
 
@@ -586,12 +589,12 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 			oldMaxDowntimeMs = oldConfig.MigrationConfiguration.MaxDowntimeMs
 		}
 		if !equality.Semantic.DeepEqual(oldMaxDowntimeMs, newMigrationConfig.MaxDowntimeMs) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationStallDetection) &&
-			!hasFeatureGateEnabled(newConfig, featuregate.MigrationDowntimeTuning) {
+			!hasFeatureGateEnabled(newConfig, fgcompute.MigrationStallDetection) &&
+			!hasFeatureGateEnabled(newConfig, fgcompute.MigrationDowntimeTuning) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "spec.configuration.migrationConfiguration.maxDowntimeMs",
-				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", featuregate.MigrationStallDetection, featuregate.MigrationDowntimeTuning),
+				Message: fmt.Sprintf("maxDowntimeMs cannot be modified without enabling the %s or %s feature gate", fgcompute.MigrationStallDetection, fgcompute.MigrationDowntimeTuning),
 			})
 		}
 	}
@@ -617,14 +620,14 @@ func validateCrossClusterMigrationNetwork(config *v1.KubeVirtConfiguration) []me
 		}}
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+	if hasFeatureGateEnabled(config, fgcompute.CrossClusterMigrationProxy) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.migrations.crossClusterNetwork",
-		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", featuregate.CrossClusterMigrationProxy),
+		Message: fmt.Sprintf("CrossClusterNetwork cannot be set without enabling the %s feature gate", fgcompute.CrossClusterMigrationProxy),
 	}}
 }
 
@@ -650,14 +653,14 @@ func validateDecentralizedLiveMigrationDatapath(config *v1.KubeVirtConfiguration
 		return nil
 	}
 
-	if hasFeatureGateEnabled(config, featuregate.CrossClusterMigrationProxy) {
+	if hasFeatureGateEnabled(config, fgcompute.CrossClusterMigrationProxy) {
 		return nil
 	}
 
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.migrations.decentralizedLiveMigrationDatapath",
-		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", featuregate.CrossClusterMigrationProxy),
+		Message: fmt.Sprintf("decentralizedLiveMigrationDatapath=Proxy requires the %s feature gate", fgcompute.CrossClusterMigrationProxy),
 	}}
 }
 
@@ -668,11 +671,11 @@ func validateEmulationPolicy(config *v1.KubeVirtConfiguration) []metav1.StatusCa
 		return causes
 	}
 
-	if !hasFeatureGateEnabled(config, featuregate.CrossArchitectureVirtualization) {
+	if !hasFeatureGateEnabled(config, fgcompute.CrossArchitectureVirtualization) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Field:   "spec.configuration.emulationPolicy",
-			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", featuregate.CrossArchitectureVirtualization),
+			Message: fmt.Sprintf("EmulationPolicy is specified but the %s feature gate is not enabled", fgcompute.CrossArchitectureVirtualization),
 		})
 		return causes
 	}

@@ -17,6 +17,23 @@
  *
  */
 
-package featuregate
+package legacy
 
-const VirtioFsFeatureGateDiscontinueMessage = "Virtiofs ExperimentalVirtiofsSupport feature gate is discontinued since v1.7. Please use EnableVirtioFsConfigVolumes or EnableVirtioFsPVC feature gates instead"
+import (
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
+
+// Owner: @csomani1
+// Alpha: v1.8.0
+//
+// The MDevVGPULiveMigration fg enables the vGPU hook to run for vGPU live migrations, allowing the
+// target XML's mdev UUID to be mutated.
+const MDevVGPULiveMigration = "MDevVGPULiveMigration"
+
+func init() {
+	featuregate.RegisterFeatureGate(featuregate.FeatureGate{Name: MDevVGPULiveMigration, State: featuregate.Alpha})
+}
+
+func (g LegacyFeatureGates) MDevVGPULiveMigrationEnabled() bool {
+	return featuregate.GateEnabled(MDevVGPULiveMigration, g.ConfigReader)
+}

@@ -25,6 +25,8 @@ import (
 	"encoding/json"
 	"time"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	routev1 "github.com/openshift/api/route/v1"
 	jsonpatch "gopkg.in/evanphx/json-patch.v4"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -41,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	fakestrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -932,7 +934,7 @@ var _ = Describe("Apply", func() {
 					Configuration: v1.KubeVirtConfiguration{
 						DeveloperConfiguration: &v1.DeveloperConfiguration{
 							FeatureGates: []string{
-								featuregate.DecentralizedLiveMigration,
+								fgcompute.DecentralizedLiveMigration,
 							},
 						},
 					},
@@ -1101,8 +1103,8 @@ var _ = Describe("Apply", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-				featuregate.DecentralizedLiveMigration,
-				featuregate.CrossClusterMigrationProxy,
+				fgcompute.DecentralizedLiveMigration,
+				fgcompute.CrossClusterMigrationProxy,
 			}
 			// datapath unset → Direct; crosscluster0 on pod must not be advertised
 			pod := &corev1.Pod{
@@ -1135,8 +1137,8 @@ var _ = Describe("Apply", func() {
 
 			datapath := v1.DecentralizedLiveMigrationDatapathProxy
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-				featuregate.DecentralizedLiveMigration,
-				featuregate.CrossClusterMigrationProxy,
+				fgcompute.DecentralizedLiveMigration,
+				fgcompute.CrossClusterMigrationProxy,
 			}
 			kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 				DecentralizedLiveMigrationDatapath: &datapath,
@@ -1166,8 +1168,8 @@ var _ = Describe("Apply", func() {
 
 			datapath := v1.DecentralizedLiveMigrationDatapathProxy
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-				featuregate.DecentralizedLiveMigration,
-				featuregate.CrossClusterMigrationProxy,
+				fgcompute.DecentralizedLiveMigration,
+				fgcompute.CrossClusterMigrationProxy,
 			}
 			kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 				DecentralizedLiveMigrationDatapath: &datapath,
@@ -1203,8 +1205,8 @@ var _ = Describe("Apply", func() {
 
 			datapath := v1.DecentralizedLiveMigrationDatapathProxy
 			kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-				featuregate.DecentralizedLiveMigration,
-				featuregate.CrossClusterMigrationProxy,
+				fgcompute.DecentralizedLiveMigration,
+				fgcompute.CrossClusterMigrationProxy,
 			}
 			kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 				DecentralizedLiveMigrationDatapath: &datapath,
@@ -1235,8 +1237,8 @@ var _ = Describe("Apply", func() {
 			enableProxyWithoutCrossCluster := func() {
 				datapath := v1.DecentralizedLiveMigrationDatapathProxy
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-					featuregate.DecentralizedLiveMigration,
-					featuregate.CrossClusterMigrationProxy,
+					fgcompute.DecentralizedLiveMigration,
+					fgcompute.CrossClusterMigrationProxy,
 				}
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					DecentralizedLiveMigrationDatapath: &datapath,
@@ -1564,8 +1566,8 @@ var _ = Describe("Apply", func() {
 			It("should ignore labeled endpoints when crossClusterNetwork is set", func() {
 				datapath := v1.DecentralizedLiveMigrationDatapathProxy
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-					featuregate.DecentralizedLiveMigration,
-					featuregate.CrossClusterMigrationProxy,
+					fgcompute.DecentralizedLiveMigration,
+					fgcompute.CrossClusterMigrationProxy,
 				}
 				kv.Spec.Configuration.MigrationConfiguration = &v1.MigrationConfiguration{
 					DecentralizedLiveMigrationDatapath: &datapath,
@@ -1598,7 +1600,7 @@ var _ = Describe("Apply", func() {
 
 			It("should ignore labeled endpoints when proxy is disabled", func() {
 				kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{
-					featuregate.DecentralizedLiveMigration,
+					fgcompute.DecentralizedLiveMigration,
 				}
 				createLeaseAndPod()
 				Expect(stores.SynchronizationRouteCache.Add(&routev1.Route{

@@ -78,7 +78,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -1249,7 +1249,7 @@ var _ = Describe("Export controller", func() {
 			Expect(pod.Spec.Containers[0].Env).ToNot(ContainElement(matcher))
 		}
 	},
-		Entry("should set when TLSGroupPreferences gate is enabled", []string{featuregate.TLSGroupPreferences}, true),
+		Entry("should set when TLSGroupPreferences gate is enabled", []string{compute.TLSGroupPreferences}, true),
 		Entry("should not set when TLSGroupPreferences gate is disabled", nil, false),
 	)
 
@@ -2791,7 +2791,7 @@ func enableOCIExportFeatureGate(kvStore cache.Store) {
 		Spec: virtv1.KubeVirtSpec{
 			Configuration: virtv1.KubeVirtConfiguration{
 				DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.OCIExport},
+					FeatureGates: []string{compute.OCIExport},
 				},
 			},
 		},

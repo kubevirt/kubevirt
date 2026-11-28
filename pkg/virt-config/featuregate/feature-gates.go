@@ -50,6 +50,11 @@ const (
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
 )
 
+// ConfigReader provides read access to cluster-level feature gate configuration.
+type ConfigReader interface {
+	GetDeveloperConfiguration() *v1.DeveloperConfiguration
+}
+
 type FeatureGate struct {
 	Name        string
 	State       State
@@ -109,4 +114,8 @@ func IsEnabled(gate string, devConfig *v1.DeveloperConfiguration) bool {
 	}
 
 	return fg.State == Beta
+}
+
+func GateEnabled(gate string, reader ConfigReader) bool {
+	return IsEnabled(gate, reader.GetDeveloperConfiguration())
 }

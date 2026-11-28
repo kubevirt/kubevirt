@@ -20,7 +20,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/storage"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -769,7 +770,7 @@ var _ = Describe("test configuration", func() {
 			&v1.DeveloperConfiguration{}, false),
 		Entry("is set it should result in CPU DRA being enabled",
 			&v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.CPUsWithDRAGate},
+				FeatureGates: []string{compute.CPUsWithDRAGate},
 			}, true),
 	)
 
@@ -801,21 +802,21 @@ var _ = Describe("test configuration", func() {
 		Entry("is enabled by feature gate should result in persistent reservation being enabled",
 			&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.PersistentReservation},
+					FeatureGates: []string{storage.PersistentReservation},
 				},
 				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{},
 			}, true),
 		Entry("is enabled by feature gate with unset persistent reservation configuration should result in persistent reservation being enabled",
 			&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.PersistentReservation},
+					FeatureGates: []string{storage.PersistentReservation},
 				},
 				PersistentReservationConfiguration: nil,
 			}, true),
 		Entry("is enabled by feature gate with disabled persistent reservation configuration should result in persistent reservation being disabled",
 			&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.PersistentReservation},
+					FeatureGates: []string{storage.PersistentReservation},
 				},
 				PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
 					Enabled: pointer.P(false),
@@ -869,7 +870,7 @@ var _ = Describe("test configuration", func() {
 		Entry("should return true when MediatedDevicesConfiguration is nil and FG is present",
 			&v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+					FeatureGates: []string{compute.DisableMediatedDevicesHandling},
 				},
 			},
 			true,
@@ -878,7 +879,7 @@ var _ = Describe("test configuration", func() {
 			&v1.KubeVirtConfiguration{
 				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+					FeatureGates: []string{compute.DisableMediatedDevicesHandling},
 				},
 			},
 			true,
@@ -897,7 +898,7 @@ var _ = Describe("test configuration", func() {
 					Enabled: pointer.P(true),
 				},
 				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+					FeatureGates: []string{compute.DisableMediatedDevicesHandling},
 				},
 			},
 			false,

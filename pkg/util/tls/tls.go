@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -294,7 +296,7 @@ func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deploymen
 		)
 	}
 	curveIDs := CurvePreferenceIds(tlsConfig.Groups)
-	if kv != nil && featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) && len(curveIDs) > 0 {
+	if kv != nil && featuregate.IsEnabled(fgcompute.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) && len(curveIDs) > 0 {
 		idStrs := make([]string, 0, len(curveIDs))
 		for _, id := range curveIDs {
 			idStrs = append(idStrs, strconv.FormatUint(uint64(id), 10))
@@ -325,7 +327,7 @@ func curvePreferencesIfEnabled(kv *v1.KubeVirt, groups []string) []tls.CurveID {
 	if kv == nil {
 		return nil
 	}
-	if !featuregate.IsEnabled(featuregate.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) {
+	if !featuregate.IsEnabled(fgcompute.TLSGroupPreferences, kv.Spec.Configuration.DeveloperConfiguration) {
 		return nil
 	}
 	return CurvePreferenceIds(groups)

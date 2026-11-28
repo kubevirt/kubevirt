@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -47,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/diskimg"
 	hostdisk "kubevirt.io/kubevirt/pkg/storage/host-disk"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -510,7 +511,7 @@ var _ = Describe(SIG("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {
-				if !checks.HasFeature(featuregate.HostDiskGate) {
+				if !checks.HasFeature(fglegacy.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests") //nolint:forbidigo
 				}
 			})

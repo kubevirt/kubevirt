@@ -31,6 +31,10 @@ import (
 	"strconv"
 	"strings"
 
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
+	fglegacy "kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
+	fgnetwork "kubevirt.io/kubevirt/pkg/virt-config/featuregate/network"
+
 	"github.com/openshift/library-go/pkg/build/naming"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,7 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -371,7 +375,7 @@ func (t *TemplateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		return nil, ErrCPUsFromDRANotMigratable
 	}
 
-	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume))
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod, t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume))
 	if err != nil {
 		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
 	}
@@ -443,7 +447,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// from kubelet's CPU manager. Everything below reads this one value: kubelet rejects a
 	// container that claims a name pod.spec.resourceClaims does not declare, and a pod on the DRA
 	// path must not also be pinned to a cpumanager node.
-	cpusFromDRA := role != launcherPodMigrationTarget && drautil.CPUsFromDRA(vmi, t.clusterConfig.IsFeatureGateEnabled(featuregate.CPUsWithDRAGate))
+	cpusFromDRA := role != launcherPodMigrationTarget && drautil.CPUsFromDRA(vmi, t.clusterConfig.IsFeatureGateEnabled(fgcompute.CPUsWithDRAGate))
 
 	var userId int64 = util.RootUser
 
@@ -515,19 +519,19 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if nonRoot {
 			args = append(args, "--run-as-nonroot")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
+		if t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume) {
 			args = append(args, "--image-volume")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.MDevVGPULiveMigration) {
+		if t.clusterConfig.IsFeatureGateEnabled(fglegacy.MDevVGPULiveMigration) {
 			args = append(args, "--vgpu-dedicated-hook")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.VMStatsCollector) {
+		if t.clusterConfig.IsFeatureGateEnabled(fgcompute.VMStatsCollector) {
 			args = append(args, "--vm-stats-collector")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.FirmwareAutoSelection) {
+		if t.clusterConfig.IsFeatureGateEnabled(fgcompute.FirmwareAutoSelection) {
 			args = append(args, "--firmware-auto-selection")
 		}
-		if t.clusterConfig.IsFeatureGateEnabled(featuregate.ARM64SecureBoot) {
+		if t.clusterConfig.IsFeatureGateEnabled(fgcompute.ARM64SecureBoot) {
 			args = append(args, "--arm64-secure-boot")
 		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
@@ -597,7 +601,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
-	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) {
+	if !t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume) {
 		containersDisks := containerdisk.GenerateContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
 		containers = append(containers, containersDisks...)
 
@@ -666,7 +670,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport) {
+	if t.clusterConfig.IsFeatureGateEnabled(fgcompute.VmiMemoryOverheadReport) {
 		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
 	}
 
@@ -688,7 +692,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		cpBinaryOpts = append(cpBinaryOpts, WithNonRoot(userId))
 	}
 
-	if !t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && (HaveContainerDiskVolume(vmi.Spec.Volumes) || vmitrait.HasKernelBootContainerImage(vmi)) {
+	if !t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume) && (HaveContainerDiskVolume(vmi.Spec.Volumes) || vmitrait.HasKernelBootContainerImage(vmi)) {
 		initContainers = append(
 			initContainers,
 			NewContainerSpecRenderer("container-disk-binary", t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpBinaryOpts...).Render())
@@ -700,7 +704,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if kernelBootInitContainer != nil {
 			initContainers = append(initContainers, *kernelBootInitContainer)
 		}
-	} else if t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume) && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
+	} else if t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume) && vmi.Annotations[v1.ImageVolumeSkipDigestResolutionAnnotation] != "true" &&
 		shouldAddLauncherBinaryVolume(vmi, imageIDs) {
 		// Copy the container-disk binary to the shared EmptyDir.
 		// Uses a distinct name from "container-disk-binary" to avoid triggering the
@@ -794,7 +798,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		},
 	}
 
-	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.IsFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround))
+	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.IsFeatureGateEnabled(fglegacy.DockerSELinuxMCSWorkaround))
 
 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
 	runtimeClassName := t.clusterConfig.GetDefaultRuntimeClass()
@@ -850,7 +854,7 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	if vmi.IsCPUDedicated() && !cpusFromDRA {
 		opts = append(opts, WithDedicatedCPU())
 	}
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.HypervStrictCheckGate) {
+	if t.clusterConfig.IsFeatureGateEnabled(fglegacy.HypervStrictCheckGate) {
 		opts = append(opts, WithHyperv(vmi.Spec.Domain.Features))
 	}
 
@@ -1005,7 +1009,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
-	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(featuregate.ImageVolume)
+	imageVolumeFeatureGateEnabled := t.clusterConfig.IsFeatureGateEnabled(fglegacy.ImageVolume)
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
@@ -1018,7 +1022,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
 	}
-	if t.clusterConfig.IsFeatureGateEnabled(featuregate.PluginsGate) {
+	if t.clusterConfig.IsFeatureGateEnabled(fglegacy.PluginsGate) {
 		volumeOpts = append(volumeOpts, withPluginSocketVolume())
 	}
 
@@ -1688,21 +1692,21 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(isGPUVMIDevicePlugins, WithGPUsDevicePlugins(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IsFeatureGateEnabled(featuregate.GPUsWithDRAGate) && isGPUVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(fglegacy.GPUsWithDRAGate) && isGPUVMIDRA(vmi)
 			}, WithGPUsDRA(vmi.Spec.Domain.Devices.GPUs)),
 			NewVMIResourceRule(isHostDevVMIDevicePlugins, WithHostDevicesDevicePlugins(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IsFeatureGateEnabled(featuregate.HostDevicesWithDRAGate) && isHostDevVMIDRA(vmi)
+				return t.clusterConfig.IsFeatureGateEnabled(fglegacy.HostDevicesWithDRAGate) && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IsFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate) && vmispec.HasDRANetwork(vmi.Spec.Networks)
+				return t.clusterConfig.IsFeatureGateEnabled(fgnetwork.NetworkDevicesWithDRAGate) && vmispec.HasDRANetwork(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool { return cpusFromDRA }, WithCPUsDRA()),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.IsFeatureGateEnabled(featuregate.IOMMUFDGate)
+				return t.clusterConfig.IsFeatureGateEnabled(fgcompute.IOMMUFDGate)
 			}, WithIOMMUFD()),
 		},
 	}
@@ -1844,9 +1848,9 @@ func emptyMemoryRequest(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func (t *TemplateService) allowCrossArchEmulation(vmi *v1.VirtualMachineInstance) bool {
-	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) != v1.EmulationPolicyNone
+	return t.clusterConfig.IsFeatureGateEnabled(fgcompute.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) != v1.EmulationPolicyNone
 }
 
 func (t *TemplateService) useSoftwareEmulation(vmi *v1.VirtualMachineInstance) bool {
-	return t.clusterConfig.IsFeatureGateEnabled(featuregate.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) == v1.EmulationPolicySoftware
+	return t.clusterConfig.IsFeatureGateEnabled(fgcompute.CrossArchitectureVirtualization) && t.clusterConfig.GetEmulationPolicy(vmi) == v1.EmulationPolicySoftware
 }

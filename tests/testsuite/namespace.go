@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/legacy"
 
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -420,7 +420,7 @@ func GetTestNamespace(object metav1.Object) string {
 		return object.GetNamespace()
 	}
 
-	if checks.HasFeature(featuregate.Root) {
+	if checks.HasFeature(legacy.Root) {
 		return NamespacePrivileged
 	}
 

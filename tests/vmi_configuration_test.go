@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -284,7 +284,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		DescribeTable("[rfe_id:2262][crit:medium][vendor:cnv-qe@redhat.com][level:component]with EFI bootloader method", func(withSecureBoot bool, expectedSecureBootResult string, enableFirmwareAutoSelection bool) {
 			if enableFirmwareAutoSelection {
-				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+				kvconfig.EnableFeatureGate(compute.FirmwareAutoSelection)
 			}
 
 			fedoraWithUefi := libvmifact.NewFedora(
@@ -326,8 +326,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.ARM64SecureBoot)
-				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
+				kvconfig.EnableFeatureGate(compute.ARM64SecureBoot)
+				kvconfig.EnableFeatureGate(compute.FirmwareAutoSelection)
 
 				vmi = libvmi.New(
 					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),

@@ -3,7 +3,7 @@ package apply
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	fgcompute "kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 )
 
 func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) (bool, error) {
@@ -64,7 +64,7 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if r.isFeatureGateEnabled(fgcompute.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err

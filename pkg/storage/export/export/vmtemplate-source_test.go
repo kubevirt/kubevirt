@@ -56,7 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate/compute"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -116,7 +116,7 @@ var _ = Describe("VMTemplate source", func() {
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{
 			DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.Template},
+				FeatureGates: []string{compute.Template},
 			},
 		})
 		k8sClient = k8sfake.NewSimpleClientset()
