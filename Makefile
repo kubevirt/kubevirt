@@ -201,6 +201,16 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 
+cluster-resync:
+	PUSH_TARGETS="$(strip $(if $(images),$(images),$(PUSH_TARGETS) $(filter-out cluster-resync,$(MAKECMDGOALS))))" USE_HINTS="$(if $(use_hints),$(use_hints),true)" ./hack/cluster_resync.py
+
+# Let component names after cluster-resync act as its positional image list.
+.PHONY: $(filter-out cluster-resync,$(MAKECMDGOALS))
+$(filter-out cluster-resync,$(MAKECMDGOALS)):
+
+cluster-resync-test:
+	python3 -m unittest discover -s hack -p 'test_cluster_resync.py'
+
 builder-build:
 	./hack/builder/build.sh
 
@@ -310,6 +320,8 @@ rpm-mirror-checker:
 	cluster-clean \
 	cluster-deploy \
 	cluster-sync \
+	cluster-resync \
+	cluster-resync-test \
 	olm-verify \
 	olm-push \
 	coverage \

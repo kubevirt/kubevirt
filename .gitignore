@@ -31,6 +31,7 @@ cluster/local/certs
 *.crt
 *.csr
 _out
+.cluster-resync-state/
 exported-artifacts
 vendor/**/*_test.go
 **/polarion.xml
@@ -38,6 +39,7 @@ vendor/**/*_test.go
 coverage.html
 manifests/**/*.tmp
 /bazel-*
+__pycache__/
 /ci.bazelrc
 _ci-configs/
 .history
