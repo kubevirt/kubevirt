@@ -141,7 +141,7 @@ func (o *ssh) run(cmd *cobra.Command, args []string) error {
 	}
 
 	clientArgs := o.BuildSSHTarget(kind, namespace, name)
-	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs).Run()
+	return LocalClientCmd("ssh", kind, namespace, name, o.options, clientArgs, ProxyClientFlags(cmd)...).Run()
 }
 
 func (o *ssh) BuildSSHTarget(kind, namespace, name string) []string {
@@ -242,13 +242,15 @@ func ParseTarget(arg string) (kind, namespace, name, username string, err error)
 	return kind, namespace, name, username, err
 }
 
-func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string) *exec.Cmd {
+// LocalClientCmd builds the local ssh or scp command. proxyFlags are additional
+// flags (e.g. --kubeconfig) that are passed on to the port-forward ProxyCommand.
+func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, clientArgs []string, proxyFlags ...string) *exec.Cmd {
 	subcommand := "port-forward --stdio=true"
 	if options.UseVsock {
 		// SSH encrypts traffic end-to-end, so VSOCK TLS is not needed
 		subcommand += " --vsock --vsock-tls=false"
 	}
-	proxyCommandOption := BuildProxyCommandOption(subcommand, kind, namespace, name, options.SSHPort)
+	proxyCommandOption := BuildProxyCommandOption(subcommand, kind, namespace, name, options.SSHPort, proxyFlags...)
 	args := []string{"-o", proxyCommandOption}
 	if len(options.AdditionalSSHLocalOptions) > 0 {
 		args = append(args, options.AdditionalSSHLocalOptions...)
@@ -268,12 +270,44 @@ func LocalClientCmd(command, kind, namespace, name string, options *SSHOptions, 
 	return cmd
 }
 
-func BuildProxyCommandOption(subcommand, kind, namespace, name string, port int) string {
+// excludedProxyFlags are never forwarded to the ProxyCommand: the namespace is
+// already part of the target, the verbosity is a local concern and secrets
+// must not end up in the ssh arguments.
+var excludedProxyFlags = map[string]struct{}{
+	"namespace": {},
+	"v":         {},
+	"token":     {},
+	"password":  {},
+}
+
+// ProxyClientFlags returns the global client config flags (--kubeconfig,
+// --context, --server, ...) that were explicitly set on the command line, so
+// the port-forward ProxyCommand talks to the same cluster as the invoking
+// virtctl. Without them the child process falls back to $KUBECONFIG or
+// ~/.kube/config.
+func ProxyClientFlags(cmd *cobra.Command) []string {
+	var flags []string
+	// VisitAll and Changed are used since Visit only knows about flags set via the
+	// inherited flag set itself, not the ones set on the parent's flag set.
+	cmd.InheritedFlags().VisitAll(func(f *pflag.Flag) {
+		if _, excluded := excludedProxyFlags[f.Name]; excluded || !f.Changed {
+			return
+		}
+		flags = append(flags, "--"+f.Name+"="+f.Value.String())
+	})
+	return flags
+}
+
+func BuildProxyCommandOption(subcommand, kind, namespace, name string, port int, proxyFlags ...string) string {
 	proxyCommand := strings.Builder{}
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
 	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(subcommand)
+	for _, flag := range proxyFlags {
+		proxyCommand.WriteRune(' ')
+		proxyCommand.WriteString(shellQuote(flag))
+	}
 	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(kind)
 	proxyCommand.WriteRune('/')
@@ -283,4 +317,12 @@ func BuildProxyCommandOption(subcommand, kind, namespace, name string, port int)
 	proxyCommand.WriteRune(' ')
 	proxyCommand.WriteString(strconv.Itoa(port))
 	return proxyCommand.String()
+}
+
+// shellQuote quotes s for the shell ssh uses to run the ProxyCommand, if needed.
+func shellQuote(s string) string {
+	if !strings.ContainsAny(s, " \t\n'\"\\$`&|;<>()*?[]{}!#~") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
