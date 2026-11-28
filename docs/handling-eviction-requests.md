@@ -62,7 +62,7 @@ The webhook will approve additional eviction requests on a virt-launcher pod own
 | LiveMigrateIfPossible | True              | True                          | 200 - Eviction granted |
 | External              | True/False        | True                          | 200 - Eviction granted |
 
-In these cases, a PDB will protect the virt-launcher pod (see explanation bellow).
+In these cases, a PDB will protect the virt-launcher pod (see explanation below).
 
 > **Note**  
 > Since the webhook intercepts all eviction requests in the cluster, it is configured to be [ignored](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/#failure-policy) in case kube-api fails to get a response from it.

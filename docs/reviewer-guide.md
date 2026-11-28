@@ -108,7 +108,7 @@ for all features and bug fixes at the appropriate level: unit, integration, or
 end-to-end. End-to-end tests are required only when explicitly called for by
 the change's testing requirements.
 Maintainers are allowed to take in code with varying quality for as long as the
-project's maintainability is not at stake and all required criterias are met
+project's maintainability is not at stake and all required criteria are met
 (especially the testing and architectural criteria) to be open and inclusive.
 
 The lowest bar for acceptable **coding styles** is enforced via automation:

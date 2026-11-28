@@ -23,7 +23,7 @@ Deleting a workload requires an explicit request by the user.  Run the same comm
   -verbose int
         log level for V logs (default 2)
   -workload string
-        path to the file containing the worload configuration (default "tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml")
+        path to the file containing the workload configuration (default "tools/perfscale-load-generator/examples/workload/kubevirt-density/kubevirt-density.yaml")
 ```
 
 ## Workload
