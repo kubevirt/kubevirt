@@ -1982,16 +1982,8 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		c.logger.Object(vmi).Error(err.Error())
 	}
 
-	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		switch {
-		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
-			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		case goerror.Is(err, os.ErrNotExist):
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
-		default:
-			return err
-		}
+	if err := c.handleHotplugMountErrors(vmi, c.hotplugVolumeMounter.Mount(vmi, cgroupManager)); err != nil {
+		return err
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {
@@ -2042,16 +2034,8 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, err
 	}
 
-	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		switch {
-		case goerror.Is(err, hotplugvolume.ErrWaitingForHotplugMount):
-			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", err)
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		case goerror.Is(err, os.ErrNotExist):
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
-		default:
-			return false, err
-		}
+	if err := c.handleHotplugMountErrors(vmi, c.hotplugVolumeMounter.Mount(vmi, cgroupManager)); err != nil {
+		return false, err
 	}
 
 	// The scratch volume is hotplugged after the VMI is created. The domain must
@@ -2220,6 +2204,55 @@ func (c *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	}
 
 	return nil
+}
+
+// handleHotplugMountErrors handles the errors of mounting hotplug volumes, which may contain one error per volume.
+// Volumes still waiting for their attachment pod are retried shortly, volumes that cannot be mounted get a
+// HotplugFailed event and the error on their volume status, and any other error is returned.
+func (c *VirtualMachineController) handleHotplugMountErrors(vmi *v1.VirtualMachineInstance, err error) error {
+	if err == nil {
+		return nil
+	}
+	errs := []error{err}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		errs = joined.Unwrap()
+	}
+
+	var otherErrs []error
+	waiting := false
+	for _, e := range errs {
+		switch {
+		case goerror.Is(e, hotplugvolume.ErrWaitingForHotplugMount):
+			c.logger.Object(vmi).V(4).Infof("waiting for hotplug volumes to be mounted: %v", e)
+			waiting = true
+		case goerror.Is(e, os.ErrNotExist):
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", e.Error())
+			setHotplugMountFailedStatus(vmi, e)
+		default:
+			otherErrs = append(otherErrs, e)
+		}
+	}
+	if waiting {
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+	}
+	return goerror.Join(otherErrs...)
+}
+
+// setHotplugMountFailedStatus reports the mount error on the status of the volume that failed, since events can be
+// dropped. The reason is replaced by the usual one once the volume is mounted.
+func setHotplugMountFailedStatus(vmi *v1.VirtualMachineInstance, err error) {
+	var mountErr *hotplugvolume.VolumeMountError
+	if !goerror.As(err, &mountErr) {
+		return
+	}
+	for i := range vmi.Status.VolumeStatus {
+		volumeStatus := &vmi.Status.VolumeStatus[i]
+		if volumeStatus.Name == mountErr.Volume && volumeStatus.Phase == v1.HotplugVolumeAttachedToNode {
+			volumeStatus.Reason = HotplugMountFailedReason
+			volumeStatus.Message = err.Error()
+			return
+		}
+	}
 }
 
 func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {

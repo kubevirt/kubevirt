@@ -55,6 +55,20 @@ import (
 
 var ErrWaitingForHotplugMount = errors.New("waiting for hotplug mount")
 
+// VolumeMountError is returned for a hotplug volume that failed to mount, so callers know which volume failed.
+type VolumeMountError struct {
+	Volume string
+	Err    error
+}
+
+func (e *VolumeMountError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *VolumeMountError) Unwrap() error {
+	return e.Err
+}
+
 const (
 	unableFindHotplugMountedDir = "unable to find hotplug mounted directories for vmi without uid"
 )
@@ -356,6 +370,7 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		specVolumes.Insert(vmi.Spec.UtilityVolumes[i].Name)
 	}
 
+	var errs []error
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil {
 			// Skip non hotplug volumes
@@ -377,11 +392,12 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		if volumeSourceUID == "" {
 			volumeSourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
+		// Keep mounting the remaining volumes, so one volume that cannot be mounted does not block the others
 		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, record, mountDirectory, cgroupManager); err != nil {
-			return err
+			errs = append(errs, &VolumeMountError{Volume: volumeStatus.Name, Err: err})
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (m *volumeMounter) isDirectoryMounted(vmi *v1.VirtualMachineInstance, volumeName string) bool {
@@ -577,6 +593,10 @@ func (m *volumeMounter) mountFileSystemHotplugVolume(vmi *v1.VirtualMachineInsta
 		}
 		if !mountDirectory {
 			sourcePath, err = sourcePath.AppendAndResolveWithRelativeRoot("disk.img")
+			if errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("volume has no disk image (disk.img); a Filesystem-mode PVC hotplugged as a disk must contain one, "+
+					"for example created by a CDI DataVolume: %w", err)
+			}
 			if err != nil {
 				return err
 			}
