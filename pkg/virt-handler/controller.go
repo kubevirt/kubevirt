@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -93,6 +92,16 @@ const (
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
+func vmiOwnedByNode(vmi *v1.VirtualMachineInstance, host string) bool {
+	nodeName, ok := vmi.Labels[v1.NodeNameLabel]
+
+	if ok && nodeName != "" && nodeName == host {
+		return true
+	}
+
+	return vmi.Status.NodeName != "" && vmi.Status.NodeName == host
+}
+
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
@@ -112,10 +121,15 @@ type BaseController struct {
 	netStat                     netstat
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
-	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
-	hypervisorRuntime           hypervisor.VirtRuntime
-	pluginStore                 cache.Store
-	pluginCache                 pluginCache
+	// vmiExpectations is shared by all three controllers through the Arbiter. A VMI
+	// update written by one of them has to be observed before any of them processes
+	// the key again, otherwise the next owner would act on a snapshot it already
+	// invalidated.
+	vmiExpectations    *controller.UIDTrackingControllerExpectations
+	hypervisorNodeInfo hypervisor.HypervisorNodeInformation
+	hypervisorRuntime  hypervisor.VirtRuntime
+	pluginStore        cache.Store
+	pluginCache        pluginCache
 }
 
 func NewBaseController(
@@ -124,6 +138,7 @@ func NewBaseController(
 	recorder record.EventRecorder,
 	vmiClient clientv1.VirtualMachineInstancesGetter,
 	queue workqueue.TypedRateLimitingInterface[string],
+	vmiExpectations *controller.UIDTrackingControllerExpectations,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -142,6 +157,7 @@ func NewBaseController(
 		recorder:                    recorder,
 		vmiClient:                   vmiClient,
 		queue:                       queue,
+		vmiExpectations:             vmiExpectations,
 		vmiStore:                    vmiInformer.GetStore(),
 		domainStore:                 domainInformer.GetStore(),
 		clusterConfig:               clusterConfig,
@@ -228,28 +244,6 @@ func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInst
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}
 	return vmi, exists, nil
-}
-
-func (c *BaseController) getDomainFromCache(key string) (domain *api.Domain, exists bool, cachedUID types.UID, err error) {
-
-	obj, exists, err := c.domainStore.GetByKey(key)
-
-	if err != nil {
-		return nil, false, "", err
-	}
-
-	if exists {
-		domain = obj.(*api.Domain)
-		cachedUID = domain.Spec.Metadata.KubeVirt.UID
-
-		// We're using the DeletionTimestamp to signify that the
-		// Domain is deleted rather than sending the DELETE watch event.
-		if domain.ObjectMeta.DeletionTimestamp != nil {
-			exists = false
-			domain = nil
-		}
-	}
-	return domain, exists, cachedUID, nil
 }
 
 func (c *BaseController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
