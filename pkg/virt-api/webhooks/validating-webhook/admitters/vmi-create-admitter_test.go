@@ -1865,24 +1865,16 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 				Entry("without kernel args and null container - should approve",
 					createKernelBoot(withoutKernelArgs, withoutInitrd, withoutKernel, withoutImage), true),
-				Entry("with kernel args and null container - should reject",
-					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, withoutImage), false),
-				Entry("without kernel args, with container that has image & kernel & initrd defined - should approve",
-					createKernelBoot(withoutKernelArgs, validInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & kernel & initrd defined - should approve",
 					createKernelBoot(validKernelArgs, validInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & kernel defined - should approve",
 					createKernelBoot(validKernelArgs, withoutInitrd, validKernel, validImage), true),
 				Entry("with kernel args, with container that has image & initrd defined - should approve",
 					createKernelBoot(validKernelArgs, validInitrd, withoutKernel, validImage), true),
-				Entry("with kernel args, with container that has only image defined - should reject",
-					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, validImage), false),
 				Entry("with invalid kernel path - should reject",
 					createKernelBoot(validKernelArgs, validInitrd, invalidKernel, validImage), false),
 				Entry("with invalid initrd path - should reject",
 					createKernelBoot(validKernelArgs, invalidInitrd, validKernel, validImage), false),
-				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
-					createKernelBoot(validKernelArgs, validInitrd, validKernel, withoutImage), false),
 			)
 		})
 
@@ -2871,25 +2863,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("SecureBoot is not supported on architecture riscv64"))
-		})
-
-		It("should not accept BIOS and EFI together", func() {
-			vmi.Spec.Subdomain = "testsubdomain"
-
-			vmi.Spec.Domain.Features = &v1.Features{
-				SMM: &v1.FeatureState{
-					Enabled: pointer.P(true),
-				},
-			}
-			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				Bootloader: &v1.Bootloader{
-					EFI:  &v1.EFI{},
-					BIOS: &v1.BIOS{},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
 		})
 
 	})

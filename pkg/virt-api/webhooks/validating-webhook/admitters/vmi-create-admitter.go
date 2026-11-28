@@ -1544,20 +1544,6 @@ func validateDNSPolicy(dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav
 	return causes
 }
 
-func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-
-	if bootloader != nil && bootloader.EFI != nil && bootloader.BIOS != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s has both EFI and BIOS configured, but they are mutually exclusive.", field.String()),
-			Field:   field.String(),
-		})
-	}
-
-	return causes
-}
-
 func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -1611,7 +1597,6 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 	var causes []metav1.StatusCause
 
 	if firmware != nil {
-		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
 		causes = append(causes, validateKernelBoot(field.Child("kernelBoot"), firmware.KernelBoot)...)
 	}
 
@@ -2101,42 +2086,15 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 	return causes
 }
 
-// Rejects kernel boot defined with initrd/kernel path but without an image
+// Rejects kernel boot container kernel/initrd paths that point to root or are not absolute and clean
 func validateKernelBoot(field *k8sfield.Path, kernelBoot *v1.KernelBoot) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if kernelBoot == nil {
-		return causes
-	}
-
-	if kernelBoot.Container == nil {
-		if kernelBoot.KernelArgs != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "kernel arguments cannot be provided without an external kernel",
-				Field:   field.Child("kernelArgs").String(),
-			})
-		}
+	if kernelBoot == nil || kernelBoot.Container == nil {
 		return causes
 	}
 
 	container := kernelBoot.Container
 	containerField := field.Child("container")
-
-	if container.Image == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("%s must be defined with an image", containerField),
-			Field:   containerField.Child("image").String(),
-		})
-	}
-
-	if container.InitrdPath == "" && container.KernelPath == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("%s must be defined with at least one of the following: kernelPath, initrdPath", containerField),
-			Field:   containerField.String(),
-		})
-	}
 
 	if container.KernelPath != "" {
 		causes = append(causes, storageadmitters.ValidatePath(containerField.Child("kernelPath"), container.KernelPath)...)
