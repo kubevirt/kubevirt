@@ -90,8 +90,7 @@ func (s *VMTemplateSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport,
 		vmExport.Status.Phase = exportv1.Skipped
 	}
 
-	if !s.sourceVolumes.isPopulated &&
-		s.ReadyCondition().Reason != vmTemplateNotFoundReason {
+	if blocked := s.sourceVolumes.Blocked(); blocked != nil && blocked.requeue {
 		return requeueTime, nil
 	}
 
@@ -155,9 +154,6 @@ func (ctrl *VMExportController) handleVMTemplate(obj any) {
 func (ctrl *VMExportController) getPVCFromSourceVMTemplate(vmExport *exportv1.VirtualMachineExport) (*v1beta1.VirtualMachineTemplate, *sourceVolumes, error) {
 	sourceVolumes := &sourceVolumes{
 		volumes:         []sourceVolume{},
-		inUse:           false,
-		isPopulated:     false,
-		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
 		sourceCondition: exportv1.Condition{},
 	}
 
@@ -166,14 +162,14 @@ func (ctrl *VMExportController) getPVCFromSourceVMTemplate(vmExport *exportv1.Vi
 		return nil, nil, err
 	}
 	if !exists {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, vmTemplateNotFoundReason,
-			fmt.Sprintf("VirtualMachineTemplate %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.blocked = &blocker{reason: vmTemplateNotFoundReason,
+			message: fmt.Sprintf("VirtualMachineTemplate %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)}
 		return nil, sourceVolumes, nil
 	}
 
 	if !meta.IsStatusConditionTrue(tpl.Status.Conditions, v1beta1.ConditionReady) {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, vmTemplateNotReadyReason,
-			fmt.Sprintf("VirtualMachineTemplate %s/%s is not ready", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.blocked = &blocker{reason: vmTemplateNotReadyReason,
+			message: fmt.Sprintf("VirtualMachineTemplate %s/%s is not ready", vmExport.Namespace, vmExport.Spec.Source.Name), requeue: true}
 		return nil, sourceVolumes, nil
 	}
 
@@ -183,15 +179,11 @@ func (ctrl *VMExportController) getPVCFromSourceVMTemplate(vmExport *exportv1.Vi
 	}
 	log.Log.V(3).Infof("Number of volumes found for VMTemplate %s/%s: %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(volumesToExport), allPopulated)
 
-	sourceVolumes.isPopulated = allPopulated
-
 	if len(volumesToExport) == 0 && allPopulated {
-		sourceVolumes.isPopulated = true
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, noVolumeVMReason,
-			fmt.Sprintf("VirtualMachineTemplate %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.emptyMessage = fmt.Sprintf("VirtualMachineTemplate %s/%s has no volumes", vmExport.Namespace, vmExport.Spec.Source.Name)
 	} else if !allPopulated {
-		sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, volumesNotPopulatedReason,
-			fmt.Sprintf("Not all volumes in VirtualMachineTemplate %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name))
+		sourceVolumes.blocked = &blocker{reason: volumesNotPopulatedReason,
+			message: fmt.Sprintf("Not all volumes in VirtualMachineTemplate %s/%s are populated", vmExport.Namespace, vmExport.Spec.Source.Name), requeue: true}
 	}
 
 	sourceVolumes.volumes = volumesToExport

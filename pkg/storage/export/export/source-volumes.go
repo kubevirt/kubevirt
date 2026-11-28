@@ -34,10 +34,15 @@ import (
 
 type sourceVolumes struct {
 	volumes         []sourceVolume
-	inUse           bool
-	isPopulated     bool
-	readyCondition  exportv1.Condition
+	blocked         *blocker
+	emptyMessage    string
 	sourceCondition exportv1.Condition
+}
+
+type blocker struct {
+	reason, message string
+	requeue         bool
+	skip            bool
 }
 
 type sourceVolume struct {
@@ -58,7 +63,22 @@ func (ctrl *VMExportController) newSourceVolume(pvc *corev1.PersistentVolumeClai
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
-	return !sv.inUse && sv.isPopulated && len(sv.duplicatePVCNames()) == 0
+	return sv.Blocked() == nil
+}
+
+// Blocked returns the reason the exporter pod must not run. Duplicate claims
+// take precedence in the Ready condition, without changing the source's retry
+// policy while its volumes are still being populated.
+func (sv *sourceVolumes) Blocked() *blocker {
+	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
+		return &blocker{
+			reason: duplicatePVCReason,
+			message: fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
+				strings.Join(duplicates, ", ")),
+			requeue: sv.blocked != nil && sv.blocked.requeue,
+		}
+	}
+	return sv.blocked
 }
 
 func (sv *sourceVolumes) duplicatePVCNames() []string {
@@ -80,12 +100,13 @@ func (sv *sourceVolumes) hasContent() bool {
 }
 
 func (sv *sourceVolumes) ReadyCondition() exportv1.Condition {
-	if duplicates := sv.duplicatePVCNames(); len(duplicates) > 0 {
-		return newReadyCondition(corev1.ConditionFalse, duplicatePVCReason,
-			fmt.Sprintf("Source references the same PersistentVolumeClaim from more than one volume: %s",
-				strings.Join(duplicates, ", ")))
+	if blocked := sv.Blocked(); blocked != nil {
+		return newReadyCondition(corev1.ConditionFalse, blocked.reason, blocked.message)
 	}
-	return sv.readyCondition
+	if sv.emptyMessage != "" {
+		return newReadyCondition(corev1.ConditionFalse, noVolumeVMReason, sv.emptyMessage)
+	}
+	return newReadyCondition(corev1.ConditionFalse, initializingReason, "")
 }
 
 func (sv *sourceVolumes) configurePodVolumes(podManifest *corev1.Pod) {
