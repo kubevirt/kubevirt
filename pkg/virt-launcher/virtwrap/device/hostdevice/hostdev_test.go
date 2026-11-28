@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/translate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
@@ -152,6 +153,24 @@ var _ = Describe("HostDevice", func() {
 			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 
 			Expect(hostDevices, err).To(Equal([]api.HostDevice{expectHostDevice1, expectHostDevice2}))
+		})
+
+		It("creates a PCI device the libvirtxml converter accepts", func() {
+			hostDevicesMetaData := []hostdevice.HostDeviceMetaData{
+				{AliasPrefix: aliasPrefix, Name: devName0, ResourceName: resourceName0},
+			}
+			pool.AddResource(resourceName0, pciAddress0)
+
+			hostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
+			Expect(err).ToNot(HaveOccurred())
+
+			spec := api.NewMinimalDomainSpec("test-vm")
+			spec.Devices.HostDevices = hostDevices
+
+			domain, err := translate.ToLibvirtDomain(spec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domain.Devices.Hostdevs).To(HaveLen(1))
+			Expect(domain.Devices.Hostdevs[0].SubsysPCI).ToNot(BeNil())
 		})
 	})
 

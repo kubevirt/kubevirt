@@ -123,6 +123,7 @@ var _ = Describe("CreateDRAGPUHostDevices", func() {
 
 			dev := hostDevices[0]
 			Expect(dev.Type).To(Equal(api.HostDevicePCI))
+			Expect(dev.Mode).To(Equal("subsystem"))
 			Expect(dev.Managed).To(Equal("no"))
 			Expect(dev.Mode).To(Equal("subsystem"))
 			Expect(dev.Alias).ToNot(BeNil())
