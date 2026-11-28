@@ -41,12 +41,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -72,11 +70,10 @@ const (
 
 var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresTwoSchedulableNodes, func() {
 	var (
-		virtClient                 kubecli.KubevirtClient
-		err                        error
-		migrationPolicy            *migrationsv1.MigrationPolicy
-		defaultArch                string
-		hadMigrationDowntimeTuning bool
+		virtClient      kubecli.KubevirtClient
+		err             error
+		migrationPolicy *migrationsv1.MigrationPolicy
+		defaultArch     string
 	)
 
 	BeforeEach(func() {
@@ -84,11 +81,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresT
 		var err error
 		defaultArch, err = libkubevirt.GetDefaultArchitecture(virtClient)
 		Expect(err).ToNot(HaveOccurred())
-
-		hadMigrationDowntimeTuning = checks.HasFeature(featuregate.MigrationDowntimeTuning)
-		if !hadMigrationDowntimeTuning {
-			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
-		}
 
 		By("Allowing post-copy with 1ms downtime to prevent precopy convergence")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
@@ -101,14 +93,6 @@ var _ = Describe(SIG("VM Post Copy Live Migration", Serial, decorators.RequiresT
 				InitialMs:           kvpointer.P(int64(1)),
 				StartAfterIteration: kvpointer.P(postCopyDowntimeTuneNeverIterate),
 			},
-		}
-	})
-
-	AfterEach(func() {
-		if hadMigrationDowntimeTuning {
-			kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
-		} else {
-			kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
 		}
 	})
 

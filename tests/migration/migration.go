@@ -2148,13 +2148,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 
 		Context("with downtime tuning", Serial, func() {
-			BeforeEach(func() {
-				kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
-			})
-			AfterEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
-			})
-
 			It("should migrate with downtime tuning and confirm via API and logs", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("1Gi"))
 
@@ -2250,18 +2243,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
-				hadMigrationDowntimeTuning := checks.HasFeature(featuregate.MigrationDowntimeTuning)
-				if !hadMigrationDowntimeTuning {
-					kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
-				}
-				DeferCleanup(func() {
-					if hadMigrationDowntimeTuning {
-						kvconfig.EnableFeatureGate(featuregate.MigrationDowntimeTuning)
-					} else {
-						kvconfig.DisableFeatureGate(featuregate.MigrationDowntimeTuning)
-					}
-				})
-
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 				vmi.Namespace = testsuite.NamespacePrivileged
 
