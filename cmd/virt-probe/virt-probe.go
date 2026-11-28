@@ -31,6 +31,14 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
+type execClient interface {
+	Exec(string, string, []string, int32) (int, string, error)
+}
+
+type guestPingClient interface {
+	GuestPing(string, int32) error
+}
+
 func main() {
 	socket := pflag.String("socket", cmdclient.SocketOnGuest(), "Socket for connecting to the cmd server")
 	domainName := pflag.String("domainName", "", "Domain Name of the Virtual Machine to connect the agent to. Usually namespace_vmname")
@@ -51,24 +59,35 @@ func main() {
 	}
 
 	if *guestAgentPing {
-		err := client.GuestPing(*domainName, *timeoutSeconds)
-		if err != nil {
-			log.Log.Reason(err).Critical("Failed to ping the guest")
-			os.Exit(1)
-		}
-		os.Exit(0)
+		os.Exit(runGuestAgentProbe(client, *domainName, *timeoutSeconds))
 	}
 
-	exitCode, stdOut, err := client.Exec(*domainName, *command, pflag.Args(), *timeoutSeconds)
+	exitCode := runExecProbe(client, *domainName, *command, pflag.Args(), *timeoutSeconds)
+	saveMemoryProfile(*memProfile)
+	os.Exit(exitCode)
+}
+
+func runGuestAgentProbe(client guestPingClient, domainName string, timeoutSeconds int32) int {
+	err := client.GuestPing(domainName, timeoutSeconds)
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to ping the guest")
+		return 1
+	}
+
+	return 0
+}
+
+func runExecProbe(client execClient, domainName, command string, args []string, timeoutSeconds int32) int {
+	exitCode, stdOut, err := client.Exec(domainName, command, args, timeoutSeconds)
 	if len(stdOut) > 0 {
 		fmt.Println(stdOut)
 	}
 	if err != nil {
-		log.Log.Reason(err).Critical("Failed executing the command")
+		log.Log.Reason(err).Error("Failed executing the command")
+		return 1
 	}
 
-	saveMemoryProfile(*memProfile)
-	os.Exit(exitCode)
+	return exitCode
 }
 
 func saveMemoryProfile(path string) {
