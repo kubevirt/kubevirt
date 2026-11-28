@@ -312,13 +312,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("should enable EFI secure boot with firmware auto-selection", Serial, true, "SecureBoot enabled", true),
 		)
 
-		// Ubuntu 24.04 is used as a container disk for CI convenience; any bootable
-		// ARM64 disk with a valid Secure Boot chain would work.
-		// TODO: Switch to quay.io/containerdisks/fedora:45 once Fedora 45 ships
-		// with a properly signed aarch64 Secure Boot chain. Fedora 44's
-		// fbaa64.efi (fallback) is signed with a test certificate, causing a
-		// Security Violation on first boot. See:
-		// https://www.jcline.org/blog/fedora/2026/04/01/fedora-aarch64-secureboot.html
 		Context("ARM64 EFI secure boot", Serial, decorators.WgArm64, decorators.RequiresARM64, decorators.RequiresARM64SecureBoot, func() {
 			var (
 				vm  *v1.VirtualMachine
@@ -330,7 +323,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				kvconfig.EnableFeatureGate(featuregate.FirmwareAutoSelection)
 
 				vmi = libvmi.New(
-					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskUbuntu)),
+					libvmi.WithContainerDisk("disk0", cd.ContainerDiskFromRegistryFor("quay.io/containerdisks", cd.ContainerDiskFedora)),
 					libvmi.WithMemoryRequest("1Gi"),
 					libvmi.WithRng(),
 					libvmi.WithArchitecture("arm64"),
@@ -338,13 +331,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData(`#cloud-config
-disable_root: false
+password: fedora
 chpasswd:
   expire: false
-  users:
-    - name: root
-      password: kubevirt
-      type: text
 `)),
 				)
 			})
@@ -359,20 +348,12 @@ chpasswd:
 
 			startAndCheckSecureBoot := func() {
 				GinkgoHelper()
-				By("Starting the VM and logging into Ubuntu")
+				By("Starting the VM and logging into Fedora")
 				vm = libvmops.StartVirtualMachine(vm)
 				var err error
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(console.ExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "\n"},
-					&expect.BCas{C: []expect.Caser{
-						&expect.Case{R: regexp.MustCompile(`(?m)^\S+ login: `), S: "root\n", T: expect.Next(), Rt: 10},
-						&expect.Case{R: regexp.MustCompile(`Password:`), S: "kubevirt\n", T: expect.Next(), Rt: 10},
-						&expect.Case{R: regexp.MustCompile(`root@[^:]+:[^\r\n]*# `), T: expect.OK()},
-					}},
-				}, 5*time.Minute)).To(Succeed())
-				Expect(console.RunCommand(vmi, "stty cols 500 rows 500", 10*time.Second)).To(Succeed())
+				Expect(console.LoginToFedora(vmi, 5*time.Minute)).To(Succeed())
 
 				By("Checking that Secure Boot is enabled in the guest")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
