@@ -985,7 +985,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with access credentials", func() {
-			It("should add volume with secret referenced by cloud-init user secret ref", func() {
+			It("should add a required volume with secret referenced by cloud-init user secret ref", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1029,6 +1029,7 @@ var _ = Describe("Template", func() {
 				for _, volume := range pod.Spec.Volumes {
 					if volume.Name == "my-pkey-access-cred" {
 						volumeFound = true
+						Expect(volume.Secret.Optional).To(BeNil())
 					}
 				}
 				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
@@ -1040,6 +1041,192 @@ var _ = Describe("Template", func() {
 					}
 				}
 				Expect(volumeMountFound).To(BeTrue(), "could not find ssh key secret volume mount")
+			})
+			It("should make the access credential secret volume optional on a migration target pod", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						AccessCredentials: []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: "my-pkey",
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderMigrationManifest(&vmi, &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+				}, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+
+				volumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "my-pkey-access-cred" {
+						volumeFound = true
+						Expect(volume.Secret.Optional).To(HaveValue(BeTrue()))
+					}
+				}
+				Expect(volumeFound).To(BeTrue(), "could not find ssh key secret volume")
+			})
+			It("should make cloud-init nocloud secret volumes optional on a migration target pod only", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "cloudinit",
+								VolumeSource: v1.VolumeSource{
+									CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+										UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "my-udata"},
+										NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "my-ndata"},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				assertVolumeOptional := func(pod *k8sv1.Pod, volumeName string, optional bool) {
+					volumeFound := false
+					for _, volume := range pod.Spec.Volumes {
+						if volume.Name == volumeName {
+							volumeFound = true
+							if optional {
+								Expect(volume.Secret.Optional).To(HaveValue(BeTrue()))
+							} else {
+								Expect(volume.Secret.Optional).To(BeNil())
+							}
+						}
+					}
+					Expect(volumeFound).To(BeTrue(), "could not find volume "+volumeName)
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				assertVolumeOptional(pod, "cloudinit-udata", false)
+				assertVolumeOptional(pod, "cloudinit-ndata", false)
+
+				targetPod, err := svc.RenderMigrationManifest(&vmi, &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+				}, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+				assertVolumeOptional(targetPod, "cloudinit-udata", true)
+				assertVolumeOptional(targetPod, "cloudinit-ndata", true)
+			})
+			It("should make cloud-init configdrive secret volumes optional on a migration target pod only", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "cloudinit",
+								VolumeSource: v1.VolumeSource{
+									CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+										UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "my-udata"},
+										NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "my-ndata"},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				assertVolumeOptional := func(pod *k8sv1.Pod, volumeName string, optional bool) {
+					volumeFound := false
+					for _, volume := range pod.Spec.Volumes {
+						if volume.Name == volumeName {
+							volumeFound = true
+							if optional {
+								Expect(volume.Secret.Optional).To(HaveValue(BeTrue()))
+							} else {
+								Expect(volume.Secret.Optional).To(BeNil())
+							}
+						}
+					}
+					Expect(volumeFound).To(BeTrue(), "could not find volume "+volumeName)
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				assertVolumeOptional(pod, "cloudinit-udata", false)
+				assertVolumeOptional(pod, "cloudinit-ndata", false)
+
+				targetPod, err := svc.RenderMigrationManifest(&vmi, &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+				}, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+				assertVolumeOptional(targetPod, "cloudinit-udata", true)
+				assertVolumeOptional(targetPod, "cloudinit-ndata", true)
+			})
+			It("should make the sysprep volume optional on a migration target pod only", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Volumes: []v1.Volume{
+							{
+								Name: "sysprep",
+								VolumeSource: v1.VolumeSource{
+									Sysprep: &v1.SysprepSource{
+										Secret: &k8sv1.LocalObjectReference{Name: "my-sysprep"},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				sysprepVolumeFound := false
+				for _, volume := range pod.Spec.Volumes {
+					if volume.Name == "sysprep" {
+						sysprepVolumeFound = true
+						Expect(volume.Secret.Optional).To(BeNil())
+					}
+				}
+				Expect(sysprepVolumeFound).To(BeTrue(), "could not find sysprep volume")
+
+				targetPod, err := svc.RenderMigrationManifest(&vmi, &v1.VirtualMachineInstanceMigration{
+					ObjectMeta: metav1.ObjectMeta{Name: "test-migration", Namespace: "default"},
+				}, &k8sv1.Pod{})
+				Expect(err).ToNot(HaveOccurred())
+				sysprepVolumeFound = false
+				for _, volume := range targetPod.Spec.Volumes {
+					if volume.Name == "sysprep" {
+						sysprepVolumeFound = true
+						Expect(volume.Secret.Optional).To(HaveValue(BeTrue()))
+					}
+				}
+				Expect(sysprepVolumeFound).To(BeTrue(), "could not find sysprep volume")
 			})
 			It("should add volume with secret referenced by qemu agent access cred", func() {
 				config, kvStore, svc = configFactory(defaultArch)
