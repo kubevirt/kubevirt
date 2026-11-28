@@ -2596,6 +2596,10 @@ func prepareNodeSelectorForHostCpuModel(node *k8sv1.Node, pod *k8sv1.Pod, source
 	for key, value := range sourcePodNodeSelector {
 		if strings.Contains(key, virtv1.CPUFeatureLabel) || strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 			result[key] = value
+		}
+		// CPUFeatureLabel keys are also set when the vmi starts, for its CPU features with policy "require".
+		// Only the SupportedHostModelMigrationCPU key proves a previous migration.
+		if strings.Contains(key, virtv1.SupportedHostModelMigrationCPU) {
 			migratedAtLeastOnce = true
 		}
 	}
