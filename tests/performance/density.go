@@ -49,8 +49,8 @@ import (
 var PrometheusScrapeInterval = time.Duration(30 * time.Second)
 
 const (
-	patchVMICountToPodCreateCountThreshold  = 2
-	updateVMICountToPodCreateCountThreshold = 10
+	patchVMICountToPodCreateCountThreshold  = 6
+	updateVMICountToPodCreateCountThreshold = 15
 	vmiCreationToRunningSecondsP50Threshold = 45
 	vmiCreationToRunningSecondsP95Threshold = 60
 	primerVMITimeout                        = 3 * time.Minute
