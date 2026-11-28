@@ -21,7 +21,9 @@ package virthandler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -92,6 +94,8 @@ const (
 	// MemoryHotplugFailedReason is the reason set when the VM cannot hotplug memory
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
+
+var ErrWaitingForVirtioFSSocket = errors.New("waiting for virtiofs socket")
 
 type netconf interface {
 	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
@@ -305,9 +309,20 @@ func (c *BaseController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInsta
 }
 
 func (c *BaseController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
+	info := c.launcherClients.GetLauncherClientInfo(vmi)
+	if info == nil {
+		return fmt.Errorf("failed to get launcher client")
+	}
 	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
 		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				// give sockets some time to be created before throwing errors on retries
+				if time.Now().After(info.NotInitializedSince.Add(1 * time.Minute)) {
+					return fmt.Errorf("virtiofs socket %s has still not been created after one minute", fs.Name)
+				}
+				return fmt.Errorf("failed to get socket path %s: %v %w", fs.Name, err, ErrWaitingForVirtioFSSocket)
+			}
 			return err
 		}
 		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
