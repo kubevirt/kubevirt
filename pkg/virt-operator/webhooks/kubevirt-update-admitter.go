@@ -89,6 +89,9 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		&newKV.Spec.Configuration,
 	)...)
 	results = append(results, validateEmulationPolicy(&newKV.Spec.Configuration)...)
+	results = append(results, validateNetworkConfiguration(&newKV.Spec.Configuration)...)
+	results = append(results, validateDeveloperConfiguration(&newKV.Spec.Configuration)...)
+	results = append(results, validateImagePullPolicy(&newKV.Spec.Configuration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -711,5 +714,66 @@ func warnProxyMigrationNetwork(config *v1.KubeVirtConfiguration) []string {
 
 	return []string{
 		"spec.configuration.migrations.network is set with decentralizedLiveMigrationDatapath=Proxy: synchronization controllers require the migration0 interface at startup and will not start without it",
+	}
+}
+
+func validateNetworkConfiguration(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	if config.NetworkConfiguration == nil {
+		return nil
+	}
+	switch config.NetworkConfiguration.NetworkInterface {
+	case "", string(v1.BridgeInterface), string(v1.DeprecatedSlirpInterface), string(v1.MasqueradeInterface):
+		return nil
+	default:
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Field:   field.NewPath("spec", "configuration", "network", "defaultNetworkInterface").String(),
+			Message: fmt.Sprintf("invalid defaultNetworkInterface '%s', allowed values are [%s, %s, %s]", config.NetworkConfiguration.NetworkInterface, v1.BridgeInterface, v1.DeprecatedSlirpInterface, v1.MasqueradeInterface),
+		}}
+	}
+}
+
+func validateDeveloperConfiguration(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	if config.DeveloperConfiguration == nil {
+		return nil
+	}
+	var causes []metav1.StatusCause
+	devConfig := config.DeveloperConfiguration
+	devField := field.NewPath("spec", "configuration", "developerConfiguration")
+
+	if devConfig.MemoryOvercommit < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   devField.Child("memoryOvercommit").String(),
+			Message: fmt.Sprintf("memoryOvercommit cannot be negative: %d", devConfig.MemoryOvercommit),
+		})
+	}
+	if devConfig.CPUAllocationRatio < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   devField.Child("cpuAllocationRatio").String(),
+			Message: fmt.Sprintf("cpuAllocationRatio cannot be negative: %d", devConfig.CPUAllocationRatio),
+		})
+	}
+	if devConfig.LessPVCSpaceToleration < 0 || devConfig.LessPVCSpaceToleration > 100 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   devField.Child("pvcTolerateLessSpaceUpToPercent").String(),
+			Message: fmt.Sprintf("pvcTolerateLessSpaceUpToPercent must be between 0 and 100: %d", devConfig.LessPVCSpaceToleration),
+		})
+	}
+	return causes
+}
+
+func validateImagePullPolicy(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	switch config.ImagePullPolicy {
+	case "", corev1.PullAlways, corev1.PullNever, corev1.PullIfNotPresent:
+		return nil
+	default:
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Field:   field.NewPath("spec", "configuration", "imagePullPolicy").String(),
+			Message: fmt.Sprintf("invalid imagePullPolicy '%s', allowed values are [%s, %s, %s]", config.ImagePullPolicy, corev1.PullAlways, corev1.PullNever, corev1.PullIfNotPresent),
+		}}
 	}
 }
