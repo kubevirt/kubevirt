@@ -447,7 +447,7 @@ func processJobCompletedEvent(domain *api.Domain, d cli.VirDomain, jobCompletedE
 	switch jobCompletedEvent.Info.Operation {
 	case libvirt.DOMAIN_JOB_OPERATION_MIGRATION_OUT:
 		if migration, exists := metadataCache.Migration.Load(); exists {
-			virtwrap.LogMigrationInfo(log.Log, migration.UID, &jobCompletedEvent.Info)
+			virtwrap.LogMigrationInfo(log.Log, migration.UID, &jobCompletedEvent.Info, false)
 		} else {
 			log.Log.Warning("Received migration completed event, but no migration is being tracked")
 		}
