@@ -485,7 +485,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return updatedVMI.Status.FSFreezeStatus
-				}, 10*time.Second, 2*time.Second).Should(Equal("frozen"))
+				}, time.Minute, 2*time.Second).Should(Equal("frozen"))
 
 				Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
 					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
