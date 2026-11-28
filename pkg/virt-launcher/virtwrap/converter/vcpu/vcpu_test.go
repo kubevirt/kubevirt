@@ -112,6 +112,26 @@ var _ = Describe("VCPU pinning", func() {
 		Expect(err).To(MatchError(ContainSubstring("not enough exclusive threads provided, could not fit 1 core(s)")))
 	})
 
+	It("should fail assigning vCPUs when a core can't be completed from fragmented threads across cells", func() {
+		// The VMI requests a single core made of 2 threads, but only one host
+		// thread is reserved (a fragment of a host core). The relaxed pool can
+		// place that one thread but cannot complete the core. FitCores must
+		// report the unplaced core instead of silently returning an incomplete
+		// pinning with fewer VCPUPin entries than requested vCPUs.
+		pool := NewRelaxedCPUPool(
+			&api.CPUTopology{Sockets: 1, Cores: 1, Threads: 2},
+			hostTopology(
+				2,
+				2,
+				0, 1,
+				2, 3,
+			),
+			[]int{0},
+		)
+		_, err := pool.FitCores()
+		Expect(err).To(MatchError(ContainSubstring("not enough exclusive threads provided, could not fit 1 core(s)")))
+	})
+
 	It("should fail assigning vCPUs with the strict policy if cores can't fully be place on a numa node", func() {
 		pool := NewStrictCPUPool(
 			&api.CPUTopology{Sockets: 1, Cores: 3, Threads: 2},
