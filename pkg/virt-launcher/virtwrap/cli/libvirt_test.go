@@ -38,6 +38,96 @@ var _ = Describe("Libvirt Suite", func() {
 		})
 	})
 
+	Context("Upon deleting a domain checkpoint", func() {
+		var conn *LibvirtConnection
+		var domain *libvirt.Domain
+
+		BeforeEach(func() {
+			native, err := libvirt.NewConnect("test:///default")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() {
+				Expect(native.Close()).To(BeZero())
+			})
+			conn = &LibvirtConnection{
+				Connect:       native,
+				uri:           "test:///default",
+				alive:         true,
+				reconnectLock: &sync.Mutex{},
+			}
+			domain, err = native.LookupDomainByName("test")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(domain.Free)
+			checkpoint, err := domain.CreateCheckpointXML("<domaincheckpoint><name>old</name></domaincheckpoint>", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoint.Free()).To(Succeed())
+		})
+
+		It("should delete the checkpoint and keep its child", func() {
+			child, err := domain.CreateCheckpointXML("<domaincheckpoint><name>new</name></domaincheckpoint>", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(child.Free()).To(Succeed())
+
+			Expect(conn.DeleteDomainCheckpoint("test", "old")).To(Succeed())
+			Expect(conn.alive).To(BeTrue())
+			_, err = domain.CheckpointLookupByName("old", 0)
+			Expect(err).To(HaveField("Code", libvirt.ERR_NO_DOMAIN_CHECKPOINT))
+			child, err = domain.CheckpointLookupByName("new", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(child.Free()).To(Succeed())
+		})
+
+		DescribeTable("should return lookup errors",
+			func(domainName, checkpointName string, code libvirt.ErrorNumber) {
+				Expect(conn.DeleteDomainCheckpoint(domainName, checkpointName)).To(HaveField("Code", code))
+				Expect(conn.alive).To(BeTrue())
+			},
+			Entry("domain missing", "missing", "old", libvirt.ERR_NO_DOMAIN),
+			Entry("checkpoint missing", "test", "missing", libvirt.ERR_NO_DOMAIN_CHECKPOINT),
+		)
+
+		It("should return the deletion error and keep the checkpoint", func() {
+			readOnly, err := libvirt.NewConnectReadOnly("test:///default")
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(func() {
+				Expect(readOnly.Close()).To(BeZero())
+			})
+			conn.Connect = readOnly
+
+			Expect(conn.DeleteDomainCheckpoint("test", "old")).To(HaveField("Code", libvirt.ERR_OPERATION_DENIED))
+			Expect(conn.alive).To(BeTrue())
+			checkpoint, err := domain.CheckpointLookupByName("old", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoint.Free()).To(Succeed())
+		})
+
+		It("should reconnect before deleting the checkpoint", func() {
+			original := conn.Connect
+			DeferCleanup(func() {
+				if conn.Connect != nil && conn.Connect != original {
+					Expect(conn.Connect.Close()).To(BeZero())
+				}
+			})
+			conn.alive = false
+
+			Expect(conn.DeleteDomainCheckpoint("test", "old")).To(Succeed())
+			Expect(conn.alive).To(BeTrue())
+			Expect(conn.Connect).ToNot(BeIdenticalTo(original))
+			_, err := domain.CheckpointLookupByName("old", 0)
+			Expect(err).To(HaveField("Code", libvirt.ERR_NO_DOMAIN_CHECKPOINT))
+		})
+
+		It("should return the error when reconnecting fails", func() {
+			conn.alive = false
+			conn.uri = "unsupported:///"
+
+			Expect(conn.DeleteDomainCheckpoint("test", "old")).To(HaveOccurred())
+			Expect(conn.alive).To(BeFalse())
+			checkpoint, err := domain.CheckpointLookupByName("old", 0)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(checkpoint.Free()).To(Succeed())
+		})
+	})
+
 	Context("Upon registering event callbacks", func() {
 		const registrations = 50
 
