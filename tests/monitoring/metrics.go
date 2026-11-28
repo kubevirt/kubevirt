@@ -245,9 +245,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			names := []string{
 				"virt-operator",
 				"virt-handler-node-labeller",
-				"virt-handler-source",
-				"virt-handler-target",
-				"virt-handler-vm",
+				"virt-handler-vmi",
 				"virt-controller-disruption-budget",
 				"virt-controller-evacuation",
 				"virt-controller-export-vmexport",
