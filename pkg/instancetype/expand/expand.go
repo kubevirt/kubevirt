@@ -19,7 +19,6 @@
 package expand
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -33,14 +32,13 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-type vmiApplier interface {
-	ApplyToVMI(
+type templateApplier interface {
+	ApplyToTemplate(
 		field *k8sfield.Path,
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-		vmiSpec *virtv1.VirtualMachineInstanceSpec,
-		vmiMetadata *metav1.ObjectMeta,
-	) (conflicts conflict.Conflicts)
+		template *virtv1.VirtualMachineInstanceTemplateSpec,
+	) conflict.Conflicts
 }
 
 type specFinder interface {
@@ -52,7 +50,7 @@ type preferenceSpecFinder interface {
 }
 
 type expander struct {
-	vmiApplier
+	templateApplier
 	specFinder
 	preferenceSpecFinder
 
@@ -66,7 +64,7 @@ func New(
 ) *expander {
 	return &expander{
 		clusterConfig:        clusterConfig,
-		vmiApplier:           apply.NewVMIApplier(),
+		templateApplier:      apply.NewVM(),
 		specFinder:           instancetypeFinder,
 		preferenceSpecFinder: preferenceFinder,
 	}
@@ -96,11 +94,10 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 	}
 
 	// Replace with VMApplier.ApplyToVM once conflict errors are aligned
-	conflicts := e.ApplyToVMI(
+	conflicts := e.ApplyToTemplate(
 		k8sfield.NewPath("spec", "template", "spec"),
 		instancetypeSpec, preferenceSpec,
-		&expandedVM.Spec.Template.Spec,
-		&expandedVM.Spec.Template.ObjectMeta,
+		expandedVM.Spec.Template,
 	)
 	if len(conflicts) > 0 {
 		return nil, conflicts
