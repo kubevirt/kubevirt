@@ -74,7 +74,10 @@ type InputConfig struct {
 	PrometheusUserName    string `json:"prometheusUserName"`
 	PrometheusPassword    string `json:"prometheusPassword"`
 	PrometheusBearerToken string `json:"prometheusBearerToken"`
-	PrometheusVerifyTLS   bool   `json:"prometheusVerifyTLS"`
+
+	// PrometheusVerifyTLS controls verification of the server certificate and hostname.
+	// Verification is enabled by default. Set to false to skip it.
+	PrometheusVerifyTLS *bool `json:"prometheusVerifyTLS,omitempty"`
 
 	// PrometheusScrapeInterval must be correct or the audit tool's results
 	// will be inaccurate. Defaults to 30s.
