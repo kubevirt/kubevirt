@@ -177,17 +177,21 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 	}
 
 	eventWatcher, err := cli.CoreV1().Events(v1.NamespaceAll).
-		Watch(context.Background(), metav1.ListOptions{
+		Watch(ctx, metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
 			ResourceVersion: resourceVersion,
 		})
 	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
 		panic(err)
 	}
-	defer eventWatcher.Stop()
 	done := make(chan struct{})
+	stopped := make(chan struct{})
 
 	go func() {
+		defer close(stopped)
 		defer GinkgoRecover()
 		for watchEvent := range eventWatcher.ResultChan() {
 			if watchEvent.Type != watch.Error {
@@ -197,6 +201,9 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 					break
 				}
 			} else {
+				if ctx.Err() != nil {
+					break
+				}
 				switch watchEvent.Object.(type) {
 				case *metav1.Status:
 					status := watchEvent.Object.(*metav1.Status)
@@ -210,6 +217,12 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 				}
 			}
 		}
+	}()
+
+	// deferred, so cleanup also runs when Fail() panics on the timeout path
+	defer func() {
+		eventWatcher.Stop()
+		<-stopped
 	}()
 
 	if w.timeout != nil {
