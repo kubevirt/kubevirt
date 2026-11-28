@@ -26,7 +26,7 @@ var _ = Describe("VM Lifecycle", func() {
 	})
 
 	It("should create a VMI and pod when a VM is created with RunStrategyAlways", func(ctx SpecContext) {
-		ns := f.CreateNamespace(ctx)
+		ns := f.Namespace()
 
 		vm := libvmi.NewVirtualMachine(
 			libvmi.New(libvmi.WithMemoryRequest("128Mi")),
