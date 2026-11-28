@@ -355,6 +355,15 @@ var _ = Describe("Backend Storage", func() {
 			Expect(psc.RunAsGroup).To(BeNil())
 			Expect(psc.FSGroup).To(BeNil())
 		})
+		It("Should allow the recovery job to run on a cordoned node", func() {
+			job := buildRecoveryJob("test-recovery", "test-image", migration)
+
+			Expect(job.Spec.Template.Spec.Tolerations).To(ConsistOf(v1.Toleration{
+				Key:      v1.TaintNodeUnschedulable,
+				Operator: v1.TolerationOpExists,
+				Effect:   v1.TaintEffectNoSchedule,
+			}))
+		})
 	})
 
 	Context("createPVC", func() {
