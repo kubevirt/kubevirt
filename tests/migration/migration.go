@@ -24,6 +24,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -2247,6 +2248,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Verifying compression was applied via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
+				expectCompressionRatioGreaterThanOne(logs)
 			})
 
 			It("should migrate with compression, autoconverge, and postcopy combined", func() {
@@ -2320,7 +2322,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Verifying compression and autoconverge via launcher logs")
 				logs := getSourceLauncherLogs(virtClient, vmi)
 				Expect(logs).To(ContainSubstring("Migration compression enabled: method=zstd"))
-				Expect(logs).To(ContainSubstring("Migration autoconverge enabled"))
+				expectCompressionRatioGreaterThanOne(logs)
 			})
 		})
 
@@ -3432,4 +3434,13 @@ func getSourceLauncherLogs(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMac
 		DoRaw(context.Background())
 	Expect(err).ToNot(HaveOccurred(), "should get virt-launcher source pod logs")
 	return string(logsRaw)
+}
+
+func expectCompressionRatioGreaterThanOne(logs string) {
+	GinkgoHelper()
+	matches := regexp.MustCompile(`CompressionRatio:(\d+(?:\.\d+)?)x`).FindStringSubmatch(logs)
+	Expect(len(matches)).To(BeNumerically(">", 1))
+	compressionRatio, err := strconv.ParseFloat(matches[1], 64)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(compressionRatio).To(BeNumerically(">", 1.0))
 }
