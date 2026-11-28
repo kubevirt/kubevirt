@@ -1791,7 +1791,7 @@ chpasswd: { expire: False }`
 
 		It("Invalid path to PasswordFileFlag", func() {
 			out, err := runCmd(setFlag(PasswordFileFlag, "testpath/does/not/exist"))
-			Expect(err).To(MatchError("failed to parse \"--password-file\" flag: open testpath/does/not/exist: no such file or directory"))
+			Expect(err).To(MatchError(os.ErrNotExist))
 			Expect(out).To(BeEmpty())
 		})
 
