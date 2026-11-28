@@ -242,7 +242,8 @@ bump-kubevirtci:
 	./hack/bump-kubevirtci.sh
 
 fossa:
-	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} PULL_BASE_REF=${PULL_BASE_REF} CI=${CI} ./hack/fossa.sh"
+	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} ARTIFACTS=${ARTIFACTS} JOB_TYPE=${JOB_TYPE} \
+		PULL_NUMBER=${PULL_NUMBER} PULL_BASE_REF=${PULL_BASE_REF} CI=${CI} ./hack/fossa.sh"
 
 format:
 	./hack/dockerized "hack/bazel-fmt.sh"
