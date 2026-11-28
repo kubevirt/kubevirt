@@ -87,6 +87,12 @@ func IsDisconnected(err error) bool {
 		case codes.Canceled:
 			// e.g. v1client connection closing
 			return true
+		case codes.Unavailable:
+			// gRPC reports a lost or refused unix socket connection as
+			// Unavailable, e.g. "error reading from server: EOF" when
+			// virt-launcher exits during the call. The cmd server does
+			// not return this code itself.
+			return true
 		}
 
 	}

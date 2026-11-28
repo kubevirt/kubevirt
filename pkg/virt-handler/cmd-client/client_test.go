@@ -480,6 +480,12 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).To(MatchError(io.EOF))
 		})
 
+		It("should pass through gRPC Unavailable errors unchanged", func() {
+			grpcErr := status.Errorf(codes.Unavailable, "error reading from server: EOF")
+			err := handleError(grpcErr, "TestCommand", nil)
+			Expect(err).To(Equal(grpcErr))
+		})
+
 		It("should pass through unimplemented errors unchanged", func() {
 			grpcErr := status.Errorf(codes.Unimplemented, "not implemented")
 			err := handleError(grpcErr, "TestCommand", nil)
@@ -505,6 +511,21 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(errors.Is(err, originalErr)).To(BeTrue())
 		})
 	})
+
+	DescribeTable("IsDisconnected", func(err error, expected bool) {
+		Expect(IsDisconnected(err)).To(Equal(expected))
+	},
+		Entry("nil error", nil, false),
+		Entry("io.EOF", io.EOF, true),
+		Entry("gRPC Canceled", status.Error(codes.Canceled, "grpc: the client connection is closing"), true),
+		Entry("gRPC Unavailable after the launcher closed the connection",
+			status.Error(codes.Unavailable, "error reading from server: EOF"), true),
+		Entry("gRPC Unavailable when the launcher socket refuses connections",
+			status.Error(codes.Unavailable, "connection error: desc = \"transport: Error while dialing: dial unix launcher-sock: connect: connection refused\""), true),
+		Entry("gRPC Internal", status.Error(codes.Internal, "server crashed"), false),
+		Entry("gRPC Unimplemented", status.Error(codes.Unimplemented, "not implemented"), false),
+		Entry("non-gRPC error", errors.New("something went wrong"), false),
+	)
 
 	Describe("Version mismatch", func() {
 		It("Should report error when server version mismatches", func() {
