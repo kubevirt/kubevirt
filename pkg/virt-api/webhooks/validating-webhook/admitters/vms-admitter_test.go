@@ -1724,6 +1724,56 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
 	})
 
+	Context("with an instancetype-expanded spec", func() {
+		const fgName = "test-expanded"
+		const fgMessage = "FG triggered by instancetype expansion"
+		var vm *v1.VirtualMachine
+
+		BeforeEach(func() {
+			stub := instancetypeWebhooks.NewAdmitterStub()
+			stub.ApplyToVMFunc = func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
+				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{Sockets: 2}
+				return nil, nil, nil
+			}
+			vmsAdmitter.InstancetypeAdmitter = stub
+
+			vm = &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyHalted),
+					Template:    &v1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+		})
+
+		DescribeTable("should check feature gates", func(state featuregate.State) {
+			featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+				Name:  fgName,
+				State: state,
+				VmiSpecUsed: func(spec *v1.VirtualMachineInstanceSpec) bool {
+					return spec.Domain.CPU != nil && spec.Domain.CPU.Sockets == 2
+				},
+				Message: fgMessage,
+			})
+			DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
+			enableFeatureGate(fgName)
+
+			resp := admitVm(vmsAdmitter, vm)
+			if state == featuregate.Discontinued {
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result).ToNot(BeNil())
+				Expect(resp.Result.Details.Causes).To(HaveLen(1))
+				Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+			} else {
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Warnings).To(ContainElement(fgMessage))
+			}
+		},
+			Entry("and reject discontinued APIs", featuregate.Discontinued),
+			Entry("and warn about deprecated APIs", featuregate.Deprecated),
+		)
+	})
+
 	Context("run strategy", func() {
 		AfterEach(func() {
 			disableFeatureGates()
