@@ -1938,17 +1938,18 @@ func (l *LibvirtDomainManager) syncDisks(
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
 		volumeName := detachDisk.Alias.GetName()
+		inBlockJob, err := diskInBlockJob(dom, &detachDisk)
+		if err != nil {
+			return err
+		}
+		if inBlockJob {
+			logger.V(1).Infof("Deferring detach of disk %s until its block job completes", volumeName)
+			continue
+		}
 		logger.V(1).Infof("Detaching disk %s, target %s", volumeName, detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
-			return err
-		}
-		// Unlink the CBT overlay before detaching so a failed delete is retried
-		// on the next sync. QEMU keeps the overlay open until the disk is gone,
-		// and nothing on the removal path depends on reopening it by path.
-		if err := storage.DeleteQCOW2Overlay(detachDisk); err != nil {
-			logger.Reason(err).Error("deleting CBT overlay")
 			return err
 		}
 		err = dom.DetachDeviceFlags(string(detachBytes), affectDeviceLiveAndConfigLibvirtFlags)
@@ -2278,6 +2279,14 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		return false, fmt.Errorf("Unable to close file: %s", file.Name())
 	}
 	return true, nil
+}
+
+func diskInBlockJob(dom cli.VirDomain, disk *api.Disk) (bool, error) {
+	info, err := dom.GetBlockJobInfo(disk.Target.Device, 0)
+	if err != nil {
+		return false, fmt.Errorf("failed to query block job of disk %s: %w", disk.Target.Device, err)
+	}
+	return info.Type != libvirt.DOMAIN_BLOCK_JOB_TYPE_UNKNOWN, nil
 }
 
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {

@@ -522,6 +522,11 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumes sets.Set[string]) (v1.VolumeStatus, bool) {
 	if volumeStatus.Target != "" {
 		volumeStatus.Phase = v1.VolumeReady
+		if !specVolumes.Has(volumeStatus.Name) {
+			volumeStatus.Message = fmt.Sprintf("Waiting for volume %s to be detached from the domain", volumeStatus.Name)
+			volumeStatus.Reason = VolumeDetachPendingReason
+			return volumeStatus, false
+		}
 		volumeStatus.Message = fmt.Sprintf("Successfully attach hotplugged volume %s to VM", volumeStatus.Name)
 		volumeStatus.Reason = VolumeReadyReason
 		return volumeStatus, false
@@ -548,6 +553,19 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 
 	needsRefresh := !inSpec || !storagetypes.IsMountedDirectoryVolume(vmi, &volumeStatus)
 	return volumeStatus, needsRefresh
+}
+
+func domainDiskVolumes(domain *api.Domain) sets.Set[string] {
+	volumes := sets.New[string]()
+	if domain == nil {
+		return volumes
+	}
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.Alias != nil {
+			volumes.Insert(disk.Alias.GetName())
+		}
+	}
+	return volumes
 }
 
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
@@ -1958,7 +1976,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 
 	if vmi.IsRunning() {
 		// Umount any disks no longer mounted
-		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager, domainDiskVolumes(domain)); err != nil {
 			return err
 		}
 	}
