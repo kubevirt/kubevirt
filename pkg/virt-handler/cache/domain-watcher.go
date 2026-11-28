@@ -57,7 +57,9 @@ type domainWatcher struct {
 	ghostRecordStore    *GhostRecordStore
 }
 
-func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder, consecutiveFails *int, ghostRecordStore *GhostRecordStore) *domainWatcher {
+func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc,
+	watchdogTimeout int, resyncPeriod time.Duration, recorder record.EventRecorder,
+	consecutiveFails *int, ghostRecordStore *GhostRecordStore, directChan <-chan watch.Event) *domainWatcher {
 	ctx, cancel := context.WithCancel(ctx)
 	d := &domainWatcher{
 		recorder:            recorder,
@@ -69,6 +71,24 @@ func newDomainWatcher(ctx context.Context, runNotifyServer runServerFunc, watchd
 	}
 	d.wg.Add(1)
 	go d.worker(ctx, runNotifyServer, resyncPeriod, watchdogTimeout)
+	go func() {
+		for {
+			select {
+			// We need to return with worker
+			case <-ctx.Done():
+				log.Log.Info("Direct channel processor exiting")
+				return
+			// TODO make sure we synchronize closure of result
+			case event, ok := <-directChan:
+				if !ok {
+					log.Log.Info("Direct channel processor was closed")
+					return
+				}
+				d.send(ctx, event)
+			}
+		}
+
+	}()
 	return d
 }
 

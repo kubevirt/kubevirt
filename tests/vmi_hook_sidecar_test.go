@@ -254,7 +254,8 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					}
 					g.Expect(computeTerminated).To(BeTrue())
 					g.Expect(sidecarTerminated).To(Equal(sidecarShouldTerminate))
-				}, 30*time.Second, 1*time.Second).Should(Succeed())
+					// TODO: double because launcher with notify v2 waits to deliver terminated event while notify v1 shortcircuit on missing socket
+				}, 2*30*time.Second, 1*time.Second).Should(Succeed())
 			},
 				// See: https://github.com/kubevirt/kubevirt/issues/8395#issuecomment-1619187827
 				Entry("Fails to terminate on migration with < v1alpha3", hooksv1alpha2.Version, false),
