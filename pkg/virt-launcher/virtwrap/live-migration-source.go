@@ -1202,7 +1202,6 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	if shouldCompress, method := shouldCompressMigration(options); shouldCompress {
 		params.CompressionSet = true
 		params.Compression = method
-		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
 	}
 	if options.AllowAutoConverge {
 		log.Log.Object(vmi).Info("Migration autoconverge enabled")
@@ -1435,6 +1434,23 @@ func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1
 		return err
 	}
 
+	// TODO: Remove this once QEMU enforces bandwidth limits with multifd.
+	//  https://gitlab.com/qemu-project/qemu/-/work_items/3364
+	if params.BandwidthSet && params.Bandwidth > 0 {
+		migrateFlags &^= libvirt.MIGRATE_PARALLEL
+		params.ParallelConnectionsSet = false
+
+		// compression requires multifd to be on, and we just disabled it.
+		// TODO: if this is a problem, we can consider enabling xbzrle but further investigation will be required
+		//  into the memory/cpu overhead
+		if params.CompressionSet {
+			migrateFlags &^= libvirt.MIGRATE_COMPRESSED
+			params.CompressionSet = false
+			log.Log.Object(vmi).Warningf("Disabling migration stream compression because bandwidth limits are enabled "+
+				"and set to %d Mib/s. But compression and bandwidth limits cannot be enabled at the same time.", params.Bandwidth)
+		}
+	}
+
 	// PreMigrationSource hooks run outside domainModifyLock because a blocked sidecar must not
 	// stall other domain operations gated by that lock. The plugin snapshot comes from the
 	// preceding SyncVirtualMachine command.
@@ -1462,6 +1478,10 @@ func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1
 	}
 	if err != nil {
 		return err
+	}
+
+	if migrateFlags&libvirt.MIGRATE_COMPRESSED != 0 && params.CompressionSet {
+		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", params.Compression)
 	}
 
 	// initiate the live migration

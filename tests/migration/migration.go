@@ -260,6 +260,62 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				return migrationDurationTotal
 			}
 
+			It("should enforce migration bandwidth limits", func() {
+				const tolerance = 0.1
+
+				// WARNING: the bandwidths of 5Mib/s and 10Mib are purposely selected. There is a quirk in QEMU:
+				// QEMU's bandwidth throttling is not precise. They calculate it in buckets of 128Kib over 100ms windows.
+				// This means that effective bandwidth can be up to 1.25MiB/s higher in the worst case. 5 and 10 MiB
+				// just happen to be perfectly divisible by 128KiB over that 100ms window.
+				lowBandwidthMiB, highBandwidthMiB := int64(5), int64(10)
+				measureMigrationDuration := func(bandwidthMiB int64) time.Duration {
+					bandwidth := resource.MustParse(fmt.Sprintf("%dMi", bandwidthMiB))
+					description := fmt.Sprintf("%d MiB/s", bandwidthMiB)
+					vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+					memory := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+					policy := PreparePolicyAndVMIWithBandwidthLimitation(vmi, bandwidth)
+					policy.Spec.CompletionTimeoutPerGiB = pointer.P(int64(1800))
+					policy.Spec.AllowPostCopy = pointer.P(false)
+					policy.Spec.AllowAutoConverge = pointer.P(false)
+					policy = CreateMigrationPolicy(virtClient, policy)
+
+					By(fmt.Sprintf("Starting the VM for %s migration", description))
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, flags.StartupTimeoutSecondsHuge())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+					By(fmt.Sprintf("Timing migration with %s bandwidth limit", description))
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigration(virtClient, migration)
+					Eventually(matcher.ThisMigration(migration), 45*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationRunning))
+					libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPreCopy, 1*time.Second)
+
+					predictedDuration := time.Duration(float64(memory.Value()) / float64(bandwidth.Value()) * float64(time.Second))
+					migrationTimeout := int((2*predictedDuration + time.Second - 1) / time.Second)
+					started := time.Now()
+					libmigration.ExpectMigrationToSucceed(virtClient, migration, migrationTimeout)
+					elapsed := time.Since(started)
+					vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+					Expect(vmi.Status.MigrationState.MigrationPolicyName).To(Equal(pointer.P(policy.Name)))
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.BandwidthPerMigration).ToNot(BeNil())
+					Expect(vmi.Status.MigrationState.VMIMConfigurationOptions.BandwidthPerMigration.Equal(bandwidth)).To(BeTrue())
+					log.DefaultLogger().Infof("Idle VM migration at %s: RAM=%s predicted=%s timeout=%ds elapsed=%s",
+						description, memory.String(), predictedDuration, migrationTimeout, elapsed)
+
+					return elapsed
+				}
+
+				lowBandwidthDuration := measureMigrationDuration(lowBandwidthMiB)
+				highBandwidthDuration := measureMigrationDuration(highBandwidthMiB)
+
+				expectedHighBandwidthDuration := lowBandwidthDuration.Seconds() / 2
+				log.DefaultLogger().Infof("Idle VM migration comparison: %d MiB/s=%s %d MiB/s=%s expected faster duration=%0.3fs tolerance=%.0f%%",
+					lowBandwidthMiB, lowBandwidthDuration, highBandwidthMiB, highBandwidthDuration, expectedHighBandwidthDuration, tolerance*100)
+				// the actual migration duration should be within an x% tolerance of expected duration, plus `1` second to account for polling delays.
+				Expect(highBandwidthDuration.Seconds()).To(BeNumerically("~", expectedHighBandwidthDuration, expectedHighBandwidthDuration*tolerance+1),
+					"migration with a %d MiB/s limit should take roughly half as long as migration with a %d MiB/s limit", highBandwidthMiB, lowBandwidthMiB)
+			})
+
 			It("[test_id:6968] should apply them and result in different migration durations", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				migrationPolicy := CreateMigrationPolicy(virtClient, GeneratePolicyAndAlignVMI(vmi))
