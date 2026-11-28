@@ -48,17 +48,22 @@ const (
 	failedConnectCmdClient    = "Failed to connect cmd client"
 )
 
-type LifecycleHandler struct {
-	recorder     record.EventRecorder
-	vmiStore     cache.Store
-	virtShareDir string
+type clientGetter interface {
+	GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error)
 }
 
-func NewLifecycleHandler(recorder record.EventRecorder, vmiStore cache.Store, virtShareDir string) *LifecycleHandler {
+type LifecycleHandler struct {
+	recorder record.EventRecorder
+	vmiStore cache.Store
+
+	clientGetter clientGetter
+}
+
+func NewLifecycleHandler(recorder record.EventRecorder, vmiStore cache.Store, virtShareDir string, clientGetter clientGetter) *LifecycleHandler {
 	return &LifecycleHandler{
 		recorder:     recorder,
 		vmiStore:     vmiStore,
-		virtShareDir: virtShareDir,
+		clientGetter: clientGetter,
 	}
 }
 
@@ -67,7 +72,6 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	err = client.PauseVirtualMachine(vmi)
 	if err != nil {
@@ -85,7 +89,6 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	err = client.UnpauseVirtualMachine(vmi)
 	if err != nil {
@@ -103,7 +106,6 @@ func (lh *LifecycleHandler) FreezeHandler(request *restful.Request, response *re
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	unfreezeTimeout := &v1.FreezeUnfreezeTimeout{}
 	if request.Request.Body == nil {
@@ -146,7 +148,6 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	err = client.UnfreezeVirtualMachine(vmi)
 	if err != nil {
@@ -163,7 +164,6 @@ func (lh *LifecycleHandler) ExternalSnapshotHandler(request *restful.Request, re
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	opts, overlayDir, err := overlayRequest(request, vmi)
 	if err != nil {
@@ -187,7 +187,6 @@ func (lh *LifecycleHandler) CommitSnapshotHandler(request *restful.Request, resp
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	_, overlayDir, err := overlayRequest(request, vmi)
 	if err != nil {
@@ -232,7 +231,6 @@ func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *res
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	err = client.ResetVirtualMachine(vmi)
 	if err != nil {
@@ -250,7 +248,6 @@ func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	err = client.SoftRebootVirtualMachine(vmi)
 	if err != nil {
@@ -269,7 +266,6 @@ func (lh *LifecycleHandler) GetGuestInfo(request *restful.Request, response *res
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving guestinfo from %s", vmi.Name)
 
@@ -289,7 +285,6 @@ func (lh *LifecycleHandler) GetUsers(request *restful.Request, response *restful
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving userlist from %s", vmi.Name)
 
@@ -308,7 +303,6 @@ func (lh *LifecycleHandler) GetFilesystems(request *restful.Request, response *r
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving filesystem list from %s", vmi.Name)
 
@@ -330,19 +324,12 @@ func (lh *LifecycleHandler) getVMILauncherClient(request *restful.Request, respo
 		return nil, nil, err
 	}
 
-	sockFile, err := cmdclient.FindSocket(vmi)
+	client, err := lh.clientGetter.GetVerifiedLauncherClient(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(failedDetectCmdClient)
 		response.WriteError(http.StatusInternalServerError, err)
 		return nil, nil, err
 	}
-	client, err := cmdclient.NewClient(sockFile)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedConnectCmdClient)
-		response.WriteError(http.StatusInternalServerError, err)
-		return nil, nil, err
-	}
-
 	return vmi, client, nil
 }
 
@@ -351,7 +338,6 @@ func (lh *LifecycleHandler) SEVFetchCertChainHandler(request *restful.Request, r
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retrieving SEV platform info")
 
@@ -370,7 +356,6 @@ func (lh *LifecycleHandler) SEVQueryLaunchMeasurementHandler(request *restful.Re
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	log.Log.Object(vmi).Infof("Retreiving SEV launch measurement")
 
@@ -389,7 +374,6 @@ func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Reques
 	if err != nil {
 		return
 	}
-	defer client.Close()
 
 	if request.Request.Body == nil {
 		log.Log.Object(vmi).Reason(err).Error("Request with no body: SEV secret parameters are required")

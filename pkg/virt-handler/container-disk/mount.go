@@ -60,7 +60,7 @@ var (
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 type mounter struct {
-	podIsolationDetector       isolation.PodIsolationDetector
+	podIsolationDetector       isolation.SocketPodIsolationDetector
 	checkpointManager          checkpoint.CheckpointManager
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
@@ -93,7 +93,7 @@ type kernelArtifacts struct {
 	initrd *safepath.Path
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, checkpointManager checkpoint.CheckpointManager, clusterConfig *virtconfig.ClusterConfig) Mounter {
+func NewMounter(isoDetector isolation.SocketPodIsolationDetector, checkpointManager checkpoint.CheckpointManager, clusterConfig *virtconfig.ClusterConfig) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
