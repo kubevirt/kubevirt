@@ -665,9 +665,9 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 	}
 }
 
-func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
+func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
 	// Calculate whether the VM is migratable
-	liveMigrationCondition, isBlockMigration := c.calculateLiveMigrationCondition(vmi)
+	liveMigrationCondition, isBlockMigration := c.calculateLiveMigrationCondition(vmi, domain)
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
 		vmi.Status.Conditions = append(vmi.Status.Conditions, *liveMigrationCondition)
 	} else {
@@ -683,7 +683,7 @@ func (c *VirtualMachineController) updateLiveMigrationConditions(vmi *v1.Virtual
 	} else {
 		vmi.Status.MigrationMethod = v1.LiveMigration
 	}
-	storageLiveMigCond := c.calculateLiveStorageMigrationCondition(vmi)
+	storageLiveMigCond := c.calculateLiveStorageMigrationCondition(vmi, domain)
 	condManager.UpdateCondition(vmi, storageLiveMigCond)
 	evictable := migrations.VMIMigratableOnEviction(c.clusterConfig, vmi)
 	if evictable && liveMigrationCondition.Status == k8sv1.ConditionFalse {
@@ -1007,7 +1007,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
 	snapshotoverlay.UpdateVMIStatus(vmi, domain, condManager)
-	c.updateLiveMigrationConditions(vmi, condManager)
+	c.updateLiveMigrationConditions(vmi, domain, condManager)
 	err := c.updateGuestAgentConditions(vmi, guestAgentConnected(domain), condManager)
 	if err != nil {
 		return err
@@ -1163,7 +1163,7 @@ func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInst
 	}
 }
 
-func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceCondition, bool) {
+func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*v1.VirtualMachineInstanceCondition, bool) {
 	isBlockMigration, blockErr := c.checkVolumesForMigration(vmi)
 
 	err := c.checkNetworkInterfacesForMigration(vmi)
@@ -1175,7 +1175,7 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, c.clusterConfig)
+	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, domain, c.clusterConfig)
 	if ok {
 		return newNonMigratableCondition(reason, v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
@@ -1223,16 +1223,31 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}, isBlockMigration
 }
 
-func isMdevGPU(gpu v1.GPU, config *v1.KubeVirtConfiguration) bool {
-	if config.PermittedHostDevices == nil {
+const (
+	dpGPUAliasPrefix  = "gpu-"
+	draGPUAliasPrefix = "dra-gpu-"
+)
+
+func areAllMdevGPUs(gpus []v1.GPU, domain *api.Domain) bool {
+	if domain == nil {
 		return false
 	}
-	for _, mdev := range config.PermittedHostDevices.MediatedDevices {
-		if mdev.ResourceName == gpu.DeviceName {
-			return true
+	mdevAliases := make(map[string]struct{})
+	for _, hostDev := range domain.Spec.Devices.HostDevices {
+		if hostDev.Type == api.HostDeviceMDev && hostDev.Alias != nil {
+			mdevAliases[hostDev.Alias.GetName()] = struct{}{}
 		}
 	}
-	return false
+	for _, gpu := range gpus {
+		alias := dpGPUAliasPrefix + gpu.Name
+		if drautil.IsGPUDRA(gpu) {
+			alias = draGPUAliasPrefix + gpu.Name
+		}
+		if _, ok := mdevAliases[alias]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // CPU DRA is not supported for live migration yet.
@@ -1245,21 +1260,29 @@ func (c *VirtualMachineController) cpusFromDRA(vmi *v1.VirtualMachineInstance) b
 	return drautil.CPUsFromDRA(vmi, c.clusterConfig.CPUsWithDRAGateEnabled())
 }
 
-func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (string, bool) {
+func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain, config *virtconfig.ClusterConfig) (string, bool) {
 
 	if len(vmi.Spec.Domain.Devices.HostDevices) > 0 {
 		return "VMI specifies non-migratable generic PCI host device", true
 	}
 
-	if len(vmi.Spec.Domain.Devices.GPUs) > 1 {
-		return "VMI specifies too many GPUs", true
-	}
-
-	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !config.MDevVGPULiveMigrationEnabled() {
+	if len(vmi.Spec.Domain.Devices.GPUs) >= 1 && !config.MDevVGPULiveMigrationEnabled() {
 		return "VMI specifies a GPU but feature gate " + featuregate.MDevVGPULiveMigration + " is not enabled", true
 	}
 
-	if len(vmi.Spec.Domain.Devices.GPUs) == 1 && !isMdevGPU(vmi.Spec.Domain.Devices.GPUs[0], config.GetConfig()) {
+	draGPUClaims := sets.New[string]()
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if drautil.IsGPUDRA(gpu) {
+			draGPUClaims.Insert(gpu.ClaimRequest.ClaimName)
+		}
+	}
+	for _, claim := range vmi.Spec.ResourceClaims {
+		if claim.ResourceClaimName != nil && draGPUClaims.Has(claim.Name) {
+			return "cannot migrate VMI whose DRA GPU is backed by a ResourceClaim; use a ResourceClaimTemplate instead", true
+		}
+	}
+
+	if len(vmi.Spec.Domain.Devices.GPUs) >= 1 && !areAllMdevGPUs(vmi.Spec.Domain.Devices.GPUs, domain) {
 		return "VMI specifies non-migratable GPU device", true
 	}
 
@@ -1323,7 +1346,7 @@ func (cond *multipleNonMigratableCondition) generateStorageLiveMigrationConditio
 	}
 }
 
-func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstanceCondition {
+func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v1.VirtualMachineInstance, domain *api.Domain) *v1.VirtualMachineInstanceCondition {
 	multiCond := newMultipleNonMigratableCondition()
 
 	if err := c.checkNetworkInterfacesForMigration(vmi); err != nil {
@@ -1334,7 +1357,7 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
 	}
 
-	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, c.clusterConfig)
+	reason, ok := vmiContainsNonMigratablePCIHostDevices(vmi, domain, c.clusterConfig)
 	if ok {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, reason)
 	}
