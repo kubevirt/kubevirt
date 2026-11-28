@@ -21,16 +21,19 @@ package storage
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
@@ -63,6 +66,15 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 		}
 	}
 
+	// The fsfreeze doesn't apply to the NVRAM directory, so we explicitly sync the NVRAM file
+	// to flush any pending writes from QEMU's pflash device and ensure data integrity.
+	// SEV-SNP and TDX VMs don't expose the NVRAM file to virt-launcher, so skip the sync for them.
+	if backendstorage.HasPersistentEFI(&vmi.Spec) && !util.IsSEVSNPVMI(vmi) && !util.IsTDXVMI(vmi) {
+		if err := syncNVRAM(vmi); err != nil {
+			return err
+		}
+	}
+
 	domain, err := m.virConn.LookupDomainByName(domainName)
 	if err != nil {
 		log.Log.Errorf("Domain lookup failed: %v", err)
@@ -79,6 +91,27 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	if safetyUnfreezeTimeout != 0 {
 		go m.scheduleSafetyVMIUnfreeze(vmi, safetyUnfreezeTimeout)
 	}
+	return nil
+}
+
+// syncNVRAM flushes pending writes to the EFI NVRAM backing file so the file on disk
+// is up to date before the filesystems are frozen and a snapshot is taken.
+func syncNVRAM(vmi *v1.VirtualMachineInstance) error {
+	nvramFile := compute.NVRamPath(vmi)
+
+	f, err := os.Open(nvramFile)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("could not open NVRAM file %s for fsync", nvramFile)
+		return err
+	}
+	defer f.Close()
+
+	// Force fsync on the file descriptor to flush any pending writes from QEMU's pflash device.
+	if err := f.Sync(); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("fsync failed on NVRAM file %s", nvramFile)
+		return err
+	}
+
 	return nil
 }
 
