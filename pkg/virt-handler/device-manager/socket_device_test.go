@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"errors"
 	"os"
 	"path"
 	"path/filepath"
@@ -36,60 +37,154 @@ import (
 
 var _ = Describe("Socket device", func() {
 	var dpi *SocketDevicePlugin
+	var deviceDir string
 	var sockDevPath string
 	const socket = "fake-test.sock"
+	var stop chan struct{}
+
+	// runHealthCheck runs the health check in the background and returns its result.
+	// It is stopped before the spec's temp dir is removed: losing the directories under it would fail it once the spec is over.
+	runHealthCheck := func() <-chan error {
+		// The next spec reassigns dpi while these goroutines may still be running,
+		// so they hold this spec's plugin instead of reading the shared variable.
+		plugin := dpi
+		errChan := make(chan error, 1)
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			errChan <- plugin.healthCheck()
+		}()
+		DeferCleanup(func() {
+			close(stop)
+			// The health check may be blocked reporting health that the spec no longer receives.
+			go func() {
+				for {
+					select {
+					case <-plugin.health:
+					case <-done:
+						return
+					}
+				}
+			}()
+			Eventually(done, 5*time.Second).Should(BeClosed())
+			By("checking that a result the spec did not consume is not an error")
+			Expect(errChan).ToNot(Receive(HaveOccurred()))
+		})
+		return errChan
+	}
 
 	BeforeEach(func() {
 		var err error
 		workDir := GinkgoT().TempDir()
-		Expect(err).ToNot(HaveOccurred())
-		sockDevPath = path.Join(workDir, socket)
+		// The device socket lives in a directory of its own, as it does on a
+		// host where it is provided out of a service's runtime directory. The
+		// kubelet device-plugin directory is unrelated to it, so that the two
+		// watches the health check sets up are covered independently.
+		deviceDir = filepath.Join(workDir, "qgs")
+		Expect(os.Mkdir(deviceDir, 0o755)).To(Succeed())
+		sockDevPath = filepath.Join(deviceDir, socket)
 		createFile(sockDevPath)
+		kubeletDir := filepath.Join(workDir, "device-plugins")
+		Expect(os.Mkdir(kubeletDir, 0o755)).To(Succeed())
 
 		mockExec, mockPermManager := socketDeviceMocks()
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager, false)
+		dpi, err = NewSocketDevicePlugin("test", deviceDir, socket, 1, mockExec, mockPermManager, false)
 		Expect(err).ToNot(HaveOccurred())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		dpi.socketPath = filepath.Join(kubeletDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
 		dpi.done = make(chan struct{})
-		stop := make(chan struct{})
+		stop = make(chan struct{})
 		dpi.stop = stop
-		DeferCleanup(func() { close(stop) })
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
-		Consistently(func() string {
-			return dpi.devs[0].Health
-		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		errChan := runHealthCheck()
+		By("waiting for the initial check to advertise the intact device")
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(BeNil()))
 	})
 
-	It("Should monitor health of device node", func() {
-		go dpi.healthCheck()
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
+	DescribeTable("Should monitor health of device node", func(remove, recreate func()) {
+		runHealthCheck()
 
-		By("Removing a (fake) device node")
-		os.Remove(sockDevPath)
+		By("waiting for the initial check to advertise the intact device")
+		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
+		Consistently(dpi.health, 500*time.Millisecond, 100*time.Millisecond).ShouldNot(Receive())
+
+		By("Removing the (fake) device node")
+		remove()
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Unhealthy)))
 
 		By("Creating a new (fake) device node")
-		createFile(sockDevPath)
+		recreate()
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
+	},
+		Entry("when the device node itself is removed",
+			func() { Expect(os.Remove(sockDevPath)).To(Succeed()) },
+			func() { createFile(sockDevPath) },
+		),
+		Entry("when the directory holding it is removed, as systemd does for a service's RuntimeDirectory",
+			func() { Expect(os.RemoveAll(deviceDir)).To(Succeed()) },
+			func() {
+				Expect(os.Mkdir(deviceDir, 0o755)).To(Succeed())
+				createFile(sockDevPath)
+			},
+		),
+	)
+
+	It("Should degrade to Unhealthy and recover when the device directory is missing on start", func() {
+		Expect(os.RemoveAll(deviceDir)).To(Succeed())
+
+		runHealthCheck()
+
+		By("staying Unhealthy instead of erroring out; the report is deduplicated as the devices already start that way")
+		Consistently(dpi.health, 500*time.Millisecond, 100*time.Millisecond).ShouldNot(Receive())
+		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
+
+		By("recovering once the directory and its socket are recreated")
+		Expect(os.Mkdir(deviceDir, 0o755)).To(Succeed())
+		createFile(sockDevPath)
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Healthy)))
+	})
+
+	It("Should reconcile stale health on start, as it survives a plugin restart", func() {
+		By("Simulating a restart that left stale Healthy state behind, with the socket gone")
+		dpi.healthy = true
+		dpi.devs[0].Health = pluginapi.Healthy
+		Expect(os.Remove(sockDevPath)).To(Succeed())
+
+		runHealthCheck()
+
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Unhealthy)))
+	})
+
+	It("Should error out when a device's permissions cannot be applied, so the plugin is restarted with backoff", func() {
+		failingPermManager := NewMockPermissionManager(gomock.NewController(GinkgoT()))
+		failingPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(errors.New("no permission to give")).AnyTimes()
+		dpi.p = failingPermManager
+
+		By("Removing the (fake) device node before the health check starts")
+		// Stale Healthy state makes the initial Unhealthy report observable, as a sync point for the watch being armed.
+		dpi.healthy = true
+		Expect(os.Remove(sockDevPath)).To(Succeed())
+
+		errChan := runHealthCheck()
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", pluginapi.Unhealthy)))
+
+		By("Creating a new (fake) device node whose permissions cannot be set")
+		createFile(sockDevPath)
+
+		By("erroring out instead of advertising the device")
+		Eventually(errChan, 5*time.Second).Should(Receive(MatchError(ContainSubstring("no permission to give"))))
 	})
 })
 
@@ -129,7 +224,7 @@ var _ = Describe("Optional socket device", func() {
 		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(BeNil()))
 	})
 
 	It("Should stay healthy when device socket is removed", func() {
