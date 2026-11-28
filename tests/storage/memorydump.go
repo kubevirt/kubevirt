@@ -143,7 +143,7 @@ var _ = Describe(SIG("Memory dump", func() {
 			}
 
 			if updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpCompleted {
-				return fmt.Errorf(fmt.Sprintf(waitMemoryDumpCompletion, updatedVM.Status.MemoryDumpRequest.Phase))
+				return fmt.Errorf(waitMemoryDumpCompletion, updatedVM.Status.MemoryDumpRequest.Phase)
 			}
 
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), memoryDumpPVC, metav1.GetOptions{})
@@ -354,7 +354,7 @@ var _ = Describe(SIG("Memory dump", func() {
 					return err
 				}
 				if updatedVM.Status.MemoryDumpRequest == nil || updatedVM.Status.MemoryDumpRequest.Phase != v1.MemoryDumpInProgress {
-					return fmt.Errorf(fmt.Sprintf(waitMemoryDumpInProgress, updatedVM.Status.MemoryDumpRequest.Phase))
+					return fmt.Errorf(waitMemoryDumpInProgress, updatedVM.Status.MemoryDumpRequest.Phase)
 				}
 
 				return nil

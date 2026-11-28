@@ -22,7 +22,6 @@ package virthandler
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -46,10 +45,8 @@ var _ = Describe("CBTHandler", func() {
 	pvcVolume := func(name, claimName string) v1.Volume {
 		return v1.Volume{
 			Name: name,
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
-				},
+			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+				ClaimName: claimName,
 			},
 		}
 	}
@@ -85,13 +82,13 @@ var _ = Describe("CBTHandler", func() {
 				v1.ChangedBlockTrackingInitializing),
 			Entry("mixed volumes, only eligible ones checked",
 				[]v1.Volume{
-					{Name: "container-disk", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}},
+					{Name: "container-disk", ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}},
 					pvcVolume("pvc1", "test-pvc"),
 				},
 				[]api.Disk{diskWithDataStore("container-disk", false), diskWithDataStore("pvc1", true)},
 				v1.ChangedBlockTrackingEnabled),
 			Entry("only non-eligible volumes",
-				[]v1.Volume{{Name: "container-disk", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}}},
+				[]v1.Volume{{Name: "container-disk", ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}},
 				[]api.Disk{diskWithDataStore("container-disk", false)},
 				v1.ChangedBlockTrackingEnabled),
 			Entry("eligible volume with no matching disk",

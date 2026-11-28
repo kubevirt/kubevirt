@@ -79,8 +79,8 @@ var _ = Describe("masquerade (NAT)", func() {
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
@@ -138,8 +138,8 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
@@ -208,8 +208,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 			},
 		)
 		Expect(err).NotTo(HaveOccurred())
@@ -291,8 +291,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 				Ports: []v1.Port{
 					{Name: "http", Protocol: "tcp", Port: 80},
 					{Name: "http", Protocol: "tcp", Port: 8080},
@@ -373,8 +373,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 				Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 				PortRanges: []v1.PortRange{
 					{Start: 80, End: 81, Protocol: "TCP"},
 				},
@@ -448,8 +448,8 @@ family ip table nat chain output rulespec [ip daddr { 127.0.0.1 } counter dnat t
 				},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 				PortRanges: []v1.PortRange{
 					{Start: 80, End: 81, Protocol: "TCP"},
 					{Start: 443, End: 444, Protocol: "TCP"},
@@ -542,8 +542,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 443-444 
 				},
 			},
 			v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Name:       "default",
+				Masquerade: &v1.InterfaceMasquerade{},
 				PortRanges: []v1.PortRange{
 					{Start: 1000, End: 2000, Protocol: "TCP"},
 					{Start: 1500, End: 2500, Protocol: "UDP"}, // Overlaps with TCP range but different protocol - should be allowed
@@ -636,8 +636,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 1500-250
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
 			)
 			Expect(err).NotTo(HaveOccurred())
@@ -726,8 +726,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					Ports: []v1.Port{
 						{Name: "http", Protocol: "tcp", Port: 80},
 						{Name: "http", Protocol: "tcp", Port: 8080},
@@ -818,8 +818,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					Ports: []v1.Port{
 						{Name: "http", Protocol: "tcp", Port: 22},
 						{Name: "http", Protocol: "tcp", Port: 8080},
@@ -912,8 +912,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 cou
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					Ports: []v1.Port{
 						{Name: "http", Protocol: "tcp", Port: 15000},
 					},
@@ -1000,8 +1000,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 15000 co
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					PortRanges: []v1.PortRange{
 						{Protocol: "TCP", Start: 1000, End: 1500},
 					},
@@ -1088,8 +1088,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 1000-150
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					PortRanges: []v1.PortRange{
 						{Protocol: "TCP", Start: 20, End: 25},
 					},
@@ -1178,8 +1178,8 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 20-25 co
 					Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: "default"},
 				},
 				v1.Interface{
-					Name:                   "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+					Name:       "default",
+					Masquerade: &v1.InterfaceMasquerade{},
 					PortRanges: []v1.PortRange{
 						{Protocol: "TCP", Start: 14000, End: 16000},
 					},

@@ -237,7 +237,8 @@ chpasswd: { expire: False }`
 			out, err := runCmd(
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,name:my-ds-1"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,name:my-ds-2"),
-				setFlag(InferInstancetypeFromFlag, "my-ds-2"))
+				setFlag(InferInstancetypeFromFlag, "my-ds-2"),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -253,7 +254,8 @@ chpasswd: { expire: False }`
 		It("VM with volume and without inferred instancetype", func() {
 			out, err := runCmd(
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds"),
-				setFlag(InferInstancetypeFlag, "false"))
+				setFlag(InferInstancetypeFlag, "false"),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -267,7 +269,8 @@ chpasswd: { expire: False }`
 
 			out, err := runCmd(
 				setFlag(MemoryFlag, memory),
-				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-ds"))
+				setFlag(VolumeImportFlag, "type:ds,src:my-ds,name:my-ds"),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -355,7 +358,8 @@ chpasswd: { expire: False }`
 			out, err := runCmd(
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds-1,name:my-ds-1"),
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds-2,name:my-ds-2"),
-				setFlag(InferPreferenceFromFlag, "my-ds-2"))
+				setFlag(InferPreferenceFromFlag, "my-ds-2"),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())
@@ -370,7 +374,8 @@ chpasswd: { expire: False }`
 		It("VM with volume and without inferred preference", func() {
 			out, err := runCmd(
 				setFlag(VolumeImportFlag, "type:ds,src:my-ds"),
-				setFlag(InferPreferenceFlag, "false"))
+				setFlag(InferPreferenceFlag, "false"),
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vm, err := decodeVM(out)
 			Expect(err).ToNot(HaveOccurred())

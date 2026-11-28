@@ -320,7 +320,7 @@ func vmPortToContainerPort(vmiPort v1.Port) k8sv1.ContainerPort {
 
 func dummyProbe() *v1.Probe {
 	return &v1.Probe{
-		Handler:             v1.Handler{HTTPGet: httpHandler()},
+		HTTPGet:             httpHandler(),
 		InitialDelaySeconds: 2,
 		TimeoutSeconds:      3,
 		PeriodSeconds:       4,
@@ -361,10 +361,8 @@ func probeWithDelay(probe *v1.Probe) *k8sv1.Probe {
 		PeriodSeconds:       probe.PeriodSeconds,
 		SuccessThreshold:    probe.SuccessThreshold,
 		FailureThreshold:    probe.FailureThreshold,
-		ProbeHandler: k8sv1.ProbeHandler{
-			Exec:      probe.Exec,
-			HTTPGet:   probe.HTTPGet,
-			TCPSocket: probe.TCPSocket,
-		},
+		Exec:                probe.Exec,
+		HTTPGet:             probe.HTTPGet,
+		TCPSocket:           probe.TCPSocket,
 	}
 }

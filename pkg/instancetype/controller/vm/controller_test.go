@@ -105,22 +105,28 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fake.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+			fake.NewSimpleClientset().KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineInstancetype(k8sv1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes(),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(k8sv1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
+			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault),
+		).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences(),
+		).AnyTimes()
 
 		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
 
@@ -260,7 +266,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				},
 			}
 			_, err := virtClient.VirtualMachineClusterInstancetype().Create(
-				context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
+				context.Background(), clusterInstancetypeObj, metav1.CreateOptions{},
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = clusterInstancetypeInformerStore.Add(clusterInstancetypeObj)
@@ -287,7 +294,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), expectedRevision.Name, metav1.GetOptions{})
+				context.Background(), expectedRevision.Name, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			revisionInstancetype, ok := revision.Data.Object.(*v1beta1.VirtualMachineInstancetype)
@@ -308,7 +316,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				}
 
 				instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-					context.Background(), instancetypeRevision, metav1.CreateOptions{})
+					context.Background(), instancetypeRevision, metav1.CreateOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -341,7 +350,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeRevision, metav1.CreateOptions{})
+				context.Background(), instancetypeRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -371,7 +381,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			expectedRevisionName := revision.GenerateName(
 				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
-				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
+				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation,
+			)
 			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -382,7 +393,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), expectedRevisionName, metav1.GetOptions{})
+				context.Background(), expectedRevisionName, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			revisionInstancetype, ok := revision.Data.Object.(*v1beta1.VirtualMachineClusterInstancetype)
@@ -396,7 +408,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeRevision, metav1.CreateOptions{})
+				context.Background(), instancetypeRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -474,7 +487,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeRevision, metav1.CreateOptions{})
+				context.Background(), instancetypeRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -532,7 +546,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedPreferenceRevisionName := revision.GenerateName(
-				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
+				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation,
+			)
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -543,7 +558,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
+				context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*v1beta1.VirtualMachinePreference)
@@ -563,7 +579,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				}
 
 				preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-					context.Background(), preferenceRevision, metav1.CreateOptions{})
+					context.Background(), preferenceRevision, metav1.CreateOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Preference = &virtv1.PreferenceMatcher{
@@ -596,7 +613,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceRevision, metav1.CreateOptions{})
+				context.Background(), preferenceRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference = &virtv1.PreferenceMatcher{
@@ -634,7 +652,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), expectedPreferenceRevision.Name, metav1.GetOptions{})
+				context.Background(), expectedPreferenceRevision.Name, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*v1beta1.VirtualMachineClusterPreference)
@@ -647,7 +666,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceRevision, metav1.CreateOptions{})
+				context.Background(), preferenceRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference = &virtv1.PreferenceMatcher{
@@ -709,7 +729,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceRevision, metav1.CreateOptions{})
+				context.Background(), preferenceRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference = &virtv1.PreferenceMatcher{
@@ -729,14 +750,16 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeRevision, metav1.CreateOptions{})
+				context.Background(), instancetypeRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			preferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceRevision, metav1.CreateOptions{})
+				context.Background(), preferenceRevision, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
@@ -788,13 +811,15 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(
-				context.TODO(), vm, metav1.CreateOptions{})
+				context.TODO(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
+				context.TODO(), vm.Name, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
@@ -831,13 +856,15 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(
-				context.TODO(), vm, metav1.CreateOptions{})
+				context.TODO(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
-				context.TODO(), vm.Name, metav1.GetOptions{})
+				context.TODO(), vm.Name, metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Status.InstancetypeRef).To(BeNil())
@@ -849,12 +876,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			// Assert that the original ControllerRevisions have been cleaned up
 			if originalVM.Spec.Instancetype.RevisionName != "" {
 				_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.TODO(), originalVM.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					context.TODO(), originalVM.Spec.Instancetype.RevisionName, metav1.GetOptions{},
+				)
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			}
 			if originalVM.Spec.Preference.RevisionName != "" {
 				_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.TODO(), originalVM.Spec.Preference.RevisionName, metav1.GetOptions{})
+					context.TODO(), originalVM.Spec.Preference.RevisionName, metav1.GetOptions{},
+				)
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			}
 		},

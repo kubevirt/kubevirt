@@ -187,7 +187,8 @@ func (n *VMNetworkConfigurator) newDHCPConfigurator(
 			podIfaceName,
 			n.vmi.Spec.Domain.Devices.Interfaces,
 			iface,
-			n.vmi.Spec.Subdomain)
+			n.vmi.Spec.Subdomain,
+		)
 	}
 	if iface.Masquerade != nil {
 		return dhcpconfigurator.NewMasqueradeConfigurator(
@@ -196,7 +197,8 @@ func (n *VMNetworkConfigurator) newDHCPConfigurator(
 			iface,
 			network,
 			podIfaceName,
-			n.vmi.Spec.Subdomain)
+			n.vmi.Spec.Subdomain,
+		)
 	}
 	return nil
 }

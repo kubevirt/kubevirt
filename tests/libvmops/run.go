@@ -56,7 +56,8 @@ func RunVMIAndExpectSchedulingWithWarningPolicy(vmi *v1.VirtualMachineInstance, 
 func runVMI(vmi *v1.VirtualMachineInstance, phases []v1.VirtualMachineInstancePhase, wp watcher.WarningsPolicy, timeout int,
 ) *v1.VirtualMachineInstance {
 	vmi, err := kubevirt.Client().VirtualMachineInstance(
-		testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		testsuite.GetTestNamespace(vmi),
+	).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	By("Waiting until the VirtualMachineInstance reaches the desired phase")
 	return libwait.WaitForVMIPhase(vmi, phases, libwait.WithWarningsPolicy(&wp), libwait.WithTimeout(timeout))

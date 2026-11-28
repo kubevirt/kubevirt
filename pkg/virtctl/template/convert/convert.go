@@ -194,16 +194,12 @@ func (c *convert) convertTemplate() (*v1beta1.VirtualMachineTemplate, error) {
 	}
 
 	tpl := &v1beta1.VirtualMachineTemplate{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1beta1.GroupVersion.String(),
-			Kind:       "VirtualMachineTemplate",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        ocpTpl.Name,
-			Namespace:   ocpTpl.Namespace,
-			Labels:      ocpTpl.Labels,
-			Annotations: ocpTpl.Annotations,
-		},
+		APIVersion:  v1beta1.GroupVersion.String(),
+		Kind:        "VirtualMachineTemplate",
+		Name:        ocpTpl.Name,
+		Namespace:   ocpTpl.Namespace,
+		Labels:      ocpTpl.Labels,
+		Annotations: ocpTpl.Annotations,
 		Spec: v1beta1.VirtualMachineTemplateSpec{
 			Message:    ocpTpl.Message,
 			Parameters: convertParameters(ocpTpl.Parameters),

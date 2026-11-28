@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
@@ -19,10 +18,8 @@ import (
 var _ = Describe("virtiofs container", func() {
 
 	kv := &v1.KubeVirt{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt",
-			Namespace: "kubevirt",
-		},
+		Name:      "kubevirt",
+		Namespace: "kubevirt",
 		Spec: v1.KubeVirtSpec{
 			Configuration: v1.KubeVirtConfiguration{
 				DeveloperConfiguration: &v1.DeveloperConfiguration{},
@@ -63,10 +60,8 @@ var _ = Describe("virtiofs container", func() {
 		vmi := api.NewMinimalVMI("testvm")
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "sharedtestdisk",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
-			},
+			Name:                  "sharedtestdisk",
+			PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 			Name:     "sharedtestdisk",
@@ -75,10 +70,8 @@ var _ = Describe("virtiofs container", func() {
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",
-			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "test-secret",
-				},
+			Secret: &v1.SecretVolumeSource{
+				SecretName: "test-secret",
 			},
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
@@ -100,10 +93,8 @@ var _ = Describe("virtiofs container", func() {
 	It("should default imagePullPolicy to PullIfNotPresent when not configured", func() {
 		vmi := api.NewMinimalVMI("testvm")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "sharedtestdisk",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
-			},
+			Name:                  "sharedtestdisk",
+			PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 			Name:     "sharedtestdisk",
@@ -129,10 +120,8 @@ var _ = Describe("virtiofs container", func() {
 
 		vmi := api.NewMinimalVMI("testvm")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "sharedtestdisk",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
-			},
+			Name:                  "sharedtestdisk",
+			PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 			Name:     "sharedtestdisk",
@@ -149,10 +138,8 @@ var _ = Describe("virtiofs container", func() {
 
 		// Add a PVC volume with filesystem - should create container
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "pvc-volume",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
-			},
+			Name:                  "pvc-volume",
+			PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
 			Name:     "pvc-volume",
@@ -162,10 +149,8 @@ var _ = Describe("virtiofs container", func() {
 		// Add a ContainerPath volume with filesystem - should be skipped
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "token-volume",
-			VolumeSource: v1.VolumeSource{
-				ContainerPath: &v1.ContainerPathVolumeSource{
-					Path: "/var/run/secrets/token",
-				},
+			ContainerPath: &v1.ContainerPathVolumeSource{
+				Path: "/var/run/secrets/token",
 			},
 		})
 		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
@@ -185,10 +170,8 @@ var _ = Describe("virtiofs container", func() {
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "sa-volume",
-			VolumeSource: v1.VolumeSource{
-				ServiceAccount: &v1.ServiceAccountVolumeSource{
-					ServiceAccountName: "default",
-				},
+			ServiceAccount: &v1.ServiceAccountVolumeSource{
+				ServiceAccountName: "default",
 			},
 		})
 

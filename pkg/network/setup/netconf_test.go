@@ -29,7 +29,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -59,7 +58,7 @@ var _ = Describe("netconf", func() {
 		stateMap = map[string]*netpod.State{}
 		netConf = netsetup.NewNetConfWithCustomFactoryAndConfigState(nsNoopFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
 		vmi = &v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{UID: "123", Name: "vmi1"},
+			UID: "123", Name: "vmi1",
 			Status: v1.VirtualMachineInstanceStatus{
 				MigrationTransport: v1.MigrationTransportUnix,
 			},
@@ -75,12 +74,12 @@ var _ = Describe("netconf", func() {
 		Expect(stateCache.Write(testNetworkName, cache.PodIfaceNetworkPreparationFinished)).To(Succeed())
 
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   testNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Name:       testNetworkName,
+			Masquerade: &v1.InterfaceMasquerade{},
 		}}
 		vmi.Spec.Networks = []v1.Network{{
-			Name:          testNetworkName,
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			Name: testNetworkName,
+			Pod:  &v1.PodNetwork{},
 		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 		Expect(stateCache.Read(testNetworkName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
@@ -100,8 +99,8 @@ var _ = Describe("netconf", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Binding = &v1.PluginBinding{}
 		}
 		vmi.Spec.Networks = []v1.Network{{
-			Name:          testNetworkName,
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			Name: testNetworkName,
+			Pod:  &v1.PodNetwork{},
 		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 		Expect(stateCache.stateCache).To(BeEmpty())
@@ -112,12 +111,12 @@ var _ = Describe("netconf", func() {
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:                   testNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			Name:       testNetworkName,
+			Masquerade: &v1.InterfaceMasquerade{},
 		}}
 		vmi.Spec.Networks = []v1.Network{{
-			Name:          testNetworkName,
-			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			Name: testNetworkName,
+			Pod:  &v1.PodNetwork{},
 		}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).NotTo(Succeed())
 	})

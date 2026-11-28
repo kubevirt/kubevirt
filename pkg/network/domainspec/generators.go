@@ -109,8 +109,7 @@ func (b *TapLibvirtSpecGenerator) discoverDomainIfaceSpec() (*api.Interface, err
 func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
 	tapName := virtnetlink.GenerateTapDeviceName(b.podInterfaceName, b.vmiSpecNetwork)
 	if _, err := b.handler.LinkByName(tapName); err != nil {
-		var linkNotFoundErr netlink.LinkNotFoundError
-		if errors.As(err, &linkNotFoundErr) {
+		if _, ok := errors.AsType[netlink.LinkNotFoundError](err); ok {
 			return b.podInterfaceName, nil
 		}
 		return "", err

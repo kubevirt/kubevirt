@@ -53,10 +53,8 @@ var _ = Describe("Container spec renderer", func() {
 		BeforeEach(func() {
 			ephemeralVolumeOption := v1.Volume{
 				Name: ephemeralVolumeName,
-				VolumeSource: v1.VolumeSource{
-					Ephemeral: &v1.EphemeralVolumeSource{
-						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
-					},
+				Ephemeral: &v1.EphemeralVolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 				},
 			}
 
@@ -87,10 +85,8 @@ var _ = Describe("Container spec renderer", func() {
 				append(
 					defaultVolumes(),
 					k8sv1.Volume{
-						Name: ephemeralVolumeName,
-						VolumeSource: k8sv1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
-						},
+						Name:                  ephemeralVolumeName,
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 					})))
 		})
 
@@ -113,11 +109,9 @@ var _ = Describe("Container spec renderer", func() {
 		BeforeEach(func() {
 			hostDisk := v1.Volume{
 				Name: hostDiskName,
-				VolumeSource: v1.VolumeSource{
-					HostDisk: &v1.HostDisk{
-						Path: hostDiskPath,
-						Type: expectedHostDiskType,
-					},
+				HostDisk: &v1.HostDisk{
+					Path: hostDiskPath,
+					Type: expectedHostDiskType,
 				},
 			}
 
@@ -147,11 +141,10 @@ var _ = Describe("Container spec renderer", func() {
 					defaultVolumes(),
 					k8sv1.Volume{
 						Name: hostDiskName,
-						VolumeSource: k8sv1.VolumeSource{
-							HostPath: &k8sv1.HostPathVolumeSource{
-								Type: &expectedHostPathType,
-								Path: hostDiskPath[:strings.LastIndex(hostDiskPath, "/")],
-							}},
+						HostPath: &k8sv1.HostPathVolumeSource{
+							Type: &expectedHostPathType,
+							Path: hostDiskPath[:strings.LastIndex(hostDiskPath, "/")],
+						},
 					})))
 		})
 
@@ -170,11 +163,9 @@ var _ = Describe("Container spec renderer", func() {
 		BeforeEach(func() {
 			cloudInitConfig := v1.Volume{
 				Name: cloudInitDriveName,
-				VolumeSource: v1.VolumeSource{
-					CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
-						UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: userData},
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkData},
-					},
+				CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+					UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: userData},
+					NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkData},
 				},
 			}
 
@@ -222,16 +213,12 @@ var _ = Describe("Container spec renderer", func() {
 					defaultVolumes(),
 					k8sv1.Volume{
 						Name: "pepitos-drive-udata",
-						VolumeSource: k8sv1.VolumeSource{
-							Secret: &k8sv1.SecretVolumeSource{
-								SecretName: "break-dancing-flamingo",
-							},
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: "break-dancing-flamingo",
 						}}, k8sv1.Volume{
 						Name: "pepitos-drive-ndata",
-						VolumeSource: k8sv1.VolumeSource{
-							Secret: &k8sv1.SecretVolumeSource{
-								SecretName: "hoooonk.hooooonk",
-							},
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: "hoooonk.hooooonk",
 						}})))
 		})
 
@@ -248,9 +235,9 @@ var _ = Describe("Container spec renderer", func() {
 		BeforeEach(func() {
 			dataVolume := v1.Volume{
 				Name: dataVolumeName,
-				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{
+				DataVolume: &v1.DataVolumeSource{
 					Name: dataVolumeName,
-				}},
+				},
 			}
 
 			pvcStore := &cache.FakeCustomStore{
@@ -280,10 +267,8 @@ var _ = Describe("Container spec renderer", func() {
 					defaultVolumes(),
 					k8sv1.Volume{
 						Name: dataVolumeName,
-						VolumeSource: k8sv1.VolumeSource{
-							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-								ClaimName: dataVolumeName,
-							},
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: dataVolumeName,
 						},
 					})))
 		})
@@ -300,10 +285,8 @@ var _ = Describe("Container spec renderer", func() {
 
 		BeforeEach(func() {
 			downwardAPIVolume := v1.Volume{
-				Name: downwardAPIVolumeName,
-				VolumeSource: v1.VolumeSource{
-					DownwardAPI: &v1.DownwardAPIVolumeSource{},
-				}}
+				Name:        downwardAPIVolumeName,
+				DownwardAPI: &v1.DownwardAPIVolumeSource{}}
 
 			disk := v1.Disk{Name: downwardAPIVolumeName}
 
@@ -328,10 +311,8 @@ var _ = Describe("Container spec renderer", func() {
 				append(
 					defaultVolumes(),
 					k8sv1.Volume{
-						Name: downwardAPIVolumeName,
-						VolumeSource: k8sv1.VolumeSource{
-							DownwardAPI: &k8sv1.DownwardAPIVolumeSource{},
-						},
+						Name:        downwardAPIVolumeName,
+						DownwardAPI: &k8sv1.DownwardAPIVolumeSource{},
 					})))
 		})
 
@@ -371,11 +352,9 @@ var _ = Describe("Container spec renderer", func() {
 
 			expectedVolume := k8sv1.Volume{
 				Name: "vm-state",
-				VolumeSource: k8sv1.VolumeSource{
-					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: backendStoragePVC,
-						ReadOnly:  false,
-					},
+				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: backendStoragePVC,
+					ReadOnly:  false,
 				},
 			}
 			Expect(vsr.Volumes()).To(ContainElement(expectedVolume))
@@ -426,26 +405,26 @@ func vmiDiskPath(volumeName string) string {
 func defaultVolumes() []k8sv1.Volume {
 	return []k8sv1.Volume{
 		{
-			Name:         "private",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "private",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "public",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "public",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "sockets",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "sockets",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "virt-bin-share-dir",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "virt-bin-share-dir",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "libvirt-runtime",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "libvirt-runtime",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "ephemeral-disks",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "ephemeral-disks",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		}, {
-			Name:         "container-disks",
-			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			Name:     "container-disks",
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	}
 }

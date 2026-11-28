@@ -107,13 +107,9 @@ var _ = Describe("Convert command", func() {
 			tpl := newOpenShiftTemplate()
 			tpl.Objects = append(tpl.Objects, runtime.RawExtension{
 				Object: &virtv1.VirtualMachine{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: "kubevirt.io/v1",
-						Kind:       "VirtualMachine",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "another-vm",
-					},
+					APIVersion: "kubevirt.io/v1",
+					Kind:       "VirtualMachine",
+					Name:       "another-vm",
 				},
 			})
 			Expect(os.WriteFile(file, marshalYAML(tpl), 0o600)).To(Succeed())
@@ -261,19 +257,15 @@ func unmarshalYAML(data []byte, out any) error {
 
 func newOpenShiftTemplate() *ocpv1.Template {
 	return &ocpv1.Template{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: ocpv1.GroupVersion.String(),
-			Kind:       "Template",
+		APIVersion: ocpv1.GroupVersion.String(),
+		Kind:       "Template",
+		Name:       "test-template",
+		Namespace:  metav1.NamespaceDefault,
+		Labels: map[string]string{
+			"test-label": "test-value",
 		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-template",
-			Namespace: metav1.NamespaceDefault,
-			Labels: map[string]string{
-				"test-label": "test-value",
-			},
-			Annotations: map[string]string{
-				"test-annotation": "test-value",
-			},
+		Annotations: map[string]string{
+			"test-annotation": "test-value",
 		},
 		Message: "This is a test template",
 		Parameters: []ocpv1.Parameter{
@@ -293,13 +285,9 @@ func newOpenShiftTemplate() *ocpv1.Template {
 		Objects: []runtime.RawExtension{
 			{
 				Object: &virtv1.VirtualMachine{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: virtv1.GroupVersion.String(),
-						Kind:       "VirtualMachine",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "${NAME}",
-					},
+					APIVersion: virtv1.GroupVersion.String(),
+					Kind:       "VirtualMachine",
+					Name:       "${NAME}",
 					Spec: virtv1.VirtualMachineSpec{
 						Preference: &virtv1.PreferenceMatcher{
 							Name: "${PREFERENCE}",

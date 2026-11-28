@@ -154,10 +154,8 @@ func WithState(state kvirtv1.InterfaceState) InterfaceOption {
 func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
 		Name: name,
-		NetworkSource: kvirtv1.NetworkSource{
-			Multus: &kvirtv1.MultusNetwork{
-				NetworkName: nadName,
-			},
+		Multus: &kvirtv1.MultusNetwork{
+			NetworkName: nadName,
 		},
 	}
 }
@@ -166,11 +164,9 @@ func MultusNetwork(name, nadName string) *kvirtv1.Network {
 func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
 		Name: name,
-		NetworkSource: kvirtv1.NetworkSource{
-			ResourceClaim: &kvirtv1.ClaimRequest{
-				ClaimName:   claimName,
-				RequestName: requestName,
-			},
+		ResourceClaim: &kvirtv1.ClaimRequest{
+			ClaimName:   claimName,
+			RequestName: requestName,
 		},
 	}
 }
@@ -178,8 +174,8 @@ func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 // PodNetwork returns a pod Network with the given name.
 func PodNetwork(name string) *kvirtv1.Network {
 	return &kvirtv1.Network{
-		Name:          name,
-		NetworkSource: kvirtv1.NetworkSource{Pod: &kvirtv1.PodNetwork{}},
+		Name: name,
+		Pod:  &kvirtv1.PodNetwork{},
 	}
 }
 

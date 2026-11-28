@@ -562,7 +562,8 @@ func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) (string, error) {
 			"-L",
 			"-k",
 			metricsURL,
-		})
+		},
+	)
 	if err != nil {
 		return stdout, fmt.Errorf("failed to scrape %s from pod %s/%s: %w, out: %s stderr: %s",
 			metricsURL, pod.Namespace, pod.Name, err, stdout, stderr)

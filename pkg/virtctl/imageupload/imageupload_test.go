@@ -129,11 +129,9 @@ var _ = Describe("ImageUpload", func() {
 		quantity, _ := resource.ParseQuantity(pvcSize)
 
 		pvc := &v1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        targetName,
-				Namespace:   "default",
-				Annotations: map[string]string{},
-			},
+			Name:        targetName,
+			Namespace:   "default",
+			Annotations: map[string]string{},
 			Spec: v1.PersistentVolumeClaimSpec{
 				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
@@ -150,10 +148,8 @@ var _ = Describe("ImageUpload", func() {
 		quantity, _ := resource.ParseQuantity(pvcSize)
 
 		pvc := &v1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      targetName,
-				Namespace: "default",
-			},
+			Name:      targetName,
+			Namespace: "default",
 			Spec: v1.PersistentVolumeClaimSpec{
 				Resources: v1.VolumeResourceRequirements{
 					Requests: v1.ResourceList{
@@ -199,14 +195,10 @@ var _ = Describe("ImageUpload", func() {
 
 	dvSpecWithPhase := func(phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
 		dv := &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      targetName,
-				Namespace: "default",
-			},
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: cdiv1.SchemeGroupVersion.String(),
-				Kind:       "DataVolume",
-			},
+			Name:       targetName,
+			Namespace:  "default",
+			APIVersion: cdiv1.SchemeGroupVersion.String(),
+			Kind:       "DataVolume",
 			Spec: cdiv1.DataVolumeSpec{
 				Source: &cdiv1.DataVolumeSource{Upload: &cdiv1.DataVolumeSourceUpload{}},
 				PVC:    &v1.PersistentVolumeClaimSpec{},
@@ -449,9 +441,7 @@ var _ = Describe("ImageUpload", func() {
 
 	createCDIConfig := func() *cdiv1.CDIConfig {
 		return &cdiv1.CDIConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: configName,
-			},
+			Name: configName,
 			Spec: cdiv1.CDIConfigSpec{
 				UploadProxyURLOverride: nil,
 			},
@@ -761,11 +751,9 @@ var _ = Describe("ImageUpload", func() {
 			testInit(http.StatusOK)
 
 			ds := &cdiv1.DataSource{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      targetName,
-					Namespace: targetNamespace,
-					Labels:    map[string]string{},
-				},
+				Name:      targetName,
+				Namespace: targetNamespace,
+				Labels:    map[string]string{},
 				Spec: cdiv1.DataSourceSpec{
 					Source: cdiv1.DataSourceSource{
 						PVC: &cdiv1.DataVolumeSourcePVC{
