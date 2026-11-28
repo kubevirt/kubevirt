@@ -43,7 +43,7 @@ export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
 source hack/config-default.sh
 
-GINKGO_TESTS_IMAGE="${GINKGO_TESTS_IMAGE-quay.io/kubevirtci/ginkgo-tests:v20260708-fc5fb56}"
+GINKGO_TESTS_IMAGE="${GINKGO_TESTS_IMAGE-quay.io/kubevirtci/ginkgo-tests:v202611141000-832db8d}"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
@@ -58,7 +58,7 @@ usage: [NUM_TESTS=x] \
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        GINKGO_TESTS_IMAGE        the container image to use to execute cannier
+        GINKGO_TESTS_IMAGE   the ginkgo-tests image used to run the changed
                              command
         NUM_TESTS            how many times the test lane is run, default is 5
         INVOKE_FUNCTEST_ONCE if set to 'true', instead of invoking functests
