@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/storage/container-disk/diskpaths"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/vmitrait"
@@ -94,6 +95,18 @@ var _ = Describe("ContainerDisk", func() {
 				_, err := os.Stat(filepath.Join(volumeMountDir, "disk_0.img"))
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(os.IsNotExist, "IsNotExist"))
+			})
+
+			It("creates the directory when configuring the container-disk path", func() {
+				originalPath := diskpaths.GetMountBaseDir()
+				DeferCleanup(func() {
+					diskpaths.SetLocalDirectory(originalPath)
+				})
+
+				path := filepath.Join(tmpDir, "container-disks")
+				Expect(SetLocalDirectory(path)).To(Succeed())
+				Expect(diskpaths.GetMountBaseDir()).To(Equal(path))
+				Expect(path).To(BeADirectory())
 			})
 
 			It("by verifying host directory locations", func() {
