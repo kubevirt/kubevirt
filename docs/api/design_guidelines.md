@@ -337,7 +337,7 @@ upgrade failures.
 > **Note:** Several existing fields carry `+kubebuilder:validation:Enum` markers
 > in violation of this rule. The clearest cases are
 > `HypervisorConfiguration.Name` (`kvm;hyperv-direct`),
-> `ExperimentalMigrationOptions.Compression` (`none;zstd`), and
+> `AdvancedMigrationOptions.Compression` (`none;zstd`), and
 > `TLSConfiguration.MinTLSVersion` (`VersionTLS10`–`VersionTLS13`) — all
 > enumerate technology lists where new values are a natural extension path.
 > Additional violations exist; search for `+kubebuilder:validation:Enum` in

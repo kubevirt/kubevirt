@@ -138,9 +138,25 @@ func applyMigrationPolicySpec(base *k6tv1.VMIMConfigurationOptions, spec *v1alph
 	setIfNotNil(&result.MaxDowntimeMs, spec.MaxDowntimeMs)
 	setIfNotNil(&result.AllowPostCopy, spec.AllowPostCopy)
 	setIfNotNil(&result.AllowWorkloadDisruption, spec.AllowWorkloadDisruption)
+	if spec.AdvancedMigrationOptions != nil {
+		result.AdvancedMigrationOptions = applyAdvancedMigrationOptions(result.AdvancedMigrationOptions, spec.AdvancedMigrationOptions)
+	}
 	if spec.ExperimentalMigrationOptions != nil {
 		result.ExperimentalMigrationOptions = applyExperimentalMigrationOptions(result.ExperimentalMigrationOptions, spec.ExperimentalMigrationOptions)
 	}
+
+	return result
+}
+
+func applyAdvancedMigrationOptions(base, spec *k6tv1.AdvancedMigrationOptions) *k6tv1.AdvancedMigrationOptions {
+	var result *k6tv1.AdvancedMigrationOptions
+	if base != nil {
+		result = base.DeepCopy()
+	} else {
+		result = &k6tv1.AdvancedMigrationOptions{}
+	}
+
+	setIfNotNil(&result.Compression, spec.Compression)
 
 	return result
 }
@@ -159,7 +175,6 @@ func applyExperimentalMigrationOptions(base, spec *k6tv1.ExperimentalMigrationOp
 	if spec.DowntimeTuning != nil {
 		result.DowntimeTuning = applyDowntimeTuningOptions(result.DowntimeTuning, spec.DowntimeTuning)
 	}
-	setIfNotNil(&result.Compression, spec.Compression)
 
 	return result
 }

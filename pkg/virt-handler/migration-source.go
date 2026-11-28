@@ -588,10 +588,14 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		}
 	}
 
-	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
-		if exp.Compression != nil {
-			options.Compression = new(string(*exp.Compression))
+	if adv := migrationConfiguration.AdvancedMigrationOptions; adv != nil && adv.Compression != nil {
+		if isMultifdMigrationEnabled(vmi) {
+			options.Compression = new(string(*adv.Compression))
+		} else {
+			c.logger.Object(vmi).Infof("migration compression %q requires multifd; skipping (CPU limited or dedicated)", *adv.Compression)
 		}
+	}
+	if exp := migrationConfiguration.ExperimentalMigrationOptions; exp != nil {
 		if c.clusterConfig.MigrationDowntimeTuningEnabled() && exp.DowntimeTuning != nil {
 			options.DowntimeTuning = exp.DowntimeTuning
 		}
@@ -745,16 +749,18 @@ func applyStallDetectorDefaults(sd *v1.StallDetectorOptions) *v1.StallDetectorOp
 	return sd
 }
 
-func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *v1.VirtualMachineInstance) {
-	// When the CPU is limited, there's a risk of the migration threads choking the CPU resources on the compute container.
-	// For this reason, we will avoid configuring migration threads in such scenarios.
-	if cpuLimit, cpuLimitExists := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; cpuLimitExists && !cpuLimit.IsZero() {
-		return
+// isMultifdMigrationEnabled is false when CPU limits or dedicated CPUs leave no
+// headroom for parallel migration threads.
+func isMultifdMigrationEnabled(vm *v1.VirtualMachineInstance) bool {
+	if cpuLimit, ok := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok && !cpuLimit.IsZero() {
+		return false
 	}
-	// Dedicated CPUs are also fully allocating each vCPU for compute.
-	if vm.IsCPUDedicated() {
-		return
-	}
+	return !vm.IsCPUDedicated()
+}
 
+func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *v1.VirtualMachineInstance) {
+	if !isMultifdMigrationEnabled(vm) {
+		return
+	}
 	options.ParallelMigrationThreads = new(parallelMultifdMigrationThreads)
 }
