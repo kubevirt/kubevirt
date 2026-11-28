@@ -2645,6 +2645,52 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
 			})
 
+			It("should include the default guest memory overhead in pod memory requests", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithGuestMemory("1Gi"),
+				)
+				originalVMI := vmi.DeepCopy()
+
+				baselineOverhead := hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(vmi, defaultArch, nil)
+				expectedRequest := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+				expectedRequest.Add(baselineOverhead)
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Cmp(expectedRequest)).To(BeZero())
+				Expect(vmi).To(Equal(originalVMI))
+			})
+
+			It("should apply the configured guest memory overhead ratio to pod memory requests", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithMemoryRequest("1Gi"),
+					libvmi.WithGuestMemory("1Gi"),
+				)
+				originalVMI := vmi.DeepCopy()
+
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.AdditionalGuestMemoryOverheadRatio = new("2.0")
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				baselineOverhead := hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(vmi, defaultArch, nil)
+				expectedRequest := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+				expectedRequest.Add(baselineOverhead)
+				// The ratio calculation rounds the added overhead to kilobytes.
+				expectedRequest.Add(*resource.NewScaledQuantity(baselineOverhead.ScaledValue(resource.Kilo), resource.Kilo))
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Cmp(expectedRequest)).To(BeZero())
+				Expect(vmi).To(Equal(originalVMI))
+			})
+
 			Context("memory overcommit", func() {
 				type memorySetterFunc func(vmi *v1.VirtualMachineInstance)
 				type overcommitExpectation bool

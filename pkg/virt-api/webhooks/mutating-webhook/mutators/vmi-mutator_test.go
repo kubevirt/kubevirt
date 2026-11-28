@@ -264,6 +264,26 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("on arm64", "arm64", v1.CPUModeHostPassthrough),
 	)
 
+	DescribeTable("should default only unspecified machine types from architecture configuration", func(machine *v1.Machine, expectedType string) {
+		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+			Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{
+				ArchitectureConfiguration: &v1.ArchConfiguration{
+					Amd64: &v1.ArchSpecificConfiguration{MachineType: "pc-q35-9.0"},
+					Arm64: &v1.ArchSpecificConfiguration{MachineType: "virt-9.0"},
+					S390x: &v1.ArchSpecificConfiguration{MachineType: "s390-ccw-virtio-9.0"},
+				},
+			}},
+		})
+		vmi.Spec.Domain.Machine = machine
+
+		_, spec, _ := getMetaSpecStatusFromAdmitWithArch("amd64")
+		Expect(spec.Domain.Machine).To(Equal(&v1.Machine{Type: expectedType}))
+	},
+		Entry("with missing machine", nil, "pc-q35-9.0"),
+		Entry("with empty machine", &v1.Machine{}, "pc-q35-9.0"),
+		Entry("with explicit machine", &v1.Machine{Type: "pc-q35-8.2"}, "pc-q35-8.2"),
+	)
+
 	DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
 		vmi.Spec.Volumes = given
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
