@@ -1534,6 +1534,62 @@ var _ = Describe("Pool", func() {
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
+
+		It("should clamp delete count when scale-in label selector matches fewer VMs than scale-in count", func() {
+			pool, vm := DefaultPool(5)
+			pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+				Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+					SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+						Selectors: &poolv1.VirtualMachinePoolSelectors{
+							LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"app": "test"},
+							},
+						},
+					},
+				},
+			}
+
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			createVMsWithOrdinal(pool, 5, poolRevision, poolRevision, vm)
+
+			vms, err := controller.listVMsFromNamespace(pool.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			// Mark only 2 VMs as matching the scale-in selector while scaling down by 3 (5 -> 2)
+			addLabelToVM0And1(vms, pool)
+
+			pool.Spec.Replicas = pointer.P(int32(2))
+			addPool(pool)
+
+			sanityExecute()
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(HaveLen(2))
+		})
+
+		It("should not panic during scale-in when already-deleting VMs exceed the requested scale-in count", func() {
+			pool, vm := DefaultPool(5)
+			poolRevision := createPoolRevision(pool)
+			addCR(poolRevision)
+			createVMsWithOrdinal(pool, 5, poolRevision, poolRevision, vm)
+
+			now := metav1.Now()
+			for i := 0; i < 3; i++ {
+				deletingVM, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Get(context.TODO(), fmt.Sprintf("%s-%d", pool.Name, i), metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				deletingVM.DeletionTimestamp = &now
+				_, err = fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Update(context.TODO(), deletingVM, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				controller.vmIndexer.Update(deletingVM)
+			}
+
+			// Scale down by 1 (5 -> 4) while 3 VMs are already deleting
+			pool.Spec.Replicas = pointer.P(int32(4))
+			addPool(pool)
+
+			sanityExecute()
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachines")).To(BeEmpty())
+		})
 	})
 })
 
