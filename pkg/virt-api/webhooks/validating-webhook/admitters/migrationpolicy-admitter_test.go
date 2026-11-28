@@ -154,16 +154,6 @@ var _ = Describe("Validating MigrationPolicy Admitter", func() {
 			},
 		),
 
-		Entry("patienceWindowDecayFactor above maximum",
-			migrationsv1.MigrationPolicySpec{
-				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{
-					StallDetector: &v1.StallDetectorOptions{
-						PatienceWindowDecayFactor: pointer.P(resource.MustParse("1.5")),
-					},
-				},
-			},
-		),
-
 		Entry("stallDetector and downtimeTuning both set",
 			migrationsv1.MigrationPolicySpec{
 				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{

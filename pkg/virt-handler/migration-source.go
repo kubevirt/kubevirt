@@ -577,14 +577,13 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		applyExperimentalMigrationDefaults(migrationConfiguration)
 		stallDetector := migrationConfiguration.ExperimentalMigrationOptions.StallDetector
 		options.StallDetectorOptions = &cmdclient.StallDetectorOptions{
-			StallMargin:               *stallDetector.StallMargin,
-			StallProgressTimeout:      *stallDetector.StallProgressTimeout,
-			SwitchoverTimeout:         *stallDetector.SwitchoverTimeout,
-			EwmaAlpha:                 *stallDetector.EwmaAlpha,
-			PrecopyPossibleFactor:     *stallDetector.PrecopyPossibleFactor,
-			PatienceWindowDecayFactor: *stallDetector.PatienceWindowDecayFactor,
-			SearchLocalMinima:         *stallDetector.SearchLocalMinima,
-			CompletionTimeoutFactor:   *stallDetector.CompletionTimeoutFactor,
+			StallMargin:             *stallDetector.StallMargin,
+			StallProgressTimeout:    *stallDetector.StallProgressTimeout,
+			SwitchoverTimeout:       *stallDetector.SwitchoverTimeout,
+			EwmaAlpha:               *stallDetector.EwmaAlpha,
+			PrecopyPossibleFactor:   *stallDetector.PrecopyPossibleFactor,
+			SearchLocalMinima:       *stallDetector.SearchLocalMinima,
+			CompletionTimeoutFactor: *stallDetector.CompletionTimeoutFactor,
 		}
 	}
 
@@ -732,9 +731,6 @@ func applyStallDetectorDefaults(sd *v1.StallDetectorOptions) *v1.StallDetectorOp
 	}
 	if sd.PrecopyPossibleFactor == nil {
 		sd.PrecopyPossibleFactor = new(resource.MustParse(virtconfig.DefaultPrecopyPossibleFactor))
-	}
-	if sd.PatienceWindowDecayFactor == nil {
-		sd.PatienceWindowDecayFactor = new(resource.MustParse(virtconfig.DefaultPatienceWindowDecayFactor))
 	}
 	if sd.SearchLocalMinima == nil {
 		sd.SearchLocalMinima = pointer.P(virtconfig.DefaultSearchLocalMinima)

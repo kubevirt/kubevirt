@@ -27,8 +27,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-
-	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 )
 
 type convergenceAction int
@@ -57,16 +55,10 @@ type stallDetector struct {
 	minCandidates []iterationRecord
 	// smallest iteration record outside the progressTimeout window
 	minRecordOutsideWindow iterationRecord
+	lastIterationElapsedMs uint64
+	localMinimumWindow     slidingWindowMinimum
 	// whether migration is currently stalled
 	stallDetected bool
-	// a sorted history of remaining bytes
-	remainingBytesHistory *utilheap.Heap[uint64]
-	// best value of "remaining bytes" observed so far
-	bestRemainingBytes uint64
-	// time which when hit we will relax target downtime further
-	relaxationDeadlineMs uint64
-	// current time in ms to wait before relaxing target downtime
-	relaxationPatienceMs uint64
 	// Current bandwidth smoothed using an exponential weighted moving average
 	ewmaBandwidthBps float64
 	// Whether we already initiated switchover to post-copy or stop-and-copy
@@ -75,6 +67,18 @@ type stallDetector struct {
 	allowPostCopy           bool
 	allowWorkloadDisruption bool
 	hasVFIO                 bool
+}
+
+func newStallDetector(options *cmdclient.MigrationOptions, allowPostCopy, hasVFIO bool) *stallDetector {
+	detectorOptions := *options.StallDetectorOptions
+	return &stallDetector{
+		stallDetectorOptions:    detectorOptions,
+		maxDowntimeMs:           options.MaxDowntimeMs,
+		localMinimumWindow:      slidingWindowMinimum{durationSeconds: uint64(detectorOptions.StallProgressTimeout)},
+		allowPostCopy:           allowPostCopy,
+		allowWorkloadDisruption: options.AllowWorkloadDisruption,
+		hasVFIO:                 hasVFIO,
+	}
 }
 
 func (sd *stallDetector) updateBandwidthEstimate(bandwidthSample uint64, logger *log.FilteredLogger) {
@@ -93,7 +97,7 @@ func bytesToMiB(bytes uint64) float32 {
 	return float32(bytes) / float32(1024) / float32(1024)
 }
 
-func (sd *stallDetector) updateCandidates(record iterationRecord, logger *log.FilteredLogger) {
+func (sd *stallDetector) updateMinRecordOutsideWindowCandidates(record iterationRecord, logger *log.FilteredLogger) {
 	progressTimeoutMs := uint64(sd.stallDetectorOptions.StallProgressTimeout) * 1000
 	agedOut := 0
 	for len(sd.minCandidates) > 0 {
@@ -143,53 +147,8 @@ func (sd *stallDetector) checkStallCondition(remainingBytes uint64, logger *log.
 	stallMargin := float64(sd.stallDetectorOptions.StallMargin) / 100
 	stallThreshold := uint64(float64(sd.minRecordOutsideWindow.remainingBytes) * (1 - stallMargin))
 	stalled := remainingBytes >= stallThreshold
-	logger.V(4).Infof("stall check result: remainingBytes=%.2fMib outsideWindowMinRemainingBytes=%.2fMib threshold=%.2fMib stalled=%t", bytesToMiB(remainingBytes), bytesToMiB(sd.minRecordOutsideWindow.remainingBytes), bytesToMiB(stallThreshold), stalled)
+	logger.V(4).Infof("stall check result: remainingBytes=%.2fMiB outsideWindowMinRemainingBytes=%.2fMiB threshold=%.2fMiB stalled=%t", bytesToMiB(remainingBytes), bytesToMiB(sd.minRecordOutsideWindow.remainingBytes), bytesToMiB(stallThreshold), stalled)
 	return stalled
-}
-
-func (sd *stallDetector) findBestRemainingBytes(logger *log.FilteredLogger) uint64 {
-	candidateValues := make([]float32, 0, len(sd.minCandidates)+1)
-	candidateValues = append(candidateValues, bytesToMiB(sd.minRecordOutsideWindow.remainingBytes))
-	for _, candidate := range sd.minCandidates {
-		candidateValues = append(candidateValues, bytesToMiB(candidate.remainingBytes))
-	}
-	logger.V(4).Infof("findBestRemainingBytes candidates (Mib): %v", candidateValues)
-
-	bestRemainingBytes := sd.minRecordOutsideWindow.remainingBytes
-	for _, candidate := range sd.minCandidates {
-		if candidate.remainingBytes < bestRemainingBytes {
-			bestRemainingBytes = candidate.remainingBytes
-		}
-	}
-	return bestRemainingBytes
-}
-
-func (sd *stallDetector) initializeRelaxationState(record iterationRecord, logger *log.FilteredLogger) {
-	sd.remainingBytesHistory = utilheap.NewMin[uint64]()
-	sd.relaxationPatienceMs = uint64(sd.stallDetectorOptions.StallProgressTimeout) * 1000
-	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
-	logger.V(4).Infof("initialized relaxation state: iterElapsedMs=%dms patienceMs=%dms deadlineMs=%dms", record.elapsedMs, sd.relaxationPatienceMs, sd.relaxationDeadlineMs)
-}
-
-func (sd *stallDetector) relaxBestRemainingBytes(record iterationRecord, logger *log.FilteredLogger) {
-	sd.remainingBytesHistory.Push(record.remainingBytes)
-	if record.elapsedMs < sd.relaxationDeadlineMs {
-		logger.V(4).Infof("relaxation not due: iterElapsedMs=%dms deadlineMs=%dms historyLen=%d", record.elapsedMs, sd.relaxationDeadlineMs, sd.remainingBytesHistory.Len())
-		return
-	}
-
-	nextCandidate, exists := sd.remainingBytesHistory.Pop()
-	if !exists {
-		// should never happen
-		logger.Error("failed to pop remaining bytes history")
-		return
-	}
-
-	oldBest := sd.bestRemainingBytes
-	sd.bestRemainingBytes = nextCandidate
-	sd.relaxationPatienceMs = uint64(float64(sd.relaxationPatienceMs) * sd.stallDetectorOptions.PatienceWindowDecayFactor.AsApproximateFloat64())
-	sd.relaxationDeadlineMs = record.elapsedMs + sd.relaxationPatienceMs
-	logger.V(3).Infof("relaxed best remaining bytes: oldBest=%.2fMib newBest=%.2fMib iterElapsedMs=%dms nextPatienceMs=%dms nextDeadlineMs=%dms", bytesToMiB(oldBest), bytesToMiB(sd.bestRemainingBytes), record.elapsedMs, sd.relaxationPatienceMs, sd.relaxationDeadlineMs)
 }
 
 func (sd *stallDetector) canFinishByDeadline(elapsedSeconds int64, deadlineSeconds int64, estimatedDowntimeMs uint32, logger *log.FilteredLogger) bool {
@@ -218,17 +177,22 @@ func (sd *stallDetector) estimateDowntimeMs(record iterationRecord, logger *log.
 	return uint32(estimatedDowntime)
 }
 
-func (sd *stallDetector) isAtLocalMinima(record iterationRecord, logger *log.FilteredLogger) bool {
-	stallMargin := float64(sd.stallDetectorOptions.StallMargin) / 100
-	target := uint64(float64(sd.bestRemainingBytes) * (1 + stallMargin))
-	atLocalMinima := record.remainingBytes <= target
-	logger.V(4).Infof("switch margin check: remainingBytes=%.2fMib bestRemainingBytes=%.2fMib margin=%.2f targetRemainingBytes=%.2f atLocalMinima=%t", bytesToMiB(record.remainingBytes), bytesToMiB(sd.bestRemainingBytes), stallMargin, bytesToMiB(target), atLocalMinima)
-	return atLocalMinima
+func (sd *stallDetector) isNearLocalMinimum(record iterationRecord, logger *log.FilteredLogger) bool {
+	minimum, exists := sd.localMinimumWindow.minimum()
+	if !exists {
+		logger.Errorf("migration stall detector is in an illegal state")
+		return false
+	}
+	windowMin := minimum.value
+	threshold := float64(windowMin) * float64(100+sd.stallDetectorOptions.StallMargin) / 100
+	nearMinimum := float64(record.remainingBytes) <= threshold
+	logger.V(4).Infof("switchover margin check: remainingBytes=%.2fMiB windowMin=%.2fMiB threshold=%.2fMiB nearMinimum=%t", bytesToMiB(record.remainingBytes), bytesToMiB(windowMin), threshold/(1024*1024), nearMinimum)
+	return nearMinimum
 }
 
 func (sd *stallDetector) processStallDetectionIteration(record iterationRecord, logger *log.FilteredLogger) bool {
 	if sd.ewmaBandwidthBps == 0 {
-		logger.V(4).Infof("skipping stall-detection iteration due to missing stats or improper configuration: ewmaBandwidthBps=%.2fbps", sd.ewmaBandwidthBps)
+		logger.V(4).Info("skipping stall-detection iteration because bandwidth data is unavailable")
 		return false
 	}
 	if sd.switchoverInitiated {
@@ -236,47 +200,47 @@ func (sd *stallDetector) processStallDetectionIteration(record iterationRecord, 
 		return false
 	}
 
-	logger.V(4).Infof("processing stall-detection iteration: iterElapsedMs=%dms remainingBytes=%.2fMib currentEwmaBps=%.2fbps", record.elapsedMs, bytesToMiB(record.remainingBytes), sd.ewmaBandwidthBps)
-
-	sd.updateCandidates(record, logger)
-
-	if sd.stallDetected {
-		sd.relaxBestRemainingBytes(record, logger)
-		return true
-	} else if sd.checkStallCondition(record.remainingBytes, logger) {
-		// when stall is first detected initialize stall-related state
-		sd.bestRemainingBytes = sd.findBestRemainingBytes(logger)
-		sd.initializeRelaxationState(record, logger)
-		sd.stallDetected = true
-		logger.V(3).Infof("stall detected: bestRemainingBytes=%.2fMib outsideWindowMin=%.2fMib candidates=%d", bytesToMiB(sd.bestRemainingBytes), bytesToMiB(sd.minRecordOutsideWindow.remainingBytes), len(sd.minCandidates))
-		return true
-	} else {
-		logger.V(4).Info("stall not detected yet; continuing monitoring")
+	// Libvirt job elapsed time can regress if the host wall clock moves backward.
+	if record.elapsedMs < sd.lastIterationElapsedMs {
+		logger.V(3).Infof("ignoring regressed job elapsed time for stall detection: previousElapsedMs=%d elapsedMs=%d", sd.lastIterationElapsedMs, record.elapsedMs)
 		return false
 	}
+
+	logger.V(4).Infof("processing stall-detection iteration: iterElapsedMs=%dms remainingBytes=%.2fMib currentEwmaBps=%.2fbps", record.elapsedMs, bytesToMiB(record.remainingBytes), sd.ewmaBandwidthBps)
+	sd.updateMinRecordOutsideWindowCandidates(record, logger)
+	if sd.stallDetectorOptions.SearchLocalMinima {
+		sd.localMinimumWindow.add(record.elapsedMs, record.remainingBytes)
+	}
+	sd.lastIterationElapsedMs = record.elapsedMs
+
+	if !sd.stallDetected && sd.checkStallCondition(record.remainingBytes, logger) {
+		sd.stallDetected = true
+		logger.V(3).Infof("stall detected: remainingBytes=%.2fMiB outsideWindowMin=%.2fMiB", bytesToMiB(record.remainingBytes), bytesToMiB(sd.minRecordOutsideWindow.remainingBytes))
+	}
+	return sd.stallDetected
 }
 
 func (sd *stallDetector) decideAction(record iterationRecord, estimatedDowntimeMs uint32, startTimeNs int64, acceptableCompletionTime int64, logger *log.FilteredLogger) (convergenceAction, string) {
-
 	if sd.switchoverInitiated {
 		return actionNothing, "switchover already initiated"
 	}
 
 	searchLocalMinima := sd.stallDetectorOptions.SearchLocalMinima
-	if !sd.isAtLocalMinima(record, logger) && searchLocalMinima {
+	if searchLocalMinima && !sd.isNearLocalMinimum(record, logger) {
 		return actionNothing, "not at a local minima yet"
 	}
 
 	var localMinLogMessage string
-	if !searchLocalMinima {
+	localMinimum, exists := sd.localMinimumWindow.minimum()
+	if !exists || !searchLocalMinima {
 		localMinLogMessage = "local minima search skipped: "
 	} else {
-		localMinLogMessage = "arrived at a local minima: "
+		localMinLogMessage = fmt.Sprintf("arrived at a local minima: localMinimumBytes=%.2fMib ", bytesToMiB(localMinimum.value))
 	}
-	logger.V(4).Infof(localMinLogMessage+"iterElapsedMs=%dms remainingBytes=%.2fMib bestRemainingBytes=%.2fMib impliedDowntimeMs=%dms maxDowntimeMs=%dms allowPostCopy=%t allowWorkloadDisruption=%t",
-		record.elapsedMs,
+
+	logger.V(4).Infof(localMinLogMessage+"remainingBytes=%.2fMib iterElapsedMs=%dms impliedDowntimeMs=%dms maxDowntimeMs=%dms allowPostCopy=%t allowWorkloadDisruption=%t",
 		bytesToMiB(record.remainingBytes),
-		bytesToMiB(sd.bestRemainingBytes),
+		record.elapsedMs,
 		estimatedDowntimeMs,
 		sd.maxDowntimeMs,
 		sd.allowPostCopy,

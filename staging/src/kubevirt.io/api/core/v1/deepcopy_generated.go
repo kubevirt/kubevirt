@@ -4960,11 +4960,6 @@ func (in *StallDetectorOptions) DeepCopyInto(out *StallDetectorOptions) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.PatienceWindowDecayFactor != nil {
-		in, out := &in.PatienceWindowDecayFactor, &out.PatienceWindowDecayFactor
-		x := (*in).DeepCopy()
-		*out = &x
-	}
 	if in.SearchLocalMinima != nil {
 		in, out := &in.SearchLocalMinima, &out.SearchLocalMinima
 		*out = new(bool)

@@ -5335,16 +5335,6 @@ var CRDsValidation map[string]string = map[string]string{
                     Defaults to 0.4.
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
-                patienceWindowDecayFactor:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  description: |-
-                    PatienceWindowDecayFactor is the factor by which the relaxation patience window is
-                    multiplied after each best-remaining-bytes relaxation step.
-                    Defaults to 0.5.
-                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                  x-kubernetes-int-or-string: true
                 precopyPossibleFactor:
                   anyOf:
                   - type: integer
@@ -5357,17 +5347,17 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-int-or-string: true
                 searchLocalMinima:
                   description: |-
-                    SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
-                    reach a local minimum near the best observed value. When false, actions may trigger
-                    as soon as a stall is detected.
+                    SearchLocalMinima controls whether convergence actions wait for remaining bytes
+                    to approach the minimum within the sliding window. When false, actions may
+                    trigger as soon as a stall is detected.
                     Defaults to true.
                   type: boolean
                 stallMargin:
                   description: |-
-                    StallMargin is the fractional tolerance, expressed as a percentage, used when
-                    comparing remaining migration bytes against the best observed value to detect stalls
-                    and local minima. A stall is reported when remaining bytes stay above
-                    (1 - StallMargin/100) of the outside-window minimum.
+                    StallMargin is the percentage tolerance for detecting stalls and choosing switchover.
+                    A stall is detected when remaining bytes are at least (1 - StallMargin/100) of the
+                    minimum outside the window. Switchover qualifies at or below (1 + StallMargin/100)
+                    of the minimum inside the window when local minimum search is enabled.
                     Defaults to 4.
                   format: int64
                   maximum: 100
@@ -5375,8 +5365,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: integer
                 stallProgressTimeout:
                   description: |-
-                    StallProgressTimeout is the duration in seconds of the sliding window used to track
-                    minimum remaining-bytes and detect when migration progress has stalled.
+                    StallProgressTimeout is the duration in seconds of the sliding window used to
+                    detect stalled migration progress and select local minima for switchover. Smaller
+                    values reduce total migration time while potentially increasing downtime. Similarly,
+                    larger values increase total migration time but could reduce downtime.
                     Defaults to 40.
                   format: int64
                   minimum: 0
@@ -17609,16 +17601,6 @@ var CRDsValidation map[string]string = map[string]string{
                             Defaults to 0.4.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        patienceWindowDecayFactor:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          description: |-
-                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
-                            multiplied after each best-remaining-bytes relaxation step.
-                            Defaults to 0.5.
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
                         precopyPossibleFactor:
                           anyOf:
                           - type: integer
@@ -17631,17 +17613,17 @@ var CRDsValidation map[string]string = map[string]string{
                           x-kubernetes-int-or-string: true
                         searchLocalMinima:
                           description: |-
-                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
-                            reach a local minimum near the best observed value. When false, actions may trigger
-                            as soon as a stall is detected.
+                            SearchLocalMinima controls whether convergence actions wait for remaining bytes
+                            to approach the minimum within the sliding window. When false, actions may
+                            trigger as soon as a stall is detected.
                             Defaults to true.
                           type: boolean
                         stallMargin:
                           description: |-
-                            StallMargin is the fractional tolerance, expressed as a percentage, used when
-                            comparing remaining migration bytes against the best observed value to detect stalls
-                            and local minima. A stall is reported when remaining bytes stay above
-                            (1 - StallMargin/100) of the outside-window minimum.
+                            StallMargin is the percentage tolerance for detecting stalls and choosing switchover.
+                            A stall is detected when remaining bytes are at least (1 - StallMargin/100) of the
+                            minimum outside the window. Switchover qualifies at or below (1 + StallMargin/100)
+                            of the minimum inside the window when local minimum search is enabled.
                             Defaults to 4.
                           format: int64
                           maximum: 100
@@ -17649,8 +17631,10 @@ var CRDsValidation map[string]string = map[string]string{
                           type: integer
                         stallProgressTimeout:
                           description: |-
-                            StallProgressTimeout is the duration in seconds of the sliding window used to track
-                            minimum remaining-bytes and detect when migration progress has stalled.
+                            StallProgressTimeout is the duration in seconds of the sliding window used to
+                            detect stalled migration progress and select local minima for switchover. Smaller
+                            values reduce total migration time while potentially increasing downtime. Similarly,
+                            larger values increase total migration time but could reduce downtime.
                             Defaults to 40.
                           format: int64
                           minimum: 0
@@ -18488,16 +18472,6 @@ var CRDsValidation map[string]string = map[string]string{
                             Defaults to 0.4.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                        patienceWindowDecayFactor:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          description: |-
-                            PatienceWindowDecayFactor is the factor by which the relaxation patience window is
-                            multiplied after each best-remaining-bytes relaxation step.
-                            Defaults to 0.5.
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
                         precopyPossibleFactor:
                           anyOf:
                           - type: integer
@@ -18510,17 +18484,17 @@ var CRDsValidation map[string]string = map[string]string{
                           x-kubernetes-int-or-string: true
                         searchLocalMinima:
                           description: |-
-                            SearchLocalMinima controls whether convergence actions are delayed until remaining bytes
-                            reach a local minimum near the best observed value. When false, actions may trigger
-                            as soon as a stall is detected.
+                            SearchLocalMinima controls whether convergence actions wait for remaining bytes
+                            to approach the minimum within the sliding window. When false, actions may
+                            trigger as soon as a stall is detected.
                             Defaults to true.
                           type: boolean
                         stallMargin:
                           description: |-
-                            StallMargin is the fractional tolerance, expressed as a percentage, used when
-                            comparing remaining migration bytes against the best observed value to detect stalls
-                            and local minima. A stall is reported when remaining bytes stay above
-                            (1 - StallMargin/100) of the outside-window minimum.
+                            StallMargin is the percentage tolerance for detecting stalls and choosing switchover.
+                            A stall is detected when remaining bytes are at least (1 - StallMargin/100) of the
+                            minimum outside the window. Switchover qualifies at or below (1 + StallMargin/100)
+                            of the minimum inside the window when local minimum search is enabled.
                             Defaults to 4.
                           format: int64
                           maximum: 100
@@ -18528,8 +18502,10 @@ var CRDsValidation map[string]string = map[string]string{
                           type: integer
                         stallProgressTimeout:
                           description: |-
-                            StallProgressTimeout is the duration in seconds of the sliding window used to track
-                            minimum remaining-bytes and detect when migration progress has stalled.
+                            StallProgressTimeout is the duration in seconds of the sliding window used to
+                            detect stalled migration progress and select local minima for switchover. Smaller
+                            values reduce total migration time while potentially increasing downtime. Similarly,
+                            larger values increase total migration time but could reduce downtime.
                             Defaults to 40.
                           format: int64
                           minimum: 0

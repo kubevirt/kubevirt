@@ -801,7 +801,6 @@ status:
         stallDetector:
           completionTimeoutFactor: "0"
           ewmaAlpha: "0"
-          patienceWindowDecayFactor: "0"
           precopyPossibleFactor: "0"
           searchLocalMinima: true
           stallMargin: -11

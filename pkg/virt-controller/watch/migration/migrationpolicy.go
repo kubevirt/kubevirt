@@ -193,7 +193,6 @@ func applyStallDetectorOptions(base, spec *k6tv1.StallDetectorOptions) *k6tv1.St
 	setIfNotNil(&result.StallProgressTimeout, spec.StallProgressTimeout)
 	setIfNotNil(&result.SwitchoverTimeout, spec.SwitchoverTimeout)
 	setIfNotNil(&result.PrecopyPossibleFactor, spec.PrecopyPossibleFactor)
-	setIfNotNil(&result.PatienceWindowDecayFactor, spec.PatienceWindowDecayFactor)
 	setIfNotNil(&result.SearchLocalMinima, spec.SearchLocalMinima)
 	setIfNotNil(&result.CompletionTimeoutFactor, spec.CompletionTimeoutFactor)
 

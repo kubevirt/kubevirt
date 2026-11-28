@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	utilheap "kubevirt.io/kubevirt/pkg/util/heap"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -775,21 +774,17 @@ var _ = Describe("Live migration source", func() {
 		BeforeEach(func() {
 			options := &cmdclient.MigrationOptions{
 				StallDetectorOptions: &cmdclient.StallDetectorOptions{
-					StallMargin:               4,
-					StallProgressTimeout:      25,
-					SwitchoverTimeout:         testSwitchoverTimeout,
-					EwmaAlpha:                 resource.MustParse("0.4"),
-					PrecopyPossibleFactor:     resource.MustParse("1.5"),
-					PatienceWindowDecayFactor: resource.MustParse("0.5"),
-					SearchLocalMinima:         true,
-					CompletionTimeoutFactor:   resource.MustParse("2.0"),
+					StallMargin:             4,
+					StallProgressTimeout:    25,
+					SwitchoverTimeout:       testSwitchoverTimeout,
+					EwmaAlpha:               resource.MustParse("0.4"),
+					PrecopyPossibleFactor:   resource.MustParse("1.5"),
+					SearchLocalMinima:       true,
+					CompletionTimeoutFactor: resource.MustParse("2.0"),
 				},
 				MaxDowntimeMs: testMaxDowntimeMs,
 			}
-			sd = &stallDetector{
-				stallDetectorOptions: *options.StallDetectorOptions,
-				maxDowntimeMs:        options.MaxDowntimeMs,
-			}
+			sd = newStallDetector(options, false, false)
 			monitor = &migrationMonitor{
 				l:                        libvirtDomainManager,
 				vmi:                      vmi,
@@ -846,29 +841,59 @@ var _ = Describe("Live migration source", func() {
 				Expect(monitor.stallDetector.initialMaxDowntimeSet).To(BeTrue())
 			})
 
-			It("should invoke stall detection and trigger convergence action when stats indicate a stall at an iteration boundary", func() {
+			DescribeTable("should use the trailing window to choose the switchover iteration", func(samples []iterationRecord, stallIndex int) {
 				monitor.options.MaxDowntimeMs = testMaxDowntimeMs
 				sd.allowWorkloadDisruption = true
 				sd.initialMaxDowntimeSet = true
 				sd.ewmaBandwidthBps = 1000
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
 
 				mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-				mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Times(1).Return(nil)
 
-				stats := &libvirt.DomainJobInfo{
-					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemainingSet: true,
-					DataRemaining:    1000,
-					TimeElapsedSet:   true,
-					TimeElapsed:      30_000,
-					MemIterationSet:  true,
-					MemIteration:     5,
+				for i, sample := range samples {
+					last := i == len(samples)-1
+					if last {
+						mockDomain.EXPECT().MigrateSetMaxDowntime(uint64(migrationutils.QEMUMaxMigrationDowntimeMS), uint32(0)).Return(nil)
+					}
+					stats := &libvirt.DomainJobInfo{
+						Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+						DataRemainingSet: true,
+						DataRemaining:    sample.remainingBytes,
+						TimeElapsedSet:   true,
+						TimeElapsed:      sample.elapsedMs,
+						MemIterationSet:  true,
+						MemIteration:     uint64(i + 2),
+					}
+					monitor.processInflightMigration(mockDomain, stats, true, monitor.logger)
+					Expect(sd.stallDetected).To(Equal(i >= stallIndex))
+					Expect(sd.switchoverInitiated).To(Equal(last))
 				}
-				monitor.processInflightMigration(mockDomain, stats, true, monitor.logger)
-				Expect(sd.stallDetected).To(BeTrue())
-				Expect(sd.switchoverInitiated).To(BeTrue())
-			})
+			},
+				Entry("switches on the stall iteration when the historical minimum is outside the window", []iterationRecord{
+					{elapsedMs: 5_000, remainingBytes: 500},
+					{elapsedMs: 30_000, remainingBytes: 1000},
+				}, 1),
+				Entry("waits for a recent low sample to expire after the workload shifts", []iterationRecord{
+					{elapsedMs: 5_000, remainingBytes: 1000},
+					{elapsedMs: 10_000, remainingBytes: 900},
+					{elapsedMs: 30_000, remainingBytes: 1100},
+					{elapsedMs: 34_999, remainingBytes: 1100},
+					{elapsedMs: 35_000, remainingBytes: 1100},
+				}, 2),
+				Entry("switches when a new minimum enters the window after stall", []iterationRecord{
+					{elapsedMs: 5_000, remainingBytes: 1000},
+					{elapsedMs: 10_000, remainingBytes: 900},
+					{elapsedMs: 30_000, remainingBytes: 1100},
+					{elapsedMs: 31_000, remainingBytes: 850},
+				}, 2),
+				Entry("keeps the recent minimum when job elapsed time regresses", []iterationRecord{
+					{elapsedMs: 5_000, remainingBytes: 1000},
+					{elapsedMs: 30_000, remainingBytes: 900},
+					{elapsedMs: 31_000, remainingBytes: 1100},
+					{elapsedMs: 29_000, remainingBytes: 1200},
+					{elapsedMs: 54_999, remainingBytes: 1100},
+					{elapsedMs: 55_000, remainingBytes: 1100},
+				}, 2),
+			)
 
 			It("should not process stall boundary actions before MemIteration 2", func() {
 				monitor.options.MaxDowntimeMs = testMaxDowntimeMs
@@ -967,245 +992,80 @@ var _ = Describe("Live migration source", func() {
 			})
 		})
 
-		Describe("updateCandidates", func() {
-			It("should skip candidates larger than minRecordOutsideWindow", func() {
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 100}
-				sd.updateCandidates(iterationRecord{elapsedMs: 10_000, remainingBytes: 110}, monitor.logger)
-				Expect(sd.minCandidates).To(BeEmpty())
-
-				sd.updateCandidates(iterationRecord{elapsedMs: 10_000, remainingBytes: 95}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(1))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(95)))
+		Describe("iteration minima", func() {
+			BeforeEach(func() {
+				sd.ewmaBandwidthBps = 1000
 			})
 
-			It("should update candidates correctly and skip out of window min", func() {
-				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 2048}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(1))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(2048)))
-				Expect(sd.minRecordOutsideWindow).To(Equal(iterationRecord{}))
-
-				sd.updateCandidates(iterationRecord{elapsedMs: 100_000, remainingBytes: 413}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(1))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(413)))
-				Expect(sd.minRecordOutsideWindow).NotTo(Equal(iterationRecord{}))
-				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(2048)))
-			})
-
-			It("should skip candidates preceded by a smaller value", func() {
-				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 100}, monitor.logger)
-				sd.updateCandidates(iterationRecord{elapsedMs: 1000, remainingBytes: 150}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(1))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(100)))
-			})
-
-			It("should age out candidates when they are too old", func() {
-				// StallProgressTimeout is 25s, so progressTimeoutMs is 25000
-
-				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 500}, monitor.logger)
-				sd.updateCandidates(iterationRecord{elapsedMs: 5000, remainingBytes: 400}, monitor.logger)
-				sd.updateCandidates(iterationRecord{elapsedMs: 10000, remainingBytes: 300}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(3))
-				Expect(sd.minRecordOutsideWindow).To(Equal(iterationRecord{}))
-
-				// Advance time so the first two candidates (t=0, t=5000) age out.
-				// The smallest aged-out value (400) becomes minRecordOutsideWindow.
-				sd.updateCandidates(iterationRecord{elapsedMs: 30000, remainingBytes: 200}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(2))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(300)))
-				Expect(sd.minCandidates[1].remainingBytes).To(Equal(uint64(200)))
-				Expect(sd.minRecordOutsideWindow).NotTo(Equal(iterationRecord{}))
-				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(400)))
-
-				// Age out all remaining candidates. minRecordOutsideWindow
-				// should update to the new global minimum (200).
-				sd.updateCandidates(iterationRecord{elapsedMs: 60000, remainingBytes: 100}, monitor.logger)
-				Expect(sd.minCandidates).To(HaveLen(1))
-				Expect(sd.minCandidates[0].remainingBytes).To(Equal(uint64(100)))
-				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(200)))
+			It("skips tracking local minima when SearchLocalMinima is disabled", func() {
+				sd.stallDetectorOptions.SearchLocalMinima = false
+				sd.processStallDetectionIteration(iterationRecord{elapsedMs: 5_000, remainingBytes: 1000}, monitor.logger)
+				sd.processStallDetectionIteration(iterationRecord{elapsedMs: 30_000, remainingBytes: 1200}, monitor.logger)
+				_, ok := sd.localMinimumWindow.minimum()
+				Expect(ok).To(BeFalse())
+				Expect(sd.minRecordOutsideWindow.remainingBytes).To(Equal(uint64(1000)))
 			})
 		})
 
 		Describe("checkStallCondition", func() {
-			It("should return false when minRecordOutsideWindow isn't set", func() {
+			It("should return false before any sample expires", func() {
 				Expect(sd.checkStallCondition(100, monitor.logger)).To(BeFalse())
 			})
 
-			It("should return false when not stalled", func() {
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
-				// threshold is 1000 * 0.96 = 960
-				Expect(sd.checkStallCondition(900, monitor.logger)).To(BeFalse())
-			})
-
-			It("should return true when stalled", func() {
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
-				Expect(sd.checkStallCondition(970, monitor.logger)).To(BeTrue())
-			})
-
-			It("should use configured StallMargin from StallDetectorOptions", func() {
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
-				sd.stallDetectorOptions.StallMargin = 10
-				Expect(sd.checkStallCondition(955, monitor.logger)).To(BeTrue())
-				sd.stallDetectorOptions.StallMargin = 4
-				Expect(sd.checkStallCondition(955, monitor.logger)).To(BeFalse())
-			})
-		})
-
-		Describe("findBestRemainingBytes", func() {
-			It("should find the min record", func() {
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 500}
-
-				// minRecordOutsideWindow is smallest
-				sd.minCandidates = []iterationRecord{
-					{remainingBytes: 600},
-					{remainingBytes: 700},
-				}
-				Expect(sd.findBestRemainingBytes(monitor.logger)).To(Equal(uint64(500)))
-
-				// candidate is smallest
-				sd.minCandidates = []iterationRecord{
-					{remainingBytes: 600},
-					{remainingBytes: 400},
-				}
-				Expect(sd.findBestRemainingBytes(monitor.logger)).To(Equal(uint64(400)))
-
-				// no candidates
-				sd.minCandidates = []iterationRecord{}
-				Expect(sd.findBestRemainingBytes(monitor.logger)).To(Equal(uint64(500)))
-			})
-		})
-
-		Describe("relaxBestRemainingBytes", func() {
-			It("should progressively relax bestRemainingBytes to next smallest observed value", func() {
-				// Simulate stall detected at t=0 with a pre-stall best of 100.
-				sd.bestRemainingBytes = 100
-				sd.initializeRelaxationState(iterationRecord{elapsedMs: 0}, monitor.logger)
-				// relaxationPatienceMs = 25*1000 = 25000, deadline = 25000
-
-				// Push post-stall observations (all larger than the pre-stall best).
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 300}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 500}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 200}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 600}, monitor.logger)
-
-				// Before the deadline: no relaxation.
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 10000, remainingBytes: 9999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(25000)))
-
-				// At the deadline: pop the smallest (200).
-				// patience = 25000/2 = 12500, new deadline = 25000+12500 = 37500
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 25000, remainingBytes: 9999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(12500)))
-
-				// At the next deadline: pop 300.
-				// patience = 12500/2 = 6250, new deadline = 37500+6250 = 43750
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 37500, remainingBytes: 9999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(300)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(6250)))
-
-				// At the next deadline: pop 500.
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 43750, remainingBytes: 9999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(500)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(3125)))
-
-				// At the next deadline: pop 600.
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 50000, remainingBytes: 9999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(600)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(1562)))
-			})
-
-			It("should use zero relaxation patience when StallProgressTimeout is zero", func() {
-				sd.stallDetectorOptions.StallProgressTimeout = 0
-				sd.initializeRelaxationState(iterationRecord{elapsedMs: 5000}, monitor.logger)
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
-				Expect(sd.relaxationDeadlineMs).To(Equal(uint64(5000)))
-			})
-
-			It("should pop on every call once patience reaches zero", func() {
-				sd.bestRemainingBytes = 100
-				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
-
-				// Set a high deadline to accumulate history without popping
-				sd.relaxationDeadlineMs = 1000
-				sd.relaxationPatienceMs = 1000
-
-				// Push some values before the deadline
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 0, remainingBytes: 200}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 100, remainingBytes: 300}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 200, remainingBytes: 400}, monitor.logger)
-
-				// Ensure nothing popped yet
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
-
-				// Now simulate patience reaching 1ms and expiring
-				sd.relaxationPatienceMs = 1
-				sd.relaxationDeadlineMs = 0
-
-				// First call at t=300: deadline is 0, pops 200.
-				// patience = 1/2 = 0, new deadline = 300+0 = 300
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 300, remainingBytes: 999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
-
-				// Patience is now 0, so advancing by just 1ms still pops.
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 301, remainingBytes: 999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(300)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
-
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 302, remainingBytes: 999}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(400)))
-				Expect(sd.relaxationPatienceMs).To(Equal(uint64(0)))
-			})
+			DescribeTable("compares remaining bytes against the stall margin",
+				func(outsideWindowMin uint64, stallMargin int64, remainingBytes uint64, stalled bool) {
+					sd.minRecordOutsideWindow = iterationRecord{remainingBytes: outsideWindowMin}
+					sd.stallDetectorOptions.StallMargin = stallMargin
+					Expect(sd.checkStallCondition(remainingBytes, monitor.logger)).To(Equal(stalled))
+				},
+				Entry("progress below the threshold", uint64(1000), int64(4), uint64(955), false),
+				Entry("stall at the inclusive threshold", uint64(1000), int64(4), uint64(960), true),
+				Entry("stall at a wider configured margin", uint64(1000), int64(10), uint64(955), true),
+				Entry("stall at the truncated threshold", uint64(101), int64(4), uint64(96), true),
+			)
 		})
 
 		Describe("processStallDetectionIteration", func() {
-			BeforeEach(func() {
+			It("skips tracking until a bandwidth estimate is available", func() {
+				first := iterationRecord{elapsedMs: 5_000, remainingBytes: 1000}
+				Expect(sd.processStallDetectionIteration(first, monitor.logger)).To(BeFalse())
+
+				second := iterationRecord{elapsedMs: 30_000, remainingBytes: 1000}
+				Expect(sd.processStallDetectionIteration(second, monitor.logger)).To(BeFalse())
+				Expect(sd.minCandidates).To(BeEmpty())
+				_, ok := sd.localMinimumWindow.minimum()
+				Expect(ok).To(BeFalse())
+
+				sd.updateBandwidthEstimate(1000, monitor.logger)
+				Expect(sd.processStallDetectionIteration(second, monitor.logger)).To(BeFalse())
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 55_000, remainingBytes: 1000}, monitor.logger)).To(BeTrue())
+			})
+
+			It("skips tracking after switchover is initiated", func() {
 				sd.ewmaBandwidthBps = 1000
-				sd.minRecordOutsideWindow = iterationRecord{remainingBytes: 1000}
-			})
-
-			It("should detect a new stall and initialize relaxation state", func() {
-				// checkStallCondition: 1000 >= 1000 * 0.96 = 960 → stalled
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 1000}, monitor.logger)).To(BeTrue())
-				Expect(sd.stallDetected).To(BeTrue())
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(1000)))
-			})
-
-			It("should return true when stall is already detected", func() {
-				sd.stallDetected = true
-				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 1000}, monitor.logger)).To(BeTrue())
-			})
-
-			It("should return false when not stalled", func() {
-				// checkStallCondition: 900 >= 1000 * 0.96 = 960 → not stalled
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900}, monitor.logger)).To(BeFalse())
-				Expect(sd.stallDetected).To(BeFalse())
-			})
-
-			It("should return false when switchover is already initiated", func() {
 				sd.switchoverInitiated = true
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900}, monitor.logger)).To(BeFalse())
+				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 5_000, remainingBytes: 900}, monitor.logger)).To(BeFalse())
+				Expect(sd.minCandidates).To(BeEmpty())
+				_, ok := sd.localMinimumWindow.minimum()
+				Expect(ok).To(BeFalse())
 			})
 
-			It("should return false when bandwidth data is unavailable", func() {
-				sd.ewmaBandwidthBps = 0
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 100, remainingBytes: 900}, monitor.logger)).To(BeFalse())
-			})
+			It("uses the previous iteration as the outside minimum when StallProgressTimeout is zero", func() {
+				monitor.options.StallDetectorOptions.StallProgressTimeout = 0
+				detector := newStallDetector(monitor.options, false, false)
+				detector.ewmaBandwidthBps = 1000
+				previous := iterationRecord{remainingBytes: 1000}
+				Expect(detector.processStallDetectionIteration(previous, monitor.logger)).To(BeFalse())
 
-			It("should detect stall on the next iteration when StallProgressTimeout is zero", func() {
-				sd.stallDetectorOptions.StallProgressTimeout = 0
-				sd.ewmaBandwidthBps = 1000
-				sd.updateCandidates(iterationRecord{elapsedMs: 0, remainingBytes: 1000}, monitor.logger)
-				Expect(sd.processStallDetectionIteration(iterationRecord{elapsedMs: 1, remainingBytes: 1000}, monitor.logger)).To(BeTrue())
-				Expect(sd.stallDetected).To(BeTrue())
+				current := iterationRecord{elapsedMs: 1, remainingBytes: 1200}
+				Expect(detector.processStallDetectionIteration(current, monitor.logger)).To(BeTrue())
+				Expect(detector.minRecordOutsideWindow).To(Equal(previous))
 			})
 		})
 
 		Describe("decideAction", func() {
 			BeforeEach(func() {
-				sd.bestRemainingBytes = 0
+				sd.localMinimumWindow.add(0, 100)
 				sd.ewmaBandwidthBps = 1000
 			})
 
@@ -1215,17 +1075,22 @@ var _ = Describe("Live migration source", func() {
 				Expect(action).To(Equal(actionNothing))
 			})
 
-			It("should return actionNothing when not at a local minima", func() {
-				sd.bestRemainingBytes = 100
+			It("should return actionNothing above the switchover threshold", func() {
 				// target = 100 * 1.04 = 104; remaining 105 > 104
 				action, _ := sd.decideAction(iterationRecord{remainingBytes: 105}, 500, monitor.start, testCompletionTimeSec, monitor.logger)
 				Expect(action).To(Equal(actionNothing))
 			})
 
+			It("should allow switchover at the inclusive local minimum threshold", func() {
+				action, _ := sd.decideAction(iterationRecord{remainingBytes: 104}, 500, monitor.start, testCompletionTimeSec, monitor.logger)
+				Expect(action).To(Equal(actionSoftStopAndCopy))
+			})
+
 			It("should skip local minima search when SearchLocalMinima is false", func() {
-				sd.bestRemainingBytes = 100
-				sd.stallDetectorOptions.SearchLocalMinima = false
-				action, _ := sd.decideAction(iterationRecord{remainingBytes: 200}, 500, monitor.start, testCompletionTimeSec, monitor.logger)
+				monitor.options.StallDetectorOptions.SearchLocalMinima = false
+				detector := newStallDetector(monitor.options, false, false)
+				detector.ewmaBandwidthBps = 1000
+				action, _ := detector.decideAction(iterationRecord{remainingBytes: 200}, 500, monitor.start, testCompletionTimeSec, monitor.logger)
 				Expect(action).To(Equal(actionSoftStopAndCopy))
 			})
 
@@ -1272,32 +1137,6 @@ var _ = Describe("Live migration source", func() {
 				Expect(action).To(Equal(actionHardStopAndCopy))
 			})
 
-			It("should transition to a convergence action after bestRemainingBytes relaxes to current level", func() {
-				sd.bestRemainingBytes = 100
-				sd.remainingBytesHistory = utilheap.NewMin[uint64]()
-				sd.relaxationPatienceMs = 25_000
-				sd.relaxationDeadlineMs = 25_000
-
-				remainingBytes := uint64(200)
-				estimatedDowntimeMs := uint32(500)
-
-				// Before relaxation: 200 > 100 * 1.04 = 104 → not at local minima
-				action, _ := sd.decideAction(iterationRecord{remainingBytes: remainingBytes}, estimatedDowntimeMs, monitor.start, testCompletionTimeSec, monitor.logger)
-				Expect(action).To(Equal(actionNothing))
-
-				// Push post-stall observations; deadline not yet reached
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 1000, remainingBytes: 200}, monitor.logger)
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 5000, remainingBytes: 300}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(100)))
-
-				// Exceed deadline → pops smallest (200) into bestRemainingBytes
-				sd.relaxBestRemainingBytes(iterationRecord{elapsedMs: 25_000, remainingBytes: 400}, monitor.logger)
-				Expect(sd.bestRemainingBytes).To(Equal(uint64(200)))
-
-				// After relaxation: 200 <= 200 * 1.04 = 208 → at local minima
-				action, _ = sd.decideAction(iterationRecord{remainingBytes: remainingBytes}, estimatedDowntimeMs, monitor.start, testCompletionTimeSec, monitor.logger)
-				Expect(action).To(Equal(actionSoftStopAndCopy))
-			})
 		})
 
 		Describe("triggerConvergenceAction", func() {
