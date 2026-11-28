@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	fakestrategy "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -52,9 +53,11 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
+	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -89,6 +92,65 @@ const (
 var _ = Describe("Apply", func() {
 
 	Context("Services", func() {
+		DescribeTable("should account for server-assigned Service networking without hiding managed drift",
+			func(changeDesired, changeCached func(*corev1.Service), expectPatch bool) {
+				desired := components.NewApiServerService(Namespace)
+				cached := desired.DeepCopy()
+				cached.Spec.ClusterIP = "10.0.0.1"
+				cached.Spec.ClusterIPs = []string{"10.0.0.1"}
+				cached.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv4Protocol}
+				cached.Spec.IPFamilyPolicy = new(corev1.IPFamilyPolicySingleStack)
+				cached.Spec.InternalTrafficPolicy = new(corev1.ServiceInternalTrafficPolicyCluster)
+				cached.Spec.SessionAffinity = corev1.ServiceAffinityNone
+				if changeDesired != nil {
+					changeDesired(desired)
+				}
+				if changeCached != nil {
+					changeCached(cached)
+				}
+				expectedSpec := desired.Spec.DeepCopy()
+				expectedSpec.ClusterIP = cached.Spec.ClusterIP
+				expectedSpec.Type = cached.Spec.Type
+				expectedSpec.SessionAffinity = corev1.ServiceAffinityNone
+				originalCached := cached.DeepCopy()
+				payload, err := generateServicePatch(cached, desired)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cached).To(Equal(originalCached), "comparison must not mutate the informer cache")
+				if expectPatch {
+					ops, err := jsonpatch.DecodePatch(payload)
+					Expect(err).NotTo(HaveOccurred())
+					original, err := json.Marshal(originalCached)
+					Expect(err).NotTo(HaveOccurred())
+					patched, err := ops.Apply(original)
+					Expect(err).NotTo(HaveOccurred())
+					actual := &corev1.Service{}
+					Expect(json.Unmarshal(patched, actual)).To(Succeed())
+					Expect(actual.Spec).To(Equal(*expectedSpec))
+					Expect(string(payload)).NotTo(ContainSubstring("\"clusterIPs\""), "leave allocation fields out of the patch when unspecified")
+				} else {
+					Expect(payload).To(BeEmpty())
+				}
+			},
+			Entry("unchanged allocated fields", nil, nil, false),
+			Entry("headless Service", nil, func(s *corev1.Service) {
+				s.Spec.ClusterIP = corev1.ClusterIPNone
+				s.Spec.ClusterIPs = []string{corev1.ClusterIPNone}
+			}, false),
+			Entry("selector drift", nil, func(s *corev1.Service) { s.Spec.Selector = map[string]string{"drift": "injected"} }, true),
+			Entry("internal traffic policy drift", nil, func(s *corev1.Service) {
+				s.Spec.InternalTrafficPolicy = new(corev1.ServiceInternalTrafficPolicyLocal)
+			}, true),
+			Entry("explicit internal traffic policy", func(s *corev1.Service) {
+				s.Spec.InternalTrafficPolicy = new(corev1.ServiceInternalTrafficPolicyLocal)
+			}, nil, true),
+			Entry("explicit IP family policy", func(s *corev1.Service) {
+				s.Spec.IPFamilyPolicy = new(corev1.IPFamilyPolicyRequireDualStack)
+			}, nil, true),
+			Entry("explicit IP families", func(s *corev1.Service) { s.Spec.IPFamilies = []corev1.IPFamily{corev1.IPv6Protocol} }, nil, true),
+			Entry("matching explicit IP family policy", func(s *corev1.Service) {
+				s.Spec.IPFamilyPolicy = new(corev1.IPFamilyPolicySingleStack)
+			}, nil, false),
+		)
 
 		It("should not patch if ClusterIp is empty during update", func() {
 			cachedService := &corev1.Service{}
@@ -544,6 +606,56 @@ var _ = Describe("Apply", func() {
 			Expect(r.createOrUpdateServiceAccount(requiredPR)).To(Succeed())
 			Expect(patched).To(BeTrue())
 		})
+	})
+
+	Context("APIServices", func() {
+		DescribeTable("should compare APIService references using the default HTTPS port",
+			func(desiredPort, cachedPort *int32, changeMetadata, expectPatch bool) {
+				kv := &v1.KubeVirt{}
+				desired := components.NewVirtAPIAPIServices(Namespace)[0]
+				injectOperatorMetadata(kv, &desired.ObjectMeta, "", "", "", true)
+				cached := desired.DeepCopy()
+				desired.Spec.Service.Port = desiredPort
+				cached.Spec.Service.Port = cachedPort
+				if changeMetadata {
+					desired.Labels["test-label"] = "updated"
+				}
+				expected := desired.DeepCopy()
+				if expected.Spec.Service.Port == nil {
+					expected.Spec.Service.Port = new(int32(443))
+				}
+				originalCached := cached.DeepCopy()
+				store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+				Expect(store.Add(cached)).To(Succeed())
+				client := install.NewMockAPIServiceInterface(gomock.NewController(GinkgoT()))
+				if expectPatch {
+					client.EXPECT().Patch(gomock.Any(), desired.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).
+						DoAndReturn(func(
+							_ context.Context, _ string, _ types.PatchType, payload []byte, _ metav1.PatchOptions, _ ...string,
+						) (*apiregv1.APIService, error) {
+							ops, err := jsonpatch.DecodePatch(payload)
+							Expect(err).NotTo(HaveOccurred())
+							original, err := json.Marshal(originalCached)
+							Expect(err).NotTo(HaveOccurred())
+							patched, err := ops.Apply(original)
+							Expect(err).NotTo(HaveOccurred())
+							actual := &apiregv1.APIService{}
+							Expect(json.Unmarshal(patched, actual)).To(Succeed())
+							Expect(actual.Spec.Service.Port).To(Equal(expected.Spec.Service.Port))
+							Expect(actual.Labels).To(Equal(expected.Labels))
+							return actual, nil
+						})
+				}
+				r := &Reconciler{kv: kv, stores: util.Stores{APIServiceCache: store}, aggregatorclient: client}
+				Expect(r.createOrUpdateAPIService(desired, nil)).To(Succeed())
+				Expect(cached).To(Equal(originalCached), "defaulting and metadata merging must not mutate the informer cache")
+			},
+			Entry("omitted port equals 443", nil, new(int32(443)), false, false),
+			Entry("non-default observed port is repaired", nil, new(int32(8443)), false, true),
+			Entry("explicit non-default port is enforced", new(int32(8443)), new(int32(443)), false, true),
+			Entry("explicit matching port is unchanged", new(int32(8443)), new(int32(8443)), false, false),
+			Entry("metadata drift is repaired without modifying cached metadata", nil, new(int32(443)), true, true),
+		)
 	})
 
 	Context("should handle service endpoint updates", func() {

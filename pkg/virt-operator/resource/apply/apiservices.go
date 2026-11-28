@@ -28,6 +28,9 @@ func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
 }
 
 func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, caBundle []byte) error {
+	// The API server defaults service.port to 443. Apply the same default before
+	// comparing against the informer cache to avoid a no-op patch on every sync.
+	apiregv1.SetObjectDefaults_APIService(apiService)
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &apiService.ObjectMeta, version, imageRegistry, id, true)
 	apiService.Spec.CABundle = caBundle
@@ -61,6 +64,9 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		return nil
 	}
 
+	// Metadata merging and defaulting must not mutate the informer cache.
+	cachedAPIService = cachedAPIService.DeepCopy()
+	apiregv1.SetObjectDefaults_APIService(cachedAPIService)
 	modified := resourcemerge.BoolPtr(false)
 	resourcemerge.EnsureObjectMeta(modified, &cachedAPIService.ObjectMeta, apiService.ObjectMeta)
 	serviceSame := equality.Semantic.DeepEqual(cachedAPIService.Spec.Service, apiService.Spec.Service)
