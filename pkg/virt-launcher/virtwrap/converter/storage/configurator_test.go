@@ -1135,7 +1135,7 @@ var _ = Describe("DiskConfigurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 
-		It("should set shareable and cache=none", func() {
+		It("should set shareable and leave cache unset", func() {
 			vmi := libvmi.New(
 				libvmi.WithPersistentVolumeClaim("mypvc", "my-claim", libvmi.WithDiskShareable()),
 			)
@@ -1153,7 +1153,7 @@ var _ = Describe("DiskConfigurator", func() {
 				diskWithType("file"),
 				diskWithSource(api.DiskSource{File: volumepath.Filesystem("mypvc")}),
 				diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", Cache: "none", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
+				diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap"}),
 				diskWithModel(virtioModel),
 				diskWithShareable(),
 			))

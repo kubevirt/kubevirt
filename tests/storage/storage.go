@@ -1244,6 +1244,59 @@ var _ = Describe(SIG("Storage", func() {
 				Entry("DataVolume source", addDataVolumeLunDisk),
 			)
 
+			// device=lun SCSI passthrough exposes the host device's MODE SENSE WCE to the
+			// guest, so /sys/block/sdX/queue/write_cache does not reflect QEMU cache=.
+			// virtio-blk does: cache=directsync → guest write through (WCE off).
+			It("should expose writethrough to the guest when block write_cache is write through", func() {
+				By("Setting scsi_debug write_cache to write through for directsync autodetection")
+				dev := filepath.Base(device)
+				_, err = virtChrootExecuteCommandInVirtHandlerPod(nodeName, []string{
+					"/usr/bin/bash", "-c",
+					fmt.Sprintf("echo write through > /sys/block/%s/queue/write_cache", dev),
+				})
+				Expect(err).ToNot(HaveOccurred())
+				stdout, err := virtChrootExecuteCommandInVirtHandlerPod(nodeName, []string{
+					"/usr/bin/cat", fmt.Sprintf("/sys/block/%s/queue/write_cache", dev),
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.TrimSpace(stdout)).To(Equal("write through"))
+
+				pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.GetTestNamespace(nil), "scsi-disks", "scsipv", "scsipvc")
+				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
+
+				By("Creating VMI with virtio disk (cache unset) on the writethrough block device")
+				vmi := libvmifact.NewAlpine(
+					libvmi.WithNodeSelectorFor(nodeName),
+					libvmi.WithPersistentVolumeClaim("disk1", pvc.Name),
+				)
+				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
+
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithFailOnWarnings(false),
+					libwait.WithTimeout(180),
+				)
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Verifying the guest sees writethrough (WCE off) on the virtio disk")
+				var guestDisk string
+				Eventually(func() string {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					guestDisk = libstorage.LookupVolumeTargetPath(vmi, "disk1")
+					return guestDisk
+				}, 30*time.Second, time.Second).ShouldNot(BeEmpty())
+
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("cat /sys/block/%s/queue/write_cache\n", filepath.Base(guestDisk))},
+					&expect.BExp{R: "write through"},
+				}, 30)).To(Succeed())
+
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
+			})
+
 			It("should run the VMI created with a DataVolume source and use the LUN disk", func() {
 				pv, err = CreatePVwithSCSIDisk("scsi-disks", "scsipv", nodeName, device)
 				Expect(err).ToNot(HaveOccurred())

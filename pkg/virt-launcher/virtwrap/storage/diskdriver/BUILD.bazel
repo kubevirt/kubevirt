@@ -7,6 +7,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/os/disk:go_default_library",
+        "//pkg/safepath:go_default_library",
+        "//pkg/storage/blockqueue:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/disksource:go_default_library",

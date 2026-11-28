@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/blockqueue"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -198,10 +199,7 @@ func getDiscardGranularity(safePath *safepath.Path) (uint64, error) {
 	}
 	stat := fileInfo.Sys().(*syscall.Stat_t)
 	rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is uint32 on e.g. MIPS.
-	major := unix.Major(rdev)
-	minor := unix.Minor(rdev)
-
-	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/discard_granularity", major, minor))
+	raw, err := blockqueue.ReadAttr(rdev, "discard_granularity")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// On the off chance that we can't stat the discard granularity, set it to disabled.
