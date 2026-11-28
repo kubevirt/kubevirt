@@ -19,6 +19,7 @@ go_library(
         "probes.go",
         "services.go",
         "sriov.go",
+        "vm_sandbox_failure.go",
         "vmi_infosource.go",
         "vmi_istio.go",
         "vmi_lifecycle.go",
