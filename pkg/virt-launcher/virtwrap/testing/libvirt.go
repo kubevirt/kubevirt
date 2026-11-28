@@ -162,7 +162,7 @@ func (c *virtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags
 	return val, nil
 }
 
-func (c *virtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) (int, error) {
+func (c *virtConnection) DomainEventMigrationIterationRegister(callback libvirt.DomainEventMigrationIterationCallback) func() {
 	return c.MockConnection.DomainEventMigrationIterationRegister(callback)
 }
 

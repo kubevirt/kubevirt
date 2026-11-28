@@ -150,18 +150,18 @@ var _ = Describe("Notify", func() {
 				mockConn.ConnectionEXPECT().SetReconnectChan(gomock.Any()).Do(func(ch chan bool) {
 					reconnectChan = ch
 				})
-				mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any()).Return(nil)
-				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any()).Return(nil)
+				mockConn.ConnectionEXPECT().DomainEventLifecycleRegister(gomock.Any())
+				mockConn.ConnectionEXPECT().DomainEventDeviceAddedRegister(gomock.Any())
+				mockConn.ConnectionEXPECT().DomainEventDeviceRemovedRegister(gomock.Any())
+				mockConn.ConnectionEXPECT().DomainEventMemoryDeviceSizeChangeRegister(gomock.Any())
+				mockConn.ConnectionEXPECT().DomainEventJobCompletedRegister(gomock.Any())
+				mockConn.ConnectionEXPECT().AgentEventLifecycleRegister(gomock.Any())
 
 				vmi := api2.NewMinimalVMI("test-vmi")
 				vmi.UID = "1234"
 				agentStore := agentpoller.NewAsyncAgentStore()
 
-				err := client.StartDomainNotifier(
+				client.StartDomainNotifier(
 					mockConn.VirtConnection,
 					deleteNotificationSent,
 					vmi,
@@ -175,7 +175,6 @@ var _ = Describe("Notify", func() {
 					metadataCache(),
 					false,
 				)
-				Expect(err).ToNot(HaveOccurred())
 
 				By("Triggering a libvirt reconnect")
 				Expect(reconnectChan).ToNot(BeNil())

@@ -238,11 +238,8 @@ func (m *StorageManager) commitAllDisks(vmi *v1.VirtualMachineInstance, dom cli.
 		return err
 	}
 
-	events, err := subscribeBlockJobEvents(m.virConn)
-	if err != nil {
-		return err
-	}
-	defer events.close(vmi)
+	events := subscribeBlockJobEvents(m.virConn)
+	defer events.unsubscribe()
 
 	for _, disk := range disks {
 		if err := m.commitDisk(vmi, dom, disk, overlayDir, events.events); err != nil {
@@ -482,18 +479,16 @@ func (m *StorageManager) failCommitSnapshot(vmi *v1.VirtualMachineInstance, caus
 
 // blockJobEventStream subscribes to block job events for one commit
 type blockJobEventStream struct {
-	conn           cli.Connection
-	registrationID int
-	events         chan libvirt.DomainEventBlockJob
+	unsubscribe func()
+	events      chan libvirt.DomainEventBlockJob
 }
 
-func subscribeBlockJobEvents(conn cli.Connection) (*blockJobEventStream, error) {
+func subscribeBlockJobEvents(conn cli.Connection) *blockJobEventStream {
 	stream := &blockJobEventStream{
-		conn:   conn,
 		events: make(chan libvirt.DomainEventBlockJob, blockJobEventBuffer),
 	}
 
-	registrationID, err := conn.VolatileDomainEventBlockJobRegister(
+	stream.unsubscribe = conn.VolatileDomainEventBlockJobRegister(
 		func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainEventBlockJob) {
 			// runs on the libvirt event loop, which must never block
 			select {
@@ -501,18 +496,7 @@ func subscribeBlockJobEvents(conn cli.Connection) (*blockJobEventStream, error) 
 			default:
 			}
 		})
-	if err != nil {
-		return nil, fmt.Errorf("failed to subscribe to block job events: %w", err)
-	}
-
-	stream.registrationID = registrationID
-	return stream, nil
-}
-
-func (s *blockJobEventStream) close(vmi *v1.VirtualMachineInstance) {
-	if err := s.conn.DomainEventDeregister(s.registrationID); err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to unsubscribe from block job events")
-	}
+	return stream
 }
 
 // blockCommitRunning reports whether the disk already has this commit running,
