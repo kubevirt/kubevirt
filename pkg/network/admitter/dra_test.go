@@ -104,22 +104,16 @@ var _ = Describe("Validate network DRA", func() {
 		Expect(causes).To(Equal(expectedCauses))
 	})
 
-	It("should reject mixing Multus and DRA networks", func() {
+	It("should accept mixing Multus and DRA networks", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.NewInterface("multus-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
+			libvmi.WithInterface(libvmi.NewInterface("multus-net", libvmi.WithBridgeBinding())),
 			libvmi.WithInterface(libvmi.NewInterface("dra-net", libvmi.WithBindingPlugin(v1.PluginBinding{Name: "netbinding"}))),
 			libvmi.WithNetwork(libvmi.MultusNetwork("multus-net", "nad1")),
 			libvmi.WithNetwork(libvmi.DRANetwork("dra-net", "claim1", "vf")),
 			libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{Name: "claim1", ResourceClaimName: new("claim1")}),
 		)
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{networkDRAEnabled: true})
-		causes := validator.Validate()
-		expectedCauses := []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "mixing Multus and DRA resourceClaim networks in the same VMI is not supported",
-			Field:   "fake.networks",
-		}}
-		Expect(causes).To(Equal(expectedCauses))
+		Expect(validator.Validate()).To(BeEmpty())
 	})
 
 	DescribeTable("should reject DRA network with core interface binding",

@@ -21,7 +21,6 @@ package admitter
 
 import (
 	"fmt"
-	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -47,16 +46,6 @@ func validateNetworkDevicesWithDRA(
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "vmi.spec.networks contains DRA networks but NetworkDevicesWithDRA feature gate is not enabled",
-			Field:   field.Child("networks").String(),
-		}}
-	}
-
-	if slices.ContainsFunc(spec.Networks, func(network v1.Network) bool {
-		return network.Multus != nil
-	}) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "mixing Multus and DRA resourceClaim networks in the same VMI is not supported",
 			Field:   field.Child("networks").String(),
 		}}
 	}

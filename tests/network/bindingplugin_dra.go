@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -52,6 +53,8 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 		const (
 			bindingName               = "dra-binding"
 			networkName               = "dranet"
+			multusIfaceName           = "multus-ptp"
+			ptpNADName                = "ptp-dra"
 			resourceClaimTemplateName = "dra-net-claim-template"
 			resourceClaimName         = "dra-net-claim"
 			requestName               = "netdev"
@@ -66,7 +69,11 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 
 		newDRAVMI := func() *v1.VirtualMachineInstance {
 			return libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithInterface(libvmi.NewInterface(v1.DefaultPodNetwork().Name, libvmi.WithMasqueradeBinding())),
+				libvmi.WithInterface(libvmi.NewInterface(multusIfaceName, libvmi.WithBridgeBinding())),
 				libvmi.WithInterface(libvmi.NewInterface(networkName, libvmi.WithBindingPlugin(v1.PluginBinding{Name: bindingName}))),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(multusIfaceName, ptpNADName)),
 				libvmi.WithNetwork(libvmi.DRANetwork(networkName, resourceClaimName, requestName)),
 				libvmi.WithResourceClaim(v1.VirtualMachineInstanceResourceClaim{
 					Name:                      resourceClaimName,
@@ -94,6 +101,8 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 				metav1.CreateOptions{},
 			)
 			Expect(err).NotTo(HaveOccurred())
+
+			Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), ptpNADName, ptpSubnet)).To(Succeed())
 		})
 
 		BeforeAll(func() {
@@ -122,20 +131,37 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			Expect(err).ToNot(HaveOccurred())
 			Expect(console.LoginToAlpine(clientVMI)).To(Succeed())
 
-			By("Verifying the DRA network interface is reported in the VMI status")
+			serverVMI, err = kubevirt.Client().VirtualMachineInstance(serverVM.Namespace).
+				Get(context.Background(), serverVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToAlpine(serverVMI)).To(Succeed())
+
+			for _, vmi := range []*v1.VirtualMachineInstance{clientVMI, serverVMI} {
+				Eventually(acquireDHCPLease).WithArguments(vmi, networkName).
+					WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			}
 
 			Eventually(func(g Gomega) {
 				serverVMI, err = kubevirt.Client().VirtualMachineInstance(serverVM.Namespace).
 					Get(context.Background(), serverVM.Name, metav1.GetOptions{})
 				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
-				infoSource := serverVMI.Status.Interfaces[0].InfoSource
-				g.Expect(vmispec.ContainsInfoSource(infoSource, vmispec.InfoSourceDomain)).To(BeTrue())
-				g.Expect(vmispec.ContainsInfoSource(infoSource, vmispec.InfoSourceGuestAgent)).To(BeTrue())
-				g.Expect(vmispec.ContainsInfoSource(infoSource, vmispec.InfoSourcePodStatus)).To(BeTrue())
-				g.Expect(serverVMI.Status.Interfaces[0].IPs).ToNot(BeEmpty())
+				g.Expect(serverVMI.Status.Interfaces).To(HaveLen(len(serverVMI.Spec.Domain.Devices.Interfaces)))
+
+				draIfaceStatus := vmispec.LookupInterfaceStatusByName(serverVMI.Status.Interfaces, networkName)
+				g.Expect(draIfaceStatus).NotTo(BeNil())
+				g.Expect(vmispec.ContainsInfoSource(draIfaceStatus.InfoSource, vmispec.InfoSourceDomain)).To(BeTrue())
+				g.Expect(vmispec.ContainsInfoSource(draIfaceStatus.InfoSource, vmispec.InfoSourceGuestAgent)).To(BeTrue())
+				g.Expect(vmispec.ContainsInfoSource(draIfaceStatus.InfoSource, vmispec.InfoSourcePodStatus)).To(BeTrue())
+				g.Expect(draIfaceStatus.IPs).ToNot(BeEmpty())
+
+				multusIfaceStatus := vmispec.LookupInterfaceStatusByName(serverVMI.Status.Interfaces, multusIfaceName)
+				g.Expect(multusIfaceStatus).NotTo(BeNil())
+				g.Expect(vmispec.ContainsInfoSource(multusIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)).To(BeTrue())
+
+				podIfaceStatus := vmispec.LookupInterfaceStatusByName(serverVMI.Status.Interfaces, v1.DefaultPodNetwork().Name)
+				g.Expect(podIfaceStatus).NotTo(BeNil())
 			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-			serverIP = serverVMI.Status.Interfaces[0].IPs[0]
+			serverIP = vmispec.LookupInterfaceStatusByName(serverVMI.Status.Interfaces, networkName).IPs[0]
 
 			By("Starting a TCP server on the server VM")
 			vmnetserver.StartTCPServer(serverVMI, draPort, console.LoginToAlpine)
@@ -145,6 +171,12 @@ var _ = Describe(SIG("VM with DRA network binding plugin", decorators.NetCustomB
 			Eventually(connectClientToServer).WithArguments(clientVMI, serverIP, draPort).
 				WithTimeout(30 * time.Second).WithPolling(5 * time.Second).
 				Should(Succeed())
+		})
+
+		It("should communicate over the secondary multus network", func() {
+			Eventually(acquireDHCPLease).WithArguments(clientVMI, multusIfaceName).
+				WithTimeout(2 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			Expect(libnet.PingFromVMConsole(clientVMI, ptpSubnetIP1)).To(Succeed())
 		})
 
 		It("should retain network connectivity after client migration", func() {
@@ -181,4 +213,24 @@ func connectClientToServer(vmi *v1.VirtualMachineInstance, targetHost string, ta
 	return console.RunCommand(vmi,
 		fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null", targetHost, targetPort),
 		15*time.Second)
+}
+
+func acquireDHCPLease(vmi *v1.VirtualMachineInstance, networkName string) error {
+	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, networkName)
+	if ifaceStatus == nil {
+		return fmt.Errorf("interface status of network %q not found", networkName)
+	}
+	if ifaceStatus.InterfaceName == "" {
+		return fmt.Errorf("guest interface name of network %q not reported yet", networkName)
+	}
+
+	ifaceName := ifaceStatus.InterfaceName
+	return console.RunCommand(vmi,
+		fmt.Sprintf("ip link set %s up && udhcpc -i %s -n -q >/dev/null 2>&1", ifaceName, ifaceName),
+		30*time.Second)
 }
