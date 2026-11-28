@@ -213,10 +213,6 @@ func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.RebootPolicy)
 }
 
-func (config *ClusterConfig) VmiMemoryOverheadReportEnabled() bool {
-	return config.IsFeatureGateEnabled(featuregate.VmiMemoryOverheadReport)
-}
-
 func (config *ClusterConfig) TemplateEnabled() bool {
 	return config.IsFeatureGateEnabled(featuregate.Template)
 }

@@ -4294,16 +4294,6 @@ func (*fakeManager) StartServer(_ *v1.VirtualMachineInstance, _ int) error {
 }
 func (*fakeManager) StopServer(_ *v1.VirtualMachineInstance) {}
 
-type stubMemoryOverheadCalculator struct {
-	calculatedMemoryOverhead bool
-}
-
-func (smc *stubMemoryOverheadCalculator) Calculate(_ *v1.VirtualMachineInstance) resource.Quantity {
-	smc.calculatedMemoryOverhead = true
-
-	return resource.Quantity{}
-}
-
 // withFilesystemDevice adds a generic filesystem
 func withFilesystemDevice(deviceName string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {

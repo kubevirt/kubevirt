@@ -1283,10 +1283,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
 	vmiCopy.Status.MigrationState.TargetPod = pod.Name
 
-	// Set target memory overhead from pod annotation
-	if c.clusterConfig.VmiMemoryOverheadReportEnabled() {
-		c.updateTargetMemoryOverheadFromPod(vmiCopy, pod)
-	}
+	c.updateTargetMemoryOverheadFromPod(vmiCopy, pod)
 
 	if migration.IsDecentralized() {
 		vmiCopy.Status.MigrationState.TargetState.MigrationUID = migration.UID

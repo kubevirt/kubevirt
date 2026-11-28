@@ -320,7 +320,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.backendStorage.UpdateVolumeStatus(vmiCopy, pvc)
 	}
 
-	if c.clusterConfig.VmiMemoryOverheadReportEnabled() && vmiPodExists {
+	if vmiPodExists {
 		c.updateMemoryOverheadStatusFromPod(vmiCopy, pod)
 	}
 
@@ -1193,14 +1193,6 @@ func (c *Controller) updateMemoryOverheadStatusFromPod(vmi *virtv1.VirtualMachin
 
 func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 	syncHotplugCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
-	// store additionalGuestMemoryOverheadRatio
-	overheadRatio := c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio
-	if overheadRatio != nil {
-		if vmi.Labels == nil {
-			vmi.Labels = map[string]string{}
-		}
-		vmi.Labels[virtv1.MemoryHotplugOverheadRatioLabel] = *overheadRatio
-	}
 }
 
 func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {

@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -68,27 +67,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type memoryOverheadCalculator interface {
-	Calculate(vmi *v1.VirtualMachineInstance) resource.Quantity
-}
-
 type passtRepairTargetHandler interface {
 	HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
 }
 
 type MigrationTargetController struct {
 	*BaseController
-	capabilities              *libvirtxml.Caps
-	containerDiskMounter      containerdisk.Mounter
-	hotplugVolumeMounter      hotplugvolume.VolumeMounter
-	migrationIpAddress        string
-	memoryOverheadCalculators []memoryOverheadCalculator
-	netConf                   netconf
-	passtRepairHandler        passtRepairTargetHandler
-	pluginExecutor            plugins.NodeHookExecutor
-	vmiExpectations           *controller.UIDTrackingControllerExpectations
-	migrationProxy            targetProxyManager
-	getCgroupManager          cgroupManagerGetter
+	capabilities         *libvirtxml.Caps
+	containerDiskMounter containerdisk.Mounter
+	hotplugVolumeMounter hotplugvolume.VolumeMounter
+	migrationIpAddress   string
+	netConf              netconf
+	passtRepairHandler   passtRepairTargetHandler
+	pluginExecutor       plugins.NodeHookExecutor
+	vmiExpectations      *controller.UIDTrackingControllerExpectations
+	migrationProxy       targetProxyManager
+	getCgroupManager     cgroupManagerGetter
 }
 
 type targetProxyManager interface {
@@ -117,7 +111,6 @@ func NewMigrationTargetController(
 	pluginExecutor plugins.NodeHookExecutor,
 	cdMounter containerdisk.Mounter,
 	hvMounter hotplugvolume.VolumeMounter,
-	memoryOverheadCalculators ...memoryOverheadCalculator,
 ) (*MigrationTargetController, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -149,18 +142,17 @@ func NewMigrationTargetController(
 	}
 
 	c := &MigrationTargetController{
-		BaseController:            baseCtrl,
-		capabilities:              capabilities,
-		containerDiskMounter:      cdMounter,
-		hotplugVolumeMounter:      hvMounter,
-		migrationIpAddress:        migrationIpAddress,
-		memoryOverheadCalculators: memoryOverheadCalculators,
-		netConf:                   netConf,
-		passtRepairHandler:        passtRepairHandler,
-		pluginExecutor:            pluginExecutor,
-		vmiExpectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		migrationProxy:            migrationProxy,
-		getCgroupManager:          newCgroupManager,
+		BaseController:       baseCtrl,
+		capabilities:         capabilities,
+		containerDiskMounter: cdMounter,
+		hotplugVolumeMounter: hvMounter,
+		migrationIpAddress:   migrationIpAddress,
+		netConf:              netConf,
+		passtRepairHandler:   passtRepairHandler,
+		pluginExecutor:       pluginExecutor,
+		vmiExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationProxy:       migrationProxy,
+		getCgroupManager:     newCgroupManager,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1148,7 +1140,6 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 
 	removeVMIMemoryChangeLabel := func() {
 		delete(vmi.Labels, v1.VirtualMachinePodMemoryRequestsLabel)
-		delete(vmi.Labels, v1.MemoryHotplugOverheadRatioLabel)
 	}
 	defer removeVMIMemoryChangeLabel()
 
@@ -1163,19 +1154,15 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
 	}
 
-	var requiredMemory resource.Quantity
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
-		requiredMemory = *vmi.Status.MigrationState.TargetMemoryOverhead
-	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-		requiredMemory = hypervisor.NewLauncherHypervisorResources(c.clusterConfig.GetHypervisor().Name).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
-		for _, calc := range c.memoryOverheadCalculators {
-			requiredMemory.Add(calc.Calculate(vmi))
-		}
+	// The target pod was sized from this stored value. Recalculating here can
+	// disagree with that pod, including after an upgrade, so a missing value
+	// fails the hotplug instead of approving a request the pod cannot hold.
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.TargetMemoryOverhead == nil {
+		vmiConditions.RemoveCondition(vmi, v1.VirtualMachineInstanceMemoryChange)
+		return fmt.Errorf("cannot hotplug memory for VMI %s/%s: target memory overhead is not set", vmi.Namespace, vmi.Name)
 	}
 
+	requiredMemory := vmi.Status.MigrationState.TargetMemoryOverhead.DeepCopy()
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 
 	if podMemReq.Cmp(requiredMemory) < 0 {
