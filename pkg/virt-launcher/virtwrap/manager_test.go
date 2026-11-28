@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1887,47 +1888,6 @@ var _ = Describe("Manager", func() {
 			})
 
 			Expect(actualGracePeriod).To(Equal(updatedGracePeriod))
-		})
-
-		It("should not resize a disk with overlay using DOMAIN_BLOCK_RESIZE_CAPACITY", func() {
-			localCtrl := gomock.NewController(GinkgoT())
-			localMockLibvirt := testing.NewLibvirt(localCtrl)
-
-			vmi := newVMI(testNamespace, testVmName)
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Devices.Disks = append(domainSpec.Devices.Disks, api.Disk{
-				Device: "disk",
-				Type:   "file",
-				Source: api.DiskSource{
-					File: "/test/overlay.qcow2",
-					DataStore: &api.DataStore{
-						Type:   "block",
-						Source: &api.DiskSource{Dev: "/dev/vda"},
-					},
-				},
-				Target: api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"},
-				Driver: &api.DiskDriver{Name: "qemu", Type: "qcow2"},
-				Alias:  api.NewUserDefinedAlias("test-disk"),
-			})
-			xml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).NotTo(HaveOccurred())
-
-			localMockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(func(_ string) (cli.VirDomain, error) {
-				localMockLibvirt.DomainEXPECT().Free()
-				return localMockLibvirt.VirtDomain, nil
-			})
-			localMockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			localMockLibvirt.DomainEXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Times(2).Return(string(xml), nil)
-			localMockLibvirt.DomainEXPECT().GetBlockInfo(gomock.Any(), gomock.Any()).AnyTimes().Return(&libvirt.DomainBlockInfo{
-				Capacity: 10 * 1024 * 1024 * 1024,
-				Physical: 20 * 1024 * 1024 * 1024,
-			}, nil)
-
-			manager, err := NewLibvirtDomainManager(localMockLibvirt.VirtConnection, testVirtShareDir, testEphemeralDiskDir, nil, virtconfig.DefaultARCHOVMFPath, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter, false, nil, v1.KvmHypervisorName, "", false, false, false, false, nil)
-			Expect(err).ToNot(HaveOccurred())
-			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(newspec).ToNot(BeNil())
 		})
 	})
 
@@ -4789,29 +4749,6 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(size).To(Equal(expectedSize))
 		})
 
-		It("should return (0, true) for a direct block device", func() {
-			disk := api.Disk{Source: api.DiskSource{Dev: "/dev/vda"}}
-			ds := disksource.Resolve(disk)
-			size, ok := possibleGuestSize(disk, ds)
-			Expect(ok).To(BeTrue())
-			Expect(size).To(Equal(int64(0)))
-		})
-
-		It("should return (0, false) for a datastore backed block device with unreachable backend", func() {
-			disk := api.Disk{
-				Source: api.DiskSource{
-					File: "/test/overlay.qcow2",
-					DataStore: &api.DataStore{
-						Type:   "block",
-						Source: &api.DiskSource{Dev: "/dev/nonexistent"},
-					},
-				},
-			}
-			ds := disksource.Resolve(disk)
-			_, ok := possibleGuestSize(disk, ds)
-			Expect(ok).To(BeFalse())
-		})
-
 		It("should apply filesystem overhead for datastore backed file", func() {
 			fakePercentFloat := 0.05
 			fakePercent := v1.Percent(fmt.Sprint(fakePercentFloat))
@@ -4864,17 +4801,6 @@ var _ = Describe("Manager helper functions", func() {
 				fakePercent := v1.Percent("abcdefg")
 				disk.FilesystemOverhead = &fakePercent
 				return disk
-			}),
-			Entry("dataStore backed block device with unreachable backend", func() api.Disk {
-				return api.Disk{
-					Source: api.DiskSource{
-						File: "/test/overlay.qcow2",
-						DataStore: &api.DataStore{
-							Type:   "block",
-							Source: &api.DiskSource{Dev: "/dev/nonexistent"},
-						},
-					},
-				}
 			}),
 		)
 	})
@@ -5138,32 +5064,46 @@ var _ = Describe("calculateHotplugPortCountV2", func() {
 })
 
 var _ = Describe("shouldExpandOffline", func() {
-	It("should return false for a direct block device", func() {
-		disk := api.Disk{
-			Source: api.DiskSource{
-				Dev: "/dev/vda",
-			},
-		}
-		Expect(shouldExpandOffline(disk)).To(BeFalse())
+	var imagePath string
+
+	BeforeEach(func() {
+		imagePath = filepath.Join(GinkgoT().TempDir(), "disk.img")
+		f, err := os.Create(imagePath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(f.Truncate(storagetypes.MiB)).To(Succeed())
+		Expect(f.Close()).To(Succeed())
 	})
 
-	It("should return false for a datastore backed block device", func() {
-		disk := api.Disk{
-			Source: api.DiskSource{
+	// A disk is block-backed when its source uses Dev, whatever the path points to,
+	// so the same image file serves for every entry.
+	DescribeTable("with a 1MiB image and an 8MiB capacity",
+		func(source func(string) api.DiskSource, expected bool) {
+			capacity := int64(8 * storagetypes.MiB)
+			overhead := v1.Percent("0")
+			disk := api.Disk{
+				Source:             source(imagePath),
+				Capacity:           &capacity,
+				FilesystemOverhead: &overhead,
+			}
+			Expect(shouldExpandOffline(disk)).To(Equal(expected))
+		},
+		Entry("should expand a file-backed disk", func(path string) api.DiskSource {
+			return api.DiskSource{File: path}
+		}, true),
+		Entry("should not expand a direct block device", func(path string) api.DiskSource {
+			return api.DiskSource{Dev: path}
+		}, false),
+		Entry("should not expand a datastore backed block device", func(path string) api.DiskSource {
+			return api.DiskSource{
 				File: "/test/overlay.qcow2",
 				DataStore: &api.DataStore{
-					Type: "block",
-					Format: &api.DataStoreFormat{
-						Type: "raw",
-					},
-					Source: &api.DiskSource{
-						Dev: "/dev/vda",
-					},
+					Type:   "block",
+					Format: &api.DataStoreFormat{Type: "raw"},
+					Source: &api.DiskSource{Dev: path},
 				},
-			},
-		}
-		Expect(shouldExpandOffline(disk)).To(BeFalse())
-	})
+			}
+		}, false),
+	)
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

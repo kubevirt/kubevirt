@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -386,6 +387,113 @@ var _ = Describe(SIG("CBT", func() {
 	It("should persist CBT data across restart", func() {
 		runCBTPersistenceTest(virtClient, "restart")
 	})
+
+	It("online expansion of a Block PVC with CBT (overlay-on-block) is observed by the guest without restart",
+		decorators.RequiresVolumeExpansion, decorators.RequiresBlockStorage, func() {
+			sc, ok := libstorage.GetRWOBlockStorageClass()
+			if !ok {
+				Fail("Block storage class not available")
+			}
+			if !volumeExpansionAllowed(sc) {
+				Fail("storage class does not support volume expansion")
+			}
+
+			const secondaryDiskName = "cbtblock"
+			const secondaryDiskPath = "/dev/disk/by-id/virtio-" + secondaryDiskName
+			const initialSize = "1Gi"
+
+			bootDV := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(libdv.StorageWithVolumeSize(cd.AlpineVolumeSize)),
+			)
+			blockDV := libdv.NewDataVolume(
+				libdv.WithBlankImageSource(),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(initialSize),
+					libdv.StorageWithBlockVolumeMode(),
+				),
+			)
+
+			// CBT label on the VM only, set before start (selector match is OR, VM label alone suffices).
+			vm = libstorage.RenderVMWithDataVolumeTemplate(bootDV,
+				libvmi.WithLabels(cbt.CBTLabel),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+			libstorage.AddDataVolumeTemplate(vm, blockDV)
+			libstorage.AddDataVolume(vm, secondaryDiskName, blockDV)
+			for i := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+				disk := &vm.Spec.Template.Spec.Domain.Devices.Disks[i]
+				if disk.Name == secondaryDiskName {
+					disk.Serial = secondaryDiskName
+					break
+				}
+			}
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+			By("Recording VMI and launcher pod identity to prove the expansion is online")
+			origVMIUID := vmi.UID
+			origPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			origPodUID := origPod.UID
+
+			readGuestBytes := func() (int64, error) {
+				return libstorage.GetGuestBlockDeviceSizeBytes(vmi, secondaryDiskPath)
+			}
+
+			By("Asserting the guest sees the initial PVC capacity")
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), blockDV.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			initialCapacity := pvc.Status.Capacity[k8sv1.ResourceStorage]
+			Eventually(readGuestBytes, 2*time.Minute, 5*time.Second).Should(Equal(initialCapacity.Value()),
+				"guest device size does not match the initial PVC capacity")
+
+			By("Doubling the Block PVC size")
+			newSize := *resource.NewQuantity(2*initialCapacity.Value(), initialCapacity.Format)
+			payload, err := patch.New(patch.WithAdd("/spec/resources/requests/storage", newSize)).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(
+				context.Background(), blockDV.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting until the PVC Status.Capacity reflects the new size")
+			Eventually(func() (int64, error) {
+				p, getErr := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), blockDV.Name, metav1.GetOptions{})
+				if getErr != nil {
+					return 0, getErr
+				}
+				q := p.Status.Capacity[k8sv1.ResourceStorage]
+				return q.Value(), nil
+			}, 5*time.Minute, 5*time.Second).Should(BeNumerically(">=", newSize.Value()))
+
+			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), blockDV.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			expandedCapacity := pvc.Status.Capacity[k8sv1.ResourceStorage]
+
+			By("Polling the guest until it observes the exact expanded size")
+			Eventually(readGuestBytes, 6*time.Minute, 5*time.Second).Should(Equal(expandedCapacity.Value()),
+				"guest did not observe the expanded Block disk size")
+			Expect(expandedCapacity.Value()).To(BeNumerically(">", initialCapacity.Value()))
+
+			By("Verifying the expansion was online (same VMI and launcher pod, still running)")
+			vmiAfter, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiAfter.UID).To(Equal(origVMIUID))
+			Expect(vmiAfter.Status.Phase).To(Equal(v1.Running))
+			podAfter, err := libpod.GetPodByVirtualMachineInstance(vmiAfter, vmiAfter.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(podAfter.UID).To(Equal(origPodUID))
+		})
 
 }))
 
