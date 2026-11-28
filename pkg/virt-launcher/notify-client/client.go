@@ -149,7 +149,7 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 }
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
+	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance,
 	metadataCache *metadata.Cache, nonRoot bool) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
@@ -248,8 +248,8 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		domain.Status.OSInfo = *osInfo
 	}
 
-	if fsFreezeStatus != nil {
-		domain.Status.FSFreezeStatus = *fsFreezeStatus
+	if fsFreeze, exists := metadataCache.FSFreezeStatus.Load(); exists {
+		domain.Status.FSFreezeStatus = fsFreeze
 	}
 	// Lifecycle metadata can advance after JOB_COMPLETED and remains available
 	// even after the source domain is gone.
@@ -277,7 +277,6 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 	nonRoot bool,
 ) error {
@@ -299,7 +298,6 @@ func (n *Notifier) StartDomainNotifier(
 			qemuAgentFileInterval,
 			qemuAgentUserInterval,
 			qemuAgentVersionInterval,
-			qemuAgentFSFreezeStatusInterval,
 		), agentStore, nonRoot, domainName)
 
 	return registerLibvirtCallbacks(eventChan, metadataCache, domainName, domainConn)
@@ -373,6 +371,12 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 		}
 	}
 
+	domainEventRebootCallback := func(c *libvirt.Connect, d *libvirt.Domain) {
+		log.Log.Infof("Domain Reboot event received")
+		// A rebooted guest has no frozen filesystems.
+		metadataCache.FSFreezeStatus.Store(api.FSFreeze{Status: api.FSThawed})
+	}
+
 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
@@ -397,6 +401,11 @@ func registerLibvirtCallbacks(eventChan chan libvirtEvent, metadataCache *metada
 	err = domainConn.DomainEventJobCompletedRegister(domainEventJobCompletedCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event job completed callback with libvirt")
+		return err
+	}
+	err = domainConn.DomainEventRebootRegister(domainEventRebootCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register reboot event callback with libvirt")
 		return err
 	}
 
@@ -553,7 +562,6 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 	domainName string) {
 	var interfaceStatuses []api.InterfaceStatus
 	var guestOsInfo *api.GuestOSInfo
-	var fsFreezeStatus *api.FSFreeze
 	var eventCaller eventCaller
 	var domainCache *api.Domain
 
@@ -570,22 +578,21 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 			domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
 			domainCache.Status.GuestPanicInfo = prevPanicInfo
 			domainCache.Status.PanicCount = prevPanicCount
-			eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+			eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, metadataCache, nonRoot)
 			log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 			agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 		case agentUpdate := <-agentStore.AgentUpdated:
 			metadataCache.ResetNotification()
 			interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 			guestOsInfo = agentUpdate.DomainInfo.OSInfo
-			fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 			eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-				interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+				interfaceStatuses, guestOsInfo, vmi, metadataCache, nonRoot)
 		case <-reconnectChan:
 			log.Log.Infof("Libvirt reconnected, domain %s. Event callbacks re-registered, triggering immediate reconciliation.", domainName)
 			if domainCache != nil {
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache, nonRoot)
+					interfaceStatuses, guestOsInfo, vmi, metadataCache, nonRoot)
 			}
 		case <-metadataCache.Listen():
 			// Metadata cache updates should be processed only *after* at least one
@@ -608,7 +615,6 @@ func (n *Notifier) worker(eventChan chan libvirtEvent, metadataCache *metadata.C
 					interfaceStatuses,
 					guestOsInfo,
 					vmi,
-					fsFreezeStatus,
 					metadataCache,
 					nonRoot,
 				)
