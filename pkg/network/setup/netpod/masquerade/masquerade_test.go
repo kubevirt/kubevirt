@@ -590,6 +590,88 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 1500-250
 		Expect(nftStub.String()).To(Equal(expectedConfig), fmt.Sprintf("actual:\n%s\n\nexpected:\n%s", nftStub.String(), expectedConfig))
 	})
 
+	DescribeTable("forwards declared ports and ranges by protocol",
+		func(istioEnabled bool, ports []v1.Port, portRanges []v1.PortRange, expectedMatches []string) {
+			nftStub := &nftableStub{}
+			masqPod := masquerade.New(
+				masquerade.WithNftableAdapter(nftStub),
+				masquerade.WithIstio(istioEnabled),
+				masquerade.WithPortRangesSpecGateEnabled(true),
+			)
+
+			err := masqPod.Setup(
+				&nmstate.Interface{
+					Name: "k6t-eth0",
+					IPv4: nmstate.IP{Enabled: new(true), Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}}},
+					IPv6: nmstate.IP{Enabled: new(true), Address: []nmstate.IPAddress{{IP: "fd10:0:2::1", PrefixLen: 120}}},
+				},
+				&nmstate.Interface{
+					Name: "eth0",
+					IPv4: nmstate.IP{Enabled: new(true), Address: []nmstate.IPAddress{{IP: "10.222.222.1", PrefixLen: 30}}},
+					IPv6: nmstate.IP{Enabled: new(true), Address: []nmstate.IPAddress{{IP: "2001::1", PrefixLen: 64}}},
+				},
+				v1.Interface{Ports: ports, PortRanges: portRanges},
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			for family, guestIP := range map[nft.IPFamily]string{nft.IPv4: "10.0.2.2", nft.IPv6: "fd10:0:2::2"} {
+				var actualRules []string
+				for _, rule := range nftStub.Rules {
+					if rule.Chain.Table.Family == family && rule.Chain.Name == "KUBEVIRT_PREINBOUND" {
+						actualRules = append(actualRules, strings.Join(rule.Rulespec, " "))
+					}
+				}
+				var expectedRules []string
+				for _, match := range expectedMatches {
+					expectedRules = append(expectedRules, fmt.Sprintf("%s counter dnat to %s", match, guestIP))
+				}
+				Expect(actualRules).To(Equal(expectedRules), "PREINBOUND rules for %s", family)
+			}
+		},
+		Entry("UDP port with Istio", true,
+			[]v1.Port{{Protocol: "UDP", Port: 10000}}, nil, []string{"udp dport { 10000 }"}),
+		Entry("UDP port without Istio", false,
+			[]v1.Port{{Protocol: "UDP", Port: 10000}}, nil, []string{"udp dport { 10000 }"}),
+		Entry("UDP port 22 with Istio does not forward TCP", true,
+			[]v1.Port{{Protocol: "UDP", Port: 22}}, nil, []string{"udp dport { 22 }"}),
+		Entry("UDP port 22 without Istio does not forward TCP", false,
+			[]v1.Port{{Protocol: "UDP", Port: 22}}, nil, []string{"udp dport { 22 }"}),
+		Entry("mixed ports with Istio leave default TCP proxied and forward SSH", true,
+			[]v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 22}}, nil,
+			[]string{"udp dport { 80 }", "tcp dport { 22 }"}),
+		Entry("mixed ports without Istio forward default TCP, UDP and SSH", false,
+			[]v1.Port{{Port: 80}, {Protocol: "UDP", Port: 80}, {Protocol: "TCP", Port: 22}}, nil,
+			[]string{"tcp dport { 80 }", "udp dport { 80 }", "tcp dport { 22 }"}),
+		Entry("UDP range with Istio", true, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 10000, End: 10010}}, []string{"udp dport 10000-10010"}),
+		Entry("UDP range without Istio", false, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 10000, End: 10010}}, []string{"udp dport 10000-10010"}),
+		Entry("single-port UDP range with Istio", true, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 10000, End: 10000}}, []string{"udp dport 10000-10000"}),
+		Entry("single-port UDP range without Istio", false, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 10000, End: 10000}}, []string{"udp dport 10000-10000"}),
+		Entry("UDP range containing port 22 with Istio does not forward TCP", true, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 20, End: 25}}, []string{"udp dport 20-25"}),
+		Entry("UDP range containing port 22 without Istio does not forward TCP", false, nil,
+			[]v1.PortRange{{Protocol: "UDP", Start: 20, End: 25}}, []string{"udp dport 20-25"}),
+		Entry("overlapping TCP and UDP ranges with Istio leave TCP proxied except SSH", true, nil,
+			[]v1.PortRange{
+				{Protocol: "TCP", Start: 20, End: 25},
+				{Protocol: "UDP", Start: 20, End: 25},
+				{Protocol: "TCP", Start: 1000, End: 2000},
+				{Protocol: "UDP", Start: 1500, End: 2500},
+			},
+			[]string{"tcp dport { 22 }", "udp dport 20-25", "udp dport 1500-2500"}),
+		Entry("overlapping TCP and UDP ranges without Istio forward both protocols", false, nil,
+			[]v1.PortRange{
+				{Protocol: "TCP", Start: 20, End: 25},
+				{Protocol: "UDP", Start: 20, End: 25},
+				{Protocol: "TCP", Start: 1000, End: 2000},
+				{Protocol: "UDP", Start: 1500, End: 2500},
+			},
+			[]string{"tcp dport 20-25", "udp dport 20-25", "tcp dport 1000-2000", "udp dport 1500-2500"}),
+	)
+
 	Context("with ISTIO", func() {
 		It("setup with IPv4 and IPv6, no ports", func() {
 			nftStub := &nftableStub{}
@@ -731,6 +813,7 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } counter dnat to fd
 					Ports: []v1.Port{
 						{Name: "http", Protocol: "tcp", Port: 80},
 						{Name: "http", Protocol: "tcp", Port: 8080},
+						{Name: "udp", Protocol: "UDP", Port: 10000},
 					},
 				},
 			)
@@ -759,6 +842,9 @@ family ip table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 80 ip saddr {
 family ip table nat chain output rulespec [ip daddr { 127.0.0.1, 10.222.222.1 } tcp dport 80 counter dnat to 10.0.2.2]
 family ip table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 8080 ip saddr { 127.0.0.1, 127.0.0.6 } counter snat to 10.0.2.1]
 family ip table nat chain output rulespec [ip daddr { 127.0.0.1, 10.222.222.1 } tcp dport 8080 counter dnat to 10.0.2.2]
+family ip table nat chain KUBEVIRT_PREINBOUND rulespec [udp dport { 10000 } counter dnat to 10.0.2.2]
+family ip table nat chain KUBEVIRT_POSTINBOUND rulespec [udp dport 10000 ip saddr { 127.0.0.1, 127.0.0.6 } counter snat to 10.0.2.1]
+family ip table nat chain output rulespec [ip daddr { 127.0.0.1, 10.222.222.1 } udp dport 10000 counter dnat to 10.0.2.2]
 family ip6 table nat chain postrouting rulespec [ip6 saddr fd10:0:2::2 counter masquerade]
 family ip6 table nat chain prerouting rulespec [iifname eth0 counter jump KUBEVIRT_PREINBOUND]
 family ip6 table nat chain postrouting rulespec [oifname k6t-eth0 counter jump KUBEVIRT_POSTINBOUND]
@@ -766,6 +852,9 @@ family ip6 table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 80 ip6 saddr
 family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 80 counter dnat to fd10:0:2::2]
 family ip6 table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 8080 ip6 saddr { ::1 } counter snat to fd10:0:2::1]
 family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 8080 counter dnat to fd10:0:2::2]
+family ip6 table nat chain KUBEVIRT_PREINBOUND rulespec [udp dport { 10000 } counter dnat to fd10:0:2::2]
+family ip6 table nat chain KUBEVIRT_POSTINBOUND rulespec [udp dport 10000 ip6 saddr { ::1 } counter snat to fd10:0:2::1]
+family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 10000 counter dnat to fd10:0:2::2]
 `
 			Expect(nftStub.String()).To(Equal(expectedConfig), fmt.Sprintf("actual:\n%s\n\nexpected:\n%s", nftStub.String(), expectedConfig))
 		})
@@ -1004,6 +1093,7 @@ family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 15000 co
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 					PortRanges: []v1.PortRange{
 						{Protocol: "TCP", Start: 1000, End: 1500},
+						{Protocol: "UDP", Start: 10000, End: 10010},
 					},
 				},
 			)
@@ -1030,11 +1120,17 @@ family ip table nat chain prerouting rulespec [iifname eth0 counter jump KUBEVIR
 family ip table nat chain postrouting rulespec [oifname k6t-eth0 counter jump KUBEVIRT_POSTINBOUND]
 family ip table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 1000-1500 ip saddr { 127.0.0.1, 127.0.0.6 } counter snat to 10.0.2.1]
 family ip table nat chain output rulespec [ip daddr { 127.0.0.1, 10.222.222.1 } tcp dport 1000-1500 counter dnat to 10.0.2.2]
+family ip table nat chain KUBEVIRT_PREINBOUND rulespec [udp dport 10000-10010 counter dnat to 10.0.2.2]
+family ip table nat chain KUBEVIRT_POSTINBOUND rulespec [udp dport 10000-10010 ip saddr { 127.0.0.1, 127.0.0.6 } counter snat to 10.0.2.1]
+family ip table nat chain output rulespec [ip daddr { 127.0.0.1, 10.222.222.1 } udp dport 10000-10010 counter dnat to 10.0.2.2]
 family ip6 table nat chain postrouting rulespec [ip6 saddr fd10:0:2::2 counter masquerade]
 family ip6 table nat chain prerouting rulespec [iifname eth0 counter jump KUBEVIRT_PREINBOUND]
 family ip6 table nat chain postrouting rulespec [oifname k6t-eth0 counter jump KUBEVIRT_POSTINBOUND]
 family ip6 table nat chain KUBEVIRT_POSTINBOUND rulespec [tcp dport 1000-1500 ip6 saddr { ::1 } counter snat to fd10:0:2::1]
 family ip6 table nat chain output rulespec [ip6 daddr { ::1 } tcp dport 1000-1500 counter dnat to fd10:0:2::2]
+family ip6 table nat chain KUBEVIRT_PREINBOUND rulespec [udp dport 10000-10010 counter dnat to fd10:0:2::2]
+family ip6 table nat chain KUBEVIRT_POSTINBOUND rulespec [udp dport 10000-10010 ip6 saddr { ::1 } counter snat to fd10:0:2::1]
+family ip6 table nat chain output rulespec [ip6 daddr { ::1 } udp dport 10000-10010 counter dnat to fd10:0:2::2]
 `
 			Expect(nftStub.String()).To(Equal(expectedConfig), fmt.Sprintf("actual:\n%s\n\nexpected:\n%s", nftStub.String(), expectedConfig))
 		})
