@@ -230,7 +230,14 @@ func convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, ephemeralDiskPath string, diskIndex int, diskFormat string) error {
+func convert_v1_ContainerDiskSource_To_api_Disk(
+	volumeName string,
+	_ *v1.ContainerDiskSource,
+	disk *api.Disk,
+	ephemeralDiskPath string,
+	diskIndex int,
+	diskFormat string,
+) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
@@ -250,7 +257,12 @@ func convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	return nil
 }
 
-func convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName, ephemeralDiskPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
+func convert_v1_EphemeralVolumeSource_To_api_Disk(
+	volumeName, ephemeralDiskPath string,
+	isBlock bool,
+	disk *api.Disk,
+	volumesDiscardIgnore []string,
+) error {
 	disk.Type = "file"
 	setDiskDriver(disk, "qcow2", true)
 	disk.Source.File = ephemeralDiskPath

@@ -1339,14 +1339,18 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk1")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1)),
+					}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("disk2",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("disk2")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2)),
+					}),
 					diskWithModel(virtioModel),
 				),
 			)
@@ -1373,14 +1377,18 @@ var _ = Describe("DiskConfigurator", func() {
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("auto-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vda"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1))}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(1)),
+					}),
 					diskWithModel(virtioModel),
 				),
 				newDisk("dedicated-disk",
 					diskWithDevice("disk"), diskWithType("file"),
 					diskWithSource(api.DiskSource{File: volumepath.Filesystem("dedicated-disk")}),
 					diskWithTarget(api.DiskTarget{Bus: v1.DiskBusVirtio, Device: "vdb"}),
-					diskWithDriver(api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2))}),
+					diskWithDriver(api.DiskDriver{
+						Name: "qemu", Type: "raw", ErrorPolicy: v1.DiskErrorPolicyStop, Discard: "unmap", IOThread: new(uint(2)),
+					}),
 					diskWithModel(virtioModel),
 				),
 			)

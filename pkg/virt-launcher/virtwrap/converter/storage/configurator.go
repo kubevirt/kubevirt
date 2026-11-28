@@ -175,14 +175,23 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 		if hasIOThreads {
-			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, ioThreadPool, autoThreads, currentDedicatedThread, currentAutoThread, useSupplementalPool)
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(
+				&disk, &newDisk, ioThreadPool, autoThreads,
+				currentDedicatedThread, currentAutoThread, useSupplementalPool,
+			)
 		}
 	}
 
 	return nil
 }
 
-func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *api.Disk, prefixMap map[string]deviceNamer, numQueues *uint, volumeStatusMap map[string]v1.VolumeStatus) error {
+func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(
+	diskDevice *v1.Disk,
+	disk *api.Disk,
+	prefixMap map[string]deviceNamer,
+	numQueues *uint,
+	volumeStatusMap map[string]v1.VolumeStatus,
+) error {
 	if diskDevice.Disk != nil {
 		var unit int
 		disk.Device = "disk"
@@ -269,13 +278,18 @@ func (d DiskConfigurator) convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk 
 	return nil
 }
 
-func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string) error {
+func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(
+	source *v1.Volume, disk *api.Disk, diskIndex int, vmiNamespace, vmiName string,
+) error {
 	if source.ContainerDisk != nil {
 		info := d.disksInfo[source.Name]
 		if info == nil {
 			return fmt.Errorf("no disk info provided for volume %s", source.Name)
 		}
-		return convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format)
+		return convert_v1_ContainerDiskSource_To_api_Disk(
+			source.Name, source.ContainerDisk, disk,
+			d.ephemeralDiskCreator.GetFilePath(source.Name), diskIndex, info.Format,
+		)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -299,7 +313,13 @@ func (d DiskConfigurator) convert_v1_Volume_To_api_Disk(source *v1.Volume, disk 
 	}
 
 	if source.Ephemeral != nil {
-		return convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, d.ephemeralDiskCreator.GetFilePath(source.Name), d.isBlockPVC[source.Name], disk, d.volumesDiscardIgnore)
+		return convert_v1_EphemeralVolumeSource_To_api_Disk(
+			source.Name,
+			d.ephemeralDiskCreator.GetFilePath(source.Name),
+			d.isBlockPVC[source.Name],
+			disk,
+			d.volumesDiscardIgnore,
+		)
 	}
 	if source.EmptyDisk != nil {
 		return convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk)
