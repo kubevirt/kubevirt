@@ -660,9 +660,14 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 
 	log.Log.Object(pool).Infof("Removing %d VMs from pool", count)
 
+	return c.deleteVMs(pool, poolKey, eligibleVMs[0:count])
+}
+
+// deleteVMs deletes the given VMs from the pool and cleans up their preserved state if needed.
+// It performs no selection, sorting or counting, the caller decides which VMs are removed.
+func (c *Controller) deleteVMs(pool *poolv1.VirtualMachinePool, poolKey string, deleteList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 
-	deleteList := eligibleVMs[0:count]
 	c.expectations.ExpectDeletions(poolKey, controller.VirtualMachineKeys(deleteList))
 	wg.Add(len(deleteList))
 	errChan := make(chan error, len(deleteList))
@@ -1979,9 +1984,21 @@ func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
 }
 
 func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
-	vmsToCleanup := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
+	// VMs that are already being deleted do not need to be healed again.
+	vmsToCleanup := filterRunningVMs(filterFailingVMsToStart(vms, pool.Spec.Autohealing))
+	if len(vmsToCleanup) == 0 {
+		return nil
+	}
 
-	return c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup))
+	poolKey, err := controller.KeyFunc(pool)
+	if err != nil {
+		return err
+	}
+
+	// Autohealing replaces every failing VM, it must not be restricted by the
+	// scale-in sort policy or selectors, so it bypasses scaleIn.
+	log.Log.Object(pool).Infof("Autohealing %d failing VMs from pool", len(vmsToCleanup))
+	return c.deleteVMs(pool, poolKey, vmsToCleanup)
 }
 
 func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) []*virtv1.VirtualMachine {
