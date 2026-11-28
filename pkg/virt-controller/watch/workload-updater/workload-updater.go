@@ -311,7 +311,13 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	if vmi.Status.LauncherContainerImageVersion == "" {
 		return false
 	} else if vmi.Status.LauncherContainerImageVersion != c.launcherImage {
-		return true
+		// Inspect the current launcher rather than a migration target: admission
+		// may select an alternative image independently for each pod.
+		pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to detect active pod during launcher image check")
+		}
+		return err != nil || pod == nil || pod.Labels[virtv1.SkipLauncherImageCheckLabel] != "true"
 	}
 
 	return false

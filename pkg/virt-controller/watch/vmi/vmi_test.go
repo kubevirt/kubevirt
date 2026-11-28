@@ -2081,6 +2081,43 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(updatedPod.Labels).To(HaveKeyWithValue("kubevirt.io/created-by", "1234"))
 			Expect(updatedPod.Labels).To(HaveKeyWithValue(virtv1.OutdatedLauncherImageLabel, ""))
 		})
+		DescribeTable("should honor the launcher pod image-check exemption", func(value string, exempt bool) {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
+			vmi.Status.Phase = virtv1.Running
+			vmi.Labels = map[string]string{virtv1.OutdatedLauncherImageLabel: ""}
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Labels[virtv1.SkipLauncherImageCheckLabel] = value
+			pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{Type: k8sv1.PodReady, Status: k8sv1.ConditionTrue})
+			pod.Spec.Containers = append(pod.Spec.Containers, k8sv1.Container{Name: "compute", Image: "alternative"})
+			addVirtualMachine(vmi)
+			addActivePods(vmi, pod.UID, "")
+			addPod(pod)
+
+			sanityExecute()
+
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedVMI.Status.LauncherContainerImageVersion).To(Equal("alternative"))
+			if exempt {
+				Expect(updatedVMI.Labels).NotTo(HaveKey(virtv1.OutdatedLauncherImageLabel))
+			} else {
+				Expect(updatedVMI.Labels).To(HaveKey(virtv1.OutdatedLauncherImageLabel))
+			}
+			updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(updatedPod.Labels).To(HaveKeyWithValue(virtv1.SkipLauncherImageCheckLabel, value))
+			if exempt {
+				Expect(updatedPod.Labels).NotTo(HaveKey(virtv1.OutdatedLauncherImageLabel))
+			} else {
+				Expect(updatedPod.Labels).To(HaveKey(virtv1.OutdatedLauncherImageLabel))
+			}
+		},
+			Entry("when explicitly enabled", "true", true),
+			Entry("when disabled", "false", false),
+			Entry("when empty", "", false),
+		)
+
 		It("should remove outdated label if pod's image up-to-date and VMI is in running state", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionTrue, "")
