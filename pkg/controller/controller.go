@@ -116,6 +116,9 @@ const (
 	ImagePullBackOffReason = "ImagePullBackOff"
 	// InvalidImageNameReason is set when a containerDisk image name is invalid.
 	InvalidImageNameReason = "InvalidImageName"
+	// FailedMountReason is set when kubelet fails to mount a volume for the virt-launcher pod.
+	// The condition message is the kubelet event message.
+	FailedMountReason = "FailedMount"
 	// NoSuitableNodesForHostModelMigration is set when a VMI with host-model CPU mode tries to migrate but no node
 	// is suitable for migration (since CPU model / required features are not supported)
 	NoSuitableNodesForHostModelMigration = "NoSuitableNodesForHostModelMigration"

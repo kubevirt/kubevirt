@@ -2217,6 +2217,9 @@ const (
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
 	VirtualMachineStatusImagePullBackOff VirtualMachinePrintableStatus = "ImagePullBackOff"
+	// VirtualMachineStatusFailedMount indicates that kubelet failed to mount a volume for
+	// the virt-launcher pod, for example because a referenced Secret or ConfigMap does not exist.
+	VirtualMachineStatusFailedMount VirtualMachinePrintableStatus = "FailedMount"
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
 	VirtualMachineStatusPvcNotFound VirtualMachinePrintableStatus = "ErrorPvcNotFound"
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes

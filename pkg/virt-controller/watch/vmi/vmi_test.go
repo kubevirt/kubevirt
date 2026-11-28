@@ -2290,6 +2290,326 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("ErrImagePull --> ImagePullBackOff", kvcontroller.ErrImagePullReason, kvcontroller.ImagePullBackOffReason),
 			Entry("ImagePullBackOff --> ErrImagePull", kvcontroller.ImagePullBackOffReason, kvcontroller.ErrImagePullReason),
 		)
+
+		const missingSecretMessage = `MountVolume.SetUp failed for volume "missing-ssh-key-access-cred" : secret "missing-ssh-key" not found`
+		const genericMountMessage = `Unable to attach or mount volumes: unmounted volumes=[missing-ssh-key-access-cred], unattached volumes=[missing-ssh-key-access-cred]: timed out waiting for the condition`
+
+		addEvent := func(event *k8sv1.Event) {
+			_, err := kubeClient.CoreV1().Events(event.Namespace).Create(context.Background(), event, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		listedPodEvents := func() bool {
+			for _, action := range kubeClient.Actions() {
+				if action.GetVerb() == "list" && action.GetResource().Resource == "events" {
+					return true
+				}
+			}
+			return false
+		}
+		expectFailedMount := func(vmi *virtv1.VirtualMachineInstance, message string) {
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+					"Status":  Equal(k8sv1.ConditionFalse),
+					"Reason":  Equal(kvcontroller.FailedMountReason),
+					"Message": Equal(message),
+				},
+			)))
+		}
+		expectNoFailedMount := func(vmi *virtv1.VirtualMachineInstance) {
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, Not(ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Reason": Equal(kvcontroller.FailedMountReason),
+				},
+			))))
+		}
+
+		It("should report this pod's mount setup error", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			// A newer timeout, and a setup error for another pod, are both the wrong message.
+			other := failedMountEvent(pod, "other-pod", `MountVolume.SetUp failed for volume "other" : secret "other" not found`, time.Now())
+			other.InvolvedObject.UID = "someone-else"
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(other)
+			addEvent(failedMountEvent(pod, "specific", missingSecretMessage, time.Now().Add(-time.Minute)))
+			addEvent(failedMountEvent(pod, "generic", genericMountMessage, time.Now()))
+
+			sanityExecute()
+
+			expectFailedMount(vmi, missingSecretMessage)
+		})
+
+		It("should not report FailedMount during the grace period", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, 0)
+			pod.CreationTimestamp = metav1.Now()
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(failedMountEvent(pod, "specific", missingSecretMessage, time.Now()))
+			requeues := mockQueue.GetAddAfterEnqueueCount()
+
+			sanityExecute()
+
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			expectNoFailedMount(vmi)
+			Expect(listedPodEvents()).To(BeFalse())
+			Expect(mockQueue.GetAddAfterEnqueueCount() - requeues).To(Equal(1))
+		})
+
+		DescribeTable("should report a generic FailedMount only after the retry window", func(age time.Duration, report bool) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, age)
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(failedMountEvent(pod, "generic", genericMountMessage, time.Now()))
+			requeues := mockQueue.GetAddAfterEnqueueCount()
+
+			sanityExecute()
+
+			if report {
+				expectFailedMount(vmi, genericMountMessage)
+				return
+			}
+			expectNoFailedMount(vmi)
+			Expect(mockQueue.GetAddAfterEnqueueCount() - requeues).To(Equal(1))
+		},
+			Entry("still inside the window", volumeMountFailureGracePeriod+volumeMountRetryInterval, false),
+			Entry("window elapsed", volumeMountFailureGracePeriod+volumeMountRetryInterval*time.Duration(volumeMountMaxRetries)+time.Second, true),
+		)
+
+		It("should report FailedMount when the pod is scheduled long after it was created", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			// Pod creation is already past the retry window. Scheduling is not.
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+volumeMountRetryInterval*time.Duration(volumeMountMaxRetries)+time.Minute)
+			pod.Status.Conditions = []k8sv1.PodCondition{{
+				Type:               k8sv1.PodScheduled,
+				Status:             k8sv1.ConditionTrue,
+				LastTransitionTime: metav1.NewTime(time.Now().Add(-(volumeMountFailureGracePeriod + volumeMountRetryInterval))),
+			}}
+			addVirtualMachine(vmi)
+			addPod(pod)
+			requeues := mockQueue.GetAddAfterEnqueueCount()
+
+			sanityExecute()
+
+			expectNoFailedMount(vmi)
+			Expect(mockQueue.GetAddAfterEnqueueCount() - requeues).To(Equal(1))
+
+			addEvent(failedMountEvent(pod, "specific", missingSecretMessage, time.Now()))
+			key, err := kvcontroller.KeyFunc(vmi)
+			Expect(err).NotTo(HaveOccurred())
+			// The previous reconcile updated the VMI status.
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
+			mockQueue.Add(key)
+
+			sanityExecute()
+
+			expectFailedMount(vmi, missingSecretMessage)
+		})
+
+		DescribeTable("should keep a FailedMount message recorded for this pod", func(forThisPod bool) {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			recorded := missingSecretMessage
+			want := missingSecretMessage
+			recordedAt := metav1.Now()
+			incoming := missingSecretMessage
+			if !forThisPod {
+				recorded = genericMountMessage
+				recordedAt = metav1.NewTime(pod.CreationTimestamp.Add(-time.Minute))
+				incoming = missingSecretMessage
+				want = incoming
+			}
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceSynchronized,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             kvcontroller.FailedMountReason,
+				Message:            recorded,
+				LastTransitionTime: recordedAt,
+			})
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(failedMountEvent(pod, "incoming", incoming, time.Now()))
+			requeues := mockQueue.GetAddAfterEnqueueCount()
+
+			sanityExecute()
+
+			expectFailedMount(vmi, want)
+			if forThisPod {
+				Expect(listedPodEvents()).To(BeTrue())
+				Expect(mockQueue.GetAddAfterEnqueueCount() - requeues).To(Equal(1))
+			}
+		},
+			Entry("while that failure is still being reported", true),
+			Entry("unless it was recorded for a previous pod", false),
+		)
+
+		It("should drop volume mount errors one by one as kubelet stops reporting them", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			volumeA := `MountVolume.SetUp failed for volume "a-ssh-key-access-cred" : secret "a-ssh-key" not found`
+			volumeB := `MountVolume.SetUp failed for volume "b-ssh-key-access-cred" : secret "b-ssh-key" not found`
+			volumeC := `MountVolume.SetUp failed for volume "c-ssh-key-access-cred" : secret "c-ssh-key" not found`
+			addVirtualMachine(vmi)
+			addPod(pod)
+			eventC, err := kubeClient.CoreV1().Events(pod.Namespace).Create(context.Background(), failedMountEvent(pod, "c", volumeC, time.Now()), metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			eventB, err := kubeClient.CoreV1().Events(pod.Namespace).Create(context.Background(), failedMountEvent(pod, "b", volumeB, time.Now()), metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			eventA, err := kubeClient.CoreV1().Events(pod.Namespace).Create(context.Background(), failedMountEvent(pod, "a", volumeA, time.Now()), metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			stopReporting := func(event *k8sv1.Event) {
+				event.LastTimestamp = metav1.NewTime(time.Now().Add(-volumeMountFailureFreshness - time.Second))
+				_, err := kubeClient.CoreV1().Events(event.Namespace).Update(context.Background(), event, metav1.UpdateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+			}
+			reconcileAgain := func() {
+				updated, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(controller.vmiIndexer.Update(updated)).To(Succeed())
+				key, err := kvcontroller.KeyFunc(vmi)
+				Expect(err).NotTo(HaveOccurred())
+				controller.vmiExpectations.SetExpectations(key, 0, 0)
+				mockQueue.Add(key)
+				sanityExecute()
+			}
+
+			sanityExecute()
+			expectFailedMount(vmi, volumeA+"\n"+volumeB+"\n"+volumeC)
+
+			stopReporting(eventA)
+			reconcileAgain()
+			expectFailedMount(vmi, volumeB+"\n"+volumeC)
+
+			stopReporting(eventB)
+			reconcileAgain()
+			expectFailedMount(vmi, volumeC)
+
+			stopReporting(eventC)
+			reconcileAgain()
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			expectNoFailedMount(vmi)
+		})
+
+		It("should keep the FailedMount message when listing pod events fails", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceSynchronized,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             kvcontroller.FailedMountReason,
+				Message:            missingSecretMessage,
+				LastTransitionTime: metav1.Now(),
+			})
+			kubeClient.Fake.PrependReactor("list", "events", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				return true, nil, fmt.Errorf("events unavailable")
+			})
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			sanityExecute()
+
+			expectFailedMount(vmi, missingSecretMessage)
+		})
+
+		It("should not report FailedMount when an image pull error is already visible on the pod", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			pod.Status.ContainerStatuses[0].State.Waiting = &k8sv1.ContainerStateWaiting{
+				Reason:  kvcontroller.ErrImagePullReason,
+				Message: "pull access denied",
+			}
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(failedMountEvent(pod, "specific", missingSecretMessage, time.Now()))
+
+			sanityExecute()
+
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			expectVMIWithMatcherConditions(vmi.Namespace, vmi.Name, ContainElement(MatchFields(IgnoreExtras,
+				Fields{
+					"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+					"Status":  Equal(k8sv1.ConditionFalse),
+					"Reason":  Equal(kvcontroller.ErrImagePullReason),
+					"Message": Equal("pull access denied"),
+				},
+			)))
+			Expect(listedPodEvents()).To(BeFalse())
+		})
+
+		It("should not report FailedMount for a pod that is not scheduled", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			pod.Status.Conditions = []k8sv1.PodCondition{{
+				Type:    k8sv1.PodScheduled,
+				Status:  k8sv1.ConditionFalse,
+				Reason:  k8sv1.PodReasonUnschedulable,
+				Message: "0/1 nodes are available",
+			}}
+			addVirtualMachine(vmi)
+			addPod(pod)
+			addEvent(failedMountEvent(pod, "specific", missingSecretMessage, time.Now()))
+
+			sanityExecute()
+
+			expectNoFailedMount(vmi)
+			Expect(listedPodEvents()).To(BeFalse())
+		})
+
+		It("should not report FailedMount when listing pod events fails", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Scheduling
+			pod := podBlockedOnVolumeMount(vmi, volumeMountFailureGracePeriod+15*time.Second)
+			kubeClient.Fake.PrependReactor("list", "events", func(action testing.Action) (bool, k8sruntime.Object, error) {
+				return true, nil, fmt.Errorf("events unavailable")
+			})
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			sanityExecute()
+
+			expectVMIBeInPhase(vmi.Namespace, vmi.Name, virtv1.Scheduling)
+			expectNoFailedMount(vmi)
+		})
+
+		It("should clear FailedMount once the pod is ready to be handed over", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
+			vmi.Status.Phase = virtv1.Scheduling
+			vmi.Status.Conditions = append(vmi.Status.Conditions, virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceSynchronized,
+				Status:             k8sv1.ConditionFalse,
+				Reason:             kvcontroller.FailedMountReason,
+				Message:            missingSecretMessage,
+				LastTransitionTime: metav1.Now(),
+			})
+			pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{
+				Name:  "compute",
+				State: k8sv1.ContainerState{Running: &k8sv1.ContainerStateRunning{}},
+			}}
+			addVirtualMachine(vmi)
+			addPod(pod)
+
+			sanityExecute()
+
+			expectVMIScheduledState(vmi)
+			expectNoFailedMount(vmi)
+		})
+
 		It("should add MigrationTransport to VMI status", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = virtv1.Scheduling
@@ -6330,6 +6650,38 @@ func setDataVolumeCondition(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeCondition
 		}
 	}
 	dv.Status.Conditions = append(dv.Status.Conditions, cond)
+}
+
+func podBlockedOnVolumeMount(vmi *virtv1.VirtualMachineInstance, age time.Duration) *k8sv1.Pod {
+	pod := newPodForVirtualMachine(vmi, k8sv1.PodPending)
+	pod.CreationTimestamp = metav1.NewTime(time.Now().Add(-age))
+	pod.Status.ContainerStatuses[0].State = k8sv1.ContainerState{
+		Waiting: &k8sv1.ContainerStateWaiting{Reason: "PodInitializing"},
+	}
+	pod.Status.Conditions = append(pod.Status.Conditions, k8sv1.PodCondition{
+		Type:   k8sv1.PodScheduled,
+		Status: k8sv1.ConditionTrue,
+	})
+	return pod
+}
+
+func failedMountEvent(pod *k8sv1.Pod, name, message string, last time.Time) *k8sv1.Event {
+	return &k8sv1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: pod.Namespace,
+		},
+		InvolvedObject: k8sv1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: pod.Namespace,
+			Name:      pod.Name,
+			UID:       pod.UID,
+		},
+		Reason:        kvcontroller.FailedMountReason,
+		Message:       message,
+		Type:          k8sv1.EventTypeWarning,
+		LastTimestamp: metav1.NewTime(last),
+	}
 }
 
 func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.PodPhase) *k8sv1.Pod {
