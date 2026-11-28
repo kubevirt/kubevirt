@@ -25,7 +25,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -47,21 +46,21 @@ var _ = Describe("ResourceClaims", func() {
 			[]v1.VirtualMachineInstanceResourceClaim{
 				{
 					Name:              "direct-claim",
-					ResourceClaimName: ptr.To("resource-claim"),
+					ResourceClaimName: new("resource-claim"),
 				},
 				{
 					Name:                      "template-claim",
-					ResourceClaimTemplateName: ptr.To("resource-claim-template"),
+					ResourceClaimTemplateName: new("resource-claim-template"),
 				},
 			},
 			[]k8sv1.PodResourceClaim{
 				{
 					Name:              "direct-claim",
-					ResourceClaimName: ptr.To("resource-claim"),
+					ResourceClaimName: new("resource-claim"),
 				},
 				{
 					Name:                      "template-claim",
-					ResourceClaimTemplateName: ptr.To("resource-claim-template"),
+					ResourceClaimTemplateName: new("resource-claim-template"),
 				},
 			},
 		),
@@ -80,7 +79,7 @@ var _ = Describe("ResourceClaims", func() {
 			Expect(PodResourceClaimsForVMI(vmi, true)).To(Equal([]k8sv1.PodResourceClaim{
 				{
 					Name:              CPUClaimRefName,
-					ResourceClaimName: ptr.To(CPUResourceClaimName(vmi.Name)),
+					ResourceClaimName: new(CPUResourceClaimName(vmi.Name)),
 				},
 			}))
 		})
@@ -90,7 +89,7 @@ var _ = Describe("ResourceClaims", func() {
 				ObjectMeta: metav1.ObjectMeta{Name: "testvmi"},
 				Spec: v1.VirtualMachineInstanceSpec{
 					ResourceClaims: []v1.VirtualMachineInstanceResourceClaim{
-						{Name: "net-claim", ResourceClaimName: ptr.To("net-rc")},
+						{Name: "net-claim", ResourceClaimName: new("net-rc")},
 					},
 					Domain: v1.DomainSpec{
 						CPU: &v1.CPU{DedicatedCPUPlacement: true},
@@ -98,10 +97,10 @@ var _ = Describe("ResourceClaims", func() {
 				},
 			}
 			Expect(PodResourceClaimsForVMI(vmi, true)).To(Equal([]k8sv1.PodResourceClaim{
-				{Name: "net-claim", ResourceClaimName: ptr.To("net-rc")},
+				{Name: "net-claim", ResourceClaimName: new("net-rc")},
 				{
 					Name:              CPUClaimRefName,
-					ResourceClaimName: ptr.To(CPUResourceClaimName(vmi.Name)),
+					ResourceClaimName: new(CPUResourceClaimName(vmi.Name)),
 				},
 			}))
 		})
@@ -169,7 +168,7 @@ var _ = Describe("ResourceClaims", func() {
 			pod := &k8sv1.Pod{
 				Spec: k8sv1.PodSpec{
 					ResourceClaims: []k8sv1.PodResourceClaim{
-						{Name: "net-claim", ResourceClaimName: ptr.To("net-rc")},
+						{Name: "net-claim", ResourceClaimName: new("net-rc")},
 					},
 				},
 			}
@@ -180,8 +179,8 @@ var _ = Describe("ResourceClaims", func() {
 			pod := &k8sv1.Pod{
 				Spec: k8sv1.PodSpec{
 					ResourceClaims: []k8sv1.PodResourceClaim{
-						{Name: "net-claim", ResourceClaimName: ptr.To("net-rc")},
-						{Name: CPUClaimRefName, ResourceClaimName: ptr.To(CPUResourceClaimName("testvmi"))},
+						{Name: "net-claim", ResourceClaimName: new("net-rc")},
+						{Name: CPUClaimRefName, ResourceClaimName: new(CPUResourceClaimName("testvmi"))},
 					},
 				},
 			}
