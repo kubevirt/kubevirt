@@ -25,6 +25,10 @@ var _ = Describe("Ports", func() {
 		Entry("only protocol no slash", "udp", forwardedPort{local: 0, remote: 0, protocol: protocolTCP}, false),
 		Entry("only protocol with slash", "udp/", forwardedPort{local: 0, remote: 0, protocol: protocolUDP}, false),
 		Entry("invalid symbol in port", "80C0:8X90", forwardedPort{local: 0, remote: 0, protocol: protocolTCP}, false),
+		Entry("valid port boundary minimum", "1", forwardedPort{local: 1, remote: 1, protocol: protocolTCP}, true),
+		Entry("valid port boundary maximum", "65535", forwardedPort{local: 65535, remote: 65535, protocol: protocolTCP}, true),
+		Entry("uppercase protocol TCP", "TCP/8080", forwardedPort{local: 8080, remote: 8080, protocol: protocolTCP}, true),
+		Entry("uppercase protocol UDP", "UDP/8080:9090", forwardedPort{local: 8080, remote: 9090, protocol: protocolUDP}, true),
 	)
 
 	DescribeTable("parsePort rejects extra colon-separated ports",
@@ -35,5 +39,20 @@ var _ = Describe("Ports", func() {
 		Entry("three ports", "8080:9090:9999"),
 		Entry("protocol and three ports", "udp/8080:9090:9999"),
 		Entry("trailing colon after two ports", "8080:9090:"),
+	)
+
+	DescribeTable("parsePort rejects invalid protocol or port range",
+		func(arg string) {
+			_, err := parsePort(arg)
+			Expect(err).To(HaveOccurred())
+		},
+		Entry("unknown protocol", "sctp/8080"),
+		Entry("invalid protocol format", "http/8080"),
+		Entry("zero local port", "0"),
+		Entry("negative local port", "-1"),
+		Entry("local port above 65535", "65536"),
+		Entry("zero remote port", "8080:0"),
+		Entry("negative remote port", "8080:-1"),
+		Entry("remote port above 65535", "8080:65536"),
 	)
 })

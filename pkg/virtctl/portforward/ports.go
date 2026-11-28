@@ -2,6 +2,7 @@ package portforward
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -29,7 +30,13 @@ func parsePorts(args []string) ([]forwardedPort, error) {
 const (
 	protocolTCP = "tcp"
 	protocolUDP = "udp"
+	minPort     = 1
+	maxPort     = 65535
 )
+
+func isValidPort(port int) bool {
+	return port >= minPort && port <= maxPort
+}
 
 func parsePort(arg string) (forwardedPort, error) {
 	var (
@@ -42,8 +49,12 @@ func parsePort(arg string) (forwardedPort, error) {
 
 	protocol := strings.Split(arg, "/")
 	if len(protocol) > 1 {
-		port.protocol = protocol[0]
+		port.protocol = strings.ToLower(protocol[0])
 		arg = protocol[1]
+	}
+
+	if port.protocol != protocolTCP && port.protocol != protocolUDP {
+		return port, fmt.Errorf("unknown protocol: %s, expected tcp or udp", port.protocol)
 	}
 
 	if strings.Count(arg, ":") > 1 {
@@ -61,12 +72,18 @@ func parsePort(arg string) (forwardedPort, error) {
 	if err != nil {
 		return port, err
 	}
+	if !isValidPort(port.local) {
+		return port, fmt.Errorf("invalid port %d, must be between %d and %d", port.local, minPort, maxPort)
+	}
 	port.remote = port.local
 
 	if len(ports) > 1 {
 		port.remote, err = strconv.Atoi(ports[1])
 		if err != nil {
 			return port, err
+		}
+		if !isValidPort(port.remote) {
+			return port, fmt.Errorf("invalid port %d, must be between %d and %d", port.remote, minPort, maxPort)
 		}
 	}
 
