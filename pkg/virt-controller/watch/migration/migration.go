@@ -1357,6 +1357,17 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	c.addHandOffKey(controller.MigrationKey(migration))
 	log.Log.Object(vmi).Infof("Handed off migration %s/%s to target virt-handler.", migration.Namespace, migration.Name)
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
+
+	// TODO: Remove this warning with the workaround for QEMU issue 3364.
+	config := vmiCopy.Status.MigrationState.VMIMConfigurationOptions
+	experimental := config.ExperimentalMigrationOptions
+	bandwidth := config.BandwidthPerMigration
+	// The launcher rounds a limit below one byte per second down to zero.
+	if experimental != nil && experimental.Compression != nil && *experimental.Compression == virtv1.MigrationCompressionZstd &&
+		bandwidth != nil && bandwidth.CmpInt64(1) >= 0 {
+		c.recorder.Event(migration, k8sv1.EventTypeWarning, "MigrationCompressionConflict",
+			"A bandwidth limit and compression are both configured. The source launcher disabled compression to enforce the bandwidth limit.")
+	}
 	return nil
 }
 

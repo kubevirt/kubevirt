@@ -670,6 +670,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 		// safety guard that protects against triggering a switch-over during a network drop
 		completable := sd.canFinishByDeadline(elapsedSeconds, m.scaledCompletionDeadlineSeconds(m.acceptableCompletionTime), estimatedDowntimeMs, logger)
 
+		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
 		if m.allowPostCopy && !vmitrait.HasVFIO(m.vmi) && completable {
 			logger.Info("completion timeout reached: starting post-copy mode to force convergence")
 			if err := dom.MigrateStartPostCopy(0); err != nil {
@@ -679,9 +680,7 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 			sd.switchoverInitiated = true
 			return
-		}
-		switchoverTimeout := sd.stallDetectorOptions.SwitchoverTimeout
-		if m.options.AllowWorkloadDisruption && completable {
+		} else if m.options.AllowWorkloadDisruption && completable {
 			logger.Infof("completion timeout reached: setting max downtime to %dms to force switchover", migrationutils.QEMUMaxMigrationDowntimeMS)
 			if err := dom.MigrateSetMaxDowntime(migrationutils.QEMUMaxMigrationDowntimeMS, 0); err != nil {
 				logger.Reason(err).Error("setting max downtime failed")
@@ -691,11 +690,18 @@ func (m *migrationMonitor) processCompletionTimeouts(dom cli.VirDomain, elapsedN
 			m.switchOverDeadline = elapsedSeconds + switchoverTimeout
 			sd.switchoverInitiated = true
 			return
+		} else {
+			completionTimeoutFactor := m.options.StallDetectorOptions.CompletionTimeoutFactor.AsApproximateFloat64()
+			logger.Infof("aborting migration due to completion timeout: "+
+				"total migration time expected to exceed deadline by a factor of more than %.2f (elapsedSec=%d acceptableCompletionSec=%d estimatedDowntimeMs=%d)",
+				completionTimeoutFactor, elapsedSeconds, m.acceptableCompletionTime, estimatedDowntimeMs)
 		}
 
+	} else {
+		logger.Infof("aborting migration due to completion timeout: "+
+			"VM took too long to finish migrating even after forced switchover (elapsedSec=%d acceptableCompletionSec=%d)", elapsedSeconds, m.acceptableCompletionTime)
 	}
 
-	logger.Infof("aborting migration due to completion timeout: elapsedSec=%d acceptableCompletionSec=%d", elapsedSeconds, m.acceptableCompletionTime)
 	m.l.cancelMigration(m.vmi)
 }
 
@@ -1202,7 +1208,6 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 	if shouldCompress, method := shouldCompressMigration(options); shouldCompress {
 		params.CompressionSet = true
 		params.Compression = method
-		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", method)
 	}
 	if options.AllowAutoConverge {
 		log.Log.Object(vmi).Info("Migration autoconverge enabled")
@@ -1435,6 +1440,23 @@ func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1
 		return err
 	}
 
+	// TODO: Remove this once QEMU enforces bandwidth limits with multifd.
+	//  https://gitlab.com/qemu-project/qemu/-/work_items/3364
+	if params.BandwidthSet && params.Bandwidth > 0 {
+		migrateFlags &^= libvirt.MIGRATE_PARALLEL
+		params.ParallelConnectionsSet = false
+
+		// compression requires multifd to be on, and we just disabled it.
+		// TODO: if this is a problem, we can consider enabling xbzrle but further investigation will be required
+		//  into the memory/cpu overhead
+		if params.CompressionSet {
+			migrateFlags &^= libvirt.MIGRATE_COMPRESSED
+			params.CompressionSet = false
+			log.Log.Object(vmi).Warningf("Disabling migration stream compression because bandwidth limits are enabled "+
+				"and set to %d Mib/s. But compression and bandwidth limits cannot be enabled at the same time.", params.Bandwidth)
+		}
+	}
+
 	// PreMigrationSource hooks run outside domainModifyLock because a blocked sidecar must not
 	// stall other domain operations gated by that lock. The plugin snapshot comes from the
 	// preceding SyncVirtualMachine command.
@@ -1462,6 +1484,10 @@ func (l *LibvirtDomainManager) migrateHelper(prep *migrationPreparation, vmi *v1
 	}
 	if err != nil {
 		return err
+	}
+
+	if migrateFlags&libvirt.MIGRATE_COMPRESSED != 0 && params.CompressionSet {
+		log.Log.Object(vmi).Infof("Migration compression enabled: method=%s", params.Compression)
 	}
 
 	// initiate the live migration
