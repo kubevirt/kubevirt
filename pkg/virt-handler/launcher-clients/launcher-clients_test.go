@@ -29,7 +29,10 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -110,8 +113,32 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 			_ = os.Unsetenv("NODE_NAME")
 		})
 
-		manager = NewLauncherClientsManager(nil, nil, nil)
+		manager = NewLauncherClientsManager(nil, nil, nil, nil)
 	})
+
+	DescribeTable("should delete ghost records only while launcher authentication is off",
+		func(authEnabled, expectRecord bool) {
+			store := virtcache.InitializeGhostRecordCache(
+				virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+			)
+			Expect(store.Add("ns", "vmi", socketPath, "vmi-uid")).To(Succeed())
+
+			var authClient kubernetes.Interface
+			if authEnabled {
+				authClient = fake.NewSimpleClientset()
+			}
+			m := NewLauncherClientsManager(nil, nil, store, authClient)
+
+			// A UID is required: CloseLauncherClient returns early without one.
+			m.CloseLauncherClient(&v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "vmi", Namespace: "ns", UID: "vmi-uid"},
+			})
+
+			Expect(store.Exists("ns", "vmi")).To(Equal(expectRecord))
+		},
+		Entry("deleting the record when the gate is off", false, false),
+		Entry("leaving the record alone when the gate is on", true, true),
+	)
 
 	It("should succeed when Ping succeed without checking the socket", func() {
 		// Don't create the socket file, so we can check FindSocket is not performed
