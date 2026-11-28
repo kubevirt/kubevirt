@@ -26,3 +26,9 @@ in the builder environment, use, for example:
 ```sh
 hack/dockerized "go test -race ./tests/integration/compute -count=1 -v"
 ```
+
+`framework.New()` enables VirtualMachine mutating and validating webhooks and
+waits for both to take effect before returning from `Start`. Use
+`framework.WithoutWebhooks()` when a test needs to isolate CRD schema or CEL
+validation. Controllers and tests share envtest's admin identity, which remains
+subject to regular-user webhook validation.
