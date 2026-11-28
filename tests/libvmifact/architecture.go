@@ -32,3 +32,7 @@ func isARM64() bool {
 func isS390X() bool {
 	return architecture == "s390x"
 }
+
+func isPPC64LE() bool {
+	return architecture == "ppc64le"
+}
