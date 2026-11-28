@@ -1646,6 +1646,87 @@ var _ = Describe("Restore controller", func() {
 					Entry("create dvs when dv doesnt exists", false, cdiv1.PhaseUnset, false),
 				)
 
+				It("should restore a disk without the original DataSource", func() {
+					snapshotName := r.Status.Restores[0].VolumeSnapshotName
+					template := &sc.Spec.Source.VirtualMachine.Spec.DataVolumeTemplates[0]
+					template.Spec.Source = nil
+					template.Spec.SourceRef = &cdiv1.DataVolumeSourceRef{
+						Kind: cdiv1.DataVolumeDataSource,
+						Name: "my-ds",
+					}
+					Expect(controller.VMSnapshotContentInformer.GetStore().Update(sc)).To(Succeed())
+
+					pvc := corev1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace:   testNamespace,
+							Name:        "restore-uid-disk1",
+							Annotations: map[string]string{populatedForPVCAnnotation: "restore-uid-disk1"},
+						},
+						Spec: corev1.PersistentVolumeClaimSpec{
+							StorageClassName: &storageClassName,
+						},
+						Status: corev1.PersistentVolumeClaimStatus{
+							Phase: corev1.ClaimBound,
+						},
+					}
+					Expect(controller.PVCInformer.GetStore().Add(&pvc)).To(Succeed())
+
+					created := 0
+					cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (bool, runtime.Object, error) {
+						create, ok := action.(testing.CreateAction)
+						Expect(ok).To(BeTrue())
+						dv, ok := create.GetObject().(*cdiv1.DataVolume)
+						Expect(ok).To(BeTrue())
+						Expect(dv.Name).To(Equal("restore-uid-disk1"))
+						Expect(dv.Spec.SourceRef).To(BeNil())
+						Expect(dv.Spec.Source).ToNot(BeNil())
+						Expect(dv.Spec.Source.Snapshot).To(Equal(&cdiv1.DataVolumeSourceSnapshot{
+							Name:      snapshotName,
+							Namespace: testNamespace,
+						}))
+						Expect(dv.Annotations[cdiv1.AnnPrePopulated]).To(Equal("true"))
+						created++
+						return true, dv, nil
+					})
+
+					addVirtualMachineRestore(r)
+					Expect(controller.VMInformer.GetStore().Add(vm)).To(Succeed())
+					updated, err := targetVM.Reconcile()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updated).To(BeTrue())
+					Expect(created).To(Equal(1))
+
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "restore-uid-disk1",
+							Namespace: testNamespace,
+						},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: cdiv1.Succeeded,
+						},
+					}
+					Expect(controller.DataVolumeInformer.GetStore().Add(dv)).To(Succeed())
+
+					updatedVM := vm.DeepCopy()
+					updatedVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
+					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
+					updatedVM.Spec.DataVolumeTemplates[0].Spec.Source = &cdiv1.DataVolumeSource{
+						Snapshot: &cdiv1.DataVolumeSourceSnapshot{
+							Name:      snapshotName,
+							Namespace: testNamespace,
+						},
+					}
+					updatedVM.Spec.DataVolumeTemplates[0].Spec.SourceRef = nil
+					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					updateVMCalls := expectVMUpdate(kubevirtClient, updatedVM)
+
+					updated, err = targetVM.Reconcile()
+					Expect(err).NotTo(HaveOccurred())
+					Expect(updated).To(BeTrue())
+					Expect(*updateVMCalls).To(Equal(1))
+					Expect(created).To(Equal(1))
+				})
+
 				It("should not override existing firmware UUID", func() {
 					addRestoreVolumes(true, cdiv1.Succeeded)
 					addVirtualMachineRestore(r)
