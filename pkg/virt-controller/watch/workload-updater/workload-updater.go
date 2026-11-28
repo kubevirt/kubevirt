@@ -203,7 +203,7 @@ func (c *WorkloadUpdateController) updateMigration(_, _ interface{}) {
 	c.queue.AddAfter(key, defaultThrottleInterval)
 }
 
-func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
+func (c *WorkloadUpdateController) updateVmi(oldObj, obj interface{}) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 	if !ok {
 		return
@@ -215,6 +215,13 @@ func (c *WorkloadUpdateController) updateVmi(_, obj interface{}) {
 	}
 
 	if vmi.IsFinal() {
+		return
+	}
+
+	// A volume cancellation needs reconciliation even while the migration is running.
+	oldVMI, _ := oldObj.(*virtv1.VirtualMachineInstance)
+	if isVolumesUpdateCancelled(vmi) && !isVolumesUpdateCancelled(oldVMI) {
+		c.queue.AddAfter(key, defaultThrottleInterval)
 		return
 	}
 
@@ -327,6 +334,11 @@ func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 func isVolumesUpdateInProgress(vmi *virtv1.VirtualMachineInstance) bool {
 	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi,
 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
+}
+
+func isVolumesUpdateCancelled(vmi *virtv1.VirtualMachineInstance) bool {
+	return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatusAndReason(vmi,
+		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionFalse, virtv1.VirtualMachineInstanceReasonVolumesChangeCancellation)
 }
 
 func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachineInstance) bool {
