@@ -306,6 +306,24 @@ func IsVolumeMigrating(vmi *virtv1.VirtualMachineInstance) bool {
 		virtv1.VirtualMachineInstanceVolumesChange, k8sv1.ConditionTrue)
 }
 
+// HasVolumeMigrationCompleted reports whether a volume migration has finished successfully.
+// On completion, virt-handler clears VMI status.migratedVolumes during migration finalization.
+// The VM keeps volumeUpdateState.volumeMigrationState until updateVolumesStrategy is cleared.
+// This function uses this signal to determine if a migration has completed.
+func HasVolumeMigrationCompleted(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+	if vm.Spec.UpdateVolumesStrategy == nil ||
+		*vm.Spec.UpdateVolumesStrategy != virtv1.UpdateVolumesStrategyMigration {
+		return false
+	}
+	if vm.Status.VolumeUpdateState == nil || vm.Status.VolumeUpdateState.VolumeMigrationState == nil {
+		return false
+	}
+	return len(vmi.Status.MigratedVolumes) == 0 && len(vm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0
+}
+
 func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) ([]virtv1.StorageMigratedVolumeInfo, error) {
 	var migVolsInfo []virtv1.StorageMigratedVolumeInfo
 	oldVols := make(map[string]*virtv1.PersistentVolumeClaimInfo)
