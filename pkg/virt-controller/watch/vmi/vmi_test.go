@@ -61,6 +61,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/dra"
@@ -2321,6 +2322,51 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				controller.additionalLauncherLabelsSync = initialAdditionalLauncherLabelsSync
 			})
 
+			vmiName := strings.Repeat("a", 64)
+			const (
+				idLabel      = virtv1.VirtualMachineInstanceIDLabel
+				idPrefix     = "vmi.kubevirt.io/*"
+				existingID   = "existing-id"
+				configuredID = "configured-id"
+			)
+			DescribeTable("should reconcile the launcher pod VMI ID label", func(labelPatterns []string, podID, vmiID string, expectedLabels gomegaTypes.GomegaMatcher, expectPatch bool) {
+				controller.additionalLauncherLabelsSync = labelPatterns
+				vmi := newPendingVirtualMachine(vmiName)
+				vmi.Status.Phase = virtv1.Running
+				if vmiID != "" {
+					vmi.Labels = map[string]string{idLabel: vmiID}
+				}
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				if podID == "" {
+					delete(pod.Labels, idLabel)
+				} else {
+					pod.Labels[idLabel] = podID
+				}
+
+				addVirtualMachine(vmi)
+				addActivePods(vmi, pod.UID, "")
+				addPod(pod)
+
+				sanityExecute()
+
+				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedPod.Labels).To(expectedLabels)
+				Expect(updatedPod.Labels).To(HaveKeyWithValue(virtv1.CreatedByLabel, string(vmi.UID)))
+				patched := slices.ContainsFunc(kubeClient.Actions(), func(action testing.Action) bool {
+					return action.Matches("patch", "pods")
+				})
+				Expect(patched).To(Equal(expectPatch))
+			},
+				Entry("backfills a missing ID", nil, "", "", HaveKeyWithValue(idLabel, apimachinery.CalculateVirtualMachineInstanceID(vmiName)), true),
+				Entry("preserves an existing ID", nil, existingID, "", HaveKeyWithValue(idLabel, existingID), false),
+				Entry("honors an explicitly synchronized ID", []string{idLabel}, existingID, configuredID, HaveKeyWithValue(idLabel, configuredID), true),
+				Entry("honors an ID synchronized by prefix", []string{idPrefix}, existingID, configuredID, HaveKeyWithValue(idLabel, configuredID), true),
+				Entry("honors a synchronized ID on a pod missing it", []string{idPrefix}, "", configuredID, HaveKeyWithValue(idLabel, configuredID), true),
+				Entry("removes a synchronized ID when removed from the VMI", []string{idLabel}, existingID, "", Not(HaveKey(idLabel)), true),
+				Entry("keeps a removed synchronized ID absent", []string{idPrefix}, "", "", Not(HaveKey(idLabel)), false),
+			)
+
 			type testData struct {
 				vmiAnnotations                    map[string]string
 				podAnnotations                    map[string]string
@@ -2359,7 +2405,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				updatedPod, err := kubeClient.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(updatedPod.Annotations).To(BeEquivalentTo(td.expectedAnnotations))
-				Expect(updatedPod.Labels).To(BeEquivalentTo(td.expectedLabels))
+				expectedLabels := maps.Clone(td.expectedLabels)
+				expectedLabels[virtv1.VirtualMachineInstanceIDLabel] = vmi.Name
+				Expect(updatedPod.Labels).To(BeEquivalentTo(expectedLabels))
 				if td.expectedPatch {
 					Expect(kubeClient.Actions()).To(HaveLen(3)) // 0: create, 1: patch, 2: get
 					Expect(kubeClient.Actions()[1].GetVerb()).To(Equal("patch"))
@@ -6343,8 +6391,9 @@ func newPodForVirtualMachine(vmi *virtv1.VirtualMachineInstance, phase k8sv1.Pod
 			Namespace: vmi.Namespace,
 			UID:       "virt-launch-uid",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "virt-launcher",
-				virtv1.CreatedByLabel: string(vmi.UID),
+				virtv1.AppLabel:                      "virt-launcher",
+				virtv1.CreatedByLabel:                string(vmi.UID),
+				virtv1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
 			},
 			Annotations: podAnnotations,
 			OwnerReferences: []metav1.OwnerReference{
