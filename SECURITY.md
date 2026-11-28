@@ -29,6 +29,12 @@ mailing list and published to the
 [Security Advisories](https://github.com/kubevirt/kubevirt/security/advisories)
 page.
 
+## Security Self-Assessment
+
+For KubeVirt's security functions and features, including the configuration
+options that can be used to relax security defaults (and the risks of doing
+so), see the [KubeVirt security self-assessment](https://github.com/cncf/toc/blob/main/projects/kubevirt/security-assessment/self-assessment.md).
+
 ## Security Team
 
 The security team currently consists of the Maintainers of KubeVirt and is
