@@ -68,6 +68,16 @@ func completedMigrationDomainAt(downtime uint64, migrationUID string, start time
 	}
 }
 
+func withCompressionRatio(domain *api.Domain, ratio float64) *api.Domain {
+	domain.Status.CompletedMigrationStats.CompressionRatioSet = true
+	domain.Status.CompletedMigrationStats.CompressionRatio = ratio
+	return domain
+}
+
+func compressionPtr(c v1.MigrationCompression) *v1.MigrationCompression {
+	return &c
+}
+
 var _ = Describe("Handler", func() {
 	var h *handler
 
@@ -120,6 +130,44 @@ var _ = Describe("Handler", func() {
 			}
 			Expect(vmiStore.Add(vmi)).To(Succeed())
 			h.globalVMIStore = vmiStore
+		})
+
+		DescribeTable("should gate compression ratio on migration compression options", func(
+			compression *v1.MigrationCompression, expectRatio bool,
+		) {
+			if compression != nil {
+				vmi.Status.MigrationState.VMIMConfigurationOptions = &v1.VMIMConfigurationOptions{
+					ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{Compression: compression},
+				}
+				Expect(vmiStore.Update(vmi)).To(Succeed())
+			}
+
+			h.handleDomainCompletedMigrationStats(withCompressionRatio(completedMigrationDomain(70, "migration-1"), 2.5))
+
+			Expect(h.completedMigrationStats["default/test-vmi"].downtimeSet).To(BeTrue())
+			Expect(h.completedMigrationStats["default/test-vmi"].compressionRatioSet).To(Equal(expectRatio))
+			if expectRatio {
+				Expect(h.completedMigrationStats["default/test-vmi"].compressionRatio).To(Equal(2.5))
+			}
+		},
+			Entry("zstd enabled", compressionPtr(v1.MigrationCompressionZstd), true),
+			Entry("explicit none", compressionPtr(v1.MigrationCompressionNone), false),
+			Entry("empty options", nil, false),
+		)
+
+		It("should keep downtime and omit ratio when migration UID does not match", func() {
+			compression := v1.MigrationCompressionZstd
+			vmi.Status.MigrationState.MigrationUID = "migration-other"
+			vmi.Status.MigrationState.VMIMConfigurationOptions = &v1.VMIMConfigurationOptions{
+				ExperimentalMigrationOptions: &v1.ExperimentalMigrationOptions{Compression: &compression},
+			}
+			Expect(vmiStore.Update(vmi)).To(Succeed())
+
+			h.handleDomainCompletedMigrationStats(withCompressionRatio(completedMigrationDomain(70, "migration-1"), 2.5))
+
+			Expect(h.completedMigrationStats["default/test-vmi"].downtimeSet).To(BeTrue())
+			Expect(h.completedMigrationStats["default/test-vmi"].downtime).To(Equal(uint64(70)))
+			Expect(h.completedMigrationStats["default/test-vmi"].compressionRatioSet).To(BeFalse())
 		})
 
 		It("should store completed downtime without modifying the active queue", func() {

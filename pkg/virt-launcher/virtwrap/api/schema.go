@@ -135,6 +135,9 @@ type DomainStatus struct {
 type CompletedMigrationStats struct {
 	DowntimeSet bool
 	Downtime    uint64
+
+	CompressionRatioSet bool
+	CompressionRatio    float64
 }
 
 // GuestPanicInfo contains details about a guest panic event from QEMU

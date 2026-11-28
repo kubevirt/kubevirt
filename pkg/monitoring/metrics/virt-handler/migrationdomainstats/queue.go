@@ -53,6 +53,9 @@ type result struct {
 	downtimeSet bool
 	downtime    uint64
 
+	compressionRatioSet bool
+	compressionRatio    float64
+
 	domainJobInfo stats.DomainJobInfo
 	timestamp     time.Time
 }

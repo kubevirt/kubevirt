@@ -476,11 +476,17 @@ func storeCompletedMigrationStats(jobInfo *libvirt.DomainJobInfo, metadataCache 
 		return
 	}
 
+	stats := api.CompletedMigrationStats{
+		DowntimeSet: jobInfo.DowntimeSet,
+		Downtime:    jobInfo.Downtime,
+	}
+	if jobInfo.DataProcessed > 0 {
+		stats.CompressionRatioSet = true
+		stats.CompressionRatio = float64(jobInfo.MemNormalBytes) / float64(jobInfo.DataProcessed)
+	}
+
 	metadataCache.CompletedMigration.Store(metadata.CompletedMigrationData{
-		Stats: api.CompletedMigrationStats{
-			DowntimeSet: jobInfo.DowntimeSet,
-			Downtime:    jobInfo.Downtime,
-		},
+		Stats:        stats,
 		MigrationUID: migration.UID,
 	})
 }
