@@ -43,7 +43,9 @@ go_test(
         "sidecar_test.go",
         "store_test.go",
     ],
+    data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    embedsrcs = ["testdata/domain.xml"],
     race = "on",
     deps = [
         "//pkg/hooks/plugins/v1alpha1:go_default_library",

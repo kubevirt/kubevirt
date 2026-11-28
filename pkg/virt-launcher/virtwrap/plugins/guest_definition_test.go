@@ -20,6 +20,9 @@
 package plugins_test
 
 import (
+	_ "embed"
+	"encoding/xml"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -31,6 +34,16 @@ import (
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/plugins"
 )
+
+// domainXML is a full converter-style domain, except where the round trip is lossy
+// by design: no xmlns:qemu (covered by the QEMU commandline test), no type on the
+// hostdev source address, no name on block disk sources, and zero forms for the
+// non-omitempty filesystem accessMode and memory target current. PCI addresses use
+// the canonical widths libvirtxml reprints, and the IOMMU pciBus is decimal since
+// libvirtxml parses it as an unsigned int.
+//
+//go:embed testdata/domain.xml
+var domainXML []byte
 
 var _ = Describe("Guest Definition Hook Pipeline", func() {
 	var (
@@ -174,18 +187,14 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 
 	Context("no-op hooks", func() {
 		It("should preserve all domain fields through a no-op pipeline round-trip", func() {
-			spec.Devices.IOMMU = []virtwrapApi.IOMMUDevice{{Model: "smmuv3", Driver: &virtwrapApi.IOMMUDriver{PCIBus: "1", Accel: "on", ATS: "on", RIL: "off", SSIDSize: "20", OAS: "48"}}}
-			spec.Devices.Inputs = []virtwrapApi.Input{{Type: v1.InputTypeTablet, Bus: "usb"}}
-			spec.Devices.Watchdogs = []virtwrapApi.Watchdog{{Model: "i6300esb", Action: "none"}}
-			spec.Devices.HostDevices = []virtwrapApi.HostDevice{{
-				Type:    virtwrapApi.HostDevicePCI,
-				Mode:    "subsystem",
-				Managed: "no",
-				Alias:   virtwrapApi.NewUserDefinedAlias("hostdevice-hostdev1"),
-				Source: virtwrapApi.HostDeviceSource{
-					Address: &virtwrapApi.Address{Type: "pci", Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"},
-				},
-			}}
+			expected := &virtwrapApi.DomainSpec{}
+			err := xml.Unmarshal(domainXML, expected)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Equal would silently ignore fixture content the api schema cannot read.
+			marshaled, err := xml.MarshalIndent(expected, "", "  ")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(marshaled)).To(MatchXML(string(domainXML)))
 
 			plugin := pluginv1alpha1.Plugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "noop"},
@@ -198,26 +207,10 @@ var _ = Describe("Guest Definition Hook Pipeline", func() {
 				},
 			}
 
-			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, spec, pluginv1alpha1.InvocationContextBoot)
+			result, xmlStr, err := plugins.ApplyGuestDefinitionHooks([]pluginv1alpha1.Plugin{plugin}, vmi, expected, pluginv1alpha1.InvocationContextBoot)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(xmlStr).NotTo(BeEmpty())
-			Expect(result.Type).To(Equal("kvm"))
-			Expect(result.Name).To(Equal("test-vm"))
-			Expect(xmlStr).To(ContainSubstring(`ssidsize="20"`))
-			Expect(result.Devices.IOMMU).To(HaveLen(1))
-			Expect(result.Devices.IOMMU[0].Driver).To(Equal(spec.Devices.IOMMU[0].Driver))
-			Expect(result.Devices.Inputs).To(HaveLen(1))
-			Expect(result.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
-			Expect(result.Devices.Watchdogs).To(HaveLen(1))
-			Expect(result.Devices.Watchdogs[0].Model).To(Equal("i6300esb"))
-
-			// XMLName and the source address type are normalized by the libvirtxml round trip
-			Expect(result.Devices.HostDevices).To(HaveLen(1))
-			hostDevice := result.Devices.HostDevices[0]
-			Expect(hostDevice.Alias.GetName()).To(Equal("hostdevice-hostdev1"))
-			Expect(hostDevice.Managed).To(Equal("no"))
-			Expect(hostDevice.Source.Address).To(Equal(&virtwrapApi.Address{Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}))
-			Expect(hostDevice.Mode).To(Equal("subsystem"))
+			Expect(result).To(Equal(expected))
 		})
 
 		It("should preserve QEMU commandline args through the plugin pipeline", func() {
