@@ -20,6 +20,9 @@
 package annotations
 
 import (
+	"encoding/json"
+	"fmt"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -118,7 +121,8 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		return "", false
 	}
 
-	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
+	networkStatuses := multus.NetworkStatusesFromPod(pod)
+	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, networkStatuses)
 	updatedMultusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 		vmi.Namespace,
 		vmiSpecIfaces,
@@ -127,23 +131,150 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		g.clusterConfigurer.GetNetworkBindings(),
 	)
 	if err != nil {
+		log.Log.Object(pod).Errorf("failed to generate the multus annotation: %v", err)
+		return "", false
+	}
+
+	absentIfaces, absentNets := ifacesAndNetsToHotUnplug(vmi)
+	// The absent name scheme is built from all the spec networks: building it
+	// from the absent networks alone would renumber ordinal pod interface
+	// names and make the absent elements match the wrong live elements.
+	absentPodIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmi.Spec.Networks, networkStatuses)
+	absentNets = withLiveNADNames(vmi.Namespace, absentNets, absentPodIfaceNamesByNetworkName, networkStatuses)
+	absentMultusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+		vmi.Namespace,
+		absentIfaces,
+		absentNets,
+		absentPodIfaceNamesByNetworkName,
+		g.clusterConfigurer.GetNetworkBindings(),
+	)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to generate the absent interfaces multus annotation: %v", err)
+		return "", false
+	}
+
+	staleNADMultusAnnotation, err := generateStaleNADMultusAnnotation(
+		vmi.Namespace,
+		vmiSpecNets,
+		podIfaceNamesByNetworkName,
+		networkStatuses,
+	)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to generate the stale NAD multus annotation: %v", err)
 		return "", false
 	}
 
 	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
-
-	const logLevel = 4
-	log.Log.Object(pod).V(logLevel).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+	mergedMultusAnnotation, err := multus.MergeNetworkSelectionAnnotations(
+		vmi.Namespace,
 		currentMultusAnnotation,
 		updatedMultusAnnotation,
+		absentMultusAnnotation,
+		staleNADMultusAnnotation,
 	)
-
-	if updatedMultusAnnotation == currentMultusAnnotation {
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to merge multus annotations: %v", err)
 		return "", false
 	}
 
-	return updatedMultusAnnotation, true
+	const logLevel = 4
+	log.Log.Object(pod).V(logLevel).Infof(
+		"current multus annotation for pod: %s; updated multus annotation for pod with: %s; merged multus annotation for pod with: %s",
+		currentMultusAnnotation,
+		updatedMultusAnnotation,
+		mergedMultusAnnotation,
+	)
+
+	if mergedMultusAnnotation == currentMultusAnnotation {
+		return "", false
+	}
+
+	return mergedMultusAnnotation, true
+}
+
+func generateStaleNADMultusAnnotation(
+	vmiNamespace string,
+	vmiSpecNets []v1.Network,
+	podIfaceNamesByNetworkName map[string]string,
+	networkStatuses []networkv1.NetworkStatus,
+) (string, error) {
+	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(networkStatuses)
+	var staleNADNetworkSelectionElements []networkv1.NetworkSelectionElement
+
+	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmiSpecNets) {
+		podIfaceName := podIfaceNamesByNetworkName[network.Name]
+		if podIfaceName == "" {
+			continue
+		}
+
+		networkStatus, exists := networkStatusesByPodIfaceName[podIfaceName]
+		if !exists || networkStatus.Name == "" {
+			continue
+		}
+
+		staleNAD := multus.NetAttachDefNamespacedName(vmiNamespace, networkStatus.Name)
+		desiredNAD := multus.NetAttachDefNamespacedName(vmiNamespace, network.Multus.NetworkName)
+		if staleNAD == desiredNAD {
+			continue
+		}
+
+		staleNADNetworkSelectionElements = append(staleNADNetworkSelectionElements, networkv1.NetworkSelectionElement{
+			Namespace:        staleNAD.Namespace,
+			Name:             staleNAD.Name,
+			InterfaceRequest: podIfaceName,
+		})
+	}
+
+	if len(staleNADNetworkSelectionElements) == 0 {
+		return "", nil
+	}
+
+	staleNADMultusAnnotation, err := json.Marshal(staleNADNetworkSelectionElements)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal stale NAD network selection elements: %w", err)
+	}
+
+	return string(staleNADMultusAnnotation), nil
+}
+
+// withLiveNADNames returns networks whose multus networkName points at the NAD
+// recorded in the pod network status rather than the spec one. Absent elements
+// must match the live annotation, and the networkName may have been changed in
+// the same edit that marked the interface absent. Like the stale-NAD
+// detection, this is limited to the NAD name: a network status carries no
+// namespace.
+func withLiveNADNames(
+	vmiNamespace string,
+	networks []v1.Network,
+	podIfaceNamesByNetworkName map[string]string,
+	networkStatuses []networkv1.NetworkStatus,
+) []v1.Network {
+	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(networkStatuses)
+
+	updatedNetworks := make([]v1.Network, len(networks))
+	copy(updatedNetworks, networks)
+	for i, network := range updatedNetworks {
+		if network.Multus == nil {
+			continue
+		}
+
+		podIfaceName := podIfaceNamesByNetworkName[network.Name]
+		networkStatus, exists := networkStatusesByPodIfaceName[podIfaceName]
+		if !exists || networkStatus.Name == "" {
+			continue
+		}
+
+		specNADName := multus.NetAttachDefNamespacedName(vmiNamespace, network.Multus.NetworkName).Name
+		if networkStatus.Name == specNADName {
+			continue
+		}
+
+		updatedNetwork := network.DeepCopy()
+		updatedNetwork.Multus.NetworkName = networkStatus.Name
+		updatedNetworks[i] = *updatedNetwork
+	}
+
+	return updatedNetworks
 }
 
 func (g Generator) generateNetworkInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
@@ -198,6 +329,14 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+func ifacesAndNetsToHotUnplug(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network) {
+	absentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+
+	return absentIfaces, vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, absentIfaces)
 }
 
 func mapNetworkStatusesByNetworkName(
