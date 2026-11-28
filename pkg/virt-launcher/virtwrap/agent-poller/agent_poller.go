@@ -446,7 +446,7 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 }
 
 func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller *AgentPoller) {
-	log.Log.Infof("Polling API operations: %v", infoTypes)
+	log.Log.V(repeatingLogLevel).Infof("Polling API operations: %v", infoTypes)
 
 	domain, err := agentPoller.Connection.LookupDomainByName(agentPoller.domainName)
 	if err != nil {

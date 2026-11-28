@@ -259,7 +259,7 @@ func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 		return response, nil
 	}
 
-	log.Log.Object(vmi).Info("Synced vmi")
+	log.Log.Object(vmi).V(3).Info("Synced vmi")
 	return response, nil
 }
 
