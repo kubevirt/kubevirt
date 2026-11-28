@@ -126,4 +126,11 @@ var _ = Describe("Handler DaemonSet", func() {
 		Expect(kubeletMount.MountPropagation).NotTo(BeNil())
 		Expect(*kubeletMount.MountPropagation).To(Equal(corev1.MountPropagationHostToContainer))
 	})
+
+	It("should not mount the network-status downward API volume", func() {
+		ds := NewHandlerDaemonSet(config, "", "", "")
+
+		Expect(ds.Spec.Template.Spec.Volumes).NotTo(ContainElement(HaveField("Name", "podinfo")))
+		Expect(ds.Spec.Template.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(HaveField("MountPath", "/etc/podinfo")))
+	})
 })
