@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime/pprof"
 
@@ -59,16 +60,23 @@ func main() {
 		os.Exit(0)
 	}
 
-	exitCode, stdOut, err := client.Exec(*domainName, *command, pflag.Args(), *timeoutSeconds)
-	if len(stdOut) > 0 {
-		fmt.Println(stdOut)
-	}
+	exitCode, stdOut, stdErr, err := client.Exec(*domainName, *command, pflag.Args(), *timeoutSeconds)
+	writeExecOutput(os.Stdout, os.Stderr, stdOut, stdErr)
 	if err != nil {
 		log.Log.Reason(err).Critical("Failed executing the command")
 	}
 
 	saveMemoryProfile(*memProfile)
 	os.Exit(exitCode)
+}
+
+func writeExecOutput(stdOutWriter, stdErrWriter io.Writer, stdOut, stdErr string) {
+	if len(stdOut) > 0 {
+		fmt.Fprint(stdOutWriter, stdOut)
+	}
+	if len(stdErr) > 0 {
+		fmt.Fprint(stdErrWriter, stdErr)
+	}
 }
 
 func saveMemoryProfile(path string) {

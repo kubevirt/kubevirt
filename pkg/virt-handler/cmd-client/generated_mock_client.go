@@ -100,13 +100,14 @@ func (mr *MockLauncherClientMockRecorder) DeleteDomain(vmi any) *gomock.Call {
 }
 
 // Exec mocks base method.
-func (m *MockLauncherClient) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (int, string, error) {
+func (m *MockLauncherClient) Exec(arg0, arg1 string, arg2 []string, arg3 int32) (int, string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Exec", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(string)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // Exec indicates an expected call of Exec.

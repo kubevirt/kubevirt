@@ -381,6 +381,7 @@ var _ = Describe("Virt remote commands", func() {
 				testExecErr              = errors.New("exec error")
 				testGuestPingErr         = errors.New("guest ping error")
 				testStdOut               = "stdOut"
+				testStdErr               = "stdErr"
 				testTimeoutSeconds int32 = 10
 
 				expectExec = func() *gomock.Call {
@@ -424,37 +425,48 @@ var _ = Describe("Virt remote commands", func() {
 				server.Exec(context.TODO(), execRequest())
 			})
 			It("returns exec errors in the response", func() {
-				expectExec().Times(1).Return("", testExecErr)
+				expectExec().Times(1).Return("", "", testExecErr)
 				resp, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).To(HaveOccurred())
 				Expect(resp.Response.Success).To(BeFalse())
 				Expect(resp.Response.Message).To(Equal(testExecErr.Error()))
 			})
 			It("does not return exit code errors", func() {
-				expectExec().Times(1).Return("", agent.ExecExitCode{ExitCode: 1})
+				expectExec().Times(1).Return("", "", agent.ExecExitCode{ExitCode: 1})
 				_, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("returns non-zero exit code and stdOut if possible", func() {
-				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+			It("returns non-zero exit code, stdOut and stdErr if possible", func() {
+				expectExec().Times(1).Return(testStdOut, testStdErr, agent.ExecExitCode{ExitCode: 1})
 				resp, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.ExitCode).To(BeEquivalentTo(1))
 				Expect(resp.StdOut).To(Equal(testStdOut))
+				Expect(resp.StdErr).To(Equal(testStdErr))
 			})
-			It("returns zero exit code and stdOut if possible", func() {
-				expectExec().Times(1).Return(testStdOut, nil)
+			It("transports stdErr through the command client", func() {
+				expectExec().Times(1).Return(testStdOut, testStdErr, agent.ExecExitCode{ExitCode: 1})
+
+				exitCode, stdOut, stdErr, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exitCode).To(Equal(1))
+				Expect(stdOut).To(Equal(testStdOut))
+				Expect(stdErr).To(Equal(testStdErr))
+			})
+			It("returns zero exit code, stdOut and stdErr if possible", func() {
+				expectExec().Times(1).Return(testStdOut, testStdErr, nil)
 				resp, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.ExitCode).To(BeEquivalentTo(0))
 				Expect(resp.StdOut).To(Equal(testStdOut))
+				Expect(resp.StdErr).To(Equal(testStdErr))
 			})
 			It("returns true success on execution (including failed executions)", func() {
 				// the success field just indicates the request was successful.
 				// A non-zero exit code does not mean the execution failed, just the command.
 				// An example of a failed execution would be when the guest-agent is not available,
 				// then success should not be true.
-				expectExec().Times(1).Return(testStdOut, agent.ExecExitCode{ExitCode: 1})
+				expectExec().Times(1).Return(testStdOut, testStdErr, agent.ExecExitCode{ExitCode: 1})
 				resp, err := server.Exec(context.TODO(), execRequest())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())

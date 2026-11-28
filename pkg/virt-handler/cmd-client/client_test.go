@@ -157,6 +157,7 @@ var _ = Describe("Virt remote commands", func() {
 				testArgs                 = []string{"-v", "2"}
 				testClientErr            = errors.New("client error")
 				testStdOut               = "stdOut"
+				testStdErr               = "stdErr"
 				testTimeoutSeconds int32 = 10
 
 				expectExec = func() *gomock.Call {
@@ -190,17 +191,19 @@ var _ = Describe("Virt remote commands", func() {
 			})
 			It("returns client errors", func() {
 				expectExec().Times(1).Return(&cmdv1.ExecResponse{}, testClientErr)
-				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				_, _, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(err).To(HaveOccurred())
 			})
-			It("returns exitCode and stdOut if possible", func() {
+			It("returns exitCode, stdOut and stdErr if possible", func() {
 				expectExec().Times(1).Return(&cmdv1.ExecResponse{
 					ExitCode: 1,
 					StdOut:   testStdOut,
+					StdErr:   testStdErr,
 				}, nil)
-				exitCode, stdOut, _ := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				exitCode, stdOut, stdErr, _ := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(exitCode).To(Equal(1))
 				Expect(stdOut).To(Equal(testStdOut))
+				Expect(stdErr).To(Equal(testStdErr))
 			})
 			It("provide ctx with a shortTimeout", func() {
 				expectExec().Times(1).Do(func(ctx context.Context, _ *cmdv1.ExecRequest, _ ...grpc.CallOption) (*cmdv1.ExecResponse, error) {
@@ -229,7 +232,7 @@ var _ = Describe("Virt remote commands", func() {
 				expectExec().Times(1).Return(
 					nil, status.Errorf(codes.InvalidArgument, "bad exec request"),
 				)
-				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				_, _, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(err).To(MatchError(ContainSubstring("InvalidArgument")))
 			})
 
@@ -237,20 +240,22 @@ var _ = Describe("Virt remote commands", func() {
 				expectExec().Times(1).Return(&cmdv1.ExecResponse{
 					Response: &cmdv1.Response{Success: false, Message: "legacy exec error"},
 				}, nil)
-				_, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				_, _, _, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(err).To(MatchError(ContainSubstring("legacy exec error")))
 			})
 
-			It("Exec should return exitCode and stdOut even on legacy error", func() {
+			It("Exec should return exitCode, stdOut and stdErr even on legacy error", func() {
 				expectExec().Times(1).Return(&cmdv1.ExecResponse{
 					ExitCode: 42,
 					StdOut:   "partial output",
+					StdErr:   "partial error",
 					Response: &cmdv1.Response{Success: false, Message: "exec failed"},
 				}, nil)
-				exitCode, stdOut, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
+				exitCode, stdOut, stdErr, err := client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 				Expect(err).To(HaveOccurred())
 				Expect(exitCode).To(Equal(42))
 				Expect(stdOut).To(Equal("partial output"))
+				Expect(stdErr).To(Equal("partial error"))
 			})
 
 			It("GuestPing should propagate gRPC status errors", func() {
