@@ -191,3 +191,26 @@ var _ = Describe("GetVerifiedLauncherClient FindSocket check", func() {
 		})
 	})
 })
+
+var _ = Describe("LastKnownUID", func() {
+	It("should return UID if we stored ghost record", func() {
+		ghostRecordStore := virtcache.InitializeGhostRecordCache(
+			virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+		)
+
+		manager := NewLauncherClientsManager(nil, nil, ghostRecordStore)
+
+		Expect(ghostRecordStore.Add("testNS", "test", "test", "uid")).To(Succeed())
+		Expect(manager.LastKnownUID("testNS", "test")).To(Equal(types.UID("uid")))
+	})
+
+	It("should return empty UID if there is no ghost record", func() {
+		ghostRecordStore := virtcache.InitializeGhostRecordCache(
+			virtcache.NewIterableCheckpointManager(GinkgoT().TempDir(), GinkgoT().TempDir()),
+		)
+
+		manager := NewLauncherClientsManager(nil, nil, ghostRecordStore)
+
+		Expect(manager.LastKnownUID("testNS", "test")).To(Equal(types.UID("")))
+	})
+})

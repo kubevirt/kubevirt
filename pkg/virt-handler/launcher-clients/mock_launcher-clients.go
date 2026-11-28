@@ -22,8 +22,10 @@ package launcher_clients
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -36,6 +38,11 @@ type MockLauncherClientManager struct {
 	UnResponsiveError error
 	IrrecoverableErr  bool
 	GhostRecordStore  *virtcache.GhostRecordStore
+}
+
+// LastKnownUID implements [LauncherClientsManager].
+func (m *MockLauncherClientManager) LastKnownUID(namespace string, name string) types.UID {
+	return m.GhostRecordStore.LastKnownUID(controller.NamespacedKey(namespace, name))
 }
 
 func (m *MockLauncherClientManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
