@@ -225,6 +225,10 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 		return fmt.Errorf("a migration recovery had to be initiated")
 	}
 
+	if !metav1.IsControlledBy(job, migration) {
+		return fmt.Errorf("recovery job %s/%s is not controlled by migration UID %s", job.Namespace, job.Name, migration.UID)
+	}
+
 	for _, c := range job.Status.Conditions {
 		switch c.Type {
 		case batchv1.JobComplete:
@@ -246,7 +250,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migration *corev1
 					return err
 				} else {
 					// The job failed to run properly. Deleting it to retry asap.
-					// Ignoring the deletion error because the job may already be gone, or will get auto-removed anyway.
+					// The job may already be gone. If deletion failed, reconciliation can retry it.
 					_ = client.BatchV1().Jobs(job.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
 						PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
 					})
@@ -269,10 +273,11 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 				*metav1.NewControllerRef(migration, corev1.VirtualMachineInstanceMigrationGroupVersionKind),
 			},
 		},
+		// Retain the terminal result across retries. The Job is garbage
+		// collected when the owning migration is deleted.
 		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds:   pointer.P(int64(30)),
-			BackoffLimit:            pointer.P(int32(0)),
-			TTLSecondsAfterFinished: pointer.P(int32(30)),
+			ActiveDeadlineSeconds: pointer.P(int64(30)),
+			BackoffLimit:          pointer.P(int32(0)),
 			PodFailurePolicy: &batchv1.PodFailurePolicy{
 				Rules: []batchv1.PodFailurePolicyRule{{
 					Action: batchv1.PodFailurePolicyActionFailJob,
@@ -434,11 +439,15 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 		return nil
 	}
 
-	// Let's label the target first, then remove the source.
-	// The target might already be labelled if this function was already called for this migration
+	// Label the target first, then remove the source.
 	target := pvcForMigrationTargetFromStore(pvcStore, migration)
 	if target == nil {
-		return fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
+		// A previous handoff may have removed the migration label before the
+		// controller managed to persist the migration phase.
+		target = PVCForMigrationTarget(pvcStore, migration)
+		if target == nil || target.Labels[PVCPrefix] != migration.Spec.VMIName {
+			return fmt.Errorf("target PVC not found for migration %s/%s", migration.Namespace, migration.Name)
+		}
 	}
 	labels := target.Labels
 	if labels == nil {
