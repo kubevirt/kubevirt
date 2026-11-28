@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
@@ -1150,6 +1151,19 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	}
 
 	targetStrategy, targetPending, err = c.loadInstallStrategy(kv)
+	var deployments []*appsv1.Deployment
+	if targetStrategy != nil {
+		deployments = append(deployments, targetStrategy.ApiDeployments()...)
+		deployments = append(deployments, targetStrategy.ControllerDeployments()...)
+		deployments = append(deployments, targetStrategy.ExportProxyDeployments()...)
+		if featuregate.IsEnabled(featuregate.DecentralizedLiveMigration, kv.Spec.Configuration.DeveloperConfiguration) {
+			deployments = append(deployments, targetStrategy.SynchronizationControllerDeployments()...)
+		}
+		if config.VirtTemplateDeploymentEnabled() {
+			deployments = append(deployments, targetStrategy.VirtTemplateDeployments()...)
+		}
+	}
+	util.UpdateConditionsDeploymentsReady(kv, deployments, c.stores)
 	if err != nil {
 		return err
 	}

@@ -109,27 +109,11 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 			return
 		}
 
-		waitForDeploymentsToStabilize := func() (bool, error) {
-			deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
-			for _, deploymentName := range controlPlaneDeploymentNames {
-				deployment, err := deploymentsClient.Get(context.Background(), deploymentName, metav1.GetOptions{})
-				if err != nil {
-					return false, err
-				}
-
-				if !(deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas) &&
-					deployment.Status.Replicas == *(deployment.Spec.Replicas) &&
-					deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas)) {
-					return false, err
-				}
-			}
-			return true, nil
-		}
-
-		eventuallyWithTimeout := func(f func() (bool, error)) {
-			Eventually(f,
-				DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds,
-			).Should(BeTrue())
+		waitForDeploymentsToStabilize := func() {
+			Eventually(func() *v1.KubeVirt {
+				return libkubevirt.GetCurrentKv(virtCli)
+			}, DefaultStabilizationTimeoutInSeconds, DefaultPollIntervalInSeconds).
+				Should(matcher.HaveConditionTrue(v1.KubeVirtConditionDeploymentsReady))
 		}
 
 		BeforeEach(func() {
@@ -137,14 +121,14 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 			for _, node := range nodeList {
 				libnode.SetNodeUnschedulable(node.Name, virtCli)
 			}
-			eventuallyWithTimeout(waitForDeploymentsToStabilize)
+			waitForDeploymentsToStabilize()
 		})
 
 		AfterEach(func() {
 			for _, node := range nodeList {
 				libnode.SetNodeSchedulable(node.Name, virtCli)
 			}
-			eventuallyWithTimeout(waitForDeploymentsToStabilize)
+			waitForDeploymentsToStabilize()
 		})
 
 		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool) {

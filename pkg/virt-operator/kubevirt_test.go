@@ -1653,6 +1653,9 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 		}
 		deplNew.Status.Replicas = replicas
 		deplNew.Status.ReadyReplicas = replicas
+		deplNew.Status.UpdatedReplicas = replicas
+		deplNew.Status.AvailableReplicas = replicas
+		deplNew.Status.ObservedGeneration = deplNew.Generation
 		k.controller.stores.DeploymentCache.Update(deplNew)
 		key, err := kubecontroller.KeyFunc(deplNew)
 		Expect(err).To(Not(HaveOccurred()))
@@ -2402,6 +2405,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			// ObservedDeploymentID must not advance: SetObservedDeploymentConfig must only
 			// be called once isReady() returns true (virt-template pods are still starting).
 			Expect(kv.Status.ObservedDeploymentID).To(Equal(initialObservedID))
+			Expect(kv.Status.Conditions).To(ContainElement(And(
+				HaveField("Type", v1.KubeVirtConditionDeploymentsReady),
+				HaveField("Status", k8sv1.ConditionFalse),
+			)))
 			// isUpdating() stayed true throughout, so Available remains True.
 			shouldExpectStatusConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionTrue, k8sv1.ConditionTrue)
 
@@ -2426,6 +2433,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(kv.Status.ObservedDeploymentID).NotTo(Equal(initialObservedID))
 			Expect(kv.Status.ObservedDeploymentID).To(Equal(kv.Status.TargetDeploymentID))
+			Expect(kv.Status.Conditions).To(ContainElement(And(
+				HaveField("Type", v1.KubeVirtConditionDeploymentsReady),
+				HaveField("Status", k8sv1.ConditionTrue),
+			)))
 		})
 
 		It("should update KubeVirt object if generation IDs do not match", func() {
@@ -3004,7 +3015,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = kvTestData.getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
-			Expect(kv.Status.Conditions).To(HaveLen(3))
+			Expect(kv.Status.Conditions).To(HaveLen(4))
 			Expect(kv.ObjectMeta.Finalizers).To(HaveLen(1))
 			shouldExpectStatusConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 

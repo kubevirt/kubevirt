@@ -2906,6 +2906,10 @@ const (
 
 	// Whether KubeVirt is functional and available in the cluster.
 	KubeVirtConditionAvailable KubeVirtConditionType = "Available"
+	// Whether all enabled deployments managed by virt-operator have completed
+	// their rollout with every desired replica updated and available. This
+	// excludes the virt-operator deployment itself and virt-handler DaemonSet.
+	KubeVirtConditionDeploymentsReady KubeVirtConditionType = "DeploymentsReady"
 	// Whether the operator is actively making changes to KubeVirt
 	KubeVirtConditionProgressing KubeVirtConditionType = "Progressing"
 	// Whether KubeVirt is not functioning completely
