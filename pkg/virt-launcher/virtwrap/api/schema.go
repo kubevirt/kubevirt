@@ -639,6 +639,7 @@ type MemoryBacking struct {
 	Access       *MemoryBackingAccess `xml:"access,omitempty"`
 	Allocation   *MemoryAllocation    `xml:"allocation,omitempty"`
 	NoSharePages *NoSharePages        `xml:"nosharepages,omitempty"`
+	Locked       *Locked              `xml:"locked,omitempty"`
 }
 
 type MemoryAllocationMode string
@@ -672,6 +673,10 @@ type MemoryBackingAccess struct {
 }
 
 type NoSharePages struct {
+}
+
+// Locked mirrors libvirt memoryBacking locked element.
+type Locked struct {
 }
 
 type MemoryAddress struct {

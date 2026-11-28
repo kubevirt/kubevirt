@@ -351,6 +351,13 @@ const (
 	// VMs already created with the field keep using the declarative path even if
 	// the gate is later disabled.
 	DeclarativeVMState = "DeclarativeVMState"
+
+	// Owner: sig-compute / @michalskrivanek
+	// Alpha: v1.11.0
+	//
+	// THPMemoryBacking enables transparent hugepage backing for VMIs that set
+	// spec.domain.memory.hugepages.mode to transparent (VEP 383).
+	THPMemoryBacking = "THPMemoryBacking"
 )
 
 func init() {
@@ -405,4 +412,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ARM64SecureBoot, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeVMState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExternalVMSnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: THPMemoryBacking, State: Alpha})
 }
