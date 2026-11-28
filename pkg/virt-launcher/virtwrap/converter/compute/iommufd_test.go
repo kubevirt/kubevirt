@@ -31,7 +31,17 @@ import (
 var _ = Describe("IOMMUFD Domain Configurator", func() {
 	It("should set IOMMUFD on domain when enabled", func() {
 		vmi := libvmi.New()
-		var domain api.Domain
+		domain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					HostDevices: []api.HostDevice{
+						{Type: api.HostDevicePCI},
+						{Type: api.HostDeviceMDev},
+						{Type: api.HostDeviceUSB},
+					},
+				},
+			},
+		}
 
 		configurator := compute.NewIOMMUFDConfigurator(true)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -39,15 +49,44 @@ var _ = Describe("IOMMUFD Domain Configurator", func() {
 		Expect(domain.Spec.IOMMUFD).NotTo(BeNil())
 		Expect(domain.Spec.IOMMUFD.Enabled).To(Equal("yes"))
 		Expect(domain.Spec.IOMMUFD.FDGroup).To(Equal("iommu"))
+		Expect(domain.Spec.Devices.HostDevices[0].Driver).To(Equal(&api.HostDevDriver{Iommufd: "yes"}))
+		Expect(domain.Spec.Devices.HostDevices[1].Driver).To(BeNil())
+		Expect(domain.Spec.Devices.HostDevices[2].Driver).To(BeNil())
 	})
 
 	It("should not set IOMMUFD on domain when disabled", func() {
 		vmi := libvmi.New()
-		var domain api.Domain
+		domain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					HostDevices: []api.HostDevice{{Type: api.HostDevicePCI}},
+				},
+			},
+		}
 
 		configurator := compute.NewIOMMUFDConfigurator(false)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		Expect(domain.Spec.IOMMUFD).To(BeNil())
+		Expect(domain.Spec.Devices.HostDevices[0].Driver).To(BeNil())
+	})
+
+	It("should preserve an existing PCI hostdev driver when enabled", func() {
+		vmi := libvmi.New()
+		domain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					HostDevices: []api.HostDevice{{
+						Type:   api.HostDevicePCI,
+						Driver: &api.HostDevDriver{},
+					}},
+				},
+			},
+		}
+
+		configurator := compute.NewIOMMUFDConfigurator(true)
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		Expect(domain.Spec.Devices.HostDevices[0].Driver).To(Equal(&api.HostDevDriver{Iommufd: "yes"}))
 	})
 })
