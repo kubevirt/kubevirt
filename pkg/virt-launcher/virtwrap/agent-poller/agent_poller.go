@@ -365,37 +365,26 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
-// UpdateFromEvent updates the agent poller state based on domain and agent lifecycle events
-func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle, agentEvent *libvirt.DomainEventAgentLifecycle) {
-	switch {
-	case domainEvent != nil:
-		if domainEvent.Event == libvirt.DOMAIN_EVENT_SUSPENDED {
-			log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
-			p.Stop()
-			return
-		}
-		if domainEvent.Event == libvirt.DOMAIN_EVENT_RESUMED {
-			// Only start poller on domain resume if agent is still connected
-			// This prevents starting the poller before agent is ready
-			if p.agentConnected {
-				log.Log.Infof("Starting agent poller for %s due to domain resume (agent connected)", p.domainName)
-				p.Start()
-			}
-			return
-		}
-	case agentEvent != nil:
-		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
-			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
-			p.agentConnected = false
-			p.Stop()
-			return
-		}
-		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
-			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
-			p.agentConnected = true
-			p.Start()
-			return
-		}
+func (p *AgentPoller) OnDomainLifecycle(event libvirt.DomainEventType) {
+	if event == libvirt.DOMAIN_EVENT_SUSPENDED {
+		log.Log.Infof("Stopping agent poller for %s due to domain suspend", p.domainName)
+		p.Stop()
+	} else if event == libvirt.DOMAIN_EVENT_RESUMED && p.agentConnected {
+		log.Log.Infof("Starting agent poller for %s due to domain resume (agent connected)", p.domainName)
+		p.Start()
+	}
+}
+
+func (p *AgentPoller) OnAgentLifecycle(state libvirt.ConnectDomainEventAgentLifecycleState) {
+	switch state {
+	case libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED:
+		log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
+		p.agentConnected = false
+		p.Stop()
+	case libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED:
+		log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
+		p.agentConnected = true
+		p.Start()
 	}
 }
 
