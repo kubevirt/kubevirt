@@ -21,6 +21,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -103,59 +104,13 @@ var istioTests = func(vmType VmType) {
 			{Port: sshPort},
 		}
 	)
-	BeforeEach(func() {
-		namespace = testsuite.GetTestNamespace(nil)
-	})
-
 	Context("Virtual Machine with istio supported interface", func() {
-		createJobCheckingVMIReachability := func(serverVMI *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
-			By("Starting HTTP Server")
-			vmnetserver.StartPythonHTTPServer(vmi, targetPort)
-
-			By("Getting back the VMI IP")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
-
-			By("Running job to send a request to the server")
-			return virtClient.BatchV1().Jobs(namespace).Create(
-				context.Background(),
-				job.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
-				metav1.CreateOptions{},
-			)
-		}
-		BeforeEach(func() {
+		BeforeEach(OncePerOrdered, func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
-
-			By("Create NetworkAttachmentDefinition")
-			nad := libnet.NewNetAttachDef("istio-cni", "")
-			_, err = libnet.CreateNetAttachDef(context.Background(), namespace, nad)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			By("Creating k8s service for the VMI")
-
 			virtClient = kubevirt.Client()
-			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
-			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
-			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
+			namespace = testsuite.GetTestNamespace(nil)
 		})
-		JustBeforeEach(func() {
-			// Enable sidecar injection by setting the namespace label
-			Expect(libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
-			defer func() {
-				Expect(libnamespace.RemoveLabelFromNamespace(virtClient, namespace, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
-			}()
 
-			By("Creating VMI")
-			vmi, err = newVMIWithIstioSidecar(vmiPorts, vmType)
-			Expect(err).ShouldNot(HaveOccurred())
-			vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			By("Waiting for VMI to be ready")
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-		})
 		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
@@ -170,7 +125,13 @@ var istioTests = func(vmType VmType) {
 				}
 				return nil
 			}
+			BeforeEach(func() {
+				Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+			})
 			JustBeforeEach(func() {
+				vmi, err = startIstioVMI(virtClient, namespace, vmType, nil)
+				Expect(err).ToNot(HaveOccurred())
+
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 				sourcePodName = sourcePod.Name
@@ -202,7 +163,9 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
-
+				Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+			})
+			BeforeEach(func() {
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.NewInterface(
@@ -212,6 +175,10 @@ var istioTests = func(vmType VmType) {
 				bastionVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), bastionVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				bastionVMI = libwait.WaitUntilVMIReady(bastionVMI, console.LoginToCirros)
+			})
+			JustBeforeEach(func() {
+				vmi, err = startIstioVMI(virtClient, namespace, vmType, vmiPorts)
+				Expect(err).ToNot(HaveOccurred())
 			})
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {
@@ -245,54 +212,78 @@ var istioTests = func(vmType VmType) {
 			})
 		})
 		Describe("Inbound traffic", func() {
-			checkVMIReachability := func(vmi *v1.VirtualMachineInstance, targetPort int) error {
-				httpJob, err := createJobCheckingVMIReachability(vmi, targetPort)
-				if err != nil {
-					return err
-				}
-				By("Waiting for the job to succeed")
-				return job.WaitForJobToSucceed(httpJob, 480*time.Second)
-			}
+			Context("With VMI having explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				BeforeAll(func() {
+					Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+					vmi, err = startIstioVMI(virtClient, namespace, vmType, explicitPorts)
+					Expect(err).ToNot(HaveOccurred())
 
-			Context("With VMI having explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = explicitPorts
+					By("Starting the guest HTTP servers")
+					vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
-					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
+					httpJob, err := createIstioReachabilityJob(virtClient, vmi, targetPort)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(job.WaitForJobToSucceed(httpJob, job.JobTimeout*time.Second)).To(Succeed())
 				},
 					Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
 					Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
 				)
 			})
-			Context("With VMI having no explicit ports specified", func() {
-				BeforeEach(func() {
-					vmiPorts = []v1.Port{}
+			Context("With VMI having no explicit ports specified", Ordered, ContinueOnFailure, decorators.OncePerOrderedCleanup, func() {
+				BeforeAll(func() {
+					Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+					vmi, err = startIstioVMI(virtClient, namespace, vmType, nil)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Starting the guest HTTP servers")
+					vmnetserver.StartPythonHTTPServer(vmi, svcDeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, svcUndeclaredTestPort)
+					vmnetserver.StartPythonHTTPServer(vmi, istioRestrictedPort)
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
-					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
+					httpJob, err := createIstioReachabilityJob(virtClient, vmi, targetPort)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(job.WaitForJobToSucceed(httpJob, job.JobTimeout*time.Second)).To(Succeed())
 				},
 					Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
 					Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
 				)
 				It("Should not be able to reach service running on Istio restricted port", func() {
-					Expect(checkVMIReachability(vmi, istioRestrictedPort)).NotTo(Succeed())
+					By("Checking that the HTTP server on the reserved port is reachable inside the guest")
+					probe := fmt.Sprintf("curl --fail --silent --show-error --max-time 2 http://127.0.0.1:%d/ -o /dev/null", istioRestrictedPort)
+					Eventually(console.RunCommand).WithArguments(vmi, probe, 5*time.Second).Should(Succeed())
+					httpJob, err := createIstioReachabilityJob(virtClient, vmi, istioRestrictedPort)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(job.WaitForJobToSucceed(httpJob, job.JobTimeout*time.Second)).NotTo(Succeed())
 				})
 			})
 
 			Context("With PeerAuthentication enforcing mTLS", func() {
+				BeforeEach(func() {
+					Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+				})
 				BeforeEach(func() {
 					peerAuthenticationRes := schema.GroupVersionResource{Group: "security.istio.io", Version: istioApiVersion, Resource: "peerauthentications"}
 					peerAuthentication := generateStrictPeerAuthentication()
 					_, err = virtClient.DynamicClient().Resource(peerAuthenticationRes).Namespace(namespace).Create(context.Background(), peerAuthentication, metav1.CreateOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 				})
+				JustBeforeEach(func() {
+					vmi, err = startIstioVMI(virtClient, namespace, vmType, vmiPorts)
+					Expect(err).ToNot(HaveOccurred())
+				})
 				Context("With VMI having explicit ports specified", func() {
 					BeforeEach(func() {
 						vmiPorts = explicitPorts
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
-						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+						By("Starting HTTP Server")
+						vmnetserver.StartPythonHTTPServer(vmi, targetPort)
+						httpJob, err := createIstioReachabilityJob(virtClient, vmi, targetPort)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(job.WaitForJobToSucceed(httpJob, job.JobTimeout*time.Second)).NotTo(Succeed())
 					},
 						Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
 						Entry("on service undeclared port on VMI with explicit ports", svcUndeclaredTestPort),
@@ -303,7 +294,11 @@ var istioTests = func(vmType VmType) {
 						vmiPorts = []v1.Port{}
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
-						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
+						By("Starting HTTP Server")
+						vmnetserver.StartPythonHTTPServer(vmi, targetPort)
+						httpJob, err := createIstioReachabilityJob(virtClient, vmi, targetPort)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(job.WaitForJobToSucceed(httpJob, job.JobTimeout*time.Second)).NotTo(Succeed())
 					},
 						Entry("on service declared port on VMI with no explicit ports", svcDeclaredTestPort),
 						Entry("on service undeclared port on VMI with no explicit ports", svcUndeclaredTestPort),
@@ -330,6 +325,9 @@ var istioTests = func(vmType VmType) {
 				return fmt.Sprintf("HTTP\\/[123456789\\.]{1,3}\\s(%s)", codeRegex)
 			}
 
+			BeforeEach(func() {
+				Expect(prepareIstioNetwork(virtClient, namespace)).To(Succeed())
+			})
 			BeforeEach(func() {
 				networkData := cloudinit.CreateDefaultCloudInitNetworkData()
 
@@ -375,6 +373,10 @@ var istioTests = func(vmType VmType) {
 				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
+			})
+			JustBeforeEach(func() {
+				vmi, err = startIstioVMI(virtClient, namespace, vmType, vmiPorts)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
@@ -458,6 +460,66 @@ var istioTestsWithPasstBinding = func() {
 var _ = Describe(SIG(" Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding))
 
 var _ = Describe(SIG(" Istio with passt binding", decorators.Istio, Serial, istioTestsWithPasstBinding))
+
+func prepareIstioNetwork(virtClient kubecli.KubevirtClient, namespace string) error {
+	GinkgoHelper()
+
+	By("Creating the Istio NetworkAttachmentDefinition")
+	nad := libnet.NewNetAttachDef("istio-cni", "")
+	if _, err := libnet.CreateNetAttachDef(context.Background(), namespace, nad); err != nil {
+		return err
+	}
+
+	By("Creating the Kubernetes Service for the VMI")
+	serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
+	service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
+	_, err := virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
+	return err
+}
+
+func startIstioVMI(virtClient kubecli.KubevirtClient, namespace string, vmType VmType, ports []v1.Port) (vmi *v1.VirtualMachineInstance, err error) {
+	GinkgoHelper()
+
+	// Enable sidecar injection only while creating the VMI and its launcher.
+	if err := libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled"); err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errors.Join(err, libnamespace.RemoveLabelFromNamespace(virtClient, namespace, istioInjectNamespaceLabel))
+	}()
+
+	By("Creating VMI")
+	vmi, err = newVMIWithIstioSidecar(ports, vmType)
+	if err != nil {
+		return nil, err
+	}
+	vmi, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	By("Waiting for VMI to be ready")
+	libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+	return vmi, nil
+}
+
+func createIstioReachabilityJob(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, targetPort int) (*batchv1.Job, error) {
+	GinkgoHelper()
+
+	By("Getting the VMI IP")
+	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	vmiIP := libnet.GetVmiPrimaryIPByFamily(vmi, k8sv1.IPv4Protocol)
+
+	By("Creating an HTTP request Job")
+	return virtClient.BatchV1().Jobs(vmi.Namespace).Create(
+		context.Background(),
+		job.NewHelloWorldJobHTTP(vmiIP, fmt.Sprintf("%d", targetPort)),
+		metav1.CreateOptions{},
+	)
+}
 
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
