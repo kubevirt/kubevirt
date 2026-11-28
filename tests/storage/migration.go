@@ -877,6 +877,25 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				return vm
 			}
 
+			It("should abort a running disk copy when the VM requests the source volume again", func() {
+				dv := createDV()
+				libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
+				vm := createAndStartVM(dv)
+				vmi := matcher.ThisVMIWith(ns, vm.Name)
+
+				updateVMWithPVC(vm, volName, destPVC)
+				Eventually(vmi, 3*time.Minute, time.Second).Should(HaveField("Status.MigrationState",
+					gstruct.PointTo(HaveField("StartTimestamp", Not(BeNil())))))
+
+				updateVMWithPVC(vm, volName, dv.Name)
+				Eventually(vmi, 3*time.Minute, time.Second).Should(SatisfyAll(
+					HaveField("Status.MigrationState", gstruct.PointTo(HaveField("AbortStatus", Equal(virtv1.MigrationAbortSucceeded)))),
+					matcher.HaveConditionFalse(virtv1.VirtualMachineInstanceVolumesChange),
+					HaveField("Status.MigratedVolumes", BeEmpty()),
+				))
+				waitMigrationToNotExist(vm.Name, ns)
+			})
+
 			It("when the copy of the destination volumes was successful", func() {
 				dv := createDV()
 				libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)

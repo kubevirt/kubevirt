@@ -395,6 +395,9 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 		case !vmi.IsRunning() || vmi.IsFinal() || vmi.DeletionTimestamp != nil:
 			// only consider running VMIs that aren't being shutdown
 			continue
+		case volumemig.IsCancellationRequested(vmi):
+			// The VM controller is resolving which volume set the guest is using.
+			continue
 		case c.shouldAbortMigration(vmi) && !c.isOutdated(vmi):
 			data.abortChangeVMIs = append(data.abortChangeVMIs, vmi)
 			continue
